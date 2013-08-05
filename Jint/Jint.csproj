@@ -1,0 +1,139 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{A2707CFD-E37D-4B88-8FC2-238D4C1DFD01}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Jint</RootNamespace>
+    <AssemblyName>Jint</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Native\Errors\TypeError.cs" />
+    <Compile Include="Native\Errors\ReferenceError.cs" />
+    <Compile Include="Native\Function\ScriptFunctionInstance.cs" />
+    <Compile Include="Native\IPrimitiveType.cs" />
+    <Compile Include="Native\Null.cs" />
+    <Compile Include="Native\Function\FunctionShim.cs" />
+    <Compile Include="Native\Function\FunctionInstance.cs" />
+    <Compile Include="Native\Object\ObjectConstructor.cs" />
+    <Compile Include="Native\Object\ObjectInstance.cs" />
+    <Compile Include="Native\Undefined.cs" />
+    <Compile Include="Parser\Ast\IPropertyKeyExpression.cs" />
+    <Compile Include="Parser\ParserException.cs" />
+    <Compile Include="Parser\Ast\ArrayExpression.cs" />
+    <Compile Include="Parser\Ast\AssignmentExpression.cs" />
+    <Compile Include="Parser\Ast\SyntaxNodes.cs" />
+    <Compile Include="Parser\Ast\BinaryExpression.cs" />
+    <Compile Include="Parser\Ast\BlockStatement.cs" />
+    <Compile Include="Parser\Ast\BreakStatement.cs" />
+    <Compile Include="Parser\Ast\CallExpression.cs" />
+    <Compile Include="Parser\Ast\CatchClause.cs" />
+    <Compile Include="Parser\Ast\ConditionalExpression.cs" />
+    <Compile Include="Parser\Ast\ContinueStatement.cs" />
+    <Compile Include="Parser\Ast\DebuggerStatement.cs" />
+    <Compile Include="Parser\Ast\DoWhileStatement.cs" />
+    <Compile Include="Parser\Ast\EmptyStatement.cs" />
+    <Compile Include="Parser\Ast\Expression.cs" />
+    <Compile Include="Parser\Ast\ExpressionStatement.cs" />
+    <Compile Include="Parser\Ast\ForInStatement.cs" />
+    <Compile Include="Parser\Ast\ForStatement.cs" />
+    <Compile Include="Parser\Ast\FunctionDeclaration.cs" />
+    <Compile Include="Parser\Ast\FunctionExpression.cs" />
+    <Compile Include="Parser\Ast\Identifier.cs" />
+    <Compile Include="Parser\Ast\IfStatement.cs" />
+    <Compile Include="Parser\Ast\LabeledStatement.cs" />
+    <Compile Include="Parser\Ast\Literal.cs" />
+    <Compile Include="Parser\Ast\MemberExpression.cs" />
+    <Compile Include="Parser\Ast\NewExpression.cs" />
+    <Compile Include="Parser\Comment.cs" />
+    <Compile Include="Parser\JavascriptParser.cs" />
+    <Compile Include="Parser\Loc.cs" />
+    <Compile Include="Parser\Messages.cs" />
+    <Compile Include="Parser\ParserExtensions.cs" />
+    <Compile Include="Parser\Ast\SyntaxNode.cs" />
+    <Compile Include="Parser\Ast\ObjectExpression.cs" />
+    <Compile Include="Parser\Ast\UpdateExpression.cs" />
+    <Compile Include="Parser\Ast\Program.cs" />
+    <Compile Include="Parser\Ast\Property.cs" />
+    <Compile Include="Parser\Ast\ReturnStatement.cs" />
+    <Compile Include="Parser\Ast\SequenceExpression.cs" />
+    <Compile Include="Parser\Ast\Statement.cs" />
+    <Compile Include="Parser\Ast\SwitchCase.cs" />
+    <Compile Include="Parser\Ast\SwitchStatement.cs" />
+    <Compile Include="Parser\Ast\ThisExpression.cs" />
+    <Compile Include="Parser\Ast\ThrowStatement.cs" />
+    <Compile Include="Parser\Ast\TryStatement.cs" />
+    <Compile Include="Parser\Ast\UnaryExpression.cs" />
+    <Compile Include="Parser\Ast\VariableDeclaration.cs" />
+    <Compile Include="Parser\Ast\VariableDeclarator.cs" />
+    <Compile Include="Parser\Ast\WhileStatement.cs" />
+    <Compile Include="Parser\Ast\WithStatement.cs" />
+    <Compile Include="Parser\ParserOptions.cs" />
+    <Compile Include="Parser\Position.cs" />
+    <Compile Include="Parser\State.cs" />
+    <Compile Include="Parser\Token.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Runtime\Descriptors\AccessorDescriptor.cs" />
+    <Compile Include="Runtime\Descriptors\DataDescriptor.cs" />
+    <Compile Include="Runtime\Environments\ExecutionContext.cs" />
+    <Compile Include="Runtime\Environments\LexicalEnvironment.cs" />
+    <Compile Include="Runtime\Environments\ObjectEnvironmentRecord.cs" />
+    <Compile Include="Runtime\Environments\DeclarativeEnvironmentRecord.cs" />
+    <Compile Include="Runtime\Environments\EnvironmentRecord.cs" />
+    <Compile Include="Runtime\ExpressionIntepreter.cs" />
+    <Compile Include="Native\Function\FunctionConstructor.cs" />
+    <Compile Include="Runtime\Interop\BuiltInPropertyWrapper.cs" />
+    <Compile Include="Runtime\Interop\DelegateWrapper.cs" />
+    <Compile Include="Options.cs" />
+    <Compile Include="Runtime\Descriptors\MethodProperty.cs" />
+    <Compile Include="Engine.cs" />
+    <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />
+    <Compile Include="Runtime\References\Reference.cs" />
+    <Compile Include="Runtime\StatementInterpreter.cs" />
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
