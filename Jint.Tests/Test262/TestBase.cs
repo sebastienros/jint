@@ -7,16 +7,17 @@ using Xunit.Extensions;
 
 namespace Jint.Tests
 {
-    public class Test262
+    public class TestBase
     {
         private string _basePath;
 
-        public Test262()
+        public TestBase(params string[] segments)
         {
-            _basePath = @"C:\Users\sebros\Documents\My Projects\Jint\Jint.Tests\suite\"; // typeof (Test262).Assembly.Location;
+            _basePath = @"C:\Users\sebros\Documents\My Projects\Jint\Jint.Tests\Scripts\Test262\suite\";
+            _basePath = Path.Combine(_basePath, Path.Combine(segments));
         }
 
-        private void Run(string filename)
+        public void Run(string filename)
         {
             var assembly = Assembly.GetExecutingAssembly();
             var scriptPath = Path.Combine(_basePath, filename);
@@ -26,7 +27,7 @@ namespace Jint.Tests
 
         private Action<string> ERROR = s => { throw new Exception(s); };
 
-        private void RunTest(string source)
+        public void RunTest(string source)
         {
             var engine = new Engine(cfg => cfg
                 .WithDelegate("$ERROR", ERROR)
@@ -35,12 +36,6 @@ namespace Jint.Tests
             engine.Execute(source);
         }
 
-        [Theory]
-        [Trait("Description", "Test for handling of supplementary characters")]
-        [InlineData("ch06/6.1.js")]
-        public void TestForHandlingSupplimentaryCharacters(string file)
-        {
-            Run(file);
-        }
+       
     }
 }

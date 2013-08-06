@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Benchmark", "Jint.Benc
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint", "Jint\Jint.csproj", "{A2707CFD-E37D-4B88-8FC2-238D4C1DFD01}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Tests.Scaffolding", "Jint.Tests.Scaffolding\Jint.Tests.Scaffolding.csproj", "{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -25,6 +27,10 @@ Global
 		{A2707CFD-E37D-4B88-8FC2-238D4C1DFD01}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A2707CFD-E37D-4B88-8FC2-238D4C1DFD01}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A2707CFD-E37D-4B88-8FC2-238D4C1DFD01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
