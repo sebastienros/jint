@@ -1,0 +1,9 @@
+﻿using Xunit;
+
+namespace Jint.Tests.Ecma
+{
+    public class $$ClassName$$ : EcmaTest
+    {
+$$Methods$$
+    }
+}

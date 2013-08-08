@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint", "Jint\Jint.csproj", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Tests.Scaffolding", "Jint.Tests.Scaffolding\Jint.Tests.Scaffolding.csproj", "{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Tests.Ecma", "Jint.Tests.Ecma\Jint.Tests.Ecma.csproj", "{201EB165-EE2D-45F1-AF0E-75F1CD1A20EE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -31,6 +33,10 @@ Global
 		{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}.Release|Any CPU.Build.0 = Release|Any CPU
+		{201EB165-EE2D-45F1-AF0E-75F1CD1A20EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{201EB165-EE2D-45F1-AF0E-75F1CD1A20EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{201EB165-EE2D-45F1-AF0E-75F1CD1A20EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{201EB165-EE2D-45F1-AF0E-75F1CD1A20EE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

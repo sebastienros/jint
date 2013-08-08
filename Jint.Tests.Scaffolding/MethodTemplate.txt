@@ -1,0 +1,6 @@
+﻿        [Fact]
+        [Trait("Category", "$$Category$$")]
+        public void $$MethodName$$()
+        {
+			RunTest(@"$$Source$$", $$Negative$$);
+        }
