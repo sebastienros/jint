@@ -8,13 +8,16 @@ namespace Jint.Native.Object
 {
     public class ObjectConstructor : FunctionInstance
     {
-        public ObjectConstructor(ObjectInstance prototype) : base(prototype, null, null)
+        private readonly Engine _engine;
+
+        public ObjectConstructor(Engine engine) : base(engine, engine.RootFunction, null, null)
         {
-            prototype.DefineOwnProperty("hasOwnProperty", new DataDescriptor(new BuiltInPropertyWrapper((Func<ObjectInstance, string, bool>)HasOwnProperty, prototype)), false);
-            prototype.DefineOwnProperty("toString", new DataDescriptor(new BuiltInPropertyWrapper((Func<ObjectInstance, string>)ToString, prototype)), false);
+            _engine = engine;
+            engine.RootFunction.DefineOwnProperty("hasOwnProperty", new DataDescriptor(new BuiltInPropertyWrapper(engine, (Func<ObjectInstance, string, bool>)HasOwnProperty, engine.RootFunction)), false);
+            engine.RootFunction.DefineOwnProperty("toString", new DataDescriptor(new BuiltInPropertyWrapper(engine, (Func<ObjectInstance, string>)ToString, engine.RootFunction)), false);
         }
 
-        public override dynamic Call(Engine interpreter, object thisObject, dynamic[] arguments)
+        public override dynamic Call(object thisObject, dynamic[] arguments)
         {
             return Undefined.Instance;
         }

@@ -2,7 +2,6 @@
 using System.Linq;
 using Jint.Native;
 using Jint.Native.Function;
-using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -184,6 +183,7 @@ namespace Jint.Runtime
         {
             string identifier = functionExpression.Id != null ? functionExpression.Id.Name : null;
             return new ScriptFunctionInstance(
+                _engine,
                 functionExpression.Body, 
                 identifier, 
                 functionExpression.Parameters.ToArray(), 
@@ -203,13 +203,13 @@ namespace Jint.Runtime
             {
                 // x.hasOwnProperty
                 FunctionInstance callee = _engine.GetValue(r);
-                return callee.Call(_engine, r.GetBase(), arguments.ToArray());
+                return callee.Call(r.GetBase(), arguments.ToArray());
             }
             else
             {
                 // assert(...)
                 FunctionInstance callee = _engine.GetValue(r);
-                return callee.Call(_engine, _engine.CurrentExecutionContext.ThisBinding, arguments.ToArray());
+                return callee.Call(_engine.CurrentExecutionContext.ThisBinding, arguments.ToArray());
             }
 
         }
@@ -264,7 +264,17 @@ namespace Jint.Runtime
             var instance = callee.Construct(arguments);
 
             // initializes the new instance by executing the Function
-            callee.Call(_engine, instance, arguments.ToArray());
+            callee.Call(instance, arguments.ToArray());
+
+            return instance;
+        }
+
+        public dynamic EvaluateArrayExpression(ArrayExpression arrayExpression)
+        {
+            var arguments = arrayExpression.Elements.Select(EvaluateExpression).ToArray();
+
+            // construct the new instance using the Function's constructor method
+            var instance = _engine.Array.Construct(arguments);
 
             return instance;
         }

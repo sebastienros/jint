@@ -14,14 +14,16 @@ namespace Jint.Runtime
     /// </summary>
     public class ScriptFunctionInstance : FunctionInstance
     {
+        private readonly Engine _engine;
         private readonly Statement _body;
         private readonly IEnumerable<Identifier> _parameters;
         
-        public ScriptFunctionInstance(Statement body, string name, Identifier[] parameters, ObjectInstance instancePrototype, ObjectInstance functionPrototype, LexicalEnvironment scope)
-            : base(instancePrototype, parameters, scope)
+        public ScriptFunctionInstance(Engine engine, Statement body, string name, Identifier[] parameters, ObjectInstance instancePrototype, ObjectInstance functionPrototype, LexicalEnvironment scope)
+            : base(engine, instancePrototype, parameters, scope)
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
 
+            _engine = engine;
             _body = body;
             _parameters = parameters;
             Extensible = true;
@@ -33,7 +35,7 @@ namespace Jint.Runtime
             DefineOwnProperty("prototype", new DataDescriptor(functionPrototype) { Writable = true, Enumerable = true, Configurable = true }, false);
         }
 
-        public override dynamic Call(Engine engine, object thisObject, dynamic[] arguments)
+        public override dynamic Call(object thisObject, dynamic[] arguments)
         {
             // todo: http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.1
 
@@ -42,14 +44,14 @@ namespace Jint.Runtime
             object thisArg;
             if (thisObject == Undefined.Instance || thisObject == Null.Instance)
             {
-                thisArg = engine.Global;
+                thisArg = _engine.Global;
             }
             else
             {
                 thisArg = thisObject;
             }
 
-            engine.EnterExecutionContext(localEnv, localEnv, thisArg);
+            _engine.EnterExecutionContext(localEnv, localEnv, thisArg);
 
             var env = localEnv.Record;
 
@@ -59,10 +61,10 @@ namespace Jint.Runtime
                 env.SetMutableBinding(parameter.Name, i < arguments.Length ? arguments[i++] : Undefined.Instance, false);
             }
 
-            engine.ExecuteStatement(_body);
-            var result = engine.CurrentExecutionContext.Return;
+            _engine.ExecuteStatement(_body);
+            var result = _engine.CurrentExecutionContext.Return;
 
-            engine.LeaveExecutionContext();
+            _engine.LeaveExecutionContext();
 
             return result;
         }
@@ -71,7 +73,7 @@ namespace Jint.Runtime
         {
             /// todo: http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.2
 
-            var instance = new FunctionShim(this.Prototype, null, null);
+            var instance = new FunctionShim(_engine, this.Prototype, null, null);
             return instance;
         }
     }

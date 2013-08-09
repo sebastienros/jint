@@ -109,6 +109,7 @@ namespace Jint.Runtime
             _engine.Global.Set(
                 identifier, 
                 new ScriptFunctionInstance(
+                    _engine,
                     functionDeclaration.Body, 
                     identifier, 
                     functionDeclaration.Parameters.ToArray(),

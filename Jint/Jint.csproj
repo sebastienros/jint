@@ -44,6 +44,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Native\Array\ArrayConstructor.cs" />
+    <Compile Include="Native\Array\ArrayInstance.cs" />
     <Compile Include="Native\Errors\TypeError.cs" />
     <Compile Include="Native\Errors\ReferenceError.cs" />
     <Compile Include="Native\Function\ScriptFunctionInstance.cs" />
@@ -121,7 +123,7 @@
     <Compile Include="Runtime\Interop\BuiltInPropertyWrapper.cs" />
     <Compile Include="Runtime\Interop\DelegateWrapper.cs" />
     <Compile Include="Options.cs" />
-    <Compile Include="Runtime\Descriptors\MethodProperty.cs" />
+    <Compile Include="Runtime\Descriptors\Specialized\MethodProperty.cs" />
     <Compile Include="Engine.cs" />
     <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />
     <Compile Include="Runtime\References\Reference.cs" />

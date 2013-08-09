@@ -196,14 +196,43 @@ namespace Jint.Tests.Runtime
             ");
         }
 
-/*
+
         [Fact]
-        public void ()
+        public void ShouldConstructArray()
         {
             var engine = RunTest(@"
+                var o = [];
+                assert(o.length == 0);
             ");
         }
-*/
+
+        [Fact]
+        public void ArrayPushShouldIncrementLength()
+        {
+            var engine = RunTest(@"
+                var o = [];
+                o.push(1);
+                assert(o.length == 1);
+            ");
+        }
+
+        [Fact]
+        public void ArrayConstructor()
+        {
+            var engine = RunTest(@"
+                var o = [];
+                assert(o.constructor == Array);
+                assert(o.hasOwnProperty('constructor') == false);
+            ");
+        }
+        /*
+                        [Fact]
+                        public void ()
+                        {
+                            var engine = RunTest(@"
+                            ");
+                        }
+                */
 
     }
 }

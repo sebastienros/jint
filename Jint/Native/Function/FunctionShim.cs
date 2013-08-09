@@ -7,11 +7,14 @@ namespace Jint.Native.Function
 {
     public class FunctionShim : FunctionInstance
     {
-        public FunctionShim(ObjectInstance prototype, Identifier[] parameters, LexicalEnvironment scope) : base(prototype, parameters, scope)
+        private readonly Engine _engine;
+
+        public FunctionShim(Engine engine, ObjectInstance prototype, Identifier[] parameters, LexicalEnvironment scope) : base(engine, prototype, parameters, scope)
         {
+            _engine = engine;
         }
 
-        public override dynamic Call(Engine interpreter, object thisObject, dynamic[] arguments)
+        public override dynamic Call(object thisObject, dynamic[] arguments)
         {
             return Undefined.Instance;
         }

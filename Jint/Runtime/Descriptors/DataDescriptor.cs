@@ -7,6 +7,7 @@
         public DataDescriptor(object value)
         {
             _value = value;
+            Writable = true;
         }
 
         public override object Get()

@@ -11,21 +11,23 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public class DelegateWrapper : FunctionInstance
     {
+        private readonly Engine _engine;
         private readonly Delegate _d;
 
-        public DelegateWrapper(Delegate d, ObjectInstance prototype) : base(prototype, null, null)
+        public DelegateWrapper(Engine engine, Delegate d, ObjectInstance prototype) : base(engine, prototype, null, null)
         {
+            _engine = engine;
             _d = d;
         }
 
-        public override dynamic Call(Engine engine, object thisObject, dynamic[] arguments)
+        public override dynamic Call(object thisObject, dynamic[] arguments)
         {
             // initialize Return flag
-            engine.CurrentExecutionContext.Return = Undefined.Instance;
+            _engine.CurrentExecutionContext.Return = Undefined.Instance;
 
             _d.DynamicInvoke(arguments);
 
-            return engine.CurrentExecutionContext.Return;
+            return _engine.CurrentExecutionContext.Return;
         }
     }
 }

@@ -8,8 +8,11 @@ namespace Jint.Native.Function
 {
     public abstract class FunctionInstance : ObjectInstance
     {
-        protected FunctionInstance(ObjectInstance prototype, Identifier[] parameters, LexicalEnvironment scope) : base(prototype)
+        private readonly Engine _engine;
+
+        protected FunctionInstance(Engine engine, ObjectInstance prototype, Identifier[] parameters, LexicalEnvironment scope) : base(prototype)
         {
+            _engine = engine;
             Parameters = parameters;
             Scope = scope;
         }
@@ -21,7 +24,7 @@ namespace Jint.Native.Function
         /// <param name="state"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public abstract dynamic Call(Engine interpreter, object thisObject, dynamic[] arguments);
+        public abstract dynamic Call(object thisObject, dynamic[] arguments);
 
         public LexicalEnvironment Scope { get; private set; }
         public Identifier[] Parameters { get; private set; }

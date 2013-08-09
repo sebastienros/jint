@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Errors;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -31,18 +32,20 @@ namespace Jint
         {
             _executionContexts = new Stack<ExecutionContext>();
 
-            var rootObject = new ObjectInstance(null);
-            var rootFunction = new FunctionShim(rootObject, null, null);
+            RootObject = new ObjectInstance(null);
+            RootFunction = new FunctionShim(this, RootObject, null, null);
 
-            Object = new ObjectConstructor(rootFunction);
+            Object = new ObjectConstructor(this);
             Global = new ObjectInstance(Object);
-            Function = new FunctionConstructor(rootFunction);
+            Function = new FunctionConstructor(this);
+            Array = new ArrayConstructor(this);
 
             //Object.Prototype.DefineOwnProperty("hasOwnProperty", new DataDescriptor(new BuiltInPropertyWrapper((Func<ObjectInstance, string, bool>)ObjectConstructor.HasOwnProperty, rootObject)), false);
             //Object.Prototype.DefineOwnProperty("toString", new DataDescriptor(new BuiltInPropertyWrapper((Func<ObjectInstance, string>)ObjectConstructor.ToString, rootObject)), false);
 
             Global.Set("Object", Object);
             Global.Set("Function", Function);
+            Global.Set("Array", Array);
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             _globalEnvironment = LexicalEnvironment.NewObjectEnvironment(Global, null);
@@ -61,7 +64,7 @@ namespace Jint
             {
                 foreach (var entry in Options.GetDelegates())
                 {
-                    Global.DefineOwnProperty(entry.Key, new DataDescriptor(new DelegateWrapper(entry.Value, rootFunction)), false);
+                    Global.DefineOwnProperty(entry.Key, new DataDescriptor(new DelegateWrapper(this, entry.Value, RootFunction)), false);
                 }
             }
 
@@ -69,9 +72,13 @@ namespace Jint
             _expressions = new ExpressionInterpreter(this);
         }
 
+        public ObjectInstance RootObject { get; private set; }
+        public FunctionInstance RootFunction { get; private set; }
+
         public ObjectInstance Global { get; private set; }
         public ObjectConstructor Object { get; private set; }
         public FunctionConstructor Function { get; private set; }
+        public ArrayConstructor Array { get; private set; }
 
         public ExecutionContext CurrentExecutionContext { get { return _executionContexts.Peek(); } }
 
@@ -181,6 +188,7 @@ namespace Jint
                     _result = _expressions.EvaluateAssignmentExpression(expression.As<AssignmentExpression>());
                     break;
                 case SyntaxNodes.ArrayExpression:
+                    _result = _expressions.EvaluateArrayExpression(expression.As<ArrayExpression>());
                     break;
                 case SyntaxNodes.BinaryExpression:
                     _result = _expressions.EvaluateBinaryExpression(expression.As<BinaryExpression>());
