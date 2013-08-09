@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using Jint.Native;
 using Jint.Native.Array;
+using Jint.Native.Boolean;
 using Jint.Native.Errors;
 using Jint.Native.Function;
+using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.String;
 using Jint.Parser;
 using Jint.Parser.Ast;
 using Jint.Runtime;
@@ -22,8 +24,6 @@ namespace Jint
         private readonly LexicalEnvironment _globalEnvironment;
         private readonly Stack<ExecutionContext> _executionContexts;
 
-        private object _result;
-
         public Engine() : this(null)
         {
         }
@@ -39,13 +39,16 @@ namespace Jint
             Global = new ObjectInstance(Object);
             Function = new FunctionConstructor(this);
             Array = new ArrayConstructor(this);
-
-            //Object.Prototype.DefineOwnProperty("hasOwnProperty", new DataDescriptor(new BuiltInPropertyWrapper((Func<ObjectInstance, string, bool>)ObjectConstructor.HasOwnProperty, rootObject)), false);
-            //Object.Prototype.DefineOwnProperty("toString", new DataDescriptor(new BuiltInPropertyWrapper((Func<ObjectInstance, string>)ObjectConstructor.ToString, rootObject)), false);
+            String = new StringConstructor(this);
+            Number = new NumberConstructor(this);
+            Boolean = new BooleanConstructor(this);
 
             Global.Set("Object", Object);
             Global.Set("Function", Function);
             Global.Set("Array", Array);
+            Global.Set("String", String);
+            Global.Set("Number", Number);
+            Global.Set("Boolean", Boolean);
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             _globalEnvironment = LexicalEnvironment.NewObjectEnvironment(Global, null);
@@ -79,10 +82,12 @@ namespace Jint
         public ObjectConstructor Object { get; private set; }
         public FunctionConstructor Function { get; private set; }
         public ArrayConstructor Array { get; private set; }
+        public StringConstructor String { get; private set; }
+        public BooleanConstructor Boolean { get; private set; }
+        public NumberConstructor Number { get; private set; }
 
         public ExecutionContext CurrentExecutionContext { get { return _executionContexts.Peek(); } }
 
-        public object Result { get { return GetValue(_result); } }
         public Options Options { get; private set; }
 
         public ExecutionContext EnterExecutionContext(LexicalEnvironment lexicalEnvironment, LexicalEnvironment variableEnvironment, object thisBinding)
@@ -103,136 +108,140 @@ namespace Jint
             _executionContexts.Pop();
         }
 
-        public void Execute(string source)
+        public object Execute(string source)
         {
             var parser = new JavascriptParser();
-            Execute(parser.Parse(source));
+            return Execute(parser.Parse(source));
         }
 
-        public void Execute(Program program)
+        public object Execute(Program program)
         {
-            ExecuteStatement(program);
+            return ExecuteStatement(program);
         }
 
-        public void ExecuteStatement(Statement statement)
+        public object ExecuteStatement(Statement statement)
         {
             switch (statement.Type)
             {
                 case SyntaxNodes.BlockStatement:
-                    _statements.ExecuteBlockStatement(statement.As<BlockStatement>());
-                    break;
+                    return _statements.ExecuteBlockStatement(statement.As<BlockStatement>());
+                    
                 case SyntaxNodes.BreakStatement:
-                    _statements.ExecuteBreakStatement(statement.As<BreakStatement>());
-                    break;
+                    return _statements.ExecuteBreakStatement(statement.As<BreakStatement>());
+                    
                 case SyntaxNodes.ContinueStatement:
-                    _statements.ExecuteContinueStatement(statement.As<ContinueStatement>());
-                    break;
+                    return _statements.ExecuteContinueStatement(statement.As<ContinueStatement>());
+                    
                 case SyntaxNodes.DoWhileStatement:
-                    _statements.ExecuteDoWhileStatement(statement.As<DoWhileStatement>());
-                    break;
+                    return _statements.ExecuteDoWhileStatement(statement.As<DoWhileStatement>());
+                    
                 case SyntaxNodes.DebuggerStatement:
-                    _statements.ExecuteDebuggerStatement(statement.As<DebuggerStatement>());
-                    break;
+                    return _statements.ExecuteDebuggerStatement(statement.As<DebuggerStatement>());
+                    
                 case SyntaxNodes.EmptyStatement:
-                    _statements.ExecuteEmptyStatement(statement.As<EmptyStatement>());
-                    break;
+                    return _statements.ExecuteEmptyStatement(statement.As<EmptyStatement>());
+                    
                 case SyntaxNodes.ExpressionStatement:
-                    _statements.ExecuteExpressionStatement(statement.As<ExpressionStatement>());
-                    break;
-                case SyntaxNodes.ForStatement:
-                    _statements.ExecuteForStatement(statement.As<ForStatement>());
-                    break;
-                case SyntaxNodes.ForInStatement:
-                    break;
-                case SyntaxNodes.FunctionDeclaration:
-                    _statements.ExecuteFunctionDeclaration(statement.As<FunctionDeclaration>());
-                    break;
-                case SyntaxNodes.IfStatement:
-                    _statements.ExecuteIfStatement(statement.As<IfStatement>());
-                    break;
-                case SyntaxNodes.LabeledStatement:
-                    break;
-                case SyntaxNodes.ReturnStatement:
-                    _statements.ExecuteReturnStatement(statement.As<ReturnStatement>());
-                    break;
-                case SyntaxNodes.SwitchStatement:
-                    break;
-                case SyntaxNodes.ThrowStatement:
-                    break;
-                case SyntaxNodes.TryStatement:
-                    break;
-                case SyntaxNodes.VariableDeclaration:
-                    _statements.ExecuteVariableDeclaration(statement.As<VariableDeclaration>());
-                    break;
-                case SyntaxNodes.WhileStatement:
-                    _statements.ExecuteWhileStatement(statement.As<WhileStatement>());
-                    break;
-                case SyntaxNodes.WithStatement:
-                    break;
-                case SyntaxNodes.Program:
-                    _statements.ExecuteProgram(statement.As<Program>());
-                    break;
+                    return _statements.ExecuteExpressionStatement(statement.As<ExpressionStatement>());
 
+                case SyntaxNodes.ForStatement:
+                    return _statements.ExecuteForStatement(statement.As<ForStatement>());
+                    
+                case SyntaxNodes.ForInStatement:
+                    return null;
+
+                case SyntaxNodes.FunctionDeclaration:
+                    return _statements.ExecuteFunctionDeclaration(statement.As<FunctionDeclaration>());
+                    
+                case SyntaxNodes.IfStatement:
+                    return _statements.ExecuteIfStatement(statement.As<IfStatement>());
+                    
+                case SyntaxNodes.LabeledStatement:
+                    return null;
+
+                case SyntaxNodes.ReturnStatement:
+                    return _statements.ExecuteReturnStatement(statement.As<ReturnStatement>());
+                    
+                case SyntaxNodes.SwitchStatement:
+                    return null;
+
+                case SyntaxNodes.ThrowStatement:
+                    return null;
+
+                case SyntaxNodes.TryStatement:
+                    return null;
+
+                case SyntaxNodes.VariableDeclaration:
+                    return _statements.ExecuteVariableDeclaration(statement.As<VariableDeclaration>());
+                    
+                case SyntaxNodes.WhileStatement:
+                    return _statements.ExecuteWhileStatement(statement.As<WhileStatement>());
+                    
+                case SyntaxNodes.WithStatement:
+                    return null;
+
+                case SyntaxNodes.Program:
+                    return _statements.ExecuteProgram(statement.As<Program>());
+                    
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+
+            return null;
         }
 
         public dynamic EvaluateExpression(Expression expression)
         {
-            _result = Undefined.Instance;
-
             switch (expression.Type)
             {
                 case SyntaxNodes.AssignmentExpression:
-                    _result = _expressions.EvaluateAssignmentExpression(expression.As<AssignmentExpression>());
-                    break;
+                    return _expressions.EvaluateAssignmentExpression(expression.As<AssignmentExpression>());
+
                 case SyntaxNodes.ArrayExpression:
-                    _result = _expressions.EvaluateArrayExpression(expression.As<ArrayExpression>());
-                    break;
+                    return _expressions.EvaluateArrayExpression(expression.As<ArrayExpression>());
+
                 case SyntaxNodes.BinaryExpression:
-                    _result = _expressions.EvaluateBinaryExpression(expression.As<BinaryExpression>());
-                    break;
+                    return _expressions.EvaluateBinaryExpression(expression.As<BinaryExpression>());
+
                 case SyntaxNodes.CallExpression:
-                    _result = _expressions.EvaluateCallExpression(expression.As<CallExpression>());
-                    break;
+                    return _expressions.EvaluateCallExpression(expression.As<CallExpression>());
+
                 case SyntaxNodes.ConditionalExpression:
-                    _result = _expressions.EvaluateConditionalExpression(expression.As<ConditionalExpression>());
-                    break;
+                    return _expressions.EvaluateConditionalExpression(expression.As<ConditionalExpression>());
+
                 case SyntaxNodes.FunctionExpression:
-                    _result = _expressions.EvaluateFunctionExpression(expression.As<FunctionExpression>());
-                    break;
+                    return _expressions.EvaluateFunctionExpression(expression.As<FunctionExpression>());
+
                 case SyntaxNodes.Identifier:
-                    _result = _expressions.EvaluateIdentifier(expression.As<Identifier>());
-                    break;
+                    return _expressions.EvaluateIdentifier(expression.As<Identifier>());
+
                 case SyntaxNodes.Literal:
-                    _result = _expressions.EvaluateLiteral(expression.As<Literal>());
-                    break;
+                    return _expressions.EvaluateLiteral(expression.As<Literal>());
+
                 case SyntaxNodes.LogicalExpression:
-                    break;
+                    return null;
+
                 case SyntaxNodes.MemberExpression:
-                    _result = _expressions.EvaluateMemberExpression(expression.As<MemberExpression>());
-                    break;
+                    return _expressions.EvaluateMemberExpression(expression.As<MemberExpression>());
+
                 case SyntaxNodes.NewExpression:
-                    _result = _expressions.EvaluateNewExpression(expression.As<NewExpression>());
-                    break;
+                    return _expressions.EvaluateNewExpression(expression.As<NewExpression>());
+
                 case SyntaxNodes.ObjectExpression:
-                    _result = _expressions.EvaluateObjectExpression(expression.As<ObjectExpression>());
-                    break;
+                    return _expressions.EvaluateObjectExpression(expression.As<ObjectExpression>());
+
                 case SyntaxNodes.SequenceExpression:
-                    _result = _expressions.EvaluateSequenceExpression(expression.As<SequenceExpression>());
-                    break;
+                    return _expressions.EvaluateSequenceExpression(expression.As<SequenceExpression>());
+
                 case SyntaxNodes.ThisExpression:
-                    _result = _expressions.EvaluateThisExpression(expression.As<ThisExpression>());
-                    break;
+                    return _expressions.EvaluateThisExpression(expression.As<ThisExpression>());
+
                 case SyntaxNodes.UpdateExpression:
-                    _result = _expressions.EvaluateUpdateExpression(expression.As<UpdateExpression>());
-                    break;
+                    return _expressions.EvaluateUpdateExpression(expression.As<UpdateExpression>());
+
                 default:
                     throw new ArgumentOutOfRangeException();
             }
-
-            return _result;
         }
 
         public dynamic GetValue(object value)
@@ -288,5 +297,14 @@ namespace Jint
             }
         }
 
+        public object GetGlobalValue(string propertyName)
+        {
+            if (System.String.IsNullOrEmpty(propertyName))
+            {
+                throw new ArgumentException("propertyName");
+            }
+
+            return GetValue(Global.Get(propertyName));
+        }
     }
 }

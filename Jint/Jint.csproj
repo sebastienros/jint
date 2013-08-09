@@ -46,6 +46,10 @@
   <ItemGroup>
     <Compile Include="Native\Array\ArrayConstructor.cs" />
     <Compile Include="Native\Array\ArrayInstance.cs" />
+    <Compile Include="Native\Boolean\BooleanConstructor.cs" />
+    <Compile Include="Native\Boolean\BooleanInstance.cs" />
+    <Compile Include="Native\String\StringConstructor.cs" />
+    <Compile Include="Native\String\StringInstance.cs" />
     <Compile Include="Native\Errors\TypeError.cs" />
     <Compile Include="Native\Errors\ReferenceError.cs" />
     <Compile Include="Native\Function\ScriptFunctionInstance.cs" />
@@ -53,6 +57,8 @@
     <Compile Include="Native\Null.cs" />
     <Compile Include="Native\Function\FunctionShim.cs" />
     <Compile Include="Native\Function\FunctionInstance.cs" />
+    <Compile Include="Native\Number\NumberConstructor.cs" />
+    <Compile Include="Native\Number\NumberInstance.cs" />
     <Compile Include="Native\Object\ObjectConstructor.cs" />
     <Compile Include="Native\Object\ObjectInstance.cs" />
     <Compile Include="Native\Undefined.cs" />
@@ -128,6 +134,7 @@
     <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />
     <Compile Include="Runtime\References\Reference.cs" />
     <Compile Include="Runtime\StatementInterpreter.cs" />
+    <Compile Include="Runtime\TypeConverter.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
-using Jint.Runtime;
 using Xunit;
 using Xunit.Extensions;
 
@@ -39,25 +38,24 @@ namespace Jint.Tests.Runtime
                     }
         }
 
-
         [Theory]
         [InlineData(42d, "42")]
         [InlineData("Hello", "'Hello'")]
         public void ShouldInterpretLiterals(object expected, string source)
         {
-            var interpreter = new Engine();
-            interpreter.Execute(source);
+            var engine = new Engine();
+            var result = engine.GetValue(engine.Execute(source));
             
-            Assert.Equal(expected, interpreter.Result);
+            Assert.Equal(expected, result);
         }
 
         [Fact]
         public void ShouldInterpretVariableDeclaration()
         {
-            var interpreter = new Engine();
-            interpreter.Execute("var foo = 'bar'; foo;");
+            var engine = new Engine();
+            var result = engine.GetValue(engine.Execute("var foo = 'bar'; foo;"));
 
-            Assert.Equal("bar", interpreter.Result);
+            Assert.Equal("bar", result);
         }
 
         [Theory]
@@ -67,16 +65,16 @@ namespace Jint.Tests.Runtime
         [InlineData(2d, "6 / 3")]
         public void ShouldInterpretBinaryExpression(double expected, string source)
         {
-            var interpreter = new Engine();
-            interpreter.Execute(source);
+            var engine = new Engine();
+            var result = engine.GetValue(engine.Execute(source));
 
-            Assert.Equal(expected, interpreter.Result);
+            Assert.Equal(expected, result);
         }
 
         [Fact]
         public void ShouldEvaluateHasOwnProperty()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 var x = {};
                 x.Bar = 42;
                 assert(x.hasOwnProperty('Bar'));
@@ -86,7 +84,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void FunctionConstructorsShouldCreateNewObjects()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 var Vehicle = function () {};
                 var vehicle = new Vehicle();
                 assert(vehicle != undefined);
@@ -96,7 +94,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void NewObjectsInheritFunctionConstructorProperties()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 var Vehicle = function () {};
                 var vehicle = new Vehicle();
                 Vehicle.prototype.wheelCount = 4;
@@ -108,7 +106,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void NewObjectsShouldUsePrivateProperties()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 var Vehicle = function (color) {
                     this.color = color;
                 };
@@ -120,7 +118,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void FunctionConstructorsShouldDefinePrototypeChain()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 function Vehicle() {};
                 var vehicle = new Vehicle();
                 assert(vehicle.hasOwnProperty('constructor') == false);
@@ -130,7 +128,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void NewObjectsConstructorIsObject()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 var o = new Object();
                 assert(o instanceof Object);
                 assert(o.constructor == Object);
@@ -140,7 +138,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void NewObjectsConstructorShouldBeConstructorObject()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 var Vehicle = function () {};
                 var vehicle = new Vehicle();
                 assert(vehicle.constructor == Vehicle);
@@ -150,7 +148,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void NewObjectsIntanceOfConstructorObject()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 var Vehicle = function () {};
                 var vehicle = new Vehicle();
                 assert(vehicle instanceof Vehicle);
@@ -160,7 +158,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldEvaluateForLoops()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 var foo = 0;
                 for (var i = 0; i < 5; i++) {
                     foo += i;
@@ -172,7 +170,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldEvaluateRecursiveFunctions()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 function fib(n) {
                     if (n < 2) {
                         return n;
@@ -187,7 +185,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldAccessObjectProperties()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 var o = {};
                 o.Foo = 'bar';
                 o.Baz = 42;
@@ -200,7 +198,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldConstructArray()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 var o = [];
                 assert(o.length == 0);
             ");
@@ -209,7 +207,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ArrayPushShouldIncrementLength()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 var o = [];
                 o.push(1);
                 assert(o.length == 1);
@@ -217,19 +215,41 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ArrayPopShouldDecrementLength()
+        {
+            RunTest(@"
+                var o = [42, 'foo'];
+                var pop = o.pop();
+                assert(o.length == 1);
+                assert(pop == 'foo');
+            ");
+        }
+
+        [Fact]
         public void ArrayConstructor()
         {
-            var engine = RunTest(@"
+            RunTest(@"
                 var o = [];
                 assert(o.constructor == Array);
                 assert(o.hasOwnProperty('constructor') == false);
             ");
         }
+
+        [Fact]
+        public void Scratch()
+        {
+            RunTest(@"
+                var o = [42, 'foo'];
+                var a = o.pop();
+                var b = o.length;
+            ");
+        }
+        
         /*
                         [Fact]
                         public void ()
                         {
-                            var engine = RunTest(@"
+                            RunTest(@"
                             ");
                         }
                 */

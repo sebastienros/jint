@@ -9,7 +9,7 @@ namespace Jint.Native.Array
 {
     public class ArrayInstance : ObjectInstance
     {
-        private readonly List<object> _array = new List<object>();
+        private readonly Stack<object> _array = new Stack<object>();
  
         public ArrayInstance(ObjectInstance prototype) : base(prototype)
         {
@@ -23,11 +23,16 @@ namespace Jint.Native.Array
             }
         }
 
-        public int Length { get { return _array.Count; } }
+        public double Length { get { return _array.Count; } }
 
         public void Push(object o)
         {
-            _array.Add(o);
+            _array.Push(o);
+        }
+
+        public object Pop()
+        {
+            return _array.Pop();
         }
     }
 }

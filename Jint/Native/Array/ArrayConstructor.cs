@@ -21,6 +21,7 @@ namespace Jint.Native.Array
 
             // Array method
             this.Prototype.DefineOwnProperty("push", new DataDescriptor(new BuiltInPropertyWrapper(engine, (Action<ArrayInstance, object>)Push, engine.RootFunction)), false);
+            this.Prototype.DefineOwnProperty("pop", new DataDescriptor(new BuiltInPropertyWrapper(engine, (Func<ArrayInstance, object>)Pop, engine.RootFunction)), false);
         }
 
         public override dynamic Call(object thisObject, dynamic[] arguments)
@@ -32,7 +33,7 @@ namespace Jint.Native.Array
         {
             var instance = new ArrayInstance(Prototype);
 
-            instance.DefineOwnProperty("length", new DataDescriptor((double)0), false);
+            instance.DefineOwnProperty("length", new AccessorDescriptor(() => instance.Length, x => { }), false);
 
             foreach (var arg in arguments)
             {
@@ -45,7 +46,11 @@ namespace Jint.Native.Array
         private static void Push(ArrayInstance thisObject, object o)
         {
             thisObject.Push(o);
-            thisObject.Set("length", (double)thisObject.Get("length") + 1);
+        }
+
+        private static object Pop(ArrayInstance thisObject)
+        {
+            return thisObject.Pop();
         }
     }
 }

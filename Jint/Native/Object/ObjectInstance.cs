@@ -328,6 +328,5 @@ namespace Jint.Native.Object
 
             return true;
         }
-
     }
 }

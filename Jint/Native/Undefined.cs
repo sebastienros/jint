@@ -1,4 +1,6 @@
-﻿namespace Jint.Native
+﻿using System;
+
+namespace Jint.Native
 {
     public class Undefined : IPrimitiveType
     {
@@ -11,6 +13,16 @@
         public override string ToString()
         {
             return "undefined";
+        }
+
+        public TypeCode TypeCode
+        {
+            get { return TypeCode.DBNull; }
+        }
+
+        public object PrimitiveValue
+        {
+            get { return Instance; }
         }
     }
 }

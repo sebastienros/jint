@@ -14,21 +14,26 @@ namespace Jint.Runtime
             _engine = engine;
         }
 
-        private void ExecuteStatement(Statement statement)
+        private object ExecuteStatement(Statement statement)
         {
-            _engine.ExecuteStatement(statement);
+            return _engine.ExecuteStatement(statement);
         }
 
-        public void ExecuteProgram(Program program)
+        public object ExecuteProgram(Program program)
         {
+            object result = null;
+
             foreach (var statement in program.Body)
             {
-                ExecuteStatement(statement);
+                result = ExecuteStatement(statement);
             }
+
+            return result;
         }
 
-        public void ExecuteVariableDeclaration(VariableDeclaration statement)
+        public object ExecuteVariableDeclaration(VariableDeclaration statement)
         {
+            object result = null;
             var env = _engine.CurrentExecutionContext.VariableEnvironment.Record;
 
             foreach (var declaration in statement.Declarations)
@@ -37,7 +42,7 @@ namespace Jint.Runtime
 
                 if (declaration.Init != null)
                 {
-                    value = _engine.EvaluateExpression(declaration.Init);
+                    result = value = _engine.EvaluateExpression(declaration.Init);
                 }
 
                 var dn = declaration.Id.Name;
@@ -48,58 +53,72 @@ namespace Jint.Runtime
                     env.SetMutableBinding(declaration.Id.Name, value, false);
                 }
             }
+
+            return result;
         }
 
-        public void ExecuteDoWhileStatement(DoWhileStatement doWhileStatement)
+        public object ExecuteDoWhileStatement(DoWhileStatement doWhileStatement)
         {
+            object result = null;
+
             bool test;
             do
             {
-                ExecuteStatement(doWhileStatement.Body);
+                result = ExecuteStatement(doWhileStatement.Body);
                 test = _engine.EvaluateExpression(doWhileStatement.Test);
             } while (test);
+
+            return result;
         }
 
-        public void ExecuteContinueStatement(ContinueStatement continueStatement)
+        public object ExecuteContinueStatement(ContinueStatement continueStatement)
         {
             _engine.CurrentExecutionContext.Continue = continueStatement;
+            return null;
         }
 
-        public void ExecuteBreakStatement(BreakStatement breakStatement)
+        public object ExecuteBreakStatement(BreakStatement breakStatement)
         {
             _engine.CurrentExecutionContext.Break = breakStatement;
+            return null;
         }
 
-        public void ExecuteBlockStatement(BlockStatement blockStatement)
+        public object ExecuteBlockStatement(BlockStatement blockStatement)
         {
+            object result = null;
             foreach (var statement in blockStatement.Body)
             {
-                ExecuteStatement(statement);
+                result = ExecuteStatement(statement);
 
                 // return has been called, stop execution
                 if (!_engine.CurrentExecutionContext.Return.Equals(Undefined.Instance))
                 {
-                    return;
+                    return result;
                 }
             }
+
+            return result;
         }
 
-        public void ExecuteEmptyStatement(EmptyStatement emptyStatement)
+        public object ExecuteEmptyStatement(EmptyStatement emptyStatement)
         {
+            return null;
         }
 
-        public void ExecuteExpressionStatement(ExpressionStatement expressionStatement)
+        public object ExecuteExpressionStatement(ExpressionStatement expressionStatement)
         {
-            _engine.EvaluateExpression(expressionStatement.Expression);
+            return _engine.EvaluateExpression(expressionStatement.Expression);
         }
 
-        public void ExecuteReturnStatement(ReturnStatement statement)
+        public object ExecuteReturnStatement(ReturnStatement statement)
         {
-            _engine.CurrentExecutionContext.Return = _engine.EvaluateExpression(statement.Argument);
+            return _engine.CurrentExecutionContext.Return = _engine.EvaluateExpression(statement.Argument);
         }
 
-        public void ExecuteFunctionDeclaration(FunctionDeclaration functionDeclaration)
+        public object ExecuteFunctionDeclaration(FunctionDeclaration functionDeclaration)
         {
+            object result = null;
+
             // create function objects
             http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
 
@@ -108,7 +127,7 @@ namespace Jint.Runtime
             // todo: should be declared in the current context
             _engine.Global.Set(
                 identifier, 
-                new ScriptFunctionInstance(
+                result = new ScriptFunctionInstance(
                     _engine,
                     functionDeclaration.Body, 
                     identifier, 
@@ -118,47 +137,58 @@ namespace Jint.Runtime
                     LexicalEnvironment.NewDeclarativeEnvironment(_engine.CurrentExecutionContext.LexicalEnvironment)
                 )
             );
+
+            return result;
         }
 
-        public void ExecuteIfStatement(IfStatement ifStatement)
+        public object ExecuteIfStatement(IfStatement ifStatement)
         {
+            object result = null;
             var test = _engine.EvaluateExpression(ifStatement.Test);
 
             if (test)
             {
-                _engine.ExecuteStatement(ifStatement.Consequent);
+                result = _engine.ExecuteStatement(ifStatement.Consequent);
             }
             else if (ifStatement.Alternate != null)
             {
-                _engine.ExecuteStatement(ifStatement.Alternate);
+                result = _engine.ExecuteStatement(ifStatement.Alternate);
             }
+
+            return result;
         }
 
-        public void ExecuteWhileStatement(WhileStatement whileStatement)
+        public object ExecuteWhileStatement(WhileStatement whileStatement)
         {
+            object result = null;
+
             bool test = _engine.EvaluateExpression(whileStatement.Test);
 
             while(test)
             {
-                ExecuteStatement(whileStatement.Body);
+                result = ExecuteStatement(whileStatement.Body);
                 test = _engine.EvaluateExpression(whileStatement.Test);
             }
+
+            return result;
         }
 
-        public void ExecuteDebuggerStatement(DebuggerStatement debuggerStatement)
+        public object ExecuteDebuggerStatement(DebuggerStatement debuggerStatement)
         {
             throw new System.NotImplementedException();
         }
 
-        public void ExecuteForStatement(ForStatement forStatement)
+        public object ExecuteForStatement(ForStatement forStatement)
         {
+            object result = null;
+
             if (forStatement.Init.Type == SyntaxNodes.VariableDeclaration)
             {
-                _engine.ExecuteStatement(forStatement.Init.As<Statement>());
+                result = _engine.ExecuteStatement(forStatement.Init.As<Statement>());
             }
             else
             {
-                _engine.EvaluateExpression(forStatement.Init.As<Expression>());
+                result = _engine.EvaluateExpression(forStatement.Init.As<Expression>());
             }
 
             while (_engine.EvaluateExpression(forStatement.Test))
@@ -166,6 +196,8 @@ namespace Jint.Runtime
                 _engine.ExecuteStatement(forStatement.Body);
                 _engine.EvaluateExpression(forStatement.Update);
             }
+
+            return result;
         }
     }
 }
