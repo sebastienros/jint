@@ -3,7 +3,7 @@ using Jint.Native.Object;
 
 namespace Jint.Native.Boolean
 {
-    public class BooleanInstance : ObjectInstance, IPrimitiveType
+    public sealed class BooleanInstance : ObjectInstance, IPrimitiveType
     {
         public BooleanInstance(ObjectInstance prototype)
             : base(prototype)

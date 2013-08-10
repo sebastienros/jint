@@ -5,11 +5,10 @@ using Jint.Native.Object;
 
 namespace Jint.Runtime.Interop
 {
-
     /// <summary>
     /// Reprensents a Property wrapper for static methods representing built-in properties.
     /// </summary>
-    public class BuiltInPropertyWrapper : FunctionInstance
+    public sealed class BuiltInPropertyWrapper : FunctionInstance
     {
         private readonly Engine _engine;
         private readonly Delegate _d;
@@ -21,7 +20,7 @@ namespace Jint.Runtime.Interop
             _d = d;
         }
 
-        public override dynamic Call(object thisObject, dynamic[] arguments)
+        public override object Call(object thisObject, object[] arguments)
         {
             // initialize Return flag
             _engine.CurrentExecutionContext.Return = Undefined.Instance;

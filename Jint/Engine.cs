@@ -190,7 +190,7 @@ namespace Jint
             return null;
         }
 
-        public dynamic EvaluateExpression(Expression expression)
+        public object EvaluateExpression(Expression expression)
         {
             switch (expression.Type)
             {
@@ -244,7 +244,7 @@ namespace Jint
             }
         }
 
-        public dynamic GetValue(object value)
+        public object GetValue(object value)
         {
             var reference = value as Reference;
             

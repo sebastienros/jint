@@ -9,7 +9,7 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private readonly IDictionary<string, object> _bindings = new SortedList<string, object>();
+        private readonly IDictionary<string, object> _bindings = new Dictionary<string, object>();
 
         public override bool HasBinding(string name)
         {

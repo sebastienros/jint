@@ -1,12 +1,11 @@
 ﻿using System;
 using Jint.Native.Function;
-using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object
 {
-    public class ObjectConstructor : FunctionInstance
+    public sealed class ObjectConstructor : FunctionInstance, IConstructor
     {
         private readonly Engine _engine;
 
@@ -17,12 +16,12 @@ namespace Jint.Native.Object
             engine.RootFunction.DefineOwnProperty("toString", new DataDescriptor(new BuiltInPropertyWrapper(engine, (Func<ObjectInstance, string>)ToString, engine.RootFunction)), false);
         }
 
-        public override dynamic Call(object thisObject, dynamic[] arguments)
+        public override object Call(object thisObject, object[] arguments)
         {
             return Undefined.Instance;
         }
 
-        public ObjectInstance Construct(dynamic[] arguments)
+        public ObjectInstance Construct(object[] arguments)
         {
             var instance = new ObjectInstance(this.Prototype);
 

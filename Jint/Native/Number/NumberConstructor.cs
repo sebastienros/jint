@@ -5,7 +5,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Number
 {
-    public class NumberConstructor : FunctionInstance
+    public sealed class NumberConstructor : FunctionInstance, IConstructor
     {
         private readonly Engine _engine;
 
@@ -20,7 +20,7 @@ namespace Jint.Native.Number
 
         }
 
-        public override dynamic Call(object thisObject, dynamic[] arguments)
+        public override object Call(object thisObject, object[] arguments)
         {
             return Construct(arguments);
         }
@@ -30,7 +30,7 @@ namespace Jint.Native.Number
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public virtual ObjectInstance Construct(dynamic[] arguments)
+        public ObjectInstance Construct(object[] arguments)
         {
             return Construct(arguments.Length > 0 ? TypeConverter.ToNumber(arguments[0]) : 0);
         }

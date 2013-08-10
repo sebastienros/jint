@@ -27,7 +27,7 @@ namespace Jint.Benchmark
 
         static void Main(string[] args)
         {
-            const int iterations = 100000;
+            const int iterations = 1000;
             const bool reuseEngine = false;
 
             var watch = new Stopwatch();

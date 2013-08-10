@@ -17,7 +17,7 @@ namespace Jint.Native
 
         public TypeCode TypeCode
         {
-            get { return TypeCode.DBNull; }
+            get { return TypeCode.Empty; }
         }
 
         public object PrimitiveValue

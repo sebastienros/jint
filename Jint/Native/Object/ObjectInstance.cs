@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Jint.Native.Errors;
-using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Object
@@ -10,7 +8,7 @@ namespace Jint.Native.Object
     {
         public ObjectInstance(ObjectInstance prototype)
         {
-            Properties = new SortedList<string, PropertyDescriptor>();
+            Properties = new Dictionary<string, PropertyDescriptor>();
             Extensible = true;
             Prototype = prototype;
             DefineOwnProperty("prototype", new DataDescriptor(prototype), false);
@@ -54,7 +52,7 @@ namespace Jint.Native.Object
                 return Undefined.Instance;
             }
 
-            return desc.Get();
+            return ((PropertyDescriptor)desc).Get();
         }
 
         public void Set(string name, object value)
@@ -77,7 +75,7 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public dynamic GetOwnProperty(string propertyName)
+        public object GetOwnProperty(string propertyName)
         {
             PropertyDescriptor value;
             if (Properties.TryGetValue(propertyName, out value))
@@ -93,7 +91,7 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public dynamic GetProperty(string propertyName)
+        public object GetProperty(string propertyName)
         {
             var prop = GetOwnProperty(propertyName);
 
@@ -130,7 +128,7 @@ namespace Jint.Native.Object
                 return;
             }
 
-            PropertyDescriptor ownDesc = GetOwnProperty(propertyName);
+            var ownDesc = (PropertyDescriptor)GetOwnProperty(propertyName);
 
             if (ownDesc.IsDataDescriptor())
             {
@@ -138,7 +136,7 @@ namespace Jint.Native.Object
                 return;
             }
 
-            var desc = GetProperty(propertyName);
+            var desc = (PropertyDescriptor)GetProperty(propertyName);
 
             if (desc.IsAccessorDescriptor())
             {
@@ -162,16 +160,17 @@ namespace Jint.Native.Object
         public bool CanPut(string propertyName)
         {
             var desc = GetOwnProperty(propertyName);
-
+            var pd = desc as PropertyDescriptor;
             if (desc != Undefined.Instance)
             {
-                if (desc.IsAccessorDescriptor())
+
+                if (pd.IsAccessorDescriptor())
                 {
                     return true;
                 }
                 else
                 {
-                    return desc.Writable;
+                    return pd.Writable;
                 }
             }
 
@@ -180,7 +179,7 @@ namespace Jint.Native.Object
                 return Extensible;
             }
 
-            var inherited = Prototype.GetProperty(propertyName);
+            var inherited = (PropertyDescriptor)Prototype.GetProperty(propertyName);
 
             if (inherited == Undefined.Instance)
             {
@@ -192,7 +191,7 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            if (desc.IsAccessorDescriptor())
+            if (pd.IsAccessorDescriptor())
             {
                 return true;
             }
@@ -232,13 +231,14 @@ namespace Jint.Native.Object
         public bool Delete(string propertyName, bool throwOnError)
         {
             var desc = GetOwnProperty(propertyName);
+            var pd = desc as PropertyDescriptor;
 
             if (desc == Undefined.Instance)
             {
                 return true;
             }
 
-            if (desc.Configurable)
+            if (pd.Configurable)
             {
                 Properties.Remove(propertyName);
                 return true;
@@ -297,7 +297,7 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            PropertyDescriptor current = property;
+            var current = (PropertyDescriptor)property;
 
             if (!current.Configurable)
             {

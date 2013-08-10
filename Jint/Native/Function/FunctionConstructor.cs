@@ -1,18 +1,14 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
-using Jint.Native;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Environments;
 
-namespace Jint.Runtime
+namespace Jint.Native.Function
 {
     /// <summary>
     /// 
     /// </summary>
-    public class FunctionConstructor : FunctionInstance
+    public sealed class FunctionConstructor : FunctionInstance, IConstructor
     {
         private readonly Engine _engine;
         private readonly IEnumerable<Identifier> _parameters;
@@ -26,12 +22,12 @@ namespace Jint.Runtime
             Extensible = true;
         }
 
-        public override dynamic Call(object thisObject, dynamic[] arguments)
+        public override object Call(object thisObject, object[] arguments)
         {
             return Construct(arguments);
         }
 
-        public virtual ObjectInstance Construct(dynamic[] arguments)
+        public ObjectInstance Construct(object[] arguments)
         {
             var instance = new FunctionShim(_engine, Prototype, null, null);
             instance.DefineOwnProperty("constructor", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);

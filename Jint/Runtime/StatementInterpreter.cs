@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Parser.Ast;
 using Jint.Runtime.Environments;
 
@@ -38,7 +39,7 @@ namespace Jint.Runtime
 
             foreach (var declaration in statement.Declarations)
             {
-                dynamic value = Undefined.Instance;
+                object value = Undefined.Instance;
 
                 if (declaration.Init != null)
                 {
@@ -65,7 +66,7 @@ namespace Jint.Runtime
             do
             {
                 result = ExecuteStatement(doWhileStatement.Body);
-                test = _engine.EvaluateExpression(doWhileStatement.Test);
+                test = TypeConverter.ToBoolean(_engine.EvaluateExpression(doWhileStatement.Test));
             } while (test);
 
             return result;
@@ -144,7 +145,7 @@ namespace Jint.Runtime
         public object ExecuteIfStatement(IfStatement ifStatement)
         {
             object result = null;
-            var test = _engine.EvaluateExpression(ifStatement.Test);
+            var test = TypeConverter.ToBoolean(_engine.EvaluateExpression(ifStatement.Test));
 
             if (test)
             {
@@ -162,12 +163,12 @@ namespace Jint.Runtime
         {
             object result = null;
 
-            bool test = _engine.EvaluateExpression(whileStatement.Test);
+            bool test = TypeConverter.ToBoolean(_engine.EvaluateExpression(whileStatement.Test));
 
             while(test)
             {
                 result = ExecuteStatement(whileStatement.Body);
-                test = _engine.EvaluateExpression(whileStatement.Test);
+                test = TypeConverter.ToBoolean(_engine.EvaluateExpression(whileStatement.Test));
             }
 
             return result;
@@ -191,7 +192,7 @@ namespace Jint.Runtime
                 result = _engine.EvaluateExpression(forStatement.Init.As<Expression>());
             }
 
-            while (_engine.EvaluateExpression(forStatement.Test))
+            while (TypeConverter.ToBoolean(_engine.EvaluateExpression(forStatement.Test)))
             {
                 _engine.ExecuteStatement(forStatement.Body);
                 _engine.EvaluateExpression(forStatement.Update);

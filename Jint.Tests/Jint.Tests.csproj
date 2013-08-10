@@ -59,15 +59,14 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Runtime\Scripts\Scratch.js" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj">
-      <Project>{a2707cfd-e37d-4b88-8fc2-238d4c1dfd01}</Project>
+      <Project>{678738da-f723-4920-b9e5-cad667104bda}</Project>
       <Name>Jint</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Runtime\Scripts\Scratch.js" />
-  </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

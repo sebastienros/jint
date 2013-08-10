@@ -2,7 +2,7 @@
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public class MethodProperty : PropertyDescriptor
+    public sealed class MethodProperty : PropertyDescriptor
     {
         private readonly Engine _engine;
         private readonly Action<object> _setter;

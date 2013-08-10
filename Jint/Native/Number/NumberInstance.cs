@@ -3,7 +3,7 @@ using Jint.Native.Object;
 
 namespace Jint.Native.Number
 {
-    public class NumberInstance : ObjectInstance, IPrimitiveType
+    public sealed class NumberInstance : ObjectInstance, IPrimitiveType
     {
         public NumberInstance(ObjectInstance prototype)
             : base(prototype)

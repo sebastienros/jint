@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 using Jint.Native.Object;
 
 namespace Jint.Native.Array
 {
-    public class ArrayInstance : ObjectInstance
+    public sealed class ArrayInstance : ObjectInstance
     {
         private readonly Stack<object> _array = new Stack<object>();
  

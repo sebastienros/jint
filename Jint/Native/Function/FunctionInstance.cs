@@ -1,8 +1,6 @@
 ﻿using Jint.Native.Object;
 using Jint.Parser.Ast;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
-using System.Collections.Generic;
 
 namespace Jint.Native.Function
 {
@@ -24,7 +22,7 @@ namespace Jint.Native.Function
         /// <param name="state"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public abstract dynamic Call(object thisObject, dynamic[] arguments);
+        public abstract object Call(object thisObject, object[] arguments);
 
         public LexicalEnvironment Scope { get; private set; }
         public Identifier[] Parameters { get; private set; }

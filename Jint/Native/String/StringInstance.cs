@@ -3,7 +3,7 @@ using Jint.Native.Object;
 
 namespace Jint.Native.String
 {
-    public class StringInstance : ObjectInstance, IPrimitiveType
+    public sealed class StringInstance : ObjectInstance, IPrimitiveType
     {
         public StringInstance(ObjectInstance prototype)
             : base(prototype)

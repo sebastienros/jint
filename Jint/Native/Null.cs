@@ -4,7 +4,7 @@ namespace Jint.Native
 {
     public sealed class Null : IPrimitiveType
     {
-        public static dynamic Instance = new Null();
+        public static object Instance = new Null();
 
         private Null()
         {   
@@ -17,7 +17,7 @@ namespace Jint.Native
 
         public TypeCode TypeCode
         {
-            get { return TypeCode.DBNull; }
+            get { return TypeCode.Empty; }
         }
 
         public object PrimitiveValue

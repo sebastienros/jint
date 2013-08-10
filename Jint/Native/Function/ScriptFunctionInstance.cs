@@ -1,18 +1,16 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Jint.Native;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
-namespace Jint.Runtime
+namespace Jint.Native.Function
 {
     /// <summary>
     /// 
     /// </summary>
-    public class ScriptFunctionInstance : FunctionInstance
+    public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
         private readonly Engine _engine;
         private readonly Statement _body;
@@ -35,7 +33,7 @@ namespace Jint.Runtime
             DefineOwnProperty("prototype", new DataDescriptor(functionPrototype) { Writable = true, Enumerable = true, Configurable = true }, false);
         }
 
-        public override dynamic Call(object thisObject, dynamic[] arguments)
+        public override object Call(object thisObject, object[] arguments)
         {
             // todo: http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.1
 
@@ -69,9 +67,9 @@ namespace Jint.Runtime
             return result;
         }
 
-        public virtual ObjectInstance Construct(dynamic[] arguments)
+        public ObjectInstance Construct(object[] arguments)
         {
-            /// todo: http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.2
+            // todo: http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.2
 
             var instance = new FunctionShim(_engine, this.Prototype, null, null);
             return instance;

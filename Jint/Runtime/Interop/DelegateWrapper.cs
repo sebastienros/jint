@@ -9,7 +9,7 @@ namespace Jint.Runtime.Interop
     /// Represents a FunctionInstance wrapper around a CLR method. This is used by user to pass
     /// custom methods to the engine.
     /// </summary>
-    public class DelegateWrapper : FunctionInstance
+    public sealed class DelegateWrapper : FunctionInstance
     {
         private readonly Engine _engine;
         private readonly Delegate _d;
@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interop
             _d = d;
         }
 
-        public override dynamic Call(object thisObject, dynamic[] arguments)
+        public override object Call(object thisObject, object[] arguments)
         {
             // initialize Return flag
             _engine.CurrentExecutionContext.Return = Undefined.Instance;

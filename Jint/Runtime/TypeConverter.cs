@@ -69,7 +69,7 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="o"></param>
         /// <returns></returns>
-        public int ToInteger(object o)
+        public static int ToInteger(object o)
         {
             return (int) o;
         }
@@ -79,7 +79,7 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="o"></param>
         /// <returns></returns>
-        public int ToInt32(object o)
+        public static int ToInt32(object o)
         {
             return (int)o;
         }
@@ -89,7 +89,7 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="o"></param>
         /// <returns></returns>
-        public uint ToUint32(object o)
+        public static uint ToUint32(object o)
         {
             return (uint)o;
         }
@@ -100,7 +100,7 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="o"></param>
         /// <returns></returns>
-        public ushort ToUint16(object o)
+        public static ushort ToUint16(object o)
         {
             return (ushort)o;
         }
@@ -110,12 +110,12 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="o"></param>
         /// <returns></returns>
-        public string ToString(object o)
+        public static string ToString(object o)
         {
             return (string)o;
         }
 
-        public ObjectInstance ToObject(Engine engine, object value)
+        public static ObjectInstance ToObject(Engine engine, object value)
         {
             var o = value as ObjectInstance;
             if (o != null)
@@ -158,6 +158,31 @@ namespace Jint.Runtime
             }
 
             throw new TypeError();
+        }
+
+        public static TypeCode GetType(object value)
+        {
+            if (value == null || value == Undefined.Instance || value == Null.Instance)
+            {
+                return TypeCode.Empty;
+            }
+
+            if (value is string)
+            {
+                return TypeCode.String;
+            }
+
+            if (value is double || value is int || value is uint || value is ushort)
+            {
+                return TypeCode.Double;
+            }
+
+            if (value is bool)
+            {
+                return TypeCode.Boolean;
+            }
+
+            return TypeCode.Object;
         }
     }
 }
