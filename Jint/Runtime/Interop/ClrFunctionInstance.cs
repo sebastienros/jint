@@ -5,18 +5,18 @@ using Jint.Native.Function;
 namespace Jint.Runtime.Interop
 {
     /// <summary>
-    /// Reprensents a Property wrapper for static methods representing built-in properties.
+    /// Wraps a Clr method into a FunctionInstance
     /// </summary>
-    public sealed class ClrFunctionInstance : FunctionInstance
+    public sealed class ClrFunctionInstance<T> : FunctionInstance
     {
         private readonly Engine _engine;
-        private readonly Delegate _d;
+        private readonly Func<T, object[], object> _func;
 
-        public ClrFunctionInstance(Engine engine, Delegate d)
+        public ClrFunctionInstance(Engine engine, Func<T, object[], object> func)
             : base(engine, null, null, null)
         {
             _engine = engine;
-            _d = d;
+            _func = func;
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -24,12 +24,8 @@ namespace Jint.Runtime.Interop
             // initialize Return flag
             _engine.CurrentExecutionContext.Return = Undefined.Instance;
 
-            // built-in static method must have their first parameter as 'this'
-            var allArguments = new object[arguments.Length + 1];
-            allArguments[0] = thisObject;
-            Array.Copy(arguments, 0, allArguments, 1, arguments.Length);
 
-            return _d.DynamicInvoke(allArguments);
+            return _func((T) thisObject, arguments);
         }
     }
 }

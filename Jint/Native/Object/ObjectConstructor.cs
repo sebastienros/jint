@@ -1,6 +1,8 @@
 ﻿using System;
 using Jint.Native.Function;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object
@@ -12,8 +14,8 @@ namespace Jint.Native.Object
         public ObjectConstructor(Engine engine) : base(engine, engine.RootFunction, null, null)
         {
             _engine = engine;
-            engine.RootFunction.DefineOwnProperty("hasOwnProperty", new DataDescriptor(new ClrFunctionInstance(engine, (Func<ObjectInstance, string, bool>)HasOwnProperty)), false);
-            engine.RootFunction.DefineOwnProperty("toString", new DataDescriptor(new ClrFunctionInstance(engine, (Func<ObjectInstance, string>)ToString)), false);
+            engine.RootFunction.DefineOwnProperty("hasOwnProperty", new ClrDataDescriptor<ObjectInstance>(engine, HasOwnProperty), false);
+            engine.RootFunction.DefineOwnProperty("toString", new ClrDataDescriptor<ObjectInstance>(engine, ToString), false);
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -31,13 +33,14 @@ namespace Jint.Native.Object
             return instance;
         }
 
-        private static bool HasOwnProperty(ObjectInstance thisObject, string propertyName)
+        private static object HasOwnProperty(ObjectInstance thisObject, object[] arguments)
         {
+            var propertyName = TypeConverter.ToString(arguments[0]);
             var desc = thisObject.GetOwnProperty(propertyName);
             return desc != PropertyDescriptor.Undefined;
         }
 
-        private static string ToString(ObjectInstance thisObject)
+        private static object ToString(ObjectInstance thisObject, object[] arguments)
         {
             if (thisObject == null || thisObject == Undefined.Instance)
             {

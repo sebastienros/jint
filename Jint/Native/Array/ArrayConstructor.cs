@@ -1,10 +1,7 @@
-﻿using System;
-using Jint.Native.Errors;
-using Jint.Native.Function;
+﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
 {
@@ -21,10 +18,10 @@ namespace Jint.Native.Array
             this.Prototype.DefineOwnProperty("prototype", new DataDescriptor(this.Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
                                   
             // Array prototype properties
-            this.Prototype.DefineOwnProperty("length", new MethodPropertyDescriptor<ArrayInstance>(_engine, x => x.Length), false);
+            this.Prototype.DefineOwnProperty("length", new ClrAccessDescriptor<ArrayInstance>(_engine, x => x.Length), false);
 
-            this.Prototype.DefineOwnProperty("push", new DataDescriptor(new ClrFunctionInstance(engine, (Action<ArrayInstance, object>)Push)), false);
-            this.Prototype.DefineOwnProperty("pop", new DataDescriptor(new ClrFunctionInstance(engine, (Func<ArrayInstance, object>)Pop)), false);
+            this.Prototype.DefineOwnProperty("push", new ClrDataDescriptor<ArrayInstance>(engine, Push), false);
+            this.Prototype.DefineOwnProperty("pop", new ClrDataDescriptor<ArrayInstance>(engine, Pop), false);
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -44,12 +41,13 @@ namespace Jint.Native.Array
             return instance;
         }
 
-        private static void Push(ArrayInstance thisObject, object o)
+        private static object Push(ArrayInstance thisObject, object[] arguments)
         {
-            thisObject.Push(o);
+            thisObject.Push(arguments[0]);
+            return Undefined.Instance;
         }
 
-        private static object Pop(ArrayInstance thisObject)
+        private static object Pop(ArrayInstance thisObject, object[] arguments)
         {
             return thisObject.Pop();
         }

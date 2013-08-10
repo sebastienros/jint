@@ -116,7 +116,8 @@
     <Compile Include="Runtime\Descriptors\AccessorDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\DataDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />
-    <Compile Include="Runtime\Descriptors\Specialized\MethodPropertyDescriptor.cs" />
+    <Compile Include="Runtime\Descriptors\Specialized\ClrDataDescriptor.cs" />
+    <Compile Include="Runtime\Descriptors\Specialized\ClrAccessDescriptor.cs" />
     <Compile Include="Runtime\Environments\DeclarativeEnvironmentRecord.cs" />
     <Compile Include="Runtime\Environments\EnvironmentRecord.cs" />
     <Compile Include="Runtime\Environments\ExecutionContext.cs" />
