@@ -1,7 +1,6 @@
 ﻿using System;
 using Jint.Native;
 using Jint.Native.Function;
-using Jint.Native.Object;
 
 namespace Jint.Runtime.Interop
 {
@@ -14,7 +13,7 @@ namespace Jint.Runtime.Interop
         private readonly Engine _engine;
         private readonly Delegate _d;
 
-        public DelegateWrapper(Engine engine, Delegate d, ObjectInstance prototype) : base(engine, prototype, null, null)
+        public DelegateWrapper(Engine engine, Delegate d) : base(engine, null, null, null)
         {
             _engine = engine;
             _d = d;

@@ -1,28 +1,21 @@
 ﻿using System;
+using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class MethodProperty : PropertyDescriptor
+    public sealed class MethodProperty<T> : AccessorDescriptor
     {
-        private readonly Engine _engine;
-        private readonly Action<object> _setter;
-        private readonly Func<object> _getter;
-
-        public MethodProperty(Engine engine, Func<object> getter, Action<object> setter)
+        public MethodProperty(Engine engine, Func<T, object> get)
+            : this(engine, get, null)
         {
-            _engine = engine;
-            _setter = setter;
-            _getter = getter;
         }
 
-        public override object Get()
+        public MethodProperty(Engine engine, Func<T, object> get, Action<T, object> set)
+            : base(
+                new GetterFunctionInstance<T>(engine, get),
+                set == null ? null : new SetterFunctionInstance<T>(engine, set)
+                )
         {
-            return _getter();
-        }
-
-        public override void Set(object value)
-        {
-            _setter(value);
         }
 
         public override bool IsAccessorDescriptor()

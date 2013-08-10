@@ -26,13 +26,18 @@ namespace Jint.Runtime.Environments
             return _bindingObject.HasProperty(name);
         }
 
-        public override void CreateMutableBinding(string name, bool canBeDeleted = false)
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2.2
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="configurable"></param>
+        public override void CreateMutableBinding(string name, bool configurable = true)
         {
             var property = new DataDescriptor(Undefined.Instance)
                 {
                     Writable = true,
                     Enumerable = true,
-                    Configurable = canBeDeleted
+                    Configurable = configurable
                 };
 
             _bindingObject.DefineOwnProperty(name, property, true);

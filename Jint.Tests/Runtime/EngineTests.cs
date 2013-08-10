@@ -239,9 +239,8 @@ namespace Jint.Tests.Runtime
         public void Scratch()
         {
             RunTest(@"
-                var o = [42, 'foo'];
-                var a = o.pop();
-                var b = o.length;
+                var a = 42;
+                a == 42;
             ");
         }
         

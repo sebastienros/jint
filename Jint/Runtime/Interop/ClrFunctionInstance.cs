@@ -1,20 +1,19 @@
 ﻿using System;
 using Jint.Native;
 using Jint.Native.Function;
-using Jint.Native.Object;
 
 namespace Jint.Runtime.Interop
 {
     /// <summary>
     /// Reprensents a Property wrapper for static methods representing built-in properties.
     /// </summary>
-    public sealed class BuiltInPropertyWrapper : FunctionInstance
+    public sealed class ClrFunctionInstance : FunctionInstance
     {
         private readonly Engine _engine;
         private readonly Delegate _d;
 
-        public BuiltInPropertyWrapper(Engine engine, Delegate d, ObjectInstance prototype)
-            : base(engine, prototype, null, null)
+        public ClrFunctionInstance(Engine engine, Delegate d)
+            : base(engine, null, null, null)
         {
             _engine = engine;
             _d = d;

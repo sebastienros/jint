@@ -47,12 +47,19 @@ namespace Jint.Native.Object
         {
             var desc = GetProperty(propertyName);
 
-            if (desc == Undefined.Instance)
+            if (desc == PropertyDescriptor.Undefined)
             {
                 return Undefined.Instance;
             }
 
-            return ((PropertyDescriptor)desc).Get();
+            if (desc.IsDataDescriptor())
+            {
+                return desc.As<DataDescriptor>().Value;
+            }
+
+            var getter = desc.As<AccessorDescriptor>().Get;
+
+            return getter.Call(this, null);
         }
 
         public void Set(string name, object value)
@@ -75,15 +82,25 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public object GetOwnProperty(string propertyName)
+        public PropertyDescriptor GetOwnProperty(string propertyName)
         {
-            PropertyDescriptor value;
-            if (Properties.TryGetValue(propertyName, out value))
+            PropertyDescriptor x;
+            if (Properties.TryGetValue(propertyName, out x))
             {
-                return value;
+                PropertyDescriptor d;
+                if (x.IsDataDescriptor())
+                {
+                    d = new DataDescriptor(x.As<DataDescriptor>());
+                }
+                else
+                {
+                    d = new AccessorDescriptor(x.As<AccessorDescriptor>());
+                }
+
+                return d;
             }
             
-            return Undefined.Instance;
+            return PropertyDescriptor.Undefined;
         }
 
         /// <summary>
@@ -91,18 +108,18 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public object GetProperty(string propertyName)
+        public PropertyDescriptor GetProperty(string propertyName)
         {
             var prop = GetOwnProperty(propertyName);
 
-            if (prop != Undefined.Instance)
+            if (prop != PropertyDescriptor.Undefined)
             {
                 return prop;
             }
             
             if(Prototype == null)
             {
-                return Undefined.Instance;
+                return PropertyDescriptor.Undefined;
             }
 
             return Prototype.GetProperty(propertyName);
@@ -128,19 +145,21 @@ namespace Jint.Native.Object
                 return;
             }
 
-            var ownDesc = (PropertyDescriptor)GetOwnProperty(propertyName);
+            var ownDesc = GetOwnProperty(propertyName);
 
             if (ownDesc.IsDataDescriptor())
             {
-                ownDesc.Set(value);
+                var valueDesc = new DataDescriptor(value);
+                DefineOwnProperty(propertyName, valueDesc, throwOnError);
                 return;
             }
 
-            var desc = (PropertyDescriptor)GetProperty(propertyName);
+            var desc = GetProperty(propertyName);
 
             if (desc.IsAccessorDescriptor())
             {
-                desc.Set(value);
+                var setter = desc.As<AccessorDescriptor>().Set;
+                setter.Call(this, new [] {value});
             }
             else
             {
@@ -160,18 +179,20 @@ namespace Jint.Native.Object
         public bool CanPut(string propertyName)
         {
             var desc = GetOwnProperty(propertyName);
-            var pd = desc as PropertyDescriptor;
-            if (desc != Undefined.Instance)
-            {
 
-                if (pd.IsAccessorDescriptor())
+            if (desc != PropertyDescriptor.Undefined)
+            {
+                if (desc.IsAccessorDescriptor())
                 {
+                    if (desc.As<AccessorDescriptor>().Set == null)
+                    {
+                        return false;
+                    }
+
                     return true;
                 }
-                else
-                {
-                    return pd.Writable;
-                }
+                
+                return desc.As<DataDescriptor>().Writable;
             }
 
             if (Prototype == null)
@@ -179,32 +200,30 @@ namespace Jint.Native.Object
                 return Extensible;
             }
 
-            var inherited = (PropertyDescriptor)Prototype.GetProperty(propertyName);
+            var inherited = Prototype.GetProperty(propertyName);
 
-            if (inherited == Undefined.Instance)
+            if (inherited == PropertyDescriptor.Undefined)
             {
                 return Prototype.Extensible;
             }
 
             if (inherited.IsAccessorDescriptor())
             {
-                return true;
-            }
-
-            if (pd.IsAccessorDescriptor())
-            {
-                return true;
-            }
-            else
-            {
-                if (!Extensible)
+                if (inherited.As<AccessorDescriptor>().Set == null)
                 {
                     return false;
                 }
-                else
-                {
-                    return inherited.Writable;
-                }
+
+                return true;
+            }
+
+            if (!Extensible)
+            {
+                return false;
+            }
+            else
+            {
+                return inherited.As<DataDescriptor>().Writable;
             }
         }
 
@@ -217,7 +236,7 @@ namespace Jint.Native.Object
         /// <returns></returns>
         public bool HasProperty(string propertyName)
         {
-            return GetProperty(propertyName) != Undefined.Instance;
+            return GetProperty(propertyName) != PropertyDescriptor.Undefined;
         }
 
         /// <summary>
@@ -231,14 +250,13 @@ namespace Jint.Native.Object
         public bool Delete(string propertyName, bool throwOnError)
         {
             var desc = GetOwnProperty(propertyName);
-            var pd = desc as PropertyDescriptor;
-
-            if (desc == Undefined.Instance)
+            
+            if (desc == PropertyDescriptor.Undefined)
             {
                 return true;
             }
 
-            if (pd.Configurable)
+            if (desc.Configurable)
             {
                 Properties.Remove(propertyName);
                 return true;
@@ -271,14 +289,14 @@ namespace Jint.Native.Object
         /// Descriptor. The flag controls failure handling.
         /// </summary>
         /// <param name="propertyName"></param>
-        /// <param name="property"></param>
+        /// <param name="desc"></param>
         /// <param name="throwOnError"></param>
         /// <returns></returns>
         public bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
-            var property = GetOwnProperty(propertyName);
-
-            if (property == Undefined.Instance)
+            var current = GetOwnProperty(propertyName);
+            
+            if (current == PropertyDescriptor.Undefined)
             {
                 if (!Extensible)
                 {
@@ -291,13 +309,20 @@ namespace Jint.Native.Object
                 }
                 else
                 {
-                    Properties.Add(propertyName, desc);
+                    if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
+                    {
+                        Properties.Add(propertyName, new DataDescriptor(desc.As<DataDescriptor>()));
+                    }
+                    else
+                    {
+                        Properties.Add(propertyName, new AccessorDescriptor(desc.As<AccessorDescriptor>()));
+                    }
                 }
 
                 return true;
             }
 
-            var current = (PropertyDescriptor)property;
+            // todo: if desc and current are the same, return true
 
             if (!current.Configurable)
             {
@@ -322,7 +347,65 @@ namespace Jint.Native.Object
                 }
             }
 
-            /// todo: complete this implementation
+            if (desc.IsGenericDescriptor())
+            {
+                // ????
+            }
+
+            if (current.IsDataDescriptor() != desc.IsDataDescriptor())
+            {
+                if (!current.Configurable)
+                {
+                    if (throwOnError)
+                    {
+                        throw new TypeError();
+                    }
+
+                    return false;
+                }
+
+                if (current.IsDataDescriptor())
+                {
+                    // todo: convert to accessor
+                }
+            }
+            else if (current.IsDataDescriptor() && desc.IsDataDescriptor())
+            {
+                var cd = current.As<DataDescriptor>();
+                var dd = current.As<DataDescriptor>();
+
+                if (!current.Configurable)
+                {
+                    if (!cd.Writable && dd.Writable)
+                    {
+                        if (throwOnError)
+                        {
+                            throw new TypeError();
+                        }
+
+                        return false;
+                    }
+                }
+            }
+            else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())
+            {
+                var ca = current.As<AccessorDescriptor>();
+                var da = current.As<AccessorDescriptor>();
+
+                if (!current.Configurable)
+                {
+                    if ( (da.Set != null && da.Set != ca.Set)
+                        || (da.Get != null && da.Get != ca.Get))
+                    {
+                        if (throwOnError)
+                        {
+                            throw new TypeError();
+                        }
+
+                        return false;
+                    }
+                }
+            }
 
             Properties[propertyName] = desc;
 

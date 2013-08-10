@@ -1,24 +1,27 @@
 ﻿namespace Jint.Runtime.Descriptors
 {
-    public sealed class DataDescriptor : PropertyDescriptor
+    public class DataDescriptor : PropertyDescriptor
     {
-        private object _value;
-
         public DataDescriptor(object value)
         {
-            _value = value;
+            Value = value;
             Writable = true;
         }
 
-        public override object Get()
+        public DataDescriptor(DataDescriptor d)
         {
-            return _value;
+            Value = d.Value;
+            Writable = d.Writable;
+            Configurable = d.Configurable;
+            Enumerable = d.Enumerable;
         }
 
-        public override void Set(object value)
-        {
-            _value = value;
-        }
+        public object Value { get; set; }
+        /// <summary>
+        /// If false, attempts by ECMAScript code to change the 
+        /// property‘s [[Value]] attribute using [[Put]] will not succeed.
+        /// </summary>
+        public bool Writable { get; set; }
 
         public override bool IsAccessorDescriptor()
         {

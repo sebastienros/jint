@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Errors;
@@ -67,7 +68,7 @@ namespace Jint
             {
                 foreach (var entry in Options.GetDelegates())
                 {
-                    Global.DefineOwnProperty(entry.Key, new DataDescriptor(new DelegateWrapper(this, entry.Value, RootFunction)), false);
+                    Global.DefineOwnProperty(entry.Key, new DataDescriptor(new DelegateWrapper(this, entry.Value)), false);
                 }
             }
 
@@ -244,6 +245,11 @@ namespace Jint
             }
         }
 
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.1
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
         public object GetValue(object value)
         {
             var reference = value as Reference;
@@ -267,8 +273,8 @@ namespace Jint
                 return record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
             }
 
-            /// todo: complete implementation http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.1
-            return ((ObjectInstance) baseValue).Get(reference.GetReferencedName());
+            var o = TypeConverter.ToObject(this, baseValue);
+            return o.Get(reference.GetReferencedName());
         }
 
         public void SetValue(Reference reference, object value)

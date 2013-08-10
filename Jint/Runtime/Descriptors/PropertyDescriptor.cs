@@ -5,15 +5,7 @@
     /// </summary>
     public abstract class PropertyDescriptor
     {
-        public abstract object Get();
-
-        public abstract void Set(object value);
-
-        /// <summary>
-        /// If false, attempts by ECMAScript code to change the 
-        /// property‘s [[Value]] attribute using [[Put]] will not succeed.
-        /// </summary>
-        public bool Writable { get; set; }
+        public static PropertyDescriptor Undefined = new UndefinedPropertyDescriptor();
 
         /// <summary>
         /// If true, the property will be enumerated by a for-in 
@@ -49,5 +41,31 @@
         {
             return !IsDataDescriptor() && !IsAccessorDescriptor();
         }
+
+        public T As<T>() where T : PropertyDescriptor
+        {
+            return (T)this;
+        }
+
+        /// <summary>
+        /// Local implementation used to create a singleton representing 
+        /// an undefined result of a PropertyDescriptor. This prevents the rest
+        /// of the code to return objects in order to be able to return
+        /// Undefined.Instance
+        /// </summary>
+        internal sealed class UndefinedPropertyDescriptor : PropertyDescriptor
+        {
+            public override bool IsAccessorDescriptor()
+            {
+                throw new System.NotImplementedException();
+            }
+
+            public override bool IsDataDescriptor()
+            {
+                throw new System.NotImplementedException();
+            }
+        }
+
+
     }
 }

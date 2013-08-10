@@ -12,8 +12,8 @@ namespace Jint.Native.Object
         public ObjectConstructor(Engine engine) : base(engine, engine.RootFunction, null, null)
         {
             _engine = engine;
-            engine.RootFunction.DefineOwnProperty("hasOwnProperty", new DataDescriptor(new BuiltInPropertyWrapper(engine, (Func<ObjectInstance, string, bool>)HasOwnProperty, engine.RootFunction)), false);
-            engine.RootFunction.DefineOwnProperty("toString", new DataDescriptor(new BuiltInPropertyWrapper(engine, (Func<ObjectInstance, string>)ToString, engine.RootFunction)), false);
+            engine.RootFunction.DefineOwnProperty("hasOwnProperty", new DataDescriptor(new ClrFunctionInstance(engine, (Func<ObjectInstance, string, bool>)HasOwnProperty)), false);
+            engine.RootFunction.DefineOwnProperty("toString", new DataDescriptor(new ClrFunctionInstance(engine, (Func<ObjectInstance, string>)ToString)), false);
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -34,7 +34,7 @@ namespace Jint.Native.Object
         private static bool HasOwnProperty(ObjectInstance thisObject, string propertyName)
         {
             var desc = thisObject.GetOwnProperty(propertyName);
-            return desc != Undefined.Instance;
+            return desc != PropertyDescriptor.Undefined;
         }
 
         private static string ToString(ObjectInstance thisObject)

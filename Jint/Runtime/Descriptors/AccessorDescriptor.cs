@@ -1,37 +1,34 @@
-﻿using System;
-using Jint.Native;
+﻿using Jint.Native.Function;
 
 namespace Jint.Runtime.Descriptors
 {
-    public sealed class AccessorDescriptor : PropertyDescriptor
+    public class AccessorDescriptor : PropertyDescriptor
     {
-        private readonly Func<object> _getter;
-        private readonly Action<object> _setter;
-
-        public AccessorDescriptor(Func<object> getter, Action<object> setter)
+        public AccessorDescriptor(FunctionInstance get, FunctionInstance set = null)
         {
-            _getter = getter;
-            _setter = setter;
+            Get = get;
+            Set = set;
         }
 
-        public override object Get()
+        public AccessorDescriptor(AccessorDescriptor a)
         {
-            if (_getter == null)
-            {
-                return Undefined.Instance;
-            }
-
-            return _getter();
-
+            Get = a.Get;
+            Set = a.Set;
+            Configurable = a.Configurable;
+            Enumerable = a.Enumerable;
         }
 
-        public override void Set(object value)
-        {
-            if (_setter != null)
-            {
-                _setter(value);
-            }
-        }
+        /// <summary>
+        /// The getter function
+        /// </summary>
+        /// <returns></returns>
+        public virtual FunctionInstance Get { get; set; }
+
+        /// <summary>
+        /// The setter function
+        /// </summary>
+        /// <returns></returns>
+        public virtual FunctionInstance Set { get; set; }
 
         public override bool IsAccessorDescriptor()
         {

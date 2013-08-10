@@ -123,7 +123,9 @@
     <Compile Include="Runtime\Environments\LexicalEnvironment.cs" />
     <Compile Include="Runtime\Environments\ObjectEnvironmentRecord.cs" />
     <Compile Include="Runtime\ExpressionIntepreter.cs" />
-    <Compile Include="Runtime\Interop\BuiltInPropertyWrapper.cs" />
+    <Compile Include="Runtime\Interop\ClrFunctionInstance.cs" />
+    <Compile Include="Runtime\Interop\SetterFunctionInstance.cs" />
+    <Compile Include="Runtime\Interop\GetterFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\DelegateWrapper.cs" />
     <Compile Include="Runtime\References\Reference.cs" />
     <Compile Include="Runtime\StatementInterpreter.cs" />

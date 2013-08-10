@@ -50,7 +50,7 @@ namespace Jint.Runtime
                 var varAlreadyDeclared = env.HasBinding(dn);
                 if (!varAlreadyDeclared)
                 {
-                    env.CreateMutableBinding(declaration.Id.Name, false);
+                    env.CreateMutableBinding(declaration.Id.Name, true);
                     env.SetMutableBinding(declaration.Id.Name, value, false);
                 }
             }
@@ -121,7 +121,7 @@ namespace Jint.Runtime
             object result = null;
 
             // create function objects
-            http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
+            // http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
 
             var identifier = functionDeclaration.Id.Name;
 
