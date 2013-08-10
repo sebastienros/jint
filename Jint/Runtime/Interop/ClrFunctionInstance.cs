@@ -24,7 +24,6 @@ namespace Jint.Runtime.Interop
             // initialize Return flag
             _engine.CurrentExecutionContext.Return = Undefined.Instance;
 
-
             return _func((T) thisObject, arguments);
         }
     }

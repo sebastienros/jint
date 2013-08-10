@@ -44,7 +44,7 @@ namespace Jint.Native.Array
         private static object Push(ArrayInstance thisObject, object[] arguments)
         {
             thisObject.Push(arguments[0]);
-            return Undefined.Instance;
+            return arguments[0];
         }
 
         private static object Pop(ArrayInstance thisObject, object[] arguments)

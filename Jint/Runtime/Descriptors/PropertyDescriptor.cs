@@ -50,7 +50,7 @@
         /// <summary>
         /// Local implementation used to create a singleton representing 
         /// an undefined result of a PropertyDescriptor. This prevents the rest
-        /// of the code to return objects in order to be able to return
+        /// of the code to return 'object' in order to be able to return
         /// Undefined.Instance
         /// </summary>
         internal sealed class UndefinedPropertyDescriptor : PropertyDescriptor
