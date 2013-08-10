@@ -20,7 +20,9 @@ namespace Jint.Native.Array
             this.Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
             this.Prototype.DefineOwnProperty("prototype", new DataDescriptor(this.Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
 
-            // Array method
+            // Array prototype properties
+            this.Prototype.DefineOwnProperty("length", new MethodProperty<ArrayInstance>(_engine, x => x.Length), false);
+
             this.Prototype.DefineOwnProperty("push", new DataDescriptor(new ClrFunctionInstance(engine, (Action<ArrayInstance, object>)Push)), false);
             this.Prototype.DefineOwnProperty("pop", new DataDescriptor(new ClrFunctionInstance(engine, (Func<ArrayInstance, object>)Pop)), false);
         }
@@ -33,8 +35,6 @@ namespace Jint.Native.Array
         public ObjectInstance Construct(object[] arguments)
         {
             var instance = new ArrayInstance(Prototype);
-
-            instance.DefineOwnProperty("length", new MethodProperty<ArrayInstance>(_engine, x => x.Length), false);
 
             foreach (var arg in arguments)
             {
