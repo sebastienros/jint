@@ -67,7 +67,10 @@ namespace Jint.Tests.Runtime
         [InlineData(9, "15 & 9")]
         [InlineData(15, "15 | 9")]
         [InlineData(6, "15 ^ 9")]
-        public void ShouldInterpretBinaryExpression(double expected, string source)
+        [InlineData(36, "9 << 2")]
+        [InlineData(2, "9 >> 2")]
+        [InlineData((uint)4, "19 >>> 2")]
+        public void ShouldInterpretBinaryExpression(object expected, string source)
         {
             var engine = new Engine();
             var result = engine.GetValue(engine.Execute(source));

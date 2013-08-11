@@ -130,7 +130,13 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static int ToInteger(object o)
         {
-            return (int) o;
+            var number = ToNumber(o);
+            if (double.IsNaN(number))
+            {
+                return 0;
+            }
+            
+            return (int) number;
         }
 
         /// <summary>
@@ -140,7 +146,13 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static int ToInt32(object o)
         {
-            return (int)o;
+            var n = ToNumber(o);
+            if (double.IsNaN(n) || double.IsInfinity(n) || n == 0)
+            {
+                return 0;
+            }
+
+            return Convert.ToInt32(n);
         }
 
         /// <summary>
@@ -150,7 +162,13 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static uint ToUint32(object o)
         {
-            return (uint)o;
+            var n = ToNumber(o);
+            if (double.IsNaN(n) || double.IsInfinity(n) || n == 0)
+            {
+                return 0;
+            }
+
+            return Convert.ToUInt32(n);
         }
 
 
@@ -161,7 +179,13 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static ushort ToUint16(object o)
         {
-            return (ushort)o;
+            var n = ToNumber(o);
+            if (double.IsNaN(n) || double.IsInfinity(n) || n == 0)
+            {
+                return 0;
+            }
+
+            return Convert.ToUInt16(n);
         }
 
         /// <summary>
@@ -171,7 +195,50 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static string ToString(object o)
         {
-            return (string)o;
+            if (o == Undefined.Instance)
+            {
+                return "undefined";
+            }
+
+            if (o == Null.Instance)
+            {
+                return "null";
+            }
+
+            var p = o as IPrimitiveType;
+            if (p != null)
+            {
+                o = p;
+            }
+
+            if (o is bool)
+            {
+                return (bool) o ? "true" : "false";
+            }
+
+            if (o is double)
+            {
+                var n = (double) o;
+                if (double.IsNaN(n))
+                {
+                    return "NaN";
+                }    
+
+                if (double.IsInfinity(n))
+                {
+                    return "infinity";
+                }
+
+                return n.ToString();
+            }
+
+            var s = o as string;
+            if (s != null)
+            {
+                return s;
+            }
+
+            return ToString(ToPrimitive(o, TypeCode.String));
         }
 
         public static ObjectInstance ToObject(Engine engine, object value)
