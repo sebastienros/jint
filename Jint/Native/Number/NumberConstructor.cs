@@ -1,4 +1,5 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Native.Array;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -17,6 +18,13 @@ namespace Jint.Native.Number
             // the constructor is the function constructor of an object
             this.Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
             this.Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
+
+            // Number prototype properties
+            this.Prototype.DefineOwnProperty("NaN", new DataDescriptor(double.NaN), false);
+            this.Prototype.DefineOwnProperty("MAX_VALUE", new DataDescriptor(double.MaxValue), false);
+            this.Prototype.DefineOwnProperty("MIN_VALUE", new DataDescriptor(double.MinValue), false);
+            this.Prototype.DefineOwnProperty("POSITIVE_INFINITY", new DataDescriptor(double.PositiveInfinity), false);
+            this.Prototype.DefineOwnProperty("NEGATIVE_INFINITY", new DataDescriptor(double.NegativeInfinity), false);
 
         }
 
