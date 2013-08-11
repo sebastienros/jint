@@ -51,8 +51,8 @@ namespace Jint.Runtime
                 if (!varAlreadyDeclared)
                 {
                     env.CreateMutableBinding(declaration.Id.Name, true);
-                    env.SetMutableBinding(declaration.Id.Name, value, false);
                 }
+                env.SetMutableBinding(declaration.Id.Name, value, false);
             }
 
             return result;

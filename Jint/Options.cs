@@ -6,6 +6,8 @@ namespace Jint
     public class Options
     {
         private bool _discardGlobal;
+        private bool _strict;
+
         private readonly Dictionary<string, Delegate> _delegates = new Dictionary<string, Delegate>();
 
         /// <summary>
@@ -15,6 +17,12 @@ namespace Jint
         public Options DiscardGlobal(bool discard = true)
         {
             _discardGlobal = discard;
+            return this;
+        }
+
+        public Options Strict(bool strict = true)
+        {
+            _strict = strict;
             return this;
         }
 
@@ -33,6 +41,11 @@ namespace Jint
         internal IDictionary<string, Delegate> GetDelegates()
         {
             return _delegates;
+        }
+
+        internal bool IsStrict()
+        {
+            return _strict;
         }
     }
 }

@@ -42,7 +42,49 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static bool ToBoolean(object o)
         {
-            return (bool) o;
+            if (o == Undefined.Instance || o == Null.Instance)
+            {
+                return false;
+            }
+
+            var p = o as IPrimitiveType;
+            if (p != null)
+            {
+                o = p.PrimitiveValue;
+            }
+
+            if (o is bool)
+            {
+                return (bool) o;
+            }
+            
+            if (o is double)
+            {
+                var n = (double) o;
+                if (n == 0 || double.IsNaN(n))
+                {
+                    return false;
+                }
+                else
+                {
+                    return true;
+                }
+            }
+
+            var s = o as string;
+            if (s != null)
+            {
+                if (String.IsNullOrEmpty(s))
+                {
+                    return false;
+                }
+                else
+                {
+                    return true;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>

@@ -37,7 +37,17 @@ namespace Jint.Tests
                 );
             if (negative)
             {
-                Assert.Throws<Exception>(() => engine.Execute(code));
+                try
+                {
+                    engine.Execute(code);
+                    Assert.NotNull(_lastError);
+                    Assert.False(true);
+                }
+                catch
+                {
+                    
+                }
+                
             }
             else
             {

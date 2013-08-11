@@ -1,11 +1,10 @@
-﻿using System;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Native.Math
 {
-    public sealed class MathInstance : ObjectInstance, IPrimitiveType
+    public sealed class MathInstance : ObjectInstance
     {
         public MathInstance(ObjectInstance prototype)
             : base(prototype)
@@ -19,18 +18,6 @@ namespace Jint.Native.Math
                 return "Math";
             }
         }
-
-        TypeCode IPrimitiveType.TypeCode
-        {
-            get { return TypeCode.DateTime; }
-        }
-
-        object IPrimitiveType.PrimitiveValue
-        {
-            get { return PrimitiveValue; }
-        }
-
-        public DateTime PrimitiveValue { get; set; }
 
         public static MathInstance CreateMathObject(Engine engine, ObjectInstance prototype)
         {

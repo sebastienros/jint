@@ -49,6 +49,7 @@
     <Compile Include="Native\Function\FunctionConstructor.cs" />
     <Compile Include="Native\Function\FunctionInstance.cs" />
     <Compile Include="Native\Function\FunctionShim.cs" />
+    <Compile Include="Native\Global\GlobalObject.cs" />
     <Compile Include="Native\ICallable.cs" />
     <Compile Include="Native\Function\ScriptFunctionInstance.cs" />
     <Compile Include="Native\IConstructor.cs" />

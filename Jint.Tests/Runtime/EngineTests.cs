@@ -64,6 +64,9 @@ namespace Jint.Tests.Runtime
         [InlineData(-2d, "1 - 3")]
         [InlineData(3d, "1 * 3")]
         [InlineData(2d, "6 / 3")]
+        [InlineData(9, "15 & 9")]
+        [InlineData(15, "15 | 9")]
+        [InlineData(6, "15 ^ 9")]
         public void ShouldInterpretBinaryExpression(double expected, string source)
         {
             var engine = new Engine();
@@ -259,21 +262,36 @@ namespace Jint.Tests.Runtime
         public void VoidShouldReturnUndefined()
         {
             RunTest(@"
-                var o = void 0;
-                assert(o == undefined);
+                assert(void 0 === undefined);
+                var x = '1';
+                assert(void x === undefined);
+                x = 'x'; 
+                assert (isNaN(void x) === true);
+                x = new String('-1');
+                assert (void x === undefined);
             ");
         }
 
+        [Fact]
+        public void TypeofObjectShouldReturnString()
+        {
+            RunTest(@"
+                assert(typeof x === 'undefined');
+                assert(typeof 0 === 'number');
+                var x = 0;
+                assert (typeof x === 'number');
+                var x = new Object();
+                assert (typeof x === 'object');
+            ");
+        }
 
         [Fact]
         public void Scratch()
         {
             RunTest(@"
-                var a = 42;
-                a == 42;
-            ");
+                ");
         }
-        
+
         /*
                         [Fact]
                         public void ()
@@ -283,5 +301,5 @@ namespace Jint.Tests.Runtime
                         }
                 */
 
-    }
+        }
 }

@@ -87,6 +87,16 @@ namespace Jint.Runtime
                             break;
                     }
                     break;
+
+                case "<<=":
+                    switch (type)
+                    {
+                        case TypeCode.Double:
+                            value = TypeConverter.ToInt32(_engine.GetValue(r)) << TypeConverter.ToInt32(right);
+                            break;
+                    }
+                    break;
+
             }
 
             _engine.SetValue(r, value);
@@ -180,10 +190,28 @@ namespace Jint.Runtime
                     break;
                 case "===":
                     return StriclyEqual(left, right);
-                
+
                 case "!==":
                     return !StriclyEqual(left, right);
-                
+
+                case "&":
+                    return TypeConverter.ToInt32(left) & TypeConverter.ToInt32(right);
+
+                case "|":
+                    return TypeConverter.ToInt32(left) | TypeConverter.ToInt32(right);
+
+                case "^":
+                    return TypeConverter.ToInt32(left) ^ TypeConverter.ToInt32(right);
+
+                case "<<":
+                    return TypeConverter.ToInt32(left) << (int)(TypeConverter.ToUint32(right) & 0x1F);
+
+                case ">>":
+                    return TypeConverter.ToInt32(left) >> (int)(TypeConverter.ToUint32(right) & 0x1F);
+
+                case ">>>":
+                    return (uint)TypeConverter.ToInt32(left) >> (int)(TypeConverter.ToUint32(right) & 0x1F);
+
                 case "instanceof":
                     var f = (FunctionInstance)right;
                     value = f.HasInstance(left);
@@ -244,7 +272,7 @@ namespace Jint.Runtime
                     return Null.Instance;
             }
 
-            return _engine.CurrentExecutionContext.LexicalEnvironment.GetIdentifierReference(identifier.Name, false);
+            return _engine.CurrentExecutionContext.LexicalEnvironment.GetIdentifierReference(identifier.Name, _engine.Options.IsStrict());
         }
 
         public object EvaluateLiteral(Literal literal)
@@ -479,7 +507,7 @@ namespace Jint.Runtime
                     {
                         if (r.IsUnresolvableReference())
                         {
-                            return Undefined.Instance;
+                            return "undefined";
                         }
                     }
                     var v = _engine.GetValue(value);

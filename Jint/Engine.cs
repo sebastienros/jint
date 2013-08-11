@@ -5,6 +5,7 @@ using Jint.Native.Boolean;
 using Jint.Native.Date;
 using Jint.Native.Errors;
 using Jint.Native.Function;
+using Jint.Native.Global;
 using Jint.Native.Math;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -38,7 +39,7 @@ namespace Jint
             RootFunction = new FunctionShim(this, RootObject, null, null);
 
             Object = new ObjectConstructor(this);
-            Global = new ObjectInstance(Object);
+            Global = GlobalObject.CreateGlobalObject(this, Object);
             Function = new FunctionConstructor(this);
             Array = new ArrayConstructor(this);
             String = new StringConstructor(this);
