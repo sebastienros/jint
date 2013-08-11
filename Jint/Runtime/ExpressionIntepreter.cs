@@ -264,12 +264,9 @@ namespace Jint.Runtime
 
         public object EvaluateIdentifier(Identifier identifier)
         {
-            switch (identifier.Name)
+            if (identifier.Name == "undefined")
             {
-                case "undefined":
-                    return Undefined.Instance;
-                case "null":
-                    return Null.Instance;
+                return Undefined.Instance;
             }
 
             return _engine.CurrentExecutionContext.LexicalEnvironment.GetIdentifierReference(identifier.Name, _engine.Options.IsStrict());
@@ -277,7 +274,7 @@ namespace Jint.Runtime
 
         public object EvaluateLiteral(Literal literal)
         {
-            return literal.Value;
+            return literal.Value ?? Null.Instance;
         }
 
         public object EvaluateObjectExpression(ObjectExpression objectExpression)
