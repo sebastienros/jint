@@ -179,8 +179,11 @@ namespace Jint.Runtime
                     }
                     break;
                 case "===":
-                    value = left.GetType() == right.GetType() && left == right;
-                    break;
+                    return StriclyEqual(left, right);
+                
+                case "!==":
+                    return !StriclyEqual(left, right);
+                
                 case "instanceof":
                     var f = (FunctionInstance)right;
                     value = f.HasInstance(left);
@@ -190,6 +193,45 @@ namespace Jint.Runtime
             }
 
             return value;
+        }
+
+        private bool StriclyEqual(object x, object y)
+        {
+            var typea = TypeConverter.GetType(x);
+            var typeb = TypeConverter.GetType(y);
+
+            if (typea != typeb)
+            {
+                return false;
+            }    
+
+            if (typea == TypeCode.Empty)
+            {
+                return true;
+            }
+            if (typea == TypeCode.Double)
+            {
+                var nx = TypeConverter.ToNumber(x);
+                var ny = TypeConverter.ToNumber(y);
+                if (double.IsNaN(nx) || double.IsNaN(ny))
+                {
+                    return false;
+                }
+                if (nx == ny)
+                {
+                    return true;
+                }
+                return false;
+            }
+            if (typea == TypeCode.String)
+            {
+                return TypeConverter.ToString(x) == TypeConverter.ToString(y);
+            }
+            if (typea == TypeCode.Boolean)
+            {
+                return TypeConverter.ToBoolean(x) == TypeConverter.ToBoolean(y);
+            }
+            return x == y;
         }
 
         public object EvaluateIdentifier(Identifier identifier)
@@ -351,10 +393,7 @@ namespace Jint.Runtime
         public object EvaluateUnaryExpression(UnaryExpression unaryExpression)
         {
             var value = _engine.EvaluateExpression(unaryExpression.Argument);
-            object result;
             Reference r;
-            int i;
-            double n;
 
             switch (unaryExpression.Operator)
             {
@@ -394,12 +433,11 @@ namespace Jint.Runtime
                     return TypeConverter.ToNumber(_engine.GetValue(value));
                     
                 case "-":
-                    n = TypeConverter.ToNumber(value);
+                    var n = TypeConverter.ToNumber(value);
                     return double.IsNaN(n) ? double.NaN : n*-1;
                 
                 case "~":
-                    i = TypeConverter.ToInt32(value);
-                    return ~i;
+                    return ~TypeConverter.ToInt32(value);
                 
                 case "!":
                     return !TypeConverter.ToBoolean(value);
@@ -439,11 +477,10 @@ namespace Jint.Runtime
                     r = value as Reference;
                     if (r != null)
                     {
-                        
-                    }
-                    if (r.IsUnresolvableReference())
-                    {
-                        return Undefined.Instance;
+                        if (r.IsUnresolvableReference())
+                        {
+                            return Undefined.Instance;
+                        }
                     }
                     var v = _engine.GetValue(value);
                     if (v == Undefined.Instance)

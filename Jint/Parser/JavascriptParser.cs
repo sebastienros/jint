@@ -2423,6 +2423,7 @@ namespace Jint.Parser
                 {
                     ThrowErrorTolerant(Token.Empty, Messages.StrictDelete);
                 }
+                expr = unaryExpr;
             }
             else
             {

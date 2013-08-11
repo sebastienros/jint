@@ -7,7 +7,8 @@ namespace Jint.Tests
 {
     public class EcmaTest
     {
-        protected Action<string> Error = s => { throw new Exception(s); };
+        private static string _lastError;
+        protected Action<string> Error = s => { _lastError = s; };
         protected string basePath;
 
         public EcmaTest()
@@ -21,6 +22,8 @@ namespace Jint.Tests
 
         protected void RunTest(string sourceFilename, bool negative)
         {
+            _lastError = null;
+
             var fullName = Path.Combine(basePath, sourceFilename);
             if (!File.Exists(fullName))
             {
@@ -39,6 +42,7 @@ namespace Jint.Tests
             else
             {
                 Assert.DoesNotThrow(() => engine.Execute(code));
+                Assert.Null(_lastError);
             }
         }
     }

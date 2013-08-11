@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+using Jint.Native;
 using Xunit;
 using Xunit.Extensions;
 
@@ -253,6 +254,16 @@ namespace Jint.Tests.Runtime
                 assert(o == 1);
             ");
         }
+
+        [Fact]
+        public void VoidShouldReturnUndefined()
+        {
+            RunTest(@"
+                var o = void 0;
+                assert(o == undefined);
+            ");
+        }
+
 
         [Fact]
         public void Scratch()
