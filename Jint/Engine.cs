@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
+using Jint.Native.Date;
 using Jint.Native.Errors;
 using Jint.Native.Function;
+using Jint.Native.Math;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
@@ -43,6 +44,8 @@ namespace Jint
             String = new StringConstructor(this);
             Number = new NumberConstructor(this);
             Boolean = new BooleanConstructor(this);
+            Date = new DateConstructor(this);
+            Math = MathInstance.CreateMathObject(this, RootObject);
 
             Global.Set("Object", Object);
             Global.Set("Function", Function);
@@ -50,6 +53,8 @@ namespace Jint
             Global.Set("String", String);
             Global.Set("Number", Number);
             Global.Set("Boolean", Boolean);
+            Global.Set("Date", Date);
+            Global.Set("Math", Math);
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             _globalEnvironment = LexicalEnvironment.NewObjectEnvironment(Global, null);
@@ -86,6 +91,8 @@ namespace Jint
         public StringConstructor String { get; private set; }
         public BooleanConstructor Boolean { get; private set; }
         public NumberConstructor Number { get; private set; }
+        public DateConstructor Date { get; private set; }
+        public MathInstance Math { get; private set; }
 
         public ExecutionContext CurrentExecutionContext { get { return _executionContexts.Peek(); } }
 
@@ -239,6 +246,9 @@ namespace Jint
 
                 case SyntaxNodes.UpdateExpression:
                     return _expressions.EvaluateUpdateExpression(expression.As<UpdateExpression>());
+
+                case SyntaxNodes.UnaryExpression:
+                    return _expressions.EvaluateUnaryExpression(expression.As<UnaryExpression>());
 
                 default:
                     throw new ArgumentOutOfRangeException();

@@ -134,7 +134,7 @@ namespace Jint.Runtime
                     identifier, 
                     functionDeclaration.Parameters.ToArray(),
                     _engine.Function.Prototype,
-                    _engine.Object.Construct(new dynamic[0]),
+                    _engine.Object.Construct(Arguments.Empty),
                     LexicalEnvironment.NewDeclarativeEnvironment(_engine.CurrentExecutionContext.LexicalEnvironment)
                 )
             );

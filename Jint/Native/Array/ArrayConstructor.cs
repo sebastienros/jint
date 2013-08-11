@@ -20,8 +20,9 @@ namespace Jint.Native.Array
             // Array prototype properties
             this.Prototype.DefineOwnProperty("length", new ClrAccessDescriptor<ArrayInstance>(_engine, x => x.Length), false);
 
-            this.Prototype.DefineOwnProperty("push", new ClrDataDescriptor<ArrayInstance>(engine, Push), false);
-            this.Prototype.DefineOwnProperty("pop", new ClrDataDescriptor<ArrayInstance>(engine, Pop), false);
+            // Array prototype functions
+            this.Prototype.DefineOwnProperty("push", new ClrDataDescriptor<ArrayInstance, object>(engine, Push), false);
+            this.Prototype.DefineOwnProperty("pop", new ClrDataDescriptor<ArrayInstance, object>(engine, Pop), false);
         }
 
         public override object Call(object thisObject, object[] arguments)

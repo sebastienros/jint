@@ -4,7 +4,7 @@ using Jint.Runtime.Environments;
 
 namespace Jint.Native.Function
 {
-    public abstract class FunctionInstance : ObjectInstance
+    public abstract class FunctionInstance : ObjectInstance, ICallable
     {
         private readonly Engine _engine;
 
@@ -18,8 +18,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// Executed when a function object is used as a function
         /// </summary>
-        /// <param name="interpreter"></param>
-        /// <param name="state"></param>
+        /// <param name="thisObject"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
         public abstract object Call(object thisObject, object[] arguments);

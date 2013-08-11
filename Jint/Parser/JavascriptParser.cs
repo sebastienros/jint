@@ -1683,7 +1683,7 @@ namespace Jint.Parser
                 };
         }
 
-        public UnaryExpression CreateUnaryExpression(string op, SyntaxNode argument)
+        public UnaryExpression CreateUnaryExpression(string op, Expression argument)
         {
             if (op == "++" || op == "--")
             {

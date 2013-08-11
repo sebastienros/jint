@@ -13,9 +13,26 @@ namespace Jint.Runtime
         /// <param name="input"></param>
         /// <param name="preferredType"></param>
         /// <returns></returns>
-        public static object ToPrimitive(object input, TypeCode preferredType)
+        public static object ToPrimitive(object input, TypeCode preferredType = TypeCode.Empty)
         {
-            return Undefined.Instance;
+            if (input == Null.Instance || input == Undefined.Instance)
+            {
+                return input;
+            }
+
+            if (input is IPrimitiveType)
+            {
+                return input;
+            }
+
+            var o = input as ObjectInstance;
+
+            if (o == null)
+            {
+                throw new ArgumentException();
+            }
+
+            return o.DefaultValue(preferredType);
         }
 
         /// <summary>

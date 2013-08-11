@@ -1,5 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Jint.Native.Errors;
+using Jint.Native.String;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Object
@@ -276,10 +279,64 @@ namespace Jint.Native.Object
         /// Hint is a String. Returns a default value for the 
         /// object.
         /// </summary>
-        /// <param name="hintError"></param>
+        /// <param name="hint"></param>
         /// <returns></returns>
-        public object DefaultValue(string hintError)
+        public object DefaultValue(TypeCode hint)
         {
+            if ((hint == TypeCode.String) || (hint == TypeCode.Empty && this is StringInstance))
+            {
+                var toString = this.Get("toString");
+                var callable = toString as ICallable;
+                if (callable != null)
+                {
+                    var str = callable.Call(this, Arguments.Empty);
+                    if (str is IPrimitiveType)
+                    {
+                        return str;
+                    }
+                }
+
+                var valueOf = this.Get("valueOf");
+                callable = valueOf as ICallable;
+                if (callable != null)
+                {
+                    var val = callable.Call(this, Arguments.Empty);
+                    if (val is IPrimitiveType)
+                    {
+                        return val;
+                    }
+                }
+
+                throw new TypeError();
+            }
+
+            if ((hint == TypeCode.Double) || (hint == TypeCode.Empty))
+            {
+                var valueOf = this.Get("valueOf");
+                var callable = valueOf as ICallable;
+                if (callable != null)
+                {
+                    var val = callable.Call(this, Arguments.Empty);
+                    if (val is IPrimitiveType)
+                    {
+                        return val;
+                    }
+                }
+
+                var toString = this.Get("toString");
+                callable = toString as ICallable;
+                if (callable != null)
+                {
+                    var str = callable.Call(this, Arguments.Empty);
+                    if (str is IPrimitiveType)
+                    {
+                        return str;
+                    }
+                }
+
+                throw new TypeError();
+            }
+
             return ToString();
         }
 

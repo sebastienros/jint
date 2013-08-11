@@ -7,12 +7,12 @@ namespace Jint.Runtime.Interop
     /// <summary>
     /// Wraps a Clr method into a FunctionInstance
     /// </summary>
-    public sealed class ClrFunctionInstance<T> : FunctionInstance
+    public sealed class ClrFunctionInstance<TObject, TResult> : FunctionInstance
     {
         private readonly Engine _engine;
-        private readonly Func<T, object[], object> _func;
+        private readonly Func<TObject, object[], TResult> _func;
 
-        public ClrFunctionInstance(Engine engine, Func<T, object[], object> func)
+        public ClrFunctionInstance(Engine engine, Func<TObject, object[], TResult> func)
             : base(engine, null, null, null)
         {
             _engine = engine;
@@ -24,7 +24,7 @@ namespace Jint.Runtime.Interop
             // initialize Return flag
             _engine.CurrentExecutionContext.Return = Undefined.Instance;
 
-            return _func((T) thisObject, arguments);
+            return _func((TObject) thisObject, arguments);
         }
     }
 }

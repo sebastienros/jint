@@ -41,14 +41,19 @@
     <Compile Include="Native\Array\ArrayInstance.cs" />
     <Compile Include="Native\Boolean\BooleanConstructor.cs" />
     <Compile Include="Native\Boolean\BooleanInstance.cs" />
+    <Compile Include="Native\Date\DateConstructor.cs" />
+    <Compile Include="Native\Date\DateInstance.cs" />
+    <Compile Include="Native\Errors\SyntaxError.cs" />
     <Compile Include="Native\Errors\ReferenceError.cs" />
     <Compile Include="Native\Errors\TypeError.cs" />
     <Compile Include="Native\Function\FunctionConstructor.cs" />
     <Compile Include="Native\Function\FunctionInstance.cs" />
     <Compile Include="Native\Function\FunctionShim.cs" />
+    <Compile Include="Native\ICallable.cs" />
     <Compile Include="Native\Function\ScriptFunctionInstance.cs" />
     <Compile Include="Native\IConstructor.cs" />
     <Compile Include="Native\IPrimitiveType.cs" />
+    <Compile Include="Native\Math\MathInstance.cs" />
     <Compile Include="Native\Null.cs" />
     <Compile Include="Native\Number\NumberConstructor.cs" />
     <Compile Include="Native\Number\NumberInstance.cs" />
@@ -113,6 +118,7 @@
     <Compile Include="Parser\State.cs" />
     <Compile Include="Parser\Token.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Runtime\Arguments.cs" />
     <Compile Include="Runtime\Descriptors\AccessorDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\DataDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />

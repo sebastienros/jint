@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Jint.Native;
+using Jint.Native.Errors;
 using Jint.Native.Function;
 using Jint.Parser.Ast;
 using Jint.Runtime.Descriptors;
@@ -211,7 +212,7 @@ namespace Jint.Runtime
 
         public object EvaluateObjectExpression(ObjectExpression objectExpression)
         {
-            var value = _engine.Object.Construct(new dynamic[0]);
+            var value = _engine.Object.Construct(Arguments.Empty);
 
             foreach (var property in objectExpression.Properties)
             {
@@ -255,7 +256,7 @@ namespace Jint.Runtime
                 identifier, 
                 functionExpression.Parameters.ToArray(), 
                 _engine.Function.Prototype,
-                _engine.Object.Construct(new dynamic[0]),
+                _engine.Object.Construct(Arguments.Empty),
                 LexicalEnvironment.NewDeclarativeEnvironment(_engine.CurrentExecutionContext.LexicalEnvironment)
                 );
         }
@@ -345,6 +346,129 @@ namespace Jint.Runtime
             var instance = _engine.Array.Construct(arguments);
 
             return instance;
+        }
+
+        public object EvaluateUnaryExpression(UnaryExpression unaryExpression)
+        {
+            var value = _engine.EvaluateExpression(unaryExpression.Argument);
+            object result;
+            Reference r;
+            int i;
+            double n;
+
+            switch (unaryExpression.Operator)
+            {
+                case "++" :
+                    r = value as Reference;
+                    if(r != null 
+                        && r.IsStrict() 
+                        && (r.GetBase() is EnvironmentRecord )
+                        && (Array.IndexOf(new []{"eval", "arguments"}, r.GetReferencedName()) != -1) )
+                    {
+                        throw new SyntaxError();
+                    }
+
+                    var oldValue = _engine.GetValue(value);
+                    var newValue = TypeConverter.ToNumber(value) + 1;
+                    _engine.SetValue(r, newValue);
+
+                    return unaryExpression.Prefix ? newValue : oldValue;
+                    
+                case "--":
+                    r = value as Reference;
+                    if(r != null 
+                        && r.IsStrict() 
+                        && (r.GetBase() is EnvironmentRecord )
+                        && (Array.IndexOf(new []{"eval", "arguments"}, r.GetReferencedName()) != -1) )
+                    {
+                        throw new SyntaxError();
+                    }
+
+                    oldValue = _engine.GetValue(value);
+                    newValue = TypeConverter.ToNumber(value) - 1;
+                    _engine.SetValue(r, newValue);
+
+                    return unaryExpression.Prefix ? newValue : oldValue;
+                    
+                case "+":
+                    return TypeConverter.ToNumber(_engine.GetValue(value));
+                    
+                case "-":
+                    n = TypeConverter.ToNumber(value);
+                    return double.IsNaN(n) ? double.NaN : n*-1;
+                
+                case "~":
+                    i = TypeConverter.ToInt32(value);
+                    return ~i;
+                
+                case "!":
+                    return !TypeConverter.ToBoolean(value);
+                
+                case "delete":
+                    r = value as Reference;
+                    if (r == null)
+                    {
+                        return true;
+                    }
+                    if (r.IsUnresolvableReference())
+                    {
+                        if (r.IsStrict())
+                        {
+                            throw new SyntaxError();
+                        }
+
+                        return true;
+                    }
+                    if (r.IsPropertyReference())
+                    {
+                        var o = TypeConverter.ToObject(_engine, r.GetBase());
+                        o.Delete(r.GetReferencedName(), r.IsStrict());
+                    }
+                    if (r.IsStrict())
+                    {
+                        throw new SyntaxError();
+                    }
+                    var bindings = r.GetBase() as EnvironmentRecord;
+                    return bindings.DeleteBinding(r.GetReferencedName());
+                
+                case "void":
+                    _engine.GetValue(value);
+                    return Undefined.Instance;
+
+                case "typeof":
+                    r = value as Reference;
+                    if (r != null)
+                    {
+                        
+                    }
+                    if (r.IsUnresolvableReference())
+                    {
+                        return Undefined.Instance;
+                    }
+                    var v = _engine.GetValue(value);
+                    if (v == Undefined.Instance)
+                    {
+                        return "undefined";
+                    }
+                    if (v == Null.Instance)
+                    {
+                        return "object";
+                    }
+                    switch (TypeConverter.GetType(v))
+                    {
+                        case TypeCode.Boolean: return "boolean";
+                        case TypeCode.Double: return "number";
+                        case TypeCode.String: return "string";
+                    }
+                    if (v is ICallable)
+                    {
+                        return "function";
+                    }
+                    return "object";
+
+                default:
+                    throw new ArgumentException();
+            }
         }
     }
 }

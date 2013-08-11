@@ -3,10 +3,10 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class ClrDataDescriptor<T> : DataDescriptor
+    public sealed class ClrDataDescriptor<TObject, TResult> : DataDescriptor
     {
-        public ClrDataDescriptor(Engine engine, Func<T, object[], object> func) 
-            : base(new ClrFunctionInstance<T>(engine, func))
+        public ClrDataDescriptor(Engine engine, Func<TObject, object[], TResult> func)
+            : base(new ClrFunctionInstance<TObject, TResult>(engine, func))
         {
         }
 

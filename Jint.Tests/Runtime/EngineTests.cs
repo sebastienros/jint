@@ -236,6 +236,25 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void DateConstructor()
+        {
+            RunTest(@"
+                var o = new Date();
+                assert(o.constructor == Date);
+                assert(o.hasOwnProperty('constructor') == false);
+            ");
+        }
+
+        [Fact]
+        public void MathObjectIsDefined()
+        {
+            RunTest(@"
+                var o = Math.abs(-1)
+                assert(o == 1);
+            ");
+        }
+
+        [Fact]
         public void Scratch()
         {
             RunTest(@"
