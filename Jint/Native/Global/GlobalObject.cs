@@ -1,5 +1,6 @@
 ﻿using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Native.Global
@@ -14,6 +15,13 @@ namespace Jint.Native.Global
         public static GlobalObject CreateGlobalObject(Engine engine, ObjectInstance prototype)
         {
             var global = new GlobalObject(prototype);
+            
+            // Global object properties
+            global.DefineOwnProperty("NaN", new DataDescriptor(double.NaN), false);
+            global.DefineOwnProperty("Infinity", new DataDescriptor(double.PositiveInfinity), false);
+            global.DefineOwnProperty("undefined", new DataDescriptor(Undefined.Instance), false);
+
+            // Global object functions
             global.DefineOwnProperty("isNaN", new ClrDataDescriptor<object, bool>(engine, IsNaN), false);
 
             return global;

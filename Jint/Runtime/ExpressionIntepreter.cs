@@ -264,11 +264,6 @@ namespace Jint.Runtime
 
         public object EvaluateIdentifier(Identifier identifier)
         {
-            if (identifier.Name == "undefined")
-            {
-                return Undefined.Instance;
-            }
-
             return _engine.CurrentExecutionContext.LexicalEnvironment.GetIdentifierReference(identifier.Name, _engine.Options.IsStrict());
         }
 
@@ -332,20 +327,20 @@ namespace Jint.Runtime
         {
             /// todo: read the spec as this is made up
             
-            var arguments = callExpression.Arguments.Select(EvaluateExpression);
+            var arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
             var result = EvaluateExpression(callExpression.Callee);
             var r = result as Reference;
             if (r != null)
             {
                 // x.hasOwnProperty
                 var callee = (FunctionInstance)_engine.GetValue(r);
-                return callee.Call(r.GetBase(), arguments.ToArray());
+                return callee.Call(r.GetBase(), arguments);
             }
             else
             {
                 // assert(...)
                 var callee = (FunctionInstance)_engine.GetValue(result);
-                return callee.Call(_engine.CurrentExecutionContext.ThisBinding, arguments.ToArray());
+                return callee.Call(_engine.CurrentExecutionContext.ThisBinding, arguments);
             }
 
         }
@@ -458,14 +453,14 @@ namespace Jint.Runtime
                     return TypeConverter.ToNumber(_engine.GetValue(value));
                     
                 case "-":
-                    var n = TypeConverter.ToNumber(value);
+                    var n = TypeConverter.ToNumber(_engine.GetValue(value));
                     return double.IsNaN(n) ? double.NaN : n*-1;
                 
                 case "~":
-                    return ~TypeConverter.ToInt32(value);
+                    return ~TypeConverter.ToInt32(_engine.GetValue(value));
                 
                 case "!":
-                    return !TypeConverter.ToBoolean(value);
+                    return !TypeConverter.ToBoolean(_engine.GetValue(value));
                 
                 case "delete":
                     r = value as Reference;

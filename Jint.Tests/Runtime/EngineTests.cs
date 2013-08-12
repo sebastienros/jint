@@ -289,6 +289,24 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void MathAbsReturnsAbsolute()
+        {
+            RunTest(@"
+                assert(1 == Math.abs(-1));
+            ");
+        }
+
+        [Fact]
+        public void NaNIsNan()
+        {
+            RunTest(@"
+                var x = NaN; 
+                assert(isNaN(NaN));
+                assert(isNaN(Math.abs(x)));
+            ");
+        }
+
+        [Fact]
         public void Scratch()
         {
             RunTest(@"

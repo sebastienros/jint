@@ -43,7 +43,7 @@ namespace Jint.Runtime
 
                 if (declaration.Init != null)
                 {
-                    result = value = _engine.EvaluateExpression(declaration.Init);
+                    result = value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init));
                 }
 
                 var dn = declaration.Id.Name;
