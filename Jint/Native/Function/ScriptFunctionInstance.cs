@@ -59,9 +59,8 @@ namespace Jint.Native.Function
                 env.SetMutableBinding(parameter.Name, i < arguments.Length ? arguments[i++] : Undefined.Instance, false);
             }
 
-            _engine.ExecuteStatement(_body);
-            var result = _engine.CurrentExecutionContext.Return;
-
+            var result = _engine.ExecuteStatement(_body);
+            
             _engine.LeaveExecutionContext();
 
             return result;
@@ -71,7 +70,7 @@ namespace Jint.Native.Function
         {
             // todo: http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.2
 
-            var instance = new FunctionShim(_engine, this.Prototype, null, null);
+            var instance = new FunctionShim(_engine, Prototype, null, null);
             return instance;
         }
     }

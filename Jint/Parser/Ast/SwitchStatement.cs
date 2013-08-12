@@ -4,7 +4,7 @@ namespace Jint.Parser.Ast
 {
     public class SwitchStatement : Statement
     {
-        public SyntaxNode Discriminant;
+        public Expression Discriminant;
         public IEnumerable<SwitchCase> Cases;
     }
 }

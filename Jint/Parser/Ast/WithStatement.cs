@@ -4,7 +4,7 @@ namespace Jint
 {
     public class WithStatement : Statement
     {
-        public object obj;
-        public Statement body;
+        public Expression Object;
+        public Statement Body;
     }
 }

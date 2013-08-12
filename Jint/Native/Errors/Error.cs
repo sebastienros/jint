@@ -2,7 +2,7 @@
 
 namespace Jint.Native.Errors
 {
-    public class SyntaxError : Error
+    public class Error : Exception
     {
     }
 }

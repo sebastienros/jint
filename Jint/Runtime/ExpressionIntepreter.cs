@@ -223,7 +223,7 @@ namespace Jint.Runtime
             return value;
         }
 
-        private bool StriclyEqual(object x, object y)
+        public static bool StriclyEqual(object x, object y)
         {
             var typea = TypeConverter.GetType(x);
             var typeb = TypeConverter.GetType(y);
@@ -264,7 +264,7 @@ namespace Jint.Runtime
 
         public object EvaluateIdentifier(Identifier identifier)
         {
-            return _engine.CurrentExecutionContext.LexicalEnvironment.GetIdentifierReference(identifier.Name, _engine.Options.IsStrict());
+            return _engine.ExecutionContext.LexicalEnvironment.GetIdentifierReference(identifier.Name, _engine.Options.IsStrict());
         }
 
         public object EvaluateLiteral(Literal literal)
@@ -319,7 +319,7 @@ namespace Jint.Runtime
                 functionExpression.Parameters.ToArray(), 
                 _engine.Function.Prototype,
                 _engine.Object.Construct(Arguments.Empty),
-                LexicalEnvironment.NewDeclarativeEnvironment(_engine.CurrentExecutionContext.LexicalEnvironment)
+                LexicalEnvironment.NewDeclarativeEnvironment(_engine.ExecutionContext.LexicalEnvironment)
                 );
         }
 
@@ -340,7 +340,7 @@ namespace Jint.Runtime
             {
                 // assert(...)
                 var callee = (FunctionInstance)_engine.GetValue(result);
-                return callee.Call(_engine.CurrentExecutionContext.ThisBinding, arguments);
+                return callee.Call(_engine.ExecutionContext.ThisBinding, arguments);
             }
 
         }
@@ -381,7 +381,7 @@ namespace Jint.Runtime
 
         public object EvaluateThisExpression(ThisExpression thisExpression)
         {
-            return _engine.CurrentExecutionContext.ThisBinding;
+            return _engine.ExecutionContext.ThisBinding;
         }
 
         public object EvaluateNewExpression(NewExpression newExpression)

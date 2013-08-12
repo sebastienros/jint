@@ -21,10 +21,8 @@ namespace Jint.Runtime.Interop
 
         public override object Call(object thisObject, object[] arguments)
         {
-            // initialize Return flag
-            _engine.CurrentExecutionContext.Return = Undefined.Instance;
-
-            return _func((TObject) thisObject, arguments);
+            var result = _func((TObject) thisObject, arguments);
+            return new Completion(Completion.Normal, result, null);
         }
     }
 }

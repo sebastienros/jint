@@ -1392,7 +1392,7 @@ namespace Jint.Parser
                 };
         }
 
-        public CatchClause CreateCatchClause(SyntaxNode param, BlockStatement body)
+        public CatchClause CreateCatchClause(Identifier param, BlockStatement body)
         {
             return new CatchClause
                 {
@@ -1470,7 +1470,7 @@ namespace Jint.Parser
                 };
         }
 
-        public ForInStatement CreateForInStatement(SyntaxNode left, SyntaxNode right, Statement body)
+        public ForInStatement CreateForInStatement(SyntaxNode left, Expression right, Statement body)
         {
             return new ForInStatement
                 {
@@ -1643,7 +1643,7 @@ namespace Jint.Parser
                 };
         }
 
-        public SwitchStatement CreateSwitchStatement(SyntaxNode discriminant, IEnumerable<SwitchCase> cases)
+        public SwitchStatement CreateSwitchStatement(Expression discriminant, IEnumerable<SwitchCase> cases)
         {
             return new SwitchStatement
                 {
@@ -1661,7 +1661,7 @@ namespace Jint.Parser
                 };
         }
 
-        public ThrowStatement CreateThrowStatement(SyntaxNode argument)
+        public ThrowStatement CreateThrowStatement(Expression argument)
         {
             return new ThrowStatement
                 {
@@ -1671,7 +1671,7 @@ namespace Jint.Parser
         }
 
         public TryStatement CreateTryStatement(Statement block, IEnumerable<Statement> guardedHandlers,
-                                               IEnumerable<Statement> handlers, Statement finalizer)
+                                               IEnumerable<CatchClause> handlers, Statement finalizer)
         {
             return new TryStatement
                 {
@@ -1734,13 +1734,13 @@ namespace Jint.Parser
                 };
         }
 
-        public WithStatement CreateWithStatement(object obj, Statement body)
+        public WithStatement CreateWithStatement(Expression obj, Statement body)
         {
             return new WithStatement
                 {
                     Type = SyntaxNodes.WithStatement,
-                    obj = obj,
-                    body = body
+                    Object = obj,
+                    Body = body
                 };
         }
 
@@ -1764,12 +1764,12 @@ namespace Jint.Parser
 
         private void ThrowError(Token token, string messageFormat, params object[] arguments)
         {
-            Error error;
+            ParserError error;
             string msg = String.Format(messageFormat, arguments);
 
             if (token.LineNumber.HasValue)
             {
-                error = new Error("Line " + token.LineNumber + ": " + msg)
+                error = new ParserError("Line " + token.LineNumber + ": " + msg)
                     {
                         Index = token.Range[0],
                         LineNumber = token.LineNumber.Value,
@@ -1778,7 +1778,7 @@ namespace Jint.Parser
             }
             else
             {
-                error = new Error("Line " + _lineNumber + ": " + msg)
+                error = new ParserError("Line " + _lineNumber + ": " + msg)
                     {
                         Index = _index,
                         LineNumber = _lineNumber,
@@ -1800,7 +1800,7 @@ namespace Jint.Parser
             {
                 if (_extra.Errors != null)
                 {
-                    _extra.Errors.Add(new Error(e.Message));
+                    _extra.Errors.Add(new ParserError(e.Message));
                 }
                 else
                 {
@@ -3284,7 +3284,7 @@ namespace Jint.Parser
 
         private TryStatement ParseTryStatement()
         {
-            var handlers = new List<Statement>();
+            var handlers = new List<CatchClause>();
             Statement finalizer = null;
 
             ExpectKeyword("try");
@@ -3820,7 +3820,7 @@ namespace Jint.Parser
 
                 if (options.Tolerant)
                 {
-                    _extra.Errors = new List<Error>();
+                    _extra.Errors = new List<ParserError>();
                 }
             }
 
@@ -3859,7 +3859,7 @@ namespace Jint.Parser
 
             public List<Comment> Comments;
             public List<Token> Tokens;
-            public List<Error> Errors;
+            public List<ParserError> Errors;
         }
 
         private class LocationMarker

@@ -95,7 +95,7 @@ namespace Jint
         public DateConstructor Date { get; private set; }
         public MathInstance Math { get; private set; }
 
-        public ExecutionContext CurrentExecutionContext { get { return _executionContexts.Peek(); } }
+        public ExecutionContext ExecutionContext { get { return _executionContexts.Peek(); } }
 
         public Options Options { get; private set; }
 
@@ -117,18 +117,18 @@ namespace Jint
             _executionContexts.Pop();
         }
 
-        public object Execute(string source)
+        public Completion Execute(string source)
         {
             var parser = new JavascriptParser();
             return Execute(parser.Parse(source));
         }
 
-        public object Execute(Program program)
+        public Completion Execute(Program program)
         {
             return ExecuteStatement(program);
         }
 
-        public object ExecuteStatement(Statement statement)
+        public Completion ExecuteStatement(Statement statement)
         {
             switch (statement.Type)
             {
@@ -157,7 +157,7 @@ namespace Jint
                     return _statements.ExecuteForStatement(statement.As<ForStatement>());
                     
                 case SyntaxNodes.ForInStatement:
-                    return null;
+                    return _statements.ForInStatement(statement.As<ForInStatement>());
 
                 case SyntaxNodes.FunctionDeclaration:
                     return _statements.ExecuteFunctionDeclaration(statement.As<FunctionDeclaration>());
@@ -172,14 +172,14 @@ namespace Jint
                     return _statements.ExecuteReturnStatement(statement.As<ReturnStatement>());
                     
                 case SyntaxNodes.SwitchStatement:
-                    return null;
-
+                    return _statements.ExecuteSwitchStatement(statement.As<SwitchStatement>());
+                    
                 case SyntaxNodes.ThrowStatement:
-                    return null;
+                    return _statements.ExecuteThrowStatement(statement.As<ThrowStatement>());
 
                 case SyntaxNodes.TryStatement:
-                    return null;
-
+                    return _statements.ExecuteTryStatement(statement.As<TryStatement>());
+                    
                 case SyntaxNodes.VariableDeclaration:
                     return _statements.ExecuteVariableDeclaration(statement.As<VariableDeclaration>());
                     
@@ -187,7 +187,7 @@ namespace Jint
                     return _statements.ExecuteWhileStatement(statement.As<WhileStatement>());
                     
                 case SyntaxNodes.WithStatement:
-                    return null;
+                    return _statements.ExecuteWithStatement(statement.As<WithStatement>());
 
                 case SyntaxNodes.Program:
                     return _statements.ExecuteProgram(statement.As<Program>());
@@ -264,9 +264,16 @@ namespace Jint
         public object GetValue(object value)
         {
             var reference = value as Reference;
-            
+
             if (reference == null)
             {
+                var completion = value as Completion;
+
+                if (completion != null)
+                {
+                    return GetValue(completion.Value);
+                }
+
                 return value;
             }
 

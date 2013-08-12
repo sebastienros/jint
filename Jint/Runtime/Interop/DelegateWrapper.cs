@@ -21,12 +21,8 @@ namespace Jint.Runtime.Interop
 
         public override object Call(object thisObject, object[] arguments)
         {
-            // initialize Return flag
-            _engine.CurrentExecutionContext.Return = Undefined.Instance;
-
-            _d.DynamicInvoke(arguments);
-
-            return _engine.CurrentExecutionContext.Return;
+            var result = _d.DynamicInvoke(arguments);
+            return new Completion(Completion.Normal, result, null);
         }
     }
 }

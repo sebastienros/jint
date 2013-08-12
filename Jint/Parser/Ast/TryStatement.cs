@@ -6,7 +6,7 @@ namespace Jint.Parser.Ast
     {
         public Statement Block;
         public IEnumerable<Statement> GuardedHandlers;
-        public IEnumerable<Statement> Handlers;
+        public IEnumerable<CatchClause> Handlers;
         public Statement Finalizer;
     }
 }

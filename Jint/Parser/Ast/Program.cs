@@ -8,7 +8,7 @@ namespace Jint.Parser.Ast
 
         public List<Comment> Comments;
         public List<Token> Tokens;
-        public List<Error> Errors;
+        public List<ParserError> Errors;
 
     }
 }

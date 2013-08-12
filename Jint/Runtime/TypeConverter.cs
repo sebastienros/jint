@@ -278,9 +278,11 @@ namespace Jint.Runtime
             {
                 return engine.Number.Construct((double) value);
             }
-            if (value is string)
+
+            var s = value as string;
+            if (s != null)
             {
-                return engine.String.Construct((string) value);
+                return engine.String.Construct(s);
             }
 
             throw new TypeError();

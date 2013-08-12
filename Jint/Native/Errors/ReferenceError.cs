@@ -2,7 +2,7 @@
 
 namespace Jint.Native.Errors
 {
-    public class ReferenceError : Exception
+    public class ReferenceError : Error
     {
     }
 }

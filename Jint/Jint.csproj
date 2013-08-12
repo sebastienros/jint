@@ -43,6 +43,7 @@
     <Compile Include="Native\Boolean\BooleanInstance.cs" />
     <Compile Include="Native\Date\DateConstructor.cs" />
     <Compile Include="Native\Date\DateInstance.cs" />
+    <Compile Include="Native\Errors\Error.cs" />
     <Compile Include="Native\Errors\SyntaxError.cs" />
     <Compile Include="Native\Errors\ReferenceError.cs" />
     <Compile Include="Native\Errors\TypeError.cs" />
@@ -120,6 +121,7 @@
     <Compile Include="Parser\Token.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Runtime\Arguments.cs" />
+    <Compile Include="Runtime\Completion.cs" />
     <Compile Include="Runtime\Descriptors\AccessorDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\DataDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />
