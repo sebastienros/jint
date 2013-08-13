@@ -10,7 +10,7 @@ namespace Jint.Native.Boolean
         private readonly Engine _engine;
 
         public BooleanConstructor(Engine engine)
-            : base(engine, new ObjectInstance(engine.Object), null, null)
+            : base(engine, new ObjectInstance(engine.Object), null, null, false)
         {
             _engine = engine;
 

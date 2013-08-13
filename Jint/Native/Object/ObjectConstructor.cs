@@ -9,7 +9,7 @@ namespace Jint.Native.Object
     {
         private readonly Engine _engine;
 
-        public ObjectConstructor(Engine engine) : base(engine, engine.RootFunction, null, null)
+        public ObjectConstructor(Engine engine) : base(engine, engine.RootFunction, null, null, false)
         {
             _engine = engine;
             engine.RootFunction.DefineOwnProperty("hasOwnProperty", new ClrDataDescriptor<ObjectInstance, bool>(engine, HasOwnProperty), false);

@@ -12,6 +12,7 @@ namespace Jint.Parser.Ast
         public Identifier Id;
         public IEnumerable<Identifier> Parameters;
         public Statement Body;
+        public bool Strict;
 
         public IList<VariableDeclaration> VariableDeclarations { get; set; }
 

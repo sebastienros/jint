@@ -13,7 +13,7 @@ namespace Jint.Runtime.Interop
         private readonly Func<TObject, object[], TResult> _func;
 
         public ClrFunctionInstance(Engine engine, Func<TObject, object[], TResult> func)
-            : base(engine, null, null, null)
+            : base(engine, null, null, null, false)
         {
             _engine = engine;
             _func = func;

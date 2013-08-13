@@ -11,7 +11,7 @@ namespace Jint.Native.Date
         private readonly Engine _engine;
 
         public DateConstructor(Engine engine)
-            : base(engine, new ObjectInstance(engine.Object), null, null)
+            : base(engine, new ObjectInstance(engine.Object), null, null, false)
         {
             _engine = engine;
 

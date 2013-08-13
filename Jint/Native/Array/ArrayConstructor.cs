@@ -9,7 +9,7 @@ namespace Jint.Native.Array
     {
         private readonly Engine _engine;
 
-        public ArrayConstructor(Engine engine) :  base(engine, new ObjectInstance(engine.RootFunction), null, null)
+        public ArrayConstructor(Engine engine) :  base(engine, new ObjectInstance(engine.RootFunction), null, null, false)
         {
             _engine = engine;
 

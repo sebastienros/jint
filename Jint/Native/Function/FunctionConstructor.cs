@@ -14,7 +14,7 @@ namespace Jint.Native.Function
         private readonly IEnumerable<Identifier> _parameters;
 
         public FunctionConstructor(Engine engine)
-            : base(engine, engine.RootFunction, null, null)
+            : base(engine, engine.RootFunction, null, null, false)
         {
             _engine = engine;
             // http://www.ecma-international.org/ecma-262/5.1/#sec-13.2

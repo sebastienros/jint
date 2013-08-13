@@ -460,6 +460,11 @@ namespace Jint.Runtime
 
         public Completion ExecuteProgram(Program program)
         {
+            if (program.Strict)
+            {
+                _engine.Options.Strict();
+            }
+
             EvaluateVariableScope(program);
             return ExecuteStatementList(program.Body);
         }
@@ -516,7 +521,8 @@ namespace Jint.Runtime
                     functionDeclaration.Parameters.ToArray(),
                     _engine.Function.Prototype,
                     _engine.Object.Construct(Arguments.Empty),
-                    LexicalEnvironment.NewDeclarativeEnvironment(_engine.ExecutionContext.LexicalEnvironment)
+                    LexicalEnvironment.NewDeclarativeEnvironment(_engine.ExecutionContext.LexicalEnvironment),
+                    functionDeclaration.Strict
                 )
             );
 

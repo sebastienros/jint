@@ -10,7 +10,7 @@ namespace Jint.Native.String
         private readonly Engine _engine;
 
         public StringConstructor(Engine engine)
-            : base(engine, new ObjectInstance(engine.Object), null, null)
+            : base(engine, new ObjectInstance(engine.Object), null, null, false)
         {
             _engine = engine;
 

@@ -1485,7 +1485,7 @@ namespace Jint.Parser
         }
 
         public FunctionDeclaration CreateFunctionDeclaration(Identifier id, IEnumerable<Identifier> parameters,
-                                                             IEnumerable<Expression> defaults, Statement body)
+                                                             IEnumerable<Expression> defaults, Statement body, bool strict)
         {
             return new FunctionDeclaration
                 {
@@ -1494,6 +1494,7 @@ namespace Jint.Parser
                     Parameters = parameters,
                     Defaults = defaults,
                     Body = body,
+                    Strict = strict,
                     Rest = null,
                     Generator = false,
                     Expression = false,
@@ -1502,7 +1503,7 @@ namespace Jint.Parser
         }
 
         public FunctionExpression CreateFunctionExpression(Identifier id, IEnumerable<Identifier> parameters,
-                                                           IEnumerable<Expression> defaults, Statement body)
+                                                           IEnumerable<Expression> defaults, Statement body, bool strict)
         {
             return new FunctionExpression
                 {
@@ -1511,6 +1512,7 @@ namespace Jint.Parser
                     Parameters = parameters,
                     Defaults = defaults,
                     Body = body,
+                    Strict = strict,
                     Rest = null,
                     Generator = false,
                     Expression = false,
@@ -1599,12 +1601,13 @@ namespace Jint.Parser
                 };
         }
 
-        public Program CreateProgram(ICollection<Statement> body)
+        public Program CreateProgram(ICollection<Statement> body, bool strict)
         {
             return new Program
                 {
                     Type = SyntaxNodes.Program,
                     Body = body,
+                    Strict = strict,
                     VariableDeclarations = LeaveVariableScope()
                 };
         }
@@ -2001,8 +2004,9 @@ namespace Jint.Parser
             {
                 ThrowErrorTolerant(first, Messages.StrictParamName);
             }
+            bool functionStrict = _strict;
             _strict = previousStrict;
-            return MarkEnd(CreateFunctionExpression(null, parameters, new Expression[0], body));
+            return MarkEnd(CreateFunctionExpression(null, parameters, new Expression[0], body, functionStrict));
         }
 
         private IPropertyKeyExpression ParseObjectPropertyKey()
@@ -3618,9 +3622,10 @@ namespace Jint.Parser
             {
                 ThrowErrorTolerant(stricted, message);
             }
+            bool functionStrict = _strict;
             _strict = previousStrict;
 
-            return MarkEnd(CreateFunctionDeclaration(id, parameters, new Expression[0], body));
+            return MarkEnd(CreateFunctionDeclaration(id, parameters, new Expression[0], body, functionStrict));
         }
 
         private void EnterVariableScope()
@@ -3688,9 +3693,10 @@ namespace Jint.Parser
             {
                 ThrowErrorTolerant(stricted, message);
             }
+            bool functionStrict = _strict;
             _strict = previousStrict;
 
-            return MarkEnd(CreateFunctionExpression(id, parameters, new Expression[0], body));
+            return MarkEnd(CreateFunctionExpression(id, parameters, new Expression[0], body, functionStrict));
         }
 
         // 14 Program
@@ -3780,7 +3786,7 @@ namespace Jint.Parser
             _strict = false;
             Peek();
             ICollection<Statement> body = ParseSourceElements();
-            return MarkEnd(CreateProgram(body));
+            return MarkEnd(CreateProgram(body, _strict));
         }
 
         private LocationMarker CreateLocationMarker()

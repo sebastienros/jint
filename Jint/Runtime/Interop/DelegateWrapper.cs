@@ -13,7 +13,7 @@ namespace Jint.Runtime.Interop
         private readonly Engine _engine;
         private readonly Delegate _d;
 
-        public DelegateWrapper(Engine engine, Delegate d) : base(engine, null, null, null)
+        public DelegateWrapper(Engine engine, Delegate d) : base(engine, null, null, null, false)
         {
             _engine = engine;
             _d = d;

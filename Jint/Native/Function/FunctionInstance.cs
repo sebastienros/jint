@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using Jint.Native.Errors;
+using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime.Environments;
 
@@ -8,11 +9,12 @@ namespace Jint.Native.Function
     {
         private readonly Engine _engine;
 
-        protected FunctionInstance(Engine engine, ObjectInstance prototype, Identifier[] parameters, LexicalEnvironment scope) : base(prototype)
+        protected FunctionInstance(Engine engine, ObjectInstance prototype, Identifier[] parameters, LexicalEnvironment scope, bool strict) : base(prototype)
         {
             _engine = engine;
-            Parameters = parameters;
+            FormalParameters = parameters;
             Scope = scope;
+            Strict = strict;
         }
 
         /// <summary>
@@ -24,7 +26,18 @@ namespace Jint.Native.Function
         public abstract object Call(object thisObject, object[] arguments);
 
         public LexicalEnvironment Scope { get; private set; }
-        public Identifier[] Parameters { get; private set; }
+        
+        public Identifier[] FormalParameters { get; private set; }
+        public bool Strict { get; private set; }
+
+        // todo: implement
+        public object TargetFunction { get; set; }
+
+        // todo: implement
+        public object BoundThis { get; set; }
+
+        // todo: implement
+        public object BoundArgs { get; set; }
 
         public bool HasInstance(object instance)
         {
@@ -57,6 +70,24 @@ namespace Jint.Native.Function
             {
                 return "Function";
             }
+        }
+
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.3.5.4
+        /// </summary>
+        /// <param name="propertyName"></param>
+        /// <returns></returns>
+        public override object Get(string propertyName)
+        {
+            var v = base.Get(propertyName);
+
+            var f = v as FunctionInstance;
+            if (propertyName == "caller" && f != null && f.Strict)
+            {
+                throw new TypeError();
+            }
+
+            return v;
         }
     }
 }

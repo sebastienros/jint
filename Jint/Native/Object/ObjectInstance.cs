@@ -46,7 +46,7 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public object Get(string propertyName)
+        public virtual object Get(string propertyName)
         {
             var desc = GetProperty(propertyName);
 

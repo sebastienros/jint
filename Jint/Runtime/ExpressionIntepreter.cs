@@ -388,7 +388,8 @@ namespace Jint.Runtime
                 functionExpression.Parameters.ToArray(), 
                 _engine.Function.Prototype,
                 _engine.Object.Construct(Arguments.Empty),
-                LexicalEnvironment.NewDeclarativeEnvironment(_engine.ExecutionContext.LexicalEnvironment)
+                LexicalEnvironment.NewDeclarativeEnvironment(_engine.ExecutionContext.LexicalEnvironment),
+                functionExpression.Strict
                 );
         }
 
@@ -396,22 +397,43 @@ namespace Jint.Runtime
         {
             /// todo: read the spec as this is made up
             
+            var callee = EvaluateExpression(callExpression.Callee);
+            var func = _engine.GetValue(callee);
+            object thisObject;
+
+            // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
             var arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
-            var result = EvaluateExpression(callExpression.Callee);
-            var r = result as Reference;
+
+            if (TypeConverter.GetType(func) != TypeCode.Object)
+            {
+                throw new TypeError();
+            }
+
+            var callable = func as ICallable;
+            if (callable == null)
+            {
+                throw new TypeError();
+            }
+
+            var r = callee as Reference;
             if (r != null)
             {
-                // x.hasOwnProperty
-                var callee = (FunctionInstance)_engine.GetValue(r);
-                return callee.Call(r.GetBase(), arguments);
+                if (r.IsPropertyReference())
+                {
+                    thisObject = r.GetBase();
+                }
+                else
+                {
+                    var env = r.GetBase() as EnvironmentRecord;
+                    thisObject = env.ImplicitThisValue();
+                }
             }
             else
             {
-                // assert(...)
-                var callee = (FunctionInstance)_engine.GetValue(result);
-                return callee.Call(_engine.ExecutionContext.ThisBinding, arguments);
+                thisObject = Undefined.Instance;
             }
 
+            return callable.Call(thisObject, arguments);
         }
 
         public object EvaluateSequenceExpression(SequenceExpression sequenceExpression)

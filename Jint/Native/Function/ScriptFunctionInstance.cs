@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Jint.Native.Object;
 using Jint.Parser.Ast;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
@@ -16,8 +18,8 @@ namespace Jint.Native.Function
         private readonly Statement _body;
         private readonly IEnumerable<Identifier> _parameters;
         
-        public ScriptFunctionInstance(Engine engine, Statement body, string name, Identifier[] parameters, ObjectInstance instancePrototype, ObjectInstance functionPrototype, LexicalEnvironment scope)
-            : base(engine, instancePrototype, parameters, scope)
+        public ScriptFunctionInstance(Engine engine, Statement body, string name, Identifier[] parameters, ObjectInstance instancePrototype, ObjectInstance functionPrototype, LexicalEnvironment scope, bool strict)
+            : base(engine, instancePrototype, parameters, scope, strict)
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
 
@@ -33,23 +35,37 @@ namespace Jint.Native.Function
             DefineOwnProperty("prototype", new DataDescriptor(functionPrototype) { Writable = true, Enumerable = true, Configurable = true }, false);
         }
 
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.1
+        /// </summary>
+        /// <param name="thisObject"></param>
+        /// <param name="arguments"></param>
+        /// <returns></returns>
         public override object Call(object thisObject, object[] arguments)
         {
-            // todo: http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.1
+            object thisBinding;
 
             // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
-            var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(Scope);
-            object thisArg;
-            if (thisObject == Undefined.Instance || thisObject == Null.Instance)
+            if (_engine.Options.IsStrict())
             {
-                thisArg = _engine.Global;
+                thisBinding = thisObject;
+            }
+            else if (thisObject == Undefined.Instance || thisObject == Null.Instance)
+            {
+                thisBinding = _engine.Global;
+            }
+            else if (TypeConverter.GetType(thisObject) != TypeCode.Object)
+            {
+                thisBinding = TypeConverter.ToObject(_engine, thisObject);
             }
             else
             {
-                thisArg = thisObject;
+                thisBinding = thisObject;
             }
 
-            _engine.EnterExecutionContext(localEnv, localEnv, thisArg);
+            var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(Scope);
+            
+            _engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
             var env = localEnv.Record;
 
