@@ -70,7 +70,7 @@ namespace Jint.Native.Object
 
             if (!HasProperty(name))
             {
-                DefineOwnProperty(name, new DataDescriptor(value), false);
+                DefineOwnProperty(name, new DataDescriptor(value) { Configurable = true, Enumerable = true, Writable = true }, false);
             }
             else
             {

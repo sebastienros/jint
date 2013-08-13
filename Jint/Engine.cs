@@ -295,7 +295,12 @@ namespace Jint
             return o.Get(reference.GetReferencedName());
         }
 
-        public void SetValue(Reference reference, object value)
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.2
+        /// </summary>
+        /// <param name="reference"></param>
+        /// <param name="value"></param>
+        public void PutValue(Reference reference, object value)
         {
             if (reference.IsUnresolvableReference())
             {
@@ -306,7 +311,20 @@ namespace Jint
 
                 Global.Set(reference.GetReferencedName(), value);
             }
-            else 
+            //else if (reference.IsPropertyReference())
+            //{
+            //    if (!reference.HasPrimitiveBase())
+            //    {
+            //        // todo: complete implementation
+            //        throw new NotImplementedException();
+            //    }
+            //    else
+            //    {
+            //        // todo: complete implementation
+            //        throw new NotImplementedException();
+            //    }
+            //} 
+            else
             {
                 var baseValue = reference.GetBase();
                 var record = baseValue as EnvironmentRecord;

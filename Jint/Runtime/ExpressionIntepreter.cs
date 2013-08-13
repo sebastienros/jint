@@ -45,7 +45,7 @@ namespace Jint.Runtime
                     throw new SyntaxError();
                 }
 
-                _engine.SetValue(lref, rval);
+                _engine.PutValue(lref, rval);
                 return rval;
             }
 
@@ -95,18 +95,62 @@ namespace Jint.Runtime
                     }
                     break;
 
-                case "<<=":
+                case "%=":
                     switch (type)
                     {
                         case TypeCode.Double:
-                            lval = TypeConverter.ToInt32(_engine.GetValue(lref)) << TypeConverter.ToInt32(rval);
+                            lval = TypeConverter.ToNumber(_engine.GetValue(lref)) % TypeConverter.ToNumber(rval);
                             break;
                     }
                     break;
 
+                case "&=":
+                    switch (type)
+                    {
+                        case TypeCode.Double:
+                            lval = TypeConverter.ToInt32(_engine.GetValue(lref)) & TypeConverter.ToInt32(rval);
+                            break;
+                    }
+                    break;
+
+                case "|=":
+                    switch (type)
+                    {
+                        case TypeCode.Double:
+                            lval = TypeConverter.ToInt32(_engine.GetValue(lref)) | TypeConverter.ToInt32(rval);
+                            break;
+                    }
+                    break;
+
+                case "^=":
+                    switch (type)
+                    {
+                        case TypeCode.Double:
+                            lval = TypeConverter.ToInt32(_engine.GetValue(lref)) ^ TypeConverter.ToInt32(rval);
+                            break;
+                    }
+                    break;
+
+                case "<<=":
+                    switch (type)
+                    {
+                        case TypeCode.Double:
+                            lval = TypeConverter.ToInt32(_engine.GetValue(lref)) << (int)(TypeConverter.ToUint32(rval) & 0x1F);
+                            break;
+                    }
+                    break;
+
+                case ">>>=":
+                    switch (type)
+                    {
+                        case TypeCode.Double:
+                            lval = (uint)TypeConverter.ToInt32(_engine.GetValue(lref)) >> (int)(TypeConverter.ToUint32(rval) & 0x1F);
+                            break;
+                    }
+                    break;
             }
 
-            _engine.SetValue(lref, lval);
+            _engine.PutValue(lref, lval);
 
             return lval;
         }
@@ -132,6 +176,7 @@ namespace Jint.Runtime
                             break;
                     }
                     break;
+                
                 case "-":
                     switch (type)
                     {
@@ -140,6 +185,7 @@ namespace Jint.Runtime
                             break;
                     }
                     break;
+                
                 case "*":
                     switch (type)
                     {
@@ -148,6 +194,7 @@ namespace Jint.Runtime
                             break;
                     }
                     break;
+                
                 case "/":
                     switch (type)
                     {
@@ -156,12 +203,23 @@ namespace Jint.Runtime
                             break;
                     }
                     break;
+
+                case "%":
+                    switch (type)
+                    {
+                        case TypeCode.Double:
+                            value = TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right);
+                            break;
+                    }
+                    break;
                 case "==":
                     value = left.Equals(right);
                     break;
+                
                 case "!=":
                     value = !left.Equals(right);
                     break;
+                
                 case ">":
                     switch (type)
                     {
@@ -179,6 +237,7 @@ namespace Jint.Runtime
                             break;
                     }
                     break;
+                
                 case "<":
                     switch (type)
                     {
@@ -187,6 +246,7 @@ namespace Jint.Runtime
                             break;
                     }
                     break;
+                
                 case "<=":
                     switch (type)
                     {
@@ -195,9 +255,10 @@ namespace Jint.Runtime
                             break;
                     }
                     break;
+                
                 case "===":
                     return StriclyEqual(left, right);
-
+                
                 case "!==":
                     return !StriclyEqual(left, right);
 
@@ -223,8 +284,9 @@ namespace Jint.Runtime
                     var f = (FunctionInstance)right;
                     value = f.HasInstance(left);
                     break;
+                
                 default:
-                    throw new NotImplementedException("");
+                    throw new NotImplementedException();
             }
 
             return value;
@@ -381,7 +443,7 @@ namespace Jint.Runtime
                     throw new ArgumentException();
             }
 
-            _engine.SetValue(r, value);
+            _engine.PutValue(r, value);
 
             return updateExpression.Prefix ? value : old;
         }
@@ -436,7 +498,7 @@ namespace Jint.Runtime
 
                     var oldValue = _engine.GetValue(value);
                     var newValue = TypeConverter.ToNumber(value) + 1;
-                    _engine.SetValue(r, newValue);
+                    _engine.PutValue(r, newValue);
 
                     return unaryExpression.Prefix ? newValue : oldValue;
                     
@@ -452,7 +514,7 @@ namespace Jint.Runtime
 
                     oldValue = _engine.GetValue(value);
                     newValue = TypeConverter.ToNumber(value) - 1;
-                    _engine.SetValue(r, newValue);
+                    _engine.PutValue(r, newValue);
 
                     return unaryExpression.Prefix ? newValue : oldValue;
                     
@@ -487,7 +549,7 @@ namespace Jint.Runtime
                     if (r.IsPropertyReference())
                     {
                         var o = TypeConverter.ToObject(_engine, r.GetBase());
-                        o.Delete(r.GetReferencedName(), r.IsStrict());
+                        return o.Delete(r.GetReferencedName(), r.IsStrict());
                     }
                     if (r.IsStrict())
                     {

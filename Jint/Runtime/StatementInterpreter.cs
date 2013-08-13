@@ -220,12 +220,12 @@ namespace Jint.Runtime
                 if (varName != null)
                 {
                     var varRef = varName as Reference;
-                    _engine.SetValue(varRef, p);
+                    _engine.PutValue(varRef, p);
                 }
                 else
                 {
                     var lhsRef = _engine.EvaluateExpression(forInStatement.Left.As<Expression>()) as Reference;
-                    _engine.SetValue(lhsRef, p);
+                    _engine.PutValue(lhsRef, p);
                 }
                 var stmt = ExecuteStatement(forInStatement.Body);
                 if (stmt.Value != null)
