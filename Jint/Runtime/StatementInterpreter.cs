@@ -449,31 +449,46 @@ namespace Jint.Runtime
             return b;
         }
 
+        public void EvaluateVariableScope(IVariableScope variableScope)
+        {
+            foreach (var variableDeclaration in variableScope.VariableDeclarations)
+            {
+                // declare the variables only
+                ExecuteVariableDeclaration(variableDeclaration, false);
+            }    
+        }
+
         public Completion ExecuteProgram(Program program)
         {
+            EvaluateVariableScope(program);
             return ExecuteStatementList(program.Body);
         }
 
-        public Completion ExecuteVariableDeclaration(VariableDeclaration statement)
+        public Completion ExecuteVariableDeclaration(VariableDeclaration statement, bool initializeOnly)
         {
             var env = _engine.ExecutionContext.VariableEnvironment.Record;
             object value = Undefined.Instance;
 
             foreach (var declaration in statement.Declarations)
             {
-
-                if (declaration.Init != null)
-                {
-                    value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init));
-                }
-
                 var dn = declaration.Id.Name;
-                var varAlreadyDeclared = env.HasBinding(dn);
-                if (!varAlreadyDeclared)
+                if (!initializeOnly)
                 {
-                    env.CreateMutableBinding(declaration.Id.Name, true);
+                    var varAlreadyDeclared = env.HasBinding(dn);
+                    if (!varAlreadyDeclared)
+                    {
+                        env.CreateMutableBinding(dn, true);
+                    }
                 }
-                env.SetMutableBinding(declaration.Id.Name, value, false);
+                else
+                {
+                    if (declaration.Init != null)
+                    {
+                        value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init));
+                    }
+
+                    env.SetMutableBinding(dn, value, false);
+                }
             }
 
             return new Completion(Completion.Normal, value, null);

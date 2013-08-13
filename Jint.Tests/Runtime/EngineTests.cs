@@ -309,12 +309,6 @@ namespace Jint.Tests.Runtime
         public void Scratch()
         {
             RunTest(@"
-try {                
-x=x;
-}
-catch(e) {
-assert(false);
-}
             ");
         }
 

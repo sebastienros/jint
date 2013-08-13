@@ -181,7 +181,7 @@ namespace Jint
                     return _statements.ExecuteTryStatement(statement.As<TryStatement>());
                     
                 case SyntaxNodes.VariableDeclaration:
-                    return _statements.ExecuteVariableDeclaration(statement.As<VariableDeclaration>());
+                    return _statements.ExecuteVariableDeclaration(statement.As<VariableDeclaration>(), true);
                     
                 case SyntaxNodes.WhileStatement:
                     return _statements.ExecuteWhileStatement(statement.As<WhileStatement>());

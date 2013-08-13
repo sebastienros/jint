@@ -54,6 +54,8 @@ namespace Jint.Parser
         private State _state;
         private bool _strict;
 
+        private Stack<IVariableScope> _variableScopes = new Stack<IVariableScope>(); 
+
         private static bool IsDecimalDigit(char ch)
         {
             return (ch >= '0' && ch <= '9');
@@ -1494,7 +1496,8 @@ namespace Jint.Parser
                     Body = body,
                     Rest = null,
                     Generator = false,
-                    Expression = false
+                    Expression = false,
+                    VariableDeclarations = LeaveVariableScope()
                 };
         }
 
@@ -1510,7 +1513,8 @@ namespace Jint.Parser
                     Body = body,
                     Rest = null,
                     Generator = false,
-                    Expression = false
+                    Expression = false,
+                    VariableDeclarations = LeaveVariableScope()
                 };
         }
 
@@ -1600,7 +1604,8 @@ namespace Jint.Parser
             return new Program
                 {
                     Type = SyntaxNodes.Program,
-                    Body = body
+                    Body = body,
+                    VariableDeclarations = LeaveVariableScope()
                 };
         }
 
@@ -1706,12 +1711,16 @@ namespace Jint.Parser
 
         public VariableDeclaration CreateVariableDeclaration(IEnumerable<VariableDeclarator> declarations, string kind)
         {
-            return new VariableDeclaration
+            var variableDeclaration = new VariableDeclaration
                 {
                     Type = SyntaxNodes.VariableDeclaration,
                     Declarations = declarations,
                     Kind = kind
                 };
+
+            _variableScopes.Peek().VariableDeclarations.Add(variableDeclaration);
+
+            return variableDeclaration;
         }
 
         public VariableDeclarator CreateVariableDeclarator(Identifier id, Expression init)
@@ -1982,6 +1991,8 @@ namespace Jint.Parser
 
         private FunctionExpression ParsePropertyFunction(Identifier[] parameters, Token first = null)
         {
+            EnterVariableScope();
+
             bool previousStrict = _strict;
             SkipComment();
             MarkStart();
@@ -3556,6 +3567,8 @@ namespace Jint.Parser
 
         private Statement ParseFunctionDeclaration()
         {
+            EnterVariableScope();
+
             Token firstRestricted = Token.Empty;
             string message = null;
 
@@ -3610,8 +3623,19 @@ namespace Jint.Parser
             return MarkEnd(CreateFunctionDeclaration(id, parameters, new Expression[0], body));
         }
 
+        private void EnterVariableScope()
+        {
+            _variableScopes.Push(new VariableScope());
+        }
+
+        private IList<VariableDeclaration> LeaveVariableScope()
+        {
+            return _variableScopes.Pop().VariableDeclarations;
+        }
         private FunctionExpression ParseFunctionExpression()
         {
+            EnterVariableScope();
+
             Token firstRestricted = Token.Empty;
             string message = null;
             Identifier id = null;
@@ -3748,6 +3772,9 @@ namespace Jint.Parser
 
         private Program ParseProgram()
         {
+            var variableScope = new VariableScope();
+            _variableScopes.Push(variableScope);
+            
             SkipComment();
             MarkStart();
             _strict = false;

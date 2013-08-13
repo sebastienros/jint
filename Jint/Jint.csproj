@@ -86,6 +86,7 @@
     <Compile Include="Parser\Ast\Identifier.cs" />
     <Compile Include="Parser\Ast\IfStatement.cs" />
     <Compile Include="Parser\Ast\IPropertyKeyExpression.cs" />
+    <Compile Include="Parser\Ast\IVariableScope.cs" />
     <Compile Include="Parser\Ast\LabeledStatement.cs" />
     <Compile Include="Parser\Ast\Literal.cs" />
     <Compile Include="Parser\Ast\MemberExpression.cs" />
