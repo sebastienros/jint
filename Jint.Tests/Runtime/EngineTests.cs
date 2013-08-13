@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
-using Jint.Native;
 using Xunit;
 using Xunit.Extensions;
 
@@ -310,7 +309,13 @@ namespace Jint.Tests.Runtime
         public void Scratch()
         {
             RunTest(@"
-                ");
+try {                
+x=x;
+}
+catch(e) {
+assert(false);
+}
+            ");
         }
 
         /*

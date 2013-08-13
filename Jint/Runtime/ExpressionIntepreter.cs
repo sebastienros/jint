@@ -34,28 +34,35 @@ namespace Jint.Runtime
 
         public object EvaluateAssignmentExpression(AssignmentExpression assignmentExpression)
         {
-            object right = _engine.GetValue(EvaluateExpression(assignmentExpression.Right));
+            object rval = _engine.GetValue(EvaluateExpression(assignmentExpression.Right));
 
-            var r = (Reference)EvaluateExpression(assignmentExpression.Left);
+            var lref = EvaluateExpression(assignmentExpression.Left) as Reference;
 
-            object value = _engine.GetValue(r);
-            var type = TypeConverter.GetType(value);
+            if (assignmentExpression.Operator == "=")
+            {
+                if(lref != null && lref.IsStrict() && lref.GetBase() is EnvironmentRecord && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
+                {
+                    throw new SyntaxError();
+                }
+
+                _engine.SetValue(lref, rval);
+                return rval;
+            }
+
+            object lval = _engine.GetValue(lref);
+            var type = TypeConverter.GetType(lval);
 
             switch (assignmentExpression.Operator)
             {
-                case "=":
-                    value = right;
-                    break;
-
                 case "+=":
                     switch (type)
                     {
                         case TypeCode.String:
-                            value = TypeConverter.ToString(_engine.GetValue(r)) + right;
+                            lval = TypeConverter.ToString(_engine.GetValue(lref)) + rval;
                             break;
 
                         case TypeCode.Double:
-                            value = TypeConverter.ToNumber(_engine.GetValue(r)) + TypeConverter.ToNumber(right);
+                            lval = TypeConverter.ToNumber(_engine.GetValue(lref)) + TypeConverter.ToNumber(rval);
                             break;
                     }
                     
@@ -65,7 +72,7 @@ namespace Jint.Runtime
                     switch (type)
                     {
                         case TypeCode.Double:
-                            value = TypeConverter.ToNumber(_engine.GetValue(r)) + TypeConverter.ToNumber(right);
+                            lval = TypeConverter.ToNumber(_engine.GetValue(lref)) + TypeConverter.ToNumber(rval);
                             break;
                     }
                     break;
@@ -74,7 +81,7 @@ namespace Jint.Runtime
                     switch (type)
                     {
                         case TypeCode.Double:
-                            value = TypeConverter.ToNumber(_engine.GetValue(r)) *TypeConverter.ToNumber(right);
+                            lval = TypeConverter.ToNumber(_engine.GetValue(lref)) *TypeConverter.ToNumber(rval);
                             break;
                     }
                     break;
@@ -83,7 +90,7 @@ namespace Jint.Runtime
                     switch (type)
                     {
                         case TypeCode.Double:
-                            value = TypeConverter.ToNumber(_engine.GetValue(r)) / TypeConverter.ToNumber(right);
+                            lval = TypeConverter.ToNumber(_engine.GetValue(lref)) / TypeConverter.ToNumber(rval);
                             break;
                     }
                     break;
@@ -92,16 +99,16 @@ namespace Jint.Runtime
                     switch (type)
                     {
                         case TypeCode.Double:
-                            value = TypeConverter.ToInt32(_engine.GetValue(r)) << TypeConverter.ToInt32(right);
+                            lval = TypeConverter.ToInt32(_engine.GetValue(lref)) << TypeConverter.ToInt32(rval);
                             break;
                     }
                     break;
 
             }
 
-            _engine.SetValue(r, value);
+            _engine.SetValue(lref, lval);
 
-            return value;
+            return lval;
         }
 
         public object EvaluateBinaryExpression(BinaryExpression expression)

@@ -421,15 +421,15 @@ namespace Jint.Runtime
                 // execute catch
                 if (tryStatement.Handlers.Any())
                 {
-                    foreach (var catchClaude in tryStatement.Handlers)
+                    foreach (var catchClause in tryStatement.Handlers)
                     {
-                        var c = b;
+                        var c = _engine.GetValue(b);
                         var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                         var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(oldEnv);
-                        catchEnv.Record.CreateMutableBinding(catchClaude.Param.Name);
-                        catchEnv.Record.SetMutableBinding(catchClaude.Param.Name, c, false);
+                        catchEnv.Record.CreateMutableBinding(catchClause.Param.Name);
+                        catchEnv.Record.SetMutableBinding(catchClause.Param.Name, c, false);
                         _engine.ExecutionContext.LexicalEnvironment = catchEnv;
-                        b = ExecuteStatement(catchClaude.Body);
+                        b = ExecuteStatement(catchClause.Body);
                         _engine.ExecutionContext.LexicalEnvironment = oldEnv;
                     }
                 }
