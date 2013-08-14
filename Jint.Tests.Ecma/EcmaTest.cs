@@ -20,6 +20,18 @@ namespace Jint.Tests
 
         }
 
+        private const string Driver = @"
+            function runTestCase(f) {
+                assert(f());
+            }
+        ";
+
+        private const string NegativeDriver = @"
+            function runTestCase(f) {
+                assert(!f());
+            }
+        ";
+
         protected void RunTest(string sourceFilename, bool negative)
         {
             _lastError = null;
@@ -39,7 +51,7 @@ namespace Jint.Tests
             {
                 try
                 {
-                    engine.Execute(code);
+                    engine.Execute(code + Environment.NewLine + NegativeDriver);
                     Assert.NotNull(_lastError);
                     Assert.False(true);
                 }
@@ -51,7 +63,7 @@ namespace Jint.Tests
             }
             else
             {
-                Assert.DoesNotThrow(() => engine.Execute(code));
+                Assert.DoesNotThrow(() => engine.Execute(code + Environment.NewLine + Driver));
                 Assert.Null(_lastError);
             }
         }
