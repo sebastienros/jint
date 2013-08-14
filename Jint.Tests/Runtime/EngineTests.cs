@@ -316,7 +316,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void Scratch()
+        public void FunctionScopesAreChained()
         {
             RunTest(@"
                 var x = 0;
