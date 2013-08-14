@@ -29,7 +29,7 @@ namespace Jint.Runtime
 
             if (o == null)
             {
-                throw new ArgumentException();
+                return input;
             }
 
             return o.DefaultValue(preferredType);
