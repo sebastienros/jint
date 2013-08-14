@@ -77,6 +77,7 @@ namespace Jint.Native.Object
                 Put(name, value, false);
             }
         }
+
         /// <summary>
         /// Returns the Property Descriptor of the named 
         /// own property of this object, or undefined if 
@@ -468,5 +469,16 @@ namespace Jint.Native.Object
 
             return true;
         }
+
+        /// <summary>
+        /// Optimized version of [[Set]] when the property is known to be undeclared already
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        public void FastDefineDataDescriptor(string name, object value)
+        {
+            Properties.Add(name, new DataDescriptor(value) { Configurable = true, Enumerable = true, Writable = true });
+        }
+
     }
 }

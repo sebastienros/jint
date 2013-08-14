@@ -49,14 +49,14 @@ namespace Jint
             Date = new DateConstructor(this);
             Math = MathInstance.CreateMathObject(this, RootObject);
 
-            Global.Set("Object", Object);
-            Global.Set("Function", Function);
-            Global.Set("Array", Array);
-            Global.Set("String", String);
-            Global.Set("Number", Number);
-            Global.Set("Boolean", Boolean);
-            Global.Set("Date", Date);
-            Global.Set("Math", Math);
+            Global.FastDefineDataDescriptor("Object", Object);
+            Global.FastDefineDataDescriptor("Function", Function);
+            Global.FastDefineDataDescriptor("Array", Array);
+            Global.FastDefineDataDescriptor("String", String);
+            Global.FastDefineDataDescriptor("Number", Number);
+            Global.FastDefineDataDescriptor("Boolean", Boolean);
+            Global.FastDefineDataDescriptor("Date", Date);
+            Global.FastDefineDataDescriptor("Math", Math);
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(Global, null, true);
@@ -75,7 +75,7 @@ namespace Jint
             {
                 foreach (var entry in Options.GetDelegates())
                 {
-                    Global.DefineOwnProperty(entry.Key, new DataDescriptor(new DelegateWrapper(this, entry.Value)), false);
+                    Global.FastDefineDataDescriptor(entry.Key, new DelegateWrapper(this, entry.Value));
                 }
             }
 
@@ -359,7 +359,7 @@ namespace Jint
             foreach (var functionDeclaration in functionScope.FunctionDeclarations)
             {
                 var fn = functionDeclaration.Id.Name;
-                var fo = this.Function.CreateFunctionObject(functionDeclaration);
+                var fo = Function.CreateFunctionObject(functionDeclaration);
                 var funcAlreadyDeclared = env.HasBinding(fn);
                 if (!funcAlreadyDeclared)
                 {
@@ -367,9 +367,9 @@ namespace Jint
                 }
                 else
                 {
-                    if (env == this.GlobalEnvironment.Record)
+                    if (env == GlobalEnvironment.Record)
                     {
-                        var go = this.Global;
+                        var go = Global;
                         var existingProp = go.GetProperty(fn);
                         if (existingProp.Configurable)
                         {

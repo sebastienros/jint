@@ -42,6 +42,11 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static bool ToBoolean(object o)
         {
+            if (o is bool)
+            {
+                return (bool)o;
+            }
+            
             if (o == Undefined.Instance || o == Null.Instance)
             {
                 return false;
@@ -53,11 +58,6 @@ namespace Jint.Runtime
                 o = p.PrimitiveValue;
             }
 
-            if (o is bool)
-            {
-                return (bool) o;
-            }
-            
             if (o is double)
             {
                 var n = (double) o;
@@ -94,6 +94,11 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static double ToNumber(object o)
         {
+            if (o is double)
+            {
+                return (double)o;
+            }
+
             if (o == Undefined.Instance)
             {
                 return double.NaN;
@@ -107,11 +112,6 @@ namespace Jint.Runtime
             if (o is bool)
             {
                 return (bool)o ? 1 : 0;
-            }
-
-            if (o is double)
-            {
-                return (double)o;
             }
 
             var s = o as string;
@@ -195,6 +195,12 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static string ToString(object o)
         {
+            var s = o as string;
+            if (s != null)
+            {
+                return s;
+            }
+
             if (o == Undefined.Instance)
             {
                 return "undefined";
@@ -230,12 +236,6 @@ namespace Jint.Runtime
                 }
 
                 return n.ToString();
-            }
-
-            var s = o as string;
-            if (s != null)
-            {
-                return s;
             }
 
             return ToString(ToPrimitive(o, TypeCode.String));
