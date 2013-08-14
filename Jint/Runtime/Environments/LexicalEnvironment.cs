@@ -50,9 +50,9 @@ namespace Jint.Runtime.Environments
             return new LexicalEnvironment(new DeclarativeEnvironmentRecord(), outer);
         }
 
-        public static LexicalEnvironment NewObjectEnvironment(ObjectInstance objectInstance, LexicalEnvironment outer)
+        public static LexicalEnvironment NewObjectEnvironment(ObjectInstance objectInstance, LexicalEnvironment outer, bool provideThis)
         {
-            return new LexicalEnvironment(new ObjectEnvironmentRecord(objectInstance), outer);
+            return new LexicalEnvironment(new ObjectEnvironmentRecord(objectInstance, provideThis), outer);
         }
     }
 

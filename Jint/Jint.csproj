@@ -47,6 +47,7 @@
     <Compile Include="Native\Errors\SyntaxError.cs" />
     <Compile Include="Native\Errors\ReferenceError.cs" />
     <Compile Include="Native\Errors\TypeError.cs" />
+    <Compile Include="Native\Function\ArgumentsObject.cs" />
     <Compile Include="Native\Function\FunctionConstructor.cs" />
     <Compile Include="Native\Function\FunctionInstance.cs" />
     <Compile Include="Native\Function\FunctionShim.cs" />
@@ -85,8 +86,10 @@
     <Compile Include="Parser\Ast\FunctionExpression.cs" />
     <Compile Include="Parser\Ast\Identifier.cs" />
     <Compile Include="Parser\Ast\IfStatement.cs" />
+    <Compile Include="Parser\IFunctionDeclaration.cs" />
     <Compile Include="Parser\Ast\IPropertyKeyExpression.cs" />
-    <Compile Include="Parser\Ast\IVariableScope.cs" />
+    <Compile Include="Parser\IFunctionScope.cs" />
+    <Compile Include="Parser\IVariableScope.cs" />
     <Compile Include="Parser\Ast\LabeledStatement.cs" />
     <Compile Include="Parser\Ast\Literal.cs" />
     <Compile Include="Parser\Ast\MemberExpression.cs" />

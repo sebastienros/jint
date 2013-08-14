@@ -54,7 +54,8 @@ namespace Jint.Parser
         private State _state;
         private bool _strict;
 
-        private Stack<IVariableScope> _variableScopes = new Stack<IVariableScope>(); 
+        private readonly Stack<IVariableScope> _variableScopes = new Stack<IVariableScope>();
+        private readonly Stack<IFunctionScope> _functionScopes = new Stack<IFunctionScope>(); 
 
         private static bool IsDecimalDigit(char ch)
         {
@@ -405,7 +406,7 @@ namespace Jint.Parser
                     break;
                 }
                 ++_index;
-                id += ch;
+                id += ch.ToString();
 
                 // '\u' (char #92, char #117) denotes an escaped character.
                 if (ch == 92)
@@ -421,7 +422,7 @@ namespace Jint.Parser
                     {
                         throw new Exception(Messages.UnexpectedToken);
                     }
-                    id += ch;
+                    id += ch.ToString();
                 }
             }
 
@@ -689,7 +690,7 @@ namespace Jint.Parser
                 {
                     break;
                 }
-                number += _source.CharCodeAt(_index++);
+                number += _source.CharCodeAt(_index++).ToString();
             }
 
             if (number.Length == 0)
@@ -721,7 +722,7 @@ namespace Jint.Parser
                 {
                     break;
                 }
-                number += _source.CharCodeAt(_index++);
+                number += _source.CharCodeAt(_index++).ToString();
             }
 
             if (IsIdentifierStart(_source.CharCodeAt(_index)) || IsDecimalDigit(_source.CharCodeAt(_index)))
@@ -774,35 +775,35 @@ namespace Jint.Parser
 
                 while (IsDecimalDigit(_source.CharCodeAt(_index)))
                 {
-                    number += _source.CharCodeAt(_index++);
+                    number += _source.CharCodeAt(_index++).ToString();
                 }
                 ch = _source.CharCodeAt(_index);
             }
 
             if (ch == '.')
             {
-                number += _source.CharCodeAt(_index++);
+                number += _source.CharCodeAt(_index++).ToString();
                 while (IsDecimalDigit(_source.CharCodeAt(_index)))
                 {
-                    number += _source.CharCodeAt(_index++);
+                    number += _source.CharCodeAt(_index++).ToString();
                 }
                 ch = _source.CharCodeAt(_index);
             }
 
             if (ch == 'e' || ch == 'E')
             {
-                number += _source.CharCodeAt(_index++);
+                number += _source.CharCodeAt(_index++).ToString();
 
                 ch = _source.CharCodeAt(_index);
                 if (ch == '+' || ch == '-')
                 {
-                    number += _source.CharCodeAt(_index++);
+                    number += _source.CharCodeAt(_index++).ToString();
                 }
                 if (IsDecimalDigit(_source.CharCodeAt(_index)))
                 {
                     while (IsDecimalDigit(_source.CharCodeAt(_index)))
                     {
-                        number += _source.CharCodeAt(_index++);
+                        number += _source.CharCodeAt(_index++).ToString();
                     }
                 }
                 else
@@ -870,22 +871,22 @@ namespace Jint.Parser
                                 char unescaped = ScanHexEscape(ch);
                                 if (unescaped > 0)
                                 {
-                                    str += unescaped;
+                                    str += unescaped.ToString();
                                 }
                                 else
                                 {
                                     _index = restore;
-                                    str += ch;
+                                    str += ch.ToString();
                                 }
                                 break;
                             case 'b':
-                                str += '\b';
+                                str += "\b";
                                 break;
                             case 'f':
-                                str += '\f';
+                                str += "\f";
                                 break;
                             case 'v':
-                                str += '\x0B';
+                                str += "\x0B";
                                 break;
 
                             default:
@@ -913,11 +914,11 @@ namespace Jint.Parser
                                             code = code * 8 + "01234567".IndexOf(_source.CharCodeAt(_index++));
                                         }
                                     }
-                                    str += (char) code;
+                                    str += ((char)code).ToString();
                                 }
                                 else
                                 {
-                                    str += ch;
+                                    str += ch.ToString();
                                 }
                                 break;
                         }
@@ -937,7 +938,7 @@ namespace Jint.Parser
                 }
                 else
                 {
-                    str += ch;
+                    str += ch.ToString();
                 }
             }
 
@@ -973,7 +974,7 @@ namespace Jint.Parser
             while (_index < _length)
             {
                 ch = _source.CharCodeAt(_index++);
-                str += ch;
+                str += ch.ToString();
                 if (classMarker)
                 {
                     if (ch == ']')
@@ -991,7 +992,7 @@ namespace Jint.Parser
                         {
                             throw new Exception(Messages.UnterminatedRegExp);
                         }
-                        str += ch;
+                        str += ch.ToString();
                     }
                     else if (ch == '/')
                     {
@@ -1037,28 +1038,28 @@ namespace Jint.Parser
                         ch = ScanHexEscape('u');
                         if (ch > 0)
                         {
-                            flags += ch;
+                            flags += ch.ToString();
                             for (str += "\\u"; restore < _index; ++restore)
                             {
-                                str += _source.CharCodeAt(restore);
+                                str += _source.CharCodeAt(restore).ToString();
                             }
                         }
                         else
                         {
                             _index = restore;
-                            flags += 'u';
+                            flags += "u";
                             str += "\\u";
                         }
                     }
                     else
                     {
-                        str += '\\';
+                        str += "\\";
                     }
                 }
                 else
                 {
-                    flags += ch;
-                    str += ch;
+                    flags += ch.ToString();
+                    str += ch.ToString();
                 }
             }
 
@@ -1487,7 +1488,7 @@ namespace Jint.Parser
         public FunctionDeclaration CreateFunctionDeclaration(Identifier id, IEnumerable<Identifier> parameters,
                                                              IEnumerable<Expression> defaults, Statement body, bool strict)
         {
-            return new FunctionDeclaration
+            var functionDeclaration = new FunctionDeclaration
                 {
                     Type = SyntaxNodes.FunctionDeclaration,
                     Id = id,
@@ -1498,8 +1499,13 @@ namespace Jint.Parser
                     Rest = null,
                     Generator = false,
                     Expression = false,
-                    VariableDeclarations = LeaveVariableScope()
+                    VariableDeclarations = LeaveVariableScope(),
+                    FunctionDeclarations = LeaveFunctionScope()
                 };
+
+            _functionScopes.Peek().FunctionDeclarations.Add(functionDeclaration);
+
+            return functionDeclaration;
         }
 
         public FunctionExpression CreateFunctionExpression(Identifier id, IEnumerable<Identifier> parameters,
@@ -1516,7 +1522,8 @@ namespace Jint.Parser
                     Rest = null,
                     Generator = false,
                     Expression = false,
-                    VariableDeclarations = LeaveVariableScope()
+                    VariableDeclarations = LeaveVariableScope(),
+                    FunctionDeclarations = LeaveFunctionScope()
                 };
         }
 
@@ -1608,7 +1615,8 @@ namespace Jint.Parser
                     Type = SyntaxNodes.Program,
                     Body = body,
                     Strict = strict,
-                    VariableDeclarations = LeaveVariableScope()
+                    VariableDeclarations = LeaveVariableScope(),
+                    FunctionDeclarations = LeaveFunctionScope()
                 };
         }
 
@@ -1995,6 +2003,7 @@ namespace Jint.Parser
         private FunctionExpression ParsePropertyFunction(Identifier[] parameters, Token first = null)
         {
             EnterVariableScope();
+            EnterFunctionScope();
 
             bool previousStrict = _strict;
             SkipComment();
@@ -3572,6 +3581,7 @@ namespace Jint.Parser
         private Statement ParseFunctionDeclaration()
         {
             EnterVariableScope();
+            EnterFunctionScope();
 
             Token firstRestricted = Token.Empty;
             string message = null;
@@ -3637,9 +3647,21 @@ namespace Jint.Parser
         {
             return _variableScopes.Pop().VariableDeclarations;
         }
+
+        private void EnterFunctionScope()
+        {
+            _functionScopes.Push(new FunctionScope());
+        }
+
+        private IList<FunctionDeclaration> LeaveFunctionScope()
+        {
+            return _functionScopes.Pop().FunctionDeclarations;
+        }
+
         private FunctionExpression ParseFunctionExpression()
         {
             EnterVariableScope();
+            EnterFunctionScope();
 
             Token firstRestricted = Token.Empty;
             string message = null;
@@ -3778,8 +3800,8 @@ namespace Jint.Parser
 
         private Program ParseProgram()
         {
-            var variableScope = new VariableScope();
-            _variableScopes.Push(variableScope);
+            EnterVariableScope();
+            EnterFunctionScope();
             
             SkipComment();
             MarkStart();

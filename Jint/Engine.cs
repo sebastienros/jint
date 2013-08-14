@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -24,7 +26,6 @@ namespace Jint
     {
         private readonly ExpressionInterpreter _expressions;
         private readonly StatementInterpreter _statements;
-        private readonly LexicalEnvironment _globalEnvironment;
         private readonly Stack<ExecutionContext> _executionContexts;
 
         public Engine() : this(null)
@@ -58,10 +59,10 @@ namespace Jint
             Global.Set("Math", Math);
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
-            _globalEnvironment = LexicalEnvironment.NewObjectEnvironment(Global, null);
+            GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(Global, null, true);
             
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
-            EnterExecutionContext(_globalEnvironment, _globalEnvironment, Global);
+            EnterExecutionContext(GlobalEnvironment, GlobalEnvironment, Global);
 
             Options = new Options();
 
@@ -81,6 +82,8 @@ namespace Jint
             _statements = new StatementInterpreter(this);
             _expressions = new ExpressionInterpreter(this);
         }
+
+        public LexicalEnvironment GlobalEnvironment;
 
         public ObjectInstance RootObject { get; private set; }
         public FunctionInstance RootFunction { get; private set; }
@@ -160,7 +163,7 @@ namespace Jint
                     return _statements.ForInStatement(statement.As<ForInStatement>());
 
                 case SyntaxNodes.FunctionDeclaration:
-                    return _statements.ExecuteFunctionDeclaration(statement.As<FunctionDeclaration>());
+                    return new Completion(Completion.Normal, null, null);
                     
                 case SyntaxNodes.IfStatement:
                     return _statements.ExecuteIfStatement(statement.As<IfStatement>());
@@ -181,7 +184,7 @@ namespace Jint
                     return _statements.ExecuteTryStatement(statement.As<TryStatement>());
                     
                 case SyntaxNodes.VariableDeclaration:
-                    return _statements.ExecuteVariableDeclaration(statement.As<VariableDeclaration>(), true);
+                    return _statements.ExecuteVariableDeclaration(statement.As<VariableDeclaration>());
                     
                 case SyntaxNodes.WhileStatement:
                     return _statements.ExecuteWhileStatement(statement.As<WhileStatement>());
@@ -195,8 +198,6 @@ namespace Jint
                 default:
                     throw new ArgumentOutOfRangeException();
             }
-
-            return null;
         }
 
         public object EvaluateExpression(Expression expression)
@@ -348,5 +349,66 @@ namespace Jint
 
             return GetValue(Global.Get(propertyName));
         }
+
+        public void FunctionDeclarationBindings(IFunctionScope functionScope, LexicalEnvironment localEnv, bool configurableBindings, bool strict)
+        {
+            // Declaration Binding Instantiation http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
+            var env = localEnv.Record;
+
+            // process all function declarations in the current parser scope
+            foreach (var functionDeclaration in functionScope.FunctionDeclarations)
+            {
+                var fn = functionDeclaration.Id.Name;
+                var fo = this.Function.CreateFunctionObject(functionDeclaration);
+                var funcAlreadyDeclared = env.HasBinding(fn);
+                if (!funcAlreadyDeclared)
+                {
+                    env.CreateMutableBinding(fn, configurableBindings);
+                }
+                else
+                {
+                    if (env == this.GlobalEnvironment.Record)
+                    {
+                        var go = this.Global;
+                        var existingProp = go.GetProperty(fn);
+                        if (existingProp.Configurable)
+                        {
+                            go.DefineOwnProperty(fn,
+                                                 new DataDescriptor(Undefined.Instance)
+                                                 {
+                                                     Writable = true,
+                                                     Enumerable = true,
+                                                     Configurable = configurableBindings
+                                                 }, true);
+                        }
+                        else
+                        {
+                            if (existingProp.IsAccessorDescriptor() || (!existingProp.Enumerable))
+                            {
+                                throw new TypeError();
+                            }
+                        }
+                    }
+                }
+
+                env.SetMutableBinding(fn, fo, strict);
+            }
+        }
+
+        public void VariableDeclarationBinding(IVariableScope variableScope, EnvironmentRecord env, bool configurableBindings, bool strict)
+        {
+            // process all variable declarations in the current parser scope
+            foreach (var d in variableScope.VariableDeclarations.SelectMany(x => x.Declarations))
+            {
+                var dn = d.Id.Name;
+                var varAlreadyDeclared = env.HasBinding(dn);
+                if (!varAlreadyDeclared)
+                {
+                    env.CreateMutableBinding(dn, configurableBindings);
+                    env.SetMutableBinding(dn, Undefined.Instance, strict);
+                }
+            }
+        }
+
     }
 }

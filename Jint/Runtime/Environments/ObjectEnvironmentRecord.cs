@@ -14,7 +14,7 @@ namespace Jint.Runtime.Environments
         private readonly ObjectInstance _bindingObject;
         private readonly bool _provideThis;
 
-        public ObjectEnvironmentRecord(ObjectInstance bindingObject, bool provideThis = false)
+        public ObjectEnvironmentRecord(ObjectInstance bindingObject, bool provideThis)
         {
             _bindingObject = bindingObject;
             _provideThis = provideThis;

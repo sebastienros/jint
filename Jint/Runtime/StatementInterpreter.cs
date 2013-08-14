@@ -2,7 +2,6 @@
 using System.Linq;
 using Jint.Native;
 using Jint.Native.Errors;
-using Jint.Native.Function;
 using Jint.Parser.Ast;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
@@ -295,9 +294,7 @@ namespace Jint.Runtime
             var val = _engine.EvaluateExpression(withStatement.Object);
             var obj = TypeConverter.ToObject(_engine, _engine.GetValue(val));
             var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-            var newEnv = LexicalEnvironment.NewObjectEnvironment(obj, oldEnv);
-            // todo: handle ProvideThis
-            // newEnv.ProvideThis = true;
+            var newEnv = LexicalEnvironment.NewObjectEnvironment(obj, oldEnv, true);
             _engine.ExecutionContext.LexicalEnvironment = newEnv;
 
             Completion c;
@@ -449,15 +446,6 @@ namespace Jint.Runtime
             return b;
         }
 
-        public void EvaluateVariableScope(IVariableScope variableScope)
-        {
-            foreach (var variableDeclaration in variableScope.VariableDeclarations)
-            {
-                // declare the variables only
-                ExecuteVariableDeclaration(variableDeclaration, false);
-            }    
-        }
-
         public Completion ExecuteProgram(Program program)
         {
             if (program.Strict)
@@ -465,35 +453,26 @@ namespace Jint.Runtime
                 _engine.Options.Strict();
             }
 
-            EvaluateVariableScope(program);
+            _engine.FunctionDeclarationBindings(program, _engine.ExecutionContext.LexicalEnvironment, true, program.Strict);
+            _engine.VariableDeclarationBinding(program, _engine.ExecutionContext.LexicalEnvironment.Record, true, program.Strict);
+
             return ExecuteStatementList(program.Body);
         }
 
-        public Completion ExecuteVariableDeclaration(VariableDeclaration statement, bool initializeOnly)
+        public Completion ExecuteVariableDeclaration(VariableDeclaration statement)
         {
-            var env = _engine.ExecutionContext.VariableEnvironment.Record;
+            var env = _engine.ExecutionContext.LexicalEnvironment.Record;
             object value = Undefined.Instance;
 
             foreach (var declaration in statement.Declarations)
             {
                 var dn = declaration.Id.Name;
-                if (!initializeOnly)
+                if (declaration.Init != null)
                 {
-                    var varAlreadyDeclared = env.HasBinding(dn);
-                    if (!varAlreadyDeclared)
-                    {
-                        env.CreateMutableBinding(dn, true);
-                    }
+                    value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init));
                 }
-                else
-                {
-                    if (declaration.Init != null)
-                    {
-                        value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init));
-                    }
 
-                    env.SetMutableBinding(dn, value, false);
-                }
+                env.SetMutableBinding(dn, value, false);
             }
 
             return new Completion(Completion.Normal, value, null);
@@ -504,35 +483,9 @@ namespace Jint.Runtime
             return ExecuteStatementList(blockStatement.Body);
         }
 
-        public Completion ExecuteFunctionDeclaration(FunctionDeclaration functionDeclaration)
-        {
-            // create function objects
-            // http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
-
-            var identifier = functionDeclaration.Id.Name;
-
-            // todo: should be declared in the current context
-            _engine.Global.Set(
-                identifier, 
-                new ScriptFunctionInstance(
-                    _engine,
-                    functionDeclaration.Body, 
-                    identifier, 
-                    functionDeclaration.Parameters.ToArray(),
-                    _engine.Function.Prototype,
-                    _engine.Object.Construct(Arguments.Empty),
-                    LexicalEnvironment.NewDeclarativeEnvironment(_engine.ExecutionContext.LexicalEnvironment),
-                    functionDeclaration.Strict
-                )
-            );
-
-            return new Completion(Completion.Normal, null, null);
-        }
-
         public Completion ExecuteDebuggerStatement(DebuggerStatement debuggerStatement)
         {
             throw new System.NotImplementedException();
         }
-
     }
 }

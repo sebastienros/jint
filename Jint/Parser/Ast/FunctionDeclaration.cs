@@ -2,17 +2,17 @@ using System.Collections.Generic;
 
 namespace Jint.Parser.Ast
 {
-    public class FunctionDeclaration : Statement, IVariableScope
+    public class FunctionDeclaration : Statement, IFunctionDeclaration, IVariableScope
     {
         public FunctionDeclaration()
         {
             VariableDeclarations = new List<VariableDeclaration>();
         }
 
-        public Identifier Id;
-        public IEnumerable<Identifier> Parameters;
-        public Statement Body;
-        public bool Strict;
+        public Identifier Id { get; set; }
+        public IEnumerable<Identifier> Parameters { get; set; }
+        public Statement Body { get; set; }
+        public bool Strict { get; set; }
 
         public IList<VariableDeclaration> VariableDeclarations { get; set; }
 
@@ -24,5 +24,7 @@ namespace Jint.Parser.Ast
         public bool Expression;
         
         #endregion
+
+        public IList<FunctionDeclaration> FunctionDeclarations { get; set; }
     }
 }

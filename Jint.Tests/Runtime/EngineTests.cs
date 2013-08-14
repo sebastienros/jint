@@ -306,10 +306,32 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ToNumberHandlesStringObject()
+        {
+            RunTest(@"
+                x = new String('1');
+                x *= undefined;
+                assert(isNaN(x));
+            ");
+        }
+
+        [Fact]
         public void Scratch()
         {
             RunTest(@"
-            ");
+                var x = 0;
+
+                function f1(){
+                  function f2(){
+                    return x;
+                  };
+                  return f2();
+  
+                  var x = 1;
+                }
+
+                assert(f1() === undefined);
+        ");
         }
 
         /*

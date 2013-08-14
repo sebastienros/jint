@@ -50,104 +50,83 @@ namespace Jint.Runtime
             }
 
             object lval = _engine.GetValue(lref);
-            var type = TypeConverter.GetType(lval);
 
             switch (assignmentExpression.Operator)
             {
                 case "+=":
-                    switch (type)
+                    var lprim = TypeConverter.ToPrimitive(lval);
+                    var rprim = TypeConverter.ToPrimitive(rval);
+                    if (TypeConverter.GetType(lprim) == TypeCode.String ||
+                        TypeConverter.GetType(rprim) == TypeCode.String)
                     {
-                        case TypeCode.String:
-                            lval = TypeConverter.ToString(_engine.GetValue(lref)) + rval;
-                            break;
-
-                        case TypeCode.Double:
-                            lval = TypeConverter.ToNumber(_engine.GetValue(lref)) + TypeConverter.ToNumber(rval);
-                            break;
+                        lval = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
                     }
-                    
+                    else
+                    {
+                        lval = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
+                    }
                     break;
 
                 case "-=":
-                    switch (type)
-                    {
-                        case TypeCode.Double:
-                            lval = TypeConverter.ToNumber(_engine.GetValue(lref)) + TypeConverter.ToNumber(rval);
-                            break;
-                    }
+                    lval = TypeConverter.ToNumber(lval) + TypeConverter.ToNumber(rval);
                     break;
 
                 case "*=":
-                    switch (type)
+                    if (lval == Undefined.Instance || rval == Undefined.Instance)
                     {
-                        case TypeCode.Double:
-                            lval = TypeConverter.ToNumber(_engine.GetValue(lref)) *TypeConverter.ToNumber(rval);
-                            break;
+                        lval = Undefined.Instance;
+                    }
+                    else
+                    {
+                        lval = TypeConverter.ToNumber(lval) * TypeConverter.ToNumber(rval);
                     }
                     break;
 
                 case "/=":
-                    switch (type)
+                    if (lval == Undefined.Instance || rval == Undefined.Instance)
                     {
-                        case TypeCode.Double:
-                            lval = TypeConverter.ToNumber(_engine.GetValue(lref)) / TypeConverter.ToNumber(rval);
-                            break;
+                        lval = Undefined.Instance;
+                    }
+                    else
+                    {
+                        lval = TypeConverter.ToNumber(lval) / TypeConverter.ToNumber(rval);
                     }
                     break;
 
                 case "%=":
-                    switch (type)
+                    if (lval == Undefined.Instance || rval == Undefined.Instance)
                     {
-                        case TypeCode.Double:
-                            lval = TypeConverter.ToNumber(_engine.GetValue(lref)) % TypeConverter.ToNumber(rval);
-                            break;
+                        lval = Undefined.Instance;
+                    }
+                    else
+                    {
+                        lval = TypeConverter.ToNumber(lval) % TypeConverter.ToNumber(rval);
                     }
                     break;
 
                 case "&=":
-                    switch (type)
-                    {
-                        case TypeCode.Double:
-                            lval = TypeConverter.ToInt32(_engine.GetValue(lref)) & TypeConverter.ToInt32(rval);
-                            break;
-                    }
+                    lval = TypeConverter.ToInt32(lval) & TypeConverter.ToInt32(rval);
                     break;
 
                 case "|=":
-                    switch (type)
-                    {
-                        case TypeCode.Double:
-                            lval = TypeConverter.ToInt32(_engine.GetValue(lref)) | TypeConverter.ToInt32(rval);
-                            break;
-                    }
+                    lval = TypeConverter.ToInt32(lval) | TypeConverter.ToInt32(rval);
                     break;
 
                 case "^=":
-                    switch (type)
-                    {
-                        case TypeCode.Double:
-                            lval = TypeConverter.ToInt32(_engine.GetValue(lref)) ^ TypeConverter.ToInt32(rval);
-                            break;
-                    }
+                    lval = TypeConverter.ToInt32(lval) ^ TypeConverter.ToInt32(rval);
                     break;
 
                 case "<<=":
-                    switch (type)
-                    {
-                        case TypeCode.Double:
-                            lval = TypeConverter.ToInt32(_engine.GetValue(lref)) << (int)(TypeConverter.ToUint32(rval) & 0x1F);
-                            break;
-                    }
+                    lval = TypeConverter.ToInt32(lval) << (int)(TypeConverter.ToUint32(rval) & 0x1F);
                     break;
 
                 case ">>>=":
-                    switch (type)
-                    {
-                        case TypeCode.Double:
-                            lval = (uint)TypeConverter.ToInt32(_engine.GetValue(lref)) >> (int)(TypeConverter.ToUint32(rval) & 0x1F);
-                            break;
-                    }
+                    lval = (uint)TypeConverter.ToInt32(lval) >> (int)(TypeConverter.ToUint32(rval) & 0x1F);
                     break;
+                
+                default:
+                    throw new NotImplementedException();
+
             }
 
             _engine.PutValue(lref, lval);
@@ -159,59 +138,61 @@ namespace Jint.Runtime
         {
             object left = _engine.GetValue(EvaluateExpression(expression.Left));
             object right = _engine.GetValue(EvaluateExpression(expression.Right));
-            object value = Undefined.Instance;
-            var type = TypeConverter.GetType(left);
+            object value;
 
             switch (expression.Operator)
             {
                 case "+":
-                    switch (type)
+                    var lprim = TypeConverter.ToPrimitive(left);
+                    var rprim = TypeConverter.ToPrimitive(right);
+                    if (TypeConverter.GetType(lprim) == TypeCode.String ||
+                        TypeConverter.GetType(rprim) == TypeCode.String)
                     {
-                        case TypeCode.String:
-                            value = TypeConverter.ToString(left) + right;
-                            break;
-
-                        case TypeCode.Double:
-                            value = TypeConverter.ToNumber(left) + TypeConverter.ToNumber(right);
-                            break;
+                        value = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
+                    }
+                    else
+                    {
+                        value = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
                     }
                     break;
                 
                 case "-":
-                    switch (type)
-                    {
-                        case TypeCode.Double:
-                            value = TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right);
-                            break;
-                    }
+                    value = TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right);
                     break;
                 
                 case "*":
-                    switch (type)
+                    if (left == Undefined.Instance || right == Undefined.Instance)
                     {
-                        case TypeCode.Double:
-                            value = TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right);
-                            break;
+                        value = Undefined.Instance;
+                    }
+                    else
+                    {
+                        value = TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right);
                     }
                     break;
                 
                 case "/":
-                    switch (type)
+                    if (left == Undefined.Instance || right == Undefined.Instance)
                     {
-                        case TypeCode.Double:
-                            value = TypeConverter.ToNumber(left) / TypeConverter.ToNumber(right);
-                            break;
+                        value = Undefined.Instance;
+                    }
+                    else
+                    {
+                        value = TypeConverter.ToNumber(left) / TypeConverter.ToNumber(right);
                     }
                     break;
 
                 case "%":
-                    switch (type)
+                    if (left == Undefined.Instance || right == Undefined.Instance)
                     {
-                        case TypeCode.Double:
-                            value = TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right);
-                            break;
+                        value = Undefined.Instance;
+                    }
+                    else
+                    {
+                        value = TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right);
                     }
                     break;
+
                 case "==":
                     value = left.Equals(right);
                     break;
@@ -221,39 +202,19 @@ namespace Jint.Runtime
                     break;
                 
                 case ">":
-                    switch (type)
-                    {
-                        case TypeCode.Double:
-                            value = TypeConverter.ToNumber(left) > TypeConverter.ToNumber(right);
-                            break;
-                    }
+                    value = TypeConverter.ToNumber(left) > TypeConverter.ToNumber(right);
                     break;
 
                 case ">=":
-                    switch (type)
-                    {
-                        case TypeCode.Double:
-                            value = TypeConverter.ToNumber(left) >= TypeConverter.ToNumber(right);
-                            break;
-                    }
+                    value = TypeConverter.ToNumber(left) >= TypeConverter.ToNumber(right);
                     break;
                 
                 case "<":
-                    switch (type)
-                    {
-                        case TypeCode.Double:
-                            value = TypeConverter.ToNumber(left) < TypeConverter.ToNumber(right);
-                            break;
-                    }
+                    value = TypeConverter.ToNumber(left) < TypeConverter.ToNumber(right);
                     break;
                 
                 case "<=":
-                    switch (type)
-                    {
-                        case TypeCode.Double:
-                            value = TypeConverter.ToNumber(left) <= TypeConverter.ToNumber(right);
-                            break;
-                    }
+                    value = TypeConverter.ToNumber(left) <= TypeConverter.ToNumber(right);
                     break;
                 
                 case "===":
@@ -383,9 +344,7 @@ namespace Jint.Runtime
             string identifier = functionExpression.Id != null ? functionExpression.Id.Name : null;
             return new ScriptFunctionInstance(
                 _engine,
-                functionExpression.Body, 
-                identifier, 
-                functionExpression.Parameters.ToArray(), 
+                functionExpression,
                 _engine.Function.Prototype,
                 _engine.Object.Construct(Arguments.Empty),
                 LexicalEnvironment.NewDeclarativeEnvironment(_engine.ExecutionContext.LexicalEnvironment),
@@ -395,8 +354,6 @@ namespace Jint.Runtime
 
         public object EvaluateCallExpression(CallExpression callExpression)
         {
-            /// todo: read the spec as this is made up
-            
             var callee = EvaluateExpression(callExpression.Callee);
             var func = _engine.GetValue(callee);
             object thisObject;

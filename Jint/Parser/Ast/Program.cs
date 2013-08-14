@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Jint.Parser.Ast
 {
-    public class Program : Statement, IVariableScope
+    public class Program : Statement, IVariableScope, IFunctionScope
     {
         public Program()
         {
@@ -16,5 +16,6 @@ namespace Jint.Parser.Ast
         public bool Strict;
 
         public IList<VariableDeclaration> VariableDeclarations { get; set; }
+        public IList<FunctionDeclaration> FunctionDeclarations { get; set; }
     }
 }

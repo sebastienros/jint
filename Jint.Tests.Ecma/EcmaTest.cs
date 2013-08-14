@@ -29,7 +29,7 @@ namespace Jint.Tests
             {
                 throw new ArgumentException("Could not find source file: " + fullName);
             }
-
+            
             string code = File.ReadAllText(fullName);
 
             var engine = new Engine(cfg => cfg

@@ -1,8 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
+using Jint.Native.Errors;
 using Jint.Native.Object;
-using Jint.Parser.Ast;
+using Jint.Parser;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -15,22 +15,20 @@ namespace Jint.Native.Function
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
         private readonly Engine _engine;
-        private readonly Statement _body;
-        private readonly IEnumerable<Identifier> _parameters;
+        private readonly IFunctionDeclaration _functionDeclaration;
         
-        public ScriptFunctionInstance(Engine engine, Statement body, string name, Identifier[] parameters, ObjectInstance instancePrototype, ObjectInstance functionPrototype, LexicalEnvironment scope, bool strict)
-            : base(engine, instancePrototype, parameters, scope, strict)
+        public ScriptFunctionInstance(Engine engine, IFunctionDeclaration functionDeclaration, ObjectInstance instancePrototype, ObjectInstance functionPrototype, LexicalEnvironment scope, bool strict)
+            : base(engine, instancePrototype, functionDeclaration.Parameters.ToArray(), scope, strict)
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
 
             _engine = engine;
-            _body = body;
-            _parameters = parameters;
+            _functionDeclaration = functionDeclaration;
             Extensible = true;
-            var len = parameters.Count();
+            var len = functionDeclaration.Parameters.Count();
 
             DefineOwnProperty("length", new DataDescriptor(len) { Writable = false, Enumerable = false, Configurable = false }, false);
-            DefineOwnProperty("name", new DataDescriptor(name), false);
+            DefineOwnProperty("name", new DataDescriptor(_functionDeclaration.Id), false);
             instancePrototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = true, Configurable = true }, false);
             DefineOwnProperty("prototype", new DataDescriptor(functionPrototype) { Writable = true, Enumerable = true, Configurable = true }, false);
         }
@@ -38,44 +36,81 @@ namespace Jint.Native.Function
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.1
         /// </summary>
-        /// <param name="thisObject"></param>
+        /// <param name="thisArg"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public override object Call(object thisObject, object[] arguments)
+        public override object Call(object thisArg, object[] arguments)
         {
             object thisBinding;
 
             // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
             if (_engine.Options.IsStrict())
             {
-                thisBinding = thisObject;
+                thisBinding = thisArg;
             }
-            else if (thisObject == Undefined.Instance || thisObject == Null.Instance)
+            else if (thisArg == Undefined.Instance || thisArg == Null.Instance)
             {
                 thisBinding = _engine.Global;
             }
-            else if (TypeConverter.GetType(thisObject) != TypeCode.Object)
+            else if (TypeConverter.GetType(thisArg) != TypeCode.Object)
             {
-                thisBinding = TypeConverter.ToObject(_engine, thisObject);
+                thisBinding = TypeConverter.ToObject(_engine, thisArg);
             }
             else
             {
-                thisBinding = thisObject;
+                thisBinding = thisArg;
             }
 
             var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(Scope);
             
             _engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
+            // Declaration Binding Instantiation http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
             var env = localEnv.Record;
+            var configurableBindings = false;
 
-            int i = 0;
-            foreach (var parameter in _parameters)
+            var argCount = arguments.Length;
+            var n = 0;
+            foreach (var parameter in _functionDeclaration.Parameters)
             {
-                env.SetMutableBinding(parameter.Name, i < arguments.Length ? arguments[i++] : Undefined.Instance, false);
+                var argName = parameter.Name;
+                n++;
+                var v = n > argCount ? Undefined.Instance : arguments[n-1];
+                var argAlreadyDeclared = env.HasBinding(argName);
+                if (!argAlreadyDeclared)
+                {
+                    env.CreateMutableBinding(argName);
+                }
+
+                env.SetMutableBinding(argName, v, Strict);
             }
 
-            var result = _engine.ExecuteStatement(_body);
+            _engine.FunctionDeclarationBindings(_functionDeclaration, localEnv, true, Strict);
+
+            var argumentsAlreadyDeclared = env.HasBinding("arguments");
+
+            if (!argumentsAlreadyDeclared)
+            {
+                // todo: ArgumentsInstance implementation
+                var argsObj = new ArgumentsInstance(null);
+
+                if (Strict)
+                {
+                    var declEnv = env as DeclarativeEnvironmentRecord;
+                    declEnv.CreateImmutableBinding("arguments");
+                    declEnv.InitializeImmutableBinding("arguments", argsObj);
+                }
+                else
+                {
+                    env.CreateMutableBinding("arguments");
+                    env.SetMutableBinding("arguments", argsObj, false);
+                }
+            }
+
+            // process all variable declarations in the current parser scope
+            _engine.VariableDeclarationBinding(_functionDeclaration, env, configurableBindings, Strict);
+
+            var result = _engine.ExecuteStatement(_functionDeclaration.Body);
             
             _engine.LeaveExecutionContext();
 
