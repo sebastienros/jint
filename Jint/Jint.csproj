@@ -48,6 +48,7 @@
     <Compile Include="Native\Errors\ReferenceError.cs" />
     <Compile Include="Native\Errors\TypeError.cs" />
     <Compile Include="Native\Function\ArgumentsObject.cs" />
+    <Compile Include="Native\Function\EvalFunctionInstance.cs" />
     <Compile Include="Native\Function\FunctionConstructor.cs" />
     <Compile Include="Native\Function\FunctionInstance.cs" />
     <Compile Include="Native\Function\FunctionShim.cs" />

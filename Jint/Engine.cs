@@ -79,6 +79,9 @@ namespace Jint
                 }
             }
 
+            Eval = new EvalFunctionInstance(this, new ObjectInstance(null), new Identifier[0], LexicalEnvironment.NewDeclarativeEnvironment(ExecutionContext.LexicalEnvironment), Options.IsStrict());
+            Global.FastDefineDataDescriptor("eval", Eval);
+
             _statements = new StatementInterpreter(this);
             _expressions = new ExpressionInterpreter(this);
         }
@@ -97,6 +100,7 @@ namespace Jint
         public NumberConstructor Number { get; private set; }
         public DateConstructor Date { get; private set; }
         public MathInstance Math { get; private set; }
+        public EvalFunctionInstance Eval { get; private set; }
 
         public ExecutionContext ExecutionContext { get { return _executionContexts.Peek(); } }
 

@@ -331,7 +331,16 @@ namespace Jint.Tests.Runtime
                 }
 
                 assert(f1() === undefined);
-        ");
+            ");
+        }
+
+        [Fact]
+        public void EvalFunctionParseAndExecuteCode()
+        {
+            RunTest(@"
+                var x = 0;
+                eval('assert(x == 0)');
+            ");
         }
 
         /*
