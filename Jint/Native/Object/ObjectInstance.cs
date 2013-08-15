@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Jint.Native.Errors;
 using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -9,8 +8,11 @@ namespace Jint.Native.Object
 {
     public class ObjectInstance
     {
-        public ObjectInstance(ObjectInstance prototype)
+        private readonly Engine _engine;
+
+        public ObjectInstance(Engine engine, ObjectInstance prototype)
         {
+            _engine = engine;
             Properties = new Dictionary<string, PropertyDescriptor>();
             Extensible = true;
             Prototype = prototype;
@@ -148,7 +150,7 @@ namespace Jint.Native.Object
             {
                 if (throwOnError)
                 {
-                    throw new TypeError();
+                    throw new JavaScriptException(_engine.TypeError);
                 }
 
                 return;
@@ -168,7 +170,7 @@ namespace Jint.Native.Object
                 {
                     if (throwOnError)
                     {
-                        throw new TypeError();
+                        throw new JavaScriptException(_engine.TypeError);
                     }
 
                     return;
@@ -290,7 +292,7 @@ namespace Jint.Native.Object
             {
                 if (throwOnError)
                 {
-                    throw new TypeError();
+                    throw new JavaScriptException(_engine.TypeError);
                 }
 
                 return false;
@@ -329,7 +331,7 @@ namespace Jint.Native.Object
                     }
                 }
 
-                throw new TypeError();
+                throw new JavaScriptException(_engine.TypeError);
             }
 
             if ((hint == TypeCode.Double) || (hint == TypeCode.Empty))
@@ -356,7 +358,7 @@ namespace Jint.Native.Object
                     }
                 }
 
-                throw new TypeError();
+                throw new JavaScriptException(_engine.TypeError);
             }
 
             return ToString();
@@ -381,7 +383,7 @@ namespace Jint.Native.Object
                 {
                     if (throwOnError)
                     {
-                        throw new TypeError();
+                        throw new JavaScriptException(_engine.TypeError);
                     }
 
                     return false;
@@ -409,7 +411,7 @@ namespace Jint.Native.Object
                 {
                     if (throwOnError)
                     {
-                        throw new TypeError();
+                        throw new JavaScriptException(_engine.TypeError);
                     }
 
                     return false;
@@ -419,7 +421,7 @@ namespace Jint.Native.Object
                 {
                     if (throwOnError)
                     {
-                        throw new TypeError();
+                        throw new JavaScriptException(_engine.TypeError);
                     }
 
                     return false;
@@ -437,7 +439,7 @@ namespace Jint.Native.Object
                 {
                     if (throwOnError)
                     {
-                        throw new TypeError();
+                        throw new JavaScriptException(_engine.TypeError);
                     }
 
                     return false;
@@ -459,7 +461,7 @@ namespace Jint.Native.Object
                     {
                         if (throwOnError)
                         {
-                            throw new TypeError();
+                            throw new JavaScriptException(_engine.TypeError);
                         }
 
                         return false;
@@ -478,7 +480,7 @@ namespace Jint.Native.Object
                     {
                         if (throwOnError)
                         {
-                            throw new TypeError();
+                            throw new JavaScriptException(_engine.TypeError);
                         }
 
                         return false;

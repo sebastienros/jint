@@ -1,5 +1,4 @@
-﻿using Jint.Native.Errors;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
@@ -10,7 +9,7 @@ namespace Jint.Native.Function
     {
         private readonly Engine _engine;
 
-        protected FunctionInstance(Engine engine, ObjectInstance prototype, Identifier[] parameters, LexicalEnvironment scope, bool strict) : base(prototype)
+        protected FunctionInstance(Engine engine, ObjectInstance prototype, Identifier[] parameters, LexicalEnvironment scope, bool strict) : base(engine, prototype)
         {
             _engine = engine;
             FormalParameters = parameters;
@@ -85,7 +84,7 @@ namespace Jint.Native.Function
             var f = v as FunctionInstance;
             if (propertyName == "caller" && f != null && f.Strict)
             {
-                throw new TypeError();
+                throw new JavaScriptException(_engine.TypeError);
             }
 
             return v;

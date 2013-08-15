@@ -7,7 +7,7 @@ namespace Jint.Native.Function
     /// </summary>
     public class ArgumentsInstance : ObjectInstance
     {
-        public ArgumentsInstance(ObjectInstance prototype) : base(prototype)
+        public ArgumentsInstance(Engine engine, ObjectInstance prototype) : base(engine, prototype)
         {
             // todo: complete implementation
         }

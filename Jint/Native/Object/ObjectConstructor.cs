@@ -23,7 +23,7 @@ namespace Jint.Native.Object
 
         public ObjectInstance Construct(object[] arguments)
         {
-            var instance = new ObjectInstance(this.Prototype);
+            var instance = new ObjectInstance(_engine, this.Prototype);
 
             // the constructor is the function constructor of an object
             instance.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);

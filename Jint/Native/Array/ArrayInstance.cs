@@ -7,7 +7,7 @@ namespace Jint.Native.Array
     {
         private readonly Stack<object> _array = new Stack<object>();
  
-        public ArrayInstance(ObjectInstance prototype) : base(prototype)
+        public ArrayInstance(Engine engine, ObjectInstance prototype) : base(engine, prototype)
         {
         }
 

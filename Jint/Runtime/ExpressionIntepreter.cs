@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using Jint.Native;
-using Jint.Native.Errors;
 using Jint.Native.Function;
 using Jint.Parser.Ast;
 using Jint.Runtime.Descriptors;
@@ -42,7 +41,7 @@ namespace Jint.Runtime
             {
                 if(lref != null && lref.IsStrict() && lref.GetBase() is EnvironmentRecord && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
                 {
-                    throw new SyntaxError();
+                    throw new JavaScriptException(_engine.SyntaxError);
                 }
 
                 _engine.PutValue(lref, rval);
@@ -326,7 +325,7 @@ namespace Jint.Runtime
 
                         if (getter == null)
                         {
-                            throw new SyntaxError();
+                            throw new JavaScriptException(_engine.SyntaxError);
                         }
 
                         var get = new ScriptFunctionInstance(
@@ -346,7 +345,7 @@ namespace Jint.Runtime
 
                         if (setter == null)
                         {
-                            throw new SyntaxError();
+                            throw new JavaScriptException(_engine.SyntaxError);
                         }
 
                         var set = new ScriptFunctionInstance(
@@ -374,22 +373,22 @@ namespace Jint.Runtime
 
                     if (_engine.Options.IsStrict() && previousIsData && propIsData)
                     {
-                        throw new SyntaxError();
+                        throw new JavaScriptException(_engine.SyntaxError);
                     }
 
                     if (previousIsData && propIsAccessor)
                     {
-                        throw new SyntaxError();
+                        throw new JavaScriptException(_engine.SyntaxError);
                     }
 
                     if (previousIsAccessor && propIsData)
                     {
-                        throw new SyntaxError();
+                        throw new JavaScriptException(_engine.SyntaxError);
                     }
 
                     if (previousIsAccessor && propIsAccessor && ((previous.As<AccessorDescriptor>().Get != null && propDesc.As<AccessorDescriptor>().Get != null) || (previous.As<AccessorDescriptor>().Set != null && propDesc.As<AccessorDescriptor>().Set != null)))
                     {
-                        throw new SyntaxError();
+                        throw new JavaScriptException(_engine.SyntaxError);
                     }
                 }
 
@@ -419,7 +418,7 @@ namespace Jint.Runtime
                 functionExpression,
                 _engine.Function.Prototype,
                 _engine.Object.Construct(Arguments.Empty),
-                LexicalEnvironment.NewDeclarativeEnvironment(_engine.ExecutionContext.LexicalEnvironment),
+                LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment),
                 functionExpression.Strict
                 );
         }
@@ -435,13 +434,13 @@ namespace Jint.Runtime
 
             if (TypeConverter.GetType(func) != TypeCode.Object)
             {
-                throw new TypeError();
+                throw new JavaScriptException(_engine.TypeError);
             }
 
             var callable = func as ICallable;
             if (callable == null)
             {
-                throw new TypeError();
+                throw new JavaScriptException(_engine.TypeError);
             }
 
             var r = callee as Reference;
@@ -544,7 +543,7 @@ namespace Jint.Runtime
                         && (r.GetBase() is EnvironmentRecord )
                         && (Array.IndexOf(new []{"eval", "arguments"}, r.GetReferencedName()) != -1) )
                     {
-                        throw new SyntaxError();
+                        throw new JavaScriptException(_engine.SyntaxError);
                     }
 
                     var oldValue = _engine.GetValue(value);
@@ -560,7 +559,7 @@ namespace Jint.Runtime
                         && (r.GetBase() is EnvironmentRecord )
                         && (Array.IndexOf(new []{"eval", "arguments"}, r.GetReferencedName()) != -1) )
                     {
-                        throw new SyntaxError();
+                        throw new JavaScriptException(_engine.SyntaxError);
                     }
 
                     oldValue = _engine.GetValue(value);
@@ -592,7 +591,7 @@ namespace Jint.Runtime
                     {
                         if (r.IsStrict())
                         {
-                            throw new SyntaxError();
+                            throw new JavaScriptException(_engine.SyntaxError);
                         }
 
                         return true;
@@ -604,7 +603,7 @@ namespace Jint.Runtime
                     }
                     if (r.IsStrict())
                     {
-                        throw new SyntaxError();
+                        throw new JavaScriptException(_engine.SyntaxError);
                     }
                     var bindings = r.GetBase() as EnvironmentRecord;
                     return bindings.DeleteBinding(r.GetReferencedName());

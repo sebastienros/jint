@@ -11,13 +11,13 @@ namespace Jint.Native.Date
         private readonly Engine _engine;
 
         public DateConstructor(Engine engine)
-            : base(engine, new ObjectInstance(engine.Object), null, null, false)
+            : base(engine, new ObjectInstance(engine, engine.Object), null, null, false)
         {
             _engine = engine;
 
             // the constructor is the function constructor of an object
-            this.Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
-            this.Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
+            Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
+            Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
 
         }
 
@@ -72,7 +72,7 @@ namespace Jint.Native.Date
 
         public DateInstance Construct(DateTime value)
         {
-            var instance = new DateInstance(Prototype);
+            var instance = new DateInstance(_engine, Prototype);
             instance.PrimitiveValue = value;
             return instance;
         }

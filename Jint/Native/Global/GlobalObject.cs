@@ -7,14 +7,17 @@ namespace Jint.Native.Global
 {
     public sealed class GlobalObject : ObjectInstance
     {
-        private GlobalObject(ObjectInstance prototype)
-            : base(prototype)
+        private readonly Engine _engine;
+
+        private GlobalObject(Engine engine, ObjectInstance prototype)
+            : base(engine, prototype)
         {
+            _engine = engine;
         }
 
         public static GlobalObject CreateGlobalObject(Engine engine, ObjectInstance prototype)
         {
-            var global = new GlobalObject(prototype);
+            var global = new GlobalObject(engine, prototype);
             
             // Global object properties
             global.DefineOwnProperty("NaN", new DataDescriptor(double.NaN), false);

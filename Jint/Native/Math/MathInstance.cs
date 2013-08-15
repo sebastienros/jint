@@ -6,10 +6,13 @@ using Jint.Runtime.Descriptors.Specialized;
 namespace Jint.Native.Math
 {
     public sealed class MathInstance : ObjectInstance
-    {   
-        public MathInstance(ObjectInstance prototype)
-            : base(prototype)
+    {
+        private readonly Engine _engine;
+
+        public MathInstance(Engine engine, ObjectInstance prototype)
+            : base(engine, prototype)
         {
+            _engine = engine;
         }
 
         public override string Class
@@ -22,7 +25,7 @@ namespace Jint.Native.Math
 
         public static MathInstance CreateMathObject(Engine engine, ObjectInstance prototype)
         {
-            var math = new MathInstance(prototype);
+            var math = new MathInstance(engine, prototype);
             math.DefineOwnProperty("abs", new ClrDataDescriptor<MathInstance, double>(engine, Abs), false);
             math.DefineOwnProperty("acos", new ClrDataDescriptor<MathInstance, double>(engine, Acos), false);
             math.DefineOwnProperty("asin", new ClrDataDescriptor<MathInstance, double>(engine, Asin), false);

@@ -5,8 +5,8 @@ namespace Jint.Native.Number
 {
     public sealed class NumberInstance : ObjectInstance, IPrimitiveType
     {
-        public NumberInstance(ObjectInstance prototype)
-            : base(prototype)
+        public NumberInstance(Engine engine, ObjectInstance prototype)
+            : base(engine, prototype)
         {
         }
 

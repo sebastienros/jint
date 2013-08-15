@@ -11,7 +11,7 @@ namespace Jint.Native.Number
         private readonly Engine _engine;
 
         public NumberConstructor(Engine engine)
-            : base(engine, new ObjectInstance(engine.Object), null, null, false)
+            : base(engine, new ObjectInstance(engine, engine.Object), null, null, false)
         {
             _engine = engine;
 
@@ -45,7 +45,7 @@ namespace Jint.Native.Number
 
         public NumberInstance Construct(double value)
         {
-            var instance = new NumberInstance(Prototype);
+            var instance = new NumberInstance(_engine, Prototype);
             instance.PrimitiveValue = value;
             return instance;
         }

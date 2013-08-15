@@ -9,20 +9,20 @@ namespace Jint.Native.Array
     {
         private readonly Engine _engine;
 
-        public ArrayConstructor(Engine engine) :  base(engine, new ObjectInstance(engine.RootFunction), null, null, false)
+        public ArrayConstructor(Engine engine) :  base(engine, new ObjectInstance(engine, engine.RootFunction), null, null, false)
         {
             _engine = engine;
 
             // the constructor is the function constructor of an object
-            this.Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
-            this.Prototype.DefineOwnProperty("prototype", new DataDescriptor(this.Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
+            Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
+            Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
                                   
             // Array prototype properties
-            this.Prototype.DefineOwnProperty("length", new ClrAccessDescriptor<ArrayInstance>(_engine, x => x.Length), false);
+            Prototype.DefineOwnProperty("length", new ClrAccessDescriptor<ArrayInstance>(_engine, x => x.Length), false);
 
             // Array prototype functions
-            this.Prototype.DefineOwnProperty("push", new ClrDataDescriptor<ArrayInstance, object>(engine, Push), false);
-            this.Prototype.DefineOwnProperty("pop", new ClrDataDescriptor<ArrayInstance, object>(engine, Pop), false);
+            Prototype.DefineOwnProperty("push", new ClrDataDescriptor<ArrayInstance, object>(engine, Push), false);
+            Prototype.DefineOwnProperty("pop", new ClrDataDescriptor<ArrayInstance, object>(engine, Pop), false);
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -32,7 +32,7 @@ namespace Jint.Native.Array
 
         public ObjectInstance Construct(object[] arguments)
         {
-            var instance = new ArrayInstance(Prototype);
+            var instance = new ArrayInstance(_engine, Prototype);
 
             foreach (var arg in arguments)
             {

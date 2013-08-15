@@ -10,7 +10,7 @@ namespace Jint.Native.String
         private readonly Engine _engine;
 
         public StringConstructor(Engine engine)
-            : base(engine, new ObjectInstance(engine.Object), null, null, false)
+            : base(engine, new ObjectInstance(engine, engine.Object), null, null, false)
         {
             _engine = engine;
 
@@ -37,7 +37,7 @@ namespace Jint.Native.String
 
         public StringInstance Construct(string value)
         {
-            var instance = new StringInstance(Prototype);
+            var instance = new StringInstance(_engine, Prototype);
             instance.PrimitiveValue = value;
             return instance;
         }

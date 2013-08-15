@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Jint.Native;
-using Jint.Native.Errors;
 using Jint.Parser.Ast;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
@@ -290,7 +289,7 @@ namespace Jint.Runtime
             var val = _engine.EvaluateExpression(withStatement.Object);
             var obj = TypeConverter.ToObject(_engine, _engine.GetValue(val));
             var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-            var newEnv = LexicalEnvironment.NewObjectEnvironment(obj, oldEnv, true);
+            var newEnv = LexicalEnvironment.NewObjectEnvironment(_engine, obj, oldEnv, true);
             _engine.ExecutionContext.LexicalEnvironment = newEnv;
 
             Completion c;
@@ -298,9 +297,9 @@ namespace Jint.Runtime
             {
                 c = ExecuteStatement(withStatement.Body);
             }
-            catch (Error v)
+            catch (JavaScriptException e)
             {
-                c = new Completion(Completion.Throw, v, null);
+                c = new Completion(Completion.Throw, e.Error, null);
             }
             finally
             {
@@ -382,9 +381,9 @@ namespace Jint.Runtime
                     }
                 }
             }
-            catch(Error v)
+            catch(JavaScriptException v)
             {
-                return new Completion(Completion.Throw, v, null);
+                return new Completion(Completion.Throw, v.Error, null);
             }
 
             return c;
@@ -418,7 +417,7 @@ namespace Jint.Runtime
                     {
                         var c = _engine.GetValue(b);
                         var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                        var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(oldEnv);
+                        var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
                         catchEnv.Record.CreateMutableBinding(catchClause.Param.Name);
                         catchEnv.Record.SetMutableBinding(catchClause.Param.Name, c, false);
                         _engine.ExecutionContext.LexicalEnvironment = catchEnv;

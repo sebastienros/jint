@@ -5,8 +5,8 @@ namespace Jint.Native.Date
 {
     public sealed class DateInstance : ObjectInstance, IPrimitiveType
     {
-        public DateInstance(ObjectInstance prototype)
-            : base(prototype)
+        public DateInstance(Engine engine, ObjectInstance prototype)
+            : base(engine, prototype)
         {
         }
 

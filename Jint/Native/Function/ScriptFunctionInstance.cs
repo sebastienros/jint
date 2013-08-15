@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using Jint.Native.Errors;
 using Jint.Native.Object;
 using Jint.Parser;
 using Jint.Runtime;
@@ -61,7 +60,7 @@ namespace Jint.Native.Function
                 thisBinding = thisArg;
             }
 
-            var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(Scope);
+            var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, Scope);
             
             _engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
@@ -92,7 +91,7 @@ namespace Jint.Native.Function
             if (!argumentsAlreadyDeclared)
             {
                 // todo: ArgumentsInstance implementation
-                var argsObj = new ArgumentsInstance(null);
+                var argsObj = new ArgumentsInstance(_engine, null);
 
                 if (Strict)
                 {
@@ -113,6 +112,11 @@ namespace Jint.Native.Function
             var result = _engine.ExecuteStatement(_functionDeclaration.Body);
             
             _engine.LeaveExecutionContext();
+
+            if (result.Type == Completion.Throw)
+            {
+                throw new JavaScriptException(result.Value);
+            }
 
             return result;
         }

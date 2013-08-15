@@ -5,7 +5,7 @@ using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
-using Jint.Native.Errors;
+using Jint.Native.Error;
 using Jint.Native.Function;
 using Jint.Native.Global;
 using Jint.Native.Math;
@@ -36,7 +36,7 @@ namespace Jint
         {
             _executionContexts = new Stack<ExecutionContext>();
 
-            RootObject = new ObjectInstance(null);
+            RootObject = new ObjectInstance(this, null);
             RootFunction = new FunctionShim(this, RootObject, null, null);
 
             Object = new ObjectConstructor(this);
@@ -49,6 +49,14 @@ namespace Jint
             Date = new DateConstructor(this);
             Math = MathInstance.CreateMathObject(this, RootObject);
 
+            Error = new ErrorConstructor(this, "Error");
+            EvalError = new ErrorConstructor(this, "EvalError");
+            RangeError = new ErrorConstructor(this, "RangeError");
+            ReferenceError = new ErrorConstructor(this, "ReferenceError");
+            SyntaxError = new ErrorConstructor(this, "SyntaxError");
+            TypeError = new ErrorConstructor(this, "TypeError");
+            URIError = new ErrorConstructor(this, "URIError");
+
             Global.FastAddProperty("Object", Object, true, false, true);
             Global.FastAddProperty("Function", Function, true, false, true);
             Global.FastAddProperty("Array", Array, true, false, true);
@@ -58,8 +66,16 @@ namespace Jint
             Global.FastAddProperty("Date", Date, true, false, true);
             Global.FastAddProperty("Math", Math, true, false, true);
 
+            Global.FastAddProperty("Error", Error, true, false, true);
+            Global.FastAddProperty("EvalError", EvalError, true, false, true);
+            Global.FastAddProperty("RangeError", RangeError, true, false, true);
+            Global.FastAddProperty("ReferenceError", ReferenceError, true, false, true);
+            Global.FastAddProperty("SyntaxError", SyntaxError, true, false, true);
+            Global.FastAddProperty("TypeError", TypeError, true, false, true);
+            Global.FastAddProperty("URIError", URIError, true, false, true);
+
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
-            GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(Global, null, true);
+            GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, true);
             
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
             EnterExecutionContext(GlobalEnvironment, GlobalEnvironment, Global);
@@ -79,7 +95,7 @@ namespace Jint
                 }
             }
 
-            Eval = new EvalFunctionInstance(this, new ObjectInstance(null), new Identifier[0], LexicalEnvironment.NewDeclarativeEnvironment(ExecutionContext.LexicalEnvironment), Options.IsStrict());
+            Eval = new EvalFunctionInstance(this, new ObjectInstance(this, null), new Identifier[0], LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), Options.IsStrict());
             Global.FastAddProperty("eval", Eval, true, false, true);
 
             _statements = new StatementInterpreter(this);
@@ -101,6 +117,14 @@ namespace Jint
         public DateConstructor Date { get; private set; }
         public MathInstance Math { get; private set; }
         public EvalFunctionInstance Eval { get; private set; }
+
+        public ErrorConstructor Error { get; private set; }
+        public ErrorConstructor EvalError { get; private set; }
+        public ErrorConstructor SyntaxError { get; private set; }
+        public ErrorConstructor TypeError { get; private set; }
+        public ErrorConstructor RangeError { get; private set; }
+        public ErrorConstructor ReferenceError { get; private set; }
+        public ErrorConstructor URIError { get; private set; }
 
         public ExecutionContext ExecutionContext { get { return _executionContexts.Peek(); } }
 
@@ -284,7 +308,7 @@ namespace Jint
 
             if (reference.IsUnresolvableReference())
             {
-                throw new ReferenceError();
+                throw new JavaScriptException(ReferenceError);
             }
 
             var baseValue = reference.GetBase();
@@ -311,7 +335,7 @@ namespace Jint
             {
                 if (reference.IsStrict())
                 {
-                    throw new ReferenceError();
+                    throw new JavaScriptException(ReferenceError);
                 }
 
                 Global.Put(reference.GetReferencedName(), value, false);
@@ -351,7 +375,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    throw new TypeError();
+                    throw new JavaScriptException(TypeError);
                 }
 
                 return;
@@ -363,7 +387,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    throw new TypeError();
+                    throw new JavaScriptException(TypeError);
                 }
 
                 return;
@@ -380,7 +404,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    throw new TypeError();
+                    throw new JavaScriptException(TypeError);
                 }
             }
         }
@@ -431,7 +455,7 @@ namespace Jint
                         {
                             if (existingProp.IsAccessorDescriptor() || (!existingProp.Enumerable))
                             {
-                                throw new TypeError();
+                                throw new JavaScriptException(TypeError);
                             }
                         }
                     }

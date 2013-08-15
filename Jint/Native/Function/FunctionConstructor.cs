@@ -49,7 +49,7 @@ namespace Jint.Native.Function
                 functionDeclaration,
                 _engine.Function.Prototype /* instancePrototype */,
                 _engine.Object.Construct(Arguments.Empty) /* functionPrototype */,
-                LexicalEnvironment.NewDeclarativeEnvironment(_engine.ExecutionContext.LexicalEnvironment),
+                LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment),
                 functionDeclaration.Strict
                 ) { Extensible = true };
 

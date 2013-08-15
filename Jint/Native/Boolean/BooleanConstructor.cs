@@ -10,13 +10,13 @@ namespace Jint.Native.Boolean
         private readonly Engine _engine;
 
         public BooleanConstructor(Engine engine)
-            : base(engine, new ObjectInstance(engine.Object), null, null, false)
+            : base(engine, new ObjectInstance(engine, engine.Object), null, null, false)
         {
             _engine = engine;
 
             // the constructor is the function constructor of an object
-            this.Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
-            this.Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
+            Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
+            Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
 
         }
 
@@ -37,7 +37,7 @@ namespace Jint.Native.Boolean
 
         public BooleanInstance Construct(bool value)
         {
-            var instance = new BooleanInstance(Prototype);
+            var instance = new BooleanInstance(_engine, Prototype);
             instance.PrimitiveValue = value;
             return instance;
         }

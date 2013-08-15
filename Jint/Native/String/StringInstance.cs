@@ -5,9 +5,12 @@ namespace Jint.Native.String
 {
     public sealed class StringInstance : ObjectInstance, IPrimitiveType
     {
-        public StringInstance(ObjectInstance prototype)
-            : base(prototype)
+        private readonly Engine _engine;
+
+        public StringInstance(Engine engine, ObjectInstance prototype)
+            : base(engine, prototype)
         {
+            _engine = engine;
         }
 
         public override string Class

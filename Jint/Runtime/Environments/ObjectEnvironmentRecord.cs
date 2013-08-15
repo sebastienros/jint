@@ -1,5 +1,4 @@
 ﻿using Jint.Native;
-using Jint.Native.Errors;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 
@@ -11,15 +10,16 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class ObjectEnvironmentRecord : EnvironmentRecord
     {
+        private readonly Engine _engine;
         private readonly ObjectInstance _bindingObject;
         private readonly bool _provideThis;
 
-        public ObjectEnvironmentRecord(ObjectInstance bindingObject, bool provideThis)
+        public ObjectEnvironmentRecord(Engine engine, ObjectInstance bindingObject, bool provideThis)
         {
+            _engine = engine;
             _bindingObject = bindingObject;
             _provideThis = provideThis;
         }
-
 
         public override bool HasBinding(string name)
         {
@@ -59,7 +59,7 @@ namespace Jint.Runtime.Environments
                     return Undefined.Instance;
                 }
 
-                throw new ReferenceError();
+                throw new JavaScriptException(_engine.ReferenceError);
             }
 
             return _bindingObject.Get(name);

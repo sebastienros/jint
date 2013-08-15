@@ -43,10 +43,8 @@
     <Compile Include="Native\Boolean\BooleanInstance.cs" />
     <Compile Include="Native\Date\DateConstructor.cs" />
     <Compile Include="Native\Date\DateInstance.cs" />
-    <Compile Include="Native\Errors\Error.cs" />
-    <Compile Include="Native\Errors\SyntaxError.cs" />
-    <Compile Include="Native\Errors\ReferenceError.cs" />
-    <Compile Include="Native\Errors\TypeError.cs" />
+    <Compile Include="Native\Error\ErrorConstructor.cs" />
+    <Compile Include="Native\Error\ErrorInstance.cs" />
     <Compile Include="Native\Function\ArgumentsObject.cs" />
     <Compile Include="Native\Function\EvalFunctionInstance.cs" />
     <Compile Include="Native\Function\FunctionConstructor.cs" />
@@ -142,6 +140,7 @@
     <Compile Include="Runtime\Interop\SetterFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\GetterFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\DelegateWrapper.cs" />
+    <Compile Include="Runtime\JavaScriptException.cs" />
     <Compile Include="Runtime\References\Reference.cs" />
     <Compile Include="Runtime\StatementInterpreter.cs" />
     <Compile Include="Runtime\TypeConverter.cs" />

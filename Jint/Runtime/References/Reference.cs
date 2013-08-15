@@ -1,6 +1,5 @@
 ﻿using Jint.Native;
 using Jint.Native.Boolean;
-using Jint.Native.Errors;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;

@@ -45,14 +45,14 @@ namespace Jint.Runtime.Environments
             return Outer.GetIdentifierReference(name, strict);
         }
 
-        public static LexicalEnvironment NewDeclarativeEnvironment(LexicalEnvironment outer = null)
+        public static LexicalEnvironment NewDeclarativeEnvironment(Engine engine, LexicalEnvironment outer = null)
         {
             return new LexicalEnvironment(new DeclarativeEnvironmentRecord(), outer);
         }
 
-        public static LexicalEnvironment NewObjectEnvironment(ObjectInstance objectInstance, LexicalEnvironment outer, bool provideThis)
+        public static LexicalEnvironment NewObjectEnvironment(Engine engine, ObjectInstance objectInstance, LexicalEnvironment outer, bool provideThis)
         {
-            return new LexicalEnvironment(new ObjectEnvironmentRecord(objectInstance, provideThis), outer);
+            return new LexicalEnvironment(new ObjectEnvironmentRecord(engine, objectInstance, provideThis), outer);
         }
     }
 

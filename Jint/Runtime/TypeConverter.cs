@@ -1,6 +1,5 @@
 ﻿using System;
 using Jint.Native;
-using Jint.Native.Errors;
 using Jint.Native.Object;
 
 namespace Jint.Runtime
@@ -276,12 +275,12 @@ namespace Jint.Runtime
 
             if (value == Undefined.Instance)
             {
-                throw new TypeError();
+                throw new JavaScriptException(engine.TypeError);
             }
 
             if (value == Null.Instance)
             {
-                throw new TypeError();
+                throw new JavaScriptException(engine.TypeError);
             }
 
             if (value is bool)
@@ -310,7 +309,7 @@ namespace Jint.Runtime
                 return engine.String.Construct(s);
             }
 
-            throw new TypeError();
+            throw new JavaScriptException(engine.TypeError);
         }
 
         public static TypeCode GetType(object value)

@@ -396,6 +396,31 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void TryCatchBlockStatement()
+        {
+            RunTest(@"
+                var x, y, z;
+                try {
+                    x = 1;
+                    throw new TypeError();
+                    x = 2;
+                }
+                catch(e) {
+                    assert(x == 1);
+                    assert(e instanceof TypeError);
+                    y = 1;
+                }
+                finally {
+                    assert(x == 1);
+                    z = 1;
+                }
+                
+                assert(x == 1);
+                assert(y == 1);
+                assert(z == 1);
+            ");
+        }
         /*
                         [Fact]
                         public void ()
