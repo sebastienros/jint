@@ -1357,14 +1357,21 @@ namespace Jint.Parser
 
         public BinaryExpression CreateBinaryExpression(string op, Expression left, Expression right)
         {
-            SyntaxNodes type = (op == "||" || op == "&&") ? SyntaxNodes.LogicalExpression : SyntaxNodes.BinaryExpression;
-            return new BinaryExpression
-                {
-                    Type = type,
-                    Operator = op,
-                    Left = left,
-                    Right = right
-                };
+            return (op == "||" || op == "&&")
+                       ? new LogicalExpression
+                           {
+                               Type = SyntaxNodes.LogicalExpression,
+                               Operator = op,
+                               Left = left,
+                               Right = right
+                           }
+                       : new BinaryExpression
+                           {
+                               Type = SyntaxNodes.BinaryExpression,
+                               Operator = op,
+                               Left = left,
+                               Right = right
+                           };
         }
 
         public BlockStatement CreateBlockStatement(IEnumerable<Statement> body)

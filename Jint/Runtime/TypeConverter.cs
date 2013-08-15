@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using Jint.Native;
 using Jint.Native.Object;
 
@@ -19,9 +20,10 @@ namespace Jint.Runtime
                 return input;
             }
 
-            if (input is IPrimitiveType)
+            var primitive = input as IPrimitiveType;
+            if (primitive != null)
             {
-                return input;
+                return primitive.PrimitiveValue;
             }
 
             var o = input as ObjectInstance;
@@ -85,7 +87,12 @@ namespace Jint.Runtime
 
             if (o is int)
             {
-                return ToBoolean((double) (int) o);
+                return ToBoolean((double)(int)o);
+            }
+
+            if (o is uint)
+            {
+                return ToBoolean((double)(uint)o);
             }
 
             return true;
@@ -108,6 +115,11 @@ namespace Jint.Runtime
                 return (int) o;
             }
 
+            if (o is uint)
+            {
+                return (uint) o;
+            }
+
             if (o == Undefined.Instance)
             {
                 return double.NaN;
@@ -126,7 +138,13 @@ namespace Jint.Runtime
             var s = o as string;
             if (s != null)
             {
-                return double.Parse(s);
+                double n;
+                if (double.TryParse(s, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out n))
+                {
+                    return n;
+                }
+
+                return double.NaN;
             }
 
             return ToNumber(ToPrimitive(o, TypeCode.Double));
@@ -142,6 +160,11 @@ namespace Jint.Runtime
             if (o is int)
             {
                 return (int) o;
+            }
+
+            if (o is uint)
+            {
+                return (int) (uint) o;
             }
 
             var number = ToNumber(o);
@@ -162,7 +185,12 @@ namespace Jint.Runtime
         {
             if (o is int)
             {
-                return (int) o;
+                return (int)o;
+            }
+
+            if (o is uint)
+            {
+                return (int) (uint) o;
             }
 
             var n = ToNumber(o);
@@ -259,7 +287,12 @@ namespace Jint.Runtime
 
             if (o is int)
             {
-                return ToString((double) (int) o);
+                return ToString((double)(int)o);
+            }
+
+            if (o is uint)
+            {
+                return ToString((double)(uint)o);
             }
 
             return ToString(ToPrimitive(o, TypeCode.String));

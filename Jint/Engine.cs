@@ -257,7 +257,7 @@ namespace Jint
                     return _expressions.EvaluateLiteral(expression.As<Literal>());
 
                 case SyntaxNodes.LogicalExpression:
-                    return null;
+                    return _expressions.EvaluateLogicalExpression(expression.As<LogicalExpression>());
 
                 case SyntaxNodes.MemberExpression:
                     return _expressions.EvaluateMemberExpression(expression.As<MemberExpression>());

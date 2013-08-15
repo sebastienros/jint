@@ -67,7 +67,7 @@ namespace Jint.Runtime
                     break;
 
                 case "-=":
-                    lval = TypeConverter.ToNumber(lval) + TypeConverter.ToNumber(rval);
+                    lval = TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval);
                     break;
 
                 case "*=":
@@ -117,6 +117,10 @@ namespace Jint.Runtime
 
                 case "<<=":
                     lval = TypeConverter.ToInt32(lval) << (int)(TypeConverter.ToUint32(rval) & 0x1F);
+                    break;
+
+                case ">>=":
+                    lval = TypeConverter.ToInt32(lval) >> (int)(TypeConverter.ToUint32(rval) & 0x1F);
                     break;
 
                 case ">>>=":
@@ -250,6 +254,34 @@ namespace Jint.Runtime
             }
 
             return value;
+        }
+
+        public object EvaluateLogicalExpression(LogicalExpression logicalExpression)
+        {
+            var left = _engine.GetValue(EvaluateExpression(logicalExpression.Left));
+
+            switch (logicalExpression.Operator)
+            {
+
+                case "&&":
+                    if (!TypeConverter.ToBoolean(left))
+                    {
+                        return left;
+                    }
+
+                    return _engine.GetValue(EvaluateExpression(logicalExpression.Right));
+
+                case "||":
+                    if (TypeConverter.ToBoolean(left))
+                    {
+                        return left;
+                    }
+
+                    return _engine.GetValue(EvaluateExpression(logicalExpression.Right));
+
+                default:
+                    throw new NotImplementedException();
+            }
         }
 
         public static bool StriclyEqual(object x, object y)
@@ -505,7 +537,7 @@ namespace Jint.Runtime
 
         public object EvaluateNewExpression(NewExpression newExpression)
         {
-            var arguments = newExpression.Arguments.Select(EvaluateExpression).ToArray();
+            var arguments = newExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
             
             // todo: optimize by defining a common abstract class or interface
             var callee = (IConstructor)_engine.GetValue(EvaluateExpression(newExpression.Callee));
@@ -521,7 +553,7 @@ namespace Jint.Runtime
 
         public object EvaluateArrayExpression(ArrayExpression arrayExpression)
         {
-            var arguments = arrayExpression.Elements.Select(EvaluateExpression).ToArray();
+            var arguments = arrayExpression.Elements.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
 
             // construct the new instance using the Function's constructor method
             var instance = _engine.Array.Construct(arguments);

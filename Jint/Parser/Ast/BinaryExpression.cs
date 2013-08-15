@@ -1,4 +1,3 @@
-using System;
 namespace Jint.Parser.Ast
 {
     public class BinaryExpression : Expression
