@@ -356,6 +356,46 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void WithStatement()
+        {
+            RunTest(@"
+                with (Math) {
+                  assert(cos(0) == 1);
+                }
+            ");
+        }
+
+        [Fact]
+        public void ObjectExpression()
+        {
+            RunTest(@"
+                var o = { x: 1 };
+                assert(o.x == 1);
+            ");
+        }
+
+        [Fact]
+        public void ScopeChainInWithStatement()
+        {
+            RunTest(@"
+                var x = 0;
+                var myObj = {x : 'obj'};
+
+                function f1(){
+                  var x = 1;
+                  function f2(){
+                    with(myObj){
+                      return x;
+                    }
+                  };
+                  return f2();
+                }
+
+                assert(f1() === 'obj');
+            ");
+        }
+
         /*
                         [Fact]
                         public void ()

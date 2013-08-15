@@ -304,27 +304,99 @@ namespace Jint.Runtime
 
         public object EvaluateObjectExpression(ObjectExpression objectExpression)
         {
-            var value = _engine.Object.Construct(Arguments.Empty);
+            // http://www.ecma-international.org/ecma-262/5.1/#sec-11.1.5
 
+            var obj = _engine.Object.Construct(Arguments.Empty);
             foreach (var property in objectExpression.Properties)
             {
+                var propName = property.Key.GetKey();
+                var previous = obj.GetOwnProperty(propName);
+                PropertyDescriptor propDesc;
+
                 switch (property.Kind)
                 {
                     case PropertyKind.Data:
-                        value.DefineOwnProperty(property.Key.GetKey(), new DataDescriptor(property.Value), false);
+                        var exprValue = _engine.EvaluateExpression(property.Value);
+                        var propValue = _engine.GetValue(exprValue);
+                        propDesc = new DataDescriptor(propValue) {Writable=true, Enumerable=true,Configurable = true};
                         break;
+
                     case PropertyKind.Get:
-                        throw new NotImplementedException();
+                        var getter = property.Value as FunctionExpression;
+
+                        if (getter == null)
+                        {
+                            throw new SyntaxError();
+                        }
+
+                        var get = new ScriptFunctionInstance(
+                            _engine,
+                            getter,
+                            _engine.Function.Prototype,
+                            _engine.Object.Construct(Arguments.Empty),
+                            _engine.ExecutionContext.LexicalEnvironment,
+                            getter.Strict || _engine.Options.IsStrict()
+                            );
+
+                        propDesc = new AccessorDescriptor(get) { Enumerable = true, Configurable = true};
                         break;
+                    
                     case PropertyKind.Set:
-                        throw new NotImplementedException();
+                        var setter = property.Value as FunctionExpression;
+
+                        if (setter == null)
+                        {
+                            throw new SyntaxError();
+                        }
+
+                        var set = new ScriptFunctionInstance(
+                            _engine,
+                            setter,
+                            _engine.Function.Prototype,
+                            _engine.Object.Construct(Arguments.Empty),
+                            _engine.ExecutionContext.LexicalEnvironment,
+                            setter.Strict || _engine.Options.IsStrict()
+                            );
+
+                        propDesc = new AccessorDescriptor(null, set) { Enumerable = true, Configurable = true};
                         break;
+
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
+
+                if (previous != Undefined.Instance)
+                {
+                    var previousIsData = previous.IsDataDescriptor();
+                    var previousIsAccessor = previous.IsAccessorDescriptor();
+                    var propIsData = propDesc.IsDataDescriptor();
+                    var propIsAccessor = propDesc.IsAccessorDescriptor();
+
+                    if (_engine.Options.IsStrict() && previousIsData && propIsData)
+                    {
+                        throw new SyntaxError();
+                    }
+
+                    if (previousIsData && propIsAccessor)
+                    {
+                        throw new SyntaxError();
+                    }
+
+                    if (previousIsAccessor && propIsData)
+                    {
+                        throw new SyntaxError();
+                    }
+
+                    if (previousIsAccessor && propIsAccessor && ((previous.As<AccessorDescriptor>().Get != null && propDesc.As<AccessorDescriptor>().Get != null) || (previous.As<AccessorDescriptor>().Set != null && propDesc.As<AccessorDescriptor>().Set != null)))
+                    {
+                        throw new SyntaxError();
+                    }
+                }
+
+                obj.DefineOwnProperty(propName, propDesc, false);
             }
 
-            return value;
+            return obj;
         }
 
         public object EvaluateMemberExpression(MemberExpression memberExpression)

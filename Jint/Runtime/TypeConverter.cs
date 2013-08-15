@@ -84,6 +84,11 @@ namespace Jint.Runtime
                 }
             }
 
+            if (o is int)
+            {
+                return ToBoolean((double) (int) o);
+            }
+
             return true;
         }
 
@@ -97,6 +102,11 @@ namespace Jint.Runtime
             if (o is double)
             {
                 return (double)o;
+            }
+
+            if (o is int)
+            {
+                return (int) o;
             }
 
             if (o == Undefined.Instance)
@@ -130,6 +140,11 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static int ToInteger(object o)
         {
+            if (o is int)
+            {
+                return (int) o;
+            }
+
             var number = ToNumber(o);
             if (double.IsNaN(number))
             {
@@ -146,6 +161,11 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static int ToInt32(object o)
         {
+            if (o is int)
+            {
+                return (int) o;
+            }
+
             var n = ToNumber(o);
             if (double.IsNaN(n) || double.IsInfinity(n) || n == 0)
             {
@@ -236,6 +256,11 @@ namespace Jint.Runtime
                 }
 
                 return n.ToString();
+            }
+
+            if (o is int)
+            {
+                return ToString((double) (int) o);
             }
 
             return ToString(ToPrimitive(o, TypeCode.String));

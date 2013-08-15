@@ -1620,7 +1620,7 @@ namespace Jint.Parser
                 };
         }
 
-        public Property CreateProperty(PropertyKind kind, IPropertyKeyExpression key, object value)
+        public Property CreateProperty(PropertyKind kind, IPropertyKeyExpression key, Expression value)
         {
             return new Property
                 {
@@ -2041,7 +2041,7 @@ namespace Jint.Parser
 
         private Property ParseObjectProperty()
         {
-            SyntaxNode value;
+            Expression value;
 
             Token token = _lookahead;
             SkipComment();

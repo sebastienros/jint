@@ -15,6 +15,6 @@ namespace Jint.Parser.Ast
     {
         public PropertyKind Kind;
         public IPropertyKeyExpression Key;
-        public object Value;
+        public Expression Value;
     }
 }
