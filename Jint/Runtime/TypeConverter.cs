@@ -117,7 +117,12 @@ namespace Jint.Runtime
 
             if (o is uint)
             {
-                return (uint) o;
+                return (uint)o;
+            }
+
+            if (o is DateTime)
+            {
+                return ((DateTime)o).Ticks;
             }
 
             if (o == Undefined.Instance)
@@ -295,6 +300,11 @@ namespace Jint.Runtime
                 return ToString((double)(uint)o);
             }
 
+            if (o is DateTime)
+            {
+                return o.ToString();
+            }
+
             return ToString(ToPrimitive(o, TypeCode.String));
         }
 
@@ -329,6 +339,11 @@ namespace Jint.Runtime
             if (value is uint)
             {
                 return engine.Number.Construct((uint) value);
+            }
+
+            if (value is DateTime)
+            {
+                return engine.Date.Construct((DateTime)value);
             }
 
             if (value is double)

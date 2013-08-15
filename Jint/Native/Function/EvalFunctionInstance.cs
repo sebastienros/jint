@@ -21,7 +21,7 @@ namespace Jint.Native.Function
 
             var parser = new JavascriptParser();
             var program = parser.Parse(code);
-            return _engine.ExecuteStatement(program);
+            return _engine.ExecuteStatement(program).Value;
         }
     }
 }

@@ -29,7 +29,7 @@ namespace Jint.Native.Error
             string name;
             string msg;
 
-            if (Name == Undefined.Instance)
+            if (Name == null || Name == "" || Name == Undefined.Instance)
             {
                 name = "Error";
             }
