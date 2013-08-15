@@ -1,6 +1,9 @@
 ﻿using Jint.Native;
+using Jint.Native.Boolean;
 using Jint.Native.Errors;
+using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.String;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.References
@@ -43,10 +46,9 @@ namespace Jint.Runtime.References
 
         public bool HasPrimitiveBase()
         {
-            return false;
-                // (_baseValue is BooleanInstance)
-                // || (_baseValue is StringInstance)
-                // || (_baseValue is NumberInstance)
+            return (_baseValue is BooleanInstance)
+                || (_baseValue is StringInstance)
+                || (_baseValue is NumberInstance)
                 ;
         }
 
@@ -57,7 +59,7 @@ namespace Jint.Runtime.References
 
         public bool IsPropertyReference()
         {
-            /// todo: complete implementation  http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
+            // http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
             return _baseValue is ObjectInstance || HasPrimitiveBase();
         }
     }

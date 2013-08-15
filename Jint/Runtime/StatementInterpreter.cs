@@ -191,12 +191,12 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="forInStatement"></param>
         /// <returns></returns>
-        public Completion ForInStatement(ForInStatement forInStatement)
+        public Completion ExecuteForInStatement(ForInStatement forInStatement)
         {
             object varName = null;
             if (forInStatement.Left.Type == SyntaxNodes.VariableDeclaration)
             {
-                varName = ExecuteStatement(forInStatement.Left.As<Statement>()).Value;
+                varName = ExecuteVariableDeclaration(forInStatement.Left.As<VariableDeclaration>()).Value;
             }
             
             var exprRef = _engine.EvaluateExpression(forInStatement.Right);
@@ -205,6 +205,11 @@ namespace Jint.Runtime
             {
                 return new Completion(Completion.Normal, null, null);
             }
+
+            Reference leftRef = varName != null
+                                    ? varName as Reference
+                                    : _engine.EvaluateExpression(forInStatement.Left.As<Expression>()) as Reference;
+
             var obj = TypeConverter.ToObject(_engine, experValue);
             object v = null;
             foreach (var entry in obj.Properties)
@@ -215,17 +220,8 @@ namespace Jint.Runtime
                 }
 
                 var p = entry.Key;
+                _engine.PutValue(leftRef, p);
 
-                if (varName != null)
-                {
-                    var varRef = varName as Reference;
-                    _engine.PutValue(varRef, p);
-                }
-                else
-                {
-                    var lhsRef = _engine.EvaluateExpression(forInStatement.Left.As<Expression>()) as Reference;
-                    _engine.PutValue(lhsRef, p);
-                }
                 var stmt = ExecuteStatement(forInStatement.Body);
                 if (stmt.Value != null)
                 {
@@ -461,18 +457,16 @@ namespace Jint.Runtime
 
         public Completion ExecuteVariableDeclaration(VariableDeclaration statement)
         {
-            var env = _engine.ExecutionContext.LexicalEnvironment.Record;
             object value = Undefined.Instance;
 
             foreach (var declaration in statement.Declarations)
             {
-                var dn = declaration.Id.Name;
                 if (declaration.Init != null)
                 {
+                    var lhs = _engine.EvaluateExpression(declaration.Id) as Reference;
                     value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init));
+                    _engine.PutValue(lhs, value);
                 }
-
-                env.SetMutableBinding(dn, value, false);
             }
 
             return new Completion(Completion.Normal, value, null);

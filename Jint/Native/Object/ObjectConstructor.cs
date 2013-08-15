@@ -27,7 +27,7 @@ namespace Jint.Native.Object
 
             // the constructor is the function constructor of an object
             instance.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
-            instance.DefineOwnProperty("prototype", new DataDescriptor(this.Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
+            instance.DefineOwnProperty("prototype", new DataDescriptor(this.Prototype) { Writable = false, Enumerable = false, Configurable = false }, false);
             return instance;
         }
 

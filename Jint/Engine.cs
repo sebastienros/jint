@@ -49,14 +49,14 @@ namespace Jint
             Date = new DateConstructor(this);
             Math = MathInstance.CreateMathObject(this, RootObject);
 
-            Global.FastDefineDataDescriptor("Object", Object);
-            Global.FastDefineDataDescriptor("Function", Function);
-            Global.FastDefineDataDescriptor("Array", Array);
-            Global.FastDefineDataDescriptor("String", String);
-            Global.FastDefineDataDescriptor("Number", Number);
-            Global.FastDefineDataDescriptor("Boolean", Boolean);
-            Global.FastDefineDataDescriptor("Date", Date);
-            Global.FastDefineDataDescriptor("Math", Math);
+            Global.FastAddProperty("Object", Object, true, false, true);
+            Global.FastAddProperty("Function", Function, true, false, true);
+            Global.FastAddProperty("Array", Array, true, false, true);
+            Global.FastAddProperty("String", String, true, false, true);
+            Global.FastAddProperty("Number", Number, true, false, true);
+            Global.FastAddProperty("Boolean", Boolean, true, false, true);
+            Global.FastAddProperty("Date", Date, true, false, true);
+            Global.FastAddProperty("Math", Math, true, false, true);
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(Global, null, true);
@@ -75,12 +75,12 @@ namespace Jint
             {
                 foreach (var entry in Options.GetDelegates())
                 {
-                    Global.FastDefineDataDescriptor(entry.Key, new DelegateWrapper(this, entry.Value));
+                    Global.FastAddProperty(entry.Key, new DelegateWrapper(this, entry.Value), true, false, true);
                 }
             }
 
             Eval = new EvalFunctionInstance(this, new ObjectInstance(null), new Identifier[0], LexicalEnvironment.NewDeclarativeEnvironment(ExecutionContext.LexicalEnvironment), Options.IsStrict());
-            Global.FastDefineDataDescriptor("eval", Eval);
+            Global.FastAddProperty("eval", Eval, true, false, true);
 
             _statements = new StatementInterpreter(this);
             _expressions = new ExpressionInterpreter(this);
@@ -164,7 +164,7 @@ namespace Jint
                     return _statements.ExecuteForStatement(statement.As<ForStatement>());
                     
                 case SyntaxNodes.ForInStatement:
-                    return _statements.ForInStatement(statement.As<ForInStatement>());
+                    return _statements.ExecuteForInStatement(statement.As<ForInStatement>());
 
                 case SyntaxNodes.FunctionDeclaration:
                     return new Completion(Completion.Normal, null, null);
@@ -314,35 +314,77 @@ namespace Jint
                     throw new ReferenceError();
                 }
 
-                Global.Set(reference.GetReferencedName(), value);
+                Global.Put(reference.GetReferencedName(), value, false);
             }
-            //else if (reference.IsPropertyReference())
-            //{
-            //    if (!reference.HasPrimitiveBase())
-            //    {
-            //        // todo: complete implementation
-            //        throw new NotImplementedException();
-            //    }
-            //    else
-            //    {
-            //        // todo: complete implementation
-            //        throw new NotImplementedException();
-            //    }
-            //} 
+            else if (reference.IsPropertyReference())
+            {
+                var baseValue = reference.GetBase();
+                if (!reference.HasPrimitiveBase())
+                {
+                    ((ObjectInstance)baseValue).Put(reference.GetReferencedName(), value, reference.IsStrict());
+                }
+                else
+                {
+                    PutPrimitiveBase(baseValue, reference.GetReferencedName(), value, reference.IsStrict());
+                }
+            }
             else
             {
                 var baseValue = reference.GetBase();
                 var record = baseValue as EnvironmentRecord;
-                
-                if (record != null)
-                {
-                    record.SetMutableBinding(reference.GetReferencedName(), value, reference.IsStrict());
-                    return;
-                }
-                
-                ((ObjectInstance)baseValue).Set(reference.GetReferencedName(), value);
+
+                record.SetMutableBinding(reference.GetReferencedName(), value, reference.IsStrict());
             }
         }
+
+        /// <summary>
+        /// Used by PutValue when the reference has a primitive base value
+        /// </summary>
+        /// <param name="b"></param>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        /// <param name="throwOnError"></param>
+        public void PutPrimitiveBase(object b, string name, object value, bool throwOnError)
+        {
+            var o = TypeConverter.ToObject(this, b);
+            if (!o.CanPut(name))
+            {
+                if (throwOnError)
+                {
+                    throw new TypeError();
+                }
+
+                return;
+            }
+
+            var ownDesc = o.GetOwnProperty(name);
+
+            if (ownDesc.IsDataDescriptor())
+            {
+                if (throwOnError)
+                {
+                    throw new TypeError();
+                }
+
+                return;
+            }
+
+            var desc = o.GetProperty(name);
+
+            if (desc.IsAccessorDescriptor())
+            {
+                var setter = desc.As<AccessorDescriptor>().Set;
+                setter.Call(b, new[] { value });
+            }
+            else
+            {
+                if (throwOnError)
+                {
+                    throw new TypeError();
+                }
+            }
+        }
+
 
         public object GetGlobalValue(string propertyName)
         {

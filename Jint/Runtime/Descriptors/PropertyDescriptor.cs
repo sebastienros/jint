@@ -57,12 +57,12 @@
         {
             public override bool IsAccessorDescriptor()
             {
-                throw new System.NotImplementedException();
+                return false;
             }
 
             public override bool IsDataDescriptor()
             {
-                throw new System.NotImplementedException();
+                return false;
             }
         }
 

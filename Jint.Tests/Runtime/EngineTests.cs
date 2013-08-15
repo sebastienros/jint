@@ -343,6 +343,19 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void ForInStatement()
+        {
+            RunTest(@"
+                var x, y, z, str = '';
+                for(z in this) {
+                    str += z;
+                }
+                
+                assert(str == 'xyzstr');
+            ");
+        }
+
         /*
                         [Fact]
                         public void ()

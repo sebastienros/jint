@@ -86,11 +86,12 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public PropertyDescriptor GetOwnProperty(string propertyName)
+        public virtual PropertyDescriptor GetOwnProperty(string propertyName)
         {
             PropertyDescriptor x;
             if (Properties.TryGetValue(propertyName, out x))
             {
+                /* Spec implementation
                 PropertyDescriptor d;
                 if (x.IsDataDescriptor())
                 {
@@ -102,6 +103,10 @@ namespace Jint.Native.Object
                 }
 
                 return d;
+                */
+
+                // optimmized implementation
+                return x;
             }
             
             return PropertyDescriptor.Undefined;
@@ -153,11 +158,27 @@ namespace Jint.Native.Object
 
             if (ownDesc.IsDataDescriptor())
             {
-                var valueDesc = new DataDescriptor(value);
-                DefineOwnProperty(propertyName, valueDesc, throwOnError);
+                /* Spec implementation 
+                 * var valueDesc = new DataDescriptor(value);
+                 * DefineOwnProperty(propertyName, valueDesc, throwOnError);
+                 */
+
+                // optimized implementation which doesn't require to create a new descriptor
+                if (!ownDesc.Configurable)
+                {
+                    if (throwOnError)
+                    {
+                        throw new TypeError();
+                    }
+
+                    return;
+                }
+
+                ownDesc.As<DataDescriptor>().Value = value;
                 return;
             }
 
+            // property is an accessor or inherited
             var desc = GetProperty(propertyName);
 
             if (desc.IsAccessorDescriptor())
@@ -471,14 +492,26 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// Optimized version of [[Set]] when the property is known to be undeclared already
+        /// Optimized version of [[Put]] when the property is known to be undeclared already
         /// </summary>
         /// <param name="name"></param>
         /// <param name="value"></param>
-        public void FastDefineDataDescriptor(string name, object value)
+        /// <param name="writable"></param>
+        /// <param name="configurable"></param>
+        /// <param name="enumerable"></param>
+        public void FastAddProperty(string name, object value, bool writable, bool enumerable, bool configurable)
         {
-            Properties.Add(name, new DataDescriptor(value) { Configurable = true, Enumerable = true, Writable = true });
+            Properties.Add(name, new DataDescriptor(value) { Writable = writable, Enumerable = enumerable, Configurable = configurable });
         }
 
+        /// <summary>
+        /// Optimized version of [[Put]] when the property is known to be already declared 
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        public void FastSetProperty(string name, PropertyDescriptor value)
+        {
+            Properties[name] = value;
+        }
     }
 }

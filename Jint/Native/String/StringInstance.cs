@@ -29,5 +29,12 @@ namespace Jint.Native.String
         }
 
         public string PrimitiveValue { get; set; }
+
+        public override Runtime.Descriptors.PropertyDescriptor GetOwnProperty(string propertyName)
+        {
+            // todo: http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.5.2
+
+            return base.GetOwnProperty(propertyName);
+        }
     }
 }
