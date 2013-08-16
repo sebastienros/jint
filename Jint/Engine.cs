@@ -156,7 +156,7 @@ namespace Jint
 
         public Completion Execute(Program program)
         {
-            return ExecuteStatement(program);
+            return _statements.ExecuteProgram(program);
         }
 
         public Completion ExecuteStatement(Statement statement)

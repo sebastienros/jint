@@ -1,9 +1,10 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+using Jint.Runtime;
 using Xunit;
 
-namespace Jint.Tests
+namespace Jint.Tests.Ecma
 {
     public class EcmaTest
     {
@@ -22,28 +23,20 @@ namespace Jint.Tests
 
         private const string Driver = @"
             function runTestCase(f) {
-                assert(f());
+                if(!f()) $ERROR('');
             }
         ";
 
         private const string NegativeDriver = @"
             function runTestCase(f) {
-                assert(!f());
+                if(f()) $ERROR('');
             }
         ";
 
-        protected void RunTest(string sourceFilename, bool negative)
+        protected void RunTestCode(string code, bool negative)
         {
-            _lastError = null;
-
-            var fullName = Path.Combine(basePath, sourceFilename);
-            if (!File.Exists(fullName))
-            {
-                throw new ArgumentException("Could not find source file: " + fullName);
-            }
+            _lastError = null; 
             
-            string code = File.ReadAllText(fullName);
-
             var engine = new Engine(cfg => cfg
                     .WithDelegate("$ERROR", Error)
                 );
@@ -51,8 +44,8 @@ namespace Jint.Tests
             {
                 try
                 {
-                    engine.Execute(code + Environment.NewLine + NegativeDriver);
-                    Assert.NotNull(_lastError);
+                    var result = engine.Execute(code + Environment.NewLine + NegativeDriver);
+                    Assert.True(_lastError != null || result.Type == Completion.Throw);
                     Assert.False(true);
                 }
                 catch
@@ -63,9 +56,47 @@ namespace Jint.Tests
             }
             else
             {
-                Assert.DoesNotThrow(() => engine.Execute(code + Environment.NewLine + Driver));
+                Completion result = null;
+                Assert.DoesNotThrow(() => result = engine.Execute(code + Environment.NewLine + Driver));
+                Assert.True((result == null) || (result.Type != Completion.Throw));
                 Assert.Null(_lastError);
             }
+        }
+
+        protected void RunTest(string sourceFilename, bool negative)
+        {
+            var fullName = Path.Combine(basePath, sourceFilename);
+            if (!File.Exists(fullName))
+            {
+                throw new ArgumentException("Could not find source file: " + fullName);
+            }
+            
+            string code = File.ReadAllText(fullName);
+
+            RunTestCode(code, negative);
+            
+        }
+
+        [Fact]
+        public void EcmaTestPassSucceededTestCase()
+        {
+            RunTestCode(@"
+                function testcase() {
+                        return true;
+                    }
+                runTestCase(testcase);
+            ", false);
+        }
+        
+        [Fact]
+        public void EcmaTestPassNegativeTestCase()
+        {
+            RunTestCode(@"
+                function testcase() {
+                        return false;
+                    }
+                runTestCase(testcase);
+            ", true);
         }
     }
 }
