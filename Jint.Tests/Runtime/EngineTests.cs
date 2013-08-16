@@ -376,6 +376,14 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void StringFunctionCreatesString()
+        {
+            RunTest(@"
+                assert(Strint(NaN) === 'NaN');
+            ");
+        }
+
+        [Fact]
         public void ScopeChainInWithStatement()
         {
             RunTest(@"
@@ -421,6 +429,23 @@ namespace Jint.Tests.Runtime
                 assert(z == 1);
             ");
         }
+
+        [Theory]
+        [InlineData(double.NaN, "parseInt(NaN)")]
+        [InlineData(double.NaN, "parseInt(null)")]
+        [InlineData(double.NaN, "parseInt(undefined)")]
+        [InlineData(double.NaN, "parseInt(new Boolean(true))")]
+        [InlineData(double.NaN, "parseInt(Infinity)")]
+        [InlineData(-1, "parseInt(-1)")]
+        [InlineData(-1, "parseInt('-1')")]
+        public void ShouldEvaluateParseInt(object expected, string source)
+        {
+            var engine = new Engine();
+            var result = engine.GetValue(engine.Execute(source));
+
+            Assert.Equal(expected, result);
+        }
+
         /*
                         [Fact]
                         public void ()

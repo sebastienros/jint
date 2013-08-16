@@ -45,6 +45,15 @@ namespace Jint.Native.Math
             math.DefineOwnProperty("sqrt", new ClrDataDescriptor<MathInstance, double>(engine, Sqrt), false);
             math.DefineOwnProperty("tan", new ClrDataDescriptor<MathInstance, double>(engine, Tan), false);
 
+            math.FastAddProperty("E", System.Math.E, false, false, false);
+            math.FastAddProperty("LN10", System.Math.Log(10), false, false, false);
+            math.FastAddProperty("LN2", System.Math.Log(2), false, false, false);
+            math.FastAddProperty("LOG2E", System.Math.Log(System.Math.E, 2), false, false, false);
+            math.FastAddProperty("LOG10E", System.Math.Log(System.Math.E, 10), false, false, false);
+            math.FastAddProperty("PI", System.Math.PI, false, false, false);
+            math.FastAddProperty("SQRT1_2", System.Math.Sqrt(0.5), false, false, false);
+            math.FastAddProperty("SQRT2", System.Math.Sqrt(2), false, false, false);
+
             return math;
         }
 
