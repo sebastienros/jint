@@ -11,7 +11,7 @@ namespace Jint.Tests.Parser
 {
     public class JavascriptParserTests
     {
-        private readonly JavascriptParser _parser = new JavascriptParser();
+        private readonly JavaScriptParser _parser = new JavaScriptParser();
 
         [Theory]
         [Trait("Category", "Common Libraries")]
@@ -30,7 +30,7 @@ namespace Jint.Tests.Parser
                     using (var sr = new StreamReader(stream))
                     {
                         var source = sr.ReadToEnd();
-                        var parser = new JavascriptParser();
+                        var parser = new JavaScriptParser();
                         var program = parser.Parse(source);
                         Assert.NotNull(program);
                     }

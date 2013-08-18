@@ -11,6 +11,11 @@ namespace Jint.Runtime
             _errorObject = errorObject;
         }
 
+        public JavaScriptException(object errorObject, string message):base(message)
+        {
+            _errorObject = errorObject;
+        }
+
         public object Error { get { return _errorObject; } }
     }
 }

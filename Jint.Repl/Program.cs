@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Jint.Native;
+using Jint.Native.Json;
+using Jint.Runtime;
 
 namespace Jint.Repl
 {
@@ -23,8 +26,9 @@ namespace Jint.Repl
                 }
 
                 var result = engine.GetValue(engine.Execute(input));
+                var str = engine.JSON.Stringify(engine.JSON, Arguments.From(result, Undefined.Instance, "\t"));
                 Console.ForegroundColor = ConsoleColor.Magenta;
-                Console.WriteLine("=> {0}", result);
+                Console.WriteLine("=> {0}", str);
             }
         }
     }

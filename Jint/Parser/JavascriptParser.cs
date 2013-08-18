@@ -7,7 +7,7 @@ using Jint.Parser.Ast;
 
 namespace Jint.Parser
 {
-    public class JavascriptParser
+    public class JavaScriptParser
     {
         private static readonly object[] Keywords = new object[]
             {

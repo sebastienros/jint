@@ -8,6 +8,7 @@ using Jint.Native.Date;
 using Jint.Native.Error;
 using Jint.Native.Function;
 using Jint.Native.Global;
+using Jint.Native.Json;
 using Jint.Native.Math;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -48,6 +49,7 @@ namespace Jint
             Boolean = new BooleanConstructor(this);
             Date = new DateConstructor(this);
             Math = MathInstance.CreateMathObject(this, RootObject);
+            JSON = JsonInstance.CreateJsonObject(this);
 
             Error = new ErrorConstructor(this, "Error");
             EvalError = new ErrorConstructor(this, "EvalError");
@@ -65,6 +67,7 @@ namespace Jint
             Global.FastAddProperty("Boolean", Boolean, true, false, true);
             Global.FastAddProperty("Date", Date, true, false, true);
             Global.FastAddProperty("Math", Math, true, false, true);
+            Global.FastAddProperty("JSON", JSON, true, false, true);
 
             Global.FastAddProperty("Error", Error, true, false, true);
             Global.FastAddProperty("EvalError", EvalError, true, false, true);
@@ -116,6 +119,7 @@ namespace Jint
         public NumberConstructor Number { get; private set; }
         public DateConstructor Date { get; private set; }
         public MathInstance Math { get; private set; }
+        public JsonInstance JSON { get; private set; }
         public EvalFunctionInstance Eval { get; private set; }
 
         public ErrorConstructor Error { get; private set; }
@@ -150,7 +154,7 @@ namespace Jint
 
         public Completion Execute(string source)
         {
-            var parser = new JavascriptParser();
+            var parser = new JavaScriptParser();
             return Execute(parser.Parse(source));
         }
 

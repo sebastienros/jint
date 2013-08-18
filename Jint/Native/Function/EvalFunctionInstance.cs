@@ -19,7 +19,7 @@ namespace Jint.Native.Function
         {
             var code = TypeConverter.ToString(arguments[0]);
 
-            var parser = new JavascriptParser();
+            var parser = new JavaScriptParser();
             var program = parser.Parse(code);
             return _engine.ExecuteStatement(program).Value ?? Undefined.Instance;
         }
