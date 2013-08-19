@@ -22,7 +22,12 @@ namespace Jint.Native.Boolean
 
         public override object Call(object thisObject, object[] arguments)
         {
-            return Construct(arguments);
+            if (arguments.Length == 0)
+            {
+                return false;
+            }
+
+            return TypeConverter.ToBoolean(arguments[0]);
         }
 
         /// <summary>

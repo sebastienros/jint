@@ -26,24 +26,24 @@ namespace Jint.Native.Math
         public static MathInstance CreateMathObject(Engine engine, ObjectInstance prototype)
         {
             var math = new MathInstance(engine, prototype);
-            math.DefineOwnProperty("abs", new ClrDataDescriptor<MathInstance, double>(engine, Abs), false);
-            math.DefineOwnProperty("acos", new ClrDataDescriptor<MathInstance, double>(engine, Acos), false);
-            math.DefineOwnProperty("asin", new ClrDataDescriptor<MathInstance, double>(engine, Asin), false);
-            math.DefineOwnProperty("atan", new ClrDataDescriptor<MathInstance, double>(engine, Atan), false);
-            math.DefineOwnProperty("atan2", new ClrDataDescriptor<MathInstance, double>(engine, Atan2), false);
-            math.DefineOwnProperty("ceil", new ClrDataDescriptor<MathInstance, double>(engine, Ceil), false);
-            math.DefineOwnProperty("cos", new ClrDataDescriptor<MathInstance, double>(engine, Cos), false);
-            math.DefineOwnProperty("exp", new ClrDataDescriptor<MathInstance, double>(engine, Exp), false);
-            math.DefineOwnProperty("floor", new ClrDataDescriptor<MathInstance, double>(engine, Floor), false);
-            math.DefineOwnProperty("log", new ClrDataDescriptor<MathInstance, double>(engine, Log), false);
-            math.DefineOwnProperty("max", new ClrDataDescriptor<MathInstance, double>(engine, Max), false);
-            math.DefineOwnProperty("min", new ClrDataDescriptor<MathInstance, double>(engine, Min), false);
-            math.DefineOwnProperty("pow", new ClrDataDescriptor<MathInstance, double>(engine, Pow), false);
-            math.DefineOwnProperty("random", new ClrDataDescriptor<MathInstance, double>(engine, Random), false);
-            math.DefineOwnProperty("round", new ClrDataDescriptor<MathInstance, double>(engine, Round), false);
-            math.DefineOwnProperty("sin", new ClrDataDescriptor<MathInstance, double>(engine, Sin), false);
-            math.DefineOwnProperty("sqrt", new ClrDataDescriptor<MathInstance, double>(engine, Sqrt), false);
-            math.DefineOwnProperty("tan", new ClrDataDescriptor<MathInstance, double>(engine, Tan), false);
+            math.DefineOwnProperty("abs", new ClrDataDescriptor<object, double>(engine, Abs), false);
+            math.DefineOwnProperty("acos", new ClrDataDescriptor<object, double>(engine, Acos), false);
+            math.DefineOwnProperty("asin", new ClrDataDescriptor<object, double>(engine, Asin), false);
+            math.DefineOwnProperty("atan", new ClrDataDescriptor<object, double>(engine, Atan), false);
+            math.DefineOwnProperty("atan2", new ClrDataDescriptor<object, double>(engine, Atan2), false);
+            math.DefineOwnProperty("ceil", new ClrDataDescriptor<object, double>(engine, Ceil), false);
+            math.DefineOwnProperty("cos", new ClrDataDescriptor<object, double>(engine, Cos), false);
+            math.DefineOwnProperty("exp", new ClrDataDescriptor<object, double>(engine, Exp), false);
+            math.DefineOwnProperty("floor", new ClrDataDescriptor<object, double>(engine, Floor), false);
+            math.DefineOwnProperty("log", new ClrDataDescriptor<object, double>(engine, Log), false);
+            math.DefineOwnProperty("max", new ClrDataDescriptor<object, double>(engine, Max), false);
+            math.DefineOwnProperty("min", new ClrDataDescriptor<object, double>(engine, Min), false);
+            math.DefineOwnProperty("pow", new ClrDataDescriptor<object, double>(engine, Pow), false);
+            math.DefineOwnProperty("random", new ClrDataDescriptor<object, double>(engine, Random), false);
+            math.DefineOwnProperty("round", new ClrDataDescriptor<object, double>(engine, Round), false);
+            math.DefineOwnProperty("sin", new ClrDataDescriptor<object, double>(engine, Sin), false);
+            math.DefineOwnProperty("sqrt", new ClrDataDescriptor<object, double>(engine, Sqrt), false);
+            math.DefineOwnProperty("tan", new ClrDataDescriptor<object, double>(engine, Tan), false);
 
             math.FastAddProperty("E", System.Math.E, false, false, false);
             math.FastAddProperty("LN10", System.Math.Log(10), false, false, false);
@@ -57,68 +57,68 @@ namespace Jint.Native.Math
             return math;
         }
 
-        private static double Abs(MathInstance thisObject, object[] arguments)
+        private static double Abs(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Abs(x);
         }
 
-        private static double Acos(MathInstance thisObject, object[] arguments)
+        private static double Acos(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Acos(x);
         }
 
-        private static double Asin(MathInstance thisObject, object[] arguments)
+        private static double Asin(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Asin(x);
         }
 
-        private static double Atan(MathInstance thisObject, object[] arguments)
+        private static double Atan(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Atan(x);
         }
 
-        private static double Atan2(MathInstance thisObject, object[] arguments)
+        private static double Atan2(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             var y = TypeConverter.ToNumber(arguments[1]);
             return System.Math.Atan2(x, y);
         }
 
-        private static double Ceil(MathInstance thisObject, object[] arguments)
+        private static double Ceil(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Ceiling(x);
         }
 
-        private static double Cos(MathInstance thisObject, object[] arguments)
+        private static double Cos(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Cos(x);
         }
 
-        private static double Exp(MathInstance thisObject, object[] arguments)
+        private static double Exp(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Exp(x);
         }
 
-        private static double Floor(MathInstance thisObject, object[] arguments)
+        private static double Floor(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Floor(x);
         }
 
-        private static double Log(MathInstance thisObject, object[] arguments)
+        private static double Log(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Log(x);
         }
 
-        private static double Max(MathInstance thisObject, object[] arguments)
+        private static double Max(object thisObject, object[] arguments)
         {
             double max = TypeConverter.ToNumber(arguments[0]);
             for (int i = 0; i < arguments.Length; i++)
@@ -128,7 +128,7 @@ namespace Jint.Native.Math
             return max;
         }
 
-        private static double Min(MathInstance thisObject, object[] arguments)
+        private static double Min(object thisObject, object[] arguments)
         {
             double min = TypeConverter.ToNumber(arguments[0]);
             for (int i = 0; i < arguments.Length; i++)
@@ -138,37 +138,37 @@ namespace Jint.Native.Math
             return min;
         }
 
-        private static double Pow(MathInstance thisObject, object[] arguments)
+        private static double Pow(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             var y = TypeConverter.ToNumber(arguments[1]);
             return System.Math.Pow(x, y);
         }
 
-        private static double Random(MathInstance thisObject, object[] arguments)
+        private static double Random(object thisObject, object[] arguments)
         {
             return new Random().NextDouble();
         }
 
-        private static double Round(MathInstance thisObject, object[] arguments)
+        private static double Round(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Round(x);
         }
 
-        private static double Sin(MathInstance thisObject, object[] arguments)
+        private static double Sin(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Sin(x);
         }
 
-        private static double Sqrt(MathInstance thisObject, object[] arguments)
+        private static double Sqrt(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Sqrt(x);
         }
 
-        private static double Tan(MathInstance thisObject, object[] arguments)
+        private static double Tan(object thisObject, object[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Tan(x);

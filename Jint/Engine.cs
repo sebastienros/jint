@@ -152,15 +152,21 @@ namespace Jint
             _executionContexts.Pop();
         }
 
-        public Completion Execute(string source)
+        public object Execute(string source)
         {
             var parser = new JavaScriptParser();
             return Execute(parser.Parse(source));
         }
 
-        public Completion Execute(Program program)
+        public object Execute(Program program)
         {
-            return _statements.ExecuteProgram(program);
+            var result = _statements.ExecuteProgram(program);
+            if (result.Type == Completion.Throw)
+            {
+                throw new JavaScriptException(result.Value);
+            }
+
+            return GetValue(result.Value);
         }
 
         public Completion ExecuteStatement(Statement statement)

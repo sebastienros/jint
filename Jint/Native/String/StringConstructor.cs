@@ -15,14 +15,19 @@ namespace Jint.Native.String
             _engine = engine;
 
             // the constructor is the function constructor of an object
-            this.Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
-            this.Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
+            Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
+            Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
 
         }
 
         public override object Call(object thisObject, object[] arguments)
         {
-            return Construct(arguments);
+            if (arguments.Length == 0)
+            {
+                return "";
+            }
+
+            return TypeConverter.ToString(arguments[0]);
         }
 
         /// <summary>

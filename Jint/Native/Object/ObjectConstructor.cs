@@ -12,8 +12,8 @@ namespace Jint.Native.Object
         public ObjectConstructor(Engine engine) : base(engine, engine.RootFunction, null, null, false)
         {
             _engine = engine;
-            engine.RootFunction.DefineOwnProperty("hasOwnProperty", new ClrDataDescriptor<ObjectInstance, bool>(engine, HasOwnProperty), false);
-            engine.RootFunction.DefineOwnProperty("toString", new ClrDataDescriptor<ObjectInstance, string>(engine, ToString), false);
+            engine.RootFunction.DefineOwnProperty("hasOwnProperty", new ClrDataDescriptor<object, bool>(engine, HasOwnProperty), false);
+            engine.RootFunction.DefineOwnProperty("toString", new ClrDataDescriptor<object, string>(engine, ToString), false);
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -31,27 +31,18 @@ namespace Jint.Native.Object
             return instance;
         }
 
-        private static bool HasOwnProperty(ObjectInstance thisObject, object[] arguments)
+        private bool HasOwnProperty(object thisObject, object[] arguments)
         {
-            var propertyName = TypeConverter.ToString(arguments[0]);
-            var desc = thisObject.GetOwnProperty(propertyName);
+            var p = TypeConverter.ToString(arguments[0]);
+            var o = TypeConverter.ToObject(_engine, thisObject);
+            var desc = o.GetOwnProperty(p);
             return desc != PropertyDescriptor.Undefined;
         }
 
-        private static string ToString(ObjectInstance thisObject, object[] arguments)
+        private static string ToString(object thisObject, object[] arguments)
         {
-            if (thisObject == null || thisObject == Undefined.Instance)
-            {
-                return "[object Undefined]";
-            }
+            return TypeConverter.ToString(thisObject);
 
-            if (thisObject == Null.Instance)
-            {
-                return "[object Null]";
-            }
-
-            return string.Format("[object {0}]", thisObject.Class);
-        
         }
 
     }

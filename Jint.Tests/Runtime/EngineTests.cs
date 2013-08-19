@@ -379,7 +379,7 @@ namespace Jint.Tests.Runtime
         public void StringFunctionCreatesString()
         {
             RunTest(@"
-                assert(Strint(NaN) === 'NaN');
+                assert(String(NaN) === 'NaN');
             ");
         }
 
@@ -427,6 +427,24 @@ namespace Jint.Tests.Runtime
                 assert(x == 1);
                 assert(y == 1);
                 assert(z == 1);
+            ");
+        }
+
+        [Fact]
+        public void FunctionsCanBeAssigned()
+        {
+            RunTest(@"
+                var sin = Math.sin;
+                assert(sin(0) == 0);
+            ");
+        }
+
+        [Fact]
+        public void PrimitiveValueFunctions()
+        {
+            RunTest(@"
+                var s = (1).toString();
+                assert(s == '1');
             ");
         }
 

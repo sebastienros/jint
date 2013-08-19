@@ -44,8 +44,8 @@ namespace Jint.Tests.Ecma
             {
                 try
                 {
-                    var result = engine.Execute(code + Environment.NewLine + NegativeDriver);
-                    Assert.True(_lastError != null || result.Type == Completion.Throw);
+                    engine.Execute(code + Environment.NewLine + NegativeDriver);
+                    Assert.True(_lastError != null);
                     Assert.False(true);
                 }
                 catch
@@ -56,9 +56,7 @@ namespace Jint.Tests.Ecma
             }
             else
             {
-                Completion result = null;
-                Assert.DoesNotThrow(() => result = engine.Execute(code + Environment.NewLine + Driver));
-                Assert.True((result == null) || (result.Type != Completion.Throw));
+                Assert.DoesNotThrow(() => engine.Execute(code + Environment.NewLine + Driver));
                 Assert.Null(_lastError);
             }
         }

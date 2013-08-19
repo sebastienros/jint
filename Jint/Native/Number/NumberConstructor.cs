@@ -30,7 +30,12 @@ namespace Jint.Native.Number
 
         public override object Call(object thisObject, object[] arguments)
         {
-            return Construct(arguments);
+            if (arguments.Length == 0)
+            {
+                return 0d;
+            }
+
+            return TypeConverter.ToNumber(arguments[0]);
         }
 
         /// <summary>

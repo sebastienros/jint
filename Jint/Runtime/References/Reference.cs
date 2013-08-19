@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+﻿using System;
+using Jint.Native;
 using Jint.Native.Boolean;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -45,9 +46,11 @@ namespace Jint.Runtime.References
 
         public bool HasPrimitiveBase()
         {
-            return (_baseValue is BooleanInstance)
-                || (_baseValue is StringInstance)
-                || (_baseValue is NumberInstance)
+            var type = TypeConverter.GetType(_baseValue);
+
+            return (type == TypeCode.Boolean)
+                || (type == TypeCode.String)
+                || (type == TypeCode.Double)
                 ;
         }
 
