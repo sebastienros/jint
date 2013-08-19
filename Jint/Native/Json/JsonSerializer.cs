@@ -255,15 +255,21 @@ namespace Jint.Native.Json
             {
                 return "[]";
             }
-            
-            var separator = ",";
-            if (_gap != "")
-            {
-                separator += "\n" + _indent;
-            }
 
-            var properties = System.String.Join(separator, partial.ToArray());
-            string final = "[" + properties + "]";
+            string final;
+            if (_gap == "")
+            {
+                var separator = ",";
+                var properties = System.String.Join(separator, partial.ToArray());
+                final = "[" + properties + "]";
+            }
+            else
+            {
+                var separator = ",\n" + _indent;
+                var properties = System.String.Join(separator, partial.ToArray());
+                final = "[\n" + _indent + properties + "\n" + stepback + "]";
+            }
+            
             _stack.Pop();
             _indent = stepback;
             return final;
@@ -316,13 +322,18 @@ namespace Jint.Native.Json
             }
             else
             {
-                var separator = ",";
-                if (_gap != "")
+                if (_gap == "")
                 {
-                    separator += "\n" + _indent;
+                    var separator = ",";
+                    var properties = System.String.Join(separator, partial.ToArray());
+                    final = "{" + properties + "}";
                 }
-                var properties = System.String.Join(separator, partial.ToArray());
-                final = "{" + properties + "}";
+                else
+                {
+                    var separator = ",\n" + _indent;
+                    var properties = System.String.Join(separator, partial.ToArray());
+                    final = "{\n" + _indent + properties + "\n" + stepback + "}";
+                }                
             }
             _stack.Pop();
             _indent = stepback;
