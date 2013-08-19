@@ -2398,7 +2398,7 @@ namespace Jint.Parser
 
                     if (!isLeftHandSide(expr))
                     {
-                        ThrowError(Token.Empty, Messages.InvalidLHSInAssignment);
+                        ThrowErrorTolerant(Token.Empty, Messages.InvalidLHSInAssignment);
                     }
 
                     Token token = Lex();
@@ -2433,7 +2433,7 @@ namespace Jint.Parser
 
                 if (!isLeftHandSide(expr))
                 {
-                    ThrowError(Token.Empty, Messages.InvalidLHSInAssignment);
+                    ThrowErrorTolerant(Token.Empty, Messages.InvalidLHSInAssignment);
                 }
 
                 expr = CreateUnaryExpression((string) token.Value, expr);
@@ -2659,7 +2659,7 @@ namespace Jint.Parser
                 // LeftHandSideExpression
                 if (!isLeftHandSide(left))
                 {
-                    ThrowError(Token.Empty, Messages.InvalidLHSInAssignment);
+                    ThrowErrorTolerant(Token.Empty, Messages.InvalidLHSInAssignment);
                 }
 
                 // 11.13.1
@@ -2972,7 +2972,7 @@ namespace Jint.Parser
                         // LeftHandSideExpression
                         if (!isLeftHandSide((Expression) init))
                         {
-                            ThrowError(Token.Empty, Messages.InvalidLHSInForIn);
+                            ThrowErrorTolerant(Token.Empty, Messages.InvalidLHSInForIn);
                         }
 
                         Lex();
