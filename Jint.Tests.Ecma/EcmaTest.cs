@@ -76,7 +76,10 @@ namespace Jint.Tests.Ecma
             RunTestCode(code, negative);
             
         }
+    }
 
+    public class EcmaTestTests : EcmaTest
+    {
         [Fact]
         public void EcmaTestPassSucceededTestCase()
         {
@@ -87,7 +90,7 @@ namespace Jint.Tests.Ecma
                 runTestCase(testcase);
             ", false);
         }
-        
+
         [Fact]
         public void EcmaTestPassNegativeTestCase()
         {
@@ -98,5 +101,6 @@ namespace Jint.Tests.Ecma
                 runTestCase(testcase);
             ", true);
         }
+
     }
 }

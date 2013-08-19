@@ -1,9 +1,6 @@
 namespace Jint.Parser.Ast
 {
-    public class UpdateExpression : Expression
+    public class UpdateExpression : UnaryExpression
     {
-        public string Operator;
-        public Expression Argument;
-        public bool Prefix;
     }
 }

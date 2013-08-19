@@ -594,26 +594,46 @@ namespace Jint.Runtime
 
         public object EvaluateUpdateExpression(UpdateExpression updateExpression)
         {
-            var r = EvaluateExpression(updateExpression.Argument) as Reference;
-
-            var value = _engine.GetValue(r);
-            var old = value;
+            var value = _engine.EvaluateExpression(updateExpression.Argument);
+            Reference r;
 
             switch (updateExpression.Operator)
             {
-                case "++" :
-                    value = TypeConverter.ToNumber(value) + 1;
-                    break;
+                case "++":
+                    r = value as Reference;
+                    if (r != null
+                        && r.IsStrict()
+                        && (r.GetBase() is EnvironmentRecord)
+                        && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
+                    {
+                        throw new JavaScriptException(_engine.SyntaxError);
+                    }
+
+                    var oldValue = _engine.GetValue(value);
+                    var newValue = TypeConverter.ToNumber(oldValue) + 1;
+                    _engine.PutValue(r, newValue);
+
+                    return updateExpression.Prefix ? newValue : oldValue;
+
                 case "--":
-                    value = TypeConverter.ToNumber(value) - 1;
-                    break;
+                    r = value as Reference;
+                    if (r != null
+                        && r.IsStrict()
+                        && (r.GetBase() is EnvironmentRecord)
+                        && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
+                    {
+                        throw new JavaScriptException(_engine.SyntaxError);
+                    }
+
+                    oldValue = _engine.GetValue(value);
+                    newValue = TypeConverter.ToNumber(oldValue) - 1;
+                    _engine.PutValue(r, newValue);
+
+                    return updateExpression.Prefix ? newValue : oldValue;
                 default:
                     throw new ArgumentException();
             }
 
-            _engine.PutValue(r, value);
-
-            return updateExpression.Prefix ? value : old;
         }
 
         public object EvaluateThisExpression(ThisExpression thisExpression)
@@ -654,38 +674,6 @@ namespace Jint.Runtime
 
             switch (unaryExpression.Operator)
             {
-                case "++" :
-                    r = value as Reference;
-                    if(r != null 
-                        && r.IsStrict() 
-                        && (r.GetBase() is EnvironmentRecord )
-                        && (Array.IndexOf(new []{"eval", "arguments"}, r.GetReferencedName()) != -1) )
-                    {
-                        throw new JavaScriptException(_engine.SyntaxError);
-                    }
-
-                    var oldValue = _engine.GetValue(value);
-                    var newValue = TypeConverter.ToNumber(value) + 1;
-                    _engine.PutValue(r, newValue);
-
-                    return unaryExpression.Prefix ? newValue : oldValue;
-                    
-                case "--":
-                    r = value as Reference;
-                    if(r != null 
-                        && r.IsStrict() 
-                        && (r.GetBase() is EnvironmentRecord )
-                        && (Array.IndexOf(new []{"eval", "arguments"}, r.GetReferencedName()) != -1) )
-                    {
-                        throw new JavaScriptException(_engine.SyntaxError);
-                    }
-
-                    oldValue = _engine.GetValue(value);
-                    newValue = TypeConverter.ToNumber(value) - 1;
-                    _engine.PutValue(r, newValue);
-
-                    return unaryExpression.Prefix ? newValue : oldValue;
-                    
                 case "+":
                     return TypeConverter.ToNumber(_engine.GetValue(value));
                     

@@ -1710,7 +1710,7 @@ namespace Jint.Parser
         {
             if (op == "++" || op == "--")
             {
-                return new UnaryExpression
+                return new UpdateExpression
                     {
                         Type = SyntaxNodes.UpdateExpression,
                         Operator = op,
