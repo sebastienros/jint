@@ -245,7 +245,8 @@ namespace Jint.Native.Json
             var stepback = _indent;
             _indent = _indent + _gap;
             var partial = new List<string>();
-            for (int i = 0; i < value.Length; i++)
+            var len = TypeConverter.ToUint32(value.Get("length"));
+            for (int i = 0; i < len; i++)
             {
                 var strP = Str(TypeConverter.ToString(i), value);
                 partial.Add(strP);

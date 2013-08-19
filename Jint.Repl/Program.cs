@@ -1,10 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Jint.Native;
-using Jint.Native.Json;
 using Jint.Runtime;
 
 namespace Jint.Repl

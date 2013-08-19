@@ -1,14 +1,17 @@
 ﻿using System.Collections.Generic;
 using Jint.Native.Object;
+using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Array
 {
     public sealed class ArrayInstance : ObjectInstance
     {
-        private readonly Stack<object> _array = new Stack<object>();
+        private readonly Engine _engine;
  
         public ArrayInstance(Engine engine, ObjectInstance prototype) : base(engine, prototype)
         {
+            _engine = engine;
         }
 
         public override string Class
@@ -19,16 +22,112 @@ namespace Jint.Native.Array
             }
         }
 
-        public double Length { get { return _array.Count; } }
-
-        public void Push(object o)
+        public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
-            _array.Push(o);
+            var oldLenDesc = GetOwnProperty("length").As<DataDescriptor>();
+            var oldLen = TypeConverter.ToNumber(oldLenDesc.Value);
+            if (propertyName == "length")
+            {
+                var descData = desc as DataDescriptor;
+                if (descData == null)
+                {
+                    return base.DefineOwnProperty("length", desc, throwOnError);
+                }
+                
+                var newLenDesc = new DataDescriptor(desc);
+                double newLen = TypeConverter.ToUint32(descData.Value);
+                if (newLen != TypeConverter.ToNumber(descData.Value))
+                {
+                    throw new JavaScriptException(_engine.RangeError);
+                }
+                newLenDesc.Value = newLen;
+                if (newLen >= oldLen)
+                {
+                    return base.DefineOwnProperty("length", newLenDesc, throwOnError);
+                }
+                if (!oldLenDesc.Writable)
+                {
+                    if (throwOnError)
+                    {
+                        throw new JavaScriptException(_engine.TypeError);
+                    }
+
+                    return false;
+                }
+                var newWritable = true;
+                if (!newLenDesc.Writable)
+                {
+                    newWritable = false;
+                    newLenDesc.Writable = true;
+                }
+                var succeeded = base.DefineOwnProperty("length", newLenDesc, throwOnError);
+                if (!succeeded)
+                {
+                    return false;
+                }
+                while (newLen < oldLen)
+                {
+                    oldLen--;
+                    var deleteSucceeded = Delete(TypeConverter.ToString(oldLen), false);
+                    if (!deleteSucceeded)
+                    {
+                        newLenDesc.Value = oldLen + 1;
+                        if (!newWritable)
+                        {
+                            newLenDesc.Writable = false;
+                        }
+                        base.DefineOwnProperty("length", newLenDesc, false);
+                        if (throwOnError)
+                        {
+                            throw new JavaScriptException(_engine.TypeError);
+                        }
+
+                        return false;
+                    }
+                }
+                if (!newWritable)
+                {
+                    DefineOwnProperty("length", new DataDescriptor(null) {Writable = false}, false);
+                }
+                return true;
+            }
+            else if (IsArrayIndex(propertyName))
+            {
+                var index = TypeConverter.ToUint32(propertyName);
+                if (index >= oldLen && !oldLenDesc.Writable)
+                {
+                    if (throwOnError)
+                    {
+                        throw new JavaScriptException(_engine.TypeError);
+                    }
+
+                    return false;
+                }
+                var succeeded = base.DefineOwnProperty(propertyName, desc, false);
+                if (!succeeded)
+                {
+                    if (throwOnError)
+                    {
+                        throw new JavaScriptException(_engine.TypeError);
+                    }
+
+                    return false;
+                }
+                if (index >= oldLen)
+                {
+                    oldLenDesc.Value = index + 1;
+                    base.DefineOwnProperty("length", oldLenDesc, false);
+                }
+                return true;
+            }
+
+            return base.DefineOwnProperty(propertyName, desc, false);
         }
 
-        public object Pop()
+        public static bool IsArrayIndex(object p)
         {
-            return _array.Pop();
+            return TypeConverter.ToString(TypeConverter.ToUint32(p)) == TypeConverter.ToString(p) && TypeConverter.ToUint32(p) != uint.MaxValue;
         }
+
     }
 }

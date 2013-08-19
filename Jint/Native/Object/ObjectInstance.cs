@@ -16,7 +16,7 @@ namespace Jint.Native.Object
             Properties = new Dictionary<string, PropertyDescriptor>();
             Extensible = true;
             Prototype = prototype;
-            DefineOwnProperty("prototype", new DataDescriptor(prototype), false);
+            FastAddProperty("prototype", prototype, false, false, false);
         }
 
         public IDictionary<string, PropertyDescriptor> Properties { get; private set; }
@@ -373,7 +373,7 @@ namespace Jint.Native.Object
         /// <param name="desc"></param>
         /// <param name="throwOnError"></param>
         /// <returns></returns>
-        public bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
+        public virtual bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             var current = GetOwnProperty(propertyName);
             

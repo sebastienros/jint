@@ -197,11 +197,11 @@ namespace Jint.Runtime
                     break;
 
                 case "==":
-                    value = left.Equals(right);
+                    value = Equal(left, right);
                     break;
                 
                 case "!=":
-                    value = !left.Equals(right);
+                    value = !Equal(left, right);
                     break;
                 
                 case ">":
@@ -284,6 +284,92 @@ namespace Jint.Runtime
             }
         }
 
+        public static bool Equal(object x, object y)
+        {
+            var typex = TypeConverter.GetType(x);
+            var typey = TypeConverter.GetType(y);
+
+            if (typex == typey)
+            {
+                if (typex == TypeCode.Empty)
+                {
+                    return true;
+                }
+
+                if (typex == TypeCode.Double)
+                {
+                    var nx = TypeConverter.ToNumber(x);
+                    var ny = TypeConverter.ToNumber(y);
+
+                    if (double.IsNaN(nx) || double.IsNaN(ny))
+                    {
+                        return false;
+                    }
+
+                    if (nx == ny)
+                    {
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                if (typex == TypeCode.String)
+                {
+                    return TypeConverter.ToString(x) == TypeConverter.ToString(y);
+                }
+
+                if (typex == TypeCode.Boolean)
+                {
+                    return (bool) x == (bool) y;
+                }
+
+                return x == y;
+            }
+
+            if (x == Null.Instance && y == Undefined.Instance)
+            {
+                return true;
+            }
+
+            if (x == Undefined.Instance && y == Null.Instance)
+            {
+                return true;
+            }
+
+            if (typex == TypeCode.Double && typey == TypeCode.String)
+            {
+                return Equal(x, TypeConverter.ToNumber(y));
+            }
+
+            if (typex == TypeCode.String && typey == TypeCode.Double)
+            {
+                return Equal(TypeConverter.ToNumber(x), y);
+            }
+
+            if (typex == TypeCode.Boolean)
+            {
+                return Equal(TypeConverter.ToNumber(x), y);
+            }
+
+            if (typey == TypeCode.Boolean)
+            {
+                return Equal(x, TypeConverter.ToNumber(y));
+            }
+
+            if (typey == TypeCode.Object && (typex == TypeCode.String || typex == TypeCode.Double))
+            {
+                return Equal(x, TypeConverter.ToPrimitive(y));
+            }
+
+            if (typex == TypeCode.Object && (typey == TypeCode.String || typey == TypeCode.Double))
+            {
+                return Equal(TypeConverter.ToPrimitive(x), y);
+            }
+
+            return false;
+        }
+        
         public static bool StriclyEqual(object x, object y)
         {
             var typea = TypeConverter.GetType(x);
