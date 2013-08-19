@@ -975,7 +975,16 @@ namespace Jint.Parser
             {
                 ch = _source.CharCodeAt(_index++);
                 str += ch.ToString();
-                if (classMarker)
+                if (ch == '\\')
+                {
+                    ch = _source.CharCodeAt(_index++);
+                    // ECMA-262 7.8.5
+                    if (IsLineTerminator(ch))
+                    {
+                        throw new Exception(Messages.UnterminatedRegExp);
+                    }
+                    str += ch.ToString();
+                } else  if (classMarker)
                 {
                     if (ch == ']')
                     {
@@ -984,17 +993,7 @@ namespace Jint.Parser
                 }
                 else
                 {
-                    if (ch == '\\')
-                    {
-                        ch = _source.CharCodeAt(_index++);
-                        // ECMA-262 7.8.5
-                        if (IsLineTerminator(ch))
-                        {
-                            throw new Exception(Messages.UnterminatedRegExp);
-                        }
-                        str += ch.ToString();
-                    }
-                    else if (ch == '/')
+                    if (ch == '/')
                     {
                         terminated = true;
                         break;
