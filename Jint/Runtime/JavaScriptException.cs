@@ -6,7 +6,7 @@ namespace Jint.Runtime
     {
         private readonly object _errorObject;
 
-        public JavaScriptException(object errorObject)
+        public JavaScriptException(object errorObject) : base(errorObject.ToString())
         {
             _errorObject = errorObject;
         }
