@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
-using Jint.Runtime;
 using Xunit;
 
 namespace Jint.Tests.Ecma
@@ -10,14 +9,14 @@ namespace Jint.Tests.Ecma
     {
         private static string _lastError;
         protected Action<string> Error = s => { _lastError = s; };
-        protected string basePath;
+        protected string BasePath;
 
         public EcmaTest()
         {
             var assemblyPath = new Uri(Assembly.GetExecutingAssembly().CodeBase).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
 
-            basePath = assemblyDirectory.Parent.Parent.FullName;
+            BasePath = assemblyDirectory.Parent.Parent.FullName;
 
         }
 
@@ -50,7 +49,7 @@ namespace Jint.Tests.Ecma
                 }
                 catch
                 {
-                    
+                    // exception is expected
                 }
                 
             }
@@ -63,7 +62,7 @@ namespace Jint.Tests.Ecma
 
         protected void RunTest(string sourceFilename, bool negative)
         {
-            var fullName = Path.Combine(basePath, sourceFilename);
+            var fullName = Path.Combine(BasePath, sourceFilename);
             if (!File.Exists(fullName))
             {
                 throw new ArgumentException("Could not find source file: " + fullName);

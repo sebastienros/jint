@@ -1,10 +1,6 @@
 ﻿using System;
 using Jint.Native;
-using Jint.Native.Boolean;
-using Jint.Native.Number;
 using Jint.Native.Object;
-using Jint.Native.String;
-using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.References
 {
@@ -18,15 +14,12 @@ namespace Jint.Runtime.References
         private readonly object _baseValue;
         private readonly string _name;
         private readonly bool _strict;
-        private readonly EnvironmentRecord _record;
 
         public Reference(object baseValue, string name, bool strict)
         {
             _baseValue = baseValue;
             _name = name;
             _strict = strict;
-
-            _record = baseValue as EnvironmentRecord;
         }
 
         public object GetBase()
