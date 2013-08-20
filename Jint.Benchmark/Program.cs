@@ -14,6 +14,8 @@ namespace Jint.Benchmark
             o.Baz = 42;
             o.Blah = o.Foo + o.Baz;
 
+            if(o.Blah != 'bar42') throw TypeError;
+
             function fib(n){
                 if(n<2) { 
                     return n; 
@@ -22,7 +24,7 @@ namespace Jint.Benchmark
                 return fib(n-1) + fib(n-2);  
             }
 
-            fib(3);
+            if(fib(3) != 8) throw TypeError;
         ";
 
         private static readonly string[] Sunspider = new string[]
@@ -32,11 +34,11 @@ namespace Jint.Benchmark
 
         static void Main(string[] args)
         {
-            bool runIronJs = true;
-            bool runJint = true;
-            bool runJurassic = true;
+            const bool runIronJs = true;
+            const bool runJint = true;
+            const bool runJurassic = true;
 
-            const int iterations = 1;
+            const int iterations = 1000;
             const bool reuseEngine = false;
 
             var watch = new Stopwatch();
@@ -45,30 +47,12 @@ namespace Jint.Benchmark
             {
                 var script = new WebClient().DownloadString(url);
 
-                // warming up engines
-                Jurassic.ScriptEngine jurassic;
-                if (runJurassic)
-                {
-                    jurassic = new Jurassic.ScriptEngine();
-                    jurassic.Execute(script);
-                }
 
-                Jint.Engine jint;
-                if (runJint)
-                {
-                    jint = new Jint.Engine();
-                    jint.Execute(script);
-                }
-
-                IronJS.Hosting.CSharp.Context ironjs;
                 if (runIronJs)
                 {
+                    IronJS.Hosting.CSharp.Context ironjs;
                     ironjs = new IronJS.Hosting.CSharp.Context();
                     ironjs.Execute(script);
-                }
-
-                if (runIronJs)
-                {
                     watch.Restart();
                     for (var i = 0; i < iterations; i++)
                     {
@@ -86,22 +70,31 @@ namespace Jint.Benchmark
 
                 if (runJint)
                 {
-                watch.Restart();
-                for (var i = 0; i < iterations; i++)
-                {
-                    if (!reuseEngine)
+                    Engine jint;
+                    jint = new Engine();
+                    jint.Execute(script);
+
+                    watch.Restart();
+                    for (var i = 0; i < iterations; i++)
                     {
-                        jint = new Jint.Engine();
+                        if (!reuseEngine)
+                        {
+                            jint = new Jint.Engine();
+                        }
+
+                        jint.Execute(script);
                     }
 
-                    jint.Execute(script);
-                }
-
-                Console.WriteLine("{2} | Jint: {0} iterations in {1} ms", iterations, watch.ElapsedMilliseconds, Path.GetFileName(url));
+                    Console.WriteLine("{2} | Jint: {0} iterations in {1} ms", iterations, watch.ElapsedMilliseconds,
+                                      Path.GetFileName(url));
                 }
 
                 if (runJurassic)
                 {
+                    Jurassic.ScriptEngine jurassic;
+                    jurassic = new Jurassic.ScriptEngine();
+                    jurassic.Execute(script);
+
                     watch.Restart();
                     for (var i = 0; i < iterations; i++)
                     {

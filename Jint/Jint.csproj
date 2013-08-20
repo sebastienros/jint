@@ -45,7 +45,8 @@
     <Compile Include="Native\Date\DateInstance.cs" />
     <Compile Include="Native\Error\ErrorConstructor.cs" />
     <Compile Include="Native\Error\ErrorInstance.cs" />
-    <Compile Include="Native\Function\ArgumentsObject.cs" />
+    <Compile Include="Native\Argument\ArgumentsObject.cs" />
+    <Compile Include="Native\Function\ThrowTypeError.cs" />
     <Compile Include="Native\Function\EvalFunctionInstance.cs" />
     <Compile Include="Native\Function\FunctionConstructor.cs" />
     <Compile Include="Native\Function\FunctionInstance.cs" />

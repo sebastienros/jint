@@ -31,7 +31,7 @@ namespace Jint.Native.Function
 
         public ObjectInstance Construct(object[] arguments)
         {
-            var instance = new FunctionShim(_engine, Prototype, null, null);
+            var instance = new FunctionShim(_engine, Prototype, null, _engine.GlobalEnvironment);
             instance.DefineOwnProperty("constructor", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
 
             return instance;
@@ -55,5 +55,17 @@ namespace Jint.Native.Function
 
             return functionObject;
         }
+
+        private FunctionInstance _throwTypeError;
+        public FunctionInstance ThrowTypeError { get
+        {
+            if (_throwTypeError != null)
+            {
+                return _throwTypeError;
+            }
+
+            _throwTypeError = new ThrowTypeError(_engine);
+            return _throwTypeError;
+        }}
     }
 }

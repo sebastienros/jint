@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using Jint.Native.Argument;
 using Jint.Native.Object;
 using Jint.Parser;
 using Jint.Runtime;
@@ -30,6 +31,13 @@ namespace Jint.Native.Function
             DefineOwnProperty("name", new DataDescriptor(_functionDeclaration.Id), false);
             instancePrototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = true, Configurable = true }, false);
             DefineOwnProperty("prototype", new DataDescriptor(functionPrototype) { Writable = true, Enumerable = true, Configurable = true }, false);
+
+            if (strict)
+            {
+                var thrower = engine.Function.ThrowTypeError;
+                DefineOwnProperty("caller", new AccessorDescriptor(thrower) { Enumerable = false, Configurable = false }, false);
+                DefineOwnProperty("arguments", new AccessorDescriptor(thrower) { Enumerable = false, Configurable = false }, false);
+            }
         }
 
         /// <summary>
@@ -90,8 +98,7 @@ namespace Jint.Native.Function
 
             if (!argumentsAlreadyDeclared)
             {
-                // todo: ArgumentsInstance implementation
-                var argsObj = new ArgumentsInstance(_engine, null);
+                var argsObj = ArgumentsInstance.CreateArgumentsObject(_engine, this, _functionDeclaration.Parameters.Select(x => x.Name).ToArray(), arguments, env, Strict);
 
                 if (Strict)
                 {

@@ -461,6 +461,18 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void FunctionArgumentsIsDefined()
+        {
+            RunTest(@"
+                function f() {
+                    assert(arguments.length > 0);
+                }
+
+                f(42);
+            ");
+        }
+
+        [Fact]
         public void PrimitiveValueFunctions()
         {
             RunTest(@"
