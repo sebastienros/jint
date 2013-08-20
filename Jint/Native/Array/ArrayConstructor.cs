@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -32,8 +33,17 @@ namespace Jint.Native.Array
         public ObjectInstance Construct(object[] arguments)
         {
             var instance = new ArrayInstance(_engine, Prototype);
-            instance.FastAddProperty("length", 0, true, false, true);
-            Push(instance, arguments);
+            
+            if (arguments.Length == 1 && TypeConverter.GetType(arguments[0]) == TypeCode.Double)
+            {
+                var length = TypeConverter.ToNumber(arguments[0]);
+                instance.FastAddProperty("length", length, true, false, true);
+            }
+            else
+            {
+                instance.FastAddProperty("length", 0, true, false, true);
+                Push(instance, arguments);
+            }
 
             return instance;
         }

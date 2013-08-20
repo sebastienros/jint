@@ -384,5 +384,13 @@ namespace Jint.Runtime
 
             return TypeCode.Object;
         }
+
+        public static void CheckObjectCoercible(Engine engine, object o)
+        {
+            if (o == Undefined.Instance || o == Null.Instance)
+            {
+                throw new JavaScriptException(engine.TypeError);
+            }
+        }
     }
 }

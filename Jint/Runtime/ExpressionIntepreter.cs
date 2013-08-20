@@ -516,16 +516,30 @@ namespace Jint.Runtime
             return obj;
         }
 
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.1
+        /// </summary>
+        /// <param name="memberExpression"></param>
+        /// <returns></returns>
         public object EvaluateMemberExpression(MemberExpression memberExpression)
         {
-            var baseValue = _engine.GetValue(EvaluateExpression(memberExpression.Object));
+            var baseReference = EvaluateExpression(memberExpression.Object);
+            var baseValue = _engine.GetValue(baseReference);
 
-            string propertyName =
-                !memberExpression.Computed
-                    ? memberExpression.Property.As<Identifier>().Name // o.foo 
-                    : EvaluateExpression(memberExpression.Property).ToString(); // o['foo']
+            string propertyNameString;
+            if (!memberExpression.Computed) // index accessor ?
+            {
+                propertyNameString = memberExpression.Property.As<Identifier>().Name;
+            }
+            else
+            {
+                var propertyNameReference = EvaluateExpression(memberExpression.Property);
+                var propertyNameValue = _engine.GetValue(propertyNameReference);
+                TypeConverter.CheckObjectCoercible(_engine, baseValue);
+                propertyNameString = TypeConverter.ToString(propertyNameValue);
+            }
 
-            return new Reference(baseValue, propertyName, false);
+            return new Reference(baseValue, propertyNameString, _engine.Options.IsStrict());
         }
 
         public object EvaluateFunctionExpression(FunctionExpression functionExpression)
