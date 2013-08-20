@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 
 namespace Jint.Native.Function
@@ -13,7 +15,6 @@ namespace Jint.Native.Function
     public sealed class FunctionConstructor : FunctionInstance, IConstructor
     {
         private readonly Engine _engine;
-        private readonly IEnumerable<Identifier> _parameters;
 
         public FunctionConstructor(Engine engine)
             : base(engine, engine.RootFunction, null, null, false)
@@ -22,6 +23,9 @@ namespace Jint.Native.Function
             // http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
 
             Extensible = true;
+
+            // Function.prototype properties
+            engine.RootFunction.DefineOwnProperty("apply", new ClrDataDescriptor<object, object>(engine, Apply), false);
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -57,15 +61,58 @@ namespace Jint.Native.Function
         }
 
         private FunctionInstance _throwTypeError;
-        public FunctionInstance ThrowTypeError { get
+
+        public FunctionInstance ThrowTypeError
         {
-            if (_throwTypeError != null)
+            get
             {
+                if (_throwTypeError != null)
+                {
+                    return _throwTypeError;
+                }
+
+                _throwTypeError = new ThrowTypeError(_engine);
                 return _throwTypeError;
             }
+        }
 
-            _throwTypeError = new ThrowTypeError(_engine);
-            return _throwTypeError;
-        }}
+        public object Apply(object thisObject, object[] arguments)
+        {
+            if (arguments.Length != 2)
+            {
+                throw new ArgumentException("Apply has to be called with two arguments.");
+            }
+
+            var func = thisObject as ICallable;
+            var thisArg = arguments[0];
+            var argArray = arguments[1];
+
+            if (func == null)
+            {
+                throw new JavaScriptException(_engine.TypeError);
+            }
+
+            if (argArray == Null.Instance || argArray == Undefined.Instance)
+            {
+                return func.Call(thisArg, Arguments.Empty);
+            }
+
+            var argArrayObj = argArray as ObjectInstance;
+            if (argArrayObj == null)
+            {
+                throw new JavaScriptException(_engine.TypeError);
+            }
+
+            var len = argArrayObj.Get("length");
+            var n = TypeConverter.ToUint32(len);
+            var argList = new List<object>();
+            for (var index = 0; index < n; index++)
+            {
+                var indexName = index.ToString();
+                var nextArg = argArrayObj.Get(indexName);
+                argList.Add(nextArg);
+            }
+            return func.Call(thisArg, argList.ToArray());
+        }
     }
 }

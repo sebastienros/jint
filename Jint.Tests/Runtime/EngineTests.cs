@@ -481,6 +481,16 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void FunctionPrototypeShouldHaveApplyMethod()
+        {
+            RunTest(@"
+                var numbers = [5, 6, 2, 3, 7];
+                var max = Math.max.apply(null, numbers);
+                assert(max == 7);
+            ");
+        }
+
         [Theory]
         [InlineData(double.NaN, "parseInt(NaN)")]
         [InlineData(double.NaN, "parseInt(null)")]

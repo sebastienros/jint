@@ -1,5 +1,4 @@
 ﻿using Jint.Native.Object;
-using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
 
@@ -60,8 +59,6 @@ namespace Jint.Native.Function
                     return true;
                 }
             }
-
-            return false;
         }
 
         public override string Class
