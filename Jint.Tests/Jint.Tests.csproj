@@ -51,6 +51,7 @@
     <Compile Include="Parser\JavascriptParserTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Runtime\EngineTests.cs" />
+    <Compile Include="Runtime\SunSpiderTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Parser\Scripts\jQuery.js" />

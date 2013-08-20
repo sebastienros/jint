@@ -221,6 +221,27 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ArrayFunctionInitializesLength()
+        {
+            RunTest(@"
+                assert(Array(3).length == 3);
+                assert(Array('3').length == 1);
+            ");
+        }
+
+        [Fact]
+        public void ArrayIndexerIsAssigned()
+        {
+            RunTest(@"
+                var n = 8;
+                var o = Array(n);
+                for (var i = 0; i < n; i++) o[i] = i;
+                assert(o[0] == 0);
+                assert(o[7] == 7);
+            ");
+        }
+
+        [Fact]
         public void ArrayPopShouldDecrementLength()
         {
             RunTest(@"
