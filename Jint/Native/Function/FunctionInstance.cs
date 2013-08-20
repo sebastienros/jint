@@ -9,7 +9,7 @@ namespace Jint.Native.Function
     {
         private readonly Engine _engine;
 
-        protected FunctionInstance(Engine engine, ObjectInstance prototype, Identifier[] parameters, LexicalEnvironment scope, bool strict) : base(engine, prototype)
+        protected FunctionInstance(Engine engine, ObjectInstance prototype, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine, prototype)
         {
             _engine = engine;
             FormalParameters = parameters;
@@ -27,7 +27,7 @@ namespace Jint.Native.Function
 
         public LexicalEnvironment Scope { get; private set; }
         
-        public Identifier[] FormalParameters { get; private set; }
+        public string[] FormalParameters { get; private set; }
         public bool Strict { get; private set; }
 
         // todo: implement

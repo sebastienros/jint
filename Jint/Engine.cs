@@ -98,7 +98,7 @@ namespace Jint
                 }
             }
 
-            Eval = new EvalFunctionInstance(this, new ObjectInstance(this, null), new Identifier[0], LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), Options.IsStrict());
+            Eval = new EvalFunctionInstance(this, new ObjectInstance(this, null), new string[0], LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), Options.IsStrict());
             Global.FastAddProperty("eval", Eval, true, false, true);
 
             _statements = new StatementInterpreter(this);

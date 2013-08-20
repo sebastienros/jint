@@ -18,7 +18,7 @@ namespace Jint.Native.Function
         private readonly IFunctionDeclaration _functionDeclaration;
         
         public ScriptFunctionInstance(Engine engine, IFunctionDeclaration functionDeclaration, ObjectInstance instancePrototype, ObjectInstance functionPrototype, LexicalEnvironment scope, bool strict)
-            : base(engine, instancePrototype, functionDeclaration.Parameters.ToArray(), scope, strict)
+            : base(engine, instancePrototype, functionDeclaration.Parameters.Select(x => x.Name).ToArray(), scope, strict)
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
 

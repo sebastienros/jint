@@ -8,7 +8,7 @@ namespace Jint.Native.Function
     {
         private readonly Engine _engine;
 
-        public FunctionShim(Engine engine, ObjectInstance prototype, Identifier[] parameters, LexicalEnvironment scope) : base(engine, prototype, parameters, scope, false)
+        public FunctionShim(Engine engine, ObjectInstance prototype, string[] parameters, LexicalEnvironment scope) : base(engine, prototype, parameters, scope, false)
         {
             _engine = engine;
         }
