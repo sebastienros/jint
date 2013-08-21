@@ -11,7 +11,7 @@ namespace Jint.Runtime.Interop
         private readonly Func<T, object> _getter;
 
         public GetterFunctionInstance(Engine engine, Func<T, object> getter)
-            : base(engine, null, null, null, false)
+            : base(engine,  null, null, false)
         {
             _getter = getter;
         }

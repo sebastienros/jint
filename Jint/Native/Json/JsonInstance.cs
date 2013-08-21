@@ -7,8 +7,8 @@ namespace Jint.Native.Json
     {
         private readonly Engine _engine;
 
-        private JsonInstance(Engine engine, ObjectInstance prototype)
-            : base(engine, prototype)
+        private JsonInstance(Engine engine)
+            : base(engine)
         {
             _engine = engine;
             Extensible = true;
@@ -24,7 +24,7 @@ namespace Jint.Native.Json
 
         public static JsonInstance CreateJsonObject(Engine engine)
         {
-            var json = new JsonInstance(engine, engine.Object.Prototype);
+            var json = new JsonInstance(engine);
             json.DefineOwnProperty("parse", new ClrDataDescriptor<JsonInstance, object>(engine, json.Parse), false);
             json.DefineOwnProperty("stringify", new ClrDataDescriptor<JsonInstance, object>(engine, json.Stringify), false);
 

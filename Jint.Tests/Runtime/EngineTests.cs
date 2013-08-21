@@ -110,6 +110,39 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void PrototypeFunctionIsInherited()
+        {
+            RunTest(@"
+                function Body(mass){
+                   this.mass = mass;
+                }
+
+                Body.prototype.offsetMass = function(dm) {
+                   this.mass += dm;
+                   return this;
+                }
+
+                var b = new Body(36);
+                b.offsetMass(6);
+                assert(b.mass == 42);
+            ");
+
+        }
+
+        [Fact]
+        public void FunctionConstructorCall()
+        {
+            RunTest(@"
+                function Body(mass){
+                   this.mass = mass;
+                }
+                
+                var john = new Body(36);
+                assert(john.mass == 36);
+            ");
+        }
+
+        [Fact]
         public void NewObjectsShouldUsePrivateProperties()
         {
             RunTest(@"
@@ -136,8 +169,16 @@ namespace Jint.Tests.Runtime
         {
             RunTest(@"
                 var o = new Object();
-                assert(o instanceof Object);
                 assert(o.constructor == Object);
+            ");
+        }
+
+        [Fact]
+        public void NewObjectsIntanceOfConstructorObject()
+        {
+            RunTest(@"
+                var o = new Object();
+                assert(o instanceof Object);
             ");
         }
 
@@ -152,7 +193,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void NewObjectsIntanceOfConstructorObject()
+        public void NewObjectsIntanceOfConstructorFunction()
         {
             RunTest(@"
                 var Vehicle = function () {};
@@ -258,7 +299,6 @@ namespace Jint.Tests.Runtime
             RunTest(@"
                 var o = [];
                 assert(o.constructor == Array);
-                assert(o.hasOwnProperty('constructor') == false);
             ");
         }
 

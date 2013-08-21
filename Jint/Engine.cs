@@ -37,27 +37,25 @@ namespace Jint
         {
             _executionContexts = new Stack<ExecutionContext>();
 
-            RootObject = new ObjectInstance(this, null);
-            RootFunction = new FunctionShim(this, RootObject, null, null);
+            Object = ObjectConstructor.CreateObjectConstructor(this);
 
-            Object = new ObjectConstructor(this);
-            Global = GlobalObject.CreateGlobalObject(this, Object);
-            Function = new FunctionConstructor(this);
-            Array = new ArrayConstructor(this);
-            String = new StringConstructor(this);
-            Number = new NumberConstructor(this);
-            Boolean = new BooleanConstructor(this);
-            Date = new DateConstructor(this);
-            Math = MathInstance.CreateMathObject(this, RootObject);
-            JSON = JsonInstance.CreateJsonObject(this);
+            Global = GlobalObject.CreateGlobalObject(this);
+            Function = FunctionConstructor.CreateFunctionConstructor(this);
+            Array = ArrayConstructor.CreateArrayConstructor(this);
+            String = StringConstructor.CreateStringConstructor(this);
+            Number = NumberConstructor.CreateNumberConstructor(this);
+            Boolean = BooleanConstructor.CreateBooleanConstructor(this);
+            Date = DateConstructor.CreateDateConstructor(this);
+            Math = MathInstance.CreateMathObject(this);
+            Json = JsonInstance.CreateJsonObject(this);
 
-            Error = new ErrorConstructor(this, "Error");
-            EvalError = new ErrorConstructor(this, "EvalError");
-            RangeError = new ErrorConstructor(this, "RangeError");
-            ReferenceError = new ErrorConstructor(this, "ReferenceError");
-            SyntaxError = new ErrorConstructor(this, "SyntaxError");
-            TypeError = new ErrorConstructor(this, "TypeError");
-            URIError = new ErrorConstructor(this, "URIError");
+            Error = ErrorConstructor.CreateErrorConstructor(this, "Error");
+            EvalError = ErrorConstructor.CreateErrorConstructor(this, "EvalError");
+            RangeError = ErrorConstructor.CreateErrorConstructor(this, "RangeError");
+            ReferenceError = ErrorConstructor.CreateErrorConstructor(this, "ReferenceError");
+            SyntaxError = ErrorConstructor.CreateErrorConstructor(this, "SyntaxError");
+            TypeError = ErrorConstructor.CreateErrorConstructor(this, "TypeError");
+            UriError = ErrorConstructor.CreateErrorConstructor(this, "URIError");
 
             Global.FastAddProperty("Object", Object, true, false, true);
             Global.FastAddProperty("Function", Function, true, false, true);
@@ -67,7 +65,7 @@ namespace Jint
             Global.FastAddProperty("Boolean", Boolean, true, false, true);
             Global.FastAddProperty("Date", Date, true, false, true);
             Global.FastAddProperty("Math", Math, true, false, true);
-            Global.FastAddProperty("JSON", JSON, true, false, true);
+            Global.FastAddProperty("JSON", Json, true, false, true);
 
             Global.FastAddProperty("Error", Error, true, false, true);
             Global.FastAddProperty("EvalError", EvalError, true, false, true);
@@ -75,7 +73,7 @@ namespace Jint
             Global.FastAddProperty("ReferenceError", ReferenceError, true, false, true);
             Global.FastAddProperty("SyntaxError", SyntaxError, true, false, true);
             Global.FastAddProperty("TypeError", TypeError, true, false, true);
-            Global.FastAddProperty("URIError", URIError, true, false, true);
+            Global.FastAddProperty("URIError", UriError, true, false, true);
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, true);
@@ -98,7 +96,7 @@ namespace Jint
                 }
             }
 
-            Eval = new EvalFunctionInstance(this, new ObjectInstance(this, null), new string[0], LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), Options.IsStrict());
+            Eval = new EvalFunctionInstance(this, new ObjectInstance(this), new string[0], LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), Options.IsStrict());
             Global.FastAddProperty("eval", Eval, true, false, true);
 
             _statements = new StatementInterpreter(this);
@@ -106,9 +104,6 @@ namespace Jint
         }
 
         public LexicalEnvironment GlobalEnvironment;
-
-        public ObjectInstance RootObject { get; private set; }
-        public FunctionInstance RootFunction { get; private set; }
 
         public ObjectInstance Global { get; private set; }
         public ObjectConstructor Object { get; private set; }
@@ -119,7 +114,7 @@ namespace Jint
         public NumberConstructor Number { get; private set; }
         public DateConstructor Date { get; private set; }
         public MathInstance Math { get; private set; }
-        public JsonInstance JSON { get; private set; }
+        public JsonInstance Json { get; private set; }
         public EvalFunctionInstance Eval { get; private set; }
 
         public ErrorConstructor Error { get; private set; }
@@ -128,7 +123,7 @@ namespace Jint
         public ErrorConstructor TypeError { get; private set; }
         public ErrorConstructor RangeError { get; private set; }
         public ErrorConstructor ReferenceError { get; private set; }
-        public ErrorConstructor URIError { get; private set; }
+        public ErrorConstructor UriError { get; private set; }
 
         public ExecutionContext ExecutionContext { get { return _executionContexts.Peek(); } }
 
@@ -366,6 +361,11 @@ namespace Jint
             {
                 var baseValue = reference.GetBase();
                 var record = baseValue as EnvironmentRecord;
+
+                if (record == null)
+                {
+                    throw new ArgumentNullException();
+                }
 
                 record.SetMutableBinding(reference.GetReferencedName(), value, reference.IsStrict());
             }

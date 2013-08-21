@@ -5,8 +5,8 @@ namespace Jint.Native.Error
 {
     public sealed class ErrorInstance : ObjectInstance
     {
-        public ErrorInstance(Engine engine, ObjectInstance prototype, string name)
-            : base(engine, prototype)
+        public ErrorInstance(Engine engine, string name)
+            : base(engine)
         {
             Name = name;
             Message = "";

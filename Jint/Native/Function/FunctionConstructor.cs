@@ -4,7 +4,6 @@ using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 
 namespace Jint.Native.Function
@@ -14,19 +13,27 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class FunctionConstructor : FunctionInstance, IConstructor
     {
-        private readonly Engine _engine;
-
-        public FunctionConstructor(Engine engine)
-            : base(engine, engine.RootFunction, null, null, false)
+        private FunctionConstructor(Engine engine):base(engine, null, null, false)
         {
-            _engine = engine;
-            // http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
-
-            Extensible = true;
-
-            // Function.prototype properties
-            engine.RootFunction.DefineOwnProperty("apply", new ClrDataDescriptor<object, object>(engine, Apply), false);
         }
+
+        public static FunctionConstructor CreateFunctionConstructor(Engine engine)
+        {
+            var obj = new FunctionConstructor(engine);
+
+            // The value of the [[Prototype]] internal property of the Function constructor is the standard built-in Function prototype object 
+            obj.Prototype = FunctionPrototype.CreatePrototypeObject(engine);
+
+            // The initial value of Function.prototype is the standard built-in Function prototype object
+            obj.PrototypeObject = obj.Prototype;
+            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+
+            obj.FastAddProperty("length", 1, false, false, false);
+
+            return obj;
+        }
+        
+        public ObjectInstance PrototypeObject { get; private set; }
 
         public override object Call(object thisObject, object[] arguments)
         {
@@ -35,7 +42,8 @@ namespace Jint.Native.Function
 
         public ObjectInstance Construct(object[] arguments)
         {
-            var instance = new FunctionShim(_engine, Prototype, null, _engine.GlobalEnvironment);
+            var instance = new FunctionShim(Engine, null, Engine.GlobalEnvironment);
+            instance.Extensible = true;
             instance.DefineOwnProperty("constructor", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
 
             return instance;
@@ -49,11 +57,9 @@ namespace Jint.Native.Function
         public FunctionInstance CreateFunctionObject(FunctionDeclaration functionDeclaration)
         {
             var functionObject = new ScriptFunctionInstance(
-                _engine,
+                Engine,
                 functionDeclaration,
-                _engine.Function.Prototype /* instancePrototype */,
-                _engine.Object.Construct(Arguments.Empty) /* functionPrototype */,
-                LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment),
+                LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment),
                 functionDeclaration.Strict
                 ) { Extensible = true };
 
@@ -71,7 +77,7 @@ namespace Jint.Native.Function
                     return _throwTypeError;
                 }
 
-                _throwTypeError = new ThrowTypeError(_engine);
+                _throwTypeError = new ThrowTypeError(Engine);
                 return _throwTypeError;
             }
         }
@@ -89,7 +95,7 @@ namespace Jint.Native.Function
 
             if (func == null)
             {
-                throw new JavaScriptException(_engine.TypeError);
+                throw new JavaScriptException(Engine.TypeError);
             }
 
             if (argArray == Null.Instance || argArray == Undefined.Instance)
@@ -100,7 +106,7 @@ namespace Jint.Native.Function
             var argArrayObj = argArray as ObjectInstance;
             if (argArrayObj == null)
             {
-                throw new JavaScriptException(_engine.TypeError);
+                throw new JavaScriptException(Engine.TypeError);
             }
 
             var len = argArrayObj.Get("length");

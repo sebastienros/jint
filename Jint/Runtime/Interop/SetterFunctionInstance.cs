@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interop
         private readonly Action<T, object> _setter;
 
         public SetterFunctionInstance(Engine engine, Action<T, object> setter)
-            : base(engine, null, null, null, false)
+            : base(engine, null, null, false)
         {
             _setter = setter;
         }

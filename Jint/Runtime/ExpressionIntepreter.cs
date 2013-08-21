@@ -2,6 +2,7 @@
 using System.Linq;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -148,8 +149,7 @@ namespace Jint.Runtime
                 case "+":
                     var lprim = TypeConverter.ToPrimitive(left);
                     var rprim = TypeConverter.ToPrimitive(right);
-                    if (TypeConverter.GetType(lprim) == TypeCode.String ||
-                        TypeConverter.GetType(rprim) == TypeCode.String)
+                    if (TypeConverter.GetType(lprim) == TypeCode.String || TypeConverter.GetType(rprim) == TypeCode.String)
                     {
                         value = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
                     }
@@ -245,8 +245,25 @@ namespace Jint.Runtime
                     return (uint)TypeConverter.ToInt32(left) >> (int)(TypeConverter.ToUint32(right) & 0x1F);
 
                 case "instanceof":
-                    var f = (FunctionInstance)right;
+                    var f = right as FunctionInstance;
+
+                    if (f == null)
+                    {
+                        throw new JavaScriptException(_engine.TypeError, "instanceof can only be used with a function object");
+                    }
+
                     value = f.HasInstance(left);
+                    break;
+                
+                case "in":
+                    var o = right as ObjectInstance;
+
+                    if (o == null)
+                    {
+                        throw new JavaScriptException(_engine.TypeError, "in can only be used with an object");
+                    }
+
+                    value = o.HasProperty(TypeConverter.ToString(left));
                     break;
                 
                 default:
@@ -449,8 +466,6 @@ namespace Jint.Runtime
                         var get = new ScriptFunctionInstance(
                             _engine,
                             getter,
-                            _engine.Function.Prototype,
-                            _engine.Object.Construct(Arguments.Empty),
                             _engine.ExecutionContext.LexicalEnvironment,
                             getter.Strict || _engine.Options.IsStrict()
                             );
@@ -469,8 +484,6 @@ namespace Jint.Runtime
                         var set = new ScriptFunctionInstance(
                             _engine,
                             setter,
-                            _engine.Function.Prototype,
-                            _engine.Object.Construct(Arguments.Empty),
                             _engine.ExecutionContext.LexicalEnvironment,
                             setter.Strict || _engine.Options.IsStrict()
                             );
@@ -544,12 +557,9 @@ namespace Jint.Runtime
 
         public object EvaluateFunctionExpression(FunctionExpression functionExpression)
         {
-            string identifier = functionExpression.Id != null ? functionExpression.Id.Name : null;
             return new ScriptFunctionInstance(
                 _engine,
                 functionExpression,
-                _engine.Function.Prototype,
-                _engine.Object.Construct(Arguments.Empty),
                 LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment),
                 functionExpression.Strict
                 );
@@ -557,8 +567,19 @@ namespace Jint.Runtime
 
         public object EvaluateCallExpression(CallExpression callExpression)
         {
-            var callee = EvaluateExpression(callExpression.Callee);
+            var callee = EvaluateExpression(callExpression.Callee) as Reference;
+
+            if (callee == null)
+            {
+                throw new ArgumentException("Callee should be a reference");    
+            }
+
             var func = _engine.GetValue(callee);
+
+            if (func == Undefined.Instance)
+            {
+                throw new JavaScriptException(_engine.TypeError, "object has no method '" + callee.GetReferencedName() + "'" );
+            }
             object thisObject;
 
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
@@ -664,9 +685,6 @@ namespace Jint.Runtime
 
             // construct the new instance using the Function's constructor method
             var instance = callee.Construct(arguments);
-
-            // initializes the new instance by executing the Function
-            callee.Call(instance, arguments.ToArray());
 
             return instance;
         }

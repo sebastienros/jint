@@ -1,7 +1,6 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Boolean
 {
@@ -9,15 +8,25 @@ namespace Jint.Native.Boolean
     {
         private readonly Engine _engine;
 
-        public BooleanConstructor(Engine engine)
-            : base(engine, new ObjectInstance(engine, engine.Object), null, null, false)
+        private BooleanConstructor(Engine engine): base(engine, null, null, false)
         {
-            _engine = engine;
+        }
 
-            // the constructor is the function constructor of an object
-            Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
-            Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
+        public static BooleanConstructor CreateBooleanConstructor(Engine engine)
+        {
+            var obj = new BooleanConstructor(engine);
+            obj.Extensible = true;
 
+            // The value of the [[Prototype]] internal property of the Boolean constructor is the Function prototype object 
+            obj.Prototype = engine.Function.PrototypeObject;
+            obj.PrototypeObject = BooleanPrototype.CreatePrototypeObject(engine, obj);
+
+            obj.FastAddProperty("length", 1, false, false, false);
+
+            // The initial value of Boolean.prototype is the Boolean prototype object
+            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+
+            return obj;
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -40,10 +49,15 @@ namespace Jint.Native.Boolean
             return Construct(TypeConverter.ToBoolean(arguments[0]));
         }
 
+        public ObjectInstance PrototypeObject { get; private set; }
+
         public BooleanInstance Construct(bool value)
         {
-            var instance = new BooleanInstance(_engine, Prototype);
+            var instance = new BooleanInstance(_engine);
+            instance.Prototype = PrototypeObject;
             instance.PrimitiveValue = value;
+            instance.Extensible = true;
+
             return instance;
         }
     }

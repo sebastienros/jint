@@ -3,12 +3,12 @@ using Jint.Native.Object;
 
 namespace Jint.Native.String
 {
-    public sealed class StringInstance : ObjectInstance, IPrimitiveType
+    public class StringInstance : ObjectInstance, IPrimitiveType
     {
         private readonly Engine _engine;
 
-        public StringInstance(Engine engine, ObjectInstance prototype)
-            : base(engine, prototype)
+        public StringInstance(Engine engine)
+            : base(engine)
         {
             _engine = engine;
         }

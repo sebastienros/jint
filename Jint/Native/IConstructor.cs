@@ -6,5 +6,7 @@ namespace Jint.Native
     {
         object Call(object thisObject, object[] arguments);
         ObjectInstance Construct(object[] arguments);
+
+        ObjectInstance PrototypeObject { get; }
     }
 }

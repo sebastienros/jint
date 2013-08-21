@@ -2,23 +2,30 @@
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Date
 {
     public sealed class DateConstructor : FunctionInstance, IConstructor
     {
-        private readonly Engine _engine;
-
-        public DateConstructor(Engine engine)
-            : base(engine, new ObjectInstance(engine, engine.Object), null, null, false)
+        public DateConstructor(Engine engine) : base(engine, null, null, false)
         {
-            _engine = engine;
+        }
 
-            // the constructor is the function constructor of an object
-            Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
-            Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
+        public static DateConstructor CreateDateConstructor(Engine engine)
+        {
+            var obj = new DateConstructor(engine);
+            obj.Extensible = true;
 
+            // The value of the [[Prototype]] internal property of the Date constructor is the Function prototype object 
+            obj.Prototype = engine.Function.PrototypeObject;
+            obj.PrototypeObject = DatePrototype.CreatePrototypeObject(engine, obj);
+
+            obj.FastAddProperty("length", 1, false, false, false);
+
+            // The initial value of Date.prototype is the Boolean prototype object
+            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+
+            return obj;
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -70,10 +77,15 @@ namespace Jint.Native.Date
             }
         }
 
+        public ObjectInstance PrototypeObject { get; private set; }
+
         public DateInstance Construct(DateTime value)
         {
-            var instance = new DateInstance(_engine, Prototype);
+            var instance = new DateInstance(Engine);
+            instance.Prototype = PrototypeObject;
             instance.PrimitiveValue = value;
+            instance.Extensible = true;
+
             return instance;
         }
 

@@ -9,17 +9,15 @@ namespace Jint.Native.Global
 {
     public sealed class GlobalObject : ObjectInstance
     {
-        private readonly Engine _engine;
-
-        private GlobalObject(Engine engine, ObjectInstance prototype)
-            : base(engine, prototype)
+        private GlobalObject(Engine engine) : base(engine)
         {
-            _engine = engine;
         }
 
-        public static GlobalObject CreateGlobalObject(Engine engine, ObjectInstance prototype)
+        public static GlobalObject CreateGlobalObject(Engine engine)
         {
-            var global = new GlobalObject(engine, prototype);
+            var global = new GlobalObject(engine);
+            global.Prototype = null;
+            global.Extensible = true;
             
             // Global object properties
             global.DefineOwnProperty("NaN", new DataDescriptor(double.NaN), false);
@@ -27,7 +25,7 @@ namespace Jint.Native.Global
             global.DefineOwnProperty("undefined", new DataDescriptor(Undefined.Instance), false);
 
             // Global object functions
-            global.DefineOwnProperty("parseInt", new ClrDataDescriptor<object, object>(engine, ParseInt) { }, false);
+            global.DefineOwnProperty("parseInt", new ClrDataDescriptor<object, object>(engine, ParseInt), false);
             global.DefineOwnProperty("parseFloat", new ClrDataDescriptor<object, object>(engine, ParseFloat), false);
             global.DefineOwnProperty("isNaN", new ClrDataDescriptor<object, bool>(engine, IsNaN), false);
             global.DefineOwnProperty("isFinite", new ClrDataDescriptor<object, bool>(engine, IsFinite), false);

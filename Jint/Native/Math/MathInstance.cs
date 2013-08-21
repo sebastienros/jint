@@ -7,12 +7,8 @@ namespace Jint.Native.Math
 {
     public sealed class MathInstance : ObjectInstance
     {
-        private readonly Engine _engine;
-
-        public MathInstance(Engine engine, ObjectInstance prototype)
-            : base(engine, prototype)
+        private MathInstance(Engine engine):base(engine)
         {
-            _engine = engine;
         }
 
         public override string Class
@@ -23,9 +19,12 @@ namespace Jint.Native.Math
             }
         }
 
-        public static MathInstance CreateMathObject(Engine engine, ObjectInstance prototype)
+        public static MathInstance CreateMathObject(Engine engine)
         {
-            var math = new MathInstance(engine, prototype);
+            var math = new MathInstance(engine);
+            math.Extensible = true;
+            math.Prototype = engine.Object.Prototype;
+
             math.DefineOwnProperty("abs", new ClrDataDescriptor<object, double>(engine, Abs), false);
             math.DefineOwnProperty("acos", new ClrDataDescriptor<object, double>(engine, Acos), false);
             math.DefineOwnProperty("asin", new ClrDataDescriptor<object, double>(engine, Asin), false);

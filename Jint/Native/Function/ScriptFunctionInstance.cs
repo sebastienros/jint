@@ -14,24 +14,33 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        private readonly Engine _engine;
+        private readonly Engine Engine;
         private readonly IFunctionDeclaration _functionDeclaration;
-        
-        public ScriptFunctionInstance(Engine engine, IFunctionDeclaration functionDeclaration, ObjectInstance instancePrototype, ObjectInstance functionPrototype, LexicalEnvironment scope, bool strict)
-            : base(engine, instancePrototype, functionDeclaration.Parameters.Select(x => x.Name).ToArray(), scope, strict)
-        {
-            // http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
 
-            _engine = engine;
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
+        /// </summary>
+        /// <param name="engine"></param>
+        /// <param name="functionDeclaration"></param>
+        /// <param name="scope"></param>
+        /// <param name="strict"></param>
+        public ScriptFunctionInstance(Engine engine, IFunctionDeclaration functionDeclaration, LexicalEnvironment scope, bool strict)
+            : base(engine, functionDeclaration.Parameters.Select(x => x.Name).ToArray(), scope, strict)
+        {
+
+            Engine = engine;
             _functionDeclaration = functionDeclaration;
             Extensible = true;
+            
             var len = functionDeclaration.Parameters.Count();
-
             DefineOwnProperty("length", new DataDescriptor(len) { Writable = false, Enumerable = false, Configurable = false }, false);
-            DefineOwnProperty("name", new DataDescriptor(_functionDeclaration.Id), false);
-            instancePrototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = true, Configurable = true }, false);
-            DefineOwnProperty("prototype", new DataDescriptor(functionPrototype) { Writable = true, Enumerable = true, Configurable = true }, false);
 
+            var proto = engine.Object.Construct(Arguments.Empty);
+            proto.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = true }, false);
+            DefineOwnProperty("prototype", new DataDescriptor(proto) { Writable = true, Enumerable = false, Configurable = false }, false);
+
+            DefineOwnProperty("name", new DataDescriptor(_functionDeclaration.Id), false);
+            
             if (strict)
             {
                 var thrower = engine.Function.ThrowTypeError;
@@ -51,26 +60,26 @@ namespace Jint.Native.Function
             object thisBinding;
 
             // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
-            if (_engine.Options.IsStrict())
+            if (Engine.Options.IsStrict())
             {
                 thisBinding = thisArg;
             }
             else if (thisArg == Undefined.Instance || thisArg == Null.Instance)
             {
-                thisBinding = _engine.Global;
+                thisBinding = Engine.Global;
             }
             else if (TypeConverter.GetType(thisArg) != TypeCode.Object)
             {
-                thisBinding = TypeConverter.ToObject(_engine, thisArg);
+                thisBinding = TypeConverter.ToObject(Engine, thisArg);
             }
             else
             {
                 thisBinding = thisArg;
             }
 
-            var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, Scope);
+            var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, Scope);
             
-            _engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
+            Engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
             // Declaration Binding Instantiation http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
             var env = localEnv.Record;
@@ -92,13 +101,13 @@ namespace Jint.Native.Function
                 env.SetMutableBinding(argName, v, Strict);
             }
 
-            _engine.FunctionDeclarationBindings(_functionDeclaration, localEnv, true, Strict);
+            Engine.FunctionDeclarationBindings(_functionDeclaration, localEnv, true, Strict);
 
             var argumentsAlreadyDeclared = env.HasBinding("arguments");
 
             if (!argumentsAlreadyDeclared)
             {
-                var argsObj = ArgumentsInstance.CreateArgumentsObject(_engine, this, _functionDeclaration.Parameters.Select(x => x.Name).ToArray(), arguments, env, Strict);
+                var argsObj = ArgumentsInstance.CreateArgumentsObject(Engine, this, _functionDeclaration.Parameters.Select(x => x.Name).ToArray(), arguments, env, Strict);
 
                 if (Strict)
                 {
@@ -114,11 +123,11 @@ namespace Jint.Native.Function
             }
 
             // process all variable declarations in the current parser scope
-            _engine.VariableDeclarationBinding(_functionDeclaration, env, configurableBindings, Strict);
+            Engine.VariableDeclarationBinding(_functionDeclaration, env, configurableBindings, Strict);
 
-            var result = _engine.ExecuteStatement(_functionDeclaration.Body);
+            var result = Engine.ExecuteStatement(_functionDeclaration.Body);
             
-            _engine.LeaveExecutionContext();
+            Engine.LeaveExecutionContext();
 
             if (result.Type == Completion.Throw)
             {
@@ -128,12 +137,27 @@ namespace Jint.Native.Function
             return result;
         }
 
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.2
+        /// </summary>
+        /// <param name="arguments"></param>
+        /// <returns></returns>
         public ObjectInstance Construct(object[] arguments)
         {
-            // todo: http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.2
+            var proto = Get("prototype") as ObjectInstance;
+            var obj = new ObjectInstance(Engine);
+            obj.Extensible = true;
+            obj.Prototype = proto ?? Engine.Object;
 
-            var instance = new FunctionShim(_engine, Prototype, null, null);
-            return instance;
+            var result = Call(obj, arguments) as ObjectInstance;
+            if (result != null)
+            {
+                return result;
+            }
+            
+            return obj;
         }
+
+        public ObjectInstance PrototypeObject { get; private set; }
     }
 }

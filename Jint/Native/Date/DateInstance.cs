@@ -3,10 +3,10 @@ using Jint.Native.Object;
 
 namespace Jint.Native.Date
 {
-    public sealed class DateInstance : ObjectInstance, IPrimitiveType
+    public class DateInstance : ObjectInstance, IPrimitiveType
     {
-        public DateInstance(Engine engine, ObjectInstance prototype)
-            : base(engine, prototype)
+        public DateInstance(Engine engine)
+            : base(engine)
         {
         }
 

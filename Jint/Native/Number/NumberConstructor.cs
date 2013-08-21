@@ -8,24 +8,27 @@ namespace Jint.Native.Number
 {
     public sealed class NumberConstructor : FunctionInstance, IConstructor
     {
-        private readonly Engine _engine;
-
         public NumberConstructor(Engine engine)
-            : base(engine, new ObjectInstance(engine, engine.Object), null, null, false)
+            : base(engine, null, null, false)
         {
-            _engine = engine;
+            
+        }
 
-            // the constructor is the function constructor of an object
-            this.Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
-            this.Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
+        public static NumberConstructor CreateNumberConstructor(Engine engine)
+        {
+            var obj = new NumberConstructor(engine);
+            obj.Extensible = true;
 
-            // Number prototype properties
-            this.Prototype.DefineOwnProperty("NaN", new DataDescriptor(double.NaN), false);
-            this.Prototype.DefineOwnProperty("MAX_VALUE", new DataDescriptor(double.MaxValue), false);
-            this.Prototype.DefineOwnProperty("MIN_VALUE", new DataDescriptor(double.MinValue), false);
-            this.Prototype.DefineOwnProperty("POSITIVE_INFINITY", new DataDescriptor(double.PositiveInfinity), false);
-            this.Prototype.DefineOwnProperty("NEGATIVE_INFINITY", new DataDescriptor(double.NegativeInfinity), false);
+            // The value of the [[Prototype]] internal property of the Number constructor is the Function prototype object 
+            obj.Prototype = engine.Function.PrototypeObject;
+            obj.PrototypeObject = NumberPrototype.CreatePrototypeObject(engine, obj);
 
+            obj.FastAddProperty("length", 1, false, false, false);
+
+            // The initial value of Number.prototype is the Number prototype object
+            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+
+            return obj;
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -48,10 +51,15 @@ namespace Jint.Native.Number
             return Construct(arguments.Length > 0 ? TypeConverter.ToNumber(arguments[0]) : 0);
         }
 
+        public ObjectInstance PrototypeObject { get; private set; }
+
         public NumberInstance Construct(double value)
         {
-            var instance = new NumberInstance(_engine, Prototype);
+            var instance = new NumberInstance(Engine);
+            instance.Prototype = PrototypeObject;
             instance.PrimitiveValue = value;
+            instance.Extensible = true;
+
             return instance;
         }
 

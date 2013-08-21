@@ -10,7 +10,7 @@ namespace Jint.Native.Function
     {
         private readonly Engine _engine;
 
-        public EvalFunctionInstance(Engine engine, ObjectInstance prototype, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine, prototype, parameters, scope, strict)
+        public EvalFunctionInstance(Engine engine, ObjectInstance prototype, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine, parameters, scope, strict)
         {
             _engine = engine;
         }

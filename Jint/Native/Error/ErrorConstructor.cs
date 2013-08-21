@@ -1,31 +1,30 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Native.Error
 {
     public sealed class ErrorConstructor : FunctionInstance, IConstructor
     {
-        private readonly Engine _engine;
-
-        public ErrorConstructor(Engine engine, string name)
-            : base(engine, new ErrorInstance(engine, null, name), null, null, false)
+        public ErrorConstructor(Engine engine) : base(engine, null, null, false)
         {
-            _engine = engine;
+        }
 
-            // the constructor is the function constructor of an object
-            Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
-            Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
-                                  
-            // Error prototype properties
-            Prototype.DefineOwnProperty("message", new ClrAccessDescriptor<ErrorInstance>(_engine, x => x.Message), false);
-            Prototype.DefineOwnProperty("name", new ClrAccessDescriptor<ErrorInstance>(_engine, x => x.Name), false);
+        public static ErrorConstructor CreateErrorConstructor(Engine engine, string name)
+        {
+            var obj = new ErrorConstructor(engine);
+            obj.Extensible = true;
 
-            // Error prototype functions
-            Prototype.DefineOwnProperty("toString", new ClrDataDescriptor<ErrorInstance, object>(engine, ToErrorString), false);
+            // The value of the [[Prototype]] internal property of the Error constructor is the Function prototype object 
+            obj.Prototype = engine.Function.PrototypeObject;
+            obj.PrototypeObject = ErrorPrototype.CreatePrototypeObject(engine, obj, name);
 
+            obj.FastAddProperty("length", 1, false, false, false);
+
+            // The initial value of Date.prototype is the Boolean prototype object
+            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+
+            return obj;
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -35,7 +34,9 @@ namespace Jint.Native.Error
 
         public ObjectInstance Construct(object[] arguments)
         {
-            var instance = new ErrorInstance(_engine, Prototype, null) {Extensible = true};
+            var instance = new ErrorInstance(Engine, null);
+            instance.Prototype = PrototypeObject;
+            instance.Extensible = true;
 
             if (arguments.Length > 0 && arguments[0] != Undefined.Instance)
             {
@@ -45,10 +46,8 @@ namespace Jint.Native.Error
             return instance;
         }
 
-        private static object ToErrorString(ErrorInstance thisObject, object[] arguments)
-        {
-            return thisObject.ToErrorString();
-        }
+        public ObjectInstance PrototypeObject { get; private set; }
+
 
     }
 }

@@ -14,7 +14,7 @@ namespace Jint.Native.Argument
     /// </summary>
     public class ArgumentsInstance : ObjectInstance
     {
-        public ArgumentsInstance(Engine engine, ObjectInstance prototype) : base(engine, prototype)
+        public ArgumentsInstance(Engine engine) : base(engine)
         {
             // todo: complete implementation
         }
@@ -22,7 +22,8 @@ namespace Jint.Native.Argument
         public static ArgumentsInstance CreateArgumentsObject(Engine engine, FunctionInstance func, string[] names, object[] args, EnvironmentRecord env, bool strict)
         {
             var len = args.Length;
-            var obj = new ArgumentsInstance(engine, engine.Object);
+            var obj = new ArgumentsInstance(engine);
+            obj.Prototype = engine.Object.PrototypeObject;
             obj.DefineOwnProperty("length", new DataDescriptor(len) { Writable = true, Enumerable = false, Configurable = true }, false);
             var map = engine.Object.Construct(Arguments.Empty);
             var mappedNamed = new List<string>();

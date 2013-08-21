@@ -8,7 +8,7 @@ namespace Jint.Native.Function
     {
         private readonly Engine _engine;
 
-        protected FunctionInstance(Engine engine, ObjectInstance prototype, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine, prototype)
+        protected FunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine)
         {
             _engine = engine;
             FormalParameters = parameters;
@@ -38,12 +38,24 @@ namespace Jint.Native.Function
         // todo: implement
         public object BoundArgs { get; set; }
 
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.3.5.3
+        /// </summary>
+        /// <param name="instance"></param>
+        /// <returns></returns>
         public bool HasInstance(object instance)
         {
             var v = instance as ObjectInstance;
             if (v == null)
             {
                 return false;
+            }
+
+            var o = v.Get("prototype") as ObjectInstance;
+            
+            if (o == null)
+            {
+                throw new JavaScriptException(_engine.TypeError);    
             }
 
             while (true)
@@ -54,7 +66,7 @@ namespace Jint.Native.Function
                 {
                     return false;
                 }
-                if (v == this.Prototype)
+                if (v == o)
                 {
                     return true;
                 }

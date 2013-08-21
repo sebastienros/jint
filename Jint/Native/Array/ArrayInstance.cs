@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -9,7 +8,7 @@ namespace Jint.Native.Array
     {
         private readonly Engine _engine;
  
-        public ArrayInstance(Engine engine, ObjectInstance prototype) : base(engine, prototype)
+        public ArrayInstance(Engine engine) : base(engine)
         {
             _engine = engine;
         }

@@ -1,25 +1,32 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.String
 {
     public sealed class StringConstructor : FunctionInstance, IConstructor
     {
-        private readonly Engine _engine;
-
         public StringConstructor(Engine engine)
-            : base(engine, new ObjectInstance(engine, engine.Object), null, null, false)
+            : base(engine, null, null, false)
         {
-            _engine = engine;
-
-            // the constructor is the function constructor of an object
-            Prototype.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = false }, false);
-            Prototype.DefineOwnProperty("prototype", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
-
         }
 
+        public static StringConstructor CreateStringConstructor(Engine engine)
+        {
+            var obj = new StringConstructor(engine);
+            obj.Extensible = true;
+
+            // The value of the [[Prototype]] internal property of the String constructor is the Function prototype object 
+            obj.Prototype = engine.Function.PrototypeObject;
+            obj.PrototypeObject = StringPrototype.CreatePrototypeObject(engine, obj);
+
+            obj.FastAddProperty("length", 1, false, false, false);
+
+            // The initial value of String.prototype is the String prototype object
+            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+
+            return obj;
+        }
         public override object Call(object thisObject, object[] arguments)
         {
             if (arguments.Length == 0)
@@ -40,10 +47,15 @@ namespace Jint.Native.String
             return Construct(arguments.Length > 0 ? TypeConverter.ToString(arguments[0]) : "");
         }
 
+        public ObjectInstance PrototypeObject { get; private set; }
+
         public StringInstance Construct(string value)
         {
-            var instance = new StringInstance(_engine, Prototype);
+            var instance = new StringInstance(Engine);
+            instance.Prototype = PrototypeObject;
             instance.PrimitiveValue = value;
+            instance.Extensible = true;
+
             return instance;
         }
     }
