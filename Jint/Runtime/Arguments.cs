@@ -1,6 +1,4 @@
-﻿using Jint.Native;
-
-namespace Jint.Runtime
+﻿namespace Jint.Runtime
 {
     public static class Arguments
     {

@@ -15,10 +15,14 @@ namespace Jint.Native.Object
             var obj = new ObjectPrototype(engine) { Extensible = true };
 
             obj.FastAddProperty("constructor", objectConstructor, false, false, false);
-            obj.FastAddProperty("toString", new ClrFunctionInstance<object, string>(engine, obj.ToString), false, false, false);
-            obj.FastAddProperty("hasOwnProperty", new ClrFunctionInstance<object, bool>(engine, obj.HasOwnProperty), false, false, false);
 
             return obj;
+        }
+
+        public void Configure()
+        {
+            FastAddProperty("toString", new ClrFunctionInstance<object, string>(Engine, ToString), false, false, false);
+            FastAddProperty("hasOwnProperty", new ClrFunctionInstance<object, bool>(Engine, HasOwnProperty), false, false, false);
         }
 
         /// <summary>

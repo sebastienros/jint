@@ -21,6 +21,9 @@
             return obj;
         }
 
+        public void Configure()
+        {
 
+        }
     }
 }

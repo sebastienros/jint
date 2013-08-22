@@ -24,7 +24,7 @@ namespace Jint.Native.Argument
             var len = args.Length;
             var obj = new ArgumentsInstance(engine);
             obj.Prototype = engine.Object.PrototypeObject;
-            obj.DefineOwnProperty("length", new DataDescriptor(len) { Writable = true, Enumerable = false, Configurable = true }, false);
+            obj.FastAddProperty("length", len, true, false, true);
             var map = engine.Object.Construct(Arguments.Empty);
             var mappedNamed = new List<string>();
             var indx = len - 1;
@@ -32,7 +32,7 @@ namespace Jint.Native.Argument
             {
                 var indxStr = TypeConverter.ToString(indx);
                 var val = args[indx];
-                obj.DefineOwnProperty(indxStr, new DataDescriptor(val) { Writable = true, Enumerable = false, Configurable = true }, false);
+                obj.FastAddProperty(indxStr, val, true, true, true);
                 if (indx < names.Length)
                 {
                     var name = names[indx];
@@ -53,13 +53,7 @@ namespace Jint.Native.Argument
             }
             if (!strict)
             {
-                obj.DefineOwnProperty("callee",
-                                      new DataDescriptor(func)
-                                      {
-                                          Writable = true,
-                                          Enumerable = false,
-                                          Configurable = false
-                                      }, false);
+                obj.FastAddProperty("callee",func, true, false, true);
             }
             else
             {

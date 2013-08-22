@@ -31,6 +31,11 @@ namespace Jint.Native.Number
             return obj;
         }
 
+        public void Configure()
+        {
+
+        }
+
         public override object Call(object thisObject, object[] arguments)
         {
             if (arguments.Length == 0)
@@ -51,7 +56,7 @@ namespace Jint.Native.Number
             return Construct(arguments.Length > 0 ? TypeConverter.ToNumber(arguments[0]) : 0);
         }
 
-        public ObjectInstance PrototypeObject { get; private set; }
+        public NumberPrototype PrototypeObject { get; private set; }
 
         public NumberInstance Construct(double value)
         {

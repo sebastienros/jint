@@ -27,6 +27,12 @@ namespace Jint.Native.String
 
             return obj;
         }
+
+        public void Configure()
+        {
+
+        }
+
         public override object Call(object thisObject, object[] arguments)
         {
             if (arguments.Length == 0)
@@ -47,7 +53,7 @@ namespace Jint.Native.String
             return Construct(arguments.Length > 0 ? TypeConverter.ToString(arguments[0]) : "");
         }
 
-        public ObjectInstance PrototypeObject { get; private set; }
+        public StringPrototype PrototypeObject { get; private set; }
 
         public StringInstance Construct(string value)
         {

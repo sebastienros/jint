@@ -29,6 +29,11 @@ namespace Jint.Native.Boolean
             return obj;
         }
 
+        public void Configure()
+        {
+
+        }
+
         public override object Call(object thisObject, object[] arguments)
         {
             if (arguments.Length == 0)
@@ -49,7 +54,7 @@ namespace Jint.Native.Boolean
             return Construct(TypeConverter.ToBoolean(arguments[0]));
         }
 
-        public ObjectInstance PrototypeObject { get; private set; }
+        public BooleanPrototype PrototypeObject { get; private set; }
 
         public BooleanInstance Construct(bool value)
         {

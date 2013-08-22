@@ -27,6 +27,11 @@ namespace Jint.Native.Error
             return obj;
         }
 
+        public void Configure()
+        {
+            
+        }
+
         public override object Call(object thisObject, object[] arguments)
         {
             return Construct(arguments);
@@ -46,7 +51,7 @@ namespace Jint.Native.Error
             return instance;
         }
 
-        public ObjectInstance PrototypeObject { get; private set; }
+        public ErrorPrototype PrototypeObject { get; private set; }
 
 
     }

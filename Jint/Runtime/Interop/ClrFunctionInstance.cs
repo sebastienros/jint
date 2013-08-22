@@ -14,6 +14,7 @@ namespace Jint.Runtime.Interop
             : base(engine, null, null, false)
         {
             _func = func;
+            Prototype = engine.Function.PrototypeObject;
         }
 
         public override object Call(object thisObject, object[] arguments)

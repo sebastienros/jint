@@ -37,10 +37,13 @@ namespace Jint
         {
             _executionContexts = new Stack<ExecutionContext>();
 
-            Object = ObjectConstructor.CreateObjectConstructor(this);
-
             Global = GlobalObject.CreateGlobalObject(this);
+
+            Object = ObjectConstructor.CreateObjectConstructor(this);
             Function = FunctionConstructor.CreateFunctionConstructor(this);
+
+            
+
             Array = ArrayConstructor.CreateArrayConstructor(this);
             String = StringConstructor.CreateStringConstructor(this);
             Number = NumberConstructor.CreateNumberConstructor(this);
@@ -57,23 +60,42 @@ namespace Jint
             TypeError = ErrorConstructor.CreateErrorConstructor(this, "TypeError");
             UriError = ErrorConstructor.CreateErrorConstructor(this, "URIError");
 
-            Global.FastAddProperty("Object", Object, true, false, true);
-            Global.FastAddProperty("Function", Function, true, false, true);
-            Global.FastAddProperty("Array", Array, true, false, true);
-            Global.FastAddProperty("String", String, true, false, true);
-            Global.FastAddProperty("Number", Number, true, false, true);
-            Global.FastAddProperty("Boolean", Boolean, true, false, true);
-            Global.FastAddProperty("Date", Date, true, false, true);
-            Global.FastAddProperty("Math", Math, true, false, true);
-            Global.FastAddProperty("JSON", Json, true, false, true);
+            // Because the properties might need some of the built-in object
+            // their configuration is delayed to a later step
 
-            Global.FastAddProperty("Error", Error, true, false, true);
-            Global.FastAddProperty("EvalError", EvalError, true, false, true);
-            Global.FastAddProperty("RangeError", RangeError, true, false, true);
-            Global.FastAddProperty("ReferenceError", ReferenceError, true, false, true);
-            Global.FastAddProperty("SyntaxError", SyntaxError, true, false, true);
-            Global.FastAddProperty("TypeError", TypeError, true, false, true);
-            Global.FastAddProperty("URIError", UriError, true, false, true);
+            Global.Configure();
+
+            Object.Configure();
+            Object.PrototypeObject.Configure();
+
+            Function.Configure();
+            Function.PrototypeObject.Configure();
+
+            Array.Configure();
+            Array.PrototypeObject.Configure();
+
+            String.Configure();
+            String.PrototypeObject.Configure();
+
+            Number.Configure();
+            Number.PrototypeObject.Configure();
+
+            Boolean.Configure();
+            Boolean.PrototypeObject.Configure();
+
+            Date.Configure();
+            Date.PrototypeObject.Configure();
+
+            Math.Configure();
+            Json.Configure();
+
+            Error.Configure();
+            EvalError.Configure();
+            RangeError.Configure();
+            ReferenceError.Configure();
+            SyntaxError.Configure();
+            TypeError.Configure();
+            UriError.Configure();
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, true);
@@ -105,7 +127,7 @@ namespace Jint
 
         public LexicalEnvironment GlobalEnvironment;
 
-        public ObjectInstance Global { get; private set; }
+        public GlobalObject Global { get; private set; }
         public ObjectConstructor Object { get; private set; }
         public FunctionConstructor Function { get; private set; }
         public ArrayConstructor Array { get; private set; }

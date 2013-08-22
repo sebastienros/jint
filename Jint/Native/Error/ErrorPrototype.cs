@@ -19,15 +19,18 @@ namespace Jint.Native.Error
 
             obj.FastAddProperty("constructor", errorConstructor, false, false, false);
 
-            // Error prototype properties
-            obj.DefineOwnProperty("message", new ClrAccessDescriptor<ErrorInstance>(engine, x => x.Message), false);
-            obj.DefineOwnProperty("name", new ClrAccessDescriptor<ErrorInstance>(engine, x => x.Name), false);
-
-            // Error prototype functions
-            obj.DefineOwnProperty("toString", new ClrDataDescriptor<ErrorInstance, object>(engine, ToErrorString), false);
-
 
             return obj;
+        }
+
+        public void Configure()
+        {
+            // Error prototype properties
+            DefineOwnProperty("message", new ClrAccessDescriptor<ErrorInstance>(Engine, x => x.Message), false);
+            DefineOwnProperty("name", new ClrAccessDescriptor<ErrorInstance>(Engine, x => x.Name), false);
+
+            // Error prototype functions
+            DefineOwnProperty("toString", new ClrDataDescriptor<ErrorInstance, object>(Engine, ToErrorString), false);
         }
 
         private static object ToErrorString(ErrorInstance thisObject, object[] arguments)

@@ -1,5 +1,5 @@
 ﻿using Jint.Native.Object;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Json
 {
@@ -25,10 +25,13 @@ namespace Jint.Native.Json
         public static JsonInstance CreateJsonObject(Engine engine)
         {
             var json = new JsonInstance(engine);
-            json.DefineOwnProperty("parse", new ClrDataDescriptor<JsonInstance, object>(engine, json.Parse), false);
-            json.DefineOwnProperty("stringify", new ClrDataDescriptor<JsonInstance, object>(engine, json.Stringify), false);
-
             return json;
+        }
+
+        public void Configure()
+        {
+            FastAddProperty("parse", new ClrFunctionInstance<JsonInstance, object>(Engine, Parse), false, false, false);
+            FastAddProperty("stringify", new ClrFunctionInstance<JsonInstance, object>(Engine, Stringify), false, false, false);
         }
 
         public object Parse(JsonInstance thisObject, object[] arguments)

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Function
@@ -14,7 +13,6 @@ namespace Jint.Native.Function
     {
         private FunctionPrototype(Engine engine):base(engine, null, null, false)
         {
-
         }
 
         public static FunctionPrototype CreatePrototypeObject(Engine engine)
@@ -26,9 +24,12 @@ namespace Jint.Native.Function
 
             obj.FastAddProperty("length", 0, false, false, false);
 
-            obj.FastAddProperty("apply", new ClrFunctionInstance<object, object>(engine, obj.Apply), false, false, false);
-
             return obj;
+        }
+
+        public void Configure()
+        {
+            FastAddProperty("apply", new ClrFunctionInstance<object, object>(Engine, Apply), false, false, false);
         }
 
         public object Apply(object thisObject, object[] arguments)

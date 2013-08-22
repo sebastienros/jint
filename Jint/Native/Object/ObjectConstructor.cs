@@ -17,30 +17,34 @@ namespace Jint.Native.Object
         public static ObjectConstructor CreateObjectConstructor(Engine engine)
         {
             var obj = new ObjectConstructor(engine);
-            // obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = ObjectPrototype.CreatePrototypeObject(engine, obj);
 
             obj.FastAddProperty("length", 1, false, false, false);
             obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
 
-            obj.FastAddProperty("getPrototypeOf", new ClrFunctionInstance<object, object>(engine, obj.GetPrototypeOf), false, false, false);
-            obj.FastAddProperty("getOwnPropertyDescriptor", new ClrFunctionInstance<object, object>(engine, obj.GetOwnPropertyDescriptor), false, false, false);
-            obj.FastAddProperty("getOwnPropertyNames", new ClrFunctionInstance<object, object>(engine, obj.GetOwnPropertyNames), false, false, false);
-            obj.FastAddProperty("create", new ClrFunctionInstance<object, object>(engine, obj.Create), false, false, false);
-            obj.FastAddProperty("defineProperty", new ClrFunctionInstance<object, object>(engine, obj.DefineProperty), false, false, false);
-            obj.FastAddProperty("defineProperties", new ClrFunctionInstance<object, object>(engine, obj.DefineProperties), false, false, false);
-            obj.FastAddProperty("seal", new ClrFunctionInstance<object, object>(engine, obj.Seal), false, false, false);
-            obj.FastAddProperty("freeze", new ClrFunctionInstance<object, object>(engine, obj.Freeze), false, false, false);
-            obj.FastAddProperty("preventExtensions", new ClrFunctionInstance<object, object>(engine, obj.PreventExtensions), false, false, false);
-            obj.FastAddProperty("isSealed", new ClrFunctionInstance<object, object>(engine, obj.IsSealed), false, false, false);
-            obj.FastAddProperty("isFrozen", new ClrFunctionInstance<object, object>(engine, obj.IsFrozen), false, false, false);
-            obj.FastAddProperty("isExtensible", new ClrFunctionInstance<object, object>(engine, obj.IsExtensible), false, false, false);
-            obj.FastAddProperty("keys", new ClrFunctionInstance<object, object>(engine, obj.Keys), false, false, false);
-
             return obj;
         }
 
-        public ObjectInstance PrototypeObject { get; private set; }
+        public void Configure()
+        {
+            Prototype = Engine.Function.PrototypeObject;
+
+            FastAddProperty("getPrototypeOf", new ClrFunctionInstance<object, object>(Engine, GetPrototypeOf), false, false, false);
+            FastAddProperty("getOwnPropertyDescriptor", new ClrFunctionInstance<object, object>(Engine, GetOwnPropertyDescriptor), false, false, false);
+            FastAddProperty("getOwnPropertyNames", new ClrFunctionInstance<object, object>(Engine, GetOwnPropertyNames), false, false, false);
+            FastAddProperty("create", new ClrFunctionInstance<object, object>(Engine, Create), false, false, false);
+            FastAddProperty("defineProperty", new ClrFunctionInstance<object, object>(Engine, DefineProperty), false, false, false);
+            FastAddProperty("defineProperties", new ClrFunctionInstance<object, object>(Engine, DefineProperties), false, false, false);
+            FastAddProperty("seal", new ClrFunctionInstance<object, object>(Engine, Seal), false, false, false);
+            FastAddProperty("freeze", new ClrFunctionInstance<object, object>(Engine, Freeze), false, false, false);
+            FastAddProperty("preventExtensions", new ClrFunctionInstance<object, object>(Engine, PreventExtensions), false, false, false);
+            FastAddProperty("isSealed", new ClrFunctionInstance<object, object>(Engine, IsSealed), false, false, false);
+            FastAddProperty("isFrozen", new ClrFunctionInstance<object, object>(Engine, IsFrozen), false, false, false);
+            FastAddProperty("isExtensible", new ClrFunctionInstance<object, object>(Engine, IsExtensible), false, false, false);
+            FastAddProperty("keys", new ClrFunctionInstance<object, object>(Engine, Keys), false, false, false);
+        }
+
+        public ObjectPrototype PrototypeObject { get; private set; }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.1.1

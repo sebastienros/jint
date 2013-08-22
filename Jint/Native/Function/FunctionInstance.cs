@@ -43,15 +43,15 @@ namespace Jint.Native.Function
         /// </summary>
         /// <param name="instance"></param>
         /// <returns></returns>
-        public bool HasInstance(object instance)
+        public bool HasInstance(object v)
         {
-            var v = instance as ObjectInstance;
-            if (v == null)
+            var vObj = v as ObjectInstance;
+            if (vObj == null)
             {
                 return false;
             }
 
-            var o = v.Get("prototype") as ObjectInstance;
+            var o = Get("prototype") as ObjectInstance;
             
             if (o == null)
             {
@@ -60,7 +60,7 @@ namespace Jint.Native.Function
 
             while (true)
             {
-                v = v.Prototype;
+                v = vObj.Prototype;
 
                 if (v == null)
                 {

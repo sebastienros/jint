@@ -1,4 +1,7 @@
-﻿namespace Jint.Native.Number
+﻿using Jint.Runtime;
+using Jint.Runtime.Interop;
+
+namespace Jint.Native.Number
 {
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.7.4
@@ -18,15 +21,26 @@
 
             obj.FastAddProperty("constructor", numberConstructor, false, false, false);
 
-            obj.FastAddProperty("NaN", double.NaN, false, false, false);
-            obj.FastAddProperty("MAX_VALUE", double.MaxValue, false, false, false);
-            obj.FastAddProperty("MIN_VALUE", double.MinValue, false, false, false);
-            obj.FastAddProperty("POSITIVE_INFINITY", double.PositiveInfinity, false, false, false);
-            obj.FastAddProperty("NEGATIVE_INFINITY", double.NegativeInfinity, false, false, false);
-
             return obj;
         }
 
+        public void Configure()
+        {
+
+
+            FastAddProperty("NaN", double.NaN, false, false, false);
+            FastAddProperty("MAX_VALUE", double.MaxValue, false, false, false);
+            FastAddProperty("MIN_VALUE", double.MinValue, false, false, false);
+            FastAddProperty("POSITIVE_INFINITY", double.PositiveInfinity, false, false, false);
+            FastAddProperty("NEGATIVE_INFINITY", double.NegativeInfinity, false, false, false);
+
+            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToNumberString), false, false, false);
+        }
+
+        private static object ToNumberString(object thisObject, object[] arguments)
+        {
+            return TypeConverter.ToString(thisObject);
+        }
 
     }
 }

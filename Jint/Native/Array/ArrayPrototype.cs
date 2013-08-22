@@ -19,13 +19,16 @@ namespace Jint.Native.Array
 
             obj.FastAddProperty("constructor", arrayConstructor, false, false, false);
 
-            // Array prototype functions
-            obj.FastAddProperty("push", new ClrFunctionInstance<ArrayInstance, object>(engine, obj.Push), false, false, false);
-            obj.FastAddProperty("pop", new ClrFunctionInstance<ArrayInstance, object>(engine, obj.Pop), false, false, false);
-
             return obj;
         }
 
+        public void Configure()
+        {
+            // Array prototype functions
+            FastAddProperty("push", new ClrFunctionInstance<ArrayInstance, object>(Engine, Push), false, false, false);
+            FastAddProperty("pop", new ClrFunctionInstance<ArrayInstance, object>(Engine, Pop), false, false, false);
+        }
+            
 
         public object Push(object thisObject, object[] arguments)
         {

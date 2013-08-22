@@ -2,8 +2,7 @@
 using System.Globalization;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Global
 {
@@ -19,22 +18,43 @@ namespace Jint.Native.Global
             global.Prototype = null;
             global.Extensible = true;
             
+                        return global;
+        }
+
+        public void Configure()
+        {
             // Global object properties
-            global.DefineOwnProperty("NaN", new DataDescriptor(double.NaN), false);
-            global.DefineOwnProperty("Infinity", new DataDescriptor(double.PositiveInfinity), false);
-            global.DefineOwnProperty("undefined", new DataDescriptor(Undefined.Instance), false);
+            FastAddProperty("Object", Engine.Object, true, false, true);
+            FastAddProperty("Function", Engine.Function, true, false, true);
+            FastAddProperty("Array", Engine.Array, true, false, true);
+            FastAddProperty("String", Engine.String, true, false, true);
+            FastAddProperty("Number", Engine.Number, true, false, true);
+            FastAddProperty("Boolean", Engine.Boolean, true, false, true);
+            FastAddProperty("Date", Engine.Date, true, false, true);
+            FastAddProperty("Math", Engine.Math, true, false, true);
+            FastAddProperty("JSON", Engine.Json, true, false, true);
+
+            FastAddProperty("Error", Engine.Error, true, false, true);
+            FastAddProperty("EvalError", Engine.EvalError, true, false, true);
+            FastAddProperty("RangeError", Engine.RangeError, true, false, true);
+            FastAddProperty("ReferenceError", Engine.ReferenceError, true, false, true);
+            FastAddProperty("SyntaxError", Engine.SyntaxError, true, false, true);
+            FastAddProperty("TypeError", Engine.TypeError, true, false, true);
+            FastAddProperty("URIError", Engine.UriError, true, false, true);
+
+            FastAddProperty("NaN", double.NaN, false, false, false);
+            FastAddProperty("Infinity", double.PositiveInfinity, false, false, false);
+            FastAddProperty("undefined", Undefined.Instance, false, false, false);
 
             // Global object functions
-            global.DefineOwnProperty("parseInt", new ClrDataDescriptor<object, object>(engine, ParseInt), false);
-            global.DefineOwnProperty("parseFloat", new ClrDataDescriptor<object, object>(engine, ParseFloat), false);
-            global.DefineOwnProperty("isNaN", new ClrDataDescriptor<object, bool>(engine, IsNaN), false);
-            global.DefineOwnProperty("isFinite", new ClrDataDescriptor<object, bool>(engine, IsFinite), false);
-            global.DefineOwnProperty("decodeURI", new ClrDataDescriptor<object, string>(engine, DecodeUri), false);
-            global.DefineOwnProperty("decodeURIComponent", new ClrDataDescriptor<object, string>(engine, DecodeUriComponent), false);
-            global.DefineOwnProperty("encodeURI", new ClrDataDescriptor<object, string>(engine, EncodeUri), false);
-            global.DefineOwnProperty("encodeURIComponent", new ClrDataDescriptor<object, string>(engine, EncodeUriComponent), false);
-
-            return global;
+            FastAddProperty("parseInt", new ClrFunctionInstance<object, object>(Engine, ParseInt), false, false, false);
+            FastAddProperty("parseFloat", new ClrFunctionInstance<object, object>(Engine, ParseFloat), false, false, false);
+            FastAddProperty("isNaN", new ClrFunctionInstance<object, bool>(Engine, IsNaN), false, false, false);
+            FastAddProperty("isFinite", new ClrFunctionInstance<object, bool>(Engine, IsFinite), false, false, false);
+            FastAddProperty("decodeURI", new ClrFunctionInstance<object, string>(Engine, DecodeUri), false, false, false);
+            FastAddProperty("decodeURIComponent", new ClrFunctionInstance<object, string>(Engine, DecodeUriComponent), false, false, false);
+            FastAddProperty("encodeURI", new ClrFunctionInstance<object, string>(Engine, EncodeUri), false, false, false);
+            FastAddProperty("encodeURIComponent", new ClrFunctionInstance<object, string>(Engine, EncodeUriComponent), false, false, false);
         }
 
         /// <summary>

@@ -28,6 +28,11 @@ namespace Jint.Native.Date
             return obj;
         }
 
+        public void Configure()
+        {
+
+        }
+
         public override object Call(object thisObject, object[] arguments)
         {
             return Construct(arguments);
@@ -77,7 +82,7 @@ namespace Jint.Native.Date
             }
         }
 
-        public ObjectInstance PrototypeObject { get; private set; }
+        public DatePrototype PrototypeObject { get; private set; }
 
         public DateInstance Construct(DateTime value)
         {

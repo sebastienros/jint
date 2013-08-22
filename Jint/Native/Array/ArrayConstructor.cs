@@ -11,7 +11,7 @@ namespace Jint.Native.Array
         {
         }
 
-        public ObjectInstance PrototypeObject { get; private set; }
+        public ArrayPrototype PrototypeObject { get; private set; }
 
         public static ArrayConstructor CreateArrayConstructor(Engine engine)
         {
@@ -28,6 +28,11 @@ namespace Jint.Native.Array
             obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
 
             return obj;
+        }
+
+        public void Configure()
+        {
+            
         }
 
         public override object Call(object thisObject, object[] arguments)

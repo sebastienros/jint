@@ -21,19 +21,26 @@ namespace Jint.Native.Function
         {
             var obj = new FunctionConstructor(engine);
 
-            // The value of the [[Prototype]] internal property of the Function constructor is the standard built-in Function prototype object 
-            obj.Prototype = FunctionPrototype.CreatePrototypeObject(engine);
 
             // The initial value of Function.prototype is the standard built-in Function prototype object
-            obj.PrototypeObject = obj.Prototype;
+            obj.PrototypeObject = FunctionPrototype.CreatePrototypeObject(engine);
+            
+            // The value of the [[Prototype]] internal property of the Function constructor is the standard built-in Function prototype object 
+            obj.Prototype = obj.PrototypeObject;
+            
             obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
 
             obj.FastAddProperty("length", 1, false, false, false);
 
             return obj;
         }
-        
-        public ObjectInstance PrototypeObject { get; private set; }
+
+        public void Configure()
+        {
+
+        }
+
+        public FunctionPrototype PrototypeObject { get; private set; }
 
         public override object Call(object thisObject, object[] arguments)
         {

@@ -567,19 +567,15 @@ namespace Jint.Runtime
 
         public object EvaluateCallExpression(CallExpression callExpression)
         {
-            var callee = EvaluateExpression(callExpression.Callee) as Reference;
-
-            if (callee == null)
-            {
-                throw new ArgumentException("Callee should be a reference");    
-            }
+            var callee = EvaluateExpression(callExpression.Callee);
 
             var func = _engine.GetValue(callee);
 
             if (func == Undefined.Instance)
             {
-                throw new JavaScriptException(_engine.TypeError, "object has no method '" + callee.GetReferencedName() + "'" );
+                throw new JavaScriptException(_engine.TypeError);
             }
+
             object thisObject;
 
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
