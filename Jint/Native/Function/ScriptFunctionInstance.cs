@@ -123,7 +123,7 @@ namespace Jint.Native.Function
             }
 
             // process all variable declarations in the current parser scope
-            Engine.VariableDeclarationBinding(_functionDeclaration, env, configurableBindings, Strict);
+            Engine.VariableDeclarationBinding(_functionDeclaration.VariableDeclarations, env, configurableBindings, Strict);
 
             var result = Engine.ExecuteStatement(_functionDeclaration.Body);
             

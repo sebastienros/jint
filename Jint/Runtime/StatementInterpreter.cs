@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Jint.Native;
 using Jint.Parser.Ast;
@@ -192,12 +193,11 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteForInStatement(ForInStatement forInStatement)
         {
-            object varName = null;
-            if (forInStatement.Left.Type == SyntaxNodes.VariableDeclaration)
-            {
-                varName = ExecuteVariableDeclaration(forInStatement.Left.As<VariableDeclaration>()).Value;
-            }
-            
+            Identifier identifier = forInStatement.Left.Type == SyntaxNodes.VariableDeclaration 
+                                        ? forInStatement.Left.As<VariableDeclaration>().Declarations.First().Id 
+                                        : forInStatement.Left.As<Identifier>();
+
+            var varRef = _engine.EvaluateExpression(identifier) as Reference;
             var exprRef = _engine.EvaluateExpression(forInStatement.Right);
             var experValue = _engine.GetValue(exprRef);
             if (experValue == Undefined.Instance || experValue == Null.Instance)
@@ -205,9 +205,6 @@ namespace Jint.Runtime
                 return new Completion(Completion.Normal, null, null);
             }
 
-            Reference leftRef = varName != null
-                                    ? varName as Reference
-                                    : _engine.EvaluateExpression(forInStatement.Left.As<Expression>()) as Reference;
 
             var obj = TypeConverter.ToObject(_engine, experValue);
             object v = null;
@@ -219,7 +216,7 @@ namespace Jint.Runtime
                 }
 
                 var p = entry.Key;
-                _engine.PutValue(leftRef, p);
+                _engine.PutValue(varRef, p);
 
                 var stmt = ExecuteStatement(forInStatement.Body);
                 if (stmt.Value != null)
@@ -452,26 +449,32 @@ namespace Jint.Runtime
             }
 
             _engine.FunctionDeclarationBindings(program, _engine.ExecutionContext.LexicalEnvironment, true, program.Strict);
-            _engine.VariableDeclarationBinding(program, _engine.ExecutionContext.LexicalEnvironment.Record, true, program.Strict);
+            _engine.VariableDeclarationBinding(program.VariableDeclarations, _engine.ExecutionContext.LexicalEnvironment.Record, true, program.Strict);
 
             return ExecuteStatementList(program.Body);
         }
 
         public Completion ExecuteVariableDeclaration(VariableDeclaration statement)
         {
-            object value = Undefined.Instance;
-
+            string lastIdentifier = null;
             foreach (var declaration in statement.Declarations)
             {
                 if (declaration.Init != null)
                 {
                     var lhs = _engine.EvaluateExpression(declaration.Id) as Reference;
-                    value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init));
+
+                    if (lhs == null)
+                    {
+                        throw new ArgumentException();
+                    }
+
+                    lastIdentifier = lhs.GetReferencedName();
+                    var value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init));
                     _engine.PutValue(lhs, value);
                 }
             }
 
-            return new Completion(Completion.Normal, value, null);
+            return new Completion(Completion.Normal, lastIdentifier, null);
         }
 
         public Completion ExecuteBlockStatement(BlockStatement blockStatement)

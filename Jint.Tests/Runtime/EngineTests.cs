@@ -408,12 +408,12 @@ namespace Jint.Tests.Runtime
         public void ForInStatement()
         {
             RunTest(@"
-                var x, y, z, str = '';
-                for(z in this) {
+                var x, y, str = '';
+                for(var z in this) {
                     str += z;
                 }
                 
-                assert(str == 'xyzstr');
+                assert(str == 'xystrz');
             ");
         }
 

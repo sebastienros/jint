@@ -60,8 +60,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Theory]
-        //[InlineData("access-nbody", "https://raw.github.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.1/access-nbody.js")]
-        [InlineData("access-nbody", "https://gist.github.com/sebastienros/6284478/raw/gistfile1.js")]
+        [InlineData("access-nbody", "https://raw.github.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.1/access-nbody.js")]
         public void AccessNBody(string name, string url)
         {
             var content = new WebClient().DownloadString(url);

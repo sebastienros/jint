@@ -497,10 +497,10 @@ namespace Jint
             }
         }
 
-        public void VariableDeclarationBinding(IVariableScope variableScope, EnvironmentRecord env, bool configurableBindings, bool strict)
+        public void VariableDeclarationBinding(IEnumerable<VariableDeclaration> declarations, EnvironmentRecord env, bool configurableBindings, bool strict)
         {
             // process all variable declarations in the current parser scope
-            foreach (var d in variableScope.VariableDeclarations.SelectMany(x => x.Declarations))
+            foreach (var d in declarations.SelectMany(x => x.Declarations))
             {
                 var dn = d.Id.Name;
                 var varAlreadyDeclared = env.HasBinding(dn);
