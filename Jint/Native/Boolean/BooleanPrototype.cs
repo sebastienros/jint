@@ -1,7 +1,10 @@
-﻿namespace Jint.Native.Boolean
+﻿using System;
+using Jint.Runtime.Interop;
+
+namespace Jint.Native.Boolean
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.6.4
+    ///     http://www.ecma-international.org/ecma-262/5.1/#sec-15.6.4
     /// </summary>
     public sealed class BooleanPrototype : BooleanInstance
     {
@@ -22,8 +25,18 @@
 
         public void Configure()
         {
-            
+            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToBooleanString), false, false, false);
+            FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), false, false, false);
         }
 
+        private object ValueOf(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object ToBooleanString(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

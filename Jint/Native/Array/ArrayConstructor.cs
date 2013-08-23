@@ -2,6 +2,7 @@
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
 {
@@ -32,7 +33,12 @@ namespace Jint.Native.Array
 
         public void Configure()
         {
-            
+            FastAddProperty("isArray", new ClrFunctionInstance<object, object>(Engine, IsArray), false, false, false);
+        }
+
+        private object IsArray(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
         }
 
         public override object Call(object thisObject, object[] arguments)

@@ -7,11 +7,11 @@ using Jint.Runtime.Interop;
 namespace Jint.Native.Function
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.3.4
+    ///     http://www.ecma-international.org/ecma-262/5.1/#sec-15.3.4
     /// </summary>
     public sealed class FunctionPrototype : FunctionInstance
     {
-        private FunctionPrototype(Engine engine):base(engine, null, null, false)
+        private FunctionPrototype(Engine engine) : base(engine, null, null, false)
         {
         }
 
@@ -29,7 +29,20 @@ namespace Jint.Native.Function
 
         public void Configure()
         {
+            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToFunctionString), false, false, false);
             FastAddProperty("apply", new ClrFunctionInstance<object, object>(Engine, Apply), false, false, false);
+            FastAddProperty("call", new ClrFunctionInstance<object, object>(Engine, Call), false, false, false);
+            FastAddProperty("bind", new ClrFunctionInstance<object, object>(Engine, Bind), false, false, false);
+        }
+
+        private object Bind(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object ToFunctionString(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
         }
 
         public object Apply(object thisObject, object[] arguments)
@@ -40,8 +53,8 @@ namespace Jint.Native.Function
             }
 
             var func = thisObject as ICallable;
-            var thisArg = arguments[0];
-            var argArray = arguments[1];
+            object thisArg = arguments[0];
+            object argArray = arguments[1];
 
             if (func == null)
             {
@@ -59,13 +72,13 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var len = argArrayObj.Get("length");
-            var n = TypeConverter.ToUint32(len);
+            object len = argArrayObj.Get("length");
+            uint n = TypeConverter.ToUint32(len);
             var argList = new List<object>();
-            for (var index = 0; index < n; index++)
+            for (int index = 0; index < n; index++)
             {
-                var indexName = index.ToString();
-                var nextArg = argArrayObj.Get(indexName);
+                string indexName = index.ToString();
+                object nextArg = argArrayObj.Get(indexName);
                 argList.Add(nextArg);
             }
             return func.Call(thisArg, argList.ToArray());

@@ -1,11 +1,12 @@
-﻿using Jint.Native.Object;
+﻿using System;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.4.4
+    ///     http://www.ecma-international.org/ecma-262/5.1/#sec-15.4.4
     /// </summary>
     public sealed class ArrayPrototype : ObjectInstance
     {
@@ -15,7 +16,7 @@ namespace Jint.Native.Array
 
         public static ArrayPrototype CreatePrototypeObject(Engine engine, ArrayConstructor arrayConstructor)
         {
-            var obj = new ArrayPrototype(engine) { Extensible = true };
+            var obj = new ArrayPrototype(engine) {Extensible = true};
 
             obj.FastAddProperty("constructor", arrayConstructor, false, false, false);
 
@@ -24,18 +25,130 @@ namespace Jint.Native.Array
 
         public void Configure()
         {
-            // Array prototype functions
-            FastAddProperty("push", new ClrFunctionInstance<ArrayInstance, object>(Engine, Push), false, false, false);
+            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToArrayString), false, false, false);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance<object, object>(Engine, ToLocaleString), false, false, false);
+            FastAddProperty("concat", new ClrFunctionInstance<object, object>(Engine, Concat), false, false, false);
+            FastAddProperty("join", new ClrFunctionInstance<object, object>(Engine, Join), false, false, false);
             FastAddProperty("pop", new ClrFunctionInstance<ArrayInstance, object>(Engine, Pop), false, false, false);
+            FastAddProperty("push", new ClrFunctionInstance<ArrayInstance, object>(Engine, Push), false, false, false);
+            FastAddProperty("reverse", new ClrFunctionInstance<object, object>(Engine, Reverse), false, false, false);
+            FastAddProperty("shift", new ClrFunctionInstance<ArrayInstance, object>(Engine, Shift), false, false, false);
+            FastAddProperty("slice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Slice), false, false, false);
+            FastAddProperty("sort", new ClrFunctionInstance<ArrayInstance, object>(Engine, Sort), false, false, false);
+            FastAddProperty("splice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Splice), false, false, false);
+            FastAddProperty("unshift", new ClrFunctionInstance<ArrayInstance, object>(Engine, Unshift), false, false, false);
+            FastAddProperty("indexOf", new ClrFunctionInstance<ArrayInstance, object>(Engine, IndexOf), false, false, false);
+            FastAddProperty("lastIndexOf", new ClrFunctionInstance<ArrayInstance, object>(Engine, LastIndexOf), false, false, false);
+            FastAddProperty("every", new ClrFunctionInstance<ArrayInstance, object>(Engine, Every), false, false, false);
+            FastAddProperty("some", new ClrFunctionInstance<ArrayInstance, object>(Engine, Some), false, false, false);
+            FastAddProperty("forEach", new ClrFunctionInstance<ArrayInstance, object>(Engine, ForEach), false, false, false);
+            FastAddProperty("map", new ClrFunctionInstance<ArrayInstance, object>(Engine, Map), false, false, false);
+            FastAddProperty("filter", new ClrFunctionInstance<ArrayInstance, object>(Engine, Filter), false, false, false);
+            FastAddProperty("reduce", new ClrFunctionInstance<ArrayInstance, object>(Engine, Reduce), false, false, false);
+            FastAddProperty("reduceRight", new ClrFunctionInstance<ArrayInstance, object>(Engine, ReduceRight), false, false, false);
         }
-            
+
+        private object LastIndexOf(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Reduce(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Filter(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Map(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object ForEach(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Some(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Every(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object IndexOf(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Splice(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Unshift(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Sort(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Slice(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Shift(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Reverse(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Join(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object ToLocaleString(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object Concat(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object ToArrayString(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+
+        private object ReduceRight(ArrayInstance arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
 
         public object Push(object thisObject, object[] arguments)
         {
-            var o = TypeConverter.ToObject(Engine, thisObject);
-            var lenVal = o.Get("length");
-            var n = TypeConverter.ToUint32(lenVal);
-            foreach (var e in arguments)
+            ObjectInstance o = TypeConverter.ToObject(Engine, thisObject);
+            object lenVal = o.Get("length");
+            uint n = TypeConverter.ToUint32(lenVal);
+            foreach (object e in arguments)
             {
                 o.Put(TypeConverter.ToString(n), e, true);
                 n++;
@@ -47,9 +160,9 @@ namespace Jint.Native.Array
 
         public object Pop(object thisObject, object[] arguments)
         {
-            var o = TypeConverter.ToObject(Engine, thisObject);
-            var lenVal = o.Get("length");
-            var len = TypeConverter.ToUint32(lenVal);
+            ObjectInstance o = TypeConverter.ToObject(Engine, thisObject);
+            object lenVal = o.Get("length");
+            uint len = TypeConverter.ToUint32(lenVal);
             if (len == 0)
             {
                 o.Put("length", 0, true);
@@ -57,8 +170,8 @@ namespace Jint.Native.Array
             }
             else
             {
-                var indx = TypeConverter.ToString(len - 1);
-                var element = o.Get(indx);
+                string indx = TypeConverter.ToString(len - 1);
+                object element = o.Get(indx);
                 o.Delete(indx, true);
                 o.Put("length", indx, true);
                 return element;

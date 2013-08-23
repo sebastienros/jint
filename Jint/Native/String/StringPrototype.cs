@@ -1,4 +1,7 @@
-﻿namespace Jint.Native.String
+﻿using System;
+using Jint.Runtime.Interop;
+
+namespace Jint.Native.String
 {
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.4
@@ -23,7 +26,101 @@
 
         public void Configure()
         {
-
+            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToStringString), false, false, false);
+            FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), false, false, false);
+            FastAddProperty("charAt", new ClrFunctionInstance<object, object>(Engine, CharAt), false, false, false);
+            FastAddProperty("charCodeAt", new ClrFunctionInstance<object, object>(Engine, CharCodeAt), false, false, false);
+            FastAddProperty("concat", new ClrFunctionInstance<object, object>(Engine, Concat), false, false, false);
+            FastAddProperty("indexOf", new ClrFunctionInstance<object, object>(Engine, IndexOf), false, false, false);
+            FastAddProperty("lastIndexOf", new ClrFunctionInstance<object, object>(Engine, LastIndexOf), false, false, false);
+            FastAddProperty("localeCompare", new ClrFunctionInstance<object, object>(Engine, LocaleCompare), false, false, false);
+            FastAddProperty("match", new ClrFunctionInstance<object, object>(Engine, Match), false, false, false);
+            FastAddProperty("replace", new ClrFunctionInstance<object, object>(Engine, Replace), false, false, false);
+            FastAddProperty("search", new ClrFunctionInstance<object, object>(Engine, Search), false, false, false);
+            FastAddProperty("slice", new ClrFunctionInstance<object, object>(Engine, Slice), false, false, false);
+            FastAddProperty("split", new ClrFunctionInstance<object, object>(Engine, Split), false, false, false);
+            FastAddProperty("substring", new ClrFunctionInstance<object, object>(Engine, Substring), false, false, false);
+            FastAddProperty("toLowerCase", new ClrFunctionInstance<object, object>(Engine, ToLowerCase), false, false, false);
+            FastAddProperty("toLocaleLowerCase", new ClrFunctionInstance<object, object>(Engine, ToLocaleLowerCase), false, false, false);
+            FastAddProperty("toUpperCase", new ClrFunctionInstance<object, object>(Engine, ToUpperCase), false, false, false);
+            FastAddProperty("toLocaleUpperCase", new ClrFunctionInstance<object, object>(Engine, ToLocaleUpperCase), false, false, false);
+            FastAddProperty("trim", new ClrFunctionInstance<object, object>(Engine, Trim), false, false, false);
+        }
+        private object Trim(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object ToLocaleUpperCase(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object ToUpperCase(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object ToLocaleLowerCase(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object ToLowerCase(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object Substring(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object Split(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object Slice(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object Search(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object Replace(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object Match(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object LocaleCompare(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object LastIndexOf(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object IndexOf(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object Concat(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object CharCodeAt(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object CharAt(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object ValueOf(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
+        }
+        private object ToStringString(object arg1, object[] arg2)
+        {
+            throw new NotImplementedException();
         }
     }
 }

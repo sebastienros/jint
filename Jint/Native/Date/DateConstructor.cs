@@ -22,7 +22,7 @@ namespace Jint.Native.Date
 
             obj.FastAddProperty("length", 1, false, false, false);
 
-            // The initial value of Date.prototype is the Boolean prototype object
+            // The initial value of Date.prototype is the Date prototype object
             obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
 
             return obj;

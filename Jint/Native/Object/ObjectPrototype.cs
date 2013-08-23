@@ -1,4 +1,5 @@
-﻿using Jint.Runtime;
+﻿using System;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
@@ -22,7 +23,27 @@ namespace Jint.Native.Object
         public void Configure()
         {
             FastAddProperty("toString", new ClrFunctionInstance<object, string>(Engine, ToString), false, false, false);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance<object, string>(Engine, ToLocaleString), false, false, false);
+            FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), false, false, false);
             FastAddProperty("hasOwnProperty", new ClrFunctionInstance<object, bool>(Engine, HasOwnProperty), false, false, false);
+            FastAddProperty("isPrototypeOf", new ClrFunctionInstance<object, bool>(Engine, IsPrototypeOf), false, false, false);
+            FastAddProperty("propertyIsEnumerable", new ClrFunctionInstance<object, bool>(Engine, PropertyIsEnumerable), false, false, false);
+        }
+        private bool PropertyIsEnumerable(object thisObject, object[] arguments)
+        {
+            throw new NotImplementedException();
+        }
+        private object ValueOf(object thisObject, object[] arguments)
+        {
+            throw new NotImplementedException();
+        }
+        private bool IsPrototypeOf(object thisObject, object[] arguments)
+        {
+            throw new NotImplementedException();
+        }
+        private string ToLocaleString(object thisObject, object[] arguments)
+        {
+            throw new NotImplementedException();
         }
 
         /// <summary>
