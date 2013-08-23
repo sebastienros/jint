@@ -1,6 +1,7 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.String
 {
@@ -30,7 +31,12 @@ namespace Jint.Native.String
 
         public void Configure()
         {
+            FastAddProperty("fromCharCode", new ClrFunctionInstance<object, object>(Engine, FromCharCode), false, false, false);
+        }
 
+        private object FromCharCode(object arg1, object[] arg2)
+        {
+            throw new System.NotImplementedException();
         }
 
         public override object Call(object thisObject, object[] arguments)

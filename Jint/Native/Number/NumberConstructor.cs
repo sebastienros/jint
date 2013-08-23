@@ -33,7 +33,11 @@ namespace Jint.Native.Number
 
         public void Configure()
         {
-
+            FastAddProperty("MAX_VALUE", double.MaxValue, false, false, false);
+            FastAddProperty("MIN_VALUE", double.Epsilon, false, false, false);
+            FastAddProperty("NaN", double.NaN, false, false, false);
+            FastAddProperty("NEGATIVE_INFINITY", double.NegativeInfinity, false, false, false);
+            FastAddProperty("POSITIVE_INFINITY", double.PositiveInfinity, false, false, false);
         }
 
         public override object Call(object thisObject, object[] arguments)

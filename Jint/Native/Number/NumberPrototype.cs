@@ -26,15 +26,37 @@ namespace Jint.Native.Number
 
         public void Configure()
         {
-
-
-            FastAddProperty("NaN", double.NaN, false, false, false);
-            FastAddProperty("MAX_VALUE", double.MaxValue, false, false, false);
-            FastAddProperty("MIN_VALUE", double.MinValue, false, false, false);
-            FastAddProperty("POSITIVE_INFINITY", double.PositiveInfinity, false, false, false);
-            FastAddProperty("NEGATIVE_INFINITY", double.NegativeInfinity, false, false, false);
-
             FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToNumberString), false, false, false);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance<object, object>(Engine, ToLocaleString), false, false, false);
+            FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), false, false, false);
+            FastAddProperty("toFixed", new ClrFunctionInstance<object, object>(Engine, ToFixed), false, false, false);
+            FastAddProperty("toExponential", new ClrFunctionInstance<object, object>(Engine, ToExponential), false, false, false);
+            FastAddProperty("toPrecision", new ClrFunctionInstance<object, object>(Engine, ToPrecision), false, false, false);
+        }
+
+        private object ToLocaleString(object arg1, object[] arg2)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        private object ValueOf(object arg1, object[] arg2)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        private object ToFixed(object arg1, object[] arg2)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        private object ToExponential(object arg1, object[] arg2)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        private object ToPrecision(object arg1, object[] arg2)
+        {
+            throw new System.NotImplementedException();
         }
 
         private static object ToNumberString(object thisObject, object[] arguments)
