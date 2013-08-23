@@ -9,31 +9,77 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private readonly IDictionary<string, object> _bindings = new Dictionary<string, object>();
+        private readonly Engine _engine;
+        private readonly IDictionary<string, Binding> _bindings = new Dictionary<string, Binding>();
+
+        public DeclarativeEnvironmentRecord(Engine engine)
+        {
+            _engine = engine;
+        }
 
         public override bool HasBinding(string name)
         {
             return _bindings.ContainsKey(name);
         }
 
-        public override void CreateMutableBinding(string name, bool canBeDeleted = true)
+        public override void CreateMutableBinding(string name, bool canBeDeleted = false)
         {
-            _bindings.Add(name, Undefined.Instance);
+            _bindings.Add(name, new Binding
+                {
+                    Value = Undefined.Instance, 
+                    CanBeDeleted =  canBeDeleted,
+                    Mutable = true
+                });
         }
 
         public override void SetMutableBinding(string name, object value, bool strict)
         {
-            _bindings[name] = value;
+            var binding = _bindings[name];
+            if (binding.Mutable)
+            {
+                binding.Value = value;
+            }
+            else
+            {
+                if (strict)
+                {
+                    throw new JavaScriptException(_engine.TypeError, "Can't update the value of an immutable binding.");
+                }
+            }
         }
 
         public override object GetBindingValue(string name, bool strict)
         {
-            return _bindings[name];
+            var binding = _bindings[name];
+
+            if (!binding.Mutable && binding.Value == null)
+            {
+                if (strict)
+                {
+                    throw new JavaScriptException(_engine.ReferenceError, "Can't access anm uninitiazed immutable binding.");
+                }
+
+                return Undefined.Instance;
+            }
+
+            return binding.Value;
         }
 
         public override bool DeleteBinding(string name)
         {
+            Binding binding;
+            if (!_bindings.TryGetValue(name, out binding))
+            {
+                return true;
+            }
+
+            if (!binding.CanBeDeleted)
+            {
+                return false;
+            }
+
             _bindings.Remove(name);
+            
             return true;
         }
 
@@ -48,7 +94,12 @@ namespace Jint.Runtime.Environments
         /// <param name="name">The identifier of the binding.</param>
         public void CreateImmutableBinding(string name)
         {
-            CreateMutableBinding(name);
+            _bindings.Add(name, new Binding
+                {
+                    Value = null,
+                    Mutable = false,
+                    CanBeDeleted = false
+                });
         }
 
         /// <summary>
@@ -58,7 +109,8 @@ namespace Jint.Runtime.Environments
         /// <param name="value">The value of the binding.</param>
         public void InitializeImmutableBinding(string name, object value)
         {
-            SetMutableBinding(name, value, false);
+            var binding = _bindings[name];
+            binding.Value = value;
         }
     }
 }

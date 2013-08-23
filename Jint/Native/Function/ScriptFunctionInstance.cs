@@ -27,13 +27,13 @@ namespace Jint.Native.Function
         public ScriptFunctionInstance(Engine engine, IFunctionDeclaration functionDeclaration, LexicalEnvironment scope, bool strict)
             : base(engine, functionDeclaration.Parameters.Select(x => x.Name).ToArray(), scope, strict)
         {
+            _functionDeclaration = functionDeclaration;
 
             Engine = engine;
-            _functionDeclaration = functionDeclaration;
             Extensible = true;
-            
-            var len = functionDeclaration.Parameters.Count();
-            DefineOwnProperty("length", new DataDescriptor(len) { Writable = false, Enumerable = false, Configurable = false }, false);
+            Prototype = engine.Function.PrototypeObject;
+
+            DefineOwnProperty("length", new DataDescriptor(FormalParameters.Length) { Writable = false, Enumerable = false, Configurable = false }, false);
 
             var proto = engine.Object.Construct(Arguments.Empty);
             proto.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = true }, false);
@@ -85,11 +85,15 @@ namespace Jint.Native.Function
             var env = localEnv.Record;
             var configurableBindings = false;
 
+            //if (/* todo: if code is eval code */)
+            //{
+            //    configurableBindings = true;
+            //}
+
             var argCount = arguments.Length;
             var n = 0;
-            foreach (var parameter in _functionDeclaration.Parameters)
+            foreach (var argName in FormalParameters)
             {
-                var argName = parameter.Name;
                 n++;
                 var v = n > argCount ? Undefined.Instance : arguments[n-1];
                 var argAlreadyDeclared = env.HasBinding(argName);
@@ -107,11 +111,17 @@ namespace Jint.Native.Function
 
             if (!argumentsAlreadyDeclared)
             {
-                var argsObj = ArgumentsInstance.CreateArgumentsObject(Engine, this, _functionDeclaration.Parameters.Select(x => x.Name).ToArray(), arguments, env, Strict);
+                var argsObj = ArgumentsInstance.CreateArgumentsObject(Engine, this, FormalParameters, arguments, env, Strict);
 
                 if (Strict)
                 {
                     var declEnv = env as DeclarativeEnvironmentRecord;
+                    
+                    if (declEnv == null)
+                    {
+                        throw new ArgumentException();
+                    }
+
                     declEnv.CreateImmutableBinding("arguments");
                     declEnv.InitializeImmutableBinding("arguments", argsObj);
                 }

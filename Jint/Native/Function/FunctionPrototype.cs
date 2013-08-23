@@ -29,6 +29,7 @@ namespace Jint.Native.Function
 
         public void Configure()
         {
+            FastAddProperty("constructor", Engine.Function, false, false, false);
             FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToFunctionString), false, false, false);
             FastAddProperty("apply", new ClrFunctionInstance<object, object>(Engine, Apply), false, false, false);
             FastAddProperty("call", new ClrFunctionInstance<object, object>(Engine, Call), false, false, false);

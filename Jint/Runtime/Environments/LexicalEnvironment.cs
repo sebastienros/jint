@@ -47,7 +47,7 @@ namespace Jint.Runtime.Environments
 
         public static LexicalEnvironment NewDeclarativeEnvironment(Engine engine, LexicalEnvironment outer = null)
         {
-            return new LexicalEnvironment(new DeclarativeEnvironmentRecord(), outer);
+            return new LexicalEnvironment(new DeclarativeEnvironmentRecord(engine), outer);
         }
 
         public static LexicalEnvironment NewObjectEnvironment(Engine engine, ObjectInstance objectInstance, LexicalEnvironment outer, bool provideThis)
