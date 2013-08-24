@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Jint.Native.Object;
+using Jint.Parser;
 using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -49,11 +51,57 @@ namespace Jint.Native.Function
 
         public ObjectInstance Construct(object[] arguments)
         {
-            var instance = new FunctionShim(Engine, null, Engine.GlobalEnvironment);
-            instance.Extensible = true;
-            instance.DefineOwnProperty("constructor", new DataDescriptor(Prototype) { Writable = true, Enumerable = false, Configurable = false }, false);
+            var argCount = arguments.Length;
+            string p = "";
+            string body = "";
 
-            return instance;
+            if (argCount == 1)
+            {
+                body = TypeConverter.ToString(arguments[0]);
+            }
+            else if (argCount > 1)
+            {
+                var firstArg = arguments[0];
+                p = TypeConverter.ToString(firstArg);
+                for (var k = 1; k < argCount - 1; k++)
+                {
+                    var nextArg = arguments[k];
+                    p += "," + TypeConverter.ToString(nextArg);
+                }
+
+                body = TypeConverter.ToString(arguments[argCount-1]);
+            }
+            body = TypeConverter.ToString(body);
+            var parser = new JavaScriptParser();
+            
+            // todo: ensure parsable as parameter list
+            var parameters = p.Split(new [] {','}, StringSplitOptions.RemoveEmptyEntries);
+            var statements = parser.ParseFunctionBody(body);
+
+            var functionObject = new ScriptFunctionInstance(
+                Engine,
+                new FunctionDeclaration
+                    {
+                        Type = SyntaxNodes.FunctionDeclaration,
+                        Body = new BlockStatement
+                            {
+                                Type = SyntaxNodes.BlockStatement,
+                                Body = statements
+                            },
+                        Parameters = parameters.Select(x => new Identifier
+                            {
+                                Type = SyntaxNodes.Identifier,
+                                Name = x
+                            }),
+                        FunctionDeclarations = new List<FunctionDeclaration>(),
+                        VariableDeclarations = new List<VariableDeclaration>()
+                    },  
+                LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment),
+                false
+                ) { Extensible = true };
+
+            return functionObject;
+            
         }
 
         /// <summary>

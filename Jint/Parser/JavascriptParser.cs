@@ -3845,22 +3845,22 @@ namespace Jint.Parser
             _length = _source.Length;
             _lookahead = null;
             _state = new State
-                {
-                    AllowIn = true,
-                    LabelSet = new HashSet<string>(),
-                    InFunctionBody = false,
-                    InIteration = false,
-                    InSwitch = false,
-                    LastCommentStart = -1,
-                    MarkerStack = new Stack<int>()
-                };
+            {
+                AllowIn = true,
+                LabelSet = new HashSet<string>(),
+                InFunctionBody = false,
+                InIteration = false,
+                InSwitch = false,
+                LastCommentStart = -1,
+                MarkerStack = new Stack<int>()
+            };
 
             _extra = new Extra
-                {
-                    Range = new int[0], 
-                    Loc = 0,
+            {
+                Range = new int[0],
+                Loc = 0,
 
-                };
+            };
 
             if (options != null)
             {
@@ -3910,6 +3910,38 @@ namespace Jint.Parser
             }
 
             return program;
+        }
+
+        public IEnumerable<Statement> ParseFunctionBody(string code)
+        {
+            _source = code;
+            _index = 0;
+            _lineNumber = (_source.Length > 0) ? 1 : 0;
+            _lineStart = 0;
+            _length = _source.Length;
+            _lookahead = null;
+            _state = new State
+            {
+                AllowIn = true,
+                LabelSet = new HashSet<string>(),
+                InFunctionBody = true,
+                InIteration = false,
+                InSwitch = false,
+                LastCommentStart = -1,
+                MarkerStack = new Stack<int>()
+            };
+
+            _extra = new Extra
+            {
+                Range = new int[0],
+                Loc = 0,
+
+            };
+
+            Peek();
+            var statement = ParseStatementList();
+            return statement;
+        
         }
 
         private class Extra

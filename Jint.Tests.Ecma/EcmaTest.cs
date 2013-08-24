@@ -21,12 +21,20 @@ namespace Jint.Tests.Ecma
         }
 
         private const string Driver = @"
+            function fnGlobalObject() {
+                return Function('return this')();
+            }
+
             function runTestCase(f) {
                 if(!f()) $ERROR('');
             }
         ";
 
         private const string NegativeDriver = @"
+            function fnGlobalObject() {
+                return Function('return this')();
+            }
+
             function runTestCase(f) {
                 if(f()) $ERROR('');
             }
