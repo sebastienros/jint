@@ -31,10 +31,10 @@ namespace Jint.Native.Function
         public void Configure()
         {
             FastAddProperty("constructor", Engine.Function, false, false, false);
-            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToString), false, false, false);
-            FastAddProperty("apply", new ClrFunctionInstance<object, object>(Engine, Apply), false, false, false);
-            FastAddProperty("call", new ClrFunctionInstance<object, object>(Engine, Call, 1), false, false, false);
-            FastAddProperty("bind", new ClrFunctionInstance<object, object>(Engine, Bind), false, false, false);
+            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToString), true, false, true);
+            FastAddProperty("apply", new ClrFunctionInstance<object, object>(Engine, Apply), true, false, true);
+            FastAddProperty("call", new ClrFunctionInstance<object, object>(Engine, Call, 1), true, false, true);
+            FastAddProperty("bind", new ClrFunctionInstance<object, object>(Engine, Bind), true, false, true);
         }
 
         private object Bind(object thisObj, object[] arguments)
@@ -44,7 +44,14 @@ namespace Jint.Native.Function
 
         private object ToString(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var func = thisObj as FunctionInstance;
+
+            if (func == null)
+            {
+                throw new JavaScriptException(Engine.TypeError, "Function object expected.");       
+            }
+
+            return System.String.Format("function() {{ ... }}");
         }
 
         public object Apply(object thisObject, object[] arguments)

@@ -36,6 +36,15 @@ namespace Jint.Runtime
             return o.DefaultValue(preferredType);
         }
 
+        public static bool IsPrimitiveValue(object o)
+        {
+            return o is string
+                   || o is double
+                   || o is bool
+                   || o is Undefined
+                   || o is Null;
+        }
+    
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.2
         /// </summary>

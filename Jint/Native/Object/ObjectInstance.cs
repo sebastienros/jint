@@ -337,7 +337,7 @@ namespace Jint.Native.Object
                 if (callable != null)
                 {
                     var val = callable.Call(this, Arguments.Empty);
-                    if (val is IPrimitiveType)
+                    if (TypeConverter.IsPrimitiveValue(val))
                     {
                         return val;
                     }
@@ -348,7 +348,7 @@ namespace Jint.Native.Object
                 if (callable != null)
                 {
                     var str = callable.Call(this, Arguments.Empty);
-                    if (str is IPrimitiveType)
+                    if (TypeConverter.IsPrimitiveValue(str))
                     {
                         return str;
                     }

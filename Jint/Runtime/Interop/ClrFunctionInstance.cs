@@ -26,7 +26,7 @@ namespace Jint.Runtime.Interop
         public override object Call(object thisObject, object[] arguments)
         {
             var result = _func((TObject) thisObject, arguments);
-            return new Completion(Completion.Normal, result, null);
+            return result;
         }
     }
 }

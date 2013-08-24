@@ -31,24 +31,24 @@ namespace Jint.Native.Math
 
         public void Configure()
         {
-            FastAddProperty("abs", new ClrFunctionInstance<object, double>(Engine, Abs), false, false, false);
-            FastAddProperty("acos", new ClrFunctionInstance<object, double>(Engine, Acos), false, false, false);
-            FastAddProperty("asin", new ClrFunctionInstance<object, double>(Engine, Asin), false, false, false);
-            FastAddProperty("atan", new ClrFunctionInstance<object, double>(Engine, Atan), false, false, false);
-            FastAddProperty("atan2", new ClrFunctionInstance<object, double>(Engine, Atan2), false, false, false);
-            FastAddProperty("ceil", new ClrFunctionInstance<object, double>(Engine, Ceil), false, false, false);
-            FastAddProperty("cos", new ClrFunctionInstance<object, double>(Engine, Cos), false, false, false);
-            FastAddProperty("exp", new ClrFunctionInstance<object, double>(Engine, Exp), false, false, false);
-            FastAddProperty("floor", new ClrFunctionInstance<object, double>(Engine, Floor), false, false, false);
-            FastAddProperty("log", new ClrFunctionInstance<object, double>(Engine, Log), false, false, false);
-            FastAddProperty("max", new ClrFunctionInstance<object, double>(Engine, Max), false, false, false);
-            FastAddProperty("min", new ClrFunctionInstance<object, double>(Engine, Min), false, false, false);
-            FastAddProperty("pow", new ClrFunctionInstance<object, double>(Engine, Pow), false, false, false);
-            FastAddProperty("random", new ClrFunctionInstance<object, double>(Engine, Random), false, false, false);
-            FastAddProperty("round", new ClrFunctionInstance<object, double>(Engine, Round), false, false, false);
-            FastAddProperty("sin", new ClrFunctionInstance<object, double>(Engine, Sin), false, false, false);
-            FastAddProperty("sqrt", new ClrFunctionInstance<object, double>(Engine, Sqrt), false, false, false);
-            FastAddProperty("tan", new ClrFunctionInstance<object, double>(Engine, Tan), false, false, false);
+            FastAddProperty("abs", new ClrFunctionInstance<object, double>(Engine, Abs), true, false, true);
+            FastAddProperty("acos", new ClrFunctionInstance<object, double>(Engine, Acos), true, false, true);
+            FastAddProperty("asin", new ClrFunctionInstance<object, double>(Engine, Asin), true, false, true);
+            FastAddProperty("atan", new ClrFunctionInstance<object, double>(Engine, Atan), true, false, true);
+            FastAddProperty("atan2", new ClrFunctionInstance<object, double>(Engine, Atan2), true, false, true);
+            FastAddProperty("ceil", new ClrFunctionInstance<object, double>(Engine, Ceil), true, false, true);
+            FastAddProperty("cos", new ClrFunctionInstance<object, double>(Engine, Cos), true, false, true);
+            FastAddProperty("exp", new ClrFunctionInstance<object, double>(Engine, Exp), true, false, true);
+            FastAddProperty("floor", new ClrFunctionInstance<object, double>(Engine, Floor), true, false, true);
+            FastAddProperty("log", new ClrFunctionInstance<object, double>(Engine, Log), true, false, true);
+            FastAddProperty("max", new ClrFunctionInstance<object, double>(Engine, Max), true, false, true);
+            FastAddProperty("min", new ClrFunctionInstance<object, double>(Engine, Min), true, false, true);
+            FastAddProperty("pow", new ClrFunctionInstance<object, double>(Engine, Pow), true, false, true);
+            FastAddProperty("random", new ClrFunctionInstance<object, double>(Engine, Random), true, false, true);
+            FastAddProperty("round", new ClrFunctionInstance<object, double>(Engine, Round), true, false, true);
+            FastAddProperty("sin", new ClrFunctionInstance<object, double>(Engine, Sin), true, false, true);
+            FastAddProperty("sqrt", new ClrFunctionInstance<object, double>(Engine, Sqrt), true, false, true);
+            FastAddProperty("tan", new ClrFunctionInstance<object, double>(Engine, Tan), true, false, true);
 
             FastAddProperty("E", System.Math.E, false, false, false);
             FastAddProperty("LN10", System.Math.Log(10), false, false, false);

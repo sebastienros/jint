@@ -30,8 +30,8 @@ namespace Jint.Native.Json
 
         public void Configure()
         {
-            FastAddProperty("parse", new ClrFunctionInstance<JsonInstance, object>(Engine, Parse), false, false, false);
-            FastAddProperty("stringify", new ClrFunctionInstance<JsonInstance, object>(Engine, Stringify), false, false, false);
+            FastAddProperty("parse", new ClrFunctionInstance<JsonInstance, object>(Engine, Parse), true, false, true);
+            FastAddProperty("stringify", new ClrFunctionInstance<JsonInstance, object>(Engine, Stringify), true, false, true);
         }
 
         public object Parse(JsonInstance thisObject, object[] arguments)

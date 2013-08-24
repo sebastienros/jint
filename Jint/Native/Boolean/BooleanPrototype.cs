@@ -25,8 +25,8 @@ namespace Jint.Native.Boolean
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToBooleanString), false, false, false);
-            FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), false, false, false);
+            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToBooleanString), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), true, false, true);
         }
 
         private object ValueOf(object thisObj, object[] arguments)

@@ -22,17 +22,24 @@ namespace Jint.Native.Object
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance<object, string>(Engine, ToString), false, false, false);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance<object, object>(Engine, ToLocaleString), false, false, false);
-            FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), false, false, false);
-            FastAddProperty("hasOwnProperty", new ClrFunctionInstance<object, bool>(Engine, HasOwnProperty), false, false, false);
-            FastAddProperty("isPrototypeOf", new ClrFunctionInstance<object, bool>(Engine, IsPrototypeOf), false, false, false);
-            FastAddProperty("propertyIsEnumerable", new ClrFunctionInstance<object, bool>(Engine, PropertyIsEnumerable), false, false, false);
+            FastAddProperty("toString", new ClrFunctionInstance<object, string>(Engine, ToString), true, false, true);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance<object, object>(Engine, ToLocaleString), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), true, false, true);
+            FastAddProperty("hasOwnProperty", new ClrFunctionInstance<object, bool>(Engine, HasOwnProperty), true, false, true);
+            FastAddProperty("isPrototypeOf", new ClrFunctionInstance<object, bool>(Engine, IsPrototypeOf), true, false, true);
+            FastAddProperty("propertyIsEnumerable", new ClrFunctionInstance<object, bool>(Engine, PropertyIsEnumerable), true, false, true);
         }
 
         private bool PropertyIsEnumerable(object thisObject, object[] arguments)
         {
-            throw new NotImplementedException();
+            var p = TypeConverter.ToString(arguments[0]);
+            var o = TypeConverter.ToObject(Engine, thisObject);
+            var desc = o.GetOwnProperty(p);
+            if (desc == PropertyDescriptor.Undefined)
+            {
+                return false;
+            }
+            return desc.Enumerable;
         }
 
         private object ValueOf(object thisObject, object[] arguments)
