@@ -8,7 +8,7 @@ namespace Jint.Native.Array
     /// <summary>
     ///     http://www.ecma-international.org/ecma-262/5.1/#sec-15.4.4
     /// </summary>
-    public sealed class ArrayPrototype : ObjectInstance
+    public sealed class ArrayPrototype : ArrayInstance
     {
         private ArrayPrototype(Engine engine) : base(engine)
         {
@@ -16,8 +16,13 @@ namespace Jint.Native.Array
 
         public static ArrayPrototype CreatePrototypeObject(Engine engine, ArrayConstructor arrayConstructor)
         {
-            var obj = new ArrayPrototype(engine) {Extensible = true};
+            var obj = new ArrayPrototype(engine)
+                {
+                    Extensible = true, 
+                    Prototype = engine.Object.PrototypeObject
+                };
 
+            obj.FastAddProperty("length", 0, false, false, false);
             obj.FastAddProperty("constructor", arrayConstructor, false, false, false);
 
             return obj;
@@ -25,7 +30,7 @@ namespace Jint.Native.Array
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToArrayString), false, false, false);
+            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToString), false, false, false);
             FastAddProperty("toLocaleString", new ClrFunctionInstance<object, object>(Engine, ToLocaleString), false, false, false);
             FastAddProperty("concat", new ClrFunctionInstance<object, object>(Engine, Concat), false, false, false);
             FastAddProperty("join", new ClrFunctionInstance<object, object>(Engine, Join), false, false, false);
@@ -125,7 +130,53 @@ namespace Jint.Native.Array
 
         private object ToLocaleString(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var array = TypeConverter.ToObject(Engine, thisObj);
+            var arrayLen = array.Get("length");
+            var len = TypeConverter.ToUint32(arrayLen);
+            var separator = ",";
+            if (len == 0)
+            {
+                return "";
+            }
+            object r;
+            var firstElement = array.Get("0");
+            if (firstElement == Null.Instance || firstElement == Undefined.Instance)
+            {
+                r = "";
+            }
+            else
+            {
+                var elementObj = TypeConverter.ToObject(Engine, firstElement);
+                var func = elementObj.Get("toLocaleString") as ICallable;
+                if (func == null)
+                {
+                    throw new JavaScriptException(Engine.TypeError);
+                }
+                r = func.Call(elementObj, Arguments.Empty);
+            }
+            for (var k = 1; k < len; k++)
+            {
+                string s = r + separator;
+                var nextElement = array.Get(k.ToString());
+                if (nextElement == Undefined.Instance || nextElement == Null.Instance)
+                {
+                    r = "";
+                }
+                else
+                {
+                    var elementObj = TypeConverter.ToObject(Engine, firstElement);
+                    var func = elementObj.Get("toLocaleString") as ICallable;
+                    if (func == null)
+                    {
+                        throw new JavaScriptException(Engine.TypeError);
+                    }
+                    r = func.Call(elementObj, Arguments.Empty);
+                }
+                r = s + r;
+            }
+
+            return r;
+
         }
 
         private object Concat(object thisObj, object[] arguments)
@@ -133,9 +184,21 @@ namespace Jint.Native.Array
             throw new NotImplementedException();
         }
 
-        private object ToArrayString(object thisObj, object[] arguments)
+        private object ToString(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var array = TypeConverter.ToObject(Engine, thisObj);
+            var func = array.Get("join") as ICallable;
+            if (func == null)
+            {
+                func = Engine.Object.PrototypeObject.Get("toString") as ICallable;
+                
+                if (func == null)
+                {
+                    throw new ArgumentException();
+                }
+            }
+
+            return func.Call(array, Arguments.Empty);
         }
 
         private object ReduceRight(ArrayInstance arg1, object[] arg2)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
@@ -30,9 +31,9 @@ namespace Jint.Native.Function
         public void Configure()
         {
             FastAddProperty("constructor", Engine.Function, false, false, false);
-            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToFunctionString), false, false, false);
+            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToString), false, false, false);
             FastAddProperty("apply", new ClrFunctionInstance<object, object>(Engine, Apply), false, false, false);
-            FastAddProperty("call", new ClrFunctionInstance<object, object>(Engine, Call), false, false, false);
+            FastAddProperty("call", new ClrFunctionInstance<object, object>(Engine, Call, 1), false, false, false);
             FastAddProperty("bind", new ClrFunctionInstance<object, object>(Engine, Bind), false, false, false);
         }
 
@@ -41,7 +42,7 @@ namespace Jint.Native.Function
             throw new NotImplementedException();
         }
 
-        private object ToFunctionString(object thisObj, object[] arguments)
+        private object ToString(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
@@ -87,7 +88,13 @@ namespace Jint.Native.Function
 
         public override object Call(object thisObject, object[] arguments)
         {
-            return Undefined.Instance;
+            var func = thisObject as ICallable;
+            if (func == null)
+            {
+                return new JavaScriptException(Engine.TypeError);
+            }
+
+            return func.Call(arguments[0], arguments.Skip(1).ToArray());
         }
     }
 }

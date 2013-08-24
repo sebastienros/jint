@@ -23,27 +23,57 @@ namespace Jint.Native.Object
         public void Configure()
         {
             FastAddProperty("toString", new ClrFunctionInstance<object, string>(Engine, ToString), false, false, false);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance<object, string>(Engine, ToLocaleString), false, false, false);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance<object, object>(Engine, ToLocaleString), false, false, false);
             FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), false, false, false);
             FastAddProperty("hasOwnProperty", new ClrFunctionInstance<object, bool>(Engine, HasOwnProperty), false, false, false);
             FastAddProperty("isPrototypeOf", new ClrFunctionInstance<object, bool>(Engine, IsPrototypeOf), false, false, false);
             FastAddProperty("propertyIsEnumerable", new ClrFunctionInstance<object, bool>(Engine, PropertyIsEnumerable), false, false, false);
         }
+
         private bool PropertyIsEnumerable(object thisObject, object[] arguments)
         {
             throw new NotImplementedException();
         }
+
         private object ValueOf(object thisObject, object[] arguments)
         {
-            throw new NotImplementedException();
+            var o = TypeConverter.ToObject(Engine, thisObject);
+            return o;
         }
+
         private bool IsPrototypeOf(object thisObject, object[] arguments)
         {
-            throw new NotImplementedException();
+            var v = arguments[0] as ObjectInstance;
+            if (v == null)
+            {
+                return false;
+            }
+
+            var o = TypeConverter.ToObject(Engine, thisObject);
+            while (true)
+            {
+                v = v.Prototype;
+                if (v == null)
+                {
+                    return false;
+                }
+                if (o == v)
+                {
+                    return true;
+                }
+
+            }
         }
-        private string ToLocaleString(object thisObject, object[] arguments)
+
+        private object ToLocaleString(object thisObject, object[] arguments)
         {
-            throw new NotImplementedException();
+            var o = TypeConverter.ToObject(Engine, thisObject);
+            var toString = o.Get("toString") as ICallable;
+            if (toString == null)
+            {
+                throw new JavaScriptException(Engine.TypeError);
+            }
+            return toString.Call(o, Arguments.Empty);
         }
 
         /// <summary>

@@ -4,7 +4,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Array
 {
-    public sealed class ArrayInstance : ObjectInstance
+    public class ArrayInstance : ObjectInstance
     {
         private readonly Engine _engine;
  

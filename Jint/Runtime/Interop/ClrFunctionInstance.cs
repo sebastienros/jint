@@ -17,6 +17,12 @@ namespace Jint.Runtime.Interop
             Prototype = engine.Function.PrototypeObject;
         }
 
+        public ClrFunctionInstance(Engine engine, Func<TObject, object[], TResult> func, int length)
+            : this(engine, func)
+        {
+            FastAddProperty("length", length, false, false, false);
+        }
+
         public override object Call(object thisObject, object[] arguments)
         {
             var result = _func((TObject) thisObject, arguments);
