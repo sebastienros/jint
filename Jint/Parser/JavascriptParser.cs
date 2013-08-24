@@ -2564,12 +2564,12 @@ namespace Jint.Parser
             var markers = new Stack<LocationMarker>( new [] {marker, CreateLocationMarker()});
             Expression right = ParseUnaryExpression();
 
-            var stack = new Stack<object>( new object[] {left, token, right});
+            var stack = new List<object>( new object[] {left, token, right});
 
             while ((prec = binaryPrecedence(_lookahead, previousAllowIn)) > 0)
             {
                 // Reduce: make a binary expression from the three topmost entries.
-                while ((stack.Count > 2) && (prec <= ((Token) stack.ElementAt(stack.Count - 2)).Precedence))
+                while ((stack.Count > 2) && (prec <= ((Token) stack[stack.Count - 2]).Precedence))
                 {
                     right = (Expression) stack.Pop();
                     var op = (string) ((Token) stack.Pop()).Value;
@@ -2599,11 +2599,11 @@ namespace Jint.Parser
 
             // Final reduce to clean-up the stack.
             int i = stack.Count - 1;
-            expr = (Expression) stack.ElementAt(i);
+            expr = (Expression) stack[i];
             markers.Pop();
             while (i > 1)
             {
-                expr = CreateBinaryExpression((string) ((Token) stack.ElementAt(i - 1)).Value, expr, (Expression) stack.ElementAt(i - 2));
+                expr = CreateBinaryExpression((string) ((Token) stack[i - 1]).Value, (Expression) stack[i - 2], expr);
                 i -= 2;
                 marker = markers.Pop();
                 if (marker != null)

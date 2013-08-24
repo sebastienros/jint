@@ -521,6 +521,16 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Theory]
+        [InlineData(true, "'ab' == 'a' + 'b'")]
+        public void OperatorsPrecedence(object expected, string source)
+        {
+            var engine = new Engine();
+            var result = engine.GetValue(engine.Execute(source));
+
+            Assert.Equal(expected, result);
+        }
+
         [Fact]
         public void FunctionPrototypeShouldHaveApplyMethod()
         {
