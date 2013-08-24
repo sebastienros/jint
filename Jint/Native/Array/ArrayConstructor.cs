@@ -38,7 +38,13 @@ namespace Jint.Native.Array
 
         private object IsArray(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            if (arguments.Length == 0)
+            {
+                return false;
+            }
+
+            var o = arguments[0] as ObjectInstance;
+            return o != null && o.Class == "Array";
         }
 
         public override object Call(object thisObject, object[] arguments)
