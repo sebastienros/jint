@@ -34,7 +34,7 @@ namespace Jint.Native.String
             FastAddProperty("fromCharCode", new ClrFunctionInstance<object, object>(Engine, FromCharCode), false, false, false);
         }
 
-        private object FromCharCode(object arg1, object[] arg2)
+        private object FromCharCode(object thisObj, object[] arguments)
         {
             throw new System.NotImplementedException();
         }

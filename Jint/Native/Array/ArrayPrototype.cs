@@ -113,27 +113,27 @@ namespace Jint.Native.Array
             throw new NotImplementedException();
         }
 
-        private object Reverse(object arg1, object[] arg2)
+        private object Reverse(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
 
-        private object Join(object arg1, object[] arg2)
+        private object Join(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
 
-        private object ToLocaleString(object arg1, object[] arg2)
+        private object ToLocaleString(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
 
-        private object Concat(object arg1, object[] arg2)
+        private object Concat(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
 
-        private object ToArrayString(object arg1, object[] arg2)
+        private object ToArrayString(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }

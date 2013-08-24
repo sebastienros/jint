@@ -36,7 +36,7 @@ namespace Jint.Native.Array
             FastAddProperty("isArray", new ClrFunctionInstance<object, object>(Engine, IsArray), false, false, false);
         }
 
-        private object IsArray(object arg1, object[] arg2)
+        private object IsArray(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }

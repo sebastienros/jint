@@ -29,12 +29,12 @@ namespace Jint.Native.Boolean
             FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), false, false, false);
         }
 
-        private object ValueOf(object arg1, object[] arg2)
+        private object ValueOf(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
 
-        private object ToBooleanString(object arg1, object[] arg2)
+        private object ToBooleanString(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }

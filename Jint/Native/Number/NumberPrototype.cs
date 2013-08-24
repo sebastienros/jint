@@ -34,27 +34,27 @@ namespace Jint.Native.Number
             FastAddProperty("toPrecision", new ClrFunctionInstance<object, object>(Engine, ToPrecision), false, false, false);
         }
 
-        private object ToLocaleString(object arg1, object[] arg2)
+        private object ToLocaleString(object thisObj, object[] arguments)
         {
             throw new System.NotImplementedException();
         }
 
-        private object ValueOf(object arg1, object[] arg2)
+        private object ValueOf(object thisObj, object[] arguments)
         {
             throw new System.NotImplementedException();
         }
 
-        private object ToFixed(object arg1, object[] arg2)
+        private object ToFixed(object thisObj, object[] arguments)
         {
             throw new System.NotImplementedException();
         }
 
-        private object ToExponential(object arg1, object[] arg2)
+        private object ToExponential(object thisObj, object[] arguments)
         {
             throw new System.NotImplementedException();
         }
 
-        private object ToPrecision(object arg1, object[] arg2)
+        private object ToPrecision(object thisObj, object[] arguments)
         {
             throw new System.NotImplementedException();
         }

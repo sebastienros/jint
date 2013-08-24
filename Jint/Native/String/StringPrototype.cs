@@ -46,79 +46,79 @@ namespace Jint.Native.String
             FastAddProperty("toLocaleUpperCase", new ClrFunctionInstance<object, object>(Engine, ToLocaleUpperCase), false, false, false);
             FastAddProperty("trim", new ClrFunctionInstance<object, object>(Engine, Trim), false, false, false);
         }
-        private object Trim(object arg1, object[] arg2)
+        private object Trim(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object ToLocaleUpperCase(object arg1, object[] arg2)
+        private object ToLocaleUpperCase(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object ToUpperCase(object arg1, object[] arg2)
+        private object ToUpperCase(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object ToLocaleLowerCase(object arg1, object[] arg2)
+        private object ToLocaleLowerCase(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object ToLowerCase(object arg1, object[] arg2)
+        private object ToLowerCase(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object Substring(object arg1, object[] arg2)
+        private object Substring(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object Split(object arg1, object[] arg2)
+        private object Split(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object Slice(object arg1, object[] arg2)
+        private object Slice(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object Search(object arg1, object[] arg2)
+        private object Search(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object Replace(object arg1, object[] arg2)
+        private object Replace(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object Match(object arg1, object[] arg2)
+        private object Match(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object LocaleCompare(object arg1, object[] arg2)
+        private object LocaleCompare(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object LastIndexOf(object arg1, object[] arg2)
+        private object LastIndexOf(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object IndexOf(object arg1, object[] arg2)
+        private object IndexOf(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object Concat(object arg1, object[] arg2)
+        private object Concat(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object CharCodeAt(object arg1, object[] arg2)
+        private object CharCodeAt(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object CharAt(object arg1, object[] arg2)
+        private object CharAt(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object ValueOf(object arg1, object[] arg2)
+        private object ValueOf(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
-        private object ToStringString(object arg1, object[] arg2)
+        private object ToStringString(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }

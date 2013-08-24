@@ -36,12 +36,12 @@ namespace Jint.Native.Function
             FastAddProperty("bind", new ClrFunctionInstance<object, object>(Engine, Bind), false, false, false);
         }
 
-        private object Bind(object arg1, object[] arg2)
+        private object Bind(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
 
-        private object ToFunctionString(object arg1, object[] arg2)
+        private object ToFunctionString(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
