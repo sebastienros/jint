@@ -60,13 +60,13 @@ namespace Jint.Native.Function
 
             while (true)
             {
-                v = vObj.Prototype;
+                vObj = vObj.Prototype;
 
-                if (v == null)
+                if (vObj == null)
                 {
                     return false;
                 }
-                if (v == o)
+                if (vObj == o)
                 {
                     return true;
                 }

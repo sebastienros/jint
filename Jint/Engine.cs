@@ -42,8 +42,6 @@ namespace Jint
             Object = ObjectConstructor.CreateObjectConstructor(this);
             Function = FunctionConstructor.CreateFunctionConstructor(this);
 
-            
-
             Array = ArrayConstructor.CreateArrayConstructor(this);
             String = StringConstructor.CreateStringConstructor(this);
             Number = NumberConstructor.CreateNumberConstructor(this);
@@ -90,12 +88,6 @@ namespace Jint
             Json.Configure();
 
             Error.Configure();
-            EvalError.Configure();
-            RangeError.Configure();
-            ReferenceError.Configure();
-            SyntaxError.Configure();
-            TypeError.Configure();
-            UriError.Configure();
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, true);

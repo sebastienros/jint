@@ -4,7 +4,7 @@ using Jint.Runtime;
 
 namespace Jint.Native.Error
 {
-    public sealed class ErrorConstructor : FunctionInstance, IConstructor
+    public class ErrorConstructor : FunctionInstance, IConstructor
     {
         public ErrorConstructor(Engine engine) : base(engine, null, null, false)
         {
@@ -45,14 +45,12 @@ namespace Jint.Native.Error
 
             if (arguments.Length > 0 && arguments[0] != Undefined.Instance)
             {
-                instance.Message = TypeConverter.ToString(arguments[0]);
+                instance.Put("message", TypeConverter.ToString(arguments[0]), false);
             }
 
             return instance;
         }
 
         public ErrorPrototype PrototypeObject { get; private set; }
-
-
     }
 }

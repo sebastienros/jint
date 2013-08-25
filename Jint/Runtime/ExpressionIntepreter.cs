@@ -677,7 +677,12 @@ namespace Jint.Runtime
             var arguments = newExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
             
             // todo: optimize by defining a common abstract class or interface
-            var callee = (IConstructor)_engine.GetValue(EvaluateExpression(newExpression.Callee));
+            var callee = _engine.GetValue(EvaluateExpression(newExpression.Callee)) as IConstructor;
+            
+            if (callee == null)
+            {
+                throw new JavaScriptException(_engine.TypeError, "The object can't be used as constructor.");
+            }
 
             // construct the new instance using the Function's constructor method
             var instance = callee.Construct(arguments);

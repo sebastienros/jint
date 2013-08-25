@@ -8,8 +8,8 @@ namespace Jint.Native.Error
         public ErrorInstance(Engine engine, string name)
             : base(engine)
         {
-            Name = name;
-            Message = "";
+            FastAddProperty("name", name, true, false, true);
+            FastAddProperty("message", "", true, false, true);
         }
 
         public override string Class
@@ -18,46 +18,6 @@ namespace Jint.Native.Error
             {
                 return "Error";
             }
-        }
-
-        public object Message { get; set; }
-
-        public object Name { get; set; }
-
-        public string ToErrorString()
-        {
-            string name;
-            string msg;
-
-            if (Name == null || Name == "" || Name == Undefined.Instance)
-            {
-                name = "Error";
-            }
-            else
-            {
-                name = TypeConverter.ToString(Name);
-            }
-
-            if (Message == Undefined.Instance)
-            {
-                msg = "";
-            }
-            else
-            {
-                msg = TypeConverter.ToString(Message);
-            }
-
-            if (name == "")
-            {
-                return msg;
-            }
-
-            if (msg == "")
-            {
-                return name;
-            }
-
-            return name + ":" + msg;
         }
     }
 }
