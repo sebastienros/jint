@@ -22,7 +22,7 @@ namespace Jint.Native.Array
                     Prototype = engine.Object.PrototypeObject
                 };
 
-            obj.FastAddProperty("length", 0, false, false, false);
+            obj.FastAddProperty("length", 0, true, false, false);
             obj.FastAddProperty("constructor", arrayConstructor, false, false, false);
 
             return obj;
@@ -30,17 +30,17 @@ namespace Jint.Native.Array
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToString), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToString, 0), true, false, true);
             FastAddProperty("toLocaleString", new ClrFunctionInstance<object, object>(Engine, ToLocaleString), true, false, true);
-            FastAddProperty("concat", new ClrFunctionInstance<object, object>(Engine, Concat), true, false, true);
-            FastAddProperty("join", new ClrFunctionInstance<object, object>(Engine, Join), true, false, true);
+            FastAddProperty("concat", new ClrFunctionInstance<object, object>(Engine, Concat, 1), true, false, true);
+            FastAddProperty("join", new ClrFunctionInstance<object, object>(Engine, Join, 1), true, false, true);
             FastAddProperty("pop", new ClrFunctionInstance<ArrayInstance, object>(Engine, Pop), true, false, true);
-            FastAddProperty("push", new ClrFunctionInstance<ArrayInstance, object>(Engine, Push), true, false, true);
+            FastAddProperty("push", new ClrFunctionInstance<ArrayInstance, object>(Engine, Push, 1), true, false, true);
             FastAddProperty("reverse", new ClrFunctionInstance<object, object>(Engine, Reverse), true, false, true);
             FastAddProperty("shift", new ClrFunctionInstance<ArrayInstance, object>(Engine, Shift), true, false, true);
-            FastAddProperty("slice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Slice), true, false, true);
+            FastAddProperty("slice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Slice, 2), true, false, true);
             FastAddProperty("sort", new ClrFunctionInstance<ArrayInstance, object>(Engine, Sort), true, false, true);
-            FastAddProperty("splice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Splice), true, false, true);
+            FastAddProperty("splice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Splice, 2), true, false, true);
             FastAddProperty("unshift", new ClrFunctionInstance<ArrayInstance, object>(Engine, Unshift), true, false, true);
             FastAddProperty("indexOf", new ClrFunctionInstance<ArrayInstance, object>(Engine, IndexOf), true, false, true);
             FastAddProperty("lastIndexOf", new ClrFunctionInstance<ArrayInstance, object>(Engine, LastIndexOf), true, false, true);
@@ -125,7 +125,33 @@ namespace Jint.Native.Array
 
         private object Join(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var separator = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var lenVal = o.Get("length");
+            var len = TypeConverter.ToUint32(lenVal);
+            if (len == 0)
+            {
+                return "";
+            }
+            if (separator == Undefined.Instance)
+            {
+                separator = ",";
+            }
+            var sep = TypeConverter.ToString(separator);
+            var element0 = o.Get("0");
+            string r = element0 == Undefined.Instance || element0 == Null.Instance
+                                  ? ""
+                                  : TypeConverter.ToString(element0);
+            for (var k = 1; k < len; k++)
+            {
+                var s = r + sep;
+                var element = o.Get(k.ToString());
+                string next = element == Undefined.Instance || element == Null.Instance
+                                  ? ""
+                                  : TypeConverter.ToString(element);
+                r = s + next;
+            }
+            return r;
         }
 
         private object ToLocaleString(object thisObj, object[] arguments)

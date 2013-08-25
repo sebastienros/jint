@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Parser.Ast;
@@ -695,8 +696,10 @@ namespace Jint.Runtime
             var arguments = arrayExpression.Elements.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
 
             // construct the new instance using the Function's constructor method
-            var instance = _engine.Array.Construct(arguments);
+            var instance = _engine.Array.Construct(Arguments.Empty) as ArrayInstance;
 
+            _engine.Array.PrototypeObject.Push(instance, arguments);
+            
             return instance;
         }
 
