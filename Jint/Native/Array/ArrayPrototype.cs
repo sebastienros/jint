@@ -132,15 +132,18 @@ namespace Jint.Native.Array
             var o = TypeConverter.ToObject(Engine, thisObj);
             var lenVal = o.Get("length");
             var len = TypeConverter.ToUint32(lenVal);
-            if (len == 0)
-            {
-                return "";
-            }
             if (separator == Undefined.Instance)
             {
                 separator = ",";
             }
             var sep = TypeConverter.ToString(separator);
+            
+            // as per the spec, this has to be called after ToString(separator)
+            if (len == 0)
+            {
+                return "";
+            }
+
             var element0 = o.Get("0");
             string r = element0 == Undefined.Instance || element0 == Null.Instance
                                   ? ""

@@ -223,15 +223,15 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static uint ToUint32(object o)
         {
-            var n = ToNumber(o);
-            if (double.IsNaN(n) || double.IsInfinity(n) || n == 0)
+            var number = ToNumber(o);
+            if (double.IsNaN(number) || double.IsInfinity(number) || number == 0)
             {
                 return 0;
             }
 
-            return Convert.ToUInt32(n);
+            var posInt = (long) number;
+            return (uint)(posInt % 4294967296);
         }
-
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.7
