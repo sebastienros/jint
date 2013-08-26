@@ -693,14 +693,16 @@ namespace Jint.Runtime
 
         public object EvaluateArrayExpression(ArrayExpression arrayExpression)
         {
-            var arguments = arrayExpression.Elements.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
-
-            // construct the new instance using the Function's constructor method
-            var instance = _engine.Array.Construct(Arguments.Empty) as ArrayInstance;
-
-            _engine.Array.PrototypeObject.Push(instance, arguments);
+            var a = _engine.Array.Construct(Arguments.Empty);
+            var n = 0;
+            foreach (var expr in arrayExpression.Elements)
+            {
+                var value = expr == null ? Null.Instance : _engine.GetValue(EvaluateExpression(expr));
+                a.DefineOwnProperty(n.ToString(), new DataDescriptor(value) { Writable = true, Enumerable = true, Configurable = true }, false);
+                n++;
+            }
             
-            return instance;
+            return a;
         }
 
         public object EvaluateUnaryExpression(UnaryExpression unaryExpression)

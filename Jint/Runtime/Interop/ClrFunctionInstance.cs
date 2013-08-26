@@ -10,17 +10,17 @@ namespace Jint.Runtime.Interop
     {
         private readonly Func<TObject, object[], TResult> _func;
 
-        public ClrFunctionInstance(Engine engine, Func<TObject, object[], TResult> func)
+        public ClrFunctionInstance(Engine engine, Func<TObject, object[], TResult> func, int length)
             : base(engine, null, null, false)
         {
             _func = func;
             Prototype = engine.Function.PrototypeObject;
+            FastAddProperty("length", length, false, false, false);
         }
 
-        public ClrFunctionInstance(Engine engine, Func<TObject, object[], TResult> func, int length)
-            : this(engine, func)
+        public ClrFunctionInstance(Engine engine, Func<TObject, object[], TResult> func)
+            : this(engine, func, 0)
         {
-            FastAddProperty("length", length, false, false, false);
         }
 
         public override object Call(object thisObject, object[] arguments)

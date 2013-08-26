@@ -1,10 +1,11 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Native;
+using Jint.Native.Function;
 
 namespace Jint.Runtime.Descriptors
 {
     public class AccessorDescriptor : PropertyDescriptor
     {
-        public AccessorDescriptor(FunctionInstance get, FunctionInstance set = null)
+        public AccessorDescriptor(ICallable get, ICallable set = null)
         {
             Get = get;
             Set = set;
@@ -22,13 +23,13 @@ namespace Jint.Runtime.Descriptors
         /// The getter function
         /// </summary>
         /// <returns></returns>
-        public virtual FunctionInstance Get { get; set; }
+        public virtual ICallable Get { get; set; }
 
         /// <summary>
         /// The setter function
         /// </summary>
         /// <returns></returns>
-        public virtual FunctionInstance Set { get; set; }
+        public virtual ICallable Set { get; set; }
 
         public override bool IsAccessorDescriptor()
         {

@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Dynamic;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
@@ -190,7 +193,7 @@ namespace Jint.Native.Array
                 }
                 else
                 {
-                    var elementObj = TypeConverter.ToObject(Engine, firstElement);
+                    var elementObj = TypeConverter.ToObject(Engine, nextElement);
                     var func = elementObj.Get("toLocaleString") as ICallable;
                     if (func == null)
                     {
@@ -207,7 +210,37 @@ namespace Jint.Native.Array
 
         private object Concat(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var a = Engine.Array.Construct(Arguments.Empty);
+            var n = 0;
+            var items = new List<object>() {o};
+            items.AddRange(arguments);
+
+            foreach (var e in items)
+            {
+                var eArray = e as ArrayInstance;
+                if (eArray != null)
+                {
+                    var len =  TypeConverter.ToUint32(eArray.Get("length"));
+                    for (var k = 0; k < len; k++)
+                    {
+                        var p = k.ToString();
+                        var exists = eArray.HasProperty(p);
+                        if (exists)
+                        {
+                            var subElement = eArray.Get(p);
+                            a.DefineOwnProperty(TypeConverter.ToString(n), new DataDescriptor(subElement) { Writable = true, Enumerable = true, Configurable = true}, false);
+                        }
+                        n++;
+                    }
+                }
+                else
+                {
+                    a.DefineOwnProperty(TypeConverter.ToString(n), new DataDescriptor(e) { Writable = true, Enumerable = true, Configurable = true }, false);
+                    n++;
+                }
+            }
+            return a;
         }
 
         private object ToString(object thisObj, object[] arguments)
@@ -239,7 +272,7 @@ namespace Jint.Native.Array
             uint n = TypeConverter.ToUint32(lenVal);
             foreach (object e in arguments)
             {
-                o.Put(TypeConverter.ToString(n), e, true);
+                o.DefineOwnProperty(TypeConverter.ToString(n), new DataDescriptor(e){Configurable = true, Enumerable = true, Writable = true}, true);
                 n++;
             }
             o.Put("length", n, true);

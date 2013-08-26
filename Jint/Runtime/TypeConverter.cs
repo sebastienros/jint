@@ -293,7 +293,7 @@ namespace Jint.Runtime
 
                 if (double.IsInfinity(n))
                 {
-                    return "infinity";
+                    return "Infinity";
                 }
 
                 return n.ToString();

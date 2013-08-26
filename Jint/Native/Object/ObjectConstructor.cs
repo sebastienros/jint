@@ -1,6 +1,7 @@
 ﻿using System;
 using Jint.Native.Function;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object
@@ -120,7 +121,24 @@ namespace Jint.Native.Object
 
         public object DefineProperty(object thisObject, object[] arguments)
         {
-            throw new NotImplementedException();
+            var o = arguments[0] as ObjectInstance;
+            var p = arguments[1];
+            var attributes = arguments[2] as ObjectInstance;
+            
+            if (o == null)
+            {
+                throw new JavaScriptException(Engine.TypeError);
+            }
+
+            if (attributes == null)
+            {
+                throw new JavaScriptException(Engine.TypeError);
+            }
+
+            var name = TypeConverter.ToString(p);
+            var desc = PropertyDescriptor.ToPropertyDescriptor(Engine, attributes);
+            o.DefineOwnProperty(name, desc, true);
+            return o;
         }
 
         public object DefineProperties(object thisObject, object[] arguments)
