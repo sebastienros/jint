@@ -208,14 +208,15 @@ namespace Jint.Runtime
 
             var obj = TypeConverter.ToObject(_engine, experValue);
             object v = null;
-            foreach (var entry in obj.Properties)
+            var keys = obj.Properties.Keys.ToArray();
+            foreach (var p in keys)
             {
-                if (!entry.Value.Enumerable)
+                var value = obj.Properties[p];
+                if (!value.Enumerable)
                 {
                     continue;
                 }
 
-                var p = entry.Key;
                 _engine.PutValue(varRef, p);
 
                 var stmt = ExecuteStatement(forInStatement.Body);

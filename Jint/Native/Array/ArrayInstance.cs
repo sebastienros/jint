@@ -34,7 +34,7 @@ namespace Jint.Native.Array
                 }
                 
                 var newLenDesc = new DataDescriptor(desc);
-                double newLen = TypeConverter.ToUint32(descData.Value);
+                uint newLen = TypeConverter.ToUint32(descData.Value);
                 if (newLen != TypeConverter.ToNumber(descData.Value))
                 {
                     throw new JavaScriptException(_engine.RangeError);

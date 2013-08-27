@@ -37,8 +37,8 @@ namespace Jint.Native.Array
             FastAddProperty("toLocaleString", new ClrFunctionInstance<object, object>(Engine, ToLocaleString), true, false, true);
             FastAddProperty("concat", new ClrFunctionInstance<object, object>(Engine, Concat, 1), true, false, true);
             FastAddProperty("join", new ClrFunctionInstance<object, object>(Engine, Join, 1), true, false, true);
-            FastAddProperty("pop", new ClrFunctionInstance<ArrayInstance, object>(Engine, Pop), true, false, true);
-            FastAddProperty("push", new ClrFunctionInstance<ArrayInstance, object>(Engine, Push, 1), true, false, true);
+            FastAddProperty("pop", new ClrFunctionInstance<object, object>(Engine, Pop), true, false, true);
+            FastAddProperty("push", new ClrFunctionInstance<object, object>(Engine, Push, 1), true, false, true);
             FastAddProperty("reverse", new ClrFunctionInstance<object, object>(Engine, Reverse), true, false, true);
             FastAddProperty("shift", new ClrFunctionInstance<ArrayInstance, object>(Engine, Shift), true, false, true);
             FastAddProperty("slice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Slice, 2), true, false, true);
@@ -272,14 +272,17 @@ namespace Jint.Native.Array
         {
             ObjectInstance o = TypeConverter.ToObject(Engine, thisObject);
             object lenVal = o.Get("length");
-            uint n = TypeConverter.ToUint32(lenVal);
+            
+            // cast to double as we need to prevent an overflow
+            double n = TypeConverter.ToUint32(lenVal);
             foreach (object e in arguments)
             {
-                o.DefineOwnProperty(TypeConverter.ToString(n), new DataDescriptor(e){Configurable = true, Enumerable = true, Writable = true}, true);
+                o.Put(TypeConverter.ToString(n), e, true);
                 n++;
             }
-            o.Put("length", n, true);
 
+            o.Put("length", n, true);
+            
             return n;
         }
 
@@ -295,10 +298,11 @@ namespace Jint.Native.Array
             }
             else
             {
-                string indx = TypeConverter.ToString(len - 1);
+                len = len - 1;
+                string indx = TypeConverter.ToString(len);
                 object element = o.Get(indx);
                 o.Delete(indx, true);
-                o.Put("length", indx, true);
+                o.Put("length", len, true);
                 return element;
             }
         }

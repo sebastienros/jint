@@ -156,23 +156,8 @@ namespace Jint.Native.Object
 
             if (ownDesc.IsDataDescriptor())
             {
-                /* Spec implementation 
-                 * var valueDesc = new DataDescriptor(value);
-                 * DefineOwnProperty(propertyName, valueDesc, throwOnError);
-                 */
-
-                // optimized implementation which doesn't require to create a new descriptor
-                if (!ownDesc.Configurable)
-                {
-                    if (throwOnError)
-                    {
-                        throw new JavaScriptException(Engine.TypeError);
-                    }
-
-                    return;
-                }
-
-                ownDesc.As<DataDescriptor>().Value = value;
+                var valueDesc = new DataDescriptor(value) { Writable = true, Enumerable = true, Configurable = true };
+                DefineOwnProperty(propertyName, valueDesc, throwOnError);
                 return;
             }
 
@@ -388,11 +373,11 @@ namespace Jint.Native.Object
                 {
                     if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
                     {
-                        Properties.Add(propertyName, new DataDescriptor(desc.As<DataDescriptor>()));
+                        Properties[propertyName] = new DataDescriptor(desc.As<DataDescriptor>());
                     }
                     else
                     {
-                        Properties.Add(propertyName, new AccessorDescriptor(desc.As<AccessorDescriptor>()));
+                        Properties[propertyName] = new AccessorDescriptor(desc.As<AccessorDescriptor>());
                     }
                 }
 
