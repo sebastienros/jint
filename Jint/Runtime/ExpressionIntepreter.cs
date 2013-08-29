@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Parser.Ast;

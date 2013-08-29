@@ -275,7 +275,7 @@ namespace Jint.Runtime
             var p = o as IPrimitiveType;
             if (p != null)
             {
-                o = p;
+                o = p.PrimitiveValue;
             }
 
             if (o is bool)

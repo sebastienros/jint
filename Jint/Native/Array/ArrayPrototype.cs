@@ -123,7 +123,40 @@ namespace Jint.Native.Array
 
         private object Reverse(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var lenVal = o.Get("length");
+            var len = TypeConverter.ToUint32(lenVal);
+            var middle = (uint)System.Math.Floor(len/2);
+            uint lower = 0;
+            while (lower != middle)
+            {
+                var upper = len - lower - 1;
+                var upperP = TypeConverter.ToString(upper);
+                var lowerP = TypeConverter.ToString(lower);
+                var lowerValue = o.Get(lowerP);
+                var upperValue = o.Get(upperP);
+                var lowerExists = o.HasProperty(lowerP);
+                var upperExists = o.HasProperty(upperP);
+                if (lowerExists && upperExists)
+                {
+                    o.Put(lowerP, upperValue, true);
+                    o.Put(upperP, lowerValue, true);
+                }
+                if (!lowerExists && upperExists)
+                {
+                    o.Put(lowerP, upperValue, true);
+                    o.Delete(upperP, true);
+                }
+                if (lowerExists && !upperExists)
+                {
+                    o.Delete(lowerP, true);
+                    o.Put(upperP, lowerValue, true);
+                }
+
+                lower++;
+            }
+
+            return o;
         }
 
         private object Join(object thisObj, object[] arguments)
