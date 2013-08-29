@@ -40,7 +40,7 @@ namespace Jint.Native.Array
             FastAddProperty("pop", new ClrFunctionInstance<object, object>(Engine, Pop), true, false, true);
             FastAddProperty("push", new ClrFunctionInstance<object, object>(Engine, Push, 1), true, false, true);
             FastAddProperty("reverse", new ClrFunctionInstance<object, object>(Engine, Reverse), true, false, true);
-            FastAddProperty("shift", new ClrFunctionInstance<ArrayInstance, object>(Engine, Shift), true, false, true);
+            FastAddProperty("shift", new ClrFunctionInstance<object, object>(Engine, Shift), true, false, true);
             FastAddProperty("slice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Slice, 2), true, false, true);
             FastAddProperty("sort", new ClrFunctionInstance<ArrayInstance, object>(Engine, Sort), true, false, true);
             FastAddProperty("splice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Splice, 2), true, false, true);
@@ -116,9 +116,36 @@ namespace Jint.Native.Array
             throw new NotImplementedException();
         }
 
-        private object Shift(ArrayInstance arg1, object[] arg2)
+        private object Shift(object thisObj, object[] arg2)
         {
-            throw new NotImplementedException();
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var lenVal = o.Get("length");
+            var len = TypeConverter.ToUint32(lenVal);
+            if (len == 0)
+            {
+                o.Put("length", 0, true);
+                return Undefined.Instance;
+            }
+            var first = o.Get("0");
+            for (var k = 1; k < len; k++)
+            {
+                var from = TypeConverter.ToString(k);
+                var to = TypeConverter.ToString(k - 1);
+                var fromPresent = o.HasProperty(from);
+                if (fromPresent)
+                {
+                    var fromVal = o.Get(from);
+                    o.Put(to, fromVal, true);
+                }
+                else
+                {
+                    o.Delete(to, true);
+                }
+            }
+            o.Delete(TypeConverter.ToString(len - 1), true);
+            o.Put("length", len-1, true);
+
+            return first;
         }
 
         private object Reverse(object thisObj, object[] arguments)
