@@ -41,7 +41,7 @@ namespace Jint.Native.Array
             FastAddProperty("push", new ClrFunctionInstance<object, object>(Engine, Push, 1), true, false, true);
             FastAddProperty("reverse", new ClrFunctionInstance<object, object>(Engine, Reverse), true, false, true);
             FastAddProperty("shift", new ClrFunctionInstance<object, object>(Engine, Shift), true, false, true);
-            FastAddProperty("slice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Slice, 2), true, false, true);
+            FastAddProperty("slice", new ClrFunctionInstance<object, object>(Engine, Slice, 2), true, false, true);
             FastAddProperty("sort", new ClrFunctionInstance<ArrayInstance, object>(Engine, Sort), true, false, true);
             FastAddProperty("splice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Splice, 2), true, false, true);
             FastAddProperty("unshift", new ClrFunctionInstance<ArrayInstance, object>(Engine, Unshift), true, false, true);
@@ -111,9 +111,65 @@ namespace Jint.Native.Array
             throw new NotImplementedException();
         }
 
-        private object Slice(ArrayInstance arg1, object[] arg2)
+        private object Slice(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var start = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
+            var end = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
+
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var a = Engine.Array.Construct(Arguments.Empty);
+            var lenVal = o.Get("length");
+            var len = TypeConverter.ToUint32(lenVal);
+
+            var relativeStart = TypeConverter.ToInteger(start);
+            int k;
+            if (relativeStart < 0)
+            {
+                k = (int) System.Math.Max(len + relativeStart, 0);
+            }
+            else
+            {
+                k = (int)System.Math.Min(relativeStart, len);
+            }
+
+            double relativeEnd;
+            if (end == Undefined.Instance)
+            {
+                relativeEnd = (int)len;
+            }
+            else
+            {
+                relativeEnd = TypeConverter.ToInteger(end);
+            }
+            int final;
+            if (relativeEnd < 0)
+            {
+                final = (int) System.Math.Max(len + relativeEnd, 0);
+            }
+            else
+            {
+                final = (int) System.Math.Min(relativeEnd, len);
+            }
+            var n = 0;
+            for (; k < final; k++)
+            {
+                var pk = TypeConverter.ToString(k);
+                var kPresent = o.HasProperty(pk);
+                if (kPresent)
+                {
+                    var kValue = o.Get(pk);
+                    a.DefineOwnProperty(TypeConverter.ToString(n),
+                                        new DataDescriptor(kValue)
+                                            {
+                                                Writable = true,
+                                                Enumerable = true,
+                                                Configurable = true
+                                            }, false);
+                }
+                n++;
+            }
+
+            return a;
         }
 
         private object Shift(object thisObj, object[] arg2)

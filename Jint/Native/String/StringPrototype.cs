@@ -1,4 +1,5 @@
 ﻿using System;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.String
@@ -27,7 +28,7 @@ namespace Jint.Native.String
         public void Configure()
         {
             FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToStringString), false, false, false);
-            FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), false, false, false);
+            FastAddProperty("valueOf", new ClrFunctionInstance<StringInstance, string>(Engine, ValueOf), false, false, false);
             FastAddProperty("charAt", new ClrFunctionInstance<object, object>(Engine, CharAt), false, false, false);
             FastAddProperty("charCodeAt", new ClrFunctionInstance<object, object>(Engine, CharCodeAt), false, false, false);
             FastAddProperty("concat", new ClrFunctionInstance<object, object>(Engine, Concat), false, false, false);
@@ -108,16 +109,37 @@ namespace Jint.Native.String
         }
         private object CharCodeAt(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            TypeConverter.CheckObjectCoercible(Engine, thisObj);
+
+            object pos = arguments.Length > 0 ? arguments[0] : 0;
+            var s = TypeConverter.ToString(thisObj);
+            var position = (int)TypeConverter.ToInteger(pos);
+            if (position < 0 || position >= s.Length)
+            {
+                return double.NaN;
+            }
+            return (uint)s[position];
         }
+
         private object CharAt(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            TypeConverter.CheckObjectCoercible(Engine, thisObj);
+            var s = TypeConverter.ToString(thisObj);
+            var position = TypeConverter.ToInteger(arguments.Length > 0 ? arguments[0] : Undefined.Instance);
+            var size = s.Length;
+            if (position > size || position < 0)
+            {
+                return "";
+            }
+            return s[(int) position].ToString();
+
         }
-        private object ValueOf(object thisObj, object[] arguments)
+
+        private static string ValueOf(StringInstance thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            return thisObj.PrimitiveValue;
         }
+
         private object ToStringString(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();

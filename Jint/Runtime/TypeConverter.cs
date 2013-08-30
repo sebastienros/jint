@@ -62,10 +62,11 @@ namespace Jint.Runtime
                 return false;
             }
 
+
             var p = o as IPrimitiveType;
             if (p != null)
             {
-                o = p.PrimitiveValue;
+                o = ToBoolean(p.PrimitiveValue);
             }
 
             if (o is double)
@@ -153,9 +154,51 @@ namespace Jint.Runtime
             if (s != null)
             {
                 double n;
-                if (double.TryParse(s, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out n))
+                s = s.Trim();
+
+                if (String.IsNullOrEmpty(s))
                 {
-                    return n;
+                    return 0;
+                }
+
+                if ("+Infinity".Equals(s) || "Infinity".Equals(s))
+                {
+                    return double.PositiveInfinity;
+                }
+
+                if ("-Infinity".Equals(s))
+                {
+                    return double.NegativeInfinity;
+                }
+
+                // todo: use a common implementation with JavascriptParser
+                try
+                {
+                    if (!s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                    {
+                        n = Double.Parse(s,
+                                         NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
+                                         NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
+                                         NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
+                        if (s.StartsWith("-") && n == 0)
+                        {
+                            return -0.0;
+                        }
+
+                        return n;
+                    }
+
+                    int i = int.Parse(s.Substring(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+                 
+                    return i;
+                }
+                catch (OverflowException)
+                {
+                    return s.StartsWith("-") ? double.NegativeInfinity : double.PositiveInfinity;
+                }
+                catch
+                {
+                    return double.NaN;
                 }
 
                 return double.NaN;
@@ -169,25 +212,21 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="o"></param>
         /// <returns></returns>
-        public static int ToInteger(object o)
+        public static double ToInteger(object o)
         {
-            if (o is int)
-            {
-                return (int) o;
-            }
-
-            if (o is uint)
-            {
-                return (int) (uint) o;
-            }
-
             var number = ToNumber(o);
+
             if (double.IsNaN(number))
             {
                 return 0;
             }
             
-            return (int) number;
+            if (number == 0 || number == double.NegativeInfinity || number == double.PositiveInfinity)
+            {
+                return number;
+            }
+
+            return Math.Sign(number)*Math.Floor(Math.Abs(number));
         }
 
         /// <summary>
@@ -201,19 +240,8 @@ namespace Jint.Runtime
             {
                 return (int)o;
             }
-
-            if (o is uint)
-            {
-                return (int) (uint) o;
-            }
-
-            var n = ToNumber(o);
-            if (double.IsNaN(n) || double.IsInfinity(n) || n == 0)
-            {
-                return 0;
-            }
-
-            return Convert.ToInt32(n);
+                
+            return (int)(uint)ToNumber(o);
         }
 
         /// <summary>
@@ -223,14 +251,12 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static uint ToUint32(object o)
         {
-            var number = ToNumber(o);
-            if (double.IsNaN(number) || double.IsInfinity(number) || number == 0)
+            if (o is uint)
             {
-                return 0;
+                return (uint)o;
             }
-
-            var posInt = (long) number;
-            return (uint)(posInt % 4294967296);
+                
+            return (uint)ToNumber(o);
         }
 
         /// <summary>
@@ -240,13 +266,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static ushort ToUint16(object o)
         {
-            var n = ToNumber(o);
-            if (double.IsNaN(n) || double.IsInfinity(n) || n == 0)
-            {
-                return 0;
-            }
-
-            return Convert.ToUInt16(n);
+            return (ushort)(uint)ToNumber(o);
         }
 
         /// <summary>
@@ -289,14 +309,24 @@ namespace Jint.Runtime
                 if (double.IsNaN(n))
                 {
                     return "NaN";
-                }    
+                }
 
-                if (double.IsInfinity(n))
+                if (n == double.PositiveInfinity)
                 {
                     return "Infinity";
                 }
 
-                return n.ToString();
+                if (n == double.NegativeInfinity)
+                {
+                    return "-Infinity";
+                }
+
+                // todo: fix unit tests in 9.8.1
+                // var d = -Math.Log10((double)SignificantFraction((decimal)n));
+                // var i = Math.Log10(Math.Floor(n));
+
+
+                return n.ToString(CultureInfo.InvariantCulture);
             }
 
             if (o is int)
@@ -400,6 +430,12 @@ namespace Jint.Runtime
             {
                 throw new JavaScriptException(engine.TypeError);
             }
+        }
+
+        public static Decimal SignificantFraction(Decimal d)
+        {
+            var b = decimal.GetBits(d);
+            return new decimal(1, 0, 0, false, (byte)((b[3] >> 16) & 0x7fff));
         }
     }
 }

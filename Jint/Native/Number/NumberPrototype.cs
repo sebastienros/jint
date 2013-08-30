@@ -41,7 +41,13 @@ namespace Jint.Native.Number
 
         private object ValueOf(object thisObj, object[] arguments)
         {
-            throw new System.NotImplementedException();
+            var number = thisObj as NumberInstance;
+            if (number == null)
+            {
+                throw new JavaScriptException(Engine.TypeError);
+            }
+
+            return number.PrimitiveValue;
         }
 
         private object ToFixed(object thisObj, object[] arguments)

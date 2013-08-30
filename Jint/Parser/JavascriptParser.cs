@@ -817,10 +817,24 @@ namespace Jint.Parser
                 throw new Exception(Messages.UnexpectedToken);
             }
 
+            double n;
+            try
+            {
+                n = Double.Parse(number, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent);
+            }
+            catch (OverflowException)
+            {
+                n = number.Trim().StartsWith("-") ? double.NegativeInfinity : double.PositiveInfinity;
+            }
+            catch (Exception)
+            {
+                n = double.NaN;
+            }
+
             return new Token
                 {
                     Type = Tokens.NumericLiteral,
-                    Value = Double.Parse(number, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent),
+                    Value = n,
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
                     Range = new[] {start, _index}

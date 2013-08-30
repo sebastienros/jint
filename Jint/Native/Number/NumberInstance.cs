@@ -5,6 +5,8 @@ namespace Jint.Native.Number
 {
     public class NumberInstance : ObjectInstance, IPrimitiveType
     {
+        private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
+
         public NumberInstance(Engine engine)
             : base(engine)
         {
@@ -29,5 +31,10 @@ namespace Jint.Native.Number
         }
 
         public double PrimitiveValue { get; set; }
+
+        public static bool IsNegativeZero(double x)
+        {
+            return BitConverter.DoubleToInt64Bits(x) == NegativeZeroBits;
+        }
     }
 }

@@ -2,6 +2,7 @@
 using System.Linq;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime.Descriptors;
@@ -83,14 +84,7 @@ namespace Jint.Runtime
                     break;
 
                 case "/=":
-                    if (lval == Undefined.Instance || rval == Undefined.Instance)
-                    {
-                        lval = Undefined.Instance;
-                    }
-                    else
-                    {
-                        lval = TypeConverter.ToNumber(lval) / TypeConverter.ToNumber(rval);
-                    }
+                    lval = Divide(lval, rval);
                     break;
 
                 case "%=":
@@ -138,6 +132,56 @@ namespace Jint.Runtime
             return lval;
         }
 
+        private object Divide(object lval, object rval)
+        {
+            if (lval == Undefined.Instance || rval == Undefined.Instance)
+            {
+                return Undefined.Instance;
+            }
+            else
+            {
+                var rN = TypeConverter.ToNumber(rval);
+                var lN = TypeConverter.ToNumber(lval);
+
+                if (double.IsNaN(rN) || double.IsNaN(lN))
+                {
+                    return double.NaN;
+                }
+
+                if (double.IsInfinity(lN) && double.IsInfinity(rN))
+                {
+                    return double.NaN;
+                }
+
+                if (double.IsInfinity(lN) && rN == 0)
+                {
+                    if (NumberInstance.IsNegativeZero(rN))
+                    {
+                        return -lN;
+                    }
+
+                    return lN;
+                }
+
+                if (lN == 0 && rN == 0)
+                {
+                    return double.NaN;
+                }
+
+                if (rN == 0)
+                {
+                    if (NumberInstance.IsNegativeZero(rN))
+                    {
+                        return lN > 0 ? -double.PositiveInfinity : -double.NegativeInfinity;
+                    }
+
+                    return lN > 0 ? double.PositiveInfinity : double.NegativeInfinity;
+                }
+
+                return lN/rN;
+            }
+        }
+
         public object EvaluateBinaryExpression(BinaryExpression expression)
         {
             object left = _engine.GetValue(EvaluateExpression(expression.Left));
@@ -175,14 +219,7 @@ namespace Jint.Runtime
                     break;
                 
                 case "/":
-                    if (left == Undefined.Instance || right == Undefined.Instance)
-                    {
-                        value = Undefined.Instance;
-                    }
-                    else
-                    {
-                        value = TypeConverter.ToNumber(left) / TypeConverter.ToNumber(right);
-                    }
+                    value = Divide(left, right);
                     break;
 
                 case "%":
@@ -409,10 +446,18 @@ namespace Jint.Runtime
                 {
                     return false;
                 }
+
                 if (nx == ny)
                 {
+                    if (nx == 0)
+                    {
+                        // +0 !== -0
+                        return NumberInstance.IsNegativeZero(nx) == NumberInstance.IsNegativeZero(ny);
+                    }
+
                     return true;
                 }
+
                 return false;
             }
             if (typea == TypeCode.String)

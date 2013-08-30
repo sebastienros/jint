@@ -31,12 +31,18 @@ namespace Jint.Native.String
 
         public void Configure()
         {
-            FastAddProperty("fromCharCode", new ClrFunctionInstance<object, object>(Engine, FromCharCode), false, false, false);
+            FastAddProperty("fromCharCode", new ClrFunctionInstance<object, string>(Engine, FromCharCode), false, false, false);
         }
 
-        private object FromCharCode(object thisObj, object[] arguments)
+        private static string FromCharCode(object thisObj, object[] arguments)
         {
-            throw new System.NotImplementedException();
+            var chars = new char[arguments.Length];
+            for (var i = 0; i < chars.Length; i++ )
+            {
+                chars[i] = (char)TypeConverter.ToUint16(arguments[i]);
+            }
+            
+            return new System.String(chars);
         }
 
         public override object Call(object thisObject, object[] arguments)

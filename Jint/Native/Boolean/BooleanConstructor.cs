@@ -51,7 +51,7 @@ namespace Jint.Native.Boolean
         /// <returns></returns>
         public ObjectInstance Construct(object[] arguments)
         {
-            return Construct(TypeConverter.ToBoolean(arguments[0]));
+            return Construct(TypeConverter.ToBoolean(arguments.Length > 0 ? arguments[0] : Undefined.Instance));
         }
 
         public BooleanPrototype PrototypeObject { get; private set; }
