@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Linq;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -9,7 +10,7 @@ using Jint.Runtime.Interop;
 namespace Jint.Native.Array
 {
     /// <summary>
-    ///     http://www.ecma-international.org/ecma-262/5.1/#sec-15.4.4
+    /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.4.4
     /// </summary>
     public sealed class ArrayPrototype : ArrayInstance
     {
@@ -42,7 +43,7 @@ namespace Jint.Native.Array
             FastAddProperty("reverse", new ClrFunctionInstance<object, object>(Engine, Reverse), true, false, true);
             FastAddProperty("shift", new ClrFunctionInstance<object, object>(Engine, Shift), true, false, true);
             FastAddProperty("slice", new ClrFunctionInstance<object, object>(Engine, Slice, 2), true, false, true);
-            FastAddProperty("sort", new ClrFunctionInstance<ArrayInstance, object>(Engine, Sort), true, false, true);
+            FastAddProperty("sort", new ClrFunctionInstance<object, object>(Engine, Sort, 1), true, false, true);
             FastAddProperty("splice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Splice, 2), true, false, true);
             FastAddProperty("unshift", new ClrFunctionInstance<ArrayInstance, object>(Engine, Unshift), true, false, true);
             FastAddProperty("indexOf", new ClrFunctionInstance<ArrayInstance, object>(Engine, IndexOf), true, false, true);
@@ -106,9 +107,73 @@ namespace Jint.Native.Array
             throw new NotImplementedException();
         }
 
-        private object Sort(ArrayInstance arg1, object[] arg2)
+        private object Sort(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var obj = thisObj as ObjectInstance;
+            var len = obj.Get("length");
+            var lenVal = TypeConverter.ToInt32(len);
+            if (lenVal <= 1)
+            {
+                return thisObj;
+            }
+
+            var compareArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
+
+            if (compareArg != Undefined.Instance && !(compareArg is ICallable))
+            {
+                throw new JavaScriptException(Engine.TypeError, "The sort argument must be a function");
+            }
+
+            var compareFn = compareArg as ICallable;
+
+            Comparison<object> comparer = (x, y) =>
+                {
+                    if (x == Undefined.Instance && y == Undefined.Instance)
+                    {
+                        return 0;
+                    }
+
+                    if (x == Undefined.Instance)
+                    {
+                        return 1;
+                    }
+
+                    if (y == Undefined.Instance)
+                    {
+                        return -1;
+                    }
+
+                    if (compareFn != null)
+                    {
+                        var s = (int) TypeConverter.ToUint32(compareFn.Call(Undefined.Instance, new[] {x, y}));
+                        return s;
+                    }
+
+                    var xString = TypeConverter.ToString(x);
+                    var yString = TypeConverter.ToString(y);
+
+                    var r = System.String.CompareOrdinal(xString, yString);
+                    return r;
+                };
+
+            var array = Enumerable.Range(0, lenVal).Select(i => obj.Get(i.ToString())).ToArray();
+            
+            // don't eat inner exceptions
+            try
+            {
+                System.Array.Sort(array, comparer);
+            }
+            catch (InvalidOperationException e)
+            {
+                throw e.InnerException;
+            }
+
+            foreach (var i in Enumerable.Range(0, lenVal))
+            {
+                obj.Put(i.ToString(), array[i], false);
+            }
+
+            return obj;
         }
 
         private object Slice(object thisObj, object[] arguments)
@@ -122,34 +187,34 @@ namespace Jint.Native.Array
             var len = TypeConverter.ToUint32(lenVal);
 
             var relativeStart = TypeConverter.ToInteger(start);
-            int k;
+            uint k;
             if (relativeStart < 0)
             {
-                k = (int) System.Math.Max(len + relativeStart, 0);
+                k = (uint)System.Math.Max(len + relativeStart, 0);
             }
             else
             {
-                k = (int)System.Math.Min(relativeStart, len);
+                k = (uint)System.Math.Min(TypeConverter.ToInteger(start), len);
             }
 
-            double relativeEnd;
+            uint final;
             if (end == Undefined.Instance)
             {
-                relativeEnd = (int)len;
+                final = TypeConverter.ToUint32(len);
             }
             else
             {
-                relativeEnd = TypeConverter.ToInteger(end);
+                double relativeEnd = TypeConverter.ToInteger(end);
+                if (relativeEnd < 0)
+                {
+                    final = (uint)System.Math.Max(len + relativeEnd, 0);
+                }
+                else
+                {
+                    final = (uint)System.Math.Min(TypeConverter.ToInteger(relativeEnd), len);
+                }
             }
-            int final;
-            if (relativeEnd < 0)
-            {
-                final = (int) System.Math.Max(len + relativeEnd, 0);
-            }
-            else
-            {
-                final = (int) System.Math.Min(relativeEnd, len);
-            }
+
             var n = 0;
             for (; k < final; k++)
             {

@@ -242,19 +242,43 @@ namespace Jint.Runtime
                     break;
                 
                 case ">":
-                    value = TypeConverter.ToNumber(left) > TypeConverter.ToNumber(right);
+                    value = Compare(right, left, false);
+                    if (value == Undefined.Instance)
+                    {
+                        value = false;
+                    }
                     break;
 
                 case ">=":
-                    value = TypeConverter.ToNumber(left) >= TypeConverter.ToNumber(right);
+                    value = Compare(left, right);
+                    if (value == Undefined.Instance || (bool) value == true)
+                    {
+                        value = false;
+                    }
+                    else
+                    {
+                        value = true;
+                    }
                     break;
                 
                 case "<":
-                    value = TypeConverter.ToNumber(left) < TypeConverter.ToNumber(right);
+                    value = Compare(left, right);
+                    if (value == Undefined.Instance)
+                    {
+                        value = false;
+                    }
                     break;
                 
                 case "<=":
-                    value = TypeConverter.ToNumber(left) <= TypeConverter.ToNumber(right);
+                    value = Compare(right, left, false);
+                    if (value == Undefined.Instance || (bool) value == true)
+                    {
+                        value = false;
+                    }
+                    else
+                    {
+                        value = true;
+                    }
                     break;
                 
                 case "===":
@@ -469,6 +493,65 @@ namespace Jint.Runtime
                 return TypeConverter.ToBoolean(x) == TypeConverter.ToBoolean(y);
             }
             return x == y;
+        }
+
+        public static object Compare(object x, object y, bool leftFirst = true)
+        {
+            object px, py;
+            if (leftFirst)
+            {
+                px = TypeConverter.ToPrimitive(x, TypeCode.Double);
+                py = TypeConverter.ToPrimitive(y, TypeCode.Double);
+            }
+            else
+            {
+                py = TypeConverter.ToPrimitive(y, TypeCode.Double);
+                px = TypeConverter.ToPrimitive(x, TypeCode.Double);
+            }
+            var typea = TypeConverter.GetType(x);
+            var typeb = TypeConverter.GetType(y);
+
+            if (typea != TypeCode.String || typeb != TypeCode.String)
+            {
+                var nx = TypeConverter.ToNumber(px);
+                var ny = TypeConverter.ToNumber(py);
+
+                if (double.IsNaN(nx) || double.IsNaN(ny))
+                {
+                    return Undefined.Instance;
+                }
+
+                if (nx == ny)
+                {
+                    return false;
+                }
+
+                if (nx == double.PositiveInfinity)
+                {
+                    return false;
+                }
+
+                if (ny == double.PositiveInfinity)
+                {
+                    return true;
+                }
+
+                if (ny == double.NegativeInfinity)
+                {
+                    return false;
+                }
+
+                if (nx == double.NegativeInfinity)
+                {
+                    return true;
+                }
+
+                return nx < ny;
+            }
+            else
+            {
+                return String.CompareOrdinal(TypeConverter.ToString(x), TypeConverter.ToString(y)) < 0;
+            }
         }
 
         public object EvaluateIdentifier(Identifier identifier)

@@ -60,7 +60,7 @@ namespace Jint.Native.Function
             object thisBinding;
 
             // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
-            if (Engine.Options.IsStrict())
+            if (this.Strict || Engine.Options.IsStrict())
             {
                 thisBinding = thisArg;
             }
