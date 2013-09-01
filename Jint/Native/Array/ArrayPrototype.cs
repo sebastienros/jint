@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.Linq;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -110,6 +109,12 @@ namespace Jint.Native.Array
         private object Sort(object thisObj, object[] arguments)
         {
             var obj = thisObj as ObjectInstance;
+
+            if(obj == null)
+            {
+                throw new JavaScriptException(Engine.TypeError, "Array.prorotype.sort can only be applied on objects");  
+            }
+
             var len = obj.Get("length");
             var lenVal = TypeConverter.ToInt32(len);
             if (lenVal <= 1)
@@ -397,7 +402,7 @@ namespace Jint.Native.Array
             var o = TypeConverter.ToObject(Engine, thisObj);
             var a = Engine.Array.Construct(Arguments.Empty);
             var n = 0;
-            var items = new List<object>() {o};
+            var items = new List<object> {o};
             items.AddRange(arguments);
 
             foreach (var e in items)
