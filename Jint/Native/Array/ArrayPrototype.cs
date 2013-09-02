@@ -42,9 +42,9 @@ namespace Jint.Native.Array
             FastAddProperty("reverse", new ClrFunctionInstance<object, object>(Engine, Reverse), true, false, true);
             FastAddProperty("shift", new ClrFunctionInstance<object, object>(Engine, Shift), true, false, true);
             FastAddProperty("slice", new ClrFunctionInstance<object, object>(Engine, Slice, 2), true, false, true);
-            FastAddProperty("sort", new ClrFunctionInstance<object, object>(Engine, Sort, 1), true, false, true);
-            FastAddProperty("splice", new ClrFunctionInstance<ArrayInstance, object>(Engine, Splice, 2), true, false, true);
-            FastAddProperty("unshift", new ClrFunctionInstance<ArrayInstance, object>(Engine, Unshift), true, false, true);
+            FastAddProperty("sort", new ClrFunctionInstance<object, ObjectInstance>(Engine, Sort, 1), true, false, true);
+            FastAddProperty("splice", new ClrFunctionInstance<object, ObjectInstance>(Engine, Splice, 2), true, false, true);
+            FastAddProperty("unshift", new ClrFunctionInstance<object, uint>(Engine, Unshift, 1), true, false, true);
             FastAddProperty("indexOf", new ClrFunctionInstance<ArrayInstance, object>(Engine, IndexOf), true, false, true);
             FastAddProperty("lastIndexOf", new ClrFunctionInstance<ArrayInstance, object>(Engine, LastIndexOf), true, false, true);
             FastAddProperty("every", new ClrFunctionInstance<ArrayInstance, object>(Engine, Every), true, false, true);
@@ -96,17 +96,121 @@ namespace Jint.Native.Array
             throw new NotImplementedException();
         }
 
-        private object Splice(ArrayInstance arg1, object[] arg2)
+        private ObjectInstance Splice(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var start = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
+            var deleteCount = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
+
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var a = Engine.Array.Construct(Arguments.Empty);
+            var lenVal = o.Get("length");
+            var len = TypeConverter.ToUint32(lenVal);
+            var relativeStart = TypeConverter.ToInteger(start);
+
+            uint actualStart;
+            if (relativeStart < 0)
+            {
+                actualStart = (uint)System.Math.Max(len + relativeStart, 0);
+            }
+            else
+            {
+                actualStart = (uint)System.Math.Min(relativeStart, len);
+            }
+
+            var actualDeleteCount = System.Math.Min(System.Math.Max(TypeConverter.ToInteger(deleteCount), 0), len - actualStart);
+            for (var k = 0; k < actualDeleteCount; k++)
+            {
+                var from = (actualStart + k).ToString();
+                var fromPresent = o.HasProperty(from);
+                if (fromPresent)
+                {
+                    var fromValue = o.Get(from); 
+                    a.DefineOwnProperty(k.ToString(), new DataDescriptor(fromValue) { Writable = true, Enumerable = true, Configurable = true }, false);
+                }
+            }
+            
+            var items = arguments.Skip(2).ToArray();
+            if (items.Length < actualDeleteCount)
+            {
+                for (var k = actualStart; k < len - actualDeleteCount; k++)
+                {
+                    var from = (k + actualDeleteCount).ToString();
+                    var to = (k + items.Length).ToString();
+                    var fromPresent = o.HasProperty(from);
+                    if (fromPresent)
+                    {
+                        var fromValue = o.Get(from);
+                        o.Put(to, fromValue, true);
+                    }
+                    else
+                    {
+                        o.Delete(to, true);
+                    }
+                }
+                for (var k = len; k > len - actualDeleteCount + items.Length; k-- )
+                {
+                    o.Delete((k - 1).ToString(), true);
+                }
+            }
+            else if (items.Length > actualDeleteCount)
+            {
+                for (var k = len - actualDeleteCount; k > actualStart; k--)
+                {
+                    var from = (k + actualDeleteCount - 1).ToString();
+                    var to = (k + items.Length - 1).ToString();
+                    var fromPresent = o.HasProperty(from);
+                    if (fromPresent)
+                    {
+                        var fromValue = o.Get(from);
+                        o.Put(to, fromValue, true);
+                    }
+                    else
+                    {
+                        o.Delete(to, true);
+                    }
+                }
+            }
+
+            for(var k = 0; k< items.Length; k++)
+            {
+                var e = items[k];
+                o.Put((k+actualStart).ToString(), e, true);
+            }
+
+            o.Put("length", len - actualDeleteCount + items.Length, true);
+            return a;
         }
 
-        private object Unshift(ArrayInstance arg1, object[] arg2)
+        private uint Unshift(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var lenVal = o.Get("length");
+            var len = TypeConverter.ToUint32(lenVal);
+            var argCount = (uint)arguments.Length;
+            for (var k = len; k > 0; k--)
+            {
+                var from = (k - 1).ToString();
+                var to = (k + argCount - 1).ToString();
+                var fromPresent = o.HasProperty(from);
+                if (fromPresent)
+                {
+                    var fromValue = o.Get(from);
+                    o.Put(to, fromValue, true);
+                }
+                else
+                {
+                    o.Delete(to, true);
+                }
+            }
+            for (var j = 0; j < argCount; j++)
+            {
+                o.Put(j.ToString(), arguments[j], true);
+            }
+            o.Put("length", len + argCount, true);
+            return len + argCount;
         }
 
-        private object Sort(object thisObj, object[] arguments)
+        private ObjectInstance Sort(object thisObj, object[] arguments)
         {
             var obj = thisObj as ObjectInstance;
 
@@ -119,7 +223,7 @@ namespace Jint.Native.Array
             var lenVal = TypeConverter.ToInt32(len);
             if (lenVal <= 1)
             {
-                return thisObj;
+                return obj;
             }
 
             var compareArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
