@@ -19,6 +19,7 @@ namespace Jint.Native.String
             var obj = new StringPrototype(engine);
             obj.Prototype = engine.Object.PrototypeObject;
             obj.PrimitiveValue = "";
+            obj.Extensible = true;
 
             obj.FastAddProperty("constructor", stringConstructor, false, false, false);
 

@@ -43,6 +43,9 @@
     <Compile Include="Native\Boolean\BooleanPrototype.cs" />
     <Compile Include="Native\Boolean\BooleanConstructor.cs" />
     <Compile Include="Native\Boolean\BooleanInstance.cs" />
+    <Compile Include="Native\RegExp\RegExpConstructor.cs" />
+    <Compile Include="Native\RegExp\RegExpInstance.cs" />
+    <Compile Include="Native\RegExp\RegExpPrototype.cs" />
     <Compile Include="Native\Date\DatePrototype.cs" />
     <Compile Include="Native\Date\DateConstructor.cs" />
     <Compile Include="Native\Date\DateInstance.cs" />

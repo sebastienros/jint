@@ -28,6 +28,7 @@ namespace Jint.Native.Global
             FastAddProperty("Function", Engine.Function, true, false, true);
             FastAddProperty("Array", Engine.Array, true, false, true);
             FastAddProperty("String", Engine.String, true, false, true);
+            FastAddProperty("RegExp", Engine.RegExp, true, false, true);
             FastAddProperty("Number", Engine.Number, true, false, true);
             FastAddProperty("Boolean", Engine.Boolean, true, false, true);
             FastAddProperty("Date", Engine.Date, true, false, true);

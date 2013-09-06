@@ -19,6 +19,7 @@ namespace Jint.Native.Boolean
             var obj = new BooleanPrototype(engine);
             obj.Prototype = engine.Object.PrototypeObject;
             obj.PrimitiveValue = false;
+            obj.Extensible = true;
 
             obj.FastAddProperty("constructor", booleanConstructor, false, false, false);
 

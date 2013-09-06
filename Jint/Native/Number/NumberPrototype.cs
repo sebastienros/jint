@@ -18,6 +18,7 @@ namespace Jint.Native.Number
             var obj = new NumberPrototype(engine);
             obj.Prototype = engine.Object.PrototypeObject;
             obj.PrimitiveValue = 0;
+            obj.Extensible = true;
 
             obj.FastAddProperty("constructor", numberConstructor, false, false, false);
 

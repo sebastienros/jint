@@ -45,7 +45,7 @@ namespace Jint.Native.Array
             FastAddProperty("sort", new ClrFunctionInstance<object, ObjectInstance>(Engine, Sort, 1), true, false, true);
             FastAddProperty("splice", new ClrFunctionInstance<object, ObjectInstance>(Engine, Splice, 2), true, false, true);
             FastAddProperty("unshift", new ClrFunctionInstance<object, uint>(Engine, Unshift, 1), true, false, true);
-            FastAddProperty("indexOf", new ClrFunctionInstance<ArrayInstance, object>(Engine, IndexOf), true, false, true);
+            FastAddProperty("indexOf", new ClrFunctionInstance<object, int>(Engine, IndexOf, 1), true, false, true);
             FastAddProperty("lastIndexOf", new ClrFunctionInstance<ArrayInstance, object>(Engine, LastIndexOf), true, false, true);
             FastAddProperty("every", new ClrFunctionInstance<ArrayInstance, object>(Engine, Every), true, false, true);
             FastAddProperty("some", new ClrFunctionInstance<ArrayInstance, object>(Engine, Some), true, false, true);
@@ -91,9 +91,50 @@ namespace Jint.Native.Array
             throw new NotImplementedException();
         }
 
-        private object IndexOf(ArrayInstance arg1, object[] arg2)
+        private int IndexOf(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var lenValue = o.Get("length");
+            var len = TypeConverter.ToUint32(lenValue);
+            if (len == 0)
+            {
+                return -1;
+            }
+
+            var n = arguments.Length > 1 ? (int)TypeConverter.ToInteger(arguments[1]) : 0;
+            if (n >= len)
+            {
+                return -1;
+            }
+            int k;
+            if (n >= 0)
+            {
+                k = n;
+            }
+            else
+            {
+                k = (int)len - System.Math.Abs(n);
+                if (k < 0)
+                {
+                    k = 0;
+                }
+            }
+            var searchElement = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
+            for (; k < len; k++)
+            {
+                var kString = TypeConverter.ToString(k);
+                var kPresent = o.HasProperty(kString);
+                if (kPresent)
+                {
+                    var elementK = o.Get(kString);
+                    var same = ExpressionInterpreter.StriclyEqual(elementK, searchElement);
+                    if (same)
+                    {
+                        return k;
+                    }
+                }
+            }
+            return -1;
         }
 
         private ObjectInstance Splice(object thisObj, object[] arguments)

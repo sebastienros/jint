@@ -176,6 +176,12 @@ namespace Jint.Runtime
                 {
                     if (!s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
                     {
+                        var start = s[0];
+                        if (start != '+' && start != '-' && start != '.' && !char.IsDigit(start))
+                        {
+                            return double.NaN;
+                        }
+
                         n = Double.Parse(s,
                                          NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
                                          NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |

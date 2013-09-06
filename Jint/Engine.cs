@@ -12,6 +12,7 @@ using Jint.Native.Json;
 using Jint.Native.Math;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.RegExp;
 using Jint.Native.String;
 using Jint.Parser;
 using Jint.Parser.Ast;
@@ -44,6 +45,7 @@ namespace Jint
 
             Array = ArrayConstructor.CreateArrayConstructor(this);
             String = StringConstructor.CreateStringConstructor(this);
+            RegExp = RegExpConstructor.CreateRegExpConstructor(this);
             Number = NumberConstructor.CreateNumberConstructor(this);
             Boolean = BooleanConstructor.CreateBooleanConstructor(this);
             Date = DateConstructor.CreateDateConstructor(this);
@@ -74,6 +76,9 @@ namespace Jint
 
             String.Configure();
             String.PrototypeObject.Configure();
+
+            RegExp.Configure();
+            RegExp.PrototypeObject.Configure();
 
             Number.Configure();
             Number.PrototypeObject.Configure();
@@ -124,6 +129,7 @@ namespace Jint
         public FunctionConstructor Function { get; private set; }
         public ArrayConstructor Array { get; private set; }
         public StringConstructor String { get; private set; }
+        public RegExpConstructor RegExp { get; private set; }
         public BooleanConstructor Boolean { get; private set; }
         public NumberConstructor Number { get; private set; }
         public DateConstructor Date { get; private set; }

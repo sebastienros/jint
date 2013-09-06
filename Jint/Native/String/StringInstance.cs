@@ -1,5 +1,7 @@
 ﻿using System;
 using Jint.Native.Object;
+using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.String
 {
@@ -33,11 +35,28 @@ namespace Jint.Native.String
 
         public string PrimitiveValue { get; set; }
 
-        public override Runtime.Descriptors.PropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
-            // todo: http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.5.2
+            var desc = base.GetOwnProperty(propertyName);
+            if (desc != PropertyDescriptor.Undefined)
+            {
+                return desc;
+            }
 
-            return base.GetOwnProperty(propertyName);
+            if (propertyName != System.Math.Abs(TypeConverter.ToInteger(propertyName)).ToString())
+            {
+                return PropertyDescriptor.Undefined;
+            }
+
+            var str = PrimitiveValue;
+            var index = (int)TypeConverter.ToInteger(propertyName);
+            var len = str.Length;
+            if (len <= index)
+            {
+                return PropertyDescriptor.Undefined;
+            }
+            var resultStr = str[index].ToString();
+            return new DataDescriptor(resultStr) {Enumerable = true, Writable = false, Configurable = false};
         }
     }
 }

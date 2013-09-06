@@ -60,7 +60,7 @@ namespace Jint.Native.Object
 
             var getter = desc.As<AccessorDescriptor>().Get;
 
-            return getter.Call(this, null);
+            return getter.Call(this, Arguments.Empty);
         }
 
         public void Set(string name, object value)
@@ -212,7 +212,7 @@ namespace Jint.Native.Object
 
             if (inherited == PropertyDescriptor.Undefined)
             {
-                return Prototype.Extensible;
+                return Extensible;
             }
 
             if (inherited.IsAccessorDescriptor())

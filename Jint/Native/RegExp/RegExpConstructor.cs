@@ -3,27 +3,27 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
-namespace Jint.Native.String
+namespace Jint.Native.RegExp
 {
-    public sealed class StringConstructor : FunctionInstance, IConstructor
+    public sealed class RegExpConstructor : FunctionInstance, IConstructor
     {
-        public StringConstructor(Engine engine)
+        public RegExpConstructor(Engine engine)
             : base(engine, null, null, false)
         {
         }
 
-        public static StringConstructor CreateStringConstructor(Engine engine)
+        public static RegExpConstructor CreateRegExpConstructor(Engine engine)
         {
-            var obj = new StringConstructor(engine);
+            var obj = new RegExpConstructor(engine);
             obj.Extensible = true;
 
-            // The value of the [[Prototype]] internal property of the String constructor is the Function prototype object 
+            // The value of the [[Prototype]] internal property of the RegExp constructor is the Function prototype object 
             obj.Prototype = engine.Function.PrototypeObject;
-            obj.PrototypeObject = StringPrototype.CreatePrototypeObject(engine, obj);
+            obj.PrototypeObject = RegExpPrototype.CreatePrototypeObject(engine, obj);
 
             obj.FastAddProperty("length", 1, false, false, false);
 
-            // The initial value of String.prototype is the String prototype object
+            // The initial value of RegExp.prototype is the RegExp prototype object
             obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
 
             return obj;
@@ -31,18 +31,6 @@ namespace Jint.Native.String
 
         public void Configure()
         {
-            FastAddProperty("fromCharCode", new ClrFunctionInstance<object, string>(Engine, FromCharCode), false, false, false);
-        }
-
-        private static string FromCharCode(object thisObj, object[] arguments)
-        {
-            var chars = new char[arguments.Length];
-            for (var i = 0; i < chars.Length; i++ )
-            {
-                chars[i] = (char)TypeConverter.ToUint16(arguments[i]);
-            }
-            
-            return new System.String(chars);
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -65,16 +53,14 @@ namespace Jint.Native.String
             return Construct(arguments.Length > 0 ? TypeConverter.ToString(arguments[0]) : "");
         }
 
-        public StringPrototype PrototypeObject { get; private set; }
+        public RegExpPrototype PrototypeObject { get; private set; }
 
-        public StringInstance Construct(string value)
+        public RegExpInstance Construct(string value)
         {
-            var instance = new StringInstance(Engine);
+            var instance = new RegExpInstance(Engine);
             instance.Prototype = PrototypeObject;
             instance.PrimitiveValue = value;
             instance.Extensible = true;
-
-            instance.FastAddProperty("length", value.Length, false, false, false);
 
             return instance;
         }

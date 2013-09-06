@@ -447,7 +447,7 @@ namespace Jint.Runtime
 
             return false;
         }
-        
+
         public static bool StriclyEqual(object x, object y)
         {
             var typea = TypeConverter.GetType(x);
@@ -456,7 +456,7 @@ namespace Jint.Runtime
             if (typea != typeb)
             {
                 return false;
-            }    
+            }
 
             if (typea == TypeCode.Empty)
             {
@@ -469,6 +469,47 @@ namespace Jint.Runtime
                 if (double.IsNaN(nx) || double.IsNaN(ny))
                 {
                     return false;
+                }
+
+                if (nx == ny)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+            if (typea == TypeCode.String)
+            {
+                return TypeConverter.ToString(x) == TypeConverter.ToString(y);
+            }
+            if (typea == TypeCode.Boolean)
+            {
+                return TypeConverter.ToBoolean(x) == TypeConverter.ToBoolean(y);
+            }
+            return x == y;
+        }
+
+        public static bool SameValue(object x, object y)
+        {
+            var typea = TypeConverter.GetType(x);
+            var typeb = TypeConverter.GetType(y);
+
+            if (typea != typeb)
+            {
+                return false;
+            }
+
+            if (typea == TypeCode.Empty)
+            {
+                return true;
+            }
+            if (typea == TypeCode.Double)
+            {
+                var nx = TypeConverter.ToNumber(x);
+                var ny = TypeConverter.ToNumber(y);
+                if (double.IsNaN(nx) && double.IsNaN(ny))
+                {
+                    return true;
                 }
 
                 if (nx == ny)
