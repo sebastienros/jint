@@ -51,7 +51,7 @@ namespace Jint.Native.Array
             FastAddProperty("some", new ClrFunctionInstance<object, bool>(Engine, Some, 1), true, false, true);
             FastAddProperty("forEach", new ClrFunctionInstance<object, object>(Engine, ForEach, 1), true, false, true);
             FastAddProperty("map", new ClrFunctionInstance<object, object>(Engine, Map, 1), true, false, true);
-            FastAddProperty("filter", new ClrFunctionInstance<ArrayInstance, object>(Engine, Filter), true, false, true);
+            FastAddProperty("filter", new ClrFunctionInstance<object, object>(Engine, Filter, 1), true, false, true);
             FastAddProperty("reduce", new ClrFunctionInstance<ArrayInstance, object>(Engine, Reduce), true, false, true);
             FastAddProperty("reduceRight", new ClrFunctionInstance<ArrayInstance, object>(Engine, ReduceRight), true, false, true);
         }
@@ -101,7 +101,39 @@ namespace Jint.Native.Array
 
         private object Filter(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var callbackfn = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
+            var thisArg = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
+
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var lenValue = o.Get("length");
+            var len = TypeConverter.ToUint32(lenValue);
+
+            var callable = callbackfn as ICallable;
+            if (callable == null)
+            {
+                throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
+            }
+
+            var a = Engine.Array.Construct(Arguments.Empty);
+
+            var to = 0;
+            for (var k = 0; k < len; k++)
+            {
+                var pk = k.ToString();
+                var kpresent = o.HasProperty(pk);
+                if (kpresent)
+                {
+                    var kvalue = o.Get(pk);
+                    var selected = callable.Call(thisArg, new object[] { kvalue, k, o });
+                    if (TypeConverter.ToBoolean(selected) == true)
+                    {
+                        a.DefineOwnProperty(to.ToString(), new DataDescriptor(kvalue) { Writable = true, Enumerable = true, Configurable = true }, false);
+                        to++;
+                    }
+                }
+            }
+
+            return a;
         }
 
         private object Map(object thisObj, object[] arguments)
