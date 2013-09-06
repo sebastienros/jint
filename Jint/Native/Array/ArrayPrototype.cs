@@ -50,7 +50,7 @@ namespace Jint.Native.Array
             FastAddProperty("every", new ClrFunctionInstance<object, bool>(Engine, Every, 1), true, false, true);
             FastAddProperty("some", new ClrFunctionInstance<object, bool>(Engine, Some, 1), true, false, true);
             FastAddProperty("forEach", new ClrFunctionInstance<object, object>(Engine, ForEach, 1), true, false, true);
-            FastAddProperty("map", new ClrFunctionInstance<ArrayInstance, object>(Engine, Map), true, false, true);
+            FastAddProperty("map", new ClrFunctionInstance<object, object>(Engine, Map, 1), true, false, true);
             FastAddProperty("filter", new ClrFunctionInstance<ArrayInstance, object>(Engine, Filter), true, false, true);
             FastAddProperty("reduce", new ClrFunctionInstance<ArrayInstance, object>(Engine, Reduce), true, false, true);
             FastAddProperty("reduceRight", new ClrFunctionInstance<ArrayInstance, object>(Engine, ReduceRight), true, false, true);
@@ -94,22 +94,49 @@ namespace Jint.Native.Array
             return -1;
         }
 
-        private object Reduce(ArrayInstance arg1, object[] arg2)
+        private object Reduce(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
 
-        private object Filter(ArrayInstance arg1, object[] arg2)
+        private object Filter(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
 
-        private object Map(ArrayInstance arg1, object[] arg2)
+        private object Map(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var callbackfn = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
+            var thisArg = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
+
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var lenValue = o.Get("length");
+            var len = TypeConverter.ToUint32(lenValue);
+
+            var callable = callbackfn as ICallable;
+            if (callable == null)
+            {
+                throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
+            }
+
+            var a = Engine.Array.Construct(Arguments.Empty);
+
+            for (var k = 0; k < len; k++)
+            {
+                var pk = k.ToString();
+                var kpresent = o.HasProperty(pk);
+                if (kpresent)
+                {
+                    var kvalue = o.Get(pk);
+                    var mappedValue = callable.Call(thisArg, new object[] { kvalue, k, o });
+                    a.DefineOwnProperty(pk, new DataDescriptor(mappedValue) { Writable = true, Enumerable = true, Configurable = true }, false);
+                }
+            }
+
+            return a;
         }
 
-        private object ForEach(ArrayInstance arg1, object[] arg2)
+        private object ForEach(object thisObj, object[] arguments)
         {
             var callbackfn = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
             var thisArg = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
@@ -131,14 +158,14 @@ namespace Jint.Native.Array
                 if (kpresent)
                 {
                     var kvalue = o.Get(pk);
-                    var testResult = callable.Call(thisArg, new object[] { kvalue, k, o });
+                    callable.Call(thisArg, new object[] { kvalue, k, o });
                 }
             }
 
             return Undefined.Instance;
         }
 
-        private object Some(ArrayInstance arg1, object[] arg2)
+        private bool Some(object thisObj, object[] arguments)
         {
             var callbackfn = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
             var thisArg = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
@@ -707,7 +734,7 @@ namespace Jint.Native.Array
             return func.Call(array, Arguments.Empty);
         }
 
-        private object ReduceRight(ArrayInstance arg1, object[] arg2)
+        private object ReduceRight(object thisObj, object[] arguments)
         {
             throw new NotImplementedException();
         }
