@@ -139,15 +139,16 @@ namespace Jint.Native.Array
                 }
             }
 
-            for (; k < len; k++)
+            while(k < len)
             {
                 var pk = k.ToString();
                 var kpresent = o.HasProperty(pk);
                 if (kpresent)
                 {
                     var kvalue = o.Get(pk);
-                    accumulator = callable.Call(Undefined.Instance, new object[] { kvalue, k, o });
+                    accumulator = callable.Call(Undefined.Instance, new object[] { accumulator, kvalue, k, o });
                 }
+                k++;
             }
 
             return accumulator;
@@ -872,7 +873,7 @@ namespace Jint.Native.Array
                 if (kpresent)
                 {
                     var kvalue = o.Get(pk);
-                    accumulator = callable.Call(Undefined.Instance, new object[] { kvalue, k, o });
+                    accumulator = callable.Call(Undefined.Instance, new object[] { accumulator, kvalue, k, o });
                 }
             }
 
