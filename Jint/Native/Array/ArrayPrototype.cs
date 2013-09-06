@@ -822,7 +822,61 @@ namespace Jint.Native.Array
 
         private object ReduceRight(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var callbackfn = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
+            var initialValue = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
+
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var lenValue = o.Get("length");
+            var len = TypeConverter.ToUint32(lenValue);
+
+            var callable = callbackfn as ICallable;
+            if (callable == null)
+            {
+                throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
+            }
+
+            if (len == 0 && arguments.Length < 2)
+            {
+                throw new JavaScriptException(Engine.TypeError);
+            }
+
+            var k = len - 1;
+            object accumulator = Undefined.Instance;
+            if (arguments.Length > 2)
+            {
+                accumulator = initialValue;
+            }
+            else
+            {
+                var kPresent = false;
+                while (kPresent == false && k >= 0)
+                {
+                    var pk = k.ToString();
+                    var kpresent = o.HasProperty(pk);
+                    if (kpresent)
+                    {
+                        accumulator = o.Get(pk);
+                    }
+                    k--;
+                }
+                if (kPresent == false)
+                {
+                    throw new JavaScriptException(Engine.TypeError);
+                }
+            }
+
+            for (; k >= 0; k--)
+            {
+                var pk = k.ToString();
+                var kpresent = o.HasProperty(pk);
+                if (kpresent)
+                {
+                    var kvalue = o.Get(pk);
+                    accumulator = callable.Call(Undefined.Instance, new object[] { kvalue, k, o });
+                }
+            }
+
+            return accumulator;
         }
 
         public object Push(object thisObject, object[] arguments)
