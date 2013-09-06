@@ -48,7 +48,7 @@ namespace Jint.Native.Array
             FastAddProperty("indexOf", new ClrFunctionInstance<object, int>(Engine, IndexOf, 1), true, false, true);
             FastAddProperty("lastIndexOf", new ClrFunctionInstance<object, int>(Engine, LastIndexOf, 1), true, false, true);
             FastAddProperty("every", new ClrFunctionInstance<object, bool>(Engine, Every, 1), true, false, true);
-            FastAddProperty("some", new ClrFunctionInstance<ArrayInstance, object>(Engine, Some), true, false, true);
+            FastAddProperty("some", new ClrFunctionInstance<object, bool>(Engine, Some, 1), true, false, true);
             FastAddProperty("forEach", new ClrFunctionInstance<ArrayInstance, object>(Engine, ForEach), true, false, true);
             FastAddProperty("map", new ClrFunctionInstance<ArrayInstance, object>(Engine, Map), true, false, true);
             FastAddProperty("filter", new ClrFunctionInstance<ArrayInstance, object>(Engine, Filter), true, false, true);
@@ -116,7 +116,35 @@ namespace Jint.Native.Array
 
         private object Some(ArrayInstance arg1, object[] arg2)
         {
-            throw new NotImplementedException();
+            var callbackfn = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
+            var thisArg = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
+
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var lenValue = o.Get("length");
+            var len = TypeConverter.ToUint32(lenValue);
+
+            var callable = callbackfn as ICallable;
+            if (callable == null)
+            {
+                throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
+            }
+
+            for (var k = 0; k < len; k++)
+            {
+                var pk = k.ToString();
+                var kpresent = o.HasProperty(pk);
+                if (kpresent)
+                {
+                    var kvalue = o.Get(pk);
+                    var testResult = callable.Call(thisArg, new object[] { kvalue, k, o });
+                    if (TypeConverter.ToBoolean(testResult) == true)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private bool Every(object thisObj, object[] arguments)
