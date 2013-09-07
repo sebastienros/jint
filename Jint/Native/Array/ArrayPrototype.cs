@@ -126,8 +126,8 @@ namespace Jint.Native.Array
                 while (kPresent == false && k < len)
                 {
                     var pk = k.ToString();
-                    var kpresent = o.HasProperty(pk);
-                    if (kpresent)
+                    kPresent = o.HasProperty(pk);
+                    if (kPresent)
                     {
                         accumulator = o.Get(pk);
                     }
@@ -142,8 +142,8 @@ namespace Jint.Native.Array
             while(k < len)
             {
                 var pk = k.ToString();
-                var kpresent = o.HasProperty(pk);
-                if (kpresent)
+                var kPresent = o.HasProperty(pk);
+                if (kPresent)
                 {
                     var kvalue = o.Get(pk);
                     accumulator = callable.Call(Undefined.Instance, new object[] { accumulator, kvalue, k, o });
@@ -853,8 +853,8 @@ namespace Jint.Native.Array
                 while (kPresent == false && k >= 0)
                 {
                     var pk = k.ToString();
-                    var kpresent = o.HasProperty(pk);
-                    if (kpresent)
+                    kPresent = o.HasProperty(pk);
+                    if (kPresent)
                     {
                         accumulator = o.Get(pk);
                     }
@@ -869,8 +869,8 @@ namespace Jint.Native.Array
             for (; k >= 0; k--)
             {
                 var pk = k.ToString();
-                var kpresent = o.HasProperty(pk);
-                if (kpresent)
+                var kPresent = o.HasProperty(pk);
+                if (kPresent)
                 {
                     var kvalue = o.Get(pk);
                     accumulator = callable.Call(Undefined.Instance, new object[] { accumulator, kvalue, k, o });
