@@ -686,9 +686,35 @@ namespace Jint.Runtime
                         throw new JavaScriptException(_engine.SyntaxError);
                     }
 
-                    if (previousIsAccessor && propIsAccessor && ((previous.As<AccessorDescriptor>().Get != null && propDesc.As<AccessorDescriptor>().Get != null) || (previous.As<AccessorDescriptor>().Set != null && propDesc.As<AccessorDescriptor>().Set != null)))
+                    if (previousIsAccessor && propIsAccessor)
                     {
-                        throw new JavaScriptException(_engine.SyntaxError);
+                        var previousAccessor = previous.As<AccessorDescriptor>();
+                        var propAccessor = propDesc.As<AccessorDescriptor>();
+
+                        if (propAccessor.Set != null)
+                        {
+                            if (previousAccessor.Set != null)
+                            {
+                                throw new JavaScriptException(_engine.SyntaxError);
+                            }
+
+                            if (previousAccessor.Get != null)
+                            {
+                                propAccessor.Get = previousAccessor.Get;
+                            }
+                        }
+                        else if (propAccessor.Get != null)
+                        {
+                            if (previousAccessor.Get != null)
+                            {
+                                throw new JavaScriptException(_engine.SyntaxError);
+                            }
+
+                            if (previousAccessor.Set != null)
+                            {
+                                propAccessor.Set = previousAccessor.Set;
+                            }
+                        }
                     }
                 }
 

@@ -331,22 +331,51 @@ namespace Jint
                 return value;
             }
 
+            var baseValue = reference.GetBase();
+
             if (reference.IsUnresolvableReference())
             {
                 throw new JavaScriptException(ReferenceError);
             }
 
-            var baseValue = reference.GetBase();
-
-            var record = baseValue as EnvironmentRecord;
-
-            if (record != null)
+            if (reference.IsPropertyReference())
             {
-                return record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
+                if (reference.HasPrimitiveBase() == false)
+                {
+                    var o = TypeConverter.ToObject(this, baseValue);
+                    return o.Get(reference.GetReferencedName());
+                }
+                else
+                {
+                    var o = TypeConverter.ToObject(this, baseValue);
+                    var desc = o.GetProperty(reference.GetReferencedName());
+                    if (desc == PropertyDescriptor.Undefined)
+                    {
+                        return Undefined.Instance;
+                    }
+                    if (desc.IsDataDescriptor())
+                    {
+                        return desc.As<DataDescriptor>().Value;
+                    }
+                    var getter = desc.As<AccessorDescriptor>().Get;
+                    if (getter == null)
+                    {
+                        return Undefined.Instance;
+                    }
+                    return getter.Call(baseValue, Arguments.Empty);
+                }
             }
+            else
+            {
+                var record = baseValue as EnvironmentRecord;
 
-            var o = TypeConverter.ToObject(this, baseValue);
-            return o.Get(reference.GetReferencedName());
+                if (record == null)
+                {
+                    throw new ArgumentException();
+                }
+
+                return record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());    
+            }
         }
 
         /// <summary>

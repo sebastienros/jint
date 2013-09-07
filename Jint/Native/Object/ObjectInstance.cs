@@ -452,7 +452,7 @@ namespace Jint.Native.Object
             else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())
             {
                 var ca = current.As<AccessorDescriptor>();
-                var da = current.As<AccessorDescriptor>();
+                var da = desc.As<AccessorDescriptor>();
 
                 if (!current.Configurable)
                 {
