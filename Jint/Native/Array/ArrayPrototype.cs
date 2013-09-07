@@ -116,7 +116,7 @@ namespace Jint.Native.Array
 
             var k = 0;
             object accumulator = Undefined.Instance;
-            if (arguments.Length > 2)
+            if (arguments.Length > 1)
             {
                 accumulator = initialValue;
             }
@@ -843,7 +843,7 @@ namespace Jint.Native.Array
 
             var k = len - 1;
             object accumulator = Undefined.Instance;
-            if (arguments.Length > 2)
+            if (arguments.Length > 1)
             {
                 accumulator = initialValue;
             }
