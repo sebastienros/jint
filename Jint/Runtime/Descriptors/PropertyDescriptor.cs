@@ -99,6 +99,34 @@ namespace Jint.Runtime.Descriptors
             }
         }
 
+        public static object FromPropertyDescriptor(Engine engine, PropertyDescriptor desc)
+        {
+            if (desc == PropertyDescriptor.Undefined)
+            {
+                return Native.Undefined.Instance;
+            }
+
+            var obj = engine.Object.Construct(Arguments.Empty);
+
+            if (desc.IsDataDescriptor())
+            {
+                var datadesc = desc.As<DataDescriptor>();
+                obj.DefineOwnProperty("value", new DataDescriptor(datadesc.Value) { Writable = true, Enumerable = true, Configurable = true }, false);
+                obj.DefineOwnProperty("writable", new DataDescriptor(datadesc.Writable) { Writable = true, Enumerable = true, Configurable = true }, false);
+            }
+            else
+            {
+                var accdesc = desc.As<AccessorDescriptor>();
+                obj.DefineOwnProperty("get", new DataDescriptor(accdesc.Get ?? Native.Undefined.Instance) { Writable = true, Enumerable = true, Configurable = true }, false);
+                obj.DefineOwnProperty("set", new DataDescriptor(accdesc.Set ?? Native.Undefined.Instance) { Writable = true, Enumerable = true, Configurable = true }, false);
+            }
+
+            obj.DefineOwnProperty("enumerable", new DataDescriptor(desc.Enumerable) { Writable = true, Enumerable = true, Configurable = true }, false);
+            obj.DefineOwnProperty("configurable", new DataDescriptor(desc.Configurable) { Writable = true, Enumerable = true, Configurable = true }, false);
+
+            return obj;
+        }
+
         /// <summary>
         /// Local implementation used to create a singleton representing 
         /// an undefined result of a PropertyDescriptor. This prevents the rest
