@@ -500,7 +500,7 @@ namespace Jint
                     {
                         var go = Global;
                         var existingProp = go.GetProperty(fn);
-                        if (existingProp.Configurable)
+                        if (existingProp.ConfigurableIsSet)
                         {
                             go.DefineOwnProperty(fn,
                                                  new DataDescriptor(Undefined.Instance)
@@ -512,7 +512,7 @@ namespace Jint
                         }
                         else
                         {
-                            if (existingProp.IsAccessorDescriptor() || (!existingProp.Enumerable))
+                            if (existingProp.IsAccessorDescriptor() || (!existingProp.EnumerableIsSet))
                             {
                                 throw new JavaScriptException(TypeError);
                             }

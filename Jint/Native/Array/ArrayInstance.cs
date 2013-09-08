@@ -44,7 +44,7 @@ namespace Jint.Native.Array
                 {
                     return base.DefineOwnProperty("length", newLenDesc, throwOnError);
                 }
-                if (!oldLenDesc.Writable)
+                if (!oldLenDesc.WritableIsSet)
                 {
                     if (throwOnError)
                     {
@@ -54,7 +54,7 @@ namespace Jint.Native.Array
                     return false;
                 }
                 var newWritable = true;
-                if (!newLenDesc.Writable)
+                if (!newLenDesc.WritableIsSet)
                 {
                     newWritable = false;
                     newLenDesc.Writable = true;
@@ -93,7 +93,7 @@ namespace Jint.Native.Array
             else if (IsArrayIndex(propertyName))
             {
                 var index = TypeConverter.ToUint32(propertyName);
-                if (index >= oldLen && !oldLenDesc.Writable)
+                if (index >= oldLen && !oldLenDesc.WritableIsSet)
                 {
                     if (throwOnError)
                     {

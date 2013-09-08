@@ -156,7 +156,7 @@ namespace Jint.Native.Object
 
             if (ownDesc.IsDataDescriptor())
             {
-                var valueDesc = new DataDescriptor(value) { Writable = true, Enumerable = true, Configurable = true };
+                var valueDesc = new DataDescriptor(value);
                 DefineOwnProperty(propertyName, valueDesc, throwOnError);
                 return;
             }
@@ -199,8 +199,8 @@ namespace Jint.Native.Object
 
                     return true;
                 }
-                
-                return desc.As<DataDescriptor>().Writable;
+
+                return desc.As<DataDescriptor>().WritableIsSet;
             }
 
             if (Prototype == null)
@@ -231,7 +231,7 @@ namespace Jint.Native.Object
             }
             else
             {
-                return inherited.As<DataDescriptor>().Writable;
+                return inherited.As<DataDescriptor>().WritableIsSet;
             }
         }
 
@@ -264,7 +264,7 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            if (desc.Configurable)
+            if (desc.ConfigurableIsSet)
             {
                 Properties.Remove(propertyName);
                 return true;
@@ -386,9 +386,9 @@ namespace Jint.Native.Object
 
             // todo: if desc and current are the same, return true
 
-            if (!current.Configurable)
+            if (!current.ConfigurableIsSet)
             {
-                if (desc.Configurable)
+                if (desc.ConfigurableIsSet)
                 {
                     if (throwOnError)
                     {
@@ -416,7 +416,7 @@ namespace Jint.Native.Object
 
             if (current.IsDataDescriptor() != desc.IsDataDescriptor())
             {
-                if (!current.Configurable)
+                if (!current.ConfigurableIsSet)
                 {
                     if (throwOnError)
                     {
@@ -436,9 +436,9 @@ namespace Jint.Native.Object
                 var cd = current.As<DataDescriptor>();
                 var dd = current.As<DataDescriptor>();
 
-                if (!current.Configurable)
+                if (!current.ConfigurableIsSet)
                 {
-                    if (!cd.Writable && dd.Writable)
+                    if (!cd.WritableIsSet && dd.WritableIsSet)
                     {
                         if (throwOnError)
                         {
@@ -448,13 +448,18 @@ namespace Jint.Native.Object
                         return false;
                     }
                 }
+
+                if (!dd.Writable.HasValue && cd.Writable.HasValue)
+                {
+                    dd.Enumerable = cd.Enumerable;
+                }
             }
             else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())
             {
                 var ca = current.As<AccessorDescriptor>();
                 var da = desc.As<AccessorDescriptor>();
 
-                if (!current.Configurable)
+                if (!current.ConfigurableIsSet)
                 {
                     if ( (da.Set != null && da.Set != ca.Set)
                         || (da.Get != null && da.Get != ca.Get))
@@ -470,6 +475,16 @@ namespace Jint.Native.Object
             }
 
             Properties[propertyName] = desc;
+
+            if (!desc.Configurable.HasValue && current.Configurable.HasValue)
+            {
+                desc.Configurable = current.Configurable;
+            }
+
+            if (!desc.Enumerable.HasValue && current.Enumerable.HasValue)
+            {
+                desc.Enumerable = current.Enumerable;
+            }
 
             return true;
         }

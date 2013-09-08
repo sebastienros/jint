@@ -21,7 +21,12 @@
         /// If false, attempts by ECMAScript code to change the 
         /// property‘s [[Value]] attribute using [[Put]] will not succeed.
         /// </summary>
-        public bool Writable { get; set; }
+        public bool? Writable { get; set; }
+
+        public bool WritableIsSet
+        {
+            get { return Writable.HasValue && Writable.Value; }
+        }
 
         public override bool IsAccessorDescriptor()
         {

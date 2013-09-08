@@ -299,7 +299,7 @@ namespace Jint.Native.Json
             var k = _propertyList;
             if (k == null)
             {
-                k = value.Properties.Where(x => x.Value.Enumerable).Select(x => x.Key).ToList();
+                k = value.Properties.Where(x => x.Value.EnumerableIsSet).Select(x => x.Key).ToList();
             }
             var partial = new List<string>();
             foreach (var p in k)

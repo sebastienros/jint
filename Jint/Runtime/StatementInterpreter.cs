@@ -212,7 +212,7 @@ namespace Jint.Runtime
             foreach (var p in keys)
             {
                 var value = obj.Properties[p];
-                if (!value.Enumerable)
+                if (!value.EnumerableIsSet)
                 {
                     continue;
                 }

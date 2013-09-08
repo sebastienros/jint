@@ -15,14 +15,24 @@ namespace Jint.Runtime.Descriptors
         /// enumeration (see 12.6.4). Otherwise, the property is said 
         /// to be non-enumerable.
         /// </summary>
-        public bool Enumerable { get; set; }
+        public bool? Enumerable { get; set; }
+
+        public bool EnumerableIsSet
+        {
+            get { return Enumerable.HasValue && Enumerable.Value; }
+        }
 
         /// <summary>
         /// If false, attempts to delete the property, change the 
         /// property to be a data property, or change its attributes will 
         /// fail.
         /// </summary>
-        public bool Configurable { get; set; }
+        public bool? Configurable { get; set; }
+
+        public bool ConfigurableIsSet
+        {
+            get { return Configurable.HasValue && Configurable.Value; }
+        }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.10.1
