@@ -34,7 +34,7 @@ namespace Jint.Native.Object
         {
             Prototype = Engine.Function.PrototypeObject;
 
-            FastAddProperty("getPrototypeOf", new ClrFunctionInstance<object, object>(Engine, GetPrototypeOf), false, false, false);
+            FastAddProperty("getPrototypeOf", new ClrFunctionInstance<object, object>(Engine, GetPrototypeOf, 1), false, false, false);
             FastAddProperty("getOwnPropertyDescriptor", new ClrFunctionInstance<object, object>(Engine, GetOwnPropertyDescriptor), false, false, false);
             FastAddProperty("getOwnPropertyNames", new ClrFunctionInstance<object, object>(Engine, GetOwnPropertyNames), false, false, false);
             FastAddProperty("create", new ClrFunctionInstance<object, object>(Engine, Create), false, false, false);
@@ -105,12 +105,13 @@ namespace Jint.Native.Object
 
         public object GetPrototypeOf(object thisObject, object[] arguments)
         {
-            if (TypeConverter.GetType(thisObject) != TypeCode.Object)
+            var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
+            if (TypeConverter.GetType(oArg) != TypeCode.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var o = thisObject as ObjectInstance;
+            var o = oArg as ObjectInstance;
 
             return o.Prototype ?? Null.Instance;
         }

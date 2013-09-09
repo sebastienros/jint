@@ -18,11 +18,14 @@ namespace Jint.Native.Global
             global.Prototype = null;
             global.Extensible = true;
             
-                        return global;
+            return global;
         }
 
         public void Configure()
         {
+            // this is implementation dependent, and only to pass some unit tests
+            Prototype = Engine.Object.PrototypeObject;
+
             // Global object properties
             FastAddProperty("Object", Engine.Object, true, false, true);
             FastAddProperty("Function", Engine.Function, true, false, true);

@@ -25,11 +25,13 @@ namespace Jint.Native.Json
         public static JsonInstance CreateJsonObject(Engine engine)
         {
             var json = new JsonInstance(engine);
+            json.Prototype = engine.Object.PrototypeObject;
             return json;
         }
 
         public void Configure()
         {
+
             FastAddProperty("parse", new ClrFunctionInstance<JsonInstance, object>(Engine, Parse), true, false, true);
             FastAddProperty("stringify", new ClrFunctionInstance<JsonInstance, object>(Engine, Stringify), true, false, true);
         }

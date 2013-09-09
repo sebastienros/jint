@@ -92,7 +92,7 @@ namespace Jint.Native.Function
                             {
                                 Type = SyntaxNodes.Identifier,
                                 Name = x
-                            }),
+                            }).ToArray(),
                         FunctionDeclarations = new List<FunctionDeclaration>(),
                         VariableDeclarations = new List<VariableDeclaration>()
                     },  
