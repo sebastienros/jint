@@ -146,7 +146,7 @@ namespace Jint.Native.Array
                 if (kPresent)
                 {
                     var kvalue = o.Get(pk);
-                    accumulator = callable.Call(Undefined.Instance, new object[] { accumulator, kvalue, k, o });
+                    accumulator = callable.Call(Undefined.Instance, new [] { accumulator, kvalue, k, o });
                 }
                 k++;
             }
@@ -179,8 +179,8 @@ namespace Jint.Native.Array
                 if (kpresent)
                 {
                     var kvalue = o.Get(pk);
-                    var selected = callable.Call(thisArg, new object[] { kvalue, k, o });
-                    if (TypeConverter.ToBoolean(selected) == true)
+                    var selected = callable.Call(thisArg, new [] { kvalue, k, o });
+                    if (TypeConverter.ToBoolean(selected))
                     {
                         a.DefineOwnProperty(to.ToString(), new DataDescriptor(kvalue) { Writable = true, Enumerable = true, Configurable = true }, false);
                         to++;
@@ -215,7 +215,7 @@ namespace Jint.Native.Array
                 if (kpresent)
                 {
                     var kvalue = o.Get(pk);
-                    var mappedValue = callable.Call(thisArg, new object[] { kvalue, k, o });
+                    var mappedValue = callable.Call(thisArg, new [] { kvalue, k, o });
                     a.DefineOwnProperty(pk, new DataDescriptor(mappedValue) { Writable = true, Enumerable = true, Configurable = true }, false);
                 }
             }
@@ -245,7 +245,7 @@ namespace Jint.Native.Array
                 if (kpresent)
                 {
                     var kvalue = o.Get(pk);
-                    callable.Call(thisArg, new object[] { kvalue, k, o });
+                    callable.Call(thisArg, new [] { kvalue, k, o });
                 }
             }
 
@@ -274,8 +274,8 @@ namespace Jint.Native.Array
                 if (kpresent)
                 {
                     var kvalue = o.Get(pk);
-                    var testResult = callable.Call(thisArg, new object[] { kvalue, k, o });
-                    if (TypeConverter.ToBoolean(testResult) == true)
+                    var testResult = callable.Call(thisArg, new [] { kvalue, k, o });
+                    if (TypeConverter.ToBoolean(testResult))
                     {
                         return true;
                     }
@@ -307,8 +307,8 @@ namespace Jint.Native.Array
                 if (kpresent)
                 {
                     var kvalue = o.Get(pk);
-                    var testResult = callable.Call(thisArg, new object[] { kvalue, k, o });
-                    if (!TypeConverter.ToBoolean(testResult))
+                    var testResult = callable.Call(thisArg, new [] { kvalue, k, o });
+                    if (false == TypeConverter.ToBoolean(testResult))
                     {
                         return false;
                     }
@@ -723,7 +723,7 @@ namespace Jint.Native.Array
             var array = TypeConverter.ToObject(Engine, thisObj);
             var arrayLen = array.Get("length");
             var len = TypeConverter.ToUint32(arrayLen);
-            var separator = ",";
+            const string separator = ",";
             if (len == 0)
             {
                 return "";
@@ -841,7 +841,7 @@ namespace Jint.Native.Array
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var k = len - 1;
+            int k = (int)len - 1;
             object accumulator = Undefined.Instance;
             if (arguments.Length > 1)
             {
@@ -873,7 +873,7 @@ namespace Jint.Native.Array
                 if (kPresent)
                 {
                     var kvalue = o.Get(pk);
-                    accumulator = callable.Call(Undefined.Instance, new object[] { accumulator, kvalue, k, o });
+                    accumulator = callable.Call(Undefined.Instance, new [] { accumulator, kvalue, k, o });
                 }
             }
 
