@@ -22,7 +22,7 @@ namespace Jint.Native.Function
         public static FunctionConstructor CreateFunctionConstructor(Engine engine)
         {
             var obj = new FunctionConstructor(engine);
-
+            obj.Extensible = true;
 
             // The initial value of Function.prototype is the standard built-in Function prototype object
             obj.PrototypeObject = FunctionPrototype.CreatePrototypeObject(engine);

@@ -83,7 +83,7 @@ namespace Jint.Native.Date
             else
             {
                 var y = TypeConverter.ToNumber(arguments[0]);
-                var m = (int) TypeConverter.ToInteger(arguments[0]);
+                var m = (int) TypeConverter.ToInteger(arguments[1]);
                 var date = arguments.Length > 2 ? (int)TypeConverter.ToInteger(arguments[2]) : 1;
                 var hours = arguments.Length > 3 ? (int)TypeConverter.ToInteger(arguments[3]) : 0;
                 var minutes = arguments.Length > 4 ? (int)TypeConverter.ToInteger(arguments[4]) : 0;

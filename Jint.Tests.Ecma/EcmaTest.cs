@@ -20,38 +20,23 @@ namespace Jint.Tests.Ecma
 
         }
 
-        private const string Driver = @"
-            function fnGlobalObject() {
-                return Function('return this')();
-            }
-
-            function runTestCase(f) {
-                if(!f()) $ERROR('');
-            }
-        ";
-
-        private const string NegativeDriver = @"
-            function fnGlobalObject() {
-                return Function('return this')();
-            }
-
-            function runTestCase(f) {
-                if(f()) $ERROR('');
-            }
-        ";
-
         protected void RunTestCode(string code, bool negative)
         {
-            _lastError = null; 
-            
-            var engine = new Engine(cfg => cfg
-                    .WithDelegate("$ERROR", Error)
-                );
+            _lastError = null;
+
+            var engine = new Engine();
+
+
+            // loading driver
+
+            var driverFilename = Path.Combine(BasePath, "TestCases\\sta.js");
+            engine.Execute(File.ReadAllText(driverFilename));
+
             if (negative)
             {
                 try
                 {
-                    engine.Execute(code + Environment.NewLine + NegativeDriver);
+                    engine.Execute(code);
                     Assert.True(_lastError != null);
                     Assert.False(true);
                 }
@@ -63,7 +48,7 @@ namespace Jint.Tests.Ecma
             }
             else
             {
-                Assert.DoesNotThrow(() => engine.Execute(code + Environment.NewLine + Driver));
+                Assert.DoesNotThrow(() => engine.Execute(code));
                 Assert.Null(_lastError);
             }
         }

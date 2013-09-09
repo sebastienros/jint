@@ -24,6 +24,7 @@ namespace Jint.Native.Argument
             var len = args.Length;
             var obj = new ArgumentsInstance(engine);
             obj.Prototype = engine.Object.PrototypeObject;
+            obj.Extensible = true;
             obj.FastAddProperty("length", len, true, false, true);
             var map = engine.Object.Construct(Arguments.Empty);
             var mappedNamed = new List<string>();

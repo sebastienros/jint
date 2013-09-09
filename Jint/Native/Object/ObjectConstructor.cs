@@ -20,6 +20,8 @@ namespace Jint.Native.Object
         public static ObjectConstructor CreateObjectConstructor(Engine engine)
         {
             var obj = new ObjectConstructor(engine);
+            obj.Extensible = true;
+
             obj.PrototypeObject = ObjectPrototype.CreatePrototypeObject(engine, obj);
 
             obj.FastAddProperty("length", 1, false, false, false);
@@ -38,12 +40,12 @@ namespace Jint.Native.Object
             FastAddProperty("create", new ClrFunctionInstance<object, object>(Engine, Create), false, false, false);
             FastAddProperty("defineProperty", new ClrFunctionInstance<object, object>(Engine, DefineProperty), false, false, false);
             FastAddProperty("defineProperties", new ClrFunctionInstance<object, object>(Engine, DefineProperties), false, false, false);
-            FastAddProperty("seal", new ClrFunctionInstance<object, object>(Engine, Seal), false, false, false);
-            FastAddProperty("freeze", new ClrFunctionInstance<object, object>(Engine, Freeze), false, false, false);
-            FastAddProperty("preventExtensions", new ClrFunctionInstance<object, object>(Engine, PreventExtensions), false, false, false);
-            FastAddProperty("isSealed", new ClrFunctionInstance<object, object>(Engine, IsSealed), false, false, false);
-            FastAddProperty("isFrozen", new ClrFunctionInstance<object, object>(Engine, IsFrozen), false, false, false);
-            FastAddProperty("isExtensible", new ClrFunctionInstance<object, object>(Engine, IsExtensible), false, false, false);
+            FastAddProperty("seal", new ClrFunctionInstance<object, object>(Engine, Seal, 1), false, false, false);
+            FastAddProperty("freeze", new ClrFunctionInstance<object, object>(Engine, Freeze, 1), false, false, false);
+            FastAddProperty("preventExtensions", new ClrFunctionInstance<object, object>(Engine, PreventExtensions, 1), false, false, false);
+            FastAddProperty("isSealed", new ClrFunctionInstance<object, object>(Engine, IsSealed, 1), false, false, false);
+            FastAddProperty("isFrozen", new ClrFunctionInstance<object, object>(Engine, IsFrozen, 1), false, false, false);
+            FastAddProperty("isExtensible", new ClrFunctionInstance<object, object>(Engine, IsExtensible, 1), false, false, false);
             FastAddProperty("keys", new ClrFunctionInstance<object, object>(Engine, Keys), false, false, false);
         }
 
@@ -311,7 +313,7 @@ namespace Jint.Native.Object
                 }
             }
 
-            if (o.Extensible)
+            if (o.Extensible == false)
             {
                 return true;
             }
