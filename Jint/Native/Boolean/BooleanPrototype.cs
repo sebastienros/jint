@@ -36,7 +36,7 @@ namespace Jint.Native.Boolean
         {
             var B = thisObj;
             object b;
-            if (TypeConverter.GetType(B) == TypeCode.Boolean)
+            if (TypeConverter.GetType(B) == Types.Boolean)
             {
                 b = B;
             }

@@ -1,5 +1,6 @@
 ﻿using System;
 using Jint.Native.Object;
+using Jint.Runtime;
 
 namespace Jint.Native.Number
 {
@@ -20,9 +21,9 @@ namespace Jint.Native.Number
             }
         }
 
-        TypeCode IPrimitiveType.TypeCode
+        Types IPrimitiveType.Type
         {
-            get { return TypeCode.Double; }
+            get { return Types.Number; }
         }
 
         object IPrimitiveType.PrimitiveValue

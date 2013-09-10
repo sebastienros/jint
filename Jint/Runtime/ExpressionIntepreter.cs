@@ -57,8 +57,8 @@ namespace Jint.Runtime
                 case "+=":
                     var lprim = TypeConverter.ToPrimitive(lval);
                     var rprim = TypeConverter.ToPrimitive(rval);
-                    if (TypeConverter.GetType(lprim) == TypeCode.String ||
-                        TypeConverter.GetType(rprim) == TypeCode.String)
+                    if (TypeConverter.GetType(lprim) == Types.String ||
+                        TypeConverter.GetType(rprim) == Types.String)
                     {
                         lval = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
                     }
@@ -193,7 +193,7 @@ namespace Jint.Runtime
                 case "+":
                     var lprim = TypeConverter.ToPrimitive(left);
                     var rprim = TypeConverter.ToPrimitive(right);
-                    if (TypeConverter.GetType(lprim) == TypeCode.String || TypeConverter.GetType(rprim) == TypeCode.String)
+                    if (TypeConverter.GetType(lprim) == Types.String || TypeConverter.GetType(rprim) == Types.String)
                     {
                         value = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
                     }
@@ -369,12 +369,12 @@ namespace Jint.Runtime
 
             if (typex == typey)
             {
-                if (typex == TypeCode.Empty)
+                if (typex == Types.Undefined || typex == Types.Null)
                 {
                     return true;
                 }
 
-                if (typex == TypeCode.Double)
+                if (typex == Types.Number)
                 {
                     var nx = TypeConverter.ToNumber(x);
                     var ny = TypeConverter.ToNumber(y);
@@ -392,12 +392,12 @@ namespace Jint.Runtime
                     return false;
                 }
 
-                if (typex == TypeCode.String)
+                if (typex == Types.String)
                 {
                     return TypeConverter.ToString(x) == TypeConverter.ToString(y);
                 }
 
-                if (typex == TypeCode.Boolean)
+                if (typex == Types.Boolean)
                 {
                     return (bool) x == (bool) y;
                 }
@@ -415,32 +415,32 @@ namespace Jint.Runtime
                 return true;
             }
 
-            if (typex == TypeCode.Double && typey == TypeCode.String)
+            if (typex == Types.Number && typey == Types.String)
             {
                 return Equal(x, TypeConverter.ToNumber(y));
             }
 
-            if (typex == TypeCode.String && typey == TypeCode.Double)
+            if (typex == Types.String && typey == Types.Number)
             {
                 return Equal(TypeConverter.ToNumber(x), y);
             }
 
-            if (typex == TypeCode.Boolean)
+            if (typex == Types.Boolean)
             {
                 return Equal(TypeConverter.ToNumber(x), y);
             }
 
-            if (typey == TypeCode.Boolean)
+            if (typey == Types.Boolean)
             {
                 return Equal(x, TypeConverter.ToNumber(y));
             }
 
-            if (typey == TypeCode.Object && (typex == TypeCode.String || typex == TypeCode.Double))
+            if (typey == Types.Object && (typex == Types.String || typex == Types.Number))
             {
                 return Equal(x, TypeConverter.ToPrimitive(y));
             }
 
-            if (typex == TypeCode.Object && (typey == TypeCode.String || typey == TypeCode.Double))
+            if (typex == Types.Object && (typey == Types.String || typey == Types.Number))
             {
                 return Equal(TypeConverter.ToPrimitive(x), y);
             }
@@ -458,11 +458,16 @@ namespace Jint.Runtime
                 return false;
             }
 
-            if (typea == TypeCode.Empty)
+            if (typea == Types.Undefined || typea == Types.Null)
             {
                 return true;
             }
-            if (typea == TypeCode.Double)
+
+            if (typea == Types.None)
+            {
+                return true;
+            }
+            if (typea == Types.Number)
             {
                 var nx = TypeConverter.ToNumber(x);
                 var ny = TypeConverter.ToNumber(y);
@@ -478,11 +483,11 @@ namespace Jint.Runtime
 
                 return false;
             }
-            if (typea == TypeCode.String)
+            if (typea == Types.String)
             {
                 return TypeConverter.ToString(x) == TypeConverter.ToString(y);
             }
-            if (typea == TypeCode.Boolean)
+            if (typea == Types.Boolean)
             {
                 return TypeConverter.ToBoolean(x) == TypeConverter.ToBoolean(y);
             }
@@ -499,11 +504,11 @@ namespace Jint.Runtime
                 return false;
             }
 
-            if (typea == TypeCode.Empty)
+            if (typea == Types.None)
             {
                 return true;
             }
-            if (typea == TypeCode.Double)
+            if (typea == Types.Number)
             {
                 var nx = TypeConverter.ToNumber(x);
                 var ny = TypeConverter.ToNumber(y);
@@ -525,11 +530,11 @@ namespace Jint.Runtime
 
                 return false;
             }
-            if (typea == TypeCode.String)
+            if (typea == Types.String)
             {
                 return TypeConverter.ToString(x) == TypeConverter.ToString(y);
             }
-            if (typea == TypeCode.Boolean)
+            if (typea == Types.Boolean)
             {
                 return TypeConverter.ToBoolean(x) == TypeConverter.ToBoolean(y);
             }
@@ -541,18 +546,18 @@ namespace Jint.Runtime
             object px, py;
             if (leftFirst)
             {
-                px = TypeConverter.ToPrimitive(x, TypeCode.Double);
-                py = TypeConverter.ToPrimitive(y, TypeCode.Double);
+                px = TypeConverter.ToPrimitive(x, Types.Number);
+                py = TypeConverter.ToPrimitive(y, Types.Number);
             }
             else
             {
-                py = TypeConverter.ToPrimitive(y, TypeCode.Double);
-                px = TypeConverter.ToPrimitive(x, TypeCode.Double);
+                py = TypeConverter.ToPrimitive(y, Types.Number);
+                px = TypeConverter.ToPrimitive(x, Types.Number);
             }
             var typea = TypeConverter.GetType(x);
             var typeb = TypeConverter.GetType(y);
 
-            if (typea != TypeCode.String || typeb != TypeCode.String)
+            if (typea != Types.String || typeb != Types.String)
             {
                 var nx = TypeConverter.ToNumber(px);
                 var ny = TypeConverter.ToNumber(py);
@@ -776,7 +781,7 @@ namespace Jint.Runtime
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
             var arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
 
-            if (TypeConverter.GetType(func) != TypeCode.Object)
+            if (TypeConverter.GetType(func) != Types.Object)
             {
                 throw new JavaScriptException(_engine.TypeError);
             }
@@ -887,12 +892,16 @@ namespace Jint.Runtime
 
         public object EvaluateArrayExpression(ArrayExpression arrayExpression)
         {
-            var a = _engine.Array.Construct(Arguments.Empty);
+            var a = _engine.Array.Construct(new object[] { arrayExpression.Elements.Count() });
             var n = 0;
             foreach (var expr in arrayExpression.Elements)
             {
-                var value = expr == null ? Null.Instance : _engine.GetValue(EvaluateExpression(expr));
-                a.DefineOwnProperty(n.ToString(), new DataDescriptor(value) { Writable = true, Enumerable = true, Configurable = true }, false);
+                if (expr != null)
+                {
+                    var value = _engine.GetValue(EvaluateExpression(expr));
+                    a.DefineOwnProperty(n.ToString(),
+                        new DataDescriptor(value) {Writable = true, Enumerable = true, Configurable = true}, false);
+                }
                 n++;
             }
             
@@ -970,9 +979,9 @@ namespace Jint.Runtime
                     }
                     switch (TypeConverter.GetType(v))
                     {
-                        case TypeCode.Boolean: return "boolean";
-                        case TypeCode.Double: return "number";
-                        case TypeCode.String: return "string";
+                        case Types.Boolean: return "boolean";
+                        case Types.Number: return "number";
+                        case Types.String: return "string";
                     }
                     if (v is ICallable)
                     {

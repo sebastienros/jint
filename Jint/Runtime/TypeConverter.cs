@@ -5,6 +5,17 @@ using Jint.Native.Object;
 
 namespace Jint.Runtime
 {
+    public enum Types
+    {
+        None,
+        Undefined,
+        Null,
+        Boolean,
+        String,
+        Number,
+        Object
+    }
+
     public class TypeConverter
     {
         /// <summary>
@@ -13,7 +24,7 @@ namespace Jint.Runtime
         /// <param name="input"></param>
         /// <param name="preferredType"></param>
         /// <returns></returns>
-        public static object ToPrimitive(object input, TypeCode preferredType = TypeCode.Empty)
+        public static object ToPrimitive(object input, Types preferredType = Types.None)
         {
             if (input == Null.Instance || input == Undefined.Instance)
             {
@@ -210,7 +221,7 @@ namespace Jint.Runtime
                 return double.NaN;
             }
 
-            return ToNumber(ToPrimitive(o, TypeCode.Double));
+            return ToNumber(ToPrimitive(o, Types.Number));
         }
 
         /// <summary>
@@ -232,7 +243,7 @@ namespace Jint.Runtime
                 return number;
             }
 
-            return Math.Sign(number)*Math.Floor(Math.Abs(number));
+            return (long)number;
         }
 
         /// <summary>
@@ -350,7 +361,7 @@ namespace Jint.Runtime
                 return o.ToString();
             }
 
-            return ToString(ToPrimitive(o, TypeCode.String));
+            return ToString(ToPrimitive(o, Types.String));
         }
 
         public static ObjectInstance ToObject(Engine engine, object value)
@@ -405,29 +416,34 @@ namespace Jint.Runtime
             throw new JavaScriptException(engine.TypeError);
         }
 
-        public static TypeCode GetType(object value)
+        public static Types GetType(object value)
         {
-            if (value == null || value == Undefined.Instance || value == Null.Instance)
+            if (value == null || value == Null.Instance)
             {
-                return TypeCode.Empty;
+                return Types.Null;
+            }
+
+            if (value == Undefined.Instance)
+            {
+                return Types.Undefined;
             }
 
             if (value is string)
             {
-                return TypeCode.String;
+                return Types.String;
             }
 
             if (value is double || value is int || value is uint || value is ushort)
             {
-                return TypeCode.Double;
+                return Types.Number;
             }
 
             if (value is bool)
             {
-                return TypeCode.Boolean;
+                return Types.Boolean;
             }
 
-            return TypeCode.Object;
+            return Types.Object;
         }
 
         public static void CheckObjectCoercible(Engine engine, object o)

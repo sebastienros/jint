@@ -1,10 +1,10 @@
-﻿using System;
+﻿using Jint.Runtime;
 
 namespace Jint.Native
 {
     public interface IPrimitiveType
     {
-        TypeCode TypeCode { get; } 
+        Types Type { get; } 
         object PrimitiveValue { get; }
     }
 }

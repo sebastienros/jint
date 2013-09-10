@@ -74,14 +74,14 @@ namespace Jint.Runtime.Descriptors
             {
                 throw new JavaScriptException(engine.TypeError);
             }
-            
-            bool writable = TypeConverter.ToBoolean(obj.Get("writable"));
-            bool enumerable = TypeConverter.ToBoolean(obj.Get("enumerable"));
-            bool configurable = TypeConverter.ToBoolean(obj.Get("configurable"));
+
+            bool? writable = obj.HasProperty("writable") ? TypeConverter.ToBoolean(obj.Get("writable")) : default(bool?);
+            bool? enumerable = obj.HasProperty("enumerable") ? TypeConverter.ToBoolean(obj.Get("enumerable")) : default(bool?);
+            bool? configurable = obj.HasProperty("configurable") ? TypeConverter.ToBoolean(obj.Get("configurable")) : default(bool?);
 
             if (obj.HasProperty("value"))
             {
-                var value = TypeConverter.ToBoolean(obj.Get("value"));
+                var value = obj.Get("value");
                 return new DataDescriptor(value) { Configurable = configurable, Enumerable = enumerable, Writable = writable};
             }
             else
@@ -105,7 +105,7 @@ namespace Jint.Runtime.Descriptors
                     }
                 }
 
-                return new AccessorDescriptor(getter as ICallable, setter as ICallable);
+                return new AccessorDescriptor(getter as ICallable, setter as ICallable) { Configurable = configurable, Enumerable = enumerable };
             }
         }
 

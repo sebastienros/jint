@@ -88,7 +88,7 @@ namespace Jint.Native.Object
                     return valueObj;
                 }
                 var type = TypeConverter.GetType(value);
-                if (type == TypeCode.String || type == TypeCode.Double || type == TypeCode.Boolean)
+                if (type == Types.String || type == Types.Number || type == Types.Boolean)
                 {
                     return TypeConverter.ToObject(_engine, value);
                 }
@@ -106,7 +106,7 @@ namespace Jint.Native.Object
         public object GetPrototypeOf(object thisObject, object[] arguments)
         {
             var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != TypeCode.Object)
+            if (TypeConverter.GetType(oArg) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -119,7 +119,7 @@ namespace Jint.Native.Object
         public object GetOwnPropertyDescriptor(object thisObject, object[] arguments)
         {
             var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != TypeCode.Object)
+            if (TypeConverter.GetType(oArg) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -136,7 +136,7 @@ namespace Jint.Native.Object
         public object GetOwnPropertyNames(object thisObject, object[] arguments)
         {
             var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != TypeCode.Object)
+            if (TypeConverter.GetType(oArg) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -157,7 +157,7 @@ namespace Jint.Native.Object
         public object Create(object thisObject, object[] arguments)
         {
             var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != TypeCode.Object)
+            if (TypeConverter.GetType(oArg) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -199,7 +199,7 @@ namespace Jint.Native.Object
         public object DefineProperties(object thisObject, object[] arguments)
         {
             var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != TypeCode.Object)
+            if (TypeConverter.GetType(oArg) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -227,7 +227,7 @@ namespace Jint.Native.Object
         public object Seal(object thisObject, object[] arguments)
         {
             var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != TypeCode.Object)
+            if (TypeConverter.GetType(oArg) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -252,28 +252,30 @@ namespace Jint.Native.Object
         public object Freeze(object thisObject, object[] arguments)
         {
             var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != TypeCode.Object)
+            if (TypeConverter.GetType(oArg) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var o = oArg as ObjectInstance;
+            var o = (ObjectInstance)oArg;
 
-            foreach (var prop in o.Properties)
+            var keys = o.Properties.Keys.ToArray();
+            foreach (var key in keys)
             {
-                if (prop.Value.IsDataDescriptor())
+                var prop = o.Properties[key];
+                if (prop.IsDataDescriptor())
                 {
-                    var datadesc = prop.Value.As<DataDescriptor>();
+                    var datadesc = prop.As<DataDescriptor>();
                     if (datadesc.WritableIsSet)
                     {
                         datadesc.Writable = false;
                     }
                 }
-                if (prop.Value.ConfigurableIsSet)
+                if (prop.ConfigurableIsSet)
                 {
-                    prop.Value.Configurable = false;
+                    prop.Configurable = false;
                 }
-                o.DefineOwnProperty(prop.Key, prop.Value, true);
+                o.DefineOwnProperty(key, prop, true);
             }
             
             o.Extensible = false;
@@ -284,7 +286,7 @@ namespace Jint.Native.Object
         public object PreventExtensions(object thisObject, object[] arguments)
         {
             var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != TypeCode.Object)
+            if (TypeConverter.GetType(oArg) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -299,7 +301,7 @@ namespace Jint.Native.Object
         public object IsSealed(object thisObject, object[] arguments)
         {
             var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != TypeCode.Object)
+            if (TypeConverter.GetType(oArg) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -325,7 +327,7 @@ namespace Jint.Native.Object
         public object IsFrozen(object thisObject, object[] arguments)
         {
             var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != TypeCode.Object)
+            if (TypeConverter.GetType(oArg) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -358,7 +360,7 @@ namespace Jint.Native.Object
         public object IsExtensible(object thisObject, object[] arguments)
         {
             var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != TypeCode.Object)
+            if (TypeConverter.GetType(oArg) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -371,7 +373,7 @@ namespace Jint.Native.Object
         public object Keys(object thisObject, object[] arguments)
         {
             var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != TypeCode.Object)
+            if (TypeConverter.GetType(oArg) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }

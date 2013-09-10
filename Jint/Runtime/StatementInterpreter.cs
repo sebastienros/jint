@@ -366,7 +366,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteStatementList(IEnumerable<Statement> statementList)
         {
-            var c = new Completion(Completion.Normal, null, null);
+            var c = new Completion(Completion.Normal, Null.Instance, null);
             Completion sl = c;
 
             try

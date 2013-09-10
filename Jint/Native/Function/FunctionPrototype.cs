@@ -19,6 +19,7 @@ namespace Jint.Native.Function
         public static FunctionPrototype CreatePrototypeObject(Engine engine)
         {
             var obj = new FunctionPrototype(engine);
+            obj.Extensible = true;
 
             // The value of the [[Prototype]] internal property of the Function prototype object is the standard built-in Object prototype object
             obj.Prototype = engine.Object.PrototypeObject;

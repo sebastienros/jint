@@ -41,9 +41,9 @@ namespace Jint.Runtime.References
         {
             var type = TypeConverter.GetType(_baseValue);
 
-            return (type == TypeCode.Boolean)
-                || (type == TypeCode.String)
-                || (type == TypeCode.Double)
+            return (type == Types.Boolean)
+                || (type == Types.String)
+                || (type == Types.Number)
                 ;
         }
 

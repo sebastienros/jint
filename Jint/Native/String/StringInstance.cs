@@ -23,9 +23,9 @@ namespace Jint.Native.String
             }
         }
 
-        TypeCode IPrimitiveType.TypeCode
+        Types IPrimitiveType.Type
         {
-            get { return TypeCode.Boolean; }
+            get { return Types.Boolean; }
         }
 
         object IPrimitiveType.PrimitiveValue

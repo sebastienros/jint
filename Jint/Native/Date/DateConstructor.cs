@@ -72,7 +72,7 @@ namespace Jint.Native.Date
             else if (arguments.Length == 1)
             {
                 var v = TypeConverter.ToPrimitive(arguments[0]);
-                if (TypeConverter.GetType(v) == TypeCode.String)
+                if (TypeConverter.GetType(v) == Types.String)
                 {
                     var d = DateTime.Parse(TypeConverter.ToString(v));
                     return Construct(d);

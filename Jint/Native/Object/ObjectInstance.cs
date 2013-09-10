@@ -60,6 +60,11 @@ namespace Jint.Native.Object
 
             var getter = desc.As<AccessorDescriptor>().Get;
 
+            if (getter == null)
+            {
+                return Undefined.Instance;
+            }
+
             return getter.Call(this, Arguments.Empty);
         }
 
@@ -286,9 +291,9 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="hint"></param>
         /// <returns></returns>
-        public object DefaultValue(TypeCode hint)
+        public object DefaultValue(Types hint)
         {
-            if ((hint == TypeCode.String) || (hint == TypeCode.Empty && this is StringInstance))
+            if ((hint == Types.String) || (hint == Types.None && this is StringInstance))
             {
                 var toString = Get("toString");
                 var callable = toString as ICallable;
@@ -315,7 +320,7 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            if ((hint == TypeCode.Double) || (hint == TypeCode.Empty))
+            if ((hint == Types.Number) || (hint == Types.None))
             {
                 var valueOf = Get("valueOf");
                 var callable = valueOf as ICallable;

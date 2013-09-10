@@ -1,5 +1,6 @@
 ﻿using System;
 using Jint.Native.Object;
+using Jint.Runtime;
 
 namespace Jint.Native.Boolean
 {
@@ -18,9 +19,9 @@ namespace Jint.Native.Boolean
             }
         }
 
-        TypeCode IPrimitiveType.TypeCode
+        Types IPrimitiveType.Type
         {
-            get { return TypeCode.Boolean; }
+            get { return Types.Boolean; }
         }
 
         object IPrimitiveType.PrimitiveValue

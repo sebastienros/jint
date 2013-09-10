@@ -27,7 +27,7 @@ namespace Jint.Native.Json
         {
             _stack = new Stack<object>();
 
-            if (TypeConverter.GetType(replacer) == TypeCode.Object)
+            if (TypeConverter.GetType(replacer) == Types.Object)
             {
                 if (replacer is ICallable)
                 {
@@ -46,15 +46,15 @@ namespace Jint.Native.Json
                         object v = _engine.GetValue(property);
                         string item = null;
                         var type = TypeConverter.GetType(v);
-                        if (type == TypeCode.String)
+                        if (type == Types.String)
                         {
                             item = (string)v;
                         }
-                        else if (type == TypeCode.Double)
+                        else if (type == Types.Number)
                         {
                             item = TypeConverter.ToString(v);
                         }
-                        else if(type == TypeCode.Object)
+                        else if (type == Types.Object)
                         {
                             var propertyObj = (ObjectInstance) v;
                             if (propertyObj.Class == "String" || propertyObj.Class == "Number")
@@ -86,11 +86,11 @@ namespace Jint.Native.Json
             }
 
             // defining the gap
-            if (TypeConverter.GetType(space) == TypeCode.Double)
+            if (TypeConverter.GetType(space) == Types.Number)
             {
                 _gap = new System.String(' ', (int) System.Math.Min(10, (double) space));
-            } 
-            else if (TypeConverter.GetType(space) == TypeCode.String)
+            }
+            else if (TypeConverter.GetType(space) == Types.String)
             {
                 var stringSpace = (string) space;
                 _gap = stringSpace.Length <= 10 ? stringSpace : stringSpace.Substring(0, 10);
@@ -163,12 +163,12 @@ namespace Jint.Native.Json
                 return "false";
             }
 
-            if (TypeConverter.GetType(value) == TypeCode.String)
+            if (TypeConverter.GetType(value) == Types.String)
             {
                 return Quote((string) value);
             }
 
-            if (TypeConverter.GetType(value) == TypeCode.Double)
+            if (TypeConverter.GetType(value) == Types.Number)
             {
                 if (GlobalObject.IsFinite(this, Arguments.From(value)))
                 {

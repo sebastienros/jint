@@ -45,8 +45,8 @@ namespace Jint.Native.Array
             FastAddProperty("sort", new ClrFunctionInstance<object, ObjectInstance>(Engine, Sort, 1), true, false, true);
             FastAddProperty("splice", new ClrFunctionInstance<object, ObjectInstance>(Engine, Splice, 2), true, false, true);
             FastAddProperty("unshift", new ClrFunctionInstance<object, uint>(Engine, Unshift, 1), true, false, true);
-            FastAddProperty("indexOf", new ClrFunctionInstance<object, int>(Engine, IndexOf, 1), true, false, true);
-            FastAddProperty("lastIndexOf", new ClrFunctionInstance<object, int>(Engine, LastIndexOf, 1), true, false, true);
+            FastAddProperty("indexOf", new ClrFunctionInstance<object, double>(Engine, IndexOf, 1), true, false, true);
+            FastAddProperty("lastIndexOf", new ClrFunctionInstance<object, double>(Engine, LastIndexOf, 1), true, false, true);
             FastAddProperty("every", new ClrFunctionInstance<object, bool>(Engine, Every, 1), true, false, true);
             FastAddProperty("some", new ClrFunctionInstance<object, bool>(Engine, Some, 1), true, false, true);
             FastAddProperty("forEach", new ClrFunctionInstance<object, object>(Engine, ForEach, 1), true, false, true);
@@ -56,7 +56,7 @@ namespace Jint.Native.Array
             FastAddProperty("reduceRight", new ClrFunctionInstance<object, object>(Engine, ReduceRight, 1), true, false, true);
         }
 
-        private int LastIndexOf(object thisObj, object[] arguments)
+        private double LastIndexOf(object thisObj, object[] arguments)
         {
             var o = TypeConverter.ToObject(Engine, thisObj);
             var lenValue = o.Get("length");
@@ -66,18 +66,18 @@ namespace Jint.Native.Array
                 return -1;
             }
 
-            var n = arguments.Length > 1 ? (int)TypeConverter.ToInteger(arguments[1]) : (int)len - 1;
-            int k;
+            var n = arguments.Length > 1 ? TypeConverter.ToInteger(arguments[1]) : len - 1;
+            double k;
             if (n >= 0)
             {
-                k = System.Math.Min(n, (int)len - 1); // min
+                k = System.Math.Min(n, len - 1); // min
             }
             else
             {
-                k = (int)len - System.Math.Abs(n);
+                k = len - System.Math.Abs(n);
             }
             var searchElement = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            for (; k > 0; k--)
+            for (; k >= 0; k--)
             {
                 var kString = TypeConverter.ToString(k);
                 var kPresent = o.HasProperty(kString);
@@ -206,7 +206,7 @@ namespace Jint.Native.Array
                 throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
             }
 
-            var a = (ArrayInstance)Engine.Array.Construct(Arguments.Empty);
+            var a = (ArrayInstance)Engine.Array.Construct(new object[] {len});
 
             for (var k = 0; k < len; k++)
             {
@@ -318,7 +318,7 @@ namespace Jint.Native.Array
             return true;
         }
 
-        private int IndexOf(object thisObj, object[] arguments)
+        private double IndexOf(object thisObj, object[] arguments)
         {
             var o = TypeConverter.ToObject(Engine, thisObj);
             var lenValue = o.Get("length");
@@ -328,19 +328,19 @@ namespace Jint.Native.Array
                 return -1;
             }
 
-            var n = arguments.Length > 1 ? (int)TypeConverter.ToInteger(arguments[1]) : 0;
+            var n = arguments.Length > 1 ? TypeConverter.ToInteger(arguments[1]) : 0;
             if (n >= len)
             {
                 return -1;
             }
-            int k;
+            double k;
             if (n >= 0)
             {
                 k = n;
             }
             else
             {
-                k = (int)len - System.Math.Abs(n);
+                k = len - System.Math.Abs(n);
                 if (k < 0)
                 {
                     k = 0;
@@ -801,6 +801,9 @@ namespace Jint.Native.Array
                     n++;
                 }
             }
+
+            a.DefineOwnProperty("length", new DataDescriptor(n), false);
+            
             return a;
         }
 

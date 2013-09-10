@@ -37,7 +37,7 @@ namespace Jint.Native.Function
 
             var proto = engine.Object.Construct(Arguments.Empty);
             proto.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = true }, false);
-            DefineOwnProperty("prototype", new DataDescriptor(proto) { Writable = true, Enumerable = false, Configurable = false }, false);
+            DefineOwnProperty("prototype", new DataDescriptor(proto) { Writable = true, Enumerable = false, Configurable = true }, false);
 
             DefineOwnProperty("name", new DataDescriptor(_functionDeclaration.Id), false);
             
@@ -68,7 +68,7 @@ namespace Jint.Native.Function
             {
                 thisBinding = Engine.Global;
             }
-            else if (TypeConverter.GetType(thisArg) != TypeCode.Object)
+            else if (TypeConverter.GetType(thisArg) != Types.Object)
             {
                 thisBinding = TypeConverter.ToObject(Engine, thisArg);
             }
@@ -157,7 +157,7 @@ namespace Jint.Native.Function
             var proto = Get("prototype") as ObjectInstance;
             var obj = new ObjectInstance(Engine);
             obj.Extensible = true;
-            obj.Prototype = proto ?? Engine.Object;
+            obj.Prototype = proto ?? Engine.Object.PrototypeObject;
 
             var result = Call(obj, arguments) as ObjectInstance;
             if (result != null)

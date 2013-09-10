@@ -1,5 +1,6 @@
 ﻿using System;
 using Jint.Native.Object;
+using Jint.Runtime;
 
 namespace Jint.Native.Date
 {
@@ -24,9 +25,9 @@ namespace Jint.Native.Date
             }
         }
 
-        TypeCode IPrimitiveType.TypeCode
+        Types IPrimitiveType.Type
         {
-            get { return TypeCode.DateTime; }
+            get { return Types.Number; }
         }
 
         object IPrimitiveType.PrimitiveValue

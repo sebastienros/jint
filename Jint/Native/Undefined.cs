@@ -1,4 +1,5 @@
 ﻿using System;
+using Jint.Runtime;
 
 namespace Jint.Native
 {
@@ -15,9 +16,9 @@ namespace Jint.Native
             return "undefined";
         }
 
-        public TypeCode TypeCode
+        public Types Type
         {
-            get { return TypeCode.Empty; }
+            get { return Types.Undefined; }
         }
 
         public object PrimitiveValue

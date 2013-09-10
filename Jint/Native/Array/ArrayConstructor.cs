@@ -33,7 +33,7 @@ namespace Jint.Native.Array
 
         public void Configure()
         {
-            FastAddProperty("isArray", new ClrFunctionInstance<object, object>(Engine, IsArray), true, false, true);
+            FastAddProperty("isArray", new ClrFunctionInstance<object, object>(Engine, IsArray, 1), true, false, true);
         }
 
         private object IsArray(object thisObj, object[] arguments)
@@ -58,15 +58,20 @@ namespace Jint.Native.Array
             instance.Prototype = PrototypeObject;
             instance.Extensible = true;
 
-            if (arguments.Length == 1 && TypeConverter.GetType(arguments[0]) == TypeCode.Double)
+            if (arguments.Length == 1 && TypeConverter.GetType(arguments[0]) == Types.Number)
             {
-                var length = TypeConverter.ToNumber(arguments[0]);
+                var length = TypeConverter.ToUint32(arguments[0]);
+                if (TypeConverter.ToNumber(arguments[0]) != length)
+                {
+                    throw new JavaScriptException(Engine.RangeError);
+                }
+                
                 instance.FastAddProperty("length", length, true, false, true);
             }
             else
             {
                 instance.FastAddProperty("length", 0, true, false, true);
-                ((ArrayPrototype)PrototypeObject).Push(instance, arguments);
+                PrototypeObject.Push(instance, arguments);
             }
 
             return instance;
