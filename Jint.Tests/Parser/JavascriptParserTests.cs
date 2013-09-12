@@ -9,12 +9,12 @@ using Xunit.Extensions;
 
 namespace Jint.Tests.Parser
 {
+    [Trait("Category", "Pass")]
     public class JavascriptParserTests
     {
         private readonly JavaScriptParser _parser = new JavaScriptParser();
 
         [Theory]
-        [Trait("Category", "Common Libraries")]
         [InlineData("jQuery.js")]
         public void ShouldParseScriptFile(string file)
         {
@@ -39,7 +39,6 @@ namespace Jint.Tests.Parser
         }
         
         [Fact]
-        [Trait("Category", "Primary Expression")]
         public void ShouldParseThis()
         {
             var program = _parser.Parse("this");
@@ -51,7 +50,6 @@ namespace Jint.Tests.Parser
         }
 
         [Fact]
-        [Trait("Category", "Primary Expression")]
         public void ShouldParseNull()
         {
             var program = _parser.Parse("null");
@@ -65,7 +63,6 @@ namespace Jint.Tests.Parser
         }
 
         [Fact]
-        [Trait("Category", "Primary Expression")]
         public void ShouldParseNumeric()
         {
             var program = _parser.Parse(
@@ -82,7 +79,6 @@ namespace Jint.Tests.Parser
         }
 
         [Fact]
-        [Trait("Category", "Primary Expression")]
         public void ShouldParseBinaryExpression()
         {
             BinaryExpression binary;
@@ -101,7 +97,6 @@ namespace Jint.Tests.Parser
         }
 
         [Theory]
-        [Trait("Category", "Numeric Literals")]
         [InlineData(0, "0")]
         [InlineData(42, "42")]
         [InlineData(0.14, "0.14")]
@@ -133,7 +128,6 @@ namespace Jint.Tests.Parser
         }
 
         [Theory]
-        [Trait("Category", "String Literals")]
         [InlineData("Hello", @"'Hello'")]
         [InlineData("\n\r\t\v\b\f\\\'\"\0", @"'\n\r\t\v\b\f\\\'\""\0'")]
         [InlineData("\u0061", @"'\u0061'")]
@@ -154,7 +148,6 @@ namespace Jint.Tests.Parser
         }
 
         [Theory]
-        [Trait("Category", "String Literals")]
         [InlineData("Hello", @"'Hello'")]
         [InlineData("\n\r\t\v\b\f\\\'\"\0", @"'\n\r\t\v\b\f\\\'\""\0'")]
         [InlineData("\u0061", @"'\u0061'")]
@@ -175,7 +168,6 @@ namespace Jint.Tests.Parser
         }
 
         [Theory]
-        [Trait("Category", "Automatic semicolon insertion")]
         [InlineData(@"{ x
                       ++y }")]
         [InlineData(@"{ x

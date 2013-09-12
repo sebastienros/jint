@@ -144,7 +144,7 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(result.Value);
             }
 
-            return result.Value;
+            return result.Value ?? Undefined.Instance;
         }
 
         /// <summary>

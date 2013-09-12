@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using System.Linq;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -64,24 +65,59 @@ namespace Jint.Native.Array
                 {
                     return false;
                 }
-                while (newLen < oldLen)
-                {
-                    oldLen--;
-                    var deleteSucceeded = Delete(TypeConverter.ToString(oldLen), false);
-                    if (!deleteSucceeded)
-                    {
-                        newLenDesc.Value = oldLen + 1;
-                        if (!newWritable)
-                        {
-                            newLenDesc.Writable = false;
-                        }
-                        base.DefineOwnProperty("length", newLenDesc, false);
-                        if (throwOnError)
-                        {
-                            throw new JavaScriptException(_engine.TypeError);
-                        }
+                // in the case of sparse arrays, treat each concrete element instead of
+                // iterating over all indexes
 
-                        return false;
+                if (Properties.Count < oldLen - newLen)
+                {
+                    var keys = Properties.Keys.ToArray();
+                    foreach (var key in keys)
+                    {
+                        uint index;
+                        // is it the index of the array
+                        if (uint.TryParse(key, out index) && index >= newLen && index < oldLen)
+                        {
+                            var deleteSucceeded = Delete(key, false);
+                            if (!deleteSucceeded)
+                            {
+                                newLenDesc.Value = index + 1;
+                                if (!newWritable)
+                                {
+                                    newLenDesc.Writable = false;
+                                }
+                                base.DefineOwnProperty("length", newLenDesc, false);
+                                if (throwOnError)
+                                {
+                                    throw new JavaScriptException(_engine.TypeError);
+                                }
+
+                                return false;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    while (newLen < oldLen)
+                    {
+                        // algorithm as per the spec
+                        oldLen--;
+                        var deleteSucceeded = Delete(TypeConverter.ToString(oldLen), false);
+                        if (!deleteSucceeded)
+                        {
+                            newLenDesc.Value = oldLen + 1;
+                            if (!newWritable)
+                            {
+                                newLenDesc.Writable = false;
+                            }
+                            base.DefineOwnProperty("length", newLenDesc, false);
+                            if (throwOnError)
+                            {
+                                throw new JavaScriptException(_engine.TypeError);
+                            }
+
+                            return false;
+                        }
                     }
                 }
                 if (!newWritable)

@@ -1,6 +1,5 @@
 ﻿using Jint.Native.Object;
 using Jint.Parser;
-using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
 
@@ -17,6 +16,10 @@ namespace Jint.Native.Function
 
         public override object Call(object thisObject, object[] arguments)
         {
+            if (Engine.Options.IsStrict())
+            {
+                throw new JavaScriptException(Engine.SyntaxError, "eval() is not allowed in strict mode.");
+            }
             var code = TypeConverter.ToString(arguments[0]);
 
             var parser = new JavaScriptParser();

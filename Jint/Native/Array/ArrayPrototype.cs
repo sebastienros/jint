@@ -802,6 +802,8 @@ namespace Jint.Native.Array
                 }
             }
 
+            // this is not in the specs, but is necessary in case the last element of the last
+            // array doesn't exist, and thus the length would not be incremented
             a.DefineOwnProperty("length", new DataDescriptor(n), false);
             
             return a;

@@ -554,8 +554,9 @@ namespace Jint.Runtime
                 py = TypeConverter.ToPrimitive(y, Types.Number);
                 px = TypeConverter.ToPrimitive(x, Types.Number);
             }
-            var typea = TypeConverter.GetType(x);
-            var typeb = TypeConverter.GetType(y);
+
+            var typea = TypeConverter.GetType(px);
+            var typeb = TypeConverter.GetType(py);
 
             if (typea != Types.String || typeb != Types.String)
             {
