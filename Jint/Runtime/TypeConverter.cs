@@ -293,10 +293,10 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static string ToString(object o)
         {
-            var s = o as string;
-            if (s != null)
+            var str = o as string;
+            if (str != null)
             {
-                return s;
+                return str;
             }
 
             if (o == Undefined.Instance)
@@ -322,28 +322,76 @@ namespace Jint.Runtime
 
             if (o is double)
             {
-                var n = (double) o;
-                if (double.IsNaN(n))
+                var m = (double) o;
+                if (double.IsNaN(m))
                 {
                     return "NaN";
                 }
 
-                if (n == double.PositiveInfinity)
+                if (m == 0)
+                {
+                    return "0";
+                }
+
+                if (m < 0)
+                {
+                    return "-" + ToString(-m);
+                }
+
+                if (m == double.PositiveInfinity)
                 {
                     return "Infinity";
                 }
 
-                if (n == double.NegativeInfinity)
+                if (m == double.NegativeInfinity)
                 {
                     return "-Infinity";
                 }
 
-                // todo: fix unit tests in 9.8.1
-                // var d = -Math.Log10((double)SignificantFraction((decimal)n));
-                // var i = Math.Log10(Math.Floor(n));
+                // s is all digits (significand or mantissa)
+                // k number of digits of s
+                // n total of digits in fraction s*10^n-k=m
+                // 123.4 s=1234, k=4, n=3
+                // 1234000 s = 1234, k=4, n=7
 
+                var significants = GetSignificantDigitCount((decimal) m);
+                var s = significants.Item1;
+                var k = (int)Math.Floor(Math.Log10(s)+1);
+                var n = k - significants.Item2;
+                if (m < 1 && m > -1)
+                {
+                    n++;
+                }
 
-                return n.ToString(CultureInfo.InvariantCulture);
+                while (s%10 == 0)
+                {
+                    s = s/10;
+                    k--;
+                }
+
+                
+                if (k <= n && n <= 21)
+                {
+                    return s + new string('0', (int)(n - k));
+                }
+
+                if (0 < n && n <= 21)
+                {
+                    return s.ToString().Substring(0, (int)n) + '.' + s.ToString().Substring((int)n);
+                }
+
+                if (-6 < n && n <= 0)
+                {
+                    return "0." + new string('0', -n) + s;
+                }
+
+                if (k == 1)
+                {
+                    return s + "e" + (n - 1 < 0 ? "-" : "+") + Math.Abs(n - 1);
+                }
+
+                return s.ToString().Substring(0, 1) + "." + s.ToString().Substring(1) + "e" + (n - 1 < 0 ? "-" : "+") +
+                       Math.Abs(n - 1);
             }
 
             if (o is int)
@@ -454,10 +502,51 @@ namespace Jint.Runtime
             }
         }
 
-        public static Decimal SignificantFraction(Decimal d)
+        public static Tuple<double, int> GetSignificantDigitCount(decimal value)
         {
-            var b = decimal.GetBits(d);
-            return new decimal(1, 0, 0, false, (byte)((b[3] >> 16) & 0x7fff));
+            /* So, the decimal type is basically represented as a fraction of two
+             * integers: a numerator that can be anything, and a denominator that is 
+             * some power of 10.
+             * 
+             * For example, the following numbers are represented by
+             * the corresponding fractions:
+             * 
+             * VALUE    NUMERATOR   DENOMINATOR
+             * 1        1           1
+             * 1.0      10          10
+             * 1.012    1012        1000
+             * 0.04     4           100
+             * 12.01    1201        100
+             * 
+             * So basically, if the magnitude is greater than or equal to one,
+             * the number of digits is the number of digits in the numerator.
+             * If it's less than one, the number of digits is the number of     digits
+             * in the denominator.
+             */
+
+            int[] bits = decimal.GetBits(value);
+            int scalePart = bits[3];
+            int highPart = bits[2];
+            int middlePart = bits[1];
+            int lowPart = bits[0];
+
+            if (value >= 1M || value <= -1M)
+            {
+
+                var num = new decimal(lowPart, middlePart, highPart, false, 0);
+
+                return new Tuple<double, int>((double)num, (scalePart >> 16) & 0x7fff);
+            }
+            else
+            {
+
+                // Accoring to MSDN, the exponent is represented by
+                // bits 16-23 (the 2nd word):
+                // http://msdn.microsoft.com/en-us/library/system.decimal.getbits.aspx
+                int exponent = (scalePart & 0x00FF0000) >> 16;
+
+                return new Tuple<double, int>(lowPart, exponent + 1);
+            }
         }
     }
 }
