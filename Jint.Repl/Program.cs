@@ -8,8 +8,10 @@ namespace Jint.Repl
     {
         static void Main(string[] args)
         {
-            var engine = new Engine();
- 
+            var engine = new Engine(cfg => cfg
+                .WithDelegate("log", new Action<object>(Console.WriteLine))
+            );
+
             while (true)
             {
                 Console.ForegroundColor = ConsoleColor.Green;

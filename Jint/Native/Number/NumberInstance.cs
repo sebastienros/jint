@@ -35,7 +35,13 @@ namespace Jint.Native.Number
 
         public static bool IsNegativeZero(double x)
         {
-            return BitConverter.DoubleToInt64Bits(x) == NegativeZeroBits;
+            return x == 0 && BitConverter.DoubleToInt64Bits(x) == NegativeZeroBits;
         }
+
+        public static bool IsPositiveZero(double x)
+        {
+            return x == 0 && BitConverter.DoubleToInt64Bits(x) != NegativeZeroBits;
+        }
+
     }
 }
