@@ -29,7 +29,7 @@ namespace Jint
         private readonly ExpressionInterpreter _expressions;
         private readonly StatementInterpreter _statements;
         private readonly Stack<ExecutionContext> _executionContexts;
-
+ 
         public Engine() : this(null)
         {
         }
@@ -115,7 +115,7 @@ namespace Jint
                 }
             }
 
-            Eval = new EvalFunctionInstance(this, new ObjectInstance(this), new string[0], LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), Options.IsStrict());
+            Eval = new EvalFunctionInstance(this, new ObjectInstance(this), new string[0], LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
 
             _statements = new StatementInterpreter(this);
@@ -175,13 +175,16 @@ namespace Jint
 
         public object Execute(Program program)
         {
-            var result = _statements.ExecuteProgram(program);
-            if (result.Type == Completion.Throw)
+            using (new StrictModeScope(Options.IsStrict()))
             {
-                throw new JavaScriptException(result.Value);
-            }
+                var result = _statements.ExecuteProgram(program);
+                if (result.Type == Completion.Throw)
+                {
+                    throw new JavaScriptException(result.Value);
+                }
 
-            return GetValue(result.Value);
+                return GetValue(result.Value);
+            }
         }
 
         public Completion ExecuteStatement(Statement statement)

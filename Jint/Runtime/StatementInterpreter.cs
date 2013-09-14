@@ -485,7 +485,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteDebuggerStatement(DebuggerStatement debuggerStatement)
         {
-            throw new System.NotImplementedException();
+            return new Completion(Completion.Normal, null, null);
         }
     }
 }

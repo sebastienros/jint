@@ -16,7 +16,7 @@ namespace Jint.Native.Function
 
         public override object Call(object thisObject, object[] arguments)
         {
-            if (Engine.Options.IsStrict())
+            if (StrictModeScope.IsStrictModeCode)
             {
                 throw new JavaScriptException(Engine.SyntaxError, "eval() is not allowed in strict mode.");
             }

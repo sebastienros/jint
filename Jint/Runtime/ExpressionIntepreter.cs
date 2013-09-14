@@ -603,7 +603,7 @@ namespace Jint.Runtime
 
         public object EvaluateIdentifier(Identifier identifier)
         {
-            return _engine.ExecutionContext.LexicalEnvironment.GetIdentifierReference(identifier.Name, _engine.Options.IsStrict());
+            return _engine.ExecutionContext.LexicalEnvironment.GetIdentifierReference(identifier.Name, StrictModeScope.IsStrictModeCode);
         }
 
         public object EvaluateLiteral(Literal literal)
@@ -638,12 +638,16 @@ namespace Jint.Runtime
                             throw new JavaScriptException(_engine.SyntaxError);
                         }
 
-                        var get = new ScriptFunctionInstance(
-                            _engine,
-                            getter,
-                            _engine.ExecutionContext.LexicalEnvironment,
-                            getter.Strict || _engine.Options.IsStrict()
+                        ScriptFunctionInstance get; 
+                        using (new StrictModeScope(getter.Strict))
+                        {
+                            get = new ScriptFunctionInstance(
+                                _engine,
+                                getter,
+                                _engine.ExecutionContext.LexicalEnvironment, 
+                                StrictModeScope.IsStrictModeCode
                             );
+                        }
 
                         propDesc = new AccessorDescriptor(get) { Enumerable = true, Configurable = true};
                         break;
@@ -656,13 +660,17 @@ namespace Jint.Runtime
                             throw new JavaScriptException(_engine.SyntaxError);
                         }
 
-                        var set = new ScriptFunctionInstance(
-                            _engine,
-                            setter,
-                            _engine.ExecutionContext.LexicalEnvironment,
-                            setter.Strict || _engine.Options.IsStrict()
-                            );
-
+                        ScriptFunctionInstance set;
+                        using (new StrictModeScope(setter.Strict))
+                        {
+                            
+                            set = new ScriptFunctionInstance(
+                                _engine,
+                                setter,
+                                _engine.ExecutionContext.LexicalEnvironment,
+                                StrictModeScope.IsStrictModeCode
+                                );
+                        }
                         propDesc = new AccessorDescriptor(null, set) { Enumerable = true, Configurable = true};
                         break;
 
@@ -677,7 +685,7 @@ namespace Jint.Runtime
                     var propIsData = propDesc.IsDataDescriptor();
                     var propIsAccessor = propDesc.IsAccessorDescriptor();
 
-                    if (_engine.Options.IsStrict() && previousIsData && propIsData)
+                    if (StrictModeScope.IsStrictModeCode && previousIsData && propIsData)
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
                     }
@@ -753,7 +761,7 @@ namespace Jint.Runtime
                 propertyNameString = TypeConverter.ToString(propertyNameValue);
             }
 
-            return new Reference(baseValue, propertyNameString, _engine.Options.IsStrict());
+            return new Reference(baseValue, propertyNameString, StrictModeScope.IsStrictModeCode);
         }
 
         public object EvaluateFunctionExpression(FunctionExpression functionExpression)

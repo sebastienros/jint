@@ -9,7 +9,8 @@
 function testcase() {
         "use strict";
 
-        try {
+    try {
+        debugger;
             NaN = 12;
             return false;
         } catch (e) {

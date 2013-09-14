@@ -58,93 +58,97 @@ namespace Jint.Native.Function
         public override object Call(object thisArg, object[] arguments)
         {
             object thisBinding;
-
-            // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
-            if (this.Strict || Engine.Options.IsStrict())
+            using (new StrictModeScope(Strict))
             {
-                thisBinding = thisArg;
-            }
-            else if (thisArg == Undefined.Instance || thisArg == Null.Instance)
-            {
-                thisBinding = Engine.Global;
-            }
-            else if (TypeConverter.GetType(thisArg) != Types.Object)
-            {
-                thisBinding = TypeConverter.ToObject(Engine, thisArg);
-            }
-            else
-            {
-                thisBinding = thisArg;
-            }
-
-            var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, Scope);
-            
-            Engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
-
-            // Declaration Binding Instantiation http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
-            var env = localEnv.Record;
-            var configurableBindings = false;
-
-            //if (/* todo: if code is eval code */)
-            //{
-            //    configurableBindings = true;
-            //}
-
-            var argCount = arguments.Length;
-            var n = 0;
-            foreach (var argName in FormalParameters)
-            {
-                n++;
-                var v = n > argCount ? Undefined.Instance : arguments[n-1];
-                var argAlreadyDeclared = env.HasBinding(argName);
-                if (!argAlreadyDeclared)
+                // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
+                if (StrictModeScope.IsStrictModeCode)
                 {
-                    env.CreateMutableBinding(argName);
+                    thisBinding = thisArg;
                 }
-
-                env.SetMutableBinding(argName, v, Strict);
-            }
-
-            Engine.FunctionDeclarationBindings(_functionDeclaration, localEnv, true, Strict);
-
-            var argumentsAlreadyDeclared = env.HasBinding("arguments");
-
-            if (!argumentsAlreadyDeclared)
-            {
-                var argsObj = ArgumentsInstance.CreateArgumentsObject(Engine, this, FormalParameters, arguments, env, Strict);
-
-                if (Strict)
+                else if (thisArg == Undefined.Instance || thisArg == Null.Instance)
                 {
-                    var declEnv = env as DeclarativeEnvironmentRecord;
-                    
-                    if (declEnv == null)
-                    {
-                        throw new ArgumentException();
-                    }
-
-                    declEnv.CreateImmutableBinding("arguments");
-                    declEnv.InitializeImmutableBinding("arguments", argsObj);
+                    thisBinding = Engine.Global;
+                }
+                else if (TypeConverter.GetType(thisArg) != Types.Object)
+                {
+                    thisBinding = TypeConverter.ToObject(Engine, thisArg);
                 }
                 else
                 {
-                    env.CreateMutableBinding("arguments");
-                    env.SetMutableBinding("arguments", argsObj, false);
+                    thisBinding = thisArg;
                 }
+
+                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, Scope);
+
+                Engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
+
+                // Declaration Binding Instantiation http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
+                var env = localEnv.Record;
+                var configurableBindings = false;
+
+                //if (/* todo: if code is eval code */)
+                //{
+                //    configurableBindings = true;
+                //}
+
+                var argCount = arguments.Length;
+                var n = 0;
+                foreach (var argName in FormalParameters)
+                {
+                    n++;
+                    var v = n > argCount ? Undefined.Instance : arguments[n - 1];
+                    var argAlreadyDeclared = env.HasBinding(argName);
+                    if (!argAlreadyDeclared)
+                    {
+                        env.CreateMutableBinding(argName);
+                    }
+
+                    env.SetMutableBinding(argName, v, Strict);
+                }
+
+                Engine.FunctionDeclarationBindings(_functionDeclaration, localEnv, true, Strict);
+
+                var argumentsAlreadyDeclared = env.HasBinding("arguments");
+
+                if (!argumentsAlreadyDeclared)
+                {
+                    var argsObj = ArgumentsInstance.CreateArgumentsObject(Engine, this, FormalParameters, arguments, env,
+                        Strict);
+
+                    if (Strict)
+                    {
+                        var declEnv = env as DeclarativeEnvironmentRecord;
+
+                        if (declEnv == null)
+                        {
+                            throw new ArgumentException();
+                        }
+
+                        declEnv.CreateImmutableBinding("arguments");
+                        declEnv.InitializeImmutableBinding("arguments", argsObj);
+                    }
+                    else
+                    {
+                        env.CreateMutableBinding("arguments");
+                        env.SetMutableBinding("arguments", argsObj, false);
+                    }
+                }
+
+                // process all variable declarations in the current parser scope
+                Engine.VariableDeclarationBinding(_functionDeclaration.VariableDeclarations, env, configurableBindings,
+                    Strict);
+
+                var result = Engine.ExecuteStatement(_functionDeclaration.Body);
+
+                Engine.LeaveExecutionContext();
+
+                if (result.Type == Completion.Throw)
+                {
+                    throw new JavaScriptException(result.Value);
+                }
+
+                return result.Value ?? Undefined.Instance;
             }
-
-            // process all variable declarations in the current parser scope
-            Engine.VariableDeclarationBinding(_functionDeclaration.VariableDeclarations, env, configurableBindings, Strict);
-
-            var result = Engine.ExecuteStatement(_functionDeclaration.Body);
-            
-            Engine.LeaveExecutionContext();
-
-            if (result.Type == Completion.Throw)
-            {
-                throw new JavaScriptException(result.Value);
-            }
-
-            return result.Value ?? Undefined.Instance;
         }
 
         /// <summary>
