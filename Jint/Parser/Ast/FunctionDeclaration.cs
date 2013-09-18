@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Jint.Parser.Ast
 {
-    public class FunctionDeclaration : Statement, IFunctionDeclaration, IVariableScope
+    public class FunctionDeclaration : Statement, IFunctionDeclaration
     {
         public FunctionDeclaration()
         {

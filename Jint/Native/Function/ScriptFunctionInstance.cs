@@ -58,7 +58,8 @@ namespace Jint.Native.Function
         public override object Call(object thisArg, object[] arguments)
         {
             object thisBinding;
-            using (new StrictModeScope(Strict))
+
+            using (new StrictModeScope(Strict, true))
             {
                 // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
                 if (StrictModeScope.IsStrictModeCode)

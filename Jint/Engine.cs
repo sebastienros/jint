@@ -175,7 +175,7 @@ namespace Jint
 
         public object Execute(Program program)
         {
-            using (new StrictModeScope(Options.IsStrict()))
+            using (new StrictModeScope(Options.IsStrict() || program.Strict))
             {
                 var result = _statements.ExecuteProgram(program);
                 if (result.Type == Completion.Throw)

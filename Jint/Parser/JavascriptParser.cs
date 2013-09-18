@@ -3926,9 +3926,9 @@ namespace Jint.Parser
             return program;
         }
 
-        public IEnumerable<Statement> ParseFunctionBody(string code)
+        public FunctionExpression ParseFunctionExpression(string functionExpression)
         {
-            _source = code;
+            _source = functionExpression;
             _index = 0;
             _lineNumber = (_source.Length > 0) ? 1 : 0;
             _lineStart = 0;
@@ -3952,10 +3952,9 @@ namespace Jint.Parser
 
             };
 
+            _strict = false;
             Peek();
-            var statement = ParseStatementList();
-            return statement;
-        
+            return ParseFunctionExpression();
         }
 
         private class Extra

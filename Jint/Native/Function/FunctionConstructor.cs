@@ -72,12 +72,22 @@ namespace Jint.Native.Function
                 body = TypeConverter.ToString(arguments[argCount-1]);
             }
             body = TypeConverter.ToString(body);
-            var parser = new JavaScriptParser();
             
             // todo: ensure parsable as parameter list
             var parameters = p.Split(new [] {','}, StringSplitOptions.RemoveEmptyEntries);
-            var statements = parser.ParseFunctionBody(body);
+            var parser = new JavaScriptParser();
+            FunctionExpression function;
+            try
+            {
+                var functionExpression = "function(" + p + ") { " + body + "}";
+                function = parser.ParseFunctionExpression(functionExpression); 
+            }
+            catch (ParserError e)
+            {
+                throw new JavaScriptException(Engine.SyntaxError);
+            }
 
+            // todo: check if there is not a way to use the FunctionExpression directly instead of creating a FunctionDeclaration
             var functionObject = new ScriptFunctionInstance(
                 Engine,
                 new FunctionDeclaration
@@ -86,7 +96,7 @@ namespace Jint.Native.Function
                         Body = new BlockStatement
                             {
                                 Type = SyntaxNodes.BlockStatement,
-                                Body = statements
+                                Body = new Statement[] { function.Body }
                             },
                         Parameters = parameters.Select(x => new Identifier
                             {
@@ -97,7 +107,7 @@ namespace Jint.Native.Function
                         VariableDeclarations = new List<VariableDeclaration>()
                     },  
                 LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment),
-                false
+                function.Strict
                 ) { Extensible = true };
 
             return functionObject;

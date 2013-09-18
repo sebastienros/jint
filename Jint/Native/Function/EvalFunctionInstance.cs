@@ -20,11 +20,24 @@ namespace Jint.Native.Function
             {
                 throw new JavaScriptException(Engine.SyntaxError, "eval() is not allowed in strict mode.");
             }
+
             var code = TypeConverter.ToString(arguments[0]);
 
             var parser = new JavaScriptParser();
-            var program = parser.Parse(code);
-            return _engine.ExecuteStatement(program).Value ?? Undefined.Instance;
+            try
+            {
+                var program = parser.Parse(code);
+                using (new StrictModeScope(program.Strict))
+                {
+                    return _engine.ExecuteStatement(program).Value ?? Undefined.Instance;
+                }
+            }
+            catch (ParserError e)
+            {
+                throw new JavaScriptException(Engine.SyntaxError);
+            }
+
+            
         }
     }
 }
