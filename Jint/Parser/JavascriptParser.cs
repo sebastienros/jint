@@ -355,7 +355,7 @@ namespace Jint.Parser
         }
 
 
-        private char ScanHexEscape(char prefix)
+        private bool ScanHexEscape(char prefix, out char result)
         {
             int code = char.MinValue;
 
@@ -371,10 +371,13 @@ namespace Jint.Parser
                 }
                 else
                 {
-                    return char.MinValue;
+                    result = char.MinValue;
+                    return false;
                 }
             }
-            return (char) code;
+
+            result = (char) code;
+            return true;
         }
 
         private string GetEscapedIdentifier()
@@ -390,8 +393,8 @@ namespace Jint.Parser
                     throw new Exception(Messages.UnexpectedToken);
                 }
                 ++_index;
-                ch = ScanHexEscape('u');
-                if (ch == char.MinValue || ch == '\\' || !IsIdentifierStart(ch))
+
+                if (ScanHexEscape('u', out ch) || ch == '\\' || !IsIdentifierStart(ch))
                 {
                     throw new Exception(Messages.UnexpectedToken);
                 }
@@ -417,8 +420,8 @@ namespace Jint.Parser
                         throw new Exception(Messages.UnexpectedToken);
                     }
                     ++_index;
-                    ch = ScanHexEscape('u');
-                    if (ch == char.MinValue || ch == '\\' || !IsIdentifierPart(ch))
+
+                    if (ScanHexEscape('u', out ch) || ch == '\\' || !IsIdentifierPart(ch))
                     {
                         throw new Exception(Messages.UnexpectedToken);
                     }
@@ -882,8 +885,8 @@ namespace Jint.Parser
                             case 'u':
                             case 'x':
                                 int restore = _index;
-                                char unescaped = ScanHexEscape(ch);
-                                if (unescaped > 0)
+                                char unescaped;
+                                if(ScanHexEscape(ch, out unescaped))
                                 {
                                     str += unescaped.ToString();
                                 }
@@ -1048,8 +1051,7 @@ namespace Jint.Parser
                     {
                         ++_index;
                         int restore = _index;
-                        ch = ScanHexEscape('u');
-                        if (ch > 0)
+                        if(ScanHexEscape('u', out ch))
                         {
                             flags += ch.ToString();
                             for (str += "\\u"; restore < _index; ++restore)
