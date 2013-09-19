@@ -2337,8 +2337,11 @@ namespace Jint.Parser
         private Expression ParseLeftHandSideExpressionAllowCall()
         {
             LocationMarker marker = CreateLocationMarker();
-
+            
+            var previousAllowIn = _state.AllowIn;
+            _state.AllowIn = true;
             Expression expr = MatchKeyword("new") ? ParseNewExpression() : ParsePrimaryExpression();
+            _state.AllowIn = previousAllowIn;
 
             while (Match(".") || Match("[") || Match("("))
             {
@@ -2371,7 +2374,9 @@ namespace Jint.Parser
         {
             LocationMarker marker = CreateLocationMarker();
 
+            var previousAllowIn = _state.AllowIn;
             Expression expr = MatchKeyword("new") ? ParseNewExpression() : ParsePrimaryExpression();
+            _state.AllowIn = previousAllowIn;
 
             while (Match(".") || Match("["))
             {
@@ -2562,14 +2567,11 @@ namespace Jint.Parser
         {
             Expression expr;
 
-            bool previousAllowIn = _state.AllowIn;
-            _state.AllowIn = true;
-
             LocationMarker marker = CreateLocationMarker();
             Expression left = ParseUnaryExpression();
 
             Token token = _lookahead;
-            int prec = binaryPrecedence(token, previousAllowIn);
+            int prec = binaryPrecedence(token, _state.AllowIn);
             if (prec == 0)
             {
                 return left;
@@ -2582,7 +2584,7 @@ namespace Jint.Parser
 
             var stack = new List<object>( new object[] {left, token, right});
 
-            while ((prec = binaryPrecedence(_lookahead, previousAllowIn)) > 0)
+            while ((prec = binaryPrecedence(_lookahead, _state.AllowIn)) > 0)
             {
                 // Reduce: make a binary expression from the three topmost entries.
                 while ((stack.Count > 2) && (prec <= ((Token) stack[stack.Count - 2]).Precedence))
@@ -2610,8 +2612,6 @@ namespace Jint.Parser
                 expr = ParseUnaryExpression();
                 stack.Push(expr);
             }
-
-            _state.AllowIn = previousAllowIn;
 
             // Final reduce to clean-up the stack.
             int i = stack.Count - 1;
