@@ -403,7 +403,7 @@ namespace Jint.Native.Object
                     return false;
                 }
 
-                if (desc.Enumerable != current.Enumerable)
+                if (desc.EnumerableIsSet != current.EnumerableIsSet)
                 {
                     if (throwOnError)
                     {
@@ -515,6 +515,11 @@ namespace Jint.Native.Object
         public void FastSetProperty(string name, PropertyDescriptor value)
         {
             Properties[name] = value;
+        }
+
+        public override string ToString()
+        {
+            return TypeConverter.ToString(this);
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+using Jint.Runtime;
 using Xunit;
 
 namespace Jint.Tests.Ecma
@@ -48,7 +49,19 @@ namespace Jint.Tests.Ecma
             }
             else
             {
-                Assert.DoesNotThrow(() => engine.Execute(code));
+                try
+                {
+                    engine.Execute(code);
+                }
+                catch (JavaScriptException j)
+                {
+                    _lastError = j.Error.ToString();
+                }
+                catch (Exception e)
+                {
+                    _lastError = e.ToString();
+                }
+
                 Assert.Null(_lastError);
             }
         }

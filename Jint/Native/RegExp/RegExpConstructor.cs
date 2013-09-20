@@ -1,7 +1,8 @@
-﻿using Jint.Native.Function;
+﻿using System;
+using System.Text.RegularExpressions;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.RegExp
 {
@@ -21,7 +22,7 @@ namespace Jint.Native.RegExp
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = RegExpPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.FastAddProperty("length", 1, false, false, false);
+            obj.FastAddProperty("length", 2, false, false, false);
 
             // The initial value of RegExp.prototype is the RegExp prototype object
             obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
@@ -35,12 +36,15 @@ namespace Jint.Native.RegExp
 
         public override object Call(object thisObject, object[] arguments)
         {
-            if (arguments.Length == 0)
+            var pattern = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
+            var flags = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
+
+            if (pattern != Undefined.Instance && flags == Undefined.Instance && TypeConverter.ToObject(Engine, pattern).Class == "Regex")
             {
-                return "";
+                return pattern;
             }
 
-            return TypeConverter.ToString(arguments[0]);
+            return Construct(arguments);
         }
 
         /// <summary>
@@ -50,19 +54,161 @@ namespace Jint.Native.RegExp
         /// <returns></returns>
         public ObjectInstance Construct(object[] arguments)
         {
-            return Construct(arguments.Length > 0 ? TypeConverter.ToString(arguments[0]) : "");
+            string p;
+            string f;
+
+            var pattern = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
+            var flags = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
+
+            var r = pattern as RegExpInstance;
+            if (pattern != Undefined.Instance && flags == Undefined.Instance && r != null)
+            {
+                p = r.Pattern;
+                f = r.Flags;
+            }
+            else if (pattern != Undefined.Instance && flags != Undefined.Instance && r != null)
+            {
+                throw new JavaScriptException(Engine.TypeError);
+            }
+            else
+            {
+                p = pattern != Undefined.Instance ? TypeConverter.ToString(pattern) : "";
+                f = flags != Undefined.Instance ? TypeConverter.ToString(flags) : "";
+            }
+
+            r = new RegExpInstance(Engine);
+            r.Prototype = PrototypeObject;
+            r.Extensible = true;
+
+            var options = ParseOptions(r, f);
+
+            try
+            {
+                r.Value = new Regex(p, options);
+            }
+            catch (Exception e)
+            {
+                throw new JavaScriptException(Engine.SyntaxError, e.Message);
+            }
+
+            string s;
+            if (string.IsNullOrEmpty(p))
+            {
+                s = "(?:)";
+            }
+            else
+            {
+                s = p;
+             
+                if (s.StartsWith("/"))
+                {
+                    s = "\\" + s;
+                }
+
+                if (s.EndsWith("/"))
+                {
+                    s = s.TrimEnd('/') + "\\/";
+                }
+            }
+
+            r.FastAddProperty("global", r.Global, false, false, false);
+            r.FastAddProperty("ignoreCase", r.IgnoreCase, false, false, false);
+            r.FastAddProperty("multiline", r.Multiline, false, false, false);
+            r.FastAddProperty("lastIndex", 0, true, false, false);
+            r.FastAddProperty("source", s, false, false, false);
+
+            r.Flags = f;
+            r.Source = s;
+
+            return r;
+        }
+
+        public RegExpInstance Construct(string regExp)
+        {
+            var r = new RegExpInstance(Engine);
+            r.Prototype = PrototypeObject;
+            r.Extensible = true;
+
+            var segments = regExp.Split('/');
+
+            var pattern = segments[1];
+            var flags = segments[2];
+
+            var options = ParseOptions(r, flags);
+            try
+            {
+                r.Value = new Regex(pattern, options);
+            }
+            catch (Exception e)
+            {
+                throw new JavaScriptException(Engine.SyntaxError, e.Message);
+            }
+
+            r.FastAddProperty("global", r.Global, false, false, false);
+            r.FastAddProperty("ignoreCase", r.IgnoreCase, false, false, false);
+            r.FastAddProperty("multiline", r.Multiline, false, false, false);
+            r.FastAddProperty("lastIndex", 0, true, false, false);
+            r.FastAddProperty("source", pattern, false, false, false);
+
+            r.Flags = flags;
+            r.Source = pattern;
+
+            return r;
+        }
+
+        private RegexOptions ParseOptions(RegExpInstance r, string flags)
+        {
+            for (int k = 0; k < flags.Length; k++)
+            {
+                var c = flags[k];
+                if (c == 'g')
+                {
+                    if (r.Global)
+                    {
+                        throw new JavaScriptException(Engine.SyntaxError);
+                    }
+
+                    r.Global = true;
+                }
+                else if (c == 'i')
+                {
+                    if (r.IgnoreCase)
+                    {
+                        throw new JavaScriptException(Engine.SyntaxError);
+                    }
+
+                    r.IgnoreCase = true;
+                }
+                else if (c == 'm')
+                {
+                    if (r.Multiline)
+                    {
+                        throw new JavaScriptException(Engine.SyntaxError);
+                    }
+
+                    r.Multiline = true;
+                }
+                else
+                {
+                    throw new JavaScriptException(Engine.SyntaxError);
+                }
+            }
+
+            var options = RegexOptions.ECMAScript;
+
+            if (r.Multiline)
+            {
+                options = options | RegexOptions.Multiline;
+            }
+
+            if (r.IgnoreCase)
+            {
+                options = options | RegexOptions.IgnoreCase;
+            }
+
+            return options;
         }
 
         public RegExpPrototype PrototypeObject { get; private set; }
-
-        public RegExpInstance Construct(string value)
-        {
-            var instance = new RegExpInstance(Engine);
-            instance.Prototype = PrototypeObject;
-            instance.PrimitiveValue = value;
-            instance.Extensible = true;
-
-            return instance;
-        }
     }
 }

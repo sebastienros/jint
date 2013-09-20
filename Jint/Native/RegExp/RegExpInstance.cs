@@ -1,10 +1,11 @@
 ﻿using System;
+using System.Text.RegularExpressions;
 using Jint.Native.Object;
 using Jint.Runtime;
 
 namespace Jint.Native.RegExp
 {
-    public class RegExpInstance : ObjectInstance, IPrimitiveType
+    public class RegExpInstance : ObjectInstance
     {
         private readonly Engine _engine;
 
@@ -22,16 +23,18 @@ namespace Jint.Native.RegExp
             }
         }
 
-        Types IPrimitiveType.Type
-        {
-            get { return Types.Boolean; }
-        }
+        public Regex Value { get; set; }
+        public string Pattern { get; set; }
+        public string Source { get; set; }
+        public string Flags { get; set; }
+        
+        public bool Global { get; set; }
+        public bool IgnoreCase { get; set; }
+        public bool Multiline { get; set; }
 
-        object IPrimitiveType.PrimitiveValue
+        public Match Match(string input, double start)
         {
-            get { return PrimitiveValue; }
+            return Value.Match(input, (int) start);
         }
-
-        public string PrimitiveValue { get; set; }
     }
 }

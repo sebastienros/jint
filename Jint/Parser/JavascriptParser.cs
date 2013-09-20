@@ -1078,37 +1078,13 @@ namespace Jint.Parser
                 }
             }
 
-            try
-            {
-                var options = RegexOptions.ECMAScript;
-                if (flags.Contains("g"))
-                {
-                    // todo: implement
-                }
-
-                if (flags.Contains("i"))
-                {
-                    options |= RegexOptions.IgnoreCase;
-                }
-
-                if (flags.Contains("m"))
-                {
-                    options |= RegexOptions.Multiline;
-                }
-
-                value = new Regex(pattern, options);
-            }
-            catch (Exception e)
-            {
-                throw new Exception(Messages.InvalidRegExp, e);
-            }
-
             Peek();
 
             return new Token
                 {
+                    Type = Tokens.RegularExpression,
                     Literal = str,
-                    Value = value,
+                    Value = pattern + flags,
                     Range = new[] {start, _index}
                 };
         }
@@ -1581,6 +1557,16 @@ namespace Jint.Parser
 
         public Literal CreateLiteral(Token token)
         {
+            if (token.Type == Tokens.RegularExpression)
+            {
+                return new Literal
+                {
+                    Type = SyntaxNodes.RegularExpressionLiteral,
+                    Value = token.Value,
+                    Raw = _source.Slice(token.Range[0], token.Range[1])
+                };
+            }
+
             return new Literal
                 {
                     Type = SyntaxNodes.Literal,

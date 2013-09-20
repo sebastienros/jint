@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Number;
@@ -608,6 +609,11 @@ namespace Jint.Runtime
 
         public object EvaluateLiteral(Literal literal)
         {
+            if (literal.Type == SyntaxNodes.RegularExpressionLiteral)
+            {
+                return _engine.RegExp.Construct((string) literal.Raw);
+            }
+
             return literal.Value ?? Null.Instance;
         }
 

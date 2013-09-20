@@ -284,6 +284,9 @@ namespace Jint
                 case SyntaxNodes.Literal:
                     return _expressions.EvaluateLiteral(expression.As<Literal>());
 
+                case SyntaxNodes.RegularExpressionLiteral:
+                    return _expressions.EvaluateLiteral(expression.As<Literal>());
+
                 case SyntaxNodes.LogicalExpression:
                     return _expressions.EvaluateLogicalExpression(expression.As<LogicalExpression>());
 
