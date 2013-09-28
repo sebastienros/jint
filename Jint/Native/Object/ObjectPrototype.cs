@@ -22,7 +22,7 @@ namespace Jint.Native.Object
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance<object, string>(Engine, ToString), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance<object, string>(Engine, ToObjectString), true, false, true);
             FastAddProperty("toLocaleString", new ClrFunctionInstance<object, object>(Engine, ToLocaleString), true, false, true);
             FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), true, false, true);
             FastAddProperty("hasOwnProperty", new ClrFunctionInstance<object, bool>(Engine, HasOwnProperty), true, false, true);
@@ -89,7 +89,7 @@ namespace Jint.Native.Object
         /// <param name="thisObject"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public string ToString(object thisObject, object[] arguments)
+        public string ToObjectString(object thisObject, object[] arguments)
         {
             if (thisObject == Undefined.Instance)
             {

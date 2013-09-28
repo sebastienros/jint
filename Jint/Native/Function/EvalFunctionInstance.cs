@@ -21,7 +21,7 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.SyntaxError, "eval() is not allowed in strict mode.");
             }
 
-            var code = TypeConverter.ToString(arguments[0]);
+            var code = TypeConverter.ToString(arguments.At(0));
 
             var parser = new JavaScriptParser();
             try

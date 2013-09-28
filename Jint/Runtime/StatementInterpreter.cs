@@ -480,6 +480,13 @@ namespace Jint.Runtime
 
         public Completion ExecuteDebuggerStatement(DebuggerStatement debuggerStatement)
         {
+            if (!System.Diagnostics.Debugger.IsAttached)
+            {
+                System.Diagnostics.Debugger.Launch();
+            }
+            
+            System.Diagnostics.Debugger.Break();
+
             return new Completion(Completion.Normal, null, null);
         }
     }

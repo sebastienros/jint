@@ -353,10 +353,10 @@ namespace Jint.Runtime
                 // n total of digits in fraction s*10^n-k=m
                 // 123.4 s=1234, k=4, n=3
                 // 1234000 s = 1234, k=4, n=7
-
-                var significants = GetSignificantDigitCount((decimal) m);
+                var d = (Decimal) m;
+                var significants = GetSignificantDigitCount(d);
                 var s = significants.Item1;
-                var k = (int)Math.Floor(Math.Log10(s)+1);
+                var k = (int)Math.Floor(Math.Log10((double) s)+1);
                 var n = k - significants.Item2;
                 if (m < 1 && m > -1)
                 {
@@ -502,7 +502,7 @@ namespace Jint.Runtime
             }
         }
 
-        public static Tuple<double, int> GetSignificantDigitCount(decimal value)
+        public static Tuple<decimal, int> GetSignificantDigitCount(decimal value)
         {
             /* So, the decimal type is basically represented as a fraction of two
              * integers: a numerator that can be anything, and a denominator that is 
@@ -535,7 +535,7 @@ namespace Jint.Runtime
 
                 var num = new decimal(lowPart, middlePart, highPart, false, 0);
 
-                return new Tuple<double, int>((double)num, (scalePart >> 16) & 0x7fff);
+                return new Tuple<decimal, int>(num, (scalePart >> 16) & 0x7fff);
             }
             else
             {
@@ -545,7 +545,7 @@ namespace Jint.Runtime
                 // http://msdn.microsoft.com/en-us/library/system.decimal.getbits.aspx
                 int exponent = (scalePart & 0x00FF0000) >> 16;
 
-                return new Tuple<double, int>(lowPart, exponent + 1);
+                return new Tuple<decimal, int>(lowPart, exponent + 1);
             }
         }
     }

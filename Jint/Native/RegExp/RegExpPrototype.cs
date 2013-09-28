@@ -52,7 +52,7 @@ namespace Jint.Native.RegExp
             return match != Null.Instance;
         }
 
-        private object Exec(object thisObj, object[] arguments)
+        internal object Exec(object thisObj, object[] arguments)
         {
             var R = TypeConverter.ToObject(Engine, thisObj) as RegExpInstance;
             if (R == null)
@@ -74,7 +74,7 @@ namespace Jint.Native.RegExp
             Match r = null;
             if (i < 0 || i >= length)
             {
-                R.Put("lastIndex", 0, true);
+                R.Put("lastIndex", (double) 0, true);
                 return Null.Instance;
             }
 
@@ -82,7 +82,7 @@ namespace Jint.Native.RegExp
 
             if (!r.Success)
             {
-                R.Put("lastIndex", 0, true);
+                R.Put("lastIndex", (double) 0, true);
                 return Null.Instance;
             }
 
@@ -90,7 +90,7 @@ namespace Jint.Native.RegExp
             
             if (global)
             {
-                R.Put("lastIndex", e, true);
+                R.Put("lastIndex", (double) e, true);
             }
             var n = r.Groups.Count;
             var a = Engine.Array.Construct(Arguments.Empty);

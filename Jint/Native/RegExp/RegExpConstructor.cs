@@ -61,12 +61,12 @@ namespace Jint.Native.RegExp
             var flags = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
 
             var r = pattern as RegExpInstance;
-            if (pattern != Undefined.Instance && flags == Undefined.Instance && r != null)
+            if (pattern != null && flags == Undefined.Instance && r != null)
             {
                 p = r.Pattern;
                 f = r.Flags;
             }
-            else if (pattern != Undefined.Instance && flags != Undefined.Instance && r != null)
+            else if (pattern != null && flags != Undefined.Instance && r != null)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }

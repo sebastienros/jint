@@ -1,5 +1,4 @@
-﻿using System;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -7,12 +6,9 @@ namespace Jint.Native.String
 {
     public class StringInstance : ObjectInstance, IPrimitiveType
     {
-        private readonly Engine _engine;
-
         public StringInstance(Engine engine)
             : base(engine)
         {
-            _engine = engine;
         }
 
         public override string Class
@@ -25,7 +21,7 @@ namespace Jint.Native.String
 
         Types IPrimitiveType.Type
         {
-            get { return Types.Boolean; }
+            get { return Types.String; }
         }
 
         object IPrimitiveType.PrimitiveValue
