@@ -25,8 +25,15 @@ namespace Jint.Runtime.Interop
 
         public override object Call(object thisObject, object[] arguments)
         {
-            var result = _func((TObject) thisObject, arguments);
-            return result;
+            try
+            {
+                var result = _func((TObject) thisObject, arguments);
+                return result;
+            }
+            catch (InvalidCastException)
+            {
+                throw new JavaScriptException(Engine.TypeError);
+            }
         }
     }
 }
