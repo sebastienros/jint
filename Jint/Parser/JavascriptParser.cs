@@ -399,7 +399,7 @@ namespace Jint.Parser
                 }
                 ++_index;
 
-                if (ScanHexEscape('u', out ch) || ch == '\\' || !IsIdentifierStart(ch))
+                if (!ScanHexEscape('u', out ch) || ch == '\\' || !IsIdentifierStart(ch))
                 {
                     ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
                 }
@@ -426,7 +426,7 @@ namespace Jint.Parser
                     }
                     ++_index;
 
-                    if (ScanHexEscape('u', out ch) || ch == '\\' || !IsIdentifierPart(ch))
+                    if (!ScanHexEscape('u', out ch) || ch == '\\' || !IsIdentifierPart(ch))
                     {
                         ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
                     }
