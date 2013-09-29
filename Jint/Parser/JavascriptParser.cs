@@ -9,37 +9,38 @@ namespace Jint.Parser
 {
     public class JavaScriptParser
     {
-        private static readonly object[] Keywords = new object[]
-            {
-                "if", "in", "do", "var", "for", "new", "try", "let",
-                "this", "else", "case", "void", "with", "enum",
-                "while", "break", "catch", "throw", "const", "yield",
-                "class", "super", "return", "typeof", "delete",
-                "switch", "export", "import", "default", "finally", "extends",
-                "function", "continue", "debugger", "instanceof"
-            };
+        private static readonly object[] Keywords =
+        {
+            "if", "in", "do", "var", "for", "new", "try", "let",
+            "this", "else", "case", "void", "with", "enum",
+            "while", "break", "catch", "throw", "const", "yield",
+            "class", "super", "return", "typeof", "delete",
+            "switch", "export", "import", "default", "finally", "extends",
+            "function", "continue", "debugger", "instanceof"
+        };
 
-        private static readonly object[] StrictModeReservedWords = new object[] {
-                "implements",
-                "interface",
-                "package",
-                "private",
-                "protected",
-                "public",
-                "static",
-                "yield",
-                "let"
-                };
+        private static readonly object[] StrictModeReservedWords =
+        {
+            "implements",
+            "interface",
+            "package",
+            "private",
+            "protected",
+            "public",
+            "static",
+            "yield",
+            "let"
+        };
 
-        private static readonly object[] FutureReservedWords = new object[]
-            {
-                "class",
-                "enum",
-                "export",
-                "extends",
-                "import",
-                "super"
-            };
+        private static readonly object[] FutureReservedWords =
+        {
+            "class",
+            "enum",
+            "export",
+            "extends",
+            "import",
+            "super"
+        };
         
         private Extra _extra;
 
@@ -100,7 +101,11 @@ namespace Jint.Parser
 
         private static bool IsLineTerminator(char ch)
         {
-            return (ch == 10) || (ch == 13) || (ch == 0x2028) || (ch == 0x2029);
+            return (ch == 10) 
+                || (ch == 13) 
+                || (ch == 0x2028) // line separator
+                || (ch == 0x2029) // paragraph separator
+                ;
         }
 
         // 7.6 Identifier Names and Identifiers
@@ -272,7 +277,7 @@ namespace Jint.Parser
                     _lineStart = _index;
                     if (_index >= _length)
                     {
-                        throw new Exception(Messages.UnexpectedToken);
+                        ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
                     }
                 }
                 else if (ch == 42)
@@ -302,7 +307,7 @@ namespace Jint.Parser
                 }
             }
 
-            throw new Exception(Messages.UnexpectedToken);
+            ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
         }
 
         private void SkipComment()
@@ -390,13 +395,13 @@ namespace Jint.Parser
             {
                 if (_source.CharCodeAt(_index) != 117)
                 {
-                    throw new Exception(Messages.UnexpectedToken);
+                    ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
                 }
                 ++_index;
 
                 if (ScanHexEscape('u', out ch) || ch == '\\' || !IsIdentifierStart(ch))
                 {
-                    throw new Exception(Messages.UnexpectedToken);
+                    ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
                 }
                 id = ch.ToString();
             }
@@ -417,13 +422,13 @@ namespace Jint.Parser
                     id = id.Substring(0, id.Length - 1);
                     if (_source.CharCodeAt(_index) != 117)
                     {
-                        throw new Exception(Messages.UnexpectedToken);
+                        ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
                     }
                     ++_index;
 
                     if (ScanHexEscape('u', out ch) || ch == '\\' || !IsIdentifierPart(ch))
                     {
-                        throw new Exception(Messages.UnexpectedToken);
+                        ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
                     }
                     id += ch.ToString();
                 }
@@ -678,7 +683,9 @@ namespace Jint.Parser
                     };
             }
 
-            throw new Exception(Messages.UnexpectedToken);
+            ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+
+            return null;
         }
 
         // 7.8.3 Numeric Literals
@@ -698,12 +705,12 @@ namespace Jint.Parser
 
             if (number.Length == 0)
             {
-                throw new Exception(Messages.UnexpectedToken);
+                ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
             }
 
             if (IsIdentifierStart(_source.CharCodeAt(_index)))
             {
-                throw new Exception(Messages.UnexpectedToken);
+                ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
             }
 
             return new Token
@@ -730,7 +737,7 @@ namespace Jint.Parser
 
             if (IsIdentifierStart(_source.CharCodeAt(_index)) || IsDecimalDigit(_source.CharCodeAt(_index)))
             {
-                throw new Exception(Messages.UnexpectedToken);
+                ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
             }
 
             return new Token
@@ -772,7 +779,7 @@ namespace Jint.Parser
                     // decimal number starts with '0' such as '09' is illegal.
                     if (ch > 0 && IsDecimalDigit(ch))
                     {
-                        throw new Exception(Messages.UnexpectedToken);
+                        ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
                     }
                 }
 
@@ -811,13 +818,13 @@ namespace Jint.Parser
                 }
                 else
                 {
-                    throw new Exception(Messages.UnexpectedToken);
+                    ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
                 }
             }
 
             if (IsIdentifierStart(_source.CharCodeAt(_index)))
             {
-                throw new Exception(Messages.UnexpectedToken);
+                ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
             }
 
             double n;
@@ -961,7 +968,7 @@ namespace Jint.Parser
 
             if (quote != 0)
             {
-                throw new Exception(Messages.UnexpectedToken);
+                ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
             }
 
             return new Token
@@ -977,7 +984,6 @@ namespace Jint.Parser
 
         private Token ScanRegExp()
         {
-            Regex value;
             bool classMarker = false;
             bool terminated = false;
 
@@ -991,6 +997,7 @@ namespace Jint.Parser
             while (_index < _length)
             {
                 ch = _source.CharCodeAt(_index++);
+                
                 str += ch.ToString();
                 if (ch == '\\')
                 {
@@ -998,10 +1005,15 @@ namespace Jint.Parser
                     // ECMA-262 7.8.5
                     if (IsLineTerminator(ch))
                     {
-                        throw new Exception(Messages.UnterminatedRegExp);
+                        ThrowError(null, Messages.UnterminatedRegExp);
                     }
                     str += ch.ToString();
-                } else  if (classMarker)
+                }
+                else if (IsLineTerminator(ch))
+                {
+                    ThrowError(null, Messages.UnterminatedRegExp);
+                }
+                else if (classMarker)
                 {
                     if (ch == ']')
                     {
@@ -1015,20 +1027,17 @@ namespace Jint.Parser
                         terminated = true;
                         break;
                     }
-                    else if (ch == '[')
+                    
+                    if (ch == '[')
                     {
                         classMarker = true;
-                    }
-                    else if (IsLineTerminator(ch))
-                    {
-                        throw new Exception(Messages.UnterminatedRegExp);
                     }
                 }
             }
 
             if (!terminated)
             {
-                throw new Exception(Messages.UnterminatedRegExp);
+                ThrowError(null, Messages.UnterminatedRegExp);
             }
 
             // Exclude leading and trailing slash.
@@ -1795,7 +1804,7 @@ namespace Jint.Parser
             ParserError error;
             string msg = String.Format(messageFormat, arguments);
 
-            if (token.LineNumber.HasValue)
+            if (token != null && token.LineNumber.HasValue)
             {
                 error = new ParserError("Line " + token.LineNumber + ": " + msg)
                     {
