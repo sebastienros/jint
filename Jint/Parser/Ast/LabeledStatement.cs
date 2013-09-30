@@ -1,6 +1,6 @@
 namespace Jint.Parser.Ast
 {
-    public class LabeledStatement : Statement
+    public class LabelledStatement : Statement
     {
         public Identifier Label;
         public Statement Body;

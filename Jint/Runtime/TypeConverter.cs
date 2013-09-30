@@ -338,12 +338,12 @@ namespace Jint.Runtime
                     return "-" + ToString(-m);
                 }
 
-                if (m == double.PositiveInfinity)
+                if (m == double.PositiveInfinity || m >= double.MaxValue)
                 {
                     return "Infinity";
                 }
 
-                if (m == double.NegativeInfinity)
+                if (m == double.NegativeInfinity || m <= -double.MaxValue)
                 {
                     return "-Infinity";
                 }

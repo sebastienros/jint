@@ -54,6 +54,18 @@ namespace Jint.Runtime
             return result;
         }
 
+        public Completion ExecuteLabelledStatement(LabelledStatement labelledStatement)
+        {
+            labelledStatement.Body.LabelSet = labelledStatement.Label.Name;
+            var result = ExecuteStatement(labelledStatement.Body);
+            if (result.Type == Completion.Break && result.Identifier == labelledStatement.Label.Name)
+            {
+                return new Completion(Completion.Normal, result.Value, null);    
+            }
+
+            return result;
+        }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-12.6.1
         /// </summary>
@@ -71,9 +83,9 @@ namespace Jint.Runtime
                 {
                     v = stmt.Value;
                 }
-                if (stmt.Type != Completion.Continue /* todo: || stmt.Target*/)
+                if (stmt.Type != Completion.Continue || stmt.Identifier != doWhileStatement.LabelSet)
                 {
-                    if (stmt.Type == Completion.Break /* todo: complete */)
+                    if (stmt.Type == Completion.Break && stmt.Identifier == doWhileStatement.LabelSet)
                     {
                         return new Completion(Completion.Normal, v, null);
                     }
@@ -115,9 +127,9 @@ namespace Jint.Runtime
                     v = stmt.Value;
                 }
 
-                if (stmt.Type != Completion.Continue /* todo: complete */)
+                if (stmt.Type != Completion.Continue || stmt.Identifier != whileStatement.LabelSet)
                 {
-                    if (stmt.Type == Completion.Break /* todo: complete */)
+                    if (stmt.Type == Completion.Break && stmt.Identifier == whileStatement.LabelSet)
                     {
                         return new Completion(Completion.Normal, v, null);
                     }
@@ -167,11 +179,11 @@ namespace Jint.Runtime
                 {
                     v = stmt.Value;
                 }
-                if (stmt.Type == Completion.Break /* todo: complete */)
+                if (stmt.Type == Completion.Break && stmt.Identifier == forStatement.LabelSet)
                 {
                     return new Completion(Completion.Normal, v, null);
                 }
-                if (stmt.Type != Completion.Continue /* todo: complete */)
+                if (stmt.Type != Completion.Continue || stmt.Identifier != forStatement.LabelSet)
                 {
                     if (stmt.Type != Completion.Normal)
                     {
@@ -316,7 +328,7 @@ namespace Jint.Runtime
         {
             var exprRef = _engine.EvaluateExpression(switchStatement.Discriminant);
             var r = ExecuteSwitchBlock(switchStatement.Cases, _engine.GetValue(exprRef));
-            if (r.Type == Completion.Break /* too: complete */)
+            if (r.Type == Completion.Break && r.Identifier == switchStatement.LabelSet)
             {
                 return new Completion(Completion.Normal, r.Value, null);
             }

@@ -133,28 +133,8 @@ namespace Jint.Tests.Parser
         [InlineData("\u0061", @"'\u0061'")]
         [InlineData("\x61", @"'\x61'")]
         [InlineData("Hello\nworld", @"'Hello\nworld'")]
-        [InlineData("Hello\nworld", "'Hello\\\nworld'")]
+        [InlineData("Hello\\\nworld", @"'Hello\\\nworld'")]
         public void ShouldParseStringLiterals(string expected, string source)
-        {
-            Literal literal;
-
-            var program = _parser.Parse(source);
-            var body = program.Body;
-
-            Assert.NotNull(body);
-            Assert.Equal(1, body.Count());
-            Assert.NotNull(literal = body.First().As<ExpressionStatement>().Expression.As<Literal>());
-            Assert.Equal(expected, literal.Value);
-        }
-
-        [Theory]
-        [InlineData("Hello", @"'Hello'")]
-        [InlineData("\n\r\t\v\b\f\\\'\"\0", @"'\n\r\t\v\b\f\\\'\""\0'")]
-        [InlineData("\u0061", @"'\u0061'")]
-        [InlineData("\x61", @"'\x61'")]
-        [InlineData("Hello\nworld", @"'Hello\nworld'")]
-        [InlineData("Hello\nworld", "'Hello\\\nworld'")]
-        public void ShouldParseRegularExpressions(string expected, string source)
         {
             Literal literal;
 

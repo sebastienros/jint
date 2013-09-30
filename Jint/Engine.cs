@@ -225,7 +225,7 @@ namespace Jint
                     return _statements.ExecuteIfStatement(statement.As<IfStatement>());
                     
                 case SyntaxNodes.LabeledStatement:
-                    return null;
+                    return _statements.ExecuteLabelledStatement(statement.As<LabelledStatement>());
 
                 case SyntaxNodes.ReturnStatement:
                     return _statements.ExecuteReturnStatement(statement.As<ReturnStatement>());

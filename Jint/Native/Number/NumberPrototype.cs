@@ -66,8 +66,13 @@ namespace Jint.Native.Number
             throw new System.NotImplementedException();
         }
 
-        private static object ToNumberString(object thisObject, object[] arguments)
+        private object ToNumberString(object thisObject, object[] arguments)
         {
+            if (TypeConverter.GetType(thisObject) != Types.Number)
+            {
+                throw new JavaScriptException(Engine.TypeError);
+            }
+
             return TypeConverter.ToString(thisObject);
         }
 

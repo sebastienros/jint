@@ -32,7 +32,7 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch08/8.7/S8.7_A4.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Doesn't work in Chrome either")]
         [Trait("Category", "8.7")]
         public void DeleteUnaryOperatorCanTDeleteObjectToBeReferenced()
         {

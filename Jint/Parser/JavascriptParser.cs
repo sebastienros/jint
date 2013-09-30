@@ -831,6 +831,15 @@ namespace Jint.Parser
             try
             {
                 n = Double.Parse(number, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent);
+
+                if (n > double.MaxValue)
+                {
+                    n = double.PositiveInfinity;
+                }
+                else if (n < -double.MaxValue)
+                {
+                    n = double.NegativeInfinity;
+                }
             }
             catch (OverflowException)
             {
@@ -876,7 +885,7 @@ namespace Jint.Parser
                 if (ch == '\\')
                 {
                     ch = _source.CharCodeAt(_index++);
-                    if (ch > 0 || !IsLineTerminator(ch))
+                    if (ch == char.MinValue || !IsLineTerminator(ch))
                     {
                         switch (ch)
                         {
@@ -1554,9 +1563,9 @@ namespace Jint.Parser
                 };
         }
 
-        public LabeledStatement CreateLabeledStatement(Identifier label, Statement body)
+        public LabelledStatement CreateLabeledStatement(Identifier label, Statement body)
         {
-            return new LabeledStatement
+            return new LabelledStatement
                 {
                     Type = SyntaxNodes.LabeledStatement,
                     Label = label,
@@ -2151,7 +2160,7 @@ namespace Jint.Parser
                         {
                             ThrowErrorTolerant(Token.Empty, Messages.AccessorDataProperty);
                         }
-                        else if ((map[key] & kind) == map[key])
+                        else if ((map[key] & kind) == kind)
                         {
                             ThrowErrorTolerant(Token.Empty, Messages.AccessorGetSet);
                         }
