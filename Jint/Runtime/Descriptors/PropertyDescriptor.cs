@@ -79,34 +79,44 @@ namespace Jint.Runtime.Descriptors
             bool? enumerable = obj.HasProperty("enumerable") ? TypeConverter.ToBoolean(obj.Get("enumerable")) : default(bool?);
             bool? configurable = obj.HasProperty("configurable") ? TypeConverter.ToBoolean(obj.Get("configurable")) : default(bool?);
 
+            PropertyDescriptor desc = new DataDescriptor(Native.Undefined.Instance) { Configurable = configurable, Enumerable = enumerable, Writable = writable };
+
             if (obj.HasProperty("value"))
             {
                 var value = obj.Get("value");
-                return new DataDescriptor(value) { Configurable = configurable, Enumerable = enumerable, Writable = writable};
+                desc = new DataDescriptor(value) { Configurable = configurable, Enumerable = enumerable, Writable = writable};
             }
-            else
+
+            object getter = null, setter = null;
+            if (obj.HasProperty("get"))
             {
-                object getter = null, setter = null;
-                if (obj.HasProperty("get"))
+                getter = obj.Get("get");
+                if (getter != Native.Undefined.Instance && !(getter is ICallable))
                 {
-                    getter = obj.Get("get");
-                    if (getter != Native.Undefined.Instance && !(getter is ICallable))
-                    {
-                        throw new JavaScriptException(engine.TypeError);
-                    }
+                    throw new JavaScriptException(engine.TypeError);
                 }
-
-                if (obj.HasProperty("set"))
-                {
-                    setter = obj.Get("set");
-                    if (setter != Native.Undefined.Instance && !(setter is ICallable))
-                    {
-                        throw new JavaScriptException(engine.TypeError);
-                    }
-                }
-
-                return new AccessorDescriptor(getter as ICallable, setter as ICallable) { Configurable = configurable, Enumerable = enumerable };
             }
+
+            if (obj.HasProperty("set"))
+            {
+                setter = obj.Get("set");
+                if (setter != Native.Undefined.Instance && !(setter is ICallable))
+                {
+                    throw new JavaScriptException(engine.TypeError);
+                }
+            }
+
+            if (getter != null || setter != null)
+            {
+                if (obj.HasProperty("value") || writable != null)
+                {
+                    throw new JavaScriptException(engine.TypeError);
+                }
+
+                desc = new AccessorDescriptor(getter as ICallable, setter as ICallable) { Configurable = configurable, Enumerable = enumerable };
+            }
+
+            return desc;
         }
 
         public static object FromPropertyDescriptor(Engine engine, PropertyDescriptor desc)
@@ -122,7 +132,7 @@ namespace Jint.Runtime.Descriptors
             {
                 var datadesc = desc.As<DataDescriptor>();
                 obj.DefineOwnProperty("value", new DataDescriptor(datadesc.Value) { Writable = true, Enumerable = true, Configurable = true }, false);
-                obj.DefineOwnProperty("writable", new DataDescriptor(datadesc.Writable) { Writable = true, Enumerable = true, Configurable = true }, false);
+                obj.DefineOwnProperty("writable", new DataDescriptor(datadesc.WritableIsSet) { Writable = true, Enumerable = true, Configurable = true }, false);
             }
             else
             {
@@ -131,8 +141,8 @@ namespace Jint.Runtime.Descriptors
                 obj.DefineOwnProperty("set", new DataDescriptor(accdesc.Set ?? Native.Undefined.Instance) { Writable = true, Enumerable = true, Configurable = true }, false);
             }
 
-            obj.DefineOwnProperty("enumerable", new DataDescriptor(desc.Enumerable) { Writable = true, Enumerable = true, Configurable = true }, false);
-            obj.DefineOwnProperty("configurable", new DataDescriptor(desc.Configurable) { Writable = true, Enumerable = true, Configurable = true }, false);
+            obj.DefineOwnProperty("enumerable", new DataDescriptor(desc.EnumerableIsSet) { Writable = true, Enumerable = true, Configurable = true }, false);
+            obj.DefineOwnProperty("configurable", new DataDescriptor(desc.ConfigurableIsSet) { Writable = true, Enumerable = true, Configurable = true }, false);
 
             return obj;
         }

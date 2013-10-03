@@ -57,7 +57,18 @@ namespace Jint.Parser
         private bool _strict;
 
         private readonly Stack<IVariableScope> _variableScopes = new Stack<IVariableScope>();
-        private readonly Stack<IFunctionScope> _functionScopes = new Stack<IFunctionScope>(); 
+        private readonly Stack<IFunctionScope> _functionScopes = new Stack<IFunctionScope>();
+
+
+        public JavaScriptParser()
+        {
+            
+        }
+
+        public JavaScriptParser(bool strict)
+        {
+            _strict = strict;
+        }
 
         private static bool IsDecimalDigit(char ch)
         {
@@ -3835,7 +3846,6 @@ namespace Jint.Parser
             
             SkipComment();
             MarkStart();
-            _strict = false;
             Peek();
             ICollection<Statement> body = ParseSourceElements();
             return MarkEnd(CreateProgram(body, _strict));

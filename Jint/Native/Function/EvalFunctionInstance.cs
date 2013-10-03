@@ -16,28 +16,30 @@ namespace Jint.Native.Function
 
         public override object Call(object thisObject, object[] arguments)
         {
-            if (StrictModeScope.IsStrictModeCode)
-            {
-                throw new JavaScriptException(Engine.SyntaxError, "eval() is not allowed in strict mode.");
-            }
-
             var code = TypeConverter.ToString(arguments.At(0));
 
-            var parser = new JavaScriptParser();
             try
             {
+                var parser = new JavaScriptParser(StrictModeScope.IsStrictModeCode);
                 var program = parser.Parse(code);
                 using (new StrictModeScope(program.Strict))
                 {
-                    return _engine.ExecuteStatement(program).Value ?? Undefined.Instance;
+                    var result = _engine.ExecuteStatement(program);
+
+                    if (result.Type == Completion.Throw)
+                    {
+                        throw new JavaScriptException(result.Value);
+                    }
+                    else
+                    {
+                        return result.Value ?? Undefined.Instance;
+                    }
                 }
             }
-            catch (ParserError e)
+            catch (ParserError)
             {
                 throw new JavaScriptException(Engine.SyntaxError);
             }
-
-            
         }
     }
 }
