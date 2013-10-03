@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Jint.Parser.Ast;
 
@@ -388,7 +389,7 @@ namespace Jint.Parser
         private string GetEscapedIdentifier()
         {
             char ch = _source.CharCodeAt(_index++);
-            string id = ch.ToString();
+            var id = new StringBuilder(ch.ToString());
 
             // '\u' (char #92, char #117) denotes an escaped character.
             if (ch == 92)
@@ -403,7 +404,7 @@ namespace Jint.Parser
                 {
                     ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
                 }
-                id = ch.ToString();
+                id = new StringBuilder(ch.ToString());
             }
 
             while (_index < _length)
@@ -414,12 +415,11 @@ namespace Jint.Parser
                     break;
                 }
                 ++_index;
-                id += ch.ToString();
+                
 
                 // '\u' (char #92, char #117) denotes an escaped character.
                 if (ch == 92)
                 {
-                    id = id.Substring(0, id.Length - 1);
                     if (_source.CharCodeAt(_index) != 117)
                     {
                         ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
@@ -430,11 +430,15 @@ namespace Jint.Parser
                     {
                         ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
                     }
-                    id += ch.ToString();
+                    id.Append(ch);
+                }
+                else
+                {
+                    id.Append(ch);
                 }
             }
 
-            return id;
+            return id.ToString();
         }
 
         private string GetIdentifier()
@@ -864,7 +868,7 @@ namespace Jint.Parser
 
         private Token ScanStringLiteral()
         {
-            string str = "";
+            var str = new StringBuilder();
             bool octal = false;
 
             char quote = _source.CharCodeAt(_index);
@@ -890,13 +894,13 @@ namespace Jint.Parser
                         switch (ch)
                         {
                             case 'n':
-                                str += '\n';
+                                str.Append('\n');
                                 break;
                             case 'r':
-                                str += '\r';
+                                str.Append('\r');
                                 break;
                             case 't':
-                                str += '\t';
+                                str.Append('\t');
                                 break;
                             case 'u':
                             case 'x':
@@ -904,22 +908,22 @@ namespace Jint.Parser
                                 char unescaped;
                                 if(ScanHexEscape(ch, out unescaped))
                                 {
-                                    str += unescaped.ToString();
+                                    str.Append(unescaped);
                                 }
                                 else
                                 {
                                     _index = restore;
-                                    str += ch.ToString();
+                                    str.Append(ch);
                                 }
                                 break;
                             case 'b':
-                                str += "\b";
+                                str.Append("\b");
                                 break;
                             case 'f':
-                                str += "\f";
+                                str.Append("\f");
                                 break;
                             case 'v':
-                                str += "\x0B";
+                                str.Append("\x0B");
                                 break;
 
                             default:
@@ -947,11 +951,11 @@ namespace Jint.Parser
                                             code = code * 8 + "01234567".IndexOf(_source.CharCodeAt(_index++));
                                         }
                                     }
-                                    str += ((char)code).ToString();
+                                    str.Append((char)code);
                                 }
                                 else
                                 {
-                                    str += ch.ToString();
+                                    str.Append(ch);
                                 }
                                 break;
                         }
@@ -971,7 +975,7 @@ namespace Jint.Parser
                 }
                 else
                 {
-                    str += ch.ToString();
+                    str.Append(ch);
                 }
             }
 
@@ -983,7 +987,7 @@ namespace Jint.Parser
             return new Token
                 {
                     Type = Tokens.StringLiteral,
-                    Value = str,
+                    Value = str.ToString(),
                     Octal = octal,
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
@@ -1001,13 +1005,13 @@ namespace Jint.Parser
             int start = _index;
             char ch;
 
-            string str = _source.CharCodeAt(_index++).ToString();
+            var str = new StringBuilder(_source.CharCodeAt(_index++).ToString());
 
             while (_index < _length)
             {
                 ch = _source.CharCodeAt(_index++);
                 
-                str += ch.ToString();
+                str.Append(ch);
                 if (ch == '\\')
                 {
                     ch = _source.CharCodeAt(_index++);
@@ -1016,7 +1020,7 @@ namespace Jint.Parser
                     {
                         ThrowError(null, Messages.UnterminatedRegExp);
                     }
-                    str += ch.ToString();
+                    str.Append(ch);
                 }
                 else if (IsLineTerminator(ch))
                 {
@@ -1050,7 +1054,7 @@ namespace Jint.Parser
             }
 
             // Exclude leading and trailing slash.
-            string pattern = str.Substring(1, str.Length - 2);
+            string pattern = str.ToString().Substring(1, str.Length - 2);
 
             string flags = "";
             while (_index < _length)
@@ -1072,27 +1076,27 @@ namespace Jint.Parser
                         if(ScanHexEscape('u', out ch))
                         {
                             flags += ch.ToString();
-                            for (str += "\\u"; restore < _index; ++restore)
+                            for (str.Append("\\u"); restore < _index; ++restore)
                             {
-                                str += _source.CharCodeAt(restore).ToString();
+                                str.Append(_source.CharCodeAt(restore).ToString());
                             }
                         }
                         else
                         {
                             _index = restore;
                             flags += "u";
-                            str += "\\u";
+                            str.Append("\\u");
                         }
                     }
                     else
                     {
-                        str += "\\";
+                        str.Append("\\");
                     }
                 }
                 else
                 {
                     flags += ch.ToString();
-                    str += ch.ToString();
+                    str.Append(ch.ToString());
                 }
             }
 
@@ -1101,7 +1105,7 @@ namespace Jint.Parser
             return new Token
                 {
                     Type = Tokens.RegularExpression,
-                    Literal = str,
+                    Literal = str.ToString(),
                     Value = pattern + flags,
                     Range = new[] {start, _index}
                 };
