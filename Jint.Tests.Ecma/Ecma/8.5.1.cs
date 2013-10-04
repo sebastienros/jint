@@ -2,6 +2,7 @@ using Xunit;
 
 namespace Jint.Tests.Ecma
 {
+    [Trait("Category", "Pass")]
     public class Test_8_5_1 : EcmaTest
     {
         [Fact(Skip = "C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308")]

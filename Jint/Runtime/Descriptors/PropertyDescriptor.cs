@@ -29,9 +29,14 @@ namespace Jint.Runtime.Descriptors
         /// </summary>
         public bool? Configurable { get; set; }
 
-        public bool ConfigurableIsSet
+        public bool ConfigurableIsSetToTrue
         {
             get { return Configurable.HasValue && Configurable.Value; }
+        }
+
+        public bool ConfigurableIsSetToFalse
+        {
+            get { return Configurable.HasValue && !Configurable.Value; }
         }
 
         /// <summary>
@@ -142,7 +147,7 @@ namespace Jint.Runtime.Descriptors
             }
 
             obj.DefineOwnProperty("enumerable", new DataDescriptor(desc.EnumerableIsSet) { Writable = true, Enumerable = true, Configurable = true }, false);
-            obj.DefineOwnProperty("configurable", new DataDescriptor(desc.ConfigurableIsSet) { Writable = true, Enumerable = true, Configurable = true }, false);
+            obj.DefineOwnProperty("configurable", new DataDescriptor(desc.ConfigurableIsSetToTrue) { Writable = true, Enumerable = true, Configurable = true }, false);
 
             return obj;
         }

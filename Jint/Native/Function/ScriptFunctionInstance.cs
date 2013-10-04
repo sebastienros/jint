@@ -61,6 +61,8 @@ namespace Jint.Native.Function
 
             using (new StrictModeScope(Strict, true))
             {
+                var strict = StrictModeScope.IsStrictModeCode;
+
                 // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
                 if (StrictModeScope.IsStrictModeCode)
                 {
@@ -83,61 +85,7 @@ namespace Jint.Native.Function
 
                 Engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
-                // Declaration Binding Instantiation http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
-                var env = localEnv.Record;
-                var configurableBindings = false;
-
-                //if (/* todo: if code is eval code */)
-                //{
-                //    configurableBindings = true;
-                //}
-
-                var argCount = arguments.Length;
-                var n = 0;
-                foreach (var argName in FormalParameters)
-                {
-                    n++;
-                    var v = n > argCount ? Undefined.Instance : arguments[n - 1];
-                    var argAlreadyDeclared = env.HasBinding(argName);
-                    if (!argAlreadyDeclared)
-                    {
-                        env.CreateMutableBinding(argName);
-                    }
-
-                    env.SetMutableBinding(argName, v, Strict);
-                }
-
-                Engine.FunctionDeclarationBindings(_functionDeclaration, localEnv, true, Strict);
-
-                var argumentsAlreadyDeclared = env.HasBinding("arguments");
-
-                if (!argumentsAlreadyDeclared)
-                {
-                    var argsObj = ArgumentsInstance.CreateArgumentsObject(Engine, this, FormalParameters, arguments, env,
-                        Strict);
-
-                    if (Strict)
-                    {
-                        var declEnv = env as DeclarativeEnvironmentRecord;
-
-                        if (declEnv == null)
-                        {
-                            throw new ArgumentException();
-                        }
-
-                        declEnv.CreateImmutableBinding("arguments");
-                        declEnv.InitializeImmutableBinding("arguments", argsObj);
-                    }
-                    else
-                    {
-                        env.CreateMutableBinding("arguments");
-                        env.SetMutableBinding("arguments", argsObj, false);
-                    }
-                }
-
-                // process all variable declarations in the current parser scope
-                Engine.VariableDeclarationBinding(_functionDeclaration.VariableDeclarations, env, configurableBindings,
-                    Strict);
+                Engine.DeclarationBindingInstantiation(DeclarationBindingType.FunctionCode, _functionDeclaration.FunctionDeclarations, _functionDeclaration.VariableDeclarations, this, arguments);
 
                 var result = Engine.ExecuteStatement(_functionDeclaration.Body);
 

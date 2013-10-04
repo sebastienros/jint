@@ -456,9 +456,6 @@ namespace Jint.Runtime
 
         public Completion ExecuteProgram(Program program)
         {
-            _engine.FunctionDeclarationBindings(program, _engine.ExecutionContext.LexicalEnvironment, true, program.Strict);
-            _engine.VariableDeclarationBinding(program.VariableDeclarations, _engine.ExecutionContext.LexicalEnvironment.Record, true, program.Strict);
-
             return ExecuteStatementList(program.Body);
         }
 

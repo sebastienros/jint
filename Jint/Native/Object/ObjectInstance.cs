@@ -269,7 +269,7 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            if (desc.ConfigurableIsSet)
+            if (desc.ConfigurableIsSetToTrue)
             {
                 Properties.Remove(propertyName);
                 return true;
@@ -391,9 +391,9 @@ namespace Jint.Native.Object
 
             // todo: if desc and current are the same, return true
 
-            if (!current.ConfigurableIsSet)
+            if (current.ConfigurableIsSetToFalse)
             {
-                if (desc.ConfigurableIsSet)
+                if (desc.ConfigurableIsSetToTrue)
                 {
                     if (throwOnError)
                     {
@@ -403,7 +403,7 @@ namespace Jint.Native.Object
                     return false;
                 }
 
-                if (desc.EnumerableIsSet != current.EnumerableIsSet)
+                if (desc.Enumerable.HasValue && desc.Enumerable.Value != current.Enumerable.Value)
                 {
                     if (throwOnError)
                     {
@@ -421,7 +421,7 @@ namespace Jint.Native.Object
 
             if (current.IsDataDescriptor() != desc.IsDataDescriptor())
             {
-                if (!current.ConfigurableIsSet)
+                if (!current.ConfigurableIsSetToTrue)
                 {
                     if (throwOnError)
                     {
@@ -441,7 +441,7 @@ namespace Jint.Native.Object
                 var cd = current.As<DataDescriptor>();
                 var dd = current.As<DataDescriptor>();
 
-                if (!current.ConfigurableIsSet)
+                if (!current.ConfigurableIsSetToTrue)
                 {
                     if (!cd.WritableIsSet && dd.WritableIsSet)
                     {
@@ -464,7 +464,7 @@ namespace Jint.Native.Object
                 var ca = current.As<AccessorDescriptor>();
                 var da = desc.As<AccessorDescriptor>();
 
-                if (!current.ConfigurableIsSet)
+                if (!current.ConfigurableIsSetToTrue)
                 {
                     if ( (da.Set != null && da.Set != ca.Set)
                         || (da.Get != null && da.Get != ca.Get))

@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using System.Net.NetworkInformation;
+using Jint.Native.Object;
 using Jint.Parser;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
@@ -24,15 +25,38 @@ namespace Jint.Native.Function
                 var program = parser.Parse(code);
                 using (new StrictModeScope(program.Strict))
                 {
-                    var result = _engine.ExecuteStatement(program);
+                    using (new EvalCodeScope())
+                    {
+                        LexicalEnvironment strictVarEnv = null;
 
-                    if (result.Type == Completion.Throw)
-                    {
-                        throw new JavaScriptException(result.Value);
-                    }
-                    else
-                    {
-                        return result.Value ?? Undefined.Instance;
+                        try
+                        {
+                            if (StrictModeScope.IsStrictModeCode)
+                            {
+                                strictVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment);
+                                Engine.EnterExecutionContext(strictVarEnv, strictVarEnv, Engine.ExecutionContext.ThisBinding);
+                            }
+
+                            Engine.DeclarationBindingInstantiation(DeclarationBindingType.EvalCode, program.FunctionDeclarations, program.VariableDeclarations, this, arguments);
+                            
+                            var result = _engine.ExecuteStatement(program);
+
+                            if (result.Type == Completion.Throw)
+                            {
+                                throw new JavaScriptException(result.Value);
+                            }
+                            else
+                            {
+                                return result.Value ?? Undefined.Instance;
+                            }
+                        }
+                        finally
+                        {
+                            if (strictVarEnv != null)
+                            {
+                                Engine.LeaveExecutionContext();
+                            }
+                        }
                     }
                 }
             }

@@ -2,18 +2,20 @@
 {
     public class DataDescriptor : PropertyDescriptor
     {
-        public DataDescriptor(object value)
+        public DataDescriptor(object value) : this(value, true, null, null)
         {
-            Value = value;
-            Writable = true;
         }
 
-        public DataDescriptor(DataDescriptor d)
+        public DataDescriptor(DataDescriptor d) : this(d.Value, d.Writable, d.Enumerable, d.Configurable)
         {
-            Value = d.Value;
-            Writable = d.Writable;
-            Configurable = d.Configurable;
-            Enumerable = d.Enumerable;
+        }
+
+        public DataDescriptor(object value, bool? writable, bool? enumerable, bool? configurable)
+        {
+            Value = value;
+            Writable = writable;
+            Enumerable = enumerable;
+            Configurable = configurable;
         }
 
         public object Value { get; set; }

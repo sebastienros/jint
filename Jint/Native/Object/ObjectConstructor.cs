@@ -236,7 +236,7 @@ namespace Jint.Native.Object
 
             foreach (var prop in o.Properties)
             {
-                if (prop.Value.ConfigurableIsSet)
+                if (prop.Value.ConfigurableIsSetToTrue)
                 {
                     prop.Value.Configurable = false;
                 }
@@ -271,7 +271,7 @@ namespace Jint.Native.Object
                         datadesc.Writable = false;
                     }
                 }
-                if (prop.ConfigurableIsSet)
+                if (prop.ConfigurableIsSetToTrue)
                 {
                     prop.Configurable = false;
                 }
@@ -310,7 +310,7 @@ namespace Jint.Native.Object
 
             foreach (var prop in o.Properties)
             {
-                if (prop.Value.ConfigurableIsSet)
+                if (prop.Value.ConfigurableIsSetToTrue)
                 {
                     return false;
                 }
@@ -343,7 +343,7 @@ namespace Jint.Native.Object
                         return false;
                     }
                 }
-                if (prop.Value.ConfigurableIsSet)
+                if (prop.Value.ConfigurableIsSetToTrue)
                 {
                     return false;
                 }

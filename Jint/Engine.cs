@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Jint.Native;
+using Jint.Native.Argument;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -177,6 +178,8 @@ namespace Jint
         {
             using (new StrictModeScope(Options.IsStrict() || program.Strict))
             {
+                DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.FunctionDeclarations, program.VariableDeclarations, null, null);
+
                 var result = _statements.ExecuteProgram(program);
                 if (result.Type == Completion.Throw)
                 {
@@ -485,16 +488,35 @@ namespace Jint
             return GetValue(Global.Get(propertyName));
         }
 
-        public void FunctionDeclarationBindings(IFunctionScope functionScope, LexicalEnvironment localEnv, bool configurableBindings, bool strict)
+        //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
+        public void DeclarationBindingInstantiation(DeclarationBindingType declarationBindingType, IList<FunctionDeclaration> functionDeclarations, IList<VariableDeclaration> variableDeclarations, FunctionInstance functionInstance, object[] arguments)
         {
-            // Declaration Binding Instantiation http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
-            var env = localEnv.Record;
+            var env = ExecutionContext.VariableEnvironment.Record;
+            bool configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
+            var strict = StrictModeScope.IsStrictModeCode;
 
-            // process all function declarations in the current parser scope
-            foreach (var functionDeclaration in functionScope.FunctionDeclarations)
+            if (declarationBindingType == DeclarationBindingType.FunctionCode)
             {
-                var fn = functionDeclaration.Id.Name;
-                var fo = Function.CreateFunctionObject(functionDeclaration);
+                var argCount = arguments.Length;
+                var n = 0;
+                foreach (var argName in functionInstance.FormalParameters)
+                {
+                    n++;
+                    var v = n > argCount ? Undefined.Instance : arguments[n - 1];
+                    var argAlreadyDeclared = env.HasBinding(argName);
+                    if (!argAlreadyDeclared)
+                    {
+                        env.CreateMutableBinding(argName);
+                    }
+
+                    env.SetMutableBinding(argName, v, strict);
+                }
+            }
+
+            foreach (var f in functionDeclarations)
+            {
+                var fn = f.Id.Name;
+                var fo = Function.CreateFunctionObject(f);
                 var funcAlreadyDeclared = env.HasBinding(fn);
                 if (!funcAlreadyDeclared)
                 {
@@ -506,7 +528,7 @@ namespace Jint
                     {
                         var go = Global;
                         var existingProp = go.GetProperty(fn);
-                        if (existingProp.ConfigurableIsSet)
+                        if (existingProp.ConfigurableIsSetToTrue)
                         {
                             go.DefineOwnProperty(fn,
                                                  new DataDescriptor(Undefined.Instance)
@@ -528,12 +550,34 @@ namespace Jint
 
                 env.SetMutableBinding(fn, fo, strict);
             }
-        }
 
-        public void VariableDeclarationBinding(IEnumerable<VariableDeclaration> declarations, EnvironmentRecord env, bool configurableBindings, bool strict)
-        {
+            var argumentsAlreadyDeclared = env.HasBinding("arguments");
+
+            if (declarationBindingType == DeclarationBindingType.FunctionCode && !argumentsAlreadyDeclared)
+            {
+                var argsObj = ArgumentsInstance.CreateArgumentsObject(this, functionInstance, functionInstance.FormalParameters, arguments, env, strict);
+
+                if (strict)
+                {
+                    var declEnv = env as DeclarativeEnvironmentRecord;
+
+                    if (declEnv == null)
+                    {
+                        throw new ArgumentException();
+                    }
+
+                    declEnv.CreateImmutableBinding("arguments");
+                    declEnv.InitializeImmutableBinding("arguments", argsObj);
+                }
+                else
+                {
+                    env.CreateMutableBinding("arguments");
+                    env.SetMutableBinding("arguments", argsObj, false);
+                }
+            }
+
             // process all variable declarations in the current parser scope
-            foreach (var d in declarations.SelectMany(x => x.Declarations))
+            foreach (var d in variableDeclarations.SelectMany(x => x.Declarations))
             {
                 var dn = d.Id.Name;
                 var varAlreadyDeclared = env.HasBinding(dn);
@@ -544,6 +588,5 @@ namespace Jint
                 }
             }
         }
-
     }
 }
