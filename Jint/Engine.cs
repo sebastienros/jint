@@ -96,7 +96,7 @@ namespace Jint
             Error.Configure();
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
-            GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, true);
+            GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, false);
             
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
             EnterExecutionContext(GlobalEnvironment, GlobalEnvironment, Global);
