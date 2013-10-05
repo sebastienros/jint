@@ -1,6 +1,4 @@
-﻿using System.Net.NetworkInformation;
-using Jint.Native.Object;
-using Jint.Parser;
+﻿using Jint.Parser;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
 
@@ -10,12 +8,17 @@ namespace Jint.Native.Function
     {
         private readonly Engine _engine;
 
-        public EvalFunctionInstance(Engine engine, ObjectInstance prototype, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine, parameters, scope, strict)
+        public EvalFunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine, parameters, scope, strict)
         {
             _engine = engine;
         }
 
         public override object Call(object thisObject, object[] arguments)
+        {
+            return Call(thisObject, arguments, false);
+        }
+
+        public object Call(object thisObject, object[] arguments, bool directCall)
         {
             var code = TypeConverter.ToString(arguments.At(0));
 
@@ -31,6 +34,11 @@ namespace Jint.Native.Function
 
                         try
                         {
+                            if (!directCall)
+                            {
+                                Engine.EnterExecutionContext(Engine.GlobalEnvironment, Engine.GlobalEnvironment, Engine.Global);
+                            }
+
                             if (StrictModeScope.IsStrictModeCode)
                             {
                                 strictVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment);
@@ -53,6 +61,11 @@ namespace Jint.Native.Function
                         finally
                         {
                             if (strictVarEnv != null)
+                            {
+                                Engine.LeaveExecutionContext();
+                            }
+
+                            if (!directCall)
                             {
                                 Engine.LeaveExecutionContext();
                             }

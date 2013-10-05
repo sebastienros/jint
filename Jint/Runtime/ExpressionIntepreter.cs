@@ -825,6 +825,12 @@ namespace Jint.Runtime
                 thisObject = Undefined.Instance;
             }
 
+            // is it a direct call to eval ? http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.1.1
+            if (r != null && r.GetReferencedName() == "eval" && callable is EvalFunctionInstance)
+            {
+                return ((EvalFunctionInstance) callable).Call(thisObject, arguments, true);
+            }
+            
             return callable.Call(thisObject, arguments);
         }
 
