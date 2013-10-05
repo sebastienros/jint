@@ -57,14 +57,9 @@ namespace Jint.Native.Function
 
         public object Apply(object thisObject, object[] arguments)
         {
-            if (arguments.Length != 2)
-            {
-                throw new ArgumentException("Apply has to be called with two arguments.");
-            }
-
             var func = thisObject as ICallable;
-            object thisArg = arguments[0];
-            object argArray = arguments[1];
+            object thisArg = arguments.At(0);
+            object argArray = arguments.At(1);
 
             if (func == null)
             {

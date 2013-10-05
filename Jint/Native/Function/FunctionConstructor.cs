@@ -5,14 +5,10 @@ using Jint.Native.Object;
 using Jint.Parser;
 using Jint.Parser.Ast;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
 namespace Jint.Native.Function
 {
-    /// <summary>
-    /// 
-    /// </summary>
     public sealed class FunctionConstructor : FunctionInstance, IConstructor
     {
         private FunctionConstructor(Engine engine):base(engine, null, null, false)
@@ -82,7 +78,7 @@ namespace Jint.Native.Function
                 var functionExpression = "function(" + p + ") { " + body + "}";
                 function = parser.ParseFunctionExpression(functionExpression); 
             }
-            catch (ParserError e)
+            catch (ParserError)
             {
                 throw new JavaScriptException(Engine.SyntaxError);
             }
@@ -96,7 +92,7 @@ namespace Jint.Native.Function
                         Body = new BlockStatement
                             {
                                 Type = SyntaxNodes.BlockStatement,
-                                Body = new Statement[] { function.Body }
+                                Body = new [] { function.Body }
                             },
                         Parameters = parameters.Select(x => new Identifier
                             {

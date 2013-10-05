@@ -61,8 +61,6 @@ namespace Jint.Native.Function
 
             using (new StrictModeScope(Strict, true))
             {
-                var strict = StrictModeScope.IsStrictModeCode;
-
                 // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
                 if (StrictModeScope.IsStrictModeCode)
                 {
@@ -85,22 +83,32 @@ namespace Jint.Native.Function
 
                 Engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
-                Engine.DeclarationBindingInstantiation(DeclarationBindingType.FunctionCode, _functionDeclaration.FunctionDeclarations, _functionDeclaration.VariableDeclarations, this, arguments);
-
-                var result = Engine.ExecuteStatement(_functionDeclaration.Body);
-
-                Engine.LeaveExecutionContext();
-
-                if (result.Type == Completion.Throw)
+                try
                 {
-                    throw new JavaScriptException(result.Value);
+                    Engine.DeclarationBindingInstantiation(
+                        DeclarationBindingType.FunctionCode,
+                        _functionDeclaration.FunctionDeclarations, 
+                        _functionDeclaration.VariableDeclarations, 
+                        this,
+                        arguments);
+
+                    var result = Engine.ExecuteStatement(_functionDeclaration.Body);
+
+                    if (result.Type == Completion.Throw)
+                    {
+                        throw new JavaScriptException(result.Value);
+                    }
+
+                    if (result.Type == Completion.Return)
+                    {
+                        return result.Value;
+                    }
+                }
+                finally
+                {
+                    Engine.LeaveExecutionContext();
                 }
 
-                if (result.Type == Completion.Return)
-                {
-                    return result.Value;
-                }
-                
                 return Undefined.Instance;
             }
         }
