@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Function
@@ -35,12 +36,43 @@ namespace Jint.Native.Function
             FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToString), true, false, true);
             FastAddProperty("apply", new ClrFunctionInstance<object, object>(Engine, Apply), true, false, true);
             FastAddProperty("call", new ClrFunctionInstance<object, object>(Engine, Call, 1), true, false, true);
-            FastAddProperty("bind", new ClrFunctionInstance<object, object>(Engine, Bind), true, false, true);
+            FastAddProperty("bind", new ClrFunctionInstance<object, object>(Engine, Bind, 1), true, false, true);
         }
 
         private object Bind(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var target = thisObj as ICallable;
+
+            if (target == null)
+            {
+                throw new JavaScriptException(Engine.TypeError);
+            }
+            
+            object thisArg = arguments.At(0);
+            var f = new BindFunctionInstance(Engine);
+            f.TargetFunction = target;
+            f.BoundThis = thisArg;
+            f.BoundArgs = arguments.Skip(1).ToArray();
+            f.Prototype = Engine.Function.PrototypeObject;
+
+            var o = target as FunctionInstance;
+            if (o != null)
+            {
+                var l = TypeConverter.ToNumber(o.Get("length")) - (arguments.Length - 1);
+                f.FastAddProperty("length", System.Math.Max(l, 0), false, false, false); 
+            }
+            else
+            {
+                f.FastAddProperty("length", 0, false, false, false); 
+            }
+            
+
+            var thrower = Engine.Function.ThrowTypeError;
+            f.DefineOwnProperty("caller", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
+            f.DefineOwnProperty("callee", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
+
+
+            return f;
         }
 
         private object ToString(object thisObj, object[] arguments)
@@ -97,7 +129,7 @@ namespace Jint.Native.Function
                 return new JavaScriptException(Engine.TypeError);
             }
 
-            return func.Call(arguments[0], arguments.Skip(1).ToArray());
+            return func.Call(arguments.At(0), arguments.Length == 0 ? arguments : arguments.Skip(1).ToArray());
         }
     }
 }

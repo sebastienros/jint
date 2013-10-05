@@ -29,21 +29,12 @@ namespace Jint.Native.Function
         public string[] FormalParameters { get; private set; }
         public bool Strict { get; private set; }
 
-        // todo: implement
-        public object TargetFunction { get; set; }
-
-        // todo: implement
-        public object BoundThis { get; set; }
-
-        // todo: implement
-        public object BoundArgs { get; set; }
-
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.3.5.3
         /// </summary>
         /// <param name="instance"></param>
         /// <returns></returns>
-        public bool HasInstance(object v)
+        public virtual bool HasInstance(object v)
         {
             var vObj = v as ObjectInstance;
             if (vObj == null)

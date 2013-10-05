@@ -45,6 +45,7 @@
     <Compile Include="Native\Boolean\BooleanPrototype.cs" />
     <Compile Include="Native\Boolean\BooleanConstructor.cs" />
     <Compile Include="Native\Boolean\BooleanInstance.cs" />
+    <Compile Include="Native\Function\BindFunctionInstance.cs" />
     <Compile Include="Native\RegExp\RegExpConstructor.cs" />
     <Compile Include="Native\RegExp\RegExpInstance.cs" />
     <Compile Include="Native\RegExp\RegExpPrototype.cs" />
