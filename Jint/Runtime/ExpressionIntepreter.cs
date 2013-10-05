@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using System.Text.RegularExpressions;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Number;
@@ -836,12 +835,13 @@ namespace Jint.Runtime
 
         public object EvaluateSequenceExpression(SequenceExpression sequenceExpression)
         {
+            var result = Undefined.Instance;
             foreach (var expression in sequenceExpression.Expressions)
             {
-                _engine.EvaluateExpression(expression);
+                result = _engine.EvaluateExpression(expression);
             }
 
-            return Undefined.Instance;
+            return result;
         }
 
         public object EvaluateUpdateExpression(UpdateExpression updateExpression)
