@@ -473,6 +473,12 @@ namespace Jint.Runtime
                         throw new ArgumentException();
                     }
 
+                    if (lhs.IsStrict() && lhs.GetBase() is EnvironmentRecord &&
+                        (lhs.GetReferencedName() == "eval" || lhs.GetReferencedName() == "arguments"))
+                    {
+                        throw new JavaScriptException(_engine.SyntaxError);
+                    }
+
                     lastIdentifier = lhs.GetReferencedName();
                     var value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init));
                     _engine.PutValue(lhs, value);

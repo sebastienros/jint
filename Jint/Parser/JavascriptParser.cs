@@ -2692,10 +2692,12 @@ namespace Jint.Parser
             if (MatchAssign())
             {
                 // LeftHandSideExpression
-                if (!isLeftHandSide(left))
-                {
-                    ThrowErrorTolerant(Token.Empty, Messages.InvalidLHSInAssignment);
-                }
+
+                // Ignore issue as it needs to throw a ReferenceError instead of a SyntaxError
+                //if (!isLeftHandSide(left))
+                //{
+                //    ThrowErrorTolerant(Token.Empty, Messages.InvalidLHSInAssignment);
+                //}
 
                 // 11.13.1
                 if (_strict && left.Type == SyntaxNodes.Identifier && IsRestrictedWord(((Identifier) left).Name))

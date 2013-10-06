@@ -48,7 +48,12 @@ namespace Jint.Runtime
 
             if (assignmentExpression.Operator == "=")
             {
-                if(lref != null && lref.IsStrict() && lref.GetBase() is EnvironmentRecord && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
+                if (lref == null)
+                {
+                    throw new JavaScriptException(_engine.ReferenceError);
+                }
+
+                if(lref.IsStrict() && lref.GetBase() is EnvironmentRecord && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
                 {
                     throw new JavaScriptException(_engine.SyntaxError);
                 }
