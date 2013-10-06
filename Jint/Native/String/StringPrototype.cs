@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Text.RegularExpressions;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -28,7 +27,7 @@ namespace Jint.Native.String
             obj.Prototype = engine.Object.PrototypeObject;
             obj.PrimitiveValue = "";
             obj.Extensible = true;
-
+            obj.FastAddProperty("length", 0, false, false, false); 
             obj.FastAddProperty("constructor", stringConstructor, true, false, true);
 
             return obj;
