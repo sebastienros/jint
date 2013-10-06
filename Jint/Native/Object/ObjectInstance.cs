@@ -260,7 +260,7 @@ namespace Jint.Native.Object
         /// <param name="propertyName"></param>
         /// <param name="throwOnError"></param>
         /// <returns></returns>
-        public bool Delete(string propertyName, bool throwOnError)
+        public virtual bool Delete(string propertyName, bool throwOnError)
         {
             var desc = GetOwnProperty(propertyName);
             

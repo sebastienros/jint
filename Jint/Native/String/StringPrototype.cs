@@ -1,7 +1,9 @@
 ﻿using System;
-using System.Globalization;
+using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 using Jint.Native.Array;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Runtime;
@@ -43,7 +45,7 @@ namespace Jint.Native.String
             FastAddProperty("lastIndexOf", new ClrFunctionInstance<object, double>(Engine, LastIndexOf, 1), true, false, true);
             FastAddProperty("localeCompare", new ClrFunctionInstance<object, double>(Engine, LocaleCompare), true, false, true);
             FastAddProperty("match", new ClrFunctionInstance<object, object>(Engine, Match, 1), true, false, true);
-            FastAddProperty("replace", new ClrFunctionInstance<object, object>(Engine, Replace), true, false, true);
+            FastAddProperty("replace", new ClrFunctionInstance<object, object>(Engine, Replace, 2), true, false, true);
             FastAddProperty("search", new ClrFunctionInstance<object, double>(Engine, Search, 1), true, false, true);
             FastAddProperty("slice", new ClrFunctionInstance<object, string>(Engine, Slice, 2), true, false, true);
             FastAddProperty("split", new ClrFunctionInstance<object, ArrayInstance>(Engine, Split, 2), true, false, true);
@@ -134,10 +136,8 @@ namespace Jint.Native.String
             var l = arguments.At(1);
 
             var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
-            var lengthA = 0;
             var limit = l == Undefined.Instance ? UInt32.MaxValue : TypeConverter.ToUint32(l);
             var len = s.Length;
-            var p = 0;
             
             if (limit == 0)
             {
@@ -247,35 +247,27 @@ namespace Jint.Native.String
 
         private object Replace(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
-            /*
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
+            var thisString = TypeConverter.ToString(thisObj);
             var searchValue = arguments.At(0);
             var replaceValue = arguments.At(1);
 
-            var rx = TypeConverter.ToObject(Engine, searchValue) as RegExpInstance;
-            if (rx != null)
+            var replaceFunction = replaceValue as FunctionInstance;
+            if (replaceFunction == null)
             {
-
-
-
-
-
-
-                // Check if the replacement string contains any patterns.
-                bool replaceTextContainsPattern = replaceText.IndexOf('$') >= 0;
-
-                // Replace the input string with replaceText, recording the last match found.
-                Match lastMatch = null;
-                string result = rx.Value.Replace(s, match =>
+                replaceFunction = new ClrFunctionInstance<object, string>(Engine, (self, args) =>
                 {
-                    lastMatch = match;
+                    var replaceString = TypeConverter.ToString(replaceValue);
+                    var matchValue = TypeConverter.ToString(args.At(0));
+                    var matchIndex = (int)TypeConverter.ToInteger(args.At(args.Length-2));
+
+                    // Check if the replacement string contains any patterns.
+                    bool replaceTextContainsPattern = replaceString.IndexOf('$') >= 0;
 
                     // If there is no pattern, replace the pattern as is.
                     if (replaceTextContainsPattern == false)
-                        return replaceText;
+                        return replaceString;
 
                     // Patterns
                     // $$	Inserts a "$".
@@ -283,41 +275,41 @@ namespace Jint.Native.String
                     // $`	Inserts the portion of the string that precedes the matched substring.
                     // $'	Inserts the portion of the string that follows the matched substring.
                     // $n or $nn	Where n or nn are decimal digits, inserts the nth parenthesized submatch string, provided the first argument was a RegExp object.
-                    var replacementBuilder = new System.Text.StringBuilder();
-                    for (int i = 0; i < replaceText.Length; i++)
+                    var replacementBuilder = new StringBuilder();
+                    for (int i = 0; i < replaceString.Length; i++)
                     {
-                        char c = replaceText[i];
-                        if (c == '$' && i < replaceText.Length - 1)
+                        char c = replaceString[i];
+                        if (c == '$' && i < replaceString.Length - 1)
                         {
-                            c = replaceText[++i];
+                            c = replaceString[++i];
                             if (c == '$')
                                 replacementBuilder.Append('$');
                             else if (c == '&')
-                                replacementBuilder.Append(match.Value);
+                                replacementBuilder.Append(matchValue);
                             else if (c == '`')
-                                replacementBuilder.Append(input.Substring(0, match.Index));
+                                replacementBuilder.Append(thisString.Substring(0, matchIndex));
                             else if (c == '\'')
-                                replacementBuilder.Append(input.Substring(match.Index + match.Length));
+                                replacementBuilder.Append(thisString.Substring(matchIndex + matchValue.Length));
                             else if (c >= '0' && c <= '9')
                             {
                                 int matchNumber1 = c - '0';
 
                                 // The match number can be one or two digits long.
                                 int matchNumber2 = 0;
-                                if (i < replaceText.Length - 1 && replaceText[i + 1] >= '0' && replaceText[i + 1] <= '9')
-                                    matchNumber2 = matchNumber1*10 + (replaceText[i + 1] - '0');
+                                if (i < replaceString.Length - 1 && replaceString[i + 1] >= '0' && replaceString[i + 1] <= '9')
+                                    matchNumber2 = matchNumber1 * 10 + (replaceString[i + 1] - '0');
 
                                 // Try the two digit capture first.
-                                if (matchNumber2 > 0 && matchNumber2 < match.Groups.Count)
+                                if (matchNumber2 > 0 && matchNumber2 < args.Length - 3)
                                 {
                                     // Two digit capture replacement.
-                                    replacementBuilder.Append(match.Groups[matchNumber2].Value);
+                                    replacementBuilder.Append(TypeConverter.ToString(args[matchNumber2 + 1]));
                                     i++;
                                 }
-                                else if (matchNumber1 > 0 && matchNumber1 < match.Groups.Count)
+                                else if (matchNumber1 > 0 && matchNumber1 < args.Length - 3)
                                 {
                                     // Single digit capture replacement.
-                                    replacementBuilder.Append(match.Groups[matchNumber1].Value);
+                                    replacementBuilder.Append(TypeConverter.ToString(args[matchNumber1 + 1]));
                                 }
                                 else
                                 {
@@ -338,36 +330,63 @@ namespace Jint.Native.String
                     }
 
                     return replacementBuilder.ToString();
-                }, this.Global == true ? -1 : 1);
+                });
+            }
+
+            // searchValue is a regular expression
+            var rx = TypeConverter.ToObject(Engine, searchValue) as RegExpInstance;
+            if (rx != null)
+            {
+                // Replace the input string with replaceText, recording the last match found.
+                string result = rx.Value.Replace(thisString, match =>
+                {
+                    var args = new List<object>();
+                    args.Add(match.Value);
+                    for (var k = 0; k < match.Groups.Count; k++)
+                    {
+                        var group = match.Groups[k];
+                        if (group.Success)
+                            args.Add(group.Value);
+                    }
+                    
+                    args.Add(match.Index);
+                    args.Add(thisString);
+
+                    return TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args.ToArray()));
+                }, rx.Global == true ? -1 : 1);
 
                 // Set the deprecated RegExp properties if at least one match was found.
-                if (lastMatch != null)
-                    this.Engine.RegExp.SetDeprecatedProperties(input, lastMatch);
+                //if (lastMatch != null)
+                //    this.Engine.RegExp.SetDeprecatedProperties(input, lastMatch);
 
                 return result;
             }
+
+            // searchValue is a string
             else
             {
-                var searchString = TypeConverter.ToString(searchValue);
-                var m = 0;
+                var substr = TypeConverter.ToString(searchValue);
 
                 // Find the first occurrance of substr.
-                int start = thisObject.IndexOf(substr, StringComparison.Ordinal);
+                int start = thisString.IndexOf(substr, StringComparison.Ordinal);
                 if (start == -1)
-                    return thisObject;
+                    return thisString;
                 int end = start + substr.Length;
 
+                var args = new List<object>();
+                args.Add(substr);
+                args.Add(start);
+                args.Add(thisString);
+
+                var replaceString = TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args.ToArray()));
+
                 // Replace only the first match.
-                var result = new System.Text.StringBuilder(thisObject.Length + (replaceText.Length - substr.Length));
-                result.Append(thisObject, 0, start);
-                result.Append(replaceText);
-                result.Append(thisObject, end, thisObject.Length - end);
+                var result = new StringBuilder(thisString.Length + (substr.Length - substr.Length));
+                result.Append(thisString, 0, start);
+                result.Append(replaceString);
+                result.Append(thisString, end, thisString.Length - end);
                 return result.ToString();
-
-
-
             }
-             * */
         }
 
         private object Match(object thisObj, object[] arguments)
@@ -409,7 +428,7 @@ namespace Jint.Native.String
                         var thisIndex = (double) rx.Get("lastIndex");
                         if (thisIndex == previousLastIndex)
                         {
-                            rx.Put("lastIndex", (double) thisIndex + 1, false);
+                            rx.Put("lastIndex", thisIndex + 1, false);
                             previousLastIndex = thisIndex;
                         }
 
