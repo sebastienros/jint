@@ -851,7 +851,7 @@ namespace Jint.Runtime
             var result = Undefined.Instance;
             foreach (var expression in sequenceExpression.Expressions)
             {
-                result = _engine.EvaluateExpression(expression);
+                result = _engine.GetValue(_engine.EvaluateExpression(expression));
             }
 
             return result;
