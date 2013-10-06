@@ -27,10 +27,17 @@ namespace Jint.Runtime
 
         public object EvaluateConditionalExpression(ConditionalExpression conditionalExpression)
         {
-            var test = _engine.EvaluateExpression(conditionalExpression.Test);
-            var evaluate = TypeConverter.ToBoolean(test) ? conditionalExpression.Consequent : conditionalExpression.Alternate;
-            
-            return _engine.EvaluateExpression(evaluate);
+            var lref = _engine.EvaluateExpression(conditionalExpression.Test);
+            if (TypeConverter.ToBoolean(_engine.GetValue(lref)))
+            {
+                var trueRef = _engine.EvaluateExpression(conditionalExpression.Consequent);
+                return _engine.GetValue(trueRef);
+            }
+            else
+            {
+                var falseRef = _engine.EvaluateExpression(conditionalExpression.Alternate);
+                return _engine.GetValue(falseRef);
+            }
         }
 
         public object EvaluateAssignmentExpression(AssignmentExpression assignmentExpression)
