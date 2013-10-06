@@ -46,13 +46,14 @@ namespace Jint.Runtime
 
             var lref = EvaluateExpression(assignmentExpression.Left) as Reference;
 
+            if (lref == null)
+            {
+                throw new JavaScriptException(_engine.ReferenceError);
+            }
+
             if (assignmentExpression.Operator == "=")
             {
-                if (lref == null)
-                {
-                    throw new JavaScriptException(_engine.ReferenceError);
-                }
-
+ 
                 if(lref.IsStrict() && lref.GetBase() is EnvironmentRecord && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
                 {
                     throw new JavaScriptException(_engine.SyntaxError);
