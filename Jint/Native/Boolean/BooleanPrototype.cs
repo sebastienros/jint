@@ -1,6 +1,4 @@
-﻿using System;
-using Jint.Native.Object;
-using Jint.Runtime;
+﻿using Jint.Runtime;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Boolean
@@ -28,11 +26,11 @@ namespace Jint.Native.Boolean
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance<object, bool>(Engine, ToBooleanString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance<object, string>(Engine, ToBooleanString), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance<object, bool>(Engine, ValueOf), true, false, true);
         }
 
-        private object ValueOf(object thisObj, object[] arguments)
+        private bool ValueOf(object thisObj, object[] arguments)
         {
             var B = thisObj;
             object b;
@@ -53,12 +51,13 @@ namespace Jint.Native.Boolean
                 }
             }
 
-            return b;
+            return (bool)b;
         }
 
-        private bool ToBooleanString(object thisObj, object[] arguments)
+        private string ToBooleanString(object thisObj, object[] arguments)
         {
-            throw new NotImplementedException();
+            var b = ValueOf(thisObj, Arguments.Empty);
+            return b ? "true" : "false";
         }
     }
 }
