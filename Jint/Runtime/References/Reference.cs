@@ -49,7 +49,7 @@ namespace Jint.Runtime.References
 
         public bool IsUnresolvableReference()
         {
-            return _baseValue == Undefined.Instance || _baseValue == Null.Instance;
+            return _baseValue == Undefined.Instance;
         }
 
         public bool IsPropertyReference()

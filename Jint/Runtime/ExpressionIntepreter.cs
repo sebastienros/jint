@@ -614,9 +614,12 @@ namespace Jint.Runtime
             }
         }
 
-        public object EvaluateIdentifier(Identifier identifier)
+        public Reference EvaluateIdentifier(Identifier identifier)
         {
-            return _engine.ExecutionContext.LexicalEnvironment.GetIdentifierReference(identifier.Name, StrictModeScope.IsStrictModeCode);
+            var env = _engine.ExecutionContext.LexicalEnvironment;
+            var strict = StrictModeScope.IsStrictModeCode;
+
+            return LexicalEnvironment.GetIdentifierReference(env, identifier.Name, strict);
         }
 
         public object EvaluateLiteral(Literal literal)
@@ -765,19 +768,18 @@ namespace Jint.Runtime
         {
             var baseReference = EvaluateExpression(memberExpression.Object);
             var baseValue = _engine.GetValue(baseReference);
+            Expression expression = memberExpression.Property;
 
-            string propertyNameString;
+            
             if (!memberExpression.Computed) // index accessor ?
             {
-                propertyNameString = memberExpression.Property.As<Identifier>().Name;
+                expression = new Literal { Type = SyntaxNodes.Literal, Value = memberExpression.Property.As<Identifier>().Name };
             }
-            else
-            {
-                var propertyNameReference = EvaluateExpression(memberExpression.Property);
-                var propertyNameValue = _engine.GetValue(propertyNameReference);
-                TypeConverter.CheckObjectCoercible(_engine, baseValue);
-                propertyNameString = TypeConverter.ToString(propertyNameValue);
-            }
+
+            var propertyNameReference = EvaluateExpression(expression);
+            var propertyNameValue = _engine.GetValue(propertyNameReference);
+            TypeConverter.CheckObjectCoercible(_engine, baseValue);
+            var propertyNameString = TypeConverter.ToString(propertyNameValue);
 
             return new Reference(baseValue, propertyNameString, StrictModeScope.IsStrictModeCode);
         }
