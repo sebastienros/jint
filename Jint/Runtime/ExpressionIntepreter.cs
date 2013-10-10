@@ -166,7 +166,7 @@ namespace Jint.Runtime
                     return double.NaN;
                 }
 
-                if (double.IsInfinity(lN) && rN == 0)
+                if (double.IsInfinity(lN) && rN.Equals(0))
                 {
                     if (NumberInstance.IsNegativeZero(rN))
                     {
@@ -176,12 +176,12 @@ namespace Jint.Runtime
                     return lN;
                 }
 
-                if (lN == 0 && rN == 0)
+                if (lN.Equals(0) && rN.Equals(0))
                 {
                     return double.NaN;
                 }
 
-                if (rN == 0)
+                if (rN.Equals(0))
                 {
                     if (NumberInstance.IsNegativeZero(rN))
                     {
@@ -264,7 +264,7 @@ namespace Jint.Runtime
 
                 case ">=":
                     value = Compare(left, right);
-                    if (value == Undefined.Instance || (bool) value == true)
+                    if (value == Undefined.Instance || (bool) value)
                     {
                         value = false;
                     }
@@ -284,7 +284,7 @@ namespace Jint.Runtime
                 
                 case "<=":
                     value = Compare(right, left, false);
-                    if (value == Undefined.Instance || (bool) value == true)
+                    if (value == Undefined.Instance || (bool) value)
                     {
                         value = false;
                     }
@@ -397,7 +397,7 @@ namespace Jint.Runtime
                         return false;
                     }
 
-                    if (nx == ny)
+                    if (nx.Equals(ny))
                     {
                         return true;
                     }
@@ -489,7 +489,7 @@ namespace Jint.Runtime
                     return false;
                 }
 
-                if (nx == ny)
+                if (nx.Equals(ny))
                 {
                     return true;
                 }
@@ -530,9 +530,9 @@ namespace Jint.Runtime
                     return true;
                 }
 
-                if (nx == ny)
+                if (nx.Equals(ny))
                 {
-                    if (nx == 0)
+                    if (nx.Equals(0))
                     {
                         // +0 !== -0
                         return NumberInstance.IsNegativeZero(nx) == NumberInstance.IsNegativeZero(ny);
@@ -581,27 +581,27 @@ namespace Jint.Runtime
                     return Undefined.Instance;
                 }
 
-                if (nx == ny)
+                if (nx.Equals(ny))
                 {
                     return false;
                 }
 
-                if (nx == double.PositiveInfinity)
+                if (double.IsPositiveInfinity(nx))
                 {
                     return false;
                 }
 
-                if (ny == double.PositiveInfinity)
+                if (double.IsPositiveInfinity(ny))
                 {
                     return true;
                 }
 
-                if (ny == double.NegativeInfinity)
+                if (double.IsNegativeInfinity(ny))
                 {
                     return false;
                 }
 
-                if (nx == double.NegativeInfinity)
+                if (double.IsNegativeInfinity(nx))
                 {
                     return true;
                 }
@@ -623,7 +623,7 @@ namespace Jint.Runtime
         {
             if (literal.Type == SyntaxNodes.RegularExpressionLiteral)
             {
-                return _engine.RegExp.Construct((string) literal.Raw);
+                return _engine.RegExp.Construct(literal.Raw);
             }
 
             return literal.Value ?? Null.Instance;

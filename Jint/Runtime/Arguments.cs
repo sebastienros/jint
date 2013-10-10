@@ -15,11 +15,12 @@ namespace Jint.Runtime
         /// Returns the arguments at the provided position or Undefined if not present
         /// </summary>
         /// <param name="args"></param>
-        /// <param name="index"></param>
+        /// <param name="index">The index of the parameter to return</param>
+        /// <param name="undefinedValue">The value to return is the parameter is not provided</param>
         /// <returns></returns>
-        public static object At(this object[] args, int index)
+        public static object At(this object[] args, int index, object undefinedValue = null)
         {
-            return args.Length > index ? args[index] : Undefined.Instance;
+            return args.Length > index ? args[index] : undefinedValue ?? Undefined.Instance;
         }
     }
 }
