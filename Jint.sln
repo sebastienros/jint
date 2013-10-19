@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 2013
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Tests", "Jint.Tests\Jint.Tests.csproj", "{37C7D4E0-8770-4E2A-8B6D-E53087868354}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Benchmark", "Jint.Benchmark\Jint.Benchmark.csproj", "{8922A952-4F82-4A97-B41C-C0A9932BFFA8}"

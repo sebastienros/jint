@@ -66,11 +66,11 @@ namespace Jint.Native.Array
                     throw new JavaScriptException(Engine.RangeError);
                 }
                 
-                instance.FastAddProperty("length", length, true, false, true);
+                instance.FastAddProperty("length", length, true, false, false);
             }
             else
             {
-                instance.FastAddProperty("length", 0, true, false, true);
+                instance.FastAddProperty("length", 0, true, false, false);
                 PrototypeObject.Push(instance, arguments);
             }
 

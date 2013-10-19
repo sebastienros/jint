@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Jint.Native.Date;
 using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -293,7 +294,7 @@ namespace Jint.Native.Object
         /// <returns></returns>
         public object DefaultValue(Types hint)
         {
-            if ((hint == Types.String) || (hint == Types.None && this is StringInstance))
+            if ((hint == Types.String) || (hint == Types.None && this is StringInstance) || this is DateInstance)
             {
                 var toString = Get("toString");
                 var callable = toString as ICallable;

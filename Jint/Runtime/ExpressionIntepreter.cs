@@ -153,8 +153,8 @@ namespace Jint.Runtime
             }
             else
             {
-                var rN = TypeConverter.ToNumber(rval);
                 var lN = TypeConverter.ToNumber(lval);
+                var rN = TypeConverter.ToNumber(rval);
 
                 if (double.IsNaN(rN) || double.IsNaN(lN))
                 {
@@ -798,17 +798,17 @@ namespace Jint.Runtime
         {
             var callee = EvaluateExpression(callExpression.Callee);
 
+            object thisObject;
+
+            // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
+            var arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
+
             var func = _engine.GetValue(callee);
 
             if (func == Undefined.Instance)
             {
                 throw new JavaScriptException(_engine.TypeError);
             }
-
-            object thisObject;
-
-            // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
-            var arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
 
             if (TypeConverter.GetType(func) != Types.Object)
             {
@@ -876,8 +876,8 @@ namespace Jint.Runtime
                         throw new JavaScriptException(_engine.SyntaxError);
                     }
 
-                    var oldValue = _engine.GetValue(value);
-                    var newValue = TypeConverter.ToNumber(oldValue) + 1;
+                    var oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
+                    var newValue = oldValue + 1;
                     _engine.PutValue(r, newValue);
 
                     return updateExpression.Prefix ? newValue : oldValue;
@@ -892,8 +892,8 @@ namespace Jint.Runtime
                         throw new JavaScriptException(_engine.SyntaxError);
                     }
 
-                    oldValue = _engine.GetValue(value);
-                    newValue = TypeConverter.ToNumber(oldValue) - 1;
+                    oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
+                    newValue = oldValue - 1;
                     _engine.PutValue(r, newValue);
 
                     return updateExpression.Prefix ? newValue : oldValue;

@@ -4,7 +4,7 @@ using Jint.Runtime;
 
 namespace Jint.Native.Date
 {
-    public class DateInstance : ObjectInstance, IPrimitiveType
+    public class DateInstance : ObjectInstance
     {
         // Maximum allowed value to prevent DateTime overflow
         private static readonly double Max = (DateTime.MaxValue - new DateTime(170, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
@@ -23,16 +23,6 @@ namespace Jint.Native.Date
             {
                 return "Date";
             }
-        }
-
-        Types IPrimitiveType.Type
-        {
-            get { return Types.Number; }
-        }
-
-        object IPrimitiveType.PrimitiveValue
-        {
-            get { return PrimitiveValue; }
         }
 
         public DateTime ToDateTime()
