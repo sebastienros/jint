@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Jint.Native;
+using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
@@ -220,40 +221,56 @@ namespace Jint.Runtime
 
             var obj = TypeConverter.ToObject(_engine, experValue);
             object v = null;
-            var keys = obj.Properties.Keys.ToArray();
-            foreach (var p in keys)
+            
+            // keys are constructed using the prototype chain
+            var cursor = obj;
+            var processedKeys = new HashSet<string>();
+
+            while (cursor != null)
             {
-                // collection might be modified by inner statement 
-                if (!obj.Properties.ContainsKey(p))
+                var keys = cursor.Properties.Keys.ToArray();
+                foreach (var p in keys)
                 {
-                    continue;
-                }
-
-                var value = obj.Properties[p];
-                if (!value.EnumerableIsSet)
-                {
-                    continue;
-                }
-
-                _engine.PutValue(varRef, p);
-
-                var stmt = ExecuteStatement(forInStatement.Body);
-                if (stmt.Value != null)
-                {
-                    v = stmt.Value;
-                }
-                if (stmt.Type == Completion.Break /* todo: complete */)
-                {
-                    return new Completion(Completion.Normal, v, null);
-                }
-                if (stmt.Type != Completion.Continue /* todo: complete */)
-                {
-                    if (stmt.Type != Completion.Normal)
+                    if (processedKeys.Contains(p))
                     {
-                        return stmt;
+                        continue;
+                    }
+
+                    processedKeys.Add(p);
+                    
+                    // collection might be modified by inner statement 
+                    if (!cursor.Properties.ContainsKey(p))
+                    {
+                        continue;
+                    }
+
+                    var value = cursor.Properties[p];
+                    if (!value.EnumerableIsSet)
+                    {
+                        continue;
+                    }
+
+                    _engine.PutValue(varRef, p);
+
+                    var stmt = ExecuteStatement(forInStatement.Body);
+                    if (stmt.Value != null)
+                    {
+                        v = stmt.Value;
+                    }
+                    if (stmt.Type == Completion.Break /* todo: complete */)
+                    {
+                        return new Completion(Completion.Normal, v, null);
+                    }
+                    if (stmt.Type != Completion.Continue /* todo: complete */)
+                    {
+                        if (stmt.Type != Completion.Normal)
+                        {
+                            return stmt;
+                        }
                     }
                 }
 
+                cursor = cursor.Prototype;
             }
 
             return new Completion(Completion.Normal, v, null);
