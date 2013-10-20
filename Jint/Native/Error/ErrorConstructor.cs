@@ -15,13 +15,13 @@ namespace Jint.Native.Error
             var obj = new ErrorConstructor(engine);
             obj.Extensible = true;
 
-            // The value of the [[Prototype]] internal property of the Error constructor is the Function prototype object 
+            // The value of the [[Prototype]] internal property of the Error constructor is the Function prototype object (15.11.3)
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = ErrorPrototype.CreatePrototypeObject(engine, obj, name);
 
             obj.FastAddProperty("length", 1, false, false, false);
 
-            // The initial value of Date.prototype is the Boolean prototype object
+            // The initial value of Error.prototype is the Error prototype object
             obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
 
             return obj;
@@ -43,9 +43,9 @@ namespace Jint.Native.Error
             instance.Prototype = PrototypeObject;
             instance.Extensible = true;
 
-            if (arguments.Length > 0 && arguments[0] != Undefined.Instance)
+            if (arguments.At(0) != Undefined.Instance)
             {
-                instance.Put("message", TypeConverter.ToString(arguments[0]), false);
+                instance.Put("message", TypeConverter.ToString(arguments.At(0)), false);
             }
 
             return instance;

@@ -7,32 +7,28 @@ namespace Jint.Native.Error
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.11.4
     /// </summary>
-    public sealed class ErrorPrototype : ObjectInstance
+    public sealed class ErrorPrototype : ErrorInstance
     {
-        private readonly string _name;
-
-        private ErrorPrototype(Engine engine, string name)
-            : base(engine)
+        private ErrorPrototype(Engine engine)
+            : base(engine, "Error")
         {
-            _name = name;
         }
 
         public static ErrorPrototype CreatePrototypeObject(Engine engine, ErrorConstructor errorConstructor, string name)
         {
-            var obj = new ErrorPrototype(engine, name) { Extensible = true };
-            obj.Prototype = engine.Object.PrototypeObject;
-
+            var obj = new ErrorPrototype(engine) { Extensible = true };
             obj.FastAddProperty("constructor", errorConstructor, false, false, false);
+
+            if (name != "Error")
+            {
+                obj.Prototype = engine.Error.PrototypeObject;
+            }
 
             return obj;
         }
 
         public void Configure()
         {
-            // Error prototype properties
-            FastAddProperty("message", "", true, false, true);
-            FastAddProperty("name", _name, true, false, true);
-
             // Error prototype functions
             FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToString), true, false, true);
         }
@@ -45,15 +41,7 @@ namespace Jint.Native.Error
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var name = o.Get("name");
-            if (name == Undefined.Instance)
-            {
-                name = _name;
-            }
-            else
-            {
-                name = TypeConverter.ToString(name);
-            }
+            var name = TypeConverter.ToString(o.Get("name"));
 
             var msg = o.Get("message");
             if (msg == Undefined.Instance)

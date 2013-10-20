@@ -1,9 +1,8 @@
 ﻿using Jint.Native.Object;
-using Jint.Runtime;
 
 namespace Jint.Native.Error
 {
-    public sealed class ErrorInstance : ObjectInstance
+    public class ErrorInstance : ObjectInstance
     {
         public ErrorInstance(Engine engine, string name)
             : base(engine)
