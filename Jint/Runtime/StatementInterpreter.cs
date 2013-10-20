@@ -223,6 +223,12 @@ namespace Jint.Runtime
             var keys = obj.Properties.Keys.ToArray();
             foreach (var p in keys)
             {
+                // collection might be modified by inner statement 
+                if (!obj.Properties.ContainsKey(p))
+                {
+                    continue;
+                }
+
                 var value = obj.Properties[p];
                 if (!value.EnumerableIsSet)
                 {
@@ -378,7 +384,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteStatementList(IEnumerable<Statement> statementList)
         {
-            var c = new Completion(Completion.Normal, Undefined.Instance, null);
+            var c = new Completion(Completion.Normal, null, null);
             Completion sl = c;
 
             try
