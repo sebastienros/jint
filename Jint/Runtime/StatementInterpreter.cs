@@ -362,6 +362,7 @@ namespace Jint.Runtime
         {
             object v = null;
             SwitchCase defaultCase = null;
+            bool hit = false;
             foreach (var clause in switchBlock)
             {
                 if (clause.Test == null)
@@ -373,20 +374,24 @@ namespace Jint.Runtime
                     var clauseSelector = _engine.GetValue(_engine.EvaluateExpression(clause.Test));
                     if (ExpressionInterpreter.StriclyEqual(clauseSelector, input))
                     {
-                        if (clause.Consequent != null)
-                        {
-                            var r = ExecuteStatementList(clause.Consequent);
-                            if (r.Type != Completion.Normal)
-                            {
-                                return r;
-                            }
-                            v = r.Value;
-                        }
+                        hit = true;
                     }
                 }
+
+                if (hit && clause.Consequent != null)
+                {
+                    var r = ExecuteStatementList(clause.Consequent);
+                    if (r.Type != Completion.Normal)
+                    {
+                        return r;
+                    }
+                    v = r.Value;
+                }
+
             }
 
-            if (defaultCase != null)
+            // do we need to execute the default case ?
+            if (hit == false && defaultCase != null)
             {
                 var r = ExecuteStatementList(defaultCase.Consequent);
                 if (r.Type != Completion.Normal)
