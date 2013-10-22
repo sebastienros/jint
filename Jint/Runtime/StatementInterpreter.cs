@@ -86,7 +86,7 @@ namespace Jint.Runtime
                 }
                 if (stmt.Type != Completion.Continue || stmt.Identifier != doWhileStatement.LabelSet)
                 {
-                    if (stmt.Type == Completion.Break && stmt.Identifier == doWhileStatement.LabelSet)
+                    if (stmt.Type == Completion.Break && (stmt.Identifier == null || stmt.Identifier == doWhileStatement.LabelSet))
                     {
                         return new Completion(Completion.Normal, v, null);
                     }
@@ -130,7 +130,7 @@ namespace Jint.Runtime
 
                 if (stmt.Type != Completion.Continue || stmt.Identifier != whileStatement.LabelSet)
                 {
-                    if (stmt.Type == Completion.Break && stmt.Identifier == whileStatement.LabelSet)
+                    if (stmt.Type == Completion.Break && (stmt.Identifier == null || stmt.Identifier == whileStatement.LabelSet))
                     {
                         return new Completion(Completion.Normal, v, null);
                     }
@@ -180,7 +180,7 @@ namespace Jint.Runtime
                 {
                     v = stmt.Value;
                 }
-                if (stmt.Type == Completion.Break && stmt.Identifier == forStatement.LabelSet)
+                if (stmt.Type == Completion.Break && (stmt.Identifier == null || stmt.Identifier == forStatement.LabelSet))
                 {
                     return new Completion(Completion.Normal, v, null);
                 }
