@@ -184,7 +184,7 @@ namespace Jint.Runtime
                 {
                     return new Completion(Completion.Normal, v, null);
                 }
-                if (stmt.Type != Completion.Continue || stmt.Identifier != forStatement.LabelSet)
+                if (stmt.Type != Completion.Continue || ((stmt.Identifier != null) && stmt.Identifier != forStatement.LabelSet))
                 {
                     if (stmt.Type != Completion.Normal)
                     {
