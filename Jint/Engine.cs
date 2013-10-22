@@ -94,6 +94,7 @@ namespace Jint
             Json.Configure();
 
             Error.Configure();
+            Error.PrototypeObject.Configure();
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, false);

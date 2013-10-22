@@ -6,6 +6,8 @@ namespace Jint.Native.Error
 {
     public class ErrorConstructor : FunctionInstance, IConstructor
     {
+        private string _name;
+
         public ErrorConstructor(Engine engine) : base(engine, null, null, false)
         {
         }
@@ -14,6 +16,7 @@ namespace Jint.Native.Error
         {
             var obj = new ErrorConstructor(engine);
             obj.Extensible = true;
+            obj._name = name;
 
             // The value of the [[Prototype]] internal property of the Error constructor is the Function prototype object (15.11.3)
             obj.Prototype = engine.Function.PrototypeObject;
@@ -39,7 +42,7 @@ namespace Jint.Native.Error
 
         public ObjectInstance Construct(object[] arguments)
         {
-            var instance = new ErrorInstance(Engine, null);
+            var instance = new ErrorInstance(Engine, _name);
             instance.Prototype = PrototypeObject;
             instance.Extensible = true;
 

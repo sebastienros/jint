@@ -9,14 +9,14 @@ namespace Jint.Native.Error
     /// </summary>
     public sealed class ErrorPrototype : ErrorInstance
     {
-        private ErrorPrototype(Engine engine)
-            : base(engine, "Error")
+        private ErrorPrototype(Engine engine, string name)
+            : base(engine, name)
         {
         }
 
         public static ErrorPrototype CreatePrototypeObject(Engine engine, ErrorConstructor errorConstructor, string name)
         {
-            var obj = new ErrorPrototype(engine) { Extensible = true };
+            var obj = new ErrorPrototype(engine, name) { Extensible = true };
             obj.FastAddProperty("constructor", errorConstructor, false, false, false);
 
             if (name != "Error")
