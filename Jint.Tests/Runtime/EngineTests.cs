@@ -548,8 +548,8 @@ namespace Jint.Tests.Runtime
         [InlineData(double.NaN, "parseInt(undefined)")]
         [InlineData(double.NaN, "parseInt(new Boolean(true))")]
         [InlineData(double.NaN, "parseInt(Infinity)")]
-        [InlineData(-1, "parseInt(-1)")]
-        [InlineData(-1, "parseInt('-1')")]
+        [InlineData(-1d, "parseInt(-1)")]
+        [InlineData(-1d, "parseInt('-1')")]
         public void ShouldEvaluateParseInt(object expected, string source)
         {
             var engine = new Engine();

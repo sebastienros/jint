@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Globalization;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
@@ -51,8 +50,8 @@ namespace Jint.Native.Global
             FastAddProperty("undefined", Undefined.Instance, false, false, false);
 
             // Global object functions
-            FastAddProperty("parseInt", new ClrFunctionInstance<object, object>(Engine, ParseInt, 2), false, false, false);
-            FastAddProperty("parseFloat", new ClrFunctionInstance<object, object>(Engine, ParseFloat), false, false, false);
+            FastAddProperty("parseInt", new ClrFunctionInstance<object, double>(Engine, ParseInt, 2), false, false, false);
+            FastAddProperty("parseFloat", new ClrFunctionInstance<object, double>(Engine, ParseFloat, 1), false, false, false);
             FastAddProperty("isNaN", new ClrFunctionInstance<object, bool>(Engine, IsNaN), false, false, false);
             FastAddProperty("isFinite", new ClrFunctionInstance<object, bool>(Engine, IsFinite), false, false, false);
             FastAddProperty("decodeURI", new ClrFunctionInstance<object, string>(Engine, DecodeUri), false, false, false);
@@ -64,7 +63,7 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.2
         /// </summary>
-        public static object ParseInt(object thisObject, object[] arguments)
+        public static double ParseInt(object thisObject, object[] arguments)
         {
             string inputString = TypeConverter.ToString(arguments.At(0));
             var s = inputString.Trim();
@@ -160,23 +159,156 @@ namespace Jint.Native.Global
             }
 
             return result;
-            return 0;
         }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.3
         /// </summary>
-        public static object ParseFloat(object thisObject, object[] arguments)
+        public static double ParseFloat(object thisObject, object[] arguments)
         {
-            object v = arguments[0];
+            var inputString = TypeConverter.ToString(arguments.At(0));
+            var trimmedString = inputString.TrimStart();
 
-            var s = TypeConverter.ToString(v);
-            double n;
-            if (double.TryParse(s, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out n))
+            var sign = 1;
+            if (trimmedString.Length > 0 )
             {
-                return n;
+                if (trimmedString[0] == '-')
+                {
+                    sign = -1;
+                    trimmedString = trimmedString.Substring(1);
+                }
+                else if (trimmedString[0] == '+')
+                {
+                    trimmedString = trimmedString.Substring(1);
+                }
             }
 
-            return double.NaN;
+            if (trimmedString.StartsWith("Infinity"))
+            {
+                return sign*double.PositiveInfinity;
+            }
+
+            if (trimmedString.StartsWith("NaN"))
+            {
+                return double.NaN;
+            }
+
+            var separator = (char) 0;
+
+            bool isNan = true;
+            decimal number = 0;
+            var i = 0;
+            for (; i < trimmedString.Length; i++)
+            {
+                var c = trimmedString[i];
+                if (c == '.')
+                {
+                    i++;
+                    separator = '.';
+                    break;
+                }
+                else if(c == 'e' || c == 'E')
+                {
+                    i++;
+                    separator = 'e';
+                    break;
+                }
+
+                var digit = c - '0';
+
+                if (digit >= 0 && digit <= 9)
+                {
+                    isNan = false;
+                    number = number * 10 + digit;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            decimal pow = 0.1m;
+
+            if (separator == '.')
+            {
+                for (; i < trimmedString.Length; i++)
+                {
+                    var c = trimmedString[i];
+
+                    var digit = c - '0';
+
+                    if (digit >= 0 && digit <= 9)
+                    {
+                        isNan = false;
+                        number += digit * pow;
+                        pow *= 0.1m;
+                    }
+                    else if (c == 'e' || c == 'E')
+                    {
+                        i++;
+                        separator = 'e';
+                        break;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+
+            var exp = 0;
+            var expSign = 1;
+
+            if (separator == 'e')
+            {
+                if (i < trimmedString.Length)
+                {
+                    if (trimmedString[i] == '-')
+                    {
+                        expSign = -1;
+                        i++;
+                    }
+                    else if (trimmedString[i] == '+')
+                    {
+                        i++;
+                    }
+                }
+
+                for (; i < trimmedString.Length; i++)
+                {
+                    var c = trimmedString[i];
+
+                    var digit = c - '0';
+
+                    if (digit >= 0 && digit <= 9)
+                    {
+                        exp = exp * 10 + digit;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (isNan)
+            {
+                return double.NaN;
+            }
+
+            for (var k = 1; k <= exp; k++)
+            {
+                if (expSign > 0)
+                {
+                    number *= 10;
+                }
+                else
+                {
+                    number /= 10;
+                }
+            }
+            
+            return (double) (sign * number);
         }
 
         /// <summary>
