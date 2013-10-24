@@ -51,7 +51,7 @@ namespace Jint.Native.Global
             FastAddProperty("undefined", Undefined.Instance, false, false, false);
 
             // Global object functions
-            FastAddProperty("parseInt", new ClrFunctionInstance<object, object>(Engine, ParseInt), false, false, false);
+            FastAddProperty("parseInt", new ClrFunctionInstance<object, object>(Engine, ParseInt, 2), false, false, false);
             FastAddProperty("parseFloat", new ClrFunctionInstance<object, object>(Engine, ParseFloat), false, false, false);
             FastAddProperty("isNaN", new ClrFunctionInstance<object, bool>(Engine, IsNaN), false, false, false);
             FastAddProperty("isFinite", new ClrFunctionInstance<object, bool>(Engine, IsFinite), false, false, false);
@@ -66,23 +66,55 @@ namespace Jint.Native.Global
         /// </summary>
         public static object ParseInt(object thisObject, object[] arguments)
         {
-            int radix = arguments.Length > 1 ? TypeConverter.ToInt32(arguments[1]) : 10;
-            object v = arguments[0];
+            string inputString = TypeConverter.ToString(arguments.At(0));
+            var s = inputString.Trim();
+
+            var sign = 1;
+            if (!System.String.IsNullOrEmpty(s))
+            {
+                if (s[0] == '-')
+                {
+                    sign = -1;
+                }
+                
+                if (s[0] == '-' || s[0] == '+')
+                {
+                    s = s.Substring(1);
+                }
+            }
+
+            var stripPrefix = true;
+
+            int radix = arguments.Length > 1 ? TypeConverter.ToInt32(arguments[1]) : 0;
 
             if (radix == 0)
             {
-                radix = 10;
+                if (s.Length >= 2 && s.StartsWith("0x") || s.StartsWith("0X"))
+                {
+                    radix = 16;
+                }
+                else
+                {
+                    radix = 10;
+                }
             }
-
-            if (radix < 2 || radix > 36)
+            else if (radix < 2 || radix > 36)
             {
                 return double.NaN;
+            }
+            else if(radix != 16)
+            {
+                stripPrefix = false;
+            }
+
+            if (stripPrefix && s.Length >= 2 && s.StartsWith("0x") || s.StartsWith("0X"))
+            {
+                s = s.Substring(2);
             }
 
             try
             {
-                var s = TypeConverter.ToString(v);
-                return Convert.ToInt32(s.TrimStart(), radix);
+                return sign * Parse(s, radix);
             }
             catch
             {
@@ -91,6 +123,45 @@ namespace Jint.Native.Global
 
         }
 
+        private static double Parse(string number, int radix)
+        {
+            if (number == "")
+            {
+                return double.NaN;
+            }
+
+            double result = 0;
+            double pow = 1;
+            for (int i = number.Length - 1; i >= 0 ; i--)
+            {
+                double index = double.NaN;
+                char digit = number[i];
+
+                if (digit >= '0' && digit <= '9')
+                {
+                    index = digit - '0';
+                }
+                else if (digit >= 'a' && digit <= 'z')
+                {
+                    index = digit - 'a' + 10;
+                }
+                else if (digit >= 'A' && digit <= 'Z')
+                {
+                    index = digit - 'A' + 10;
+                }
+
+                if (double.IsNaN(index) || index >= radix)
+                {
+                    return Parse(number.Substring(0, i), radix);
+                }
+
+                result += index*pow;
+                pow = pow * radix;
+            }
+
+            return result;
+            return 0;
+        }
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.3
         /// </summary>
