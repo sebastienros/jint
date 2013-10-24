@@ -128,7 +128,7 @@ namespace Jint.Native.Global
             }
 
             var n = TypeConverter.ToNumber(arguments[0]);
-            if (n == double.NaN || n == double.PositiveInfinity || n == double.NegativeInfinity)
+            if (double.IsNaN(n) || double.IsInfinity(n))
             {
                 return false;
             }

@@ -11,6 +11,8 @@ namespace Jint.Native.Function
         public EvalFunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine, parameters, scope, strict)
         {
             _engine = engine;
+            Prototype = Engine.Function.PrototypeObject;
+            FastAddProperty("length", 1, false, false, false);
         }
 
         public override object Call(object thisObject, object[] arguments)
@@ -20,6 +22,11 @@ namespace Jint.Native.Function
 
         public object Call(object thisObject, object[] arguments, bool directCall)
         {
+            if (TypeConverter.GetType(arguments.At(0)) != Types.String)
+            {
+                return arguments.At(0);
+            }
+
             var code = TypeConverter.ToString(arguments.At(0));
 
             try

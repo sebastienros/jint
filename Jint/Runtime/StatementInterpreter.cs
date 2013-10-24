@@ -513,7 +513,7 @@ namespace Jint.Runtime
                 }
             }
 
-            return new Completion(Completion.Normal, lastIdentifier, null);
+            return new Completion(Completion.Normal, null, null);
         }
 
         public Completion ExecuteBlockStatement(BlockStatement blockStatement)
