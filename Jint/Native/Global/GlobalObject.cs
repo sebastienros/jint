@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq;
+using System.Text;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
@@ -13,10 +15,8 @@ namespace Jint.Native.Global
 
         public static GlobalObject CreateGlobalObject(Engine engine)
         {
-            var global = new GlobalObject(engine);
-            global.Prototype = null;
-            global.Extensible = true;
-            
+            var global = new GlobalObject(engine) {Prototype = null, Extensible = true};
+
             return global;
         }
 
@@ -52,12 +52,12 @@ namespace Jint.Native.Global
             // Global object functions
             FastAddProperty("parseInt", new ClrFunctionInstance<object, double>(Engine, ParseInt, 2), false, false, false);
             FastAddProperty("parseFloat", new ClrFunctionInstance<object, double>(Engine, ParseFloat, 1), false, false, false);
-            FastAddProperty("isNaN", new ClrFunctionInstance<object, bool>(Engine, IsNaN), false, false, false);
-            FastAddProperty("isFinite", new ClrFunctionInstance<object, bool>(Engine, IsFinite), false, false, false);
-            FastAddProperty("decodeURI", new ClrFunctionInstance<object, string>(Engine, DecodeUri), false, false, false);
-            FastAddProperty("decodeURIComponent", new ClrFunctionInstance<object, string>(Engine, DecodeUriComponent), false, false, false);
-            FastAddProperty("encodeURI", new ClrFunctionInstance<object, string>(Engine, EncodeUri), false, false, false);
-            FastAddProperty("encodeURIComponent", new ClrFunctionInstance<object, string>(Engine, EncodeUriComponent), false, false, false);
+            FastAddProperty("isNaN", new ClrFunctionInstance<object, bool>(Engine, IsNaN ,1), false, false, false);
+            FastAddProperty("isFinite", new ClrFunctionInstance<object, bool>(Engine, IsFinite, 1), false, false, false);
+            FastAddProperty("decodeURI", new ClrFunctionInstance<object, string>(Engine, DecodeUri, 1), false, false, false);
+            FastAddProperty("decodeURIComponent", new ClrFunctionInstance<object, string>(Engine, DecodeUriComponent, 1), false, false, false);
+            FastAddProperty("encodeURI", new ClrFunctionInstance<object, string>(Engine, EncodeUri, 1), false, false, false);
+            FastAddProperty("encodeURIComponent", new ClrFunctionInstance<object, string>(Engine, EncodeUriComponent, 1), false, false, false);
         }
 
         /// <summary>
@@ -207,7 +207,8 @@ namespace Jint.Native.Global
                     separator = '.';
                     break;
                 }
-                else if(c == 'e' || c == 'E')
+                
+                if(c == 'e' || c == 'E')
                 {
                     i++;
                     separator = 'e';
@@ -355,8 +356,17 @@ namespace Jint.Native.Global
             return Uri.UnescapeDataString(arguments[0].ToString().Replace("+", " "));
         }
 
-        private static readonly char[] ReservedEncoded = new [] { ';', ',', '/', '?', ':', '@', '&', '=', '+', '$', '#' };
-        private static readonly char[] ReservedEncodedComponent = new [] { '-', '_', '.', '!', '~', '*', '\'', '(', ')', '[', ']' };
+        private static readonly char[] UriReserved = {';', '/', '?', ':', '@', '&', '=', '+', '$', ','};
+
+        private static readonly char[] UriUnescaped =
+        {
+            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+            'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
+            'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '_', '.', '!',
+            '~', '*', '\'', '(', ')'
+        };
+
+        private static readonly  char[] HexaMap = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.3.2
@@ -364,27 +374,130 @@ namespace Jint.Native.Global
         /// <param name="thisObject"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public static string EncodeUri(object thisObject, object[] arguments)
+        public string EncodeUri(object thisObject, object[] arguments)
         {
-            if (arguments.Length < 1 || arguments[0] == Undefined.Instance)
-            {
-                return "";
-            }
+            var uriString = TypeConverter.ToString(arguments.At(0));
+            var unescapedUriSet = UriReserved.Concat(UriUnescaped).Concat(new [] {'#'}).ToArray();
 
-            string encoded = Uri.EscapeDataString(arguments[0].ToString());
-
-            foreach (char c in ReservedEncoded)
-            {
-                encoded = encoded.Replace(Uri.EscapeDataString(c.ToString()), c.ToString());
-            }
-
-            foreach (char c in ReservedEncodedComponent)
-            {
-                encoded = encoded.Replace(Uri.EscapeDataString(c.ToString()), c.ToString());
-            }
-
-            return encoded.ToUpper();
+            return Encode(uriString, unescapedUriSet);
         }
+
+
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.3.4
+        /// </summary>
+        /// <param name="thisObject"></param>
+        /// <param name="arguments"></param>
+        /// <returns></returns>
+        public string EncodeUriComponent(object thisObject, object[] arguments)
+        {
+            var uriString = TypeConverter.ToString(arguments.At(0));
+
+            return Encode(uriString, UriUnescaped);
+        }
+
+        private string Encode(string uriString, char[] unescapedUriSet)
+        {
+            var strLen = uriString.Length;
+            var r = new StringBuilder(uriString.Length);
+            for (var k = 0; k< strLen; k++)
+            {
+                var c = uriString[k];
+                if (System.Array.IndexOf(unescapedUriSet, c) != -1)
+                {
+                    r.Append(c);
+                }
+                else
+                {
+                    if (c >= 0xDC00 && c <= 0xDBFF)
+                    {
+                        throw new JavaScriptException(Engine.UriError);
+                    }
+
+                    int v;
+                    if (c < 0xD800 || c > 0xDBFF)
+                    {
+                        v = c;
+                    }
+                    else
+                    {
+                        k++;
+                        if (k == strLen)
+                        {
+                            throw new JavaScriptException(Engine.UriError);
+                        }
+
+                        var kChar = (int) uriString[k];
+                        if (kChar < 0xDC00 || kChar > 0xDFFF)
+                        {
+                            throw new JavaScriptException(Engine.UriError);
+                        }
+
+                        v = (c - 0xD800) * 0x400 + (kChar - 0xDC00) + 0x10000;
+                    }
+
+                    byte[] octets;
+
+                    if (v >= 0 && v <= 0x007F)
+                    {
+                        // 00000000 0zzzzzzz -> 0zzzzzzz
+                        octets = new[] { (byte)v };
+                    }
+                    else if (v <= 0x07FF)
+                    {
+                        // 00000yyy yyzzzzzz ->	110yyyyy ; 10zzzzzz
+                        octets = new[]
+                        {
+                            (byte)(0xC0 | (v >> 6)), 
+                            (byte)(0x80 | (v & 0x3F))
+                        };
+                    }
+                    else if (v <= 0xD7FF)
+                    {
+                        // xxxxyyyy yyzzzzzz -> 1110xxxx; 10yyyyyy; 10zzzzzz	
+                        octets = new[]
+                        {
+                            (byte)(0xE0 | (v >> 12)), 
+                            (byte)(0x80 | ((v >> 6) & 0x3F)), 
+                            (byte)(0x80 | (v & 0x3F))
+                        };
+                    }
+                    else if (v <= 0xDFFF)
+                    {
+                        throw new JavaScriptException(Engine.UriError);
+                    }
+                    else if (v <= 0xFFFF)
+                    {
+                        octets = new[]
+                        {
+                            (byte) (0xE0 | (v >> 12)),
+                            (byte) (0x80 | ((v >> 6) & 0x3F)),
+                            (byte) (0x80 | (v & 0x3F))
+                        };
+                    }
+                    else
+                    {
+                        octets = new[]
+                        {
+                            (byte) (0xF0 | (v >> 18)),
+                            (byte) (0x80 | (v >> 12 & 0x3F)),
+                            (byte) (0x80 | (v >> 6 & 0x3F)),
+                            (byte) (0x80 | (v >> 0 & 0x3F))
+                        };
+                    }
+
+                    for (var j = 0; j < octets.Length; j++)
+                    {
+                        var jOctet = octets[j];
+                        var x1 = HexaMap[jOctet / 16];
+                        var x2 = HexaMap[jOctet % 16];
+                        r.Append('%').Append(x1).Append(x2);
+                    }
+                }
+            }
+
+            return r.ToString();
+        } 
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.3.3
@@ -401,30 +514,5 @@ namespace Jint.Native.Global
 
             return Uri.UnescapeDataString(arguments[0].ToString().Replace("+", " "));
         }
-
-        /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.3.4
-        /// </summary>
-        /// <param name="thisObject"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
-        public static string EncodeUriComponent(object thisObject, object[] arguments)
-        {
-            if (arguments.Length < 1 || arguments[0] == Undefined.Instance)
-            {
-                return "";
-            }
-
-            string encoded = Uri.EscapeDataString(arguments[0].ToString());
-
-            foreach (char c in ReservedEncodedComponent)
-            {
-                encoded = encoded.Replace(Uri.EscapeDataString(c.ToString()), c.ToString().ToUpper());
-            }
-
-            return encoded;
-        }
-
-
     }
 }
