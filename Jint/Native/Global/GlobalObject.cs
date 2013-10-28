@@ -340,22 +340,6 @@ namespace Jint.Native.Global
             return true;
         }
 
-        /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.3.1
-        /// </summary>
-        /// <param name="thisObject"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
-        public static string DecodeUri(object thisObject, object[] arguments)
-        {
-            if (arguments.Length < 1 || arguments[0] == Undefined.Instance)
-            {
-                return "";
-            }
-
-            return Uri.UnescapeDataString(arguments[0].ToString().Replace("+", " "));
-        }
-
         private static readonly char[] UriReserved = {';', '/', '?', ':', '@', '&', '=', '+', '$', ','};
 
         private static readonly char[] UriUnescaped =
@@ -366,8 +350,15 @@ namespace Jint.Native.Global
             '~', '*', '\'', '(', ')'
         };
 
-        private static readonly  char[] HexaMap = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+        private const string HexaMap = "0123456789ABCDEF";
 
+        private static bool IsValidHexaChar(char c)
+        {
+            return
+                c >= '0' && c <= '9' ||
+                c >= 'a' && c <= 'f' ||
+                c >= 'A' && c <= 'F';
+        }
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.3.2
         /// </summary>
@@ -497,22 +488,114 @@ namespace Jint.Native.Global
             }
 
             return r.ToString();
-        } 
-
-        /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.3.3
-        /// </summary>
-        /// <param name="thisObject"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
-        public static string DecodeUriComponent(object thisObject, object[] arguments)
-        {
-            if (arguments.Length < 1 || arguments[0] == Undefined.Instance)
-            {
-                return "";
-            }
-
-            return Uri.UnescapeDataString(arguments[0].ToString().Replace("+", " "));
         }
+
+        public string DecodeUri(object thisObject, object[] arguments)
+        {
+            var uriString = TypeConverter.ToString(arguments.At(0));
+            var reservedUriSet = UriReserved.Concat(new[] { '#' }).ToArray();
+
+            return Decode(uriString, reservedUriSet);
+        }
+
+        public string DecodeUriComponent(object thisObject, object[] arguments)
+        {
+            var componentString = TypeConverter.ToString(arguments.At(0));
+            var reservedUriComponentSet = new char[0];
+
+            return Decode(componentString, reservedUriComponentSet);
+        }
+
+        public string Decode(string uriString, char[] reservedSet)
+        {
+            var strLen = uriString.Length;
+            var R = new StringBuilder(strLen);
+            for (var k = 0; k < strLen; k++)
+            {
+                var C = uriString[k];
+                if (C != '%')
+                {
+                    R.Append(C);
+                }
+                else
+                {
+                    var start = k;
+                    if (k + 2 >= strLen)
+                    {
+                        throw new JavaScriptException(Engine.UriError);
+                    }
+
+                    if (!IsValidHexaChar(uriString[k + 1]) || !IsValidHexaChar(uriString[k + 2]))
+                    {
+                        throw new JavaScriptException(Engine.UriError);    
+                    }
+
+                    var B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
+
+                    k += 2;
+                    if ((B & 0x80) == 0)
+                    {
+                        C = (char) B;
+                        if (System.Array.IndexOf(reservedSet, C) == -1)
+                        {
+                            R.Append(C);
+                        }
+                        else
+                        {
+                            R.Append(uriString.Substring(start, k - start + 1));
+                        }
+                    }
+                    else
+                    {
+                        var n = 0;
+                        for (; ((B << n) & 0x80) != 0; n++) ;
+
+                        if (n == 1 || n > 4)
+                        {
+                            throw new JavaScriptException(Engine.UriError);
+                        }
+                        
+                        var Octets = new byte[n];
+                        Octets[0] = B;
+                        
+                        if (k + (3*(n - 1)) >= strLen)
+                        {
+                            throw new JavaScriptException(Engine.UriError);
+                        }
+                        
+                        for(var j=1; j <n; j++)
+                        {
+                            k++;
+                            if (uriString[k] != '%')
+                            {
+                                throw new JavaScriptException(Engine.UriError);
+                            }
+
+                            if (!IsValidHexaChar(uriString[k + 1]) || !IsValidHexaChar(uriString[k + 2]))
+                            {
+                                throw new JavaScriptException(Engine.UriError);
+                            }
+
+                            B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
+
+                            // B & 11000000 != 10000000 
+                            if ((B & 0xC0) != 0x80)
+                            {
+                                throw new JavaScriptException(Engine.UriError);
+                            }
+
+                            k += 2;
+
+                            Octets[j] = B;
+                        }
+
+                        R.Append(Encoding.UTF8.GetString(Octets, 0, Octets.Length));
+                    }
+                }
+            }
+            
+            return R.ToString();
+        }
+
     }
 }
