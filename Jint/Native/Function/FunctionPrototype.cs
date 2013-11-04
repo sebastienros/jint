@@ -49,7 +49,7 @@ namespace Jint.Native.Function
             }
             
             object thisArg = arguments.At(0);
-            var f = new BindFunctionInstance(Engine);
+            var f = new BindFunctionInstance(Engine) {Extensible = true};
             f.TargetFunction = target;
             f.BoundThis = thisArg;
             f.BoundArgs = arguments.Skip(1).ToArray();
@@ -69,7 +69,7 @@ namespace Jint.Native.Function
 
             var thrower = Engine.Function.ThrowTypeError;
             f.DefineOwnProperty("caller", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
-            f.DefineOwnProperty("callee", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
+            f.DefineOwnProperty("arguments", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
 
 
             return f;
