@@ -21,7 +21,7 @@ namespace Jint.Native.Number
             obj.PrimitiveValue = 0;
             obj.Extensible = true;
 
-            obj.FastAddProperty("constructor", numberConstructor, false, false, false);
+            obj.FastAddProperty("constructor", numberConstructor, true, false, true);
 
             return obj;
         }

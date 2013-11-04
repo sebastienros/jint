@@ -26,7 +26,7 @@ namespace Jint.Native.Array
                 };
 
             obj.FastAddProperty("length", 0, true, false, false);
-            obj.FastAddProperty("constructor", arrayConstructor, false, false, false);
+            obj.FastAddProperty("constructor", arrayConstructor, true, false, true);
 
             return obj;
         }

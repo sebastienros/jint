@@ -786,12 +786,27 @@ namespace Jint.Runtime
 
         public object EvaluateFunctionExpression(FunctionExpression functionExpression)
         {
-            return new ScriptFunctionInstance(
+            var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
+            var envRec = (DeclarativeEnvironmentRecord)funcEnv.Record;
+
+            if (functionExpression.Id != null && !String.IsNullOrEmpty(functionExpression.Id.Name))
+            {
+                envRec.CreateMutableBinding(functionExpression.Id.Name);
+            }
+
+            var closure = new ScriptFunctionInstance(
                 _engine,
                 functionExpression,
-                LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment),
+                funcEnv,
                 functionExpression.Strict
                 );
+
+            if (functionExpression.Id != null && !String.IsNullOrEmpty(functionExpression.Id.Name))
+            {
+                envRec.InitializeImmutableBinding(functionExpression.Id.Name, closure);
+            }
+
+            return closure;
         }
 
         public object EvaluateCallExpression(CallExpression callExpression)

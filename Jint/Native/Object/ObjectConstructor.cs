@@ -35,7 +35,7 @@ namespace Jint.Native.Object
             Prototype = Engine.Function.PrototypeObject;
 
             FastAddProperty("getPrototypeOf", new ClrFunctionInstance<object, object>(Engine, GetPrototypeOf, 1), false, false, false);
-            FastAddProperty("getOwnPropertyDescriptor", new ClrFunctionInstance<object, object>(Engine, GetOwnPropertyDescriptor), false, false, false);
+            FastAddProperty("getOwnPropertyDescriptor", new ClrFunctionInstance<object, object>(Engine, GetOwnPropertyDescriptor, 2), false, false, false);
             FastAddProperty("getOwnPropertyNames", new ClrFunctionInstance<object, object>(Engine, GetOwnPropertyNames), false, false, false);
             FastAddProperty("create", new ClrFunctionInstance<object, object>(Engine, Create), false, false, false);
             FastAddProperty("defineProperty", new ClrFunctionInstance<object, object>(Engine, DefineProperty), false, false, false);

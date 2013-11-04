@@ -17,7 +17,7 @@ namespace Jint.Native.Error
         public static ErrorPrototype CreatePrototypeObject(Engine engine, ErrorConstructor errorConstructor, string name)
         {
             var obj = new ErrorPrototype(engine, name) { Extensible = true };
-            obj.FastAddProperty("constructor", errorConstructor, false, false, false);
+            obj.FastAddProperty("constructor", errorConstructor, true, false, true);
 
             if (name != "Error")
             {

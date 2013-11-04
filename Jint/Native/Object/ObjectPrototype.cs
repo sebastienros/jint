@@ -15,7 +15,7 @@ namespace Jint.Native.Object
         {
             var obj = new ObjectPrototype(engine) { Extensible = true };
 
-            obj.FastAddProperty("constructor", objectConstructor, false, false, false);
+            obj.FastAddProperty("constructor", objectConstructor, true, false, true);
 
             return obj;
         }

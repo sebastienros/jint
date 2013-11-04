@@ -19,7 +19,7 @@ namespace Jint.Native.Boolean
             obj.PrimitiveValue = false;
             obj.Extensible = true;
 
-            obj.FastAddProperty("constructor", booleanConstructor, false, false, false);
+            obj.FastAddProperty("constructor", booleanConstructor, true, false, true);
 
             return obj;
         }

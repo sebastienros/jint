@@ -19,7 +19,7 @@ namespace Jint.Native.RegExp
             obj.Prototype = engine.Object.PrototypeObject;
             obj.Extensible = true;
 
-            obj.FastAddProperty("constructor", regExpConstructor, false, false, false);
+            obj.FastAddProperty("constructor", regExpConstructor, true, false, true);
 
             return obj;
         }

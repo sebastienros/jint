@@ -37,15 +37,14 @@ namespace Jint.Native.Function
 
             var proto = engine.Object.Construct(Arguments.Empty);
             proto.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = true }, false);
-            DefineOwnProperty("prototype", new DataDescriptor(proto) { Writable = true, Enumerable = false, Configurable = true }, false);
-
+            DefineOwnProperty("prototype", new DataDescriptor(proto) { Writable = true, Enumerable = false, Configurable = false }, false);
             DefineOwnProperty("name", new DataDescriptor(_functionDeclaration.Id), false);
             
             if (strict)
             {
                 var thrower = engine.Function.ThrowTypeError;
-                DefineOwnProperty("caller", new AccessorDescriptor(thrower) { Enumerable = false, Configurable = false }, false);
-                DefineOwnProperty("arguments", new AccessorDescriptor(thrower) { Enumerable = false, Configurable = false }, false);
+                DefineOwnProperty("caller", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
+                DefineOwnProperty("arguments", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
             }
         }
 
