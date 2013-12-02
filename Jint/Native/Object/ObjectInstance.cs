@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Jint.Native.Date;
 using Jint.Native.String;
 using Jint.Runtime;
@@ -61,12 +60,14 @@ namespace Jint.Native.Object
 
             var getter = desc.As<AccessorDescriptor>().Get;
 
-            if (getter == null)
+            if (getter == Undefined.Instance)
             {
                 return Undefined.Instance;
             }
 
-            return getter.Call(this, Arguments.Empty);
+            // if getter is not undefined it must be ICallable
+            var callable = (ICallable)getter;
+            return callable.Call(this, Arguments.Empty);
         }
 
         public void Set(string name, object value)
@@ -172,7 +173,7 @@ namespace Jint.Native.Object
 
             if (desc.IsAccessorDescriptor())
             {
-                var setter = desc.As<AccessorDescriptor>().Set;
+                var setter = (ICallable)desc.As<AccessorDescriptor>().Set;
                 setter.Call(this, new [] {value});
             }
             else
@@ -198,7 +199,7 @@ namespace Jint.Native.Object
             {
                 if (desc.IsAccessorDescriptor())
                 {
-                    if (desc.As<AccessorDescriptor>().Set == null)
+                    if (desc.As<AccessorDescriptor>().Set == Undefined.Instance)
                     {
                         return false;
                     }
@@ -223,7 +224,7 @@ namespace Jint.Native.Object
 
             if (inherited.IsAccessorDescriptor())
             {
-                if (inherited.As<AccessorDescriptor>().Set == null)
+                if (inherited.As<AccessorDescriptor>().Set == Undefined.Instance)
                 {
                     return false;
                 }
@@ -390,7 +391,54 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            // todo: if desc and current are the same, return true
+            // Step 5
+            if(!current.Configurable.HasValue && !current.Enumerable.HasValue && !(current.IsDataDescriptor() && ((DataDescriptor)current).Writable.HasValue))
+            {
+                if (!desc.IsDataDescriptor() || desc.As<DataDescriptor>().Value == null)
+                {
+                    return true;
+                }
+            }
+
+            // Step 6
+            var configurableIsSame = current.Configurable.HasValue
+                ? desc.Configurable.HasValue && (current.Configurable.Value == desc.Configurable.Value)
+                : !desc.Configurable.HasValue;
+
+            var enumerableIsSame = current.Enumerable.HasValue
+                ? desc.Enumerable.HasValue && (current.Enumerable.Value == desc.Enumerable.Value)
+                : !desc.Enumerable.HasValue;
+
+            var writableIsSame = true;
+            var valueIsSame = true;
+
+            if (current.IsDataDescriptor() && desc.IsDataDescriptor())
+            {
+                var currentDataDescriptor = (DataDescriptor) current;
+                var descDataDescriptor = (DataDescriptor) desc;
+                writableIsSame = currentDataDescriptor.Writable.HasValue
+                ? descDataDescriptor.Writable.HasValue && (currentDataDescriptor.Writable.Value == descDataDescriptor.Writable.Value)
+                : !descDataDescriptor.Writable.HasValue;
+
+                valueIsSame = ExpressionInterpreter.SameValue(currentDataDescriptor.Value, descDataDescriptor.Value);
+            }
+            else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())
+            {
+                var currentAccessorDescriptor = (AccessorDescriptor) current;
+                var descAccessorDescriptor = (AccessorDescriptor) desc;
+
+                valueIsSame = ExpressionInterpreter.SameValue(currentAccessorDescriptor.Get, descAccessorDescriptor.Get)
+                              && ExpressionInterpreter.SameValue(currentAccessorDescriptor.Set, descAccessorDescriptor.Set);
+            }
+            else
+            {
+                valueIsSame = false;
+            }
+
+            if (configurableIsSame && enumerableIsSame && writableIsSame && valueIsSame)
+            {
+                return true;
+            }
 
             if (current.ConfigurableIsSetToFalse)
             {
@@ -404,7 +452,7 @@ namespace Jint.Native.Object
                     return false;
                 }
 
-                if (desc.Enumerable.HasValue && desc.Enumerable.Value != current.Enumerable.Value)
+                if (desc.Enumerable.HasValue && desc.EnumerableIsSet != current.EnumerableIsSet)
                 {
                     if (throwOnError)
                     {
@@ -415,36 +463,12 @@ namespace Jint.Native.Object
                 }
             }
 
-            if (desc.IsGenericDescriptor())
+            if (!desc.IsGenericDescriptor())
             {
-                // ????
-            }
 
-            if (current.IsDataDescriptor() != desc.IsDataDescriptor())
-            {
-                if (!current.ConfigurableIsSetToTrue)
+                if (current.IsDataDescriptor() != desc.IsDataDescriptor())
                 {
-                    if (throwOnError)
-                    {
-                        throw new JavaScriptException(Engine.TypeError);
-                    }
-
-                    return false;
-                }
-
-                if (current.IsDataDescriptor())
-                {
-                    // todo: convert to accessor
-                }
-            }
-            else if (current.IsDataDescriptor() && desc.IsDataDescriptor())
-            {
-                var cd = current.As<DataDescriptor>();
-                var dd = current.As<DataDescriptor>();
-
-                if (!current.ConfigurableIsSetToTrue)
-                {
-                    if (!cd.WritableIsSet && dd.WritableIsSet)
+                    if (!current.ConfigurableIsSetToTrue)
                     {
                         if (throwOnError)
                         {
@@ -453,29 +477,65 @@ namespace Jint.Native.Object
 
                         return false;
                     }
-                }
 
-                if (!dd.Writable.HasValue && cd.Writable.HasValue)
-                {
-                    dd.Enumerable = cd.Enumerable;
-                }
-            }
-            else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())
-            {
-                var ca = current.As<AccessorDescriptor>();
-                var da = desc.As<AccessorDescriptor>();
-
-                if (!current.ConfigurableIsSetToTrue)
-                {
-                    if ( (da.Set != null && da.Set != ca.Set)
-                        || (da.Get != null && da.Get != ca.Get))
+                    if (current.IsDataDescriptor())
                     {
-                        if (throwOnError)
+                        // todo: convert to accessor
+                    }
+                }
+                else if (current.IsDataDescriptor() && desc.IsDataDescriptor())
+                {
+                    var cd = current.As<DataDescriptor>();
+                    var dd = current.As<DataDescriptor>();
+
+                    if (!current.ConfigurableIsSetToTrue)
+                    {
+                        if (!cd.WritableIsSet && dd.WritableIsSet)
                         {
-                            throw new JavaScriptException(Engine.TypeError);
+                            if (throwOnError)
+                            {
+                                throw new JavaScriptException(Engine.TypeError);
+                            }
+
+                            return false;
                         }
 
-                        return false;
+                        if (!cd.WritableIsSet)
+                        {
+                            if (dd.Value != null && !valueIsSame)
+                            {
+                                if (throwOnError)
+                                {
+                                    throw new JavaScriptException(Engine.TypeError);
+                                }
+
+                                return false;
+                            }
+                        }
+                    }
+
+                    if (!dd.Writable.HasValue && cd.Writable.HasValue)
+                    {
+                        dd.Enumerable = cd.Enumerable;
+                    }
+                }
+                else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())
+                {
+                    var ca = current.As<AccessorDescriptor>();
+                    var da = desc.As<AccessorDescriptor>();
+
+                    if (!current.ConfigurableIsSetToTrue)
+                    {
+                        if ((da.Set != Undefined.Instance && !ExpressionInterpreter.SameValue(da.Set, ca.Set))
+                            || (da.Get != Undefined.Instance && !ExpressionInterpreter.SameValue(da.Get, ca.Get)))
+                        {
+                            if (throwOnError)
+                            {
+                                throw new JavaScriptException(Engine.TypeError);
+                            }
+
+                            return false;
+                        }
                     }
                 }
             }

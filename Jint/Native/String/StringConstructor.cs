@@ -31,7 +31,7 @@ namespace Jint.Native.String
 
         public void Configure()
         {
-            FastAddProperty("fromCharCode", new ClrFunctionInstance<object, string>(Engine, FromCharCode, 1), false, false, false);
+            FastAddProperty("fromCharCode", new ClrFunctionInstance<object, string>(Engine, FromCharCode, 1), true, false, true);
         }
 
         private static string FromCharCode(object thisObj, object[] arguments)

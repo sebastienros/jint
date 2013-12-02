@@ -368,11 +368,13 @@ namespace Jint
                         return desc.As<DataDescriptor>().Value;
                     }
                     var getter = desc.As<AccessorDescriptor>().Get;
-                    if (getter == null)
+                    if (getter == Undefined.Instance)
                     {
                         return Undefined.Instance;
                     }
-                    return getter.Call(baseValue, Arguments.Empty);
+
+                    var callable = (ICallable)getter;
+                    return callable.Call(baseValue, Arguments.Empty);
                 }
             }
             else
@@ -466,7 +468,7 @@ namespace Jint
 
             if (desc.IsAccessorDescriptor())
             {
-                var setter = desc.As<AccessorDescriptor>().Set;
+                var setter = (ICallable)desc.As<AccessorDescriptor>().Set;
                 setter.Call(b, new[] { value });
             }
             else

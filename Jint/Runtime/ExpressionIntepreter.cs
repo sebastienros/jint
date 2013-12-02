@@ -692,7 +692,7 @@ namespace Jint.Runtime
                                 StrictModeScope.IsStrictModeCode
                                 );
                         }
-                        propDesc = new AccessorDescriptor(null, set) { Enumerable = true, Configurable = true};
+                        propDesc = new AccessorDescriptor(Undefined.Instance, set) { Enumerable = true, Configurable = true};
                         break;
 
                     default:
@@ -726,26 +726,26 @@ namespace Jint.Runtime
                         var previousAccessor = previous.As<AccessorDescriptor>();
                         var propAccessor = propDesc.As<AccessorDescriptor>();
 
-                        if (propAccessor.Set != null)
+                        if (propAccessor.Set != Undefined.Instance)
                         {
-                            if (previousAccessor.Set != null)
+                            if (previousAccessor.Set != Undefined.Instance)
                             {
                                 throw new JavaScriptException(_engine.SyntaxError);
                             }
 
-                            if (previousAccessor.Get != null)
+                            if (previousAccessor.Get != Undefined.Instance)
                             {
                                 propAccessor.Get = previousAccessor.Get;
                             }
                         }
-                        else if (propAccessor.Get != null)
+                        else if (propAccessor.Get != Undefined.Instance)
                         {
-                            if (previousAccessor.Get != null)
+                            if (previousAccessor.Get != Undefined.Instance)
                             {
                                 throw new JavaScriptException(_engine.SyntaxError);
                             }
 
-                            if (previousAccessor.Set != null)
+                            if (previousAccessor.Set != Undefined.Instance)
                             {
                                 propAccessor.Set = previousAccessor.Set;
                             }

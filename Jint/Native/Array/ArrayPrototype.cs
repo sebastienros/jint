@@ -828,8 +828,8 @@ namespace Jint.Native.Array
 
         private object ReduceRight(object thisObj, object[] arguments)
         {
-            var callbackfn = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            var initialValue = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
+            var callbackfn = arguments.At(0);
+            var initialValue = arguments.At(1);
 
             var o = TypeConverter.ToObject(Engine, thisObj);
             var lenValue = o.Get("length");

@@ -1,5 +1,4 @@
 ﻿using System.Text.RegularExpressions;
-using Jint.Native.Array;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -29,6 +28,30 @@ namespace Jint.Native.RegExp
             FastAddProperty("toString", new ClrFunctionInstance<RegExpInstance, object>(Engine, ToRegExpString), true, false, true);
             FastAddProperty("exec", new ClrFunctionInstance<object, object>(Engine, Exec, 1), true, false, true);
             FastAddProperty("test", new ClrFunctionInstance<object, bool>(Engine, Test, 1), true, false, true);
+
+            FastAddProperty("global", new ClrFunctionInstance<RegExpInstance, bool>(Engine, GetGlobal, 1), false, false, false);
+            FastAddProperty("ignoreCase", new ClrFunctionInstance<RegExpInstance, bool>(Engine, GetIgnoreCase, 1), false, false, false);
+            FastAddProperty("multiline", new ClrFunctionInstance<RegExpInstance, bool>(Engine, GetMultiLine, 1), false, false, false);
+            FastAddProperty("source", new ClrFunctionInstance<RegExpInstance, string>(Engine, GetSource, 1), false, false, false);
+        }
+
+        private bool GetGlobal(RegExpInstance thisObj, object[] arguments)
+        {
+            return thisObj.Global;
+        }
+        private bool GetMultiLine(RegExpInstance thisObj, object[] arguments)
+        {
+            return thisObj.Multiline;
+        }
+
+        private bool GetIgnoreCase(RegExpInstance thisObj, object[] arguments)
+        {
+            return thisObj.IgnoreCase;
+        }
+
+        private string GetSource(RegExpInstance thisObj, object[] arguments)
+        {
+            return thisObj.Source;
         }
 
         private object ToRegExpString(RegExpInstance thisObj, object[] arguments)

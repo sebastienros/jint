@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Jint.Native.Function;
+using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -34,19 +35,19 @@ namespace Jint.Native.Object
         {
             Prototype = Engine.Function.PrototypeObject;
 
-            FastAddProperty("getPrototypeOf", new ClrFunctionInstance<object, object>(Engine, GetPrototypeOf, 1), false, false, false);
-            FastAddProperty("getOwnPropertyDescriptor", new ClrFunctionInstance<object, object>(Engine, GetOwnPropertyDescriptor, 2), false, false, false);
-            FastAddProperty("getOwnPropertyNames", new ClrFunctionInstance<object, object>(Engine, GetOwnPropertyNames), false, false, false);
-            FastAddProperty("create", new ClrFunctionInstance<object, object>(Engine, Create), false, false, false);
-            FastAddProperty("defineProperty", new ClrFunctionInstance<object, object>(Engine, DefineProperty), false, false, false);
-            FastAddProperty("defineProperties", new ClrFunctionInstance<object, object>(Engine, DefineProperties), false, false, false);
-            FastAddProperty("seal", new ClrFunctionInstance<object, object>(Engine, Seal, 1), false, false, false);
-            FastAddProperty("freeze", new ClrFunctionInstance<object, object>(Engine, Freeze, 1), false, false, false);
-            FastAddProperty("preventExtensions", new ClrFunctionInstance<object, object>(Engine, PreventExtensions, 1), false, false, false);
-            FastAddProperty("isSealed", new ClrFunctionInstance<object, object>(Engine, IsSealed, 1), false, false, false);
-            FastAddProperty("isFrozen", new ClrFunctionInstance<object, object>(Engine, IsFrozen, 1), false, false, false);
-            FastAddProperty("isExtensible", new ClrFunctionInstance<object, object>(Engine, IsExtensible, 1), false, false, false);
-            FastAddProperty("keys", new ClrFunctionInstance<object, object>(Engine, Keys), false, false, false);
+            FastAddProperty("getPrototypeOf", new ClrFunctionInstance<object, object>(Engine, GetPrototypeOf, 1), true, false, true);
+            FastAddProperty("getOwnPropertyDescriptor", new ClrFunctionInstance<object, object>(Engine, GetOwnPropertyDescriptor, 2), true, false, true);
+            FastAddProperty("getOwnPropertyNames", new ClrFunctionInstance<object, object>(Engine, GetOwnPropertyNames, 1), true, false, true);
+            FastAddProperty("create", new ClrFunctionInstance<object, object>(Engine, Create, 2), true, false, true);
+            FastAddProperty("defineProperty", new ClrFunctionInstance<object, object>(Engine, DefineProperty), true, false, true);
+            FastAddProperty("defineProperties", new ClrFunctionInstance<object, object>(Engine, DefineProperties), true, false, true);
+            FastAddProperty("seal", new ClrFunctionInstance<object, object>(Engine, Seal, 1), true, false, true);
+            FastAddProperty("freeze", new ClrFunctionInstance<object, object>(Engine, Freeze, 1), true, false, true);
+            FastAddProperty("preventExtensions", new ClrFunctionInstance<object, object>(Engine, PreventExtensions, 1), true, false, true);
+            FastAddProperty("isSealed", new ClrFunctionInstance<object, object>(Engine, IsSealed, 1), true, false, true);
+            FastAddProperty("isFrozen", new ClrFunctionInstance<object, object>(Engine, IsFrozen, 1), true, false, true);
+            FastAddProperty("isExtensible", new ClrFunctionInstance<object, object>(Engine, IsExtensible, 1), true, false, true);
+            FastAddProperty("keys", new ClrFunctionInstance<object, object>(Engine, Keys), true, false, true);
         }
 
         public ObjectPrototype PrototypeObject { get; private set; }
@@ -145,6 +146,17 @@ namespace Jint.Native.Object
 
             var array = Engine.Array.Construct(Arguments.Empty);
             var n = 0;
+
+            var s = o as StringInstance;
+            if (s != null)
+            {
+                for (var i = 0; i < s.PrimitiveValue.Length; i++)
+                {
+                    array.DefineOwnProperty(n.ToString(), new DataDescriptor(i.ToString()) { Writable = true, Enumerable = true, Configurable = true }, false);
+                    n++;
+                }  
+            }
+
             foreach (var p in o.Properties)
             {
                 array.DefineOwnProperty(n.ToString(), new DataDescriptor(p.Key) { Writable = true, Enumerable = true, Configurable = true }, false);
@@ -156,14 +168,14 @@ namespace Jint.Native.Object
 
         public object Create(object thisObject, object[] arguments)
         {
-            var oArg = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            if (TypeConverter.GetType(oArg) != Types.Object)
+            var oArg = arguments.At(0);
+            if (TypeConverter.GetType(oArg) != Types.Object && oArg != Null.Instance)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
             var obj = Engine.Object.Construct(Arguments.Empty);
-            obj.Prototype = thisObject as ObjectInstance;
+            obj.Prototype = oArg as ObjectInstance;
 
             var properties = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
             if (properties != Undefined.Instance)
@@ -176,23 +188,19 @@ namespace Jint.Native.Object
 
         public object DefineProperty(object thisObject, object[] arguments)
         {
-            var o = arguments[0] as ObjectInstance;
-            var p = arguments[1];
-            var attributes = arguments[2] as ObjectInstance;
-            
-            if (o == null)
+            var o = arguments.At(0);
+            if (TypeConverter.GetType(o) != Types.Object)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            if (attributes == null)
-            {
-                throw new JavaScriptException(Engine.TypeError);
-            }
-
+            var p = arguments.At(1);
             var name = TypeConverter.ToString(p);
+
+            var attributes = arguments.At(2);
             var desc = PropertyDescriptor.ToPropertyDescriptor(Engine, attributes);
-            o.DefineOwnProperty(name, desc, true);
+
+            ((ObjectInstance)o).DefineOwnProperty(name, desc, true);
             return o;
         }
 
@@ -208,13 +216,17 @@ namespace Jint.Native.Object
 
             var properties = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
             var props = TypeConverter.ToObject(Engine, properties);
-            var names = props.Properties.Keys;
             var descriptors = new List<KeyValuePair<string, PropertyDescriptor>>();
-            foreach (var p in names)
+            foreach (var p in props.Properties)
             {
-                var descObj = props.Get(p);
+                if (!p.Value.EnumerableIsSet)
+                {
+                    continue;
+                }
+
+                var descObj = props.Get(p.Key);
                 var desc = PropertyDescriptor.ToPropertyDescriptor(Engine, descObj);
-                descriptors.Add(new KeyValuePair<string, PropertyDescriptor>(p, desc));
+                descriptors.Add(new KeyValuePair<string, PropertyDescriptor>(p.Key, desc));
             }
             foreach (var pair in descriptors)
             {
