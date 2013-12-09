@@ -3,21 +3,11 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class ClrDataDescriptor<TObject, TResult> : DataDescriptor
+    public sealed class ClrDataDescriptor<TObject, TResult> : PropertyDescriptor
     {
         public ClrDataDescriptor(Engine engine, Func<TObject, object[], TResult> func)
-            : base(new ClrFunctionInstance<TObject, TResult>(engine, func))
+            : base(value: new ClrFunctionInstance<TObject, TResult>(engine, func), writable: null, enumerable: null, configurable: null)
         {
-        }
-
-        public override bool IsAccessorDescriptor()
-        {
-            return false;
-        }
-
-        public override bool IsDataDescriptor()
-        {
-            return true;
         }
     }
 }

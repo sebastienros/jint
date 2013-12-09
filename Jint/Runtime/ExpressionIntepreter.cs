@@ -648,7 +648,7 @@ namespace Jint.Runtime
                     case PropertyKind.Data:
                         var exprValue = _engine.EvaluateExpression(property.Value);
                         var propValue = _engine.GetValue(exprValue);
-                        propDesc = new DataDescriptor(propValue) {Writable=true, Enumerable=true,Configurable = true};
+                        propDesc = new PropertyDescriptor(propValue, true, true, true);
                         break;
 
                     case PropertyKind.Get:
@@ -670,7 +670,7 @@ namespace Jint.Runtime
                             );
                         }
 
-                        propDesc = new AccessorDescriptor(get) { Enumerable = true, Configurable = true};
+                        propDesc = new PropertyDescriptor(get: get, set: null, enumerable: true, configurable:true);
                         break;
                     
                     case PropertyKind.Set:
@@ -692,63 +692,40 @@ namespace Jint.Runtime
                                 StrictModeScope.IsStrictModeCode
                                 );
                         }
-                        propDesc = new AccessorDescriptor(Undefined.Instance, set) { Enumerable = true, Configurable = true};
+                        propDesc = new PropertyDescriptor(get:null, set: set, enumerable: true, configurable: true);
                         break;
 
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
 
-                if (previous != Undefined.Instance)
+                if (previous != PropertyDescriptor.Undefined)
                 {
-                    var previousIsData = previous.IsDataDescriptor();
-                    var previousIsAccessor = previous.IsAccessorDescriptor();
-                    var propIsData = propDesc.IsDataDescriptor();
-                    var propIsAccessor = propDesc.IsAccessorDescriptor();
-
-                    if (StrictModeScope.IsStrictModeCode && previousIsData && propIsData)
+                    if (StrictModeScope.IsStrictModeCode && previous.IsDataDescriptor() && propDesc.IsDataDescriptor())
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
                     }
 
-                    if (previousIsData && propIsAccessor)
+                    if (previous.IsDataDescriptor() && propDesc.IsAccessorDescriptor())
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
                     }
 
-                    if (previousIsAccessor && propIsData)
+                    if (previous.IsAccessorDescriptor() && propDesc.IsDataDescriptor())
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
                     }
 
-                    if (previousIsAccessor && propIsAccessor)
+                    if (previous.IsAccessorDescriptor() && propDesc.IsAccessorDescriptor())
                     {
-                        var previousAccessor = previous.As<AccessorDescriptor>();
-                        var propAccessor = propDesc.As<AccessorDescriptor>();
-
-                        if (propAccessor.Set != Undefined.Instance)
+                        if (propDesc.Set.IsPresent && previous.Set.IsPresent)
                         {
-                            if (previousAccessor.Set != Undefined.Instance)
-                            {
-                                throw new JavaScriptException(_engine.SyntaxError);
-                            }
-
-                            if (previousAccessor.Get != Undefined.Instance)
-                            {
-                                propAccessor.Get = previousAccessor.Get;
-                            }
+                            throw new JavaScriptException(_engine.SyntaxError);
                         }
-                        else if (propAccessor.Get != Undefined.Instance)
+                        
+                        if (propDesc.Get.IsPresent && previous.Get.IsPresent)
                         {
-                            if (previousAccessor.Get != Undefined.Instance)
-                            {
-                                throw new JavaScriptException(_engine.SyntaxError);
-                            }
-
-                            if (previousAccessor.Set != Undefined.Instance)
-                            {
-                                propAccessor.Set = previousAccessor.Set;
-                            }
+                            throw new JavaScriptException(_engine.SyntaxError);
                         }
                     }
                 }
@@ -951,7 +928,7 @@ namespace Jint.Runtime
                 {
                     var value = _engine.GetValue(EvaluateExpression(expr));
                     a.DefineOwnProperty(n.ToString(),
-                        new DataDescriptor(value) {Writable = true, Enumerable = true, Configurable = true}, false);
+                        new PropertyDescriptor(value, true, true, true), false);
                 }
                 n++;
             }

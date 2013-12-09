@@ -1,55 +1,165 @@
-﻿using Jint.Native;
+﻿using System.Collections.Generic;
+using Jint.Native;
 using Jint.Native.Object;
 
 namespace Jint.Runtime.Descriptors
 {
-    /// <summary>
-    /// An element of a javascript object
-    /// </summary>
-    public abstract class PropertyDescriptor
+    public enum Fields
     {
-        public static PropertyDescriptor Undefined = new UndefinedPropertyDescriptor();
+        Get,
+        Set,
+        Enumerable,
+        Configurable,
+        Writable,
+        Value
+    }
 
-        /// <summary>
-        /// If true, the property will be enumerated by a for-in 
-        /// enumeration (see 12.6.4). Otherwise, the property is said 
-        /// to be non-enumerable.
-        /// </summary>
-        public bool? Enumerable { get; set; }
+    public interface IPropertyField
+    {
+        bool IsPresent { get; }
 
-        public bool EnumerableIsSet
+        bool IsAbsent { get; }
+
+        object Value { get; }
+    }
+
+    public struct Field<T> : IPropertyField
+    {
+        private readonly T _field;
+        private readonly bool _present;
+
+        public Field(T value)
         {
-            get { return Enumerable.HasValue && Enumerable.Value; }
+            _field = value;
+            _present = true;
         }
 
-        /// <summary>
-        /// If false, attempts to delete the property, change the 
-        /// property to be a data property, or change its attributes will 
-        /// fail.
-        /// </summary>
-        public bool? Configurable { get; set; }
-
-        public bool ConfigurableIsSetToTrue
+        public bool IsPresent
         {
-            get { return Configurable.HasValue && Configurable.Value; }
+            get { return _present; }
         }
 
-        public bool ConfigurableIsSetToFalse
+        public bool IsAbsent
         {
-            get { return Configurable.HasValue && !Configurable.Value; }
+            get { return !_present; }
         }
 
-        /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.10.1
-        /// </summary>
-        /// <returns></returns>
-        public abstract bool IsAccessorDescriptor();
+        public T Value
+        {
+            get
+            {
+                return _field;
+            }
+        }
 
-        /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.10.2
-        /// </summary>
-        /// <returns></returns>
-        public abstract bool IsDataDescriptor();
+        bool IPropertyField.IsPresent
+        {
+            get { return IsPresent; }
+        }
+
+        bool IPropertyField.IsAbsent
+        {
+            get { return IsAbsent; }
+        }
+
+        object IPropertyField.Value
+        {
+            get
+            {
+                return Value;
+            }
+        }
+    }
+
+    public class PropertyDescriptor
+    {
+        public static PropertyDescriptor Undefined = new PropertyDescriptor();
+
+        public PropertyDescriptor()
+        {
+            Get = new Field<object>();
+            Set = new Field<object>();
+            Value = new Field<object>();
+            Enumerable = new Field<bool>();
+            Configurable = new Field<bool>();
+            Writable = new Field<bool>();
+        }
+
+        public PropertyDescriptor(object value, bool? writable, bool? enumerable, bool? configurable)
+        {
+            Value = value == null ? new Field<object>() : new Field<object>(value);
+            Writable = writable == null ? new Field<bool>() : new Field<bool>(writable.Value);
+            Enumerable = enumerable == null ? new Field<bool>() : new Field<bool>(enumerable.Value);
+            Configurable = configurable == null ? new Field<bool>() : new Field<bool>(configurable.Value);
+
+            Get = new Field<object>();
+            Set = new Field<object>();
+        }
+
+        public PropertyDescriptor(object get, object set, bool? enumerable = null, bool? configurable = null)
+        {
+            Get = get == null ? new Field<object>() : new Field<object>(get);
+            Set = set == null ? new Field<object>() : new Field<object>(set);
+
+            Enumerable = enumerable == null ? new Field<bool>() : new Field<bool>(enumerable.Value);
+            Configurable = configurable == null ? new Field<bool>() : new Field<bool>(configurable.Value);
+
+            Value = new Field<object>();
+            Writable = new Field<bool>();
+        }
+
+        public PropertyDescriptor(PropertyDescriptor descriptor)
+        {
+            Get = descriptor.Get;
+            Set = descriptor.Set;
+            Value = descriptor.Value;
+            Enumerable = descriptor.Enumerable;
+            Configurable = descriptor.Configurable;
+            Writable = descriptor.Writable;
+        }
+
+        public Field<object> Get { get; set; }
+        public Field<object> Set { get; set; }
+        public Field<bool> Enumerable { get; set; }
+        public Field<bool> Writable { get; set; }
+        public Field<bool> Configurable { get; set; }
+        public Field<object> Value { get; set; }
+
+        public IDictionary<string, IPropertyField> AllFields
+        {
+            get
+            {
+                return new Dictionary<string, IPropertyField>
+                {
+                    {"Get", Get},
+                    {"Set", Set},
+                    {"Enumerable", Enumerable},
+                    {"Configurable", Configurable},
+                    {"Writable", Writable},
+                    {"Value", Value},
+                };
+            }
+        }
+
+        public bool IsAccessorDescriptor()
+        {
+            if (Get.IsAbsent && Set.IsAbsent)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool IsDataDescriptor()
+        {
+            if (Writable.IsAbsent && Value.IsAbsent)
+            {
+                return false;
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.10.3
@@ -58,11 +168,6 @@ namespace Jint.Runtime.Descriptors
         public bool IsGenericDescriptor()
         {
             return !IsDataDescriptor() && !IsAccessorDescriptor();
-        }
-
-        public T As<T>() where T : PropertyDescriptor
-        {
-            return (T)this;
         }
 
         public static PropertyDescriptor ToPropertyDescriptor(Engine engine, object o)
@@ -80,45 +185,55 @@ namespace Jint.Runtime.Descriptors
                 throw new JavaScriptException(engine.TypeError);
             }
 
-            bool? writable = obj.HasProperty("writable") ? TypeConverter.ToBoolean(obj.Get("writable")) : default(bool?);
-            bool? enumerable = obj.HasProperty("enumerable") ? TypeConverter.ToBoolean(obj.Get("enumerable")) : default(bool?);
-            bool? configurable = obj.HasProperty("configurable") ? TypeConverter.ToBoolean(obj.Get("configurable")) : default(bool?);
+            var desc = new PropertyDescriptor();
 
-            PropertyDescriptor desc = new DataDescriptor(Native.Undefined.Instance) { Configurable = configurable, Enumerable = enumerable, Writable = writable };
+            if (obj.HasProperty("enumerable"))
+            {
+                desc.Enumerable = new Field<bool>(TypeConverter.ToBoolean(obj.Get("enumerable")));
+            }
+
+            if (obj.HasProperty("configurable"))
+            {
+                desc.Configurable = new Field<bool>(TypeConverter.ToBoolean(obj.Get("configurable")));
+            }
 
             if (obj.HasProperty("value"))
             {
                 var value = obj.Get("value");
-                desc = new DataDescriptor(value) { Configurable = configurable, Enumerable = enumerable, Writable = writable};
+                desc.Value = new Field<object>(value);
             }
 
-            object getter = Native.Undefined.Instance, setter = Native.Undefined.Instance;
+            if (obj.HasProperty("writable"))
+            {
+                desc.Writable = new Field<bool>(TypeConverter.ToBoolean(obj.Get("writable")));
+            }
+
             if (obj.HasProperty("get"))
             {
-                getter = obj.Get("get");
+                var getter = obj.Get("get");
                 if (getter != Native.Undefined.Instance && !(getter is ICallable))
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
+                desc.Get = new Field<object>(getter);
             }
 
             if (obj.HasProperty("set"))
             {
-                setter = obj.Get("set");
+                var setter = obj.Get("set");
                 if (setter != Native.Undefined.Instance && !(setter is ICallable))
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
+                desc.Set = new Field<object>(setter);
             }
 
-            if (getter != Native.Undefined.Instance || setter != Native.Undefined.Instance)
+            if (desc.Get.IsPresent || desc.Get.IsPresent)
             {
-                if (obj.HasProperty("value") || writable != null)
+                if (desc.Value.IsPresent || desc.Writable.IsPresent)
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
-
-                desc = new AccessorDescriptor(getter, setter) { Configurable = configurable, Enumerable = enumerable };
             }
 
             return desc;
@@ -126,7 +241,7 @@ namespace Jint.Runtime.Descriptors
 
         public static object FromPropertyDescriptor(Engine engine, PropertyDescriptor desc)
         {
-            if (desc == PropertyDescriptor.Undefined)
+            if (desc == Undefined)
             {
                 return Native.Undefined.Instance;
             }
@@ -135,42 +250,19 @@ namespace Jint.Runtime.Descriptors
 
             if (desc.IsDataDescriptor())
             {
-                var datadesc = desc.As<DataDescriptor>();
-                obj.DefineOwnProperty("value", new DataDescriptor(datadesc.Value) { Writable = true, Enumerable = true, Configurable = true }, false);
-                obj.DefineOwnProperty("writable", new DataDescriptor(datadesc.WritableIsSet) { Writable = true, Enumerable = true, Configurable = true }, false);
+                obj.DefineOwnProperty("value", new PropertyDescriptor(value: desc.Value.Value, writable: true, enumerable: true, configurable: true ), false);
+                obj.DefineOwnProperty("writable", new PropertyDescriptor(value: desc.Writable.IsPresent && desc.Writable.Value, writable: true, enumerable: true, configurable: true ), false);
             }
             else
             {
-                var accdesc = desc.As<AccessorDescriptor>();
-                obj.DefineOwnProperty("get", new DataDescriptor(accdesc.Get) { Writable = true, Enumerable = true, Configurable = true }, false);
-                obj.DefineOwnProperty("set", new DataDescriptor(accdesc.Set) { Writable = true, Enumerable = true, Configurable = true }, false);
+                obj.DefineOwnProperty("get", new PropertyDescriptor(desc.Get.Value ?? Native.Undefined.Instance, writable: true, enumerable: true, configurable: true ), false);
+                obj.DefineOwnProperty("set", new PropertyDescriptor(desc.Set.Value ?? Native.Undefined.Instance, writable: true, enumerable: true, configurable: true), false);
             }
 
-            obj.DefineOwnProperty("enumerable", new DataDescriptor(desc.EnumerableIsSet) { Writable = true, Enumerable = true, Configurable = true }, false);
-            obj.DefineOwnProperty("configurable", new DataDescriptor(desc.ConfigurableIsSetToTrue) { Writable = true, Enumerable = true, Configurable = true }, false);
+            obj.DefineOwnProperty("enumerable", new PropertyDescriptor(value: desc.Enumerable.IsPresent && desc.Enumerable.Value, writable: true, enumerable: true, configurable: true), false);
+            obj.DefineOwnProperty("configurable", new PropertyDescriptor(value: desc.Configurable.IsPresent && desc.Configurable.Value, writable: true, enumerable: true, configurable: true), false);
 
             return obj;
         }
-
-        /// <summary>
-        /// Local implementation used to create a singleton representing 
-        /// an undefined result of a PropertyDescriptor. This prevents the rest
-        /// of the code to return 'object' in order to be able to return
-        /// Undefined.Instance
-        /// </summary>
-        internal sealed class UndefinedPropertyDescriptor : PropertyDescriptor
-        {
-            public override bool IsAccessorDescriptor()
-            {
-                return false;
-            }
-
-            public override bool IsDataDescriptor()
-            {
-                return false;
-            }
-        }
-
-
     }
 }

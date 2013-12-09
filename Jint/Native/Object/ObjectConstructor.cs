@@ -152,14 +152,14 @@ namespace Jint.Native.Object
             {
                 for (var i = 0; i < s.PrimitiveValue.Length; i++)
                 {
-                    array.DefineOwnProperty(n.ToString(), new DataDescriptor(i.ToString()) { Writable = true, Enumerable = true, Configurable = true }, false);
+                    array.DefineOwnProperty(n.ToString(), new PropertyDescriptor(i.ToString(), true, true, true), false);
                     n++;
                 }  
             }
 
             foreach (var p in o.Properties)
             {
-                array.DefineOwnProperty(n.ToString(), new DataDescriptor(p.Key) { Writable = true, Enumerable = true, Configurable = true }, false);
+                array.DefineOwnProperty(n.ToString(), new PropertyDescriptor(p.Key, true, true, true), false);
                 n++;
             }
 
@@ -219,7 +219,7 @@ namespace Jint.Native.Object
             var descriptors = new List<KeyValuePair<string, PropertyDescriptor>>();
             foreach (var p in props.Properties)
             {
-                if (!p.Value.EnumerableIsSet)
+                if (!p.Value.Enumerable.IsPresent)
                 {
                     continue;
                 }
@@ -248,9 +248,9 @@ namespace Jint.Native.Object
 
             foreach (var prop in o.Properties)
             {
-                if (prop.Value.ConfigurableIsSetToTrue)
+                if (prop.Value.Configurable.Value == true)
                 {
-                    prop.Value.Configurable = false;
+                    prop.Value.Configurable = new Field<bool>(false);
                 }
 
                 o.DefineOwnProperty(prop.Key, prop.Value, true);
@@ -277,15 +277,14 @@ namespace Jint.Native.Object
                 var prop = o.Properties[key];
                 if (prop.IsDataDescriptor())
                 {
-                    var datadesc = prop.As<DataDescriptor>();
-                    if (datadesc.WritableIsSet)
+                    if (prop.Writable.IsPresent)
                     {
-                        datadesc.Writable = false;
+                        prop.Writable = new Field<bool>(false);
                     }
                 }
-                if (prop.ConfigurableIsSetToTrue)
+                if (prop.Configurable.Value == true)
                 {
-                    prop.Configurable = false;
+                    prop.Configurable = new Field<bool>(false);
                 }
                 o.DefineOwnProperty(key, prop, true);
             }
@@ -322,7 +321,7 @@ namespace Jint.Native.Object
 
             foreach (var prop in o.Properties)
             {
-                if (prop.Value.ConfigurableIsSetToTrue)
+                if (prop.Value.Configurable.Value == true)
                 {
                     return false;
                 }
@@ -350,12 +349,12 @@ namespace Jint.Native.Object
             {
                 if (prop.Value.IsDataDescriptor())
                 {
-                    if (prop.Value.As<DataDescriptor>().WritableIsSet)
+                    if (prop.Value.Writable.IsPresent)
                     {
                         return false;
                     }
                 }
-                if (prop.Value.ConfigurableIsSetToTrue)
+                if (prop.Value.Configurable.Value == true)
                 {
                     return false;
                 }
@@ -392,12 +391,12 @@ namespace Jint.Native.Object
 
             var o = oArg as ObjectInstance;
 
-            var n = o.Properties.Values.Count(x => x.EnumerableIsSet);
+            var n = o.Properties.Values.Count(x => x.Enumerable.Value);
             var array = Engine.Array.Construct(new object[] {n});
             var index = 0;
-            foreach (var prop in o.Properties.Where(x => x.Value.EnumerableIsSet))
+            foreach (var prop in o.Properties.Where(x => x.Value.Enumerable.Value))
             {
-                array.DefineOwnProperty(index.ToString(), new DataDescriptor(prop.Key) { Writable = true, Enumerable = true, Configurable = true }, false);
+                array.DefineOwnProperty(index.ToString(), new PropertyDescriptor(prop.Key, true, true, true), false);
                 index++;
             }
             return array;

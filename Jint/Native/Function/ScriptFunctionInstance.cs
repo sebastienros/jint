@@ -33,18 +33,18 @@ namespace Jint.Native.Function
             Extensible = true;
             Prototype = engine.Function.PrototypeObject;
 
-            DefineOwnProperty("length", new DataDescriptor(FormalParameters.Length) { Writable = false, Enumerable = false, Configurable = false }, false);
+            DefineOwnProperty("length", new PropertyDescriptor(FormalParameters.Length, false, false, false ), false);
 
             var proto = engine.Object.Construct(Arguments.Empty);
-            proto.DefineOwnProperty("constructor", new DataDescriptor(this) { Writable = true, Enumerable = false, Configurable = true }, false);
-            DefineOwnProperty("prototype", new DataDescriptor(proto) { Writable = true, Enumerable = false, Configurable = false }, false);
-            DefineOwnProperty("name", new DataDescriptor(_functionDeclaration.Id), false);
+            proto.DefineOwnProperty("constructor", new PropertyDescriptor(this, true, false, true), false);
+            DefineOwnProperty("prototype", new PropertyDescriptor(proto, true, false, false ), false);
+            DefineOwnProperty("name", new PropertyDescriptor(_functionDeclaration.Id, null, null, null), false);
             
             if (strict)
             {
                 var thrower = engine.Function.ThrowTypeError;
-                DefineOwnProperty("caller", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
-                DefineOwnProperty("arguments", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
+                DefineOwnProperty("caller", new PropertyDescriptor(thrower, thrower, false, false), false);
+                DefineOwnProperty("arguments", new PropertyDescriptor(thrower, thrower, false, false), false);
             }
         }
 

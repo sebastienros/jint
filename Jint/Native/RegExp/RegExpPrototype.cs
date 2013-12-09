@@ -118,14 +118,14 @@ namespace Jint.Native.RegExp
             var n = r.Groups.Count;
             var a = Engine.Array.Construct(Arguments.Empty);
             var matchIndex = r.Index;
-            a.DefineOwnProperty("index", new DataDescriptor(matchIndex) { Writable = true, Enumerable = true, Configurable = true }, true);
-            a.DefineOwnProperty("input", new DataDescriptor(s) { Writable = true, Enumerable = true, Configurable = true }, true);
-            a.DefineOwnProperty("length", new DataDescriptor(n) { Writable = true, Enumerable = true, Configurable = true }, true);
+            a.DefineOwnProperty("index", new PropertyDescriptor(matchIndex, writable: true, enumerable: true, configurable: true), true);
+            a.DefineOwnProperty("input", new PropertyDescriptor(s, writable: true, enumerable: true, configurable: true), true);
+            a.DefineOwnProperty("length", new PropertyDescriptor(value: n, writable:null, enumerable: null, configurable:null), true);
             for (var k = 0; k < n; k++)
             {
                 var group = r.Groups[k];
                 var value = group.Success ? group.Value : Undefined.Instance;
-                a.DefineOwnProperty(k.ToString(), new DataDescriptor(value) { Writable = true, Enumerable = true, Configurable = true }, true);
+                a.DefineOwnProperty(k.ToString(), new PropertyDescriptor(value, true, true, true), true);
             
             }
 

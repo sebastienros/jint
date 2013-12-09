@@ -164,7 +164,7 @@ namespace Jint.Native.String
                     }
 
                     // Add the match results to the array.
-                    a.DefineOwnProperty(index++.ToString(), new DataDescriptor(s.Substring(lastIndex, match.Index - lastIndex)) {Writable = true, Enumerable = true,Configurable = true}, false);
+                    a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(s.Substring(lastIndex, match.Index - lastIndex), true, true, true), false);
                     
                     if (index >= limit)
                     {
@@ -181,7 +181,7 @@ namespace Jint.Native.String
                             item = match.Groups[i].Value;
                         }
 
-                        a.DefineOwnProperty(index++.ToString(), new DataDescriptor(item) { Writable = true, Enumerable = true, Configurable = true }, false);
+                        a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(item, true, true, true ), false);
 
                         if (index >= limit)
                         {
@@ -202,7 +202,7 @@ namespace Jint.Native.String
                 var segments = s.Split(new [] { sep }, StringSplitOptions.None);
                 for (int i = 0; i < segments.Length && i < limit; i++)
                 {
-                    a.DefineOwnProperty(i.ToString(), new DataDescriptor(segments[i]) {Writable = true, Enumerable = true, Configurable=true} , false);
+                    a.DefineOwnProperty(i.ToString(), new PropertyDescriptor(segments[i], true, true, true), false);
                 }
             
                 return a;
@@ -432,7 +432,7 @@ namespace Jint.Native.String
                         }
 
                         var matchStr = result.Get("0");
-                        a.DefineOwnProperty(TypeConverter.ToString(n), new DataDescriptor(matchStr) { Writable = true, Enumerable = true, Configurable = true}, false);
+                        a.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(matchStr, true, true, true), false);
                         n++;
                     }
                 }

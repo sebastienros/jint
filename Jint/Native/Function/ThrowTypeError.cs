@@ -11,7 +11,7 @@ namespace Jint.Native.Function
         public ThrowTypeError(Engine engine): base(engine, new string[0], engine.GlobalEnvironment, false)
         {
             _engine = engine;
-            DefineOwnProperty("length", new DataDescriptor(0) { Writable = false, Enumerable = false, Configurable = false }, false);
+            DefineOwnProperty("length", new PropertyDescriptor(0, false, false, false), false);
             Extensible = false;
         }
 

@@ -101,13 +101,7 @@ namespace Jint.Native.Json
             }
 
             var wrapper = _engine.Object.Construct(Arguments.Empty);
-            wrapper.DefineOwnProperty("",
-                                      new DataDescriptor(value)
-                                          {
-                                              Configurable = true,
-                                              Enumerable = true,
-                                              Writable = true
-                                          }, false);
+            wrapper.DefineOwnProperty("", new PropertyDescriptor(value, true, true, true), false);
 
             return Str("", wrapper);
         }
@@ -299,7 +293,7 @@ namespace Jint.Native.Json
             var k = _propertyList;
             if (k == null)
             {
-                k = value.Properties.Where(x => x.Value.EnumerableIsSet).Select(x => x.Key).ToList();
+                k = value.Properties.Where(x => x.Value.Enumerable.Value).Select(x => x.Key).ToList();
             }
             var partial = new List<string>();
             foreach (var p in k)

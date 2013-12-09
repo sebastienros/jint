@@ -363,11 +363,13 @@ namespace Jint
                     {
                         return Undefined.Instance;
                     }
+                    
                     if (desc.IsDataDescriptor())
                     {
-                        return desc.As<DataDescriptor>().Value;
+                        return desc.Value.Value;
                     }
-                    var getter = desc.As<AccessorDescriptor>().Get;
+
+                    var getter = desc.Get.Value;
                     if (getter == Undefined.Instance)
                     {
                         return Undefined.Instance;
@@ -468,7 +470,7 @@ namespace Jint
 
             if (desc.IsAccessorDescriptor())
             {
-                var setter = (ICallable)desc.As<AccessorDescriptor>().Set;
+                var setter = (ICallable)desc.Set.Value;
                 setter.Call(b, new[] { value });
             }
             else
@@ -531,19 +533,19 @@ namespace Jint
                     {
                         var go = Global;
                         var existingProp = go.GetProperty(fn);
-                        if (existingProp.ConfigurableIsSetToTrue)
+                        if (existingProp.Configurable.Value)
                         {
                             go.DefineOwnProperty(fn,
-                                                 new DataDescriptor(Undefined.Instance)
-                                                 {
-                                                     Writable = true,
-                                                     Enumerable = true,
-                                                     Configurable = configurableBindings
-                                                 }, true);
+                                                 new PropertyDescriptor(
+                                                     value: Undefined.Instance,
+                                                     writable: true,
+                                                     enumerable: true,
+                                                     configurable: configurableBindings
+                                                     ), true);
                         }
                         else
                         {
-                            if (existingProp.IsAccessorDescriptor() || (!existingProp.EnumerableIsSet))
+                            if (existingProp.IsAccessorDescriptor() || (!existingProp.Enumerable.Value))
                             {
                                 throw new JavaScriptException(TypeError);
                             }

@@ -68,8 +68,8 @@ namespace Jint.Native.Function
             
 
             var thrower = Engine.Function.ThrowTypeError;
-            f.DefineOwnProperty("caller", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
-            f.DefineOwnProperty("arguments", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
+            f.DefineOwnProperty("caller", new PropertyDescriptor(thrower, thrower, false, false), false);
+            f.DefineOwnProperty("arguments", new PropertyDescriptor(thrower, thrower, false, false), false);
 
 
             return f;

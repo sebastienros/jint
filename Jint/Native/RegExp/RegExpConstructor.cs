@@ -36,8 +36,8 @@ namespace Jint.Native.RegExp
 
         public override object Call(object thisObject, object[] arguments)
         {
-            var pattern = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            var flags = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
+            var pattern = arguments.At(0);
+            var flags = arguments.At(1);
 
             if (pattern != Undefined.Instance && flags == Undefined.Instance && TypeConverter.ToObject(Engine, pattern).Class == "Regex")
             {
@@ -57,8 +57,8 @@ namespace Jint.Native.RegExp
             string p;
             string f;
 
-            var pattern = arguments.Length > 0 ? arguments[0] : Undefined.Instance;
-            var flags = arguments.Length > 1 ? arguments[1] : Undefined.Instance;
+            var pattern = arguments.At(0);
+            var flags = arguments.At(1);
 
             var r = pattern as RegExpInstance;
             if (pattern != null && flags == Undefined.Instance && r != null)

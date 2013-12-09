@@ -245,7 +245,7 @@ namespace Jint.Runtime
                     }
 
                     var value = cursor.Properties[p];
-                    if (!value.EnumerableIsSet)
+                    if (!value.Enumerable.Value)
                     {
                         continue;
                     }

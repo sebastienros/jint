@@ -52,7 +52,7 @@ namespace Jint.Native.String
                 return PropertyDescriptor.Undefined;
             }
             var resultStr = str[index].ToString();
-            return new DataDescriptor(resultStr) {Enumerable = true, Writable = false, Configurable = false};
+            return new PropertyDescriptor(resultStr, false, true, false);
         }
     }
 }

@@ -2,7 +2,11 @@ using Xunit;
 
 namespace Jint.Tests.Ecma
 {
+
+#if RELEASE
+    // Ignore in DEBUG to prevent too long running test
     [Trait("Category", "Pass")]
+#endif
     public class Test_15_1_3_1 : EcmaTest
     {
         [Fact]

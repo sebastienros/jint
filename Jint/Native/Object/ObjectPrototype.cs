@@ -39,7 +39,7 @@ namespace Jint.Native.Object
             {
                 return false;
             }
-            return desc.EnumerableIsSet;
+            return desc.Enumerable.Value;
         }
 
         private object ValueOf(object thisObject, object[] arguments)

@@ -150,8 +150,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Runtime\Arguments.cs" />
     <Compile Include="Runtime\Completion.cs" />
-    <Compile Include="Runtime\Descriptors\AccessorDescriptor.cs" />
-    <Compile Include="Runtime\Descriptors\DataDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\Specialized\ClrDataDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\Specialized\ClrAccessDescriptor.cs" />

@@ -46,7 +46,7 @@ namespace Jint.Native.Argument
                         Func<object, object> g = n => env.GetBindingValue(name, false);
                         var p = new Action<object, object>((n, o) => env.SetMutableBinding(name, o, true));
 
-                        map.DefineOwnProperty(indxStr, new ClrAccessDescriptor<object>(engine, g, p) { Configurable = true }, false);
+                        map.DefineOwnProperty(indxStr, new ClrAccessDescriptor<object>(engine, g, p) { Configurable = new Field<bool>(true) }, false);
                     }
                 }
                 indx--;
@@ -67,8 +67,8 @@ namespace Jint.Native.Argument
             else
             {
                 var thrower = engine.Function.ThrowTypeError;
-                obj.DefineOwnProperty("caller", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
-                obj.DefineOwnProperty("callee", new AccessorDescriptor(thrower, thrower) { Enumerable = false, Configurable = false }, false);
+                obj.DefineOwnProperty("caller", new PropertyDescriptor(get: thrower, set: thrower, enumerable:false, configurable:false), false);
+                obj.DefineOwnProperty("callee", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
             }
 
             return obj;
@@ -98,7 +98,7 @@ namespace Jint.Native.Argument
                 var isMapped = ParameterMap.GetOwnProperty(propertyName);
                 if (isMapped != PropertyDescriptor.Undefined)
                 {
-                    desc.As<DataDescriptor>().Value = ParameterMap.Get(propertyName);
+                    desc.Value = new Field<object>(ParameterMap.Get(propertyName));
                 }
 
                 return desc;
@@ -129,12 +129,12 @@ namespace Jint.Native.Argument
                     }
                     else
                     {
-                        if (desc.As<DataDescriptor>().Value != null)
+                        if (desc.Value.Value != null)
                         {
-                            map.Put(propertyName, desc.As<DataDescriptor>().Value, throwOnError);
+                            map.Put(propertyName, desc.Value.Value, throwOnError);
                         }
 
-                        if (desc.As<DataDescriptor>().Writable.HasValue == false)
+                        if (desc.Writable.IsAbsent)
                         {
                             map.Delete(propertyName, false);
                         }
