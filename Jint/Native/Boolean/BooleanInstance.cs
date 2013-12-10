@@ -1,10 +1,9 @@
-﻿using System;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 
 namespace Jint.Native.Boolean
 {
-    public class BooleanInstance : ObjectInstance, IPrimitiveType
+    public class BooleanInstance : ObjectInstance, IPrimitiveInstance
     {
         public BooleanInstance(Engine engine)
             : base(engine)
@@ -19,16 +18,16 @@ namespace Jint.Native.Boolean
             }
         }
 
-        Types IPrimitiveType.Type
+        Types IPrimitiveInstance.Type
         {
             get { return Types.Boolean; }
         }
 
-        object IPrimitiveType.PrimitiveValue
+        JsValue IPrimitiveInstance.PrimitiveValue
         {
             get { return PrimitiveValue; }
         }
 
-        public bool PrimitiveValue { get; set; }
+        public JsValue PrimitiveValue { get; set; }
     }
 }

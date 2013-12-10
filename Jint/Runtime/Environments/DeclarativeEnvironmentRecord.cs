@@ -12,7 +12,7 @@ namespace Jint.Runtime.Environments
         private readonly Engine _engine;
         private readonly IDictionary<string, Binding> _bindings = new Dictionary<string, Binding>();
 
-        public DeclarativeEnvironmentRecord(Engine engine)
+        public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
             _engine = engine;
         }
@@ -32,7 +32,7 @@ namespace Jint.Runtime.Environments
                 });
         }
 
-        public override void SetMutableBinding(string name, object value, bool strict)
+        public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
             var binding = _bindings[name];
             if (binding.Mutable)
@@ -48,11 +48,11 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        public override object GetBindingValue(string name, bool strict)
+        public override JsValue GetBindingValue(string name, bool strict)
         {
             var binding = _bindings[name];
 
-            if (!binding.Mutable && binding.Value == null)
+            if (!binding.Mutable && binding.Value == Undefined.Instance)
             {
                 if (strict)
                 {
@@ -83,7 +83,7 @@ namespace Jint.Runtime.Environments
             return true;
         }
 
-        public override object ImplicitThisValue()
+        public override JsValue ImplicitThisValue()
         {
             return Undefined.Instance;
         }
@@ -96,7 +96,7 @@ namespace Jint.Runtime.Environments
         {
             _bindings.Add(name, new Binding
                 {
-                    Value = null,
+                    Value = Undefined.Instance,
                     Mutable = false,
                     CanBeDeleted = false
                 });
@@ -107,7 +107,7 @@ namespace Jint.Runtime.Environments
         /// </summary>
         /// <param name="name">The identifier of the binding.</param>
         /// <param name="value">The value of the binding.</param>
-        public void InitializeImmutableBinding(string name, object value)
+        public void InitializeImmutableBinding(string name, JsValue value)
         {
             var binding = _bindings[name];
             binding.Value = value;

@@ -25,7 +25,7 @@ namespace Jint.Repl
                 try
                 {
                     var result = engine.GetValue(engine.Execute(input));
-                    var str = engine.Json.Stringify(engine.Json, Arguments.From(result, Undefined.Instance, "  "));
+                    var str = engine.Json.Stringify(engine.Json, Arguments.From(result, Undefined.Instance, "  ")).AsString();
                     Console.ForegroundColor = ConsoleColor.Magenta;
                     Console.WriteLine("=> {0}", str);
                 }

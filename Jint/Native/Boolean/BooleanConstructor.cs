@@ -6,8 +6,6 @@ namespace Jint.Native.Boolean
 {
     public sealed class BooleanConstructor : FunctionInstance, IConstructor
     {
-        private readonly Engine _engine;
-
         private BooleanConstructor(Engine engine): base(engine, null, null, false)
         {
         }
@@ -34,7 +32,7 @@ namespace Jint.Native.Boolean
 
         }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             if (arguments.Length == 0)
             {
@@ -49,16 +47,16 @@ namespace Jint.Native.Boolean
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public ObjectInstance Construct(object[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments)
         {
-            return Construct(TypeConverter.ToBoolean(arguments.Length > 0 ? arguments[0] : Undefined.Instance));
+            return Construct(TypeConverter.ToBoolean(arguments.At(0)).AsBoolean());
         }
 
         public BooleanPrototype PrototypeObject { get; private set; }
 
         public BooleanInstance Construct(bool value)
         {
-            var instance = new BooleanInstance(_engine);
+            var instance = new BooleanInstance(Engine);
             instance.Prototype = PrototypeObject;
             instance.PrimitiveValue = value;
             instance.Extensible = true;

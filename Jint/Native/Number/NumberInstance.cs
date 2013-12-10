@@ -4,7 +4,7 @@ using Jint.Runtime;
 
 namespace Jint.Native.Number
 {
-    public class NumberInstance : ObjectInstance, IPrimitiveType
+    public class NumberInstance : ObjectInstance, IPrimitiveInstance
     {
         private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
 
@@ -21,17 +21,17 @@ namespace Jint.Native.Number
             }
         }
 
-        Types IPrimitiveType.Type
+        Types IPrimitiveInstance.Type
         {
             get { return Types.Number; }
         }
 
-        object IPrimitiveType.PrimitiveValue
+        JsValue IPrimitiveInstance.PrimitiveValue
         {
             get { return PrimitiveValue; }
         }
 
-        public double PrimitiveValue { get; set; }
+        public JsValue PrimitiveValue { get; set; }
 
         public static bool IsNegativeZero(double x)
         {

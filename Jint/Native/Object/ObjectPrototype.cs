@@ -1,5 +1,4 @@
-﻿using System;
-using Jint.Runtime;
+﻿using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
@@ -22,36 +21,36 @@ namespace Jint.Native.Object
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance<object, string>(Engine, ToObjectString), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance<object, object>(Engine, ToLocaleString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance<object, object>(Engine, ValueOf), true, false, true);
-            FastAddProperty("hasOwnProperty", new ClrFunctionInstance<object, bool>(Engine, HasOwnProperty), true, false, true);
-            FastAddProperty("isPrototypeOf", new ClrFunctionInstance<object, bool>(Engine, IsPrototypeOf), true, false, true);
-            FastAddProperty("propertyIsEnumerable", new ClrFunctionInstance<object, bool>(Engine, PropertyIsEnumerable), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToObjectString), true, false, true);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, ToLocaleString), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf), true, false, true);
+            FastAddProperty("hasOwnProperty", new ClrFunctionInstance(Engine, HasOwnProperty), true, false, true);
+            FastAddProperty("isPrototypeOf", new ClrFunctionInstance(Engine, IsPrototypeOf), true, false, true);
+            FastAddProperty("propertyIsEnumerable", new ClrFunctionInstance(Engine, PropertyIsEnumerable), true, false, true);
         }
 
-        private bool PropertyIsEnumerable(object thisObject, object[] arguments)
+        private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue[] arguments)
         {
-            var p = TypeConverter.ToString(arguments[0]);
-            var o = TypeConverter.ToObject(Engine, thisObject);
+            var p = TypeConverter.ToString(arguments[0]).AsString();
+            var o = TypeConverter.ToObject(Engine, thisObject).AsObject();
             var desc = o.GetOwnProperty(p);
             if (desc == PropertyDescriptor.Undefined)
             {
                 return false;
             }
-            return desc.Enumerable.Value;
+            return desc.Enumerable.HasValue && desc.Enumerable.Value.AsBoolean();
         }
 
-        private object ValueOf(object thisObject, object[] arguments)
+        private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(Engine, thisObject);
             return o;
         }
 
-        private bool IsPrototypeOf(object thisObject, object[] arguments)
+        private JsValue IsPrototypeOf(JsValue thisObject, JsValue[] arguments)
         {
-            var v = arguments[0] as ObjectInstance;
-            if (v == null)
+            var v = arguments[0];
+            if (!v.IsObject())
             {
                 return false;
             }
@@ -59,8 +58,7 @@ namespace Jint.Native.Object
             var o = TypeConverter.ToObject(Engine, thisObject);
             while (true)
             {
-                v = v.Prototype;
-                if (v == null)
+                if (v.AsObject().Prototype == null)
                 {
                     return false;
                 }
@@ -72,14 +70,14 @@ namespace Jint.Native.Object
             }
         }
 
-        private object ToLocaleString(object thisObject, object[] arguments)
+        private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(Engine, thisObject);
-            var toString = o.Get("toString") as ICallable;
-            if (toString == null)
+            var o = TypeConverter.ToObject(Engine, thisObject).AsObject();
+            var toString = o.Get("toString").TryCast<ICallable>(x =>
             {
                 throw new JavaScriptException(Engine.TypeError);
-            }
+            });
+
             return toString.Call(o, Arguments.Empty);
         }
 
@@ -89,7 +87,7 @@ namespace Jint.Native.Object
         /// <param name="thisObject"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public string ToObjectString(object thisObject, object[] arguments)
+        public JsValue ToObjectString(JsValue thisObject, JsValue[] arguments)
         {
             if (thisObject == Undefined.Instance)
             {
@@ -101,7 +99,7 @@ namespace Jint.Native.Object
                 return "[object Null]";
             }
 
-            var o = TypeConverter.ToObject(Engine, thisObject);
+            var o = TypeConverter.ToObject(Engine, thisObject).AsObject();
             return "[object " + o.Class + "]";
         }
 
@@ -111,10 +109,10 @@ namespace Jint.Native.Object
         /// <param name="thisObject"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public bool HasOwnProperty(object thisObject, object[] arguments)
+        public JsValue HasOwnProperty(JsValue thisObject, JsValue[] arguments)
         {
-            var p = TypeConverter.ToString(arguments[0]);
-            var o = TypeConverter.ToObject(Engine, thisObject);
+            var p = TypeConverter.ToString(arguments[0]).AsString();
+            var o = TypeConverter.ToObject(Engine, thisObject).AsObject();
             var desc = o.GetOwnProperty(p);
             return desc != PropertyDescriptor.Undefined;
         }

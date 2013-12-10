@@ -28,22 +28,22 @@ namespace Jint.Native.Number
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance<object, string>(Engine, ToNumberString), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance<object, object>(Engine, ToLocaleString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance<object, double>(Engine, ValueOf), true, false, true);
-            FastAddProperty("toFixed", new ClrFunctionInstance<object, object>(Engine, ToFixed, 1), true, false, true);
-            FastAddProperty("toExponential", new ClrFunctionInstance<object, object>(Engine, ToExponential), true, false, true);
-            FastAddProperty("toPrecision", new ClrFunctionInstance<object, object>(Engine, ToPrecision), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToNumberString), true, false, true);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, ToLocaleString), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf), true, false, true);
+            FastAddProperty("toFixed", new ClrFunctionInstance(Engine, ToFixed, 1), true, false, true);
+            FastAddProperty("toExponential", new ClrFunctionInstance(Engine, ToExponential), true, false, true);
+            FastAddProperty("toPrecision", new ClrFunctionInstance(Engine, ToPrecision), true, false, true);
         }
 
-        private object ToLocaleString(object thisObj, object[] arguments)
+        private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
         {
             throw new System.NotImplementedException();
         }
 
-        private double ValueOf(object thisObj, object[] arguments)
+        private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
         {
-            var number = thisObj as NumberInstance;
+            var number = thisObj.TryCast<NumberInstance>();
             if (number == null)
             {
                 throw new JavaScriptException(Engine.TypeError);
@@ -52,15 +52,15 @@ namespace Jint.Native.Number
             return number.PrimitiveValue;
         }
 
-        private object ToFixed(object thisObj, object[] arguments)
+        private JsValue ToFixed(JsValue thisObj, JsValue[] arguments)
         {
-            var f = (int) TypeConverter.ToInteger(arguments.At(0, 0));
+            var f = (int)TypeConverter.ToInteger(arguments.At(0, 0)).AsNumber();
             if (f < 0 || f > 20)
             {
                 throw new JavaScriptException(Engine.RangeError, "fractionDigits argument must be between 0 and 20");
             }
 
-            var x = TypeConverter.ToNumber(thisObj);
+            var x = TypeConverter.ToNumber(thisObj).AsNumber();
 
             if (double.IsNaN(x))
             {
@@ -77,7 +77,7 @@ namespace Jint.Native.Number
             string m = "";
             if (x >= System.Math.Pow(10, 21))
             {
-                m = TypeConverter.ToString(x);
+                m = TypeConverter.ToString(x).AsString();
             }
             else
             {
@@ -114,27 +114,27 @@ namespace Jint.Native.Number
             return sign + m;
         }
 
-        private object ToExponential(object thisObj, object[] arguments)
+        private JsValue ToExponential(JsValue thisObj, JsValue[] arguments)
         {
             throw new System.NotImplementedException();
         }
 
-        private object ToPrecision(object thisObj, object[] arguments)
+        private JsValue ToPrecision(JsValue thisObj, JsValue[] arguments)
         {
             throw new System.NotImplementedException();
         }
 
-        private string ToNumberString(object thisObject, object[] arguments)
+        private JsValue ToNumberString(JsValue thisObject, JsValue[] arguments)
         {
-            if (TypeConverter.GetType(thisObject) != Types.Number && !(thisObject is NumberInstance))
+            if (!thisObject.IsNumber() && (thisObject.TryCast<NumberInstance>() == null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            return ToNumberString(TypeConverter.ToNumber(thisObject));
+            return ToNumberString(TypeConverter.ToNumber(thisObject).AsNumber());
         }
 
-        public static string ToNumberString(double m) 
+        public static JsValue ToNumberString(double m) 
         {
             if (double.IsNaN(m))
             {

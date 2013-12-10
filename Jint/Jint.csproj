@@ -51,6 +51,8 @@
     <Compile Include="Native\Boolean\BooleanConstructor.cs" />
     <Compile Include="Native\Boolean\BooleanInstance.cs" />
     <Compile Include="Native\Function\BindFunctionInstance.cs" />
+    <Compile Include="Native\IPrimitiveInstance.cs" />
+    <Compile Include="Native\JsValue.cs" />
     <Compile Include="Native\RegExp\RegExpConstructor.cs" />
     <Compile Include="Native\RegExp\RegExpInstance.cs" />
     <Compile Include="Native\RegExp\RegExpPrototype.cs" />
@@ -71,11 +73,9 @@
     <Compile Include="Native\ICallable.cs" />
     <Compile Include="Native\Function\ScriptFunctionInstance.cs" />
     <Compile Include="Native\IConstructor.cs" />
-    <Compile Include="Native\IPrimitiveType.cs" />
     <Compile Include="Native\Json\JsonInstance.cs" />
     <Compile Include="Native\Json\JsonSerializer.cs" />
     <Compile Include="Native\Math\MathInstance.cs" />
-    <Compile Include="Native\Null.cs" />
     <Compile Include="Native\Number\NumberPrototype.cs" />
     <Compile Include="Native\Number\NumberConstructor.cs" />
     <Compile Include="Native\Number\NumberInstance.cs" />
@@ -85,7 +85,6 @@
     <Compile Include="Native\String\StringPrototype.cs" />
     <Compile Include="Native\String\StringConstructor.cs" />
     <Compile Include="Native\String\StringInstance.cs" />
-    <Compile Include="Native\Undefined.cs" />
     <Compile Include="Options.cs" />
     <Compile Include="Parser\Ast\ArrayExpression.cs" />
     <Compile Include="Parser\Ast\AssignmentExpression.cs" />

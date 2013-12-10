@@ -1,11 +1,17 @@
-﻿namespace Jint.Runtime.Environments
+﻿using Jint.Native;
+using Jint.Native.Object;
+
+namespace Jint.Runtime.Environments
 {
     /// <summary>
     /// Base implementation of an Environment Record
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1
     /// </summary>
-    public abstract class EnvironmentRecord
+    public abstract class EnvironmentRecord : ObjectInstance
     {
+        protected EnvironmentRecord(Engine engine) : base(engine)
+        {
+        }
 
         /// <summary>
         /// Determines if an environment record has a binding for an identifier. 
@@ -27,7 +33,7 @@
         /// <param name="name">The identifier of the binding</param>
         /// <param name="value">The value of the binding.</param>
         /// <param name="strict">The identify strict mode references.</param>
-        public abstract void SetMutableBinding(string name, object value, bool strict);
+        public abstract void SetMutableBinding(string name, JsValue value, bool strict);
         
         /// <summary>
         /// Returns the value of an already existing binding from an environment record. 
@@ -35,7 +41,7 @@
         /// <param name="name">The identifier of the binding</param>
         /// <param name="strict">The identify strict mode references.</param>
         /// <return>The value of an already existing binding from an environment record.</return>
-        public abstract object GetBindingValue(string name, bool strict);
+        public abstract JsValue GetBindingValue(string name, bool strict);
 
         /// <summary>
         /// Delete a binding from an environment record. The String value N is the text of the bound name If a binding for N exists, remove the binding and return true. If the binding exists but cannot be removed return false. If the binding does not exist return true.
@@ -48,7 +54,7 @@
         /// Returns the value to use as the <c>this</c> value on calls to function objects that are obtained as binding values from this environment record.
         /// </summary>
         /// <returns>The value to use as <c>this</c>.</returns>
-        public abstract object ImplicitThisValue();
+        public abstract JsValue ImplicitThisValue();
 
 
     }

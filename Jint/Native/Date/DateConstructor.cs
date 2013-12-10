@@ -40,15 +40,15 @@ namespace Jint.Native.Date
 
         public void Configure()
         {
-            FastAddProperty("parse", new ClrFunctionInstance<object, object>(Engine, Parse, 1), true, false, true);
-            FastAddProperty("UTC", new ClrFunctionInstance<object, object>(Engine, Utc, 7), true, false, true);
-            FastAddProperty("now", new ClrFunctionInstance<object, object>(Engine, Now, 0), true, false, true);
+            FastAddProperty("parse", new ClrFunctionInstance(Engine, Parse, 1), true, false, true);
+            FastAddProperty("UTC", new ClrFunctionInstance(Engine, Utc, 7), true, false, true);
+            FastAddProperty("now", new ClrFunctionInstance(Engine, Now, 0), true, false, true);
         }
 
-        private object Parse(object thisObj, object[] arguments)
+        private JsValue Parse(JsValue thisObj, JsValue[] arguments)
         {
             DateTime result;
-            var date = TypeConverter.ToString(arguments.At(0));
+            var date = TypeConverter.ToString(arguments.At(0)).AsString();
 
 
             if (!DateTime.TryParseExact(date, new[] { "yyyy-MM-ddTH:m:s.fffK", "yyyy-MM-dd", "yyyy-MM", "yyyy", "THH:m:s.fff", "TH:mm:sm", "THH:mm", "THH" }, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result))
@@ -59,20 +59,20 @@ namespace Jint.Native.Date
             return Construct(result);
         }
 
-        private object Utc(object thisObj, object[] arguments)
+        private JsValue Utc(JsValue thisObj, JsValue[] arguments)
         {
             var local = (DateInstance) Construct(arguments);
             return local.PrimitiveValue;
         }
 
-        private object Now(object thisObj, object[] arguments)
+        private JsValue Now(JsValue thisObj, JsValue[] arguments)
         {
             return (DateTime.UtcNow - Origin).TotalMilliseconds;
         }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return PrototypeObject.ToString((DateInstance) Construct(Arguments.Empty), Arguments.Empty);
+            return PrototypeObject.ToString(Construct(Arguments.Empty), Arguments.Empty);
         }
 
         /// <summary>
@@ -80,7 +80,7 @@ namespace Jint.Native.Date
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public ObjectInstance Construct(object[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments)
         {
             if (arguments.Length == 0)
             {
@@ -89,32 +89,32 @@ namespace Jint.Native.Date
             else if (arguments.Length == 1)
             {
                 var v = TypeConverter.ToPrimitive(arguments[0]);
-                if (TypeConverter.GetType(v) == Types.String)
+                if (v.IsString())
                 {
-                    return (ObjectInstance) Parse(Undefined.Instance, Arguments.From(v));
+                    return Parse(Undefined.Instance, Arguments.From(v)).AsObject();
                 }
 
-                return Construct(TypeConverter.ToNumber(v));
+                return Construct(TypeConverter.ToNumber(v).AsNumber());
             }
             else
             {
-                var y = TypeConverter.ToNumber(arguments[0]);
-                var m = (int) TypeConverter.ToInteger(arguments[1]);
-                var date = arguments.Length > 2 ? (int)TypeConverter.ToInteger(arguments[2]) : 1;
-                var hours = arguments.Length > 3 ? (int)TypeConverter.ToInteger(arguments[3]) : 0;
-                var minutes = arguments.Length > 4 ? (int)TypeConverter.ToInteger(arguments[4]) : 0;
-                var seconds = arguments.Length > 5 ? (int)TypeConverter.ToInteger(arguments[5]) : 0;
-                var ms = arguments.Length > 6 ? (int)TypeConverter.ToInteger(arguments[6]) : 0;
+                var y = TypeConverter.ToNumber(arguments[0]).AsNumber();
+                var m = (int)TypeConverter.ToInteger(arguments[1]).AsNumber();
+                var date = arguments.Length > 2 ? (int)TypeConverter.ToInteger(arguments[2]).AsNumber() : 1;
+                var hours = arguments.Length > 3 ? (int)TypeConverter.ToInteger(arguments[3]).AsNumber() : 0;
+                var minutes = arguments.Length > 4 ? (int)TypeConverter.ToInteger(arguments[4]).AsNumber() : 0;
+                var seconds = arguments.Length > 5 ? (int)TypeConverter.ToInteger(arguments[5]).AsNumber() : 0;
+                var ms = arguments.Length > 6 ? (int)TypeConverter.ToInteger(arguments[6]).AsNumber() : 0;
 
                 for (int i = 2; i < arguments.Length; i++)
                 {
-                    if (double.IsNaN(TypeConverter.ToNumber(arguments[i])))
+                    if (double.IsNaN(TypeConverter.ToNumber(arguments[i]).AsNumber()))
                     {
                         return Construct(double.NaN);
                     }
                 }
 
-                if ((!double.IsNaN(y)) && (0 <= TypeConverter.ToInteger(y)) && (TypeConverter.ToInteger(y) <= 99))
+                if ((!double.IsNaN(y)) && (0 <= TypeConverter.ToInteger(y).AsNumber()) && (TypeConverter.ToInteger(y).AsNumber() <= 99))
                 {
                     y += 1900;
                 }
@@ -177,9 +177,9 @@ namespace Jint.Native.Date
             if (System.Math.Abs(time) > 8640000000000000)
             {
                 return double.NaN;
-            } 
+            }
 
-            return TypeConverter.ToInteger(time);
+            return TypeConverter.ToInteger(time).AsNumber();
         }
 
         public static double FromDateTime(DateTime dt)

@@ -28,400 +28,400 @@ namespace Jint.Native.Date
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance<DateInstance, string>(Engine, ToString, 0), true, false, true);
-            FastAddProperty("toDateString", new ClrFunctionInstance<DateInstance, string>(Engine, ToDateString, 0), true, false, true);
-            FastAddProperty("toTimeString", new ClrFunctionInstance<DateInstance, string>(Engine, ToTimeString, 0), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance<DateInstance, string>(Engine, ToLocaleString, 0), true, false, true);
-            FastAddProperty("toLocaleDateString", new ClrFunctionInstance<DateInstance, string>(Engine, ToLocaleDateString, 0), true, false, true);
-            FastAddProperty("toLocaleTimeString", new ClrFunctionInstance<DateInstance, string>(Engine, ToLocaleTimeString, 0), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance<DateInstance, double>(Engine, ValueOf, 0), true, false, true);
-            FastAddProperty("getTime", new ClrFunctionInstance<DateInstance, double>(Engine, GetTime, 0), true, false, true);
-            FastAddProperty("getFullYear", new ClrFunctionInstance<DateInstance, double>(Engine, GetFullYear, 0), true, false, true);
-            FastAddProperty("getUTCFullYear", new ClrFunctionInstance<DateInstance, double>(Engine, GetUTCFullYear, 0), true, false, true);
-            FastAddProperty("getMonth", new ClrFunctionInstance<DateInstance, double>(Engine, GetMonth, 0), true, false, true);
-            FastAddProperty("getUTCMonth", new ClrFunctionInstance<DateInstance, double>(Engine, GetUTCMonth, 0), true, false, true);
-            FastAddProperty("getDate", new ClrFunctionInstance<DateInstance, double>(Engine, GetDate, 0), true, false, true);
-            FastAddProperty("getUTCDate", new ClrFunctionInstance<DateInstance, double>(Engine, GetUTCDate, 0), true, false, true);
-            FastAddProperty("getDay", new ClrFunctionInstance<DateInstance, double>(Engine, GetDay, 0), true, false, true);
-            FastAddProperty("getUTCDay", new ClrFunctionInstance<DateInstance, double>(Engine, GetUTCDay, 0), true, false, true);
-            FastAddProperty("getHours", new ClrFunctionInstance<DateInstance, double>(Engine, GetHours, 0), true, false, true);
-            FastAddProperty("getUTCHours", new ClrFunctionInstance<DateInstance, double>(Engine, GetUTCHours, 0), true, false, true);
-            FastAddProperty("getMinutes", new ClrFunctionInstance<DateInstance, double>(Engine, GetMinutes, 0), true, false, true);
-            FastAddProperty("getUTCMinutes", new ClrFunctionInstance<DateInstance, double>(Engine, GetUTCMinutes, 0), true, false, true);
-            FastAddProperty("getSeconds", new ClrFunctionInstance<DateInstance, double>(Engine, GetSeconds, 0), true, false, true);
-            FastAddProperty("getUTCSeconds", new ClrFunctionInstance<DateInstance, double>(Engine, GetUTCSeconds, 0), true, false, true);
-            FastAddProperty("getMilliseconds", new ClrFunctionInstance<DateInstance, double>(Engine, GetMilliseconds, 0), true, false, true);
-            FastAddProperty("getUTCMilliseconds", new ClrFunctionInstance<DateInstance, double>(Engine, GetUTCMilliseconds, 0), true, false, true);
-            FastAddProperty("getTimezoneOffset", new ClrFunctionInstance<DateInstance, double>(Engine, GetTimezoneOffset, 0), true, false, true);
-            FastAddProperty("setTime", new ClrFunctionInstance<DateInstance, double>(Engine, SetTime, 1), true, false, true);
-            FastAddProperty("setMilliseconds", new ClrFunctionInstance<DateInstance, double>(Engine, SetMilliseconds, 1), true, false, true);
-            FastAddProperty("setUTCMilliseconds", new ClrFunctionInstance<DateInstance, double>(Engine, SetUTCMilliseconds, 1), true, false, true);
-            FastAddProperty("setSeconds", new ClrFunctionInstance<DateInstance, double>(Engine, SetSeconds, 2), true, false, true);
-            FastAddProperty("setUTCSeconds", new ClrFunctionInstance<DateInstance, double>(Engine, SetUTCSeconds, 2), true, false, true);
-            FastAddProperty("setMinutes", new ClrFunctionInstance<DateInstance, double>(Engine, SetMinutes, 3), true, false, true);
-            FastAddProperty("setUTCMinutes", new ClrFunctionInstance<DateInstance, double>(Engine, SetUTCMinutes, 3), true, false, true);
-            FastAddProperty("setHours", new ClrFunctionInstance<DateInstance, double>(Engine, SetHours, 4), true, false, true);
-            FastAddProperty("setUTCHours", new ClrFunctionInstance<DateInstance, double>(Engine, SetUTCHours, 4), true, false, true);
-            FastAddProperty("setDate", new ClrFunctionInstance<DateInstance, double>(Engine, SetDate, 1), true, false, true);
-            FastAddProperty("setUTCDate", new ClrFunctionInstance<DateInstance, double>(Engine, SetUTCDate, 1), true, false, true);
-            FastAddProperty("setMonth", new ClrFunctionInstance<DateInstance, double>(Engine, SetMonth, 2), true, false, true);
-            FastAddProperty("setUTCMonth", new ClrFunctionInstance<DateInstance, double>(Engine, SetUTCMonth, 2), true, false, true);
-            FastAddProperty("setFullYear", new ClrFunctionInstance<DateInstance, double>(Engine, SetFullYear, 3), true, false, true);
-            FastAddProperty("setUTCFullYear", new ClrFunctionInstance<DateInstance, double>(Engine, SetUTCFullYear, 3), true, false, true);
-            FastAddProperty("toUTCString", new ClrFunctionInstance<DateInstance, string>(Engine, ToUTCString, 0), true, false, true);
-            FastAddProperty("toISOString", new ClrFunctionInstance<DateInstance, string>(Engine, ToISOString, 0), true, false, true);
-            FastAddProperty("toJSON", new ClrFunctionInstance<DateInstance, string>(Engine, ToJSON, 1), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToString, 0), true, false, true);
+            FastAddProperty("toDateString", new ClrFunctionInstance(Engine, ToDateString, 0), true, false, true);
+            FastAddProperty("toTimeString", new ClrFunctionInstance(Engine, ToTimeString, 0), true, false, true);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, ToLocaleString, 0), true, false, true);
+            FastAddProperty("toLocaleDateString", new ClrFunctionInstance(Engine, ToLocaleDateString, 0), true, false, true);
+            FastAddProperty("toLocaleTimeString", new ClrFunctionInstance(Engine, ToLocaleTimeString, 0), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf, 0), true, false, true);
+            FastAddProperty("getTime", new ClrFunctionInstance(Engine, GetTime, 0), true, false, true);
+            FastAddProperty("getFullYear", new ClrFunctionInstance(Engine, GetFullYear, 0), true, false, true);
+            FastAddProperty("getUTCFullYear", new ClrFunctionInstance(Engine, GetUTCFullYear, 0), true, false, true);
+            FastAddProperty("getMonth", new ClrFunctionInstance(Engine, GetMonth, 0), true, false, true);
+            FastAddProperty("getUTCMonth", new ClrFunctionInstance(Engine, GetUTCMonth, 0), true, false, true);
+            FastAddProperty("getDate", new ClrFunctionInstance(Engine, GetDate, 0), true, false, true);
+            FastAddProperty("getUTCDate", new ClrFunctionInstance(Engine, GetUTCDate, 0), true, false, true);
+            FastAddProperty("getDay", new ClrFunctionInstance(Engine, GetDay, 0), true, false, true);
+            FastAddProperty("getUTCDay", new ClrFunctionInstance(Engine, GetUTCDay, 0), true, false, true);
+            FastAddProperty("getHours", new ClrFunctionInstance(Engine, GetHours, 0), true, false, true);
+            FastAddProperty("getUTCHours", new ClrFunctionInstance(Engine, GetUTCHours, 0), true, false, true);
+            FastAddProperty("getMinutes", new ClrFunctionInstance(Engine, GetMinutes, 0), true, false, true);
+            FastAddProperty("getUTCMinutes", new ClrFunctionInstance(Engine, GetUTCMinutes, 0), true, false, true);
+            FastAddProperty("getSeconds", new ClrFunctionInstance(Engine, GetSeconds, 0), true, false, true);
+            FastAddProperty("getUTCSeconds", new ClrFunctionInstance(Engine, GetUTCSeconds, 0), true, false, true);
+            FastAddProperty("getMilliseconds", new ClrFunctionInstance(Engine, GetMilliseconds, 0), true, false, true);
+            FastAddProperty("getUTCMilliseconds", new ClrFunctionInstance(Engine, GetUTCMilliseconds, 0), true, false, true);
+            FastAddProperty("getTimezoneOffset", new ClrFunctionInstance(Engine, GetTimezoneOffset, 0), true, false, true);
+            FastAddProperty("setTime", new ClrFunctionInstance(Engine, SetTime, 1), true, false, true);
+            FastAddProperty("setMilliseconds", new ClrFunctionInstance(Engine, SetMilliseconds, 1), true, false, true);
+            FastAddProperty("setUTCMilliseconds", new ClrFunctionInstance(Engine, SetUTCMilliseconds, 1), true, false, true);
+            FastAddProperty("setSeconds", new ClrFunctionInstance(Engine, SetSeconds, 2), true, false, true);
+            FastAddProperty("setUTCSeconds", new ClrFunctionInstance(Engine, SetUTCSeconds, 2), true, false, true);
+            FastAddProperty("setMinutes", new ClrFunctionInstance(Engine, SetMinutes, 3), true, false, true);
+            FastAddProperty("setUTCMinutes", new ClrFunctionInstance(Engine, SetUTCMinutes, 3), true, false, true);
+            FastAddProperty("setHours", new ClrFunctionInstance(Engine, SetHours, 4), true, false, true);
+            FastAddProperty("setUTCHours", new ClrFunctionInstance(Engine, SetUTCHours, 4), true, false, true);
+            FastAddProperty("setDate", new ClrFunctionInstance(Engine, SetDate, 1), true, false, true);
+            FastAddProperty("setUTCDate", new ClrFunctionInstance(Engine, SetUTCDate, 1), true, false, true);
+            FastAddProperty("setMonth", new ClrFunctionInstance(Engine, SetMonth, 2), true, false, true);
+            FastAddProperty("setUTCMonth", new ClrFunctionInstance(Engine, SetUTCMonth, 2), true, false, true);
+            FastAddProperty("setFullYear", new ClrFunctionInstance(Engine, SetFullYear, 3), true, false, true);
+            FastAddProperty("setUTCFullYear", new ClrFunctionInstance(Engine, SetUTCFullYear, 3), true, false, true);
+            FastAddProperty("toUTCString", new ClrFunctionInstance(Engine, ToUTCString, 0), true, false, true);
+            FastAddProperty("toISOString", new ClrFunctionInstance(Engine, ToISOString, 0), true, false, true);
+            FastAddProperty("toJSON", new ClrFunctionInstance(Engine, ToJSON, 1), true, false, true);
         }
 
-        private double ValueOf(DateInstance thisObj, object[] arguments)
+        private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.PrimitiveValue;
+            return thisObj.TryCast<DateInstance>().PrimitiveValue;
         }
 
-        public string ToString(DateInstance thisObj, object[] arg2)
+        public JsValue ToString(JsValue thisObj, JsValue[] arg2)
         {
-            return thisObj.ToDateTime().ToString("F", CultureInfo.InvariantCulture);
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToString("F", CultureInfo.InvariantCulture);
         }
 
-        private string ToDateString(DateInstance thisObj, object[] arguments)
+        private JsValue ToDateString(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.ToDateTime().ToString("D", CultureInfo.InvariantCulture);
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToString("D", CultureInfo.InvariantCulture);
         }
 
-        private string ToTimeString(DateInstance thisObj, object[] arguments)
+        private JsValue ToTimeString(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.ToDateTime().ToString("T", CultureInfo.InvariantCulture);
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToString("T", CultureInfo.InvariantCulture);
         }
 
-        private string ToLocaleString(DateInstance thisObj, object[] arguments)
+        private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.ToDateTime().ToString("F");
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToString("F");
         }
 
-        private string ToLocaleDateString(DateInstance thisObj, object[] arguments)
+        private JsValue ToLocaleDateString(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.ToDateTime().ToString("D");
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToString("D");
         }
 
-        private string ToLocaleTimeString(DateInstance thisObj, object[] arguments)
+        private JsValue ToLocaleTimeString(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.ToDateTime().ToString("T");
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToString("T");
         }
 
-        private double GetTime(DateInstance thisObj, object[] arguments)
+        private JsValue GetTime(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.PrimitiveValue;
+            return thisObj.TryCast<DateInstance>().PrimitiveValue;
         }
 
-        private double GetFullYear(DateInstance thisObj, object[] arguments)
+        private JsValue GetFullYear(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToLocalTime().Year;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Year;
         }
 
-        private double GetUTCFullYear(DateInstance thisObj, object[] arguments)
+        private JsValue GetUTCFullYear(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToUniversalTime().Year;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Year;
         }
 
-        private double GetMonth(DateInstance thisObj, object[] arguments)
+        private JsValue GetMonth(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToLocalTime().Month - 1;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Month - 1;
         }
 
-        private double GetUTCMonth(DateInstance thisObj, object[] arguments)
+        private JsValue GetUTCMonth(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToUniversalTime().Month;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Month;
         }
 
-        private double GetDate(DateInstance thisObj, object[] arguments)
+        private JsValue GetDate(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToLocalTime().Day;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Day;
         }
 
-        private double GetUTCDate(DateInstance thisObj, object[] arguments)
+        private JsValue GetUTCDate(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToUniversalTime().Day;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Day;
         }
 
-        private double GetDay(DateInstance thisObj, object[] arguments)
+        private JsValue GetDay(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return (int)thisObj.ToDateTime().ToLocalTime().DayOfWeek;
+            return (int)thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().DayOfWeek;
         }
 
-        private double GetUTCDay(DateInstance thisObj, object[] arguments)
+        private JsValue GetUTCDay(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return (int)thisObj.ToDateTime().ToUniversalTime().DayOfWeek;
+            return (int)thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().DayOfWeek;
         }
 
-        private double GetHours(DateInstance thisObj, object[] arguments)
+        private JsValue GetHours(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToLocalTime().Hour;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Hour;
         }
 
-        private double GetUTCHours(DateInstance thisObj, object[] arguments)
+        private JsValue GetUTCHours(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToUniversalTime().Hour;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Hour;
         }
 
-        private double GetMinutes(DateInstance thisObj, object[] arguments)
+        private JsValue GetMinutes(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToLocalTime().Minute;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Minute;
         }
 
-        private double GetUTCMinutes(DateInstance thisObj, object[] arguments)
+        private JsValue GetUTCMinutes(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToUniversalTime().Minute;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Minute;
         }
 
-        private double GetSeconds(DateInstance thisObj, object[] arguments)
+        private JsValue GetSeconds(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToLocalTime().Second;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Second;
         }
 
-        private double GetUTCSeconds(DateInstance thisObj, object[] arguments)
+        private JsValue GetUTCSeconds(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToUniversalTime().Second;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Second;
         }
 
-        private double GetMilliseconds(DateInstance thisObj, object[] arguments)
+        private JsValue GetMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToLocalTime().Millisecond;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Millisecond;
         }
 
-        private double GetUTCMilliseconds(DateInstance thisObj, object[] arguments)
+        private JsValue GetUTCMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return thisObj.ToDateTime().ToUniversalTime().Second;
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Second;
         }
 
-        private double GetTimezoneOffset(DateInstance thisObj, object[] arguments)
+        private JsValue GetTimezoneOffset(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.PrimitiveValue))
+            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
                 return double.NaN;
             }
 
-            return - TimeZoneInfo.Local.GetUtcOffset(thisObj.ToDateTime()).Hours*60;
+            return - TimeZoneInfo.Local.GetUtcOffset(thisObj.TryCast<DateInstance>().ToDateTime()).Hours*60;
         }
 
-        private double SetTime(DateInstance thisObj, object[] arguments)
+        private JsValue SetTime(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.PrimitiveValue = DateConstructor.TimeClip(TypeConverter.ToNumber(arguments.At(0)));
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.TimeClip(TypeConverter.ToNumber(arguments.At(0)).AsNumber());
         }
 
-        private double SetMilliseconds(DateInstance thisObj, object[] arguments)
+        private JsValue SetMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime();
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour,dt.Minute,dt.Second,(int)TypeConverter.ToNumber(arguments.At(0)), DateTimeKind.Local);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime();
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), DateTimeKind.Local);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetUTCMilliseconds(DateInstance thisObj, object[] arguments)
+        private JsValue SetUTCMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToUniversalTime();
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, (int)TypeConverter.ToNumber(arguments.At(0)), DateTimeKind.Utc);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), DateTimeKind.Utc);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetSeconds(DateInstance thisObj, object[] arguments)
+        private JsValue SetSeconds(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToLocalTime();
-            var ms = arguments.At(1) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(1));
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, (int)TypeConverter.ToNumber(arguments.At(0)), (int) ms, DateTimeKind.Local);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
+            var ms = arguments.At(1) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)ms, DateTimeKind.Local);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetUTCSeconds(DateInstance thisObj, object[] arguments)
+        private JsValue SetUTCSeconds(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToUniversalTime();
-            var ms = arguments.At(1) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(1));
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, (int)TypeConverter.ToNumber(arguments.At(0)), (int) ms, DateTimeKind.Utc);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
+            var ms = arguments.At(1) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)ms, DateTimeKind.Utc);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetMinutes(DateInstance thisObj, object[] arguments)
+        private JsValue SetMinutes(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToLocalTime();
-            var s = arguments.At(1) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(1));
-            var ms = arguments.At(2) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(2));
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, (int)TypeConverter.ToNumber(arguments.At(0)), (int) s, (int) ms, DateTimeKind.Local);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
+            var s = arguments.At(1) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
+            var ms = arguments.At(2) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(2)).AsNumber();
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)s, (int)ms, DateTimeKind.Local);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetUTCMinutes(DateInstance thisObj, object[] arguments)
+        private JsValue SetUTCMinutes(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToUniversalTime();
-            var s = arguments.At(1) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(1));
-            var ms = arguments.At(2) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(2));
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, (int)TypeConverter.ToNumber(arguments.At(0)), (int)s, (int)ms, DateTimeKind.Utc);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
+            var s = arguments.At(1) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
+            var ms = arguments.At(2) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(2)).AsNumber();
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)s, (int)ms, DateTimeKind.Utc);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetHours(DateInstance thisObj, object[] arguments)
+        private JsValue SetHours(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToLocalTime();
-            var min = arguments.At(1) == Undefined.Instance ? dt.Minute : TypeConverter.ToNumber(arguments.At(1));
-            var s = arguments.At(2) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(2));
-            var ms = arguments.At(3) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(3));
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, (int)TypeConverter.ToNumber(arguments.At(0)), (int) min, (int)s, (int)ms, DateTimeKind.Local);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
+            var min = arguments.At(1) == Undefined.Instance ? dt.Minute : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
+            var s = arguments.At(2) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(2)).AsNumber();
+            var ms = arguments.At(3) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(3)).AsNumber();
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)min, (int)s, (int)ms, DateTimeKind.Local);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetUTCHours(DateInstance thisObj, object[] arguments)
+        private JsValue SetUTCHours(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToUniversalTime();
-            var min = arguments.At(1) == Undefined.Instance ? dt.Minute : TypeConverter.ToNumber(arguments.At(1));
-            var s = arguments.At(2) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(2));
-            var ms = arguments.At(3) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(3));
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, (int)TypeConverter.ToNumber(arguments.At(0)), (int)min, (int)s, (int)ms, DateTimeKind.Utc);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
+            var min = arguments.At(1) == Undefined.Instance ? dt.Minute : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
+            var s = arguments.At(2) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(2)).AsNumber();
+            var ms = arguments.At(3) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(3)).AsNumber();
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)min, (int)s, (int)ms, DateTimeKind.Utc);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetDate(DateInstance thisObj, object[] arguments)
+        private JsValue SetDate(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToLocalTime();
-            dt = new DateTime(dt.Year, dt.Month, (int)TypeConverter.ToNumber(arguments.At(0)), dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
+            dt = new DateTime(dt.Year, dt.Month, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetUTCDate(DateInstance thisObj, object[] arguments)
+        private JsValue SetUTCDate(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToUniversalTime();
-            dt = new DateTime(dt.Year, dt.Month, (int)TypeConverter.ToNumber(arguments.At(0)), dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
+            dt = new DateTime(dt.Year, dt.Month, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetMonth(DateInstance thisObj, object[] arguments)
+        private JsValue SetMonth(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToUniversalTime();
-            var date = arguments.At(1) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(1));
-            dt = new DateTime(dt.Year, (int)TypeConverter.ToNumber(arguments.At(0)), (int) date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
+            var date = arguments.At(1) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
+            dt = new DateTime(dt.Year, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetUTCMonth(DateInstance thisObj, object[] arguments)
+        private JsValue SetUTCMonth(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToUniversalTime();
-            var date = arguments.At(1) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(1));
-            dt = new DateTime(dt.Year, (int)TypeConverter.ToNumber(arguments.At(0)), (int) date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
+            var date = arguments.At(1) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
+            dt = new DateTime(dt.Year, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetFullYear(DateInstance thisObj, object[] arguments)
+        private JsValue SetFullYear(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToLocalTime();
-            var month = arguments.At(1) == Undefined.Instance ? dt.Month : TypeConverter.ToNumber(arguments.At(1));
-            var date = arguments.At(2) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(2));
-            dt = new DateTime((int)TypeConverter.ToNumber(arguments.At(0)), (int)month, (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
+            var month = arguments.At(1) == Undefined.Instance ? dt.Month : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
+            var date = arguments.At(2) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(2)).AsNumber();
+            dt = new DateTime((int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)month, (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private double SetUTCFullYear(DateInstance thisObj, object[] arguments)
+        private JsValue SetUTCFullYear(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.ToDateTime().ToUniversalTime();
-            var month = arguments.At(1) == Undefined.Instance ? dt.Month : TypeConverter.ToNumber(arguments.At(1));
-            var date = arguments.At(2) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(2));
-            dt = new DateTime((int)TypeConverter.ToNumber(arguments.At(0)), (int)month,(int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
-            return thisObj.PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
+            var month = arguments.At(1) == Undefined.Instance ? dt.Month : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
+            var date = arguments.At(2) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(2)).AsNumber();
+            dt = new DateTime((int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)month, (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
-        private string ToUTCString(DateInstance thisObj, object[] arguments)
+        private JsValue ToUTCString(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.ToDateTime().ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         }
 
-        private string ToISOString(DateInstance thisObj, object[] arguments)
+        private JsValue ToISOString(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.ToDateTime().ToLocalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         }
 
-        private string ToJSON(DateInstance thisObj, object[] arguments)
+        private JsValue ToJSON(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.ToDateTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         }
     }
 }

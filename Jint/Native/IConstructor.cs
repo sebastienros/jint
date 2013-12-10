@@ -4,7 +4,7 @@ namespace Jint.Native
 {
     public interface IConstructor
     {
-        object Call(object thisObject, object[] arguments);
-        ObjectInstance Construct(object[] arguments);
+        JsValue Call(JsValue thisObject, JsValue[] arguments);
+        ObjectInstance Construct(JsValue[] arguments);
     }
 }

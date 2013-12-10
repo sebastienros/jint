@@ -26,21 +26,21 @@ namespace Jint.Native.Boolean
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance<object, string>(Engine, ToBooleanString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance<object, bool>(Engine, ValueOf), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToBooleanString), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf), true, false, true);
         }
 
-        private bool ValueOf(object thisObj, object[] arguments)
+        private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
         {
             var B = thisObj;
             object b;
-            if (TypeConverter.GetType(B) == Types.Boolean)
+            if (B.IsBoolean())
             {
                 b = B;
             }
             else
             {
-                var o = B as BooleanInstance;
+                var o = B.TryCast<BooleanInstance>();
                 if (o != null)
                 {
                     return o.PrimitiveValue;
@@ -54,10 +54,10 @@ namespace Jint.Native.Boolean
             return (bool)b;
         }
 
-        private string ToBooleanString(object thisObj, object[] arguments)
+        private JsValue ToBooleanString(JsValue thisObj, JsValue[] arguments)
         {
             var b = ValueOf(thisObj, Arguments.Empty);
-            return b ? "true" : "false";
+            return b.AsBoolean() ? "true" : "false";
         }
     }
 }

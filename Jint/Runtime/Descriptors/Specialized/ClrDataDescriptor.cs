@@ -1,12 +1,13 @@
 ﻿using System;
+using Jint.Native;
 using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class ClrDataDescriptor<TObject, TResult> : PropertyDescriptor
+    public sealed class ClrDataDescriptor : PropertyDescriptor
     {
-        public ClrDataDescriptor(Engine engine, Func<TObject, object[], TResult> func)
-            : base(value: new ClrFunctionInstance<TObject, TResult>(engine, func), writable: null, enumerable: null, configurable: null)
+        public ClrDataDescriptor(Engine engine, Func<JsValue, JsValue[], JsValue> func)
+            : base(value: new ClrFunctionInstance(engine, func), writable: null, enumerable: null, configurable: null)
         {
         }
     }

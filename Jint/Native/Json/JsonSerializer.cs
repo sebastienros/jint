@@ -21,21 +21,21 @@ namespace Jint.Native.Json
         Stack<object> _stack;
         string _indent, _gap;
         List<string> _propertyList;
-        object _replacerFunction = Undefined.Instance;
+        JsValue _replacerFunction = Undefined.Instance;
 
-        public object Serialize(object value, object replacer, object space)
+        public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
         {
             _stack = new Stack<object>();
 
-            if (TypeConverter.GetType(replacer) == Types.Object)
+            if (replacer.IsObject())
             {
-                if (replacer is ICallable)
+                if (replacer.AsObject() is ICallable)
                 {
                     _replacerFunction = replacer;
                 }
                 else
                 {
-                    var replacerObj = (ObjectInstance) replacer;
+                    var replacerObj = replacer.AsObject();
                     if (replacerObj.Class == "Array")
                     {
                         _propertyList = new List<string>();
@@ -43,23 +43,22 @@ namespace Jint.Native.Json
 
                     foreach (var property in replacerObj.Properties.Values)
                     {
-                        object v = _engine.GetValue(property);
+                        JsValue v = _engine.GetValue(property);
                         string item = null;
-                        var type = TypeConverter.GetType(v);
-                        if (type == Types.String)
+                        if (v.IsString())
                         {
-                            item = (string)v;
+                            item = v.AsString();
                         }
-                        else if (type == Types.Number)
+                        else if (v.IsNumber())
                         {
-                            item = TypeConverter.ToString(v);
+                            item = TypeConverter.ToString(v).AsString();
                         }
-                        else if (type == Types.Object)
+                        else if (v.IsObject())
                         {
-                            var propertyObj = (ObjectInstance) v;
+                            var propertyObj = v.AsObject();
                             if (propertyObj.Class == "String" || propertyObj.Class == "Number")
                             {
-                                item = TypeConverter.ToString(propertyObj);
+                                item = TypeConverter.ToString(v).AsString();
                             }
                         }
 
@@ -72,12 +71,12 @@ namespace Jint.Native.Json
                 }
             }
 
-            var spaceObj = space as ObjectInstance;
-            if (spaceObj != null)
+            if (space.IsObject())
             {
+                var spaceObj = space.AsObject();
                 if (spaceObj.Class == "Number")
                 {
-                    space = TypeConverter.ToNumber(spaceObj);
+                    space = TypeConverter.ToNumber(spaceObj).AsNumber();
                 }
                 else if (spaceObj.Class == "String")
                 {
@@ -86,13 +85,13 @@ namespace Jint.Native.Json
             }
 
             // defining the gap
-            if (TypeConverter.GetType(space) == Types.Number)
+            if (space.IsNumber())
             {
-                _gap = new System.String(' ', (int) System.Math.Min(10, (double) space));
+                _gap = new System.String(' ', (int) System.Math.Min(10, space.AsNumber()));
             }
-            else if (TypeConverter.GetType(space) == Types.String)
+            else if (space.IsString())
             {
-                var stringSpace = (string) space;
+                var stringSpace = space.AsString();
                 _gap = stringSpace.Length <= 10 ? stringSpace : stringSpace.Substring(0, 10);
             }
             else
@@ -109,35 +108,39 @@ namespace Jint.Native.Json
         private string Str(string key, ObjectInstance holder)
         {
             var value = holder.Get(key);
-            var valueObj = value as ObjectInstance;
-            if (valueObj != null)
+            if (value.IsObject())
             {
-                var toJson = valueObj.Get("toJSON") as ICallable;
-                if (toJson != null)
+                var toJson = value.AsObject().Get("toJSON");
+                if (toJson.IsObject())
                 {
-                    value = toJson.Call(value, Arguments.From(key));
+                    var callableToJson = toJson.AsObject() as ICallable;
+                    if (callableToJson != null)
+                    {
+                        value = callableToJson.Call(value, Arguments.From(key));
+                    }
                 }
             }
             
             if (_replacerFunction != Undefined.Instance)
             {
-                var replacerFunctionCallable = (ICallable)_replacerFunction;
+                var replacerFunctionCallable = (ICallable)_replacerFunction.AsObject();
                 value = replacerFunctionCallable.Call(holder, Arguments.From(key));
             }
 
-            valueObj = value as ObjectInstance;
-            if (valueObj != null)
+            
+            if (value.IsObject())
             {
+                var valueObj = value.AsObject();
                 switch (valueObj.Class)
                 {
                     case "Number":
-                        value = TypeConverter.ToNumber(value);
+                        value = TypeConverter.ToNumber(value).AsNumber();
                         break;
                     case "String":
                         value = TypeConverter.ToString(value);
                         break;
                     case "Boolean":
-                        value = ((IPrimitiveType) value).PrimitiveValue;
+                        value = TypeConverter.ToPrimitive(value);
                         break;
                 }
             }
@@ -147,41 +150,43 @@ namespace Jint.Native.Json
                 return "null";
             }
 
-            if (true.Equals(value))
+            if (value.IsBoolean() && value.AsBoolean())
             {
                 return "true";
             }
 
-            if (false.Equals(value))
+            if (value.IsBoolean() && !value.AsBoolean())
             {
                 return "false";
             }
 
-            if (TypeConverter.GetType(value) == Types.String)
+            if (value.IsString())
             {
-                return Quote((string) value);
+                return Quote(value.AsString());
             }
 
-            if (TypeConverter.GetType(value) == Types.Number)
+            if (value.IsNumber())
             {
-                if (GlobalObject.IsFinite(this, Arguments.From(value)))
+                if (GlobalObject.IsFinite(Undefined.Instance, Arguments.From(value)).AsBoolean())
                 {
-                    return TypeConverter.ToString(value);
+                    return TypeConverter.ToString(value).AsString();
                 }
                 
                 return "null";
             }
 
-            valueObj = value as ObjectInstance;
-            var valueCallable = valueObj as ICallable;
-            if (valueObj != null && valueCallable == null)
+            if (value.IsObject())
             {
-                if (valueObj.Class == "Array")
+                var valueCallable = value.AsObject() as ICallable;
+                if (valueCallable != null)
                 {
-                    return SerializeArray((ArrayInstance)value);
+                    if (value.AsObject().Class == "Array")
+                    {
+                        return SerializeArray(value.As<ArrayInstance>());
+                    }
+
+                    return SerializeObject(value.AsObject());
                 }
-                
-                return SerializeObject(valueObj);
             }
 
             return "null";
@@ -242,7 +247,7 @@ namespace Jint.Native.Json
             var len = TypeConverter.ToUint32(value.Get("length"));
             for (int i = 0; i < len; i++)
             {
-                var strP = Str(TypeConverter.ToString(i), value);
+                var strP = Str(TypeConverter.ToString(i).AsString(), value);
                 partial.Add(strP);
             }
             if (partial.Count == 0)
@@ -293,7 +298,7 @@ namespace Jint.Native.Json
             var k = _propertyList;
             if (k == null)
             {
-                k = value.Properties.Where(x => x.Value.Enumerable.Value).Select(x => x.Key).ToList();
+                k = value.Properties.Where(x => x.Value.Enumerable.Value.AsBoolean()).Select(x => x.Key).ToList();
             }
             var partial = new List<string>();
             foreach (var p in k)

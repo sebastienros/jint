@@ -33,12 +33,12 @@ namespace Jint.Native.Function
             Extensible = true;
             Prototype = engine.Function.PrototypeObject;
 
-            DefineOwnProperty("length", new PropertyDescriptor(FormalParameters.Length, false, false, false ), false);
+            DefineOwnProperty("length", new PropertyDescriptor(new JsValue(FormalParameters.Length), false, false, false ), false);
 
             var proto = engine.Object.Construct(Arguments.Empty);
             proto.DefineOwnProperty("constructor", new PropertyDescriptor(this, true, false, true), false);
             DefineOwnProperty("prototype", new PropertyDescriptor(proto, true, false, false ), false);
-            DefineOwnProperty("name", new PropertyDescriptor(_functionDeclaration.Id, null, null, null), false);
+            DefineOwnProperty("name", new PropertyDescriptor(_functionDeclaration.Id.Name, null, null, null), false);
             
             if (strict)
             {
@@ -54,13 +54,12 @@ namespace Jint.Native.Function
         /// <param name="thisArg"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public override object Call(object thisArg, object[] arguments)
+        public override JsValue Call(JsValue thisArg, JsValue[] arguments)
         {
-            object thisBinding;
-
             using (new StrictModeScope(Strict, true))
             {
                 // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
+                JsValue thisBinding;
                 if (StrictModeScope.IsStrictModeCode)
                 {
                     thisBinding = thisArg;
@@ -69,7 +68,7 @@ namespace Jint.Native.Function
                 {
                     thisBinding = Engine.Global;
                 }
-                else if (TypeConverter.GetType(thisArg) != Types.Object)
+                else if (thisArg.IsObject())
                 {
                     thisBinding = TypeConverter.ToObject(Engine, thisArg);
                 }
@@ -117,14 +116,14 @@ namespace Jint.Native.Function
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public ObjectInstance Construct(object[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments)
         {
-            var proto = Get("prototype") as ObjectInstance;
+            var proto = Get("prototype").TryCast<ObjectInstance>();
             var obj = new ObjectInstance(Engine);
             obj.Extensible = true;
             obj.Prototype = proto ?? Engine.Object.PrototypeObject;
 
-            var result = Call(obj, arguments) as ObjectInstance;
+            var result = Call(obj, arguments).TryCast<ObjectInstance>();
             if (result != null)
             {
                 return result;

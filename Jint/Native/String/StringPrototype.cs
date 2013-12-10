@@ -35,30 +35,30 @@ namespace Jint.Native.String
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance<object, string>(Engine, ToStringString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance<object, string>(Engine, ValueOf), true, false, true);
-            FastAddProperty("charAt", new ClrFunctionInstance<object, object>(Engine, CharAt, 1), true, false, true);
-            FastAddProperty("charCodeAt", new ClrFunctionInstance<object, object>(Engine, CharCodeAt, 1), true, false, true);
-            FastAddProperty("concat", new ClrFunctionInstance<object, string>(Engine, Concat, 1), true, false, true);
-            FastAddProperty("indexOf", new ClrFunctionInstance<object, double>(Engine, IndexOf, 1), true, false, true);
-            FastAddProperty("lastIndexOf", new ClrFunctionInstance<object, double>(Engine, LastIndexOf, 1), true, false, true);
-            FastAddProperty("localeCompare", new ClrFunctionInstance<object, double>(Engine, LocaleCompare), true, false, true);
-            FastAddProperty("match", new ClrFunctionInstance<object, object>(Engine, Match, 1), true, false, true);
-            FastAddProperty("replace", new ClrFunctionInstance<object, object>(Engine, Replace, 2), true, false, true);
-            FastAddProperty("search", new ClrFunctionInstance<object, double>(Engine, Search, 1), true, false, true);
-            FastAddProperty("slice", new ClrFunctionInstance<object, string>(Engine, Slice, 2), true, false, true);
-            FastAddProperty("split", new ClrFunctionInstance<object, ArrayInstance>(Engine, Split, 2), true, false, true);
-            FastAddProperty("substring", new ClrFunctionInstance<object, string>(Engine, Substring, 2), true, false, true);
-            FastAddProperty("toLowerCase", new ClrFunctionInstance<object, string>(Engine, ToLowerCase), true, false, true);
-            FastAddProperty("toLocaleLowerCase", new ClrFunctionInstance<object, string>(Engine, ToLocaleLowerCase), true, false, true);
-            FastAddProperty("toUpperCase", new ClrFunctionInstance<object, string>(Engine, ToUpperCase), true, false, true);
-            FastAddProperty("toLocaleUpperCase", new ClrFunctionInstance<object, string>(Engine, ToLocaleUpperCase), true, false, true);
-            FastAddProperty("trim", new ClrFunctionInstance<object, string>(Engine, Trim), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToStringString), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf), true, false, true);
+            FastAddProperty("charAt", new ClrFunctionInstance(Engine, CharAt, 1), true, false, true);
+            FastAddProperty("charCodeAt", new ClrFunctionInstance(Engine, CharCodeAt, 1), true, false, true);
+            FastAddProperty("concat", new ClrFunctionInstance(Engine, Concat, 1), true, false, true);
+            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, IndexOf, 1), true, false, true);
+            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, LastIndexOf, 1), true, false, true);
+            FastAddProperty("localeCompare", new ClrFunctionInstance(Engine, LocaleCompare), true, false, true);
+            FastAddProperty("match", new ClrFunctionInstance(Engine, Match, 1), true, false, true);
+            FastAddProperty("replace", new ClrFunctionInstance(Engine, Replace, 2), true, false, true);
+            FastAddProperty("search", new ClrFunctionInstance(Engine, Search, 1), true, false, true);
+            FastAddProperty("slice", new ClrFunctionInstance(Engine, Slice, 2), true, false, true);
+            FastAddProperty("split", new ClrFunctionInstance(Engine, Split, 2), true, false, true);
+            FastAddProperty("substring", new ClrFunctionInstance(Engine, Substring, 2), true, false, true);
+            FastAddProperty("toLowerCase", new ClrFunctionInstance(Engine, ToLowerCase), true, false, true);
+            FastAddProperty("toLocaleLowerCase", new ClrFunctionInstance(Engine, ToLocaleLowerCase), true, false, true);
+            FastAddProperty("toUpperCase", new ClrFunctionInstance(Engine, ToUpperCase), true, false, true);
+            FastAddProperty("toLocaleUpperCase", new ClrFunctionInstance(Engine, ToLocaleUpperCase), true, false, true);
+            FastAddProperty("trim", new ClrFunctionInstance(Engine, Trim), true, false, true);
         }
 
-        private string ToStringString(object thisObj, object[] arguments)
+        private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
         {
-            var s = TypeConverter.ToObject(Engine, thisObj) as StringInstance;
+            var s = TypeConverter.ToObject(Engine, thisObj).TryCast<StringInstance>();
             if (s == null)
             {
                 throw new JavaScriptException(Engine.TypeError);
@@ -67,44 +67,44 @@ namespace Jint.Native.String
             return s.PrimitiveValue;
         }
 
-        private string Trim(object thisObj, object[] arguments)
+        private JsValue Trim(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToString(thisObj).AsString();
             return s.Trim();
         }
 
-        private static string ToLocaleUpperCase(object thisObj, object[] arguments)
+        private static JsValue ToLocaleUpperCase(JsValue thisObj, JsValue[] arguments)
         {
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToString(thisObj).AsString();
             return s.ToUpper();
         }
 
-        private static string ToUpperCase(object thisObj, object[] arguments)
+        private static JsValue ToUpperCase(JsValue thisObj, JsValue[] arguments)
         {
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToString(thisObj).AsString();
             return s.ToUpperInvariant();
         }
 
-        private static string ToLocaleLowerCase(object thisObj, object[] arguments)
+        private static JsValue ToLocaleLowerCase(JsValue thisObj, JsValue[] arguments)
         {
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToString(thisObj).AsString();
             return s.ToLower();
         }
 
-        private static string ToLowerCase(object thisObj, object[] arguments)
+        private static JsValue ToLowerCase(JsValue thisObj, JsValue[] arguments)
         {
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToString(thisObj).AsString();
             return s.ToLowerInvariant();
         }
 
-        private string Substring(object thisObj, object[] arguments)
+        private JsValue Substring(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
-            var start = TypeConverter.ToNumber(arguments.At(0));
-            var end = TypeConverter.ToNumber(arguments.At(1));
+            var s = TypeConverter.ToString(thisObj).AsString();
+            var start = TypeConverter.ToNumber(arguments.At(0)).AsNumber();
+            var end = TypeConverter.ToNumber(arguments.At(1)).AsNumber();
 
             if (double.IsNaN(start) || start < 0)
             {
@@ -117,8 +117,8 @@ namespace Jint.Native.String
             }
 
             var len = s.Length;
-            var intStart = (int) TypeConverter.ToInteger(start);
-            var intEnd = arguments.At(1) == Undefined.Instance ? len : (int) TypeConverter.ToInteger(end);
+            var intStart = (int)TypeConverter.ToInteger(start).AsNumber();
+            var intEnd = arguments.At(1) == Undefined.Instance ? len : (int)TypeConverter.ToInteger(end).AsNumber();
             var finalStart = System.Math.Min(len, System.Math.Max(intStart, 0));
             var finalEnd = System.Math.Min(len, System.Math.Max(intEnd, 0));
             var from = System.Math.Min(finalStart, finalEnd);
@@ -126,10 +126,10 @@ namespace Jint.Native.String
             return s.Substring(from, to - from);
         }
 
-        private ArrayInstance Split(object thisObj, object[] arguments)
+        private JsValue Split(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToString(thisObj).AsString();
 
             var separator = arguments.At(0);
             var l = arguments.At(1);
@@ -148,7 +148,7 @@ namespace Jint.Native.String
                 return (ArrayInstance) Engine.Array.Construct(Arguments.From(s));
             }
 
-            var rx = TypeConverter.ToObject(Engine, separator) as RegExpInstance;
+            var rx = TypeConverter.ToObject(Engine, separator).TryCast<RegExpInstance>();
             if (rx != null)
             {
                 var match = rx.Value.Match(s, 0);
@@ -175,7 +175,7 @@ namespace Jint.Native.String
                     for (int i = 1; i < match.Groups.Count; i++)
                     {
                         var group = match.Groups[i];
-                        object item = Undefined.Instance;
+                        var item = Undefined.Instance;
                         if (group.Captures.Count > 0)
                         {
                             item = match.Groups[i].Value;
@@ -199,7 +199,7 @@ namespace Jint.Native.String
                 var sep = TypeConverter.ToString(separator);
 
 
-                var segments = s.Split(new [] { sep }, StringSplitOptions.None);
+                var segments = s.Split(new [] { sep.AsString() }, StringSplitOptions.None);
                 for (int i = 0; i < segments.Length && i < limit; i++)
                 {
                     a.DefineOwnProperty(i.ToString(), new PropertyDescriptor(segments[i], true, true, true), false);
@@ -210,16 +210,16 @@ namespace Jint.Native.String
             
         }
 
-        private string Slice(object thisObj, object[] arguments)
+        private JsValue Slice(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
-            var start = TypeConverter.ToNumber(arguments.At(0));
-            var end = TypeConverter.ToNumber(arguments.At(1));
+            var s = TypeConverter.ToString(thisObj).AsString();
+            var start = TypeConverter.ToNumber(arguments.At(0)).AsNumber();
+            var end = TypeConverter.ToNumber(arguments.At(1)).AsNumber();
             var len = s.Length;
-            var intStart = (int)TypeConverter.ToInteger(start);
-            var intEnd = arguments.At(1) == Undefined.Instance ? len : (int)TypeConverter.ToInteger(end);
+            var intStart = (int)TypeConverter.ToInteger(start).AsNumber();
+            var intEnd = arguments.At(1) == Undefined.Instance ? len : (int)TypeConverter.ToInteger(end).AsNumber();
             var from = intStart < 0 ? System.Math.Max(len + intStart, 0) : System.Math.Min(intStart, len);
             var to = intEnd < 0 ? System.Math.Max(len + intEnd, 0) : System.Math.Min(intEnd, len);
             var span = System.Math.Max(to - from, 0);
@@ -227,14 +227,14 @@ namespace Jint.Native.String
             return s.Substring(from, span);
         }
 
-        private double Search(object thisObj, object[] arguments)
+        private JsValue Search(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToString(thisObj).AsString();
 
             var regex = arguments.At(0);
-            var rx = TypeConverter.ToObject(Engine, regex) as RegExpInstance ?? (RegExpInstance)Engine.RegExp.Construct(new[] { regex });
+            var rx = TypeConverter.ToObject(Engine, regex).TryCast<RegExpInstance>() ?? (RegExpInstance)Engine.RegExp.Construct(new[] { regex });
             var match = rx.Value.Match(s);
             if (!match.Success)
             {
@@ -244,22 +244,22 @@ namespace Jint.Native.String
             return match.Index;
         }
 
-        private object Replace(object thisObj, object[] arguments)
+        private JsValue Replace(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var thisString = TypeConverter.ToString(thisObj);
+            var thisString = TypeConverter.ToString(thisObj).AsString();
             var searchValue = arguments.At(0);
             var replaceValue = arguments.At(1);
 
-            var replaceFunction = replaceValue as FunctionInstance;
+            var replaceFunction = replaceValue.TryCast<FunctionInstance>();
             if (replaceFunction == null)
             {
-                replaceFunction = new ClrFunctionInstance<object, string>(Engine, (self, args) =>
+                replaceFunction = new ClrFunctionInstance(Engine, (self, args) =>
                 {
-                    var replaceString = TypeConverter.ToString(replaceValue);
-                    var matchValue = TypeConverter.ToString(args.At(0));
-                    var matchIndex = (int)TypeConverter.ToInteger(args.At(args.Length-2));
+                    var replaceString = TypeConverter.ToString(replaceValue).AsString();
+                    var matchValue = TypeConverter.ToString(args.At(0)).AsString();
+                    var matchIndex = (int)TypeConverter.ToInteger(args.At(args.Length - 2)).AsNumber();
 
                     // Check if the replacement string contains any patterns.
                     bool replaceTextContainsPattern = replaceString.IndexOf('$') >= 0;
@@ -333,13 +333,13 @@ namespace Jint.Native.String
             }
 
             // searchValue is a regular expression
-            var rx = TypeConverter.ToObject(Engine, searchValue) as RegExpInstance;
+            var rx = TypeConverter.ToObject(Engine, searchValue).TryCast<RegExpInstance>();
             if (rx != null)
             {
                 // Replace the input string with replaceText, recording the last match found.
                 string result = rx.Value.Replace(thisString, match =>
                 {
-                    var args = new List<object>();
+                    var args = new List<JsValue>();
                     args.Add(match.Value);
                     for (var k = 0; k < match.Groups.Count; k++)
                     {
@@ -351,7 +351,7 @@ namespace Jint.Native.String
                     args.Add(match.Index);
                     args.Add(thisString);
 
-                    return TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args.ToArray()));
+                    return TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args.ToArray())).AsString();
                 }, rx.Global == true ? -1 : 1);
 
                 // Set the deprecated RegExp properties if at least one match was found.
@@ -364,7 +364,7 @@ namespace Jint.Native.String
             // searchValue is a string
             else
             {
-                var substr = TypeConverter.ToString(searchValue);
+                var substr = TypeConverter.ToString(searchValue).AsString();
 
                 // Find the first occurrance of substr.
                 int start = thisString.IndexOf(substr, StringComparison.Ordinal);
@@ -372,12 +372,12 @@ namespace Jint.Native.String
                     return thisString;
                 int end = start + substr.Length;
 
-                var args = new List<object>();
+                var args = new List<JsValue>();
                 args.Add(substr);
                 args.Add(start);
                 args.Add(thisString);
 
-                var replaceString = TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args.ToArray()));
+                var replaceString = TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args.ToArray())).AsString();
 
                 // Replace only the first match.
                 var result = new StringBuilder(thisString.Length + (substr.Length - substr.Length));
@@ -388,43 +388,39 @@ namespace Jint.Native.String
             }
         }
 
-        private object Match(object thisObj, object[] arguments)
+        private JsValue Match(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
             var s = TypeConverter.ToString(thisObj);
 
             var regex = arguments.At(0);
-            RegExpInstance rx = null;
-            if (TypeConverter.GetType(regex) == Types.Object)
-            {
-                rx = regex as RegExpInstance;
-            }
+            var rx = regex.TryCast<RegExpInstance>();
 
             rx = rx ?? (RegExpInstance) Engine.RegExp.Construct(new[] {regex});
 
-            var global = (bool) rx.Get("global");
+            var global = rx.Get("global").AsBoolean();
             if (!global)
             {
                 return Engine.RegExp.PrototypeObject.Exec(rx, Arguments.From(s));
             }
             else
             {
-                rx.Put("lastIndex", (double) 0, false);
+                rx.Put("lastIndex", 0, false);
                 var a = Engine.Array.Construct(Arguments.Empty);
                 double previousLastIndex = 0;
                 var n = 0;
                 var lastMatch = true;
                 while (lastMatch)
                 {
-                    var result = Engine.RegExp.PrototypeObject.Exec(rx, Arguments.From(s)) as ObjectInstance;
+                    var result = Engine.RegExp.PrototypeObject.Exec(rx, Arguments.From(s)).TryCast<ObjectInstance>();
                     if (result == null)
                     {
                         lastMatch = false;
                     }
                     else
                     {
-                        var thisIndex = (double) rx.Get("lastIndex");
+                        var thisIndex = rx.Get("lastIndex").AsNumber();
                         if (thisIndex == previousLastIndex)
                         {
                             rx.Put("lastIndex", thisIndex + 1, false);
@@ -432,7 +428,7 @@ namespace Jint.Native.String
                         }
 
                         var matchStr = result.Get("0");
-                        a.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(matchStr, true, true, true), false);
+                        a.DefineOwnProperty(TypeConverter.ToString(n).AsString(), new PropertyDescriptor(matchStr, true, true, true), false);
                         n++;
                     }
                 }
@@ -445,24 +441,24 @@ namespace Jint.Native.String
 
         }
 
-        private double LocaleCompare(object thisObj, object[] arguments)
+        private JsValue LocaleCompare(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
-            var that = TypeConverter.ToString(arguments.Length > 0 ? arguments[0] : Undefined.Instance);
+            var s = TypeConverter.ToString(thisObj).AsString();
+            var that = TypeConverter.ToString(arguments.At(0)).AsString();
 
             return string.CompareOrdinal(s, that);
         }
 
-        private double LastIndexOf(object thisObj, object[] arguments)
+        private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
-            var searchStr = TypeConverter.ToString(arguments.At(0));
-            double numPos = arguments.At(0) == Undefined.Instance ? double.NaN : TypeConverter.ToNumber(arguments.At(0));
-            double pos = double.IsNaN(numPos) ? double.PositiveInfinity : TypeConverter.ToInteger(numPos);
+            var s = TypeConverter.ToString(thisObj).AsString();
+            var searchStr = TypeConverter.ToString(arguments.At(0)).AsString();
+            double numPos = arguments.At(0) == Undefined.Instance ? double.NaN : TypeConverter.ToNumber(arguments.At(0)).AsNumber();
+            double pos = double.IsNaN(numPos) ? double.PositiveInfinity : TypeConverter.ToInteger(numPos).AsNumber();
             var len = s.Length;
             var start = System.Math.Min(len, System.Math.Max(pos, 0));
             var searchLen = searchStr.Length;
@@ -470,16 +466,16 @@ namespace Jint.Native.String
             return s.LastIndexOf(searchStr, len - (int) start, StringComparison.Ordinal);
         }
 
-        private double IndexOf(object thisObj, object[] arguments)
+        private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
-            var searchStr = TypeConverter.ToString(arguments.Length > 0 ? arguments[0] : Undefined.Instance);
+            var s = TypeConverter.ToString(thisObj).AsString();
+            var searchStr = TypeConverter.ToString(arguments.At(0)).AsString();
             double pos = 0;
             if (arguments.Length > 1 && arguments[1] != Undefined.Instance)
             {
-                pos = TypeConverter.ToInteger(arguments[1]);
+                pos = TypeConverter.ToInteger(arguments[1]).AsNumber();
             }
 
             if (pos >= s.Length)
@@ -495,11 +491,11 @@ namespace Jint.Native.String
             return s.IndexOf(searchStr, (int) pos, StringComparison.Ordinal);
         }
 
-        private string Concat(object thisObj, object[] arguments)
+        private JsValue Concat(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToString(thisObj).AsString();
             var sb = new StringBuilder(s);
             for (int i = 0; i < arguments.Length; i++)
             {
@@ -509,25 +505,25 @@ namespace Jint.Native.String
             return sb.ToString();
         }
 
-        private object CharCodeAt(object thisObj, object[] arguments)
+        private JsValue CharCodeAt(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            object pos = arguments.Length > 0 ? arguments[0] : 0;
-            var s = TypeConverter.ToString(thisObj);
-            var position = (int)TypeConverter.ToInteger(pos);
+            JsValue pos = arguments.Length > 0 ? arguments[0] : 0;
+            var s = TypeConverter.ToString(thisObj).AsString();
+            var position = (int)TypeConverter.ToInteger(pos).AsNumber();
             if (position < 0 || position >= s.Length)
             {
                 return double.NaN;
             }
-            return (uint)s[position];
+            return s[position];
         }
 
-        private object CharAt(object thisObj, object[] arguments)
+        private JsValue CharAt(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
-            var s = TypeConverter.ToString(thisObj);
-            var position = TypeConverter.ToInteger(arguments.At(0));
+            var s = TypeConverter.ToString(thisObj).AsString();
+            var position = TypeConverter.ToInteger(arguments.At(0)).AsNumber();
             var size = s.Length;
             if (position >= size || position < 0)
             {
@@ -537,9 +533,9 @@ namespace Jint.Native.String
 
         }
 
-        private string ValueOf(object thisObj, object[] arguments)
+        private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
         {
-            var s = thisObj as StringInstance;
+            var s = thisObj.TryCast<StringInstance>();
             if (s == null)
             {
                 throw new JavaScriptException(Engine.TypeError);

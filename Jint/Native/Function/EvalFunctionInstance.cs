@@ -15,19 +15,19 @@ namespace Jint.Native.Function
             FastAddProperty("length", 1, false, false, false);
         }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             return Call(thisObject, arguments, false);
         }
 
-        public object Call(object thisObject, object[] arguments, bool directCall)
+        public JsValue Call(JsValue thisObject, JsValue[] arguments, bool directCall)
         {
-            if (TypeConverter.GetType(arguments.At(0)) != Types.String)
+            if (arguments.At(0).Type != Types.String)
             {
                 return arguments.At(0);
             }
 
-            var code = TypeConverter.ToString(arguments.At(0));
+            var code = TypeConverter.ToString(arguments.At(0)).AsString();
 
             try
             {
@@ -62,7 +62,7 @@ namespace Jint.Native.Function
                             }
                             else
                             {
-                                return result.Value ?? Undefined.Instance;
+                                return result.Value;
                             }
                         }
                         finally

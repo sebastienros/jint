@@ -25,48 +25,50 @@ namespace Jint.Native.RegExp
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance<RegExpInstance, object>(Engine, ToRegExpString), true, false, true);
-            FastAddProperty("exec", new ClrFunctionInstance<object, object>(Engine, Exec, 1), true, false, true);
-            FastAddProperty("test", new ClrFunctionInstance<object, bool>(Engine, Test, 1), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToRegExpString), true, false, true);
+            FastAddProperty("exec", new ClrFunctionInstance(Engine, Exec, 1), true, false, true);
+            FastAddProperty("test", new ClrFunctionInstance(Engine, Test, 1), true, false, true);
 
-            FastAddProperty("global", new ClrFunctionInstance<RegExpInstance, bool>(Engine, GetGlobal, 1), false, false, false);
-            FastAddProperty("ignoreCase", new ClrFunctionInstance<RegExpInstance, bool>(Engine, GetIgnoreCase, 1), false, false, false);
-            FastAddProperty("multiline", new ClrFunctionInstance<RegExpInstance, bool>(Engine, GetMultiLine, 1), false, false, false);
-            FastAddProperty("source", new ClrFunctionInstance<RegExpInstance, string>(Engine, GetSource, 1), false, false, false);
+            FastAddProperty("global", new ClrFunctionInstance(Engine, GetGlobal, 1), false, false, false);
+            FastAddProperty("ignoreCase", new ClrFunctionInstance(Engine, GetIgnoreCase, 1), false, false, false);
+            FastAddProperty("multiline", new ClrFunctionInstance(Engine, GetMultiLine, 1), false, false, false);
+            FastAddProperty("source", new ClrFunctionInstance(Engine, GetSource, 1), false, false, false);
         }
 
-        private bool GetGlobal(RegExpInstance thisObj, object[] arguments)
+        private JsValue GetGlobal(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.Global;
+            return thisObj.TryCast<RegExpInstance>().Global;
         }
-        private bool GetMultiLine(RegExpInstance thisObj, object[] arguments)
+        private JsValue GetMultiLine(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.Multiline;
-        }
-
-        private bool GetIgnoreCase(RegExpInstance thisObj, object[] arguments)
-        {
-            return thisObj.IgnoreCase;
+            return thisObj.TryCast<RegExpInstance>().Multiline;
         }
 
-        private string GetSource(RegExpInstance thisObj, object[] arguments)
+        private JsValue GetIgnoreCase(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.Source;
+            return thisObj.TryCast<RegExpInstance>().IgnoreCase;
         }
 
-        private object ToRegExpString(RegExpInstance thisObj, object[] arguments)
+        private JsValue GetSource(JsValue thisObj, JsValue[] arguments)
         {
-            return "/" + thisObj.Source + "/" 
-                + (thisObj.Flags.Contains("g") ? "g" : "")
-                + (thisObj.Flags.Contains("i") ? "i" : "")
-                + (thisObj.Flags.Contains("m") ? "m" : "")
+            return thisObj.TryCast<RegExpInstance>().Source;
+        }
+
+        private JsValue ToRegExpString(JsValue thisObj, JsValue[] arguments)
+        {
+            var regExp = thisObj.TryCast<RegExpInstance>();
+
+            return "/" + regExp.Source + "/"
+                + (regExp.Flags.Contains("g") ? "g" : "")
+                + (regExp.Flags.Contains("i") ? "i" : "")
+                + (regExp.Flags.Contains("m") ? "m" : "")
                 ;
         }
 
-        private bool Test(object thisObj, object[] arguments)
+        private JsValue Test(JsValue thisObj, JsValue[] arguments)
         {
             var r = TypeConverter.ToObject(Engine, thisObj);
-            if (r.Class != "RegExp")
+            if (r.AsObject().Class != "RegExp")
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -75,18 +77,18 @@ namespace Jint.Native.RegExp
             return match != Null.Instance;
         }
 
-        internal object Exec(object thisObj, object[] arguments)
+        internal JsValue Exec(JsValue thisObj, JsValue[] arguments)
         {
-            var R = TypeConverter.ToObject(Engine, thisObj) as RegExpInstance;
+            var R = TypeConverter.ToObject(Engine, thisObj).TryCast<RegExpInstance>();
             if (R == null)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var s = TypeConverter.ToString(arguments.Length > 0 ? arguments[0] : Undefined.Instance);
+            var s = TypeConverter.ToString(arguments.At(0)).AsString();
             var length = s.Length;
-            var lastIndex = TypeConverter.ToNumber(R.Get("lastIndex"));
-            var i = TypeConverter.ToInteger(lastIndex);
+            var lastIndex = TypeConverter.ToNumber(R.Get("lastIndex")).AsNumber();
+            var i = TypeConverter.ToInteger(lastIndex).AsNumber();
             var global = R.Global;
             
             if (!global)

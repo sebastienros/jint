@@ -2,9 +2,9 @@
 
 namespace Jint.Native
 {
-    public interface IPrimitiveType
+    public interface IPrimitiveInstance
     {
         Types Type { get; } 
-        object PrimitiveValue { get; }
+        JsValue PrimitiveValue { get; }
     }
 }

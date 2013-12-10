@@ -6,7 +6,6 @@ using Jint.Native.Object;
 using Jint.Parser;
 using Jint.Parser.Ast;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Json
 {
@@ -503,7 +502,7 @@ namespace Jint.Native.Json
             return node;
         }
 
-        public ObjectInstance CreateArrayInstance(IEnumerable<object> values)
+        public ObjectInstance CreateArrayInstance(IEnumerable<JsValue> values)
         {
             return _engine.Array.Construct(values.ToArray());
         }
@@ -582,7 +581,7 @@ namespace Jint.Native.Json
         
         private ObjectInstance ParseJsonArray()
         {
-            var elements = new List<object>();
+            var elements = new List<JsValue>();
 
             Expect("[");
 
@@ -591,7 +590,7 @@ namespace Jint.Native.Json
                 if (Match(","))
                 {
                     Lex();
-                    elements.Add(null);
+                    elements.Add(Null.Instance);
                 }
                 else
                 {
@@ -642,7 +641,7 @@ namespace Jint.Native.Json
             return obj;
         }
 
-        private object ParseJsonValue()
+        private JsValue ParseJsonValue()
         {
             Tokens type = _lookahead.Type;
             MarkStart();
@@ -654,12 +653,12 @@ namespace Jint.Native.Json
             
             if (type == Tokens.String)
             {
-                return Lex().Value;
+                return JsValue.FromObject(Lex().Value);
             }
             
             if (type == Tokens.Number)
             {
-                return Lex().Value;
+                return JsValue.FromObject(Lex().Value);
             }
             
             if (type == Tokens.BooleanLiteral)
@@ -678,15 +677,17 @@ namespace Jint.Native.Json
             }
 
             ThrowUnexpected(Lex());
-            return null; // can't be reached
+
+            // can't be reached
+            return Null.Instance; 
         }
 
-        public object Parse(string code)
+        public JsValue Parse(string code)
         {
             return Parse(code, null);
         }
 
-        public object Parse(string code, ParserOptions options)
+        public JsValue Parse(string code, ParserOptions options)
         {
             _source = code;
             _index = 0;

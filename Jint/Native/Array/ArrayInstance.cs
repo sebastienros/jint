@@ -25,27 +25,27 @@ namespace Jint.Native.Array
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             var oldLenDesc = GetOwnProperty("length");
-            var oldLen = TypeConverter.ToNumber(oldLenDesc.Value.Value);
+            var oldLen = TypeConverter.ToNumber(oldLenDesc.Value.Value).AsNumber();
             if (propertyName == "length")
             {
-                if (desc.Value.IsAbsent)
+                if (!desc.Value.HasValue)
                 {
                     return base.DefineOwnProperty("length", desc, throwOnError);
                 }
 
                 var newLenDesc = new PropertyDescriptor(desc);
                 uint newLen = TypeConverter.ToUint32(desc.Value.Value);
-                if (newLen != TypeConverter.ToNumber(desc.Value.Value))
+                if (newLen != TypeConverter.ToNumber(desc.Value.Value).AsNumber())
                 {
                     throw new JavaScriptException(_engine.RangeError);
                 }
 
-                newLenDesc.Value = new Field<object>(newLen);
+                newLenDesc.Value = newLen;
                 if (newLen >= oldLen)
                 {
                     return base.DefineOwnProperty("length", newLenDesc, throwOnError);
                 }
-                if (!oldLenDesc.Writable.Value)
+                if (!oldLenDesc.Writable.Value.AsBoolean())
                 {
                     if (throwOnError)
                     {
@@ -55,14 +55,14 @@ namespace Jint.Native.Array
                     return false;
                 }
                 bool newWritable;
-                if (newLenDesc.Writable.IsAbsent || newLenDesc.Writable.Value)
+                if (!newLenDesc.Writable.HasValue || newLenDesc.Writable.Value.AsBoolean())
                 {
                     newWritable = true;
                 }
                 else
                 {
                     newWritable = false;
-                    newLenDesc.Writable = new Field<bool>(true);
+                    newLenDesc.Writable = true;
                 }
                 
                 var succeeded = base.DefineOwnProperty("length", newLenDesc, throwOnError);
@@ -85,10 +85,10 @@ namespace Jint.Native.Array
                             var deleteSucceeded = Delete(key, false);
                             if (!deleteSucceeded)
                             {
-                                newLenDesc.Value = new Field<object>(index + 1);
+                                newLenDesc.Value = new JsValue(index + 1);
                                 if (!newWritable)
                                 {
-                                    newLenDesc.Writable = new Field<bool>(false);
+                                    newLenDesc.Writable = JsValue.False;
                                 }
                                 base.DefineOwnProperty("length", newLenDesc, false);
                                 if (throwOnError)
@@ -107,13 +107,13 @@ namespace Jint.Native.Array
                     {
                         // algorithm as per the spec
                         oldLen--;
-                        var deleteSucceeded = Delete(TypeConverter.ToString(oldLen), false);
+                        var deleteSucceeded = Delete(TypeConverter.ToString(oldLen).AsString(), false);
                         if (!deleteSucceeded)
                         {
-                            newLenDesc.Value = new Field<object>(oldLen + 1);
+                            newLenDesc.Value = oldLen + 1;
                             if (!newWritable)
                             {
-                                newLenDesc.Writable = new Field<bool>(false);
+                                newLenDesc.Writable = false;
                             }
                             base.DefineOwnProperty("length", newLenDesc, false);
                             if (throwOnError)
@@ -134,7 +134,7 @@ namespace Jint.Native.Array
             else if (IsArrayIndex(propertyName))
             {
                 var index = TypeConverter.ToUint32(propertyName);
-                if (index >= oldLen && !oldLenDesc.Writable.Value)
+                if (index >= oldLen && !oldLenDesc.Writable.Value.AsBoolean())
                 {
                     if (throwOnError)
                     {
@@ -155,7 +155,7 @@ namespace Jint.Native.Array
                 }
                 if (index >= oldLen)
                 {
-                    oldLenDesc.Value = new Field<object>(index + 1);
+                    oldLenDesc.Value = index + 1;
                     base.DefineOwnProperty("length", oldLenDesc, false);
                 }
                 return true;
@@ -164,7 +164,7 @@ namespace Jint.Native.Array
             return base.DefineOwnProperty(propertyName, desc, throwOnError);
         }
 
-        public static bool IsArrayIndex(object p)
+        public static bool IsArrayIndex(JsValue p)
         {
             return TypeConverter.ToString(TypeConverter.ToUint32(p)) == TypeConverter.ToString(p) && TypeConverter.ToUint32(p) != uint.MaxValue;
         }

@@ -35,12 +35,12 @@ namespace Jint.Native.Error
             
         }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             return Construct(arguments);
         }
 
-        public ObjectInstance Construct(object[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments)
         {
             var instance = new ErrorInstance(Engine, _name);
             instance.Prototype = PrototypeObject;

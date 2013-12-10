@@ -151,7 +151,7 @@ namespace Jint
 
         public Options Options { get; private set; }
 
-        public ExecutionContext EnterExecutionContext(LexicalEnvironment lexicalEnvironment, LexicalEnvironment variableEnvironment, object thisBinding)
+        public ExecutionContext EnterExecutionContext(LexicalEnvironment lexicalEnvironment, LexicalEnvironment variableEnvironment, JsValue thisBinding)
         {
             var executionContext = new ExecutionContext
                 {
@@ -223,7 +223,7 @@ namespace Jint
                     return _statements.ExecuteForInStatement(statement.As<ForInStatement>());
 
                 case SyntaxNodes.FunctionDeclaration:
-                    return new Completion(Completion.Normal, null, null);
+                    return new Completion(Completion.Normal, Undefined.Instance, null);
                     
                 case SyntaxNodes.IfStatement:
                     return _statements.ExecuteIfStatement(statement.As<IfStatement>());
@@ -325,7 +325,7 @@ namespace Jint
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public object GetValue(object value)
+        public JsValue GetValue(object value)
         {
             var reference = value as Reference;
 
@@ -338,30 +338,30 @@ namespace Jint
                     return GetValue(completion.Value);
                 }
 
-                return value;
+                return (JsValue)value;
             }
-
-            var baseValue = reference.GetBase();
 
             if (reference.IsUnresolvableReference())
             {
                 throw new JavaScriptException(ReferenceError);
             }
 
+            var baseValue = reference.GetBase();
+
             if (reference.IsPropertyReference())
             {
                 if (reference.HasPrimitiveBase() == false)
                 {
-                    var o = TypeConverter.ToObject(this, baseValue);
+                    var o = TypeConverter.ToObject(this, baseValue).AsObject();
                     return o.Get(reference.GetReferencedName());
                 }
                 else
                 {
-                    var o = TypeConverter.ToObject(this, baseValue);
+                    var o = TypeConverter.ToObject(this, baseValue).AsObject();
                     var desc = o.GetProperty(reference.GetReferencedName());
                     if (desc == PropertyDescriptor.Undefined)
                     {
-                        return Undefined.Instance;
+                        return JsValue.Undefined;
                     }
                     
                     if (desc.IsDataDescriptor())
@@ -375,13 +375,13 @@ namespace Jint
                         return Undefined.Instance;
                     }
 
-                    var callable = (ICallable)getter;
+                    var callable = (ICallable)getter.AsObject();
                     return callable.Call(baseValue, Arguments.Empty);
                 }
             }
             else
             {
-                var record = baseValue as EnvironmentRecord;
+                var record = baseValue.As<EnvironmentRecord>();
 
                 if (record == null)
                 {
@@ -397,7 +397,7 @@ namespace Jint
         /// </summary>
         /// <param name="reference"></param>
         /// <param name="value"></param>
-        public void PutValue(Reference reference, object value)
+        public void PutValue(Reference reference, JsValue value)
         {
             if (reference.IsUnresolvableReference())
             {
@@ -413,7 +413,7 @@ namespace Jint
                 var baseValue = reference.GetBase();
                 if (!reference.HasPrimitiveBase())
                 {
-                    ((ObjectInstance)baseValue).Put(reference.GetReferencedName(), value, reference.IsStrict());
+                    baseValue.AsObject().Put(reference.GetReferencedName(), value, reference.IsStrict());
                 }
                 else
                 {
@@ -423,7 +423,7 @@ namespace Jint
             else
             {
                 var baseValue = reference.GetBase();
-                var record = baseValue as EnvironmentRecord;
+                var record = baseValue.As<EnvironmentRecord>();
 
                 if (record == null)
                 {
@@ -441,9 +441,9 @@ namespace Jint
         /// <param name="name"></param>
         /// <param name="value"></param>
         /// <param name="throwOnError"></param>
-        public void PutPrimitiveBase(object b, string name, object value, bool throwOnError)
+        public void PutPrimitiveBase(JsValue b, string name, JsValue value, bool throwOnError)
         {
-            var o = TypeConverter.ToObject(this, b);
+            var o = TypeConverter.ToObject(this, b).AsObject();
             if (!o.CanPut(name))
             {
                 if (throwOnError)
@@ -470,7 +470,7 @@ namespace Jint
 
             if (desc.IsAccessorDescriptor())
             {
-                var setter = (ICallable)desc.Set.Value;
+                var setter = (ICallable)desc.Set.Value.AsObject();
                 setter.Call(b, new[] { value });
             }
             else
@@ -494,7 +494,7 @@ namespace Jint
         }
 
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
-        public void DeclarationBindingInstantiation(DeclarationBindingType declarationBindingType, IList<FunctionDeclaration> functionDeclarations, IList<VariableDeclaration> variableDeclarations, FunctionInstance functionInstance, object[] arguments)
+        public void DeclarationBindingInstantiation(DeclarationBindingType declarationBindingType, IList<FunctionDeclaration> functionDeclarations, IList<VariableDeclaration> variableDeclarations, FunctionInstance functionInstance, JsValue[] arguments)
         {
             var env = ExecutionContext.VariableEnvironment.Record;
             bool configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
@@ -533,7 +533,7 @@ namespace Jint
                     {
                         var go = Global;
                         var existingProp = go.GetProperty(fn);
-                        if (existingProp.Configurable.Value)
+                        if (existingProp.Configurable.Value.AsBoolean())
                         {
                             go.DefineOwnProperty(fn,
                                                  new PropertyDescriptor(
@@ -545,7 +545,7 @@ namespace Jint
                         }
                         else
                         {
-                            if (existingProp.IsAccessorDescriptor() || (!existingProp.Enumerable.Value))
+                            if (existingProp.IsAccessorDescriptor() || (!existingProp.Enumerable.Value.AsBoolean()))
                             {
                                 throw new JavaScriptException(TypeError);
                             }

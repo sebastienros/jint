@@ -22,18 +22,13 @@ namespace Jint.Native.Function
         /// <param name="thisObject"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public abstract object Call(object thisObject, object[] arguments);
+        public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
 
         public LexicalEnvironment Scope { get; private set; }
         
         public string[] FormalParameters { get; private set; }
         public bool Strict { get; private set; }
 
-        /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.3.5.3
-        /// </summary>
-        /// <param name="instance"></param>
-        /// <returns></returns>
         public virtual bool HasInstance(object v)
         {
             var vObj = v as ObjectInstance;
@@ -42,7 +37,7 @@ namespace Jint.Native.Function
                 return false;
             }
 
-            var o = Get("prototype") as ObjectInstance;
+            var o = Get("prototype").AsObject();
             
             if (o == null)
             {
@@ -77,11 +72,11 @@ namespace Jint.Native.Function
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public override object Get(string propertyName)
+        public override JsValue Get(string propertyName)
         {
             var v = base.Get(propertyName);
 
-            var f = v as FunctionInstance;
+            var f = v.As<FunctionInstance>();
             if (propertyName == "caller" && f != null && f.Strict)
             {
                 throw new JavaScriptException(_engine.TypeError);

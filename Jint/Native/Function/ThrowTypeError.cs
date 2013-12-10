@@ -1,5 +1,4 @@
-﻿using Jint.Parser.Ast;
-using Jint.Runtime;
+﻿using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Function
@@ -15,7 +14,7 @@ namespace Jint.Native.Function
             Extensible = false;
         }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             throw new JavaScriptException(_engine.TypeError);
         }

@@ -19,10 +19,9 @@ namespace Jint.Runtime.Interop
             _d = d;
         }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            var result = _d.DynamicInvoke(arguments);
-            return new Completion(Completion.Normal, result, null);
+            return JsValue.FromObject(_d.DynamicInvoke(arguments));
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using Jint.Native;
 using Jint.Native.Function;
 
 namespace Jint.Runtime.Interop
@@ -6,19 +7,19 @@ namespace Jint.Runtime.Interop
     /// <summary>
     /// Represents a FunctionInstance wrapping a Clr getter.
     /// </summary>
-    public sealed class GetterFunctionInstance<T> : FunctionInstance
+    public sealed class GetterFunctionInstance: FunctionInstance
     {
-        private readonly Func<T, object> _getter;
+        private readonly Func<JsValue, JsValue> _getter;
 
-        public GetterFunctionInstance(Engine engine, Func<T, object> getter)
+        public GetterFunctionInstance(Engine engine, Func<JsValue, JsValue> getter)
             : base(engine,  null, null, false)
         {
             _getter = getter;
         }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return _getter((T)thisObject);
+            return _getter(thisObject);
         }
     }
 }

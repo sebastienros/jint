@@ -1,4 +1,5 @@
 ﻿using System;
+using Jint.Native;
 using Jint.Native.Function;
 
 namespace Jint.Runtime.Interop
@@ -6,11 +7,11 @@ namespace Jint.Runtime.Interop
     /// <summary>
     /// Wraps a Clr method into a FunctionInstance
     /// </summary>
-    public sealed class ClrFunctionInstance<TObject, TResult> : FunctionInstance
+    public sealed class ClrFunctionInstance : FunctionInstance
     {
-        private readonly Func<TObject, object[], TResult> _func;
+        private readonly Func<JsValue, JsValue[], JsValue> _func;
 
-        public ClrFunctionInstance(Engine engine, Func<TObject, object[], TResult> func, int length)
+        public ClrFunctionInstance(Engine engine, Func<JsValue, JsValue[], JsValue> func, int length)
             : base(engine, null, null, false)
         {
             _func = func;
@@ -18,16 +19,16 @@ namespace Jint.Runtime.Interop
             FastAddProperty("length", length, false, false, false);
         }
 
-        public ClrFunctionInstance(Engine engine, Func<TObject, object[], TResult> func)
+        public ClrFunctionInstance(Engine engine, Func<JsValue, JsValue[], JsValue> func)
             : this(engine, func, 0)
         {
         }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             try
             {
-                var result = _func((TObject) thisObject, arguments);
+                var result = _func(thisObject, arguments);
                 return result;
             }
             catch (InvalidCastException)

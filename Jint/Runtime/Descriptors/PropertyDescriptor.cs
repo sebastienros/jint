@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Native.Object;
 
 namespace Jint.Runtime.Descriptors
@@ -13,99 +12,49 @@ namespace Jint.Runtime.Descriptors
         Writable,
         Value
     }
-
-    public interface IPropertyField
-    {
-        bool IsPresent { get; }
-
-        bool IsAbsent { get; }
-
-        object Value { get; }
-    }
-
-    public struct Field<T> : IPropertyField
-    {
-        private readonly T _field;
-        private readonly bool _present;
-
-        public Field(T value)
-        {
-            _field = value;
-            _present = true;
-        }
-
-        public bool IsPresent
-        {
-            get { return _present; }
-        }
-
-        public bool IsAbsent
-        {
-            get { return !_present; }
-        }
-
-        public T Value
-        {
-            get
-            {
-                return _field;
-            }
-        }
-
-        bool IPropertyField.IsPresent
-        {
-            get { return IsPresent; }
-        }
-
-        bool IPropertyField.IsAbsent
-        {
-            get { return IsAbsent; }
-        }
-
-        object IPropertyField.Value
-        {
-            get
-            {
-                return Value;
-            }
-        }
-    }
-
+    
     public class PropertyDescriptor
     {
         public static PropertyDescriptor Undefined = new PropertyDescriptor();
 
         public PropertyDescriptor()
         {
-            Get = new Field<object>();
-            Set = new Field<object>();
-            Value = new Field<object>();
-            Enumerable = new Field<bool>();
-            Configurable = new Field<bool>();
-            Writable = new Field<bool>();
         }
 
-        public PropertyDescriptor(object value, bool? writable, bool? enumerable, bool? configurable)
+        public PropertyDescriptor(JsValue? value, bool? writable, bool? enumerable, bool? configurable)
         {
-            Value = value == null ? new Field<object>() : new Field<object>(value);
-            Writable = writable == null ? new Field<bool>() : new Field<bool>(writable.Value);
-            Enumerable = enumerable == null ? new Field<bool>() : new Field<bool>(enumerable.Value);
-            Configurable = configurable == null ? new Field<bool>() : new Field<bool>(configurable.Value);
+            Value = value;
 
-            Get = new Field<object>();
-            Set = new Field<object>();
+            if (writable.HasValue)
+            {
+                Writable = new JsValue(writable.Value);
+            }
+
+            if (enumerable.HasValue)
+            {
+                Enumerable = new JsValue(enumerable.Value);
+            }
+
+            if (configurable.HasValue)
+            {
+                Configurable = new JsValue(configurable.Value);
+            }
         }
 
-        public PropertyDescriptor(object get, object set, bool? enumerable = null, bool? configurable = null)
+        public PropertyDescriptor(JsValue? get, JsValue? set, bool? enumerable = null, bool? configurable = null)
         {
-            Get = get == null ? new Field<object>() : new Field<object>(get);
-            Set = set == null ? new Field<object>() : new Field<object>(set);
+            Get = get;
+            Set = set;
 
-            Enumerable = enumerable == null ? new Field<bool>() : new Field<bool>(enumerable.Value);
-            Configurable = configurable == null ? new Field<bool>() : new Field<bool>(configurable.Value);
+            if (enumerable.HasValue)
+            {
+                Enumerable = new JsValue(enumerable.Value);
+            }
 
-            Value = new Field<object>();
-            Writable = new Field<bool>();
+            if (configurable.HasValue)
+            {
+                Configurable = new JsValue(configurable.Value);
+            }
         }
 
         public PropertyDescriptor(PropertyDescriptor descriptor)
@@ -118,32 +67,16 @@ namespace Jint.Runtime.Descriptors
             Writable = descriptor.Writable;
         }
 
-        public Field<object> Get { get; set; }
-        public Field<object> Set { get; set; }
-        public Field<bool> Enumerable { get; set; }
-        public Field<bool> Writable { get; set; }
-        public Field<bool> Configurable { get; set; }
-        public Field<object> Value { get; set; }
-
-        public IDictionary<string, IPropertyField> AllFields
-        {
-            get
-            {
-                return new Dictionary<string, IPropertyField>
-                {
-                    {"Get", Get},
-                    {"Set", Set},
-                    {"Enumerable", Enumerable},
-                    {"Configurable", Configurable},
-                    {"Writable", Writable},
-                    {"Value", Value},
-                };
-            }
-        }
-
+        public JsValue? Get { get; set; }
+        public JsValue? Set { get; set; }
+        public JsValue? Enumerable { get; set; }
+        public JsValue? Writable { get; set; }
+        public JsValue? Configurable { get; set; }
+        public JsValue? Value { get; set; }
+        
         public bool IsAccessorDescriptor()
         {
-            if (Get.IsAbsent && Set.IsAbsent)
+            if (!Get.HasValue && !Get.HasValue)
             {
                 return false;
             }
@@ -153,7 +86,7 @@ namespace Jint.Runtime.Descriptors
 
         public bool IsDataDescriptor()
         {
-            if (Writable.IsAbsent && Value.IsAbsent)
+            if (!Writable.HasValue && !Value.HasValue)
             {
                 return false;
             }
@@ -189,33 +122,33 @@ namespace Jint.Runtime.Descriptors
 
             if (obj.HasProperty("enumerable"))
             {
-                desc.Enumerable = new Field<bool>(TypeConverter.ToBoolean(obj.Get("enumerable")));
+                desc.Enumerable = TypeConverter.ToBoolean(obj.Get("enumerable"));
             }
 
             if (obj.HasProperty("configurable"))
             {
-                desc.Configurable = new Field<bool>(TypeConverter.ToBoolean(obj.Get("configurable")));
+                desc.Configurable = TypeConverter.ToBoolean(obj.Get("configurable"));
             }
 
             if (obj.HasProperty("value"))
             {
                 var value = obj.Get("value");
-                desc.Value = new Field<object>(value);
+                desc.Value = value;
             }
 
             if (obj.HasProperty("writable"))
             {
-                desc.Writable = new Field<bool>(TypeConverter.ToBoolean(obj.Get("writable")));
+                desc.Writable = TypeConverter.ToBoolean(obj.Get("writable"));
             }
 
             if (obj.HasProperty("get"))
             {
                 var getter = obj.Get("get");
-                if (getter != Native.Undefined.Instance && !(getter is ICallable))
+                if (getter != JsValue.Undefined && !(getter is ICallable))
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
-                desc.Get = new Field<object>(getter);
+                desc.Get = getter;
             }
 
             if (obj.HasProperty("set"))
@@ -225,12 +158,12 @@ namespace Jint.Runtime.Descriptors
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
-                desc.Set = new Field<object>(setter);
+                desc.Set = setter;
             }
 
-            if (desc.Get.IsPresent || desc.Get.IsPresent)
+            if (desc.Get.HasValue || desc.Get.HasValue)
             {
-                if (desc.Value.IsPresent || desc.Writable.IsPresent)
+                if (desc.Value.HasValue || desc.Writable.HasValue)
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
@@ -239,7 +172,7 @@ namespace Jint.Runtime.Descriptors
             return desc;
         }
 
-        public static object FromPropertyDescriptor(Engine engine, PropertyDescriptor desc)
+        public static JsValue FromPropertyDescriptor(Engine engine, PropertyDescriptor desc)
         {
             if (desc == Undefined)
             {
@@ -251,16 +184,16 @@ namespace Jint.Runtime.Descriptors
             if (desc.IsDataDescriptor())
             {
                 obj.DefineOwnProperty("value", new PropertyDescriptor(value: desc.Value.Value, writable: true, enumerable: true, configurable: true ), false);
-                obj.DefineOwnProperty("writable", new PropertyDescriptor(value: desc.Writable.IsPresent && desc.Writable.Value, writable: true, enumerable: true, configurable: true ), false);
+                obj.DefineOwnProperty("writable", new PropertyDescriptor(value: desc.Writable.HasValue && desc.Writable.Value.AsBoolean(), writable: true, enumerable: true, configurable: true), false);
             }
             else
             {
-                obj.DefineOwnProperty("get", new PropertyDescriptor(desc.Get.Value ?? Native.Undefined.Instance, writable: true, enumerable: true, configurable: true ), false);
-                obj.DefineOwnProperty("set", new PropertyDescriptor(desc.Set.Value ?? Native.Undefined.Instance, writable: true, enumerable: true, configurable: true), false);
+                obj.DefineOwnProperty("get", new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, writable: true, enumerable: true, configurable: true ), false);
+                obj.DefineOwnProperty("set", new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, writable: true, enumerable: true, configurable: true), false);
             }
 
-            obj.DefineOwnProperty("enumerable", new PropertyDescriptor(value: desc.Enumerable.IsPresent && desc.Enumerable.Value, writable: true, enumerable: true, configurable: true), false);
-            obj.DefineOwnProperty("configurable", new PropertyDescriptor(value: desc.Configurable.IsPresent && desc.Configurable.Value, writable: true, enumerable: true, configurable: true), false);
+            obj.DefineOwnProperty("enumerable", new PropertyDescriptor(value: desc.Enumerable.HasValue && desc.Enumerable.Value.AsBoolean(), writable: true, enumerable: true, configurable: true), false);
+            obj.DefineOwnProperty("configurable", new PropertyDescriptor(value: desc.Configurable.HasValue && desc.Configurable.Value.AsBoolean(), writable: true, enumerable: true, configurable: true), false);
 
             return obj;
         }

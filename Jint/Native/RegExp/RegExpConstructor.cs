@@ -34,12 +34,12 @@ namespace Jint.Native.RegExp
         {
         }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             var pattern = arguments.At(0);
             var flags = arguments.At(1);
 
-            if (pattern != Undefined.Instance && flags == Undefined.Instance && TypeConverter.ToObject(Engine, pattern).Class == "Regex")
+            if (pattern != Undefined.Instance && flags == Undefined.Instance && TypeConverter.ToObject(Engine, pattern).AsObject().Class == "Regex")
             {
                 return pattern;
             }
@@ -52,7 +52,7 @@ namespace Jint.Native.RegExp
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public ObjectInstance Construct(object[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments)
         {
             string p;
             string f;
@@ -60,20 +60,20 @@ namespace Jint.Native.RegExp
             var pattern = arguments.At(0);
             var flags = arguments.At(1);
 
-            var r = pattern as RegExpInstance;
-            if (pattern != null && flags == Undefined.Instance && r != null)
+            var r = pattern.TryCast<RegExpInstance>();
+            if (pattern.AsString() != null && flags == Undefined.Instance && r != null)
             {
                 p = r.Pattern;
                 f = r.Flags;
             }
-            else if (pattern != null && flags != Undefined.Instance && r != null)
+            else if (pattern.AsString() != null && flags != Undefined.Instance && r != null)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
             else
             {
-                p = pattern != Undefined.Instance ? TypeConverter.ToString(pattern) : "";
-                f = flags != Undefined.Instance ? TypeConverter.ToString(flags) : "";
+                p = pattern != Undefined.Instance ? TypeConverter.ToString(pattern).AsString() : "";
+                f = flags != Undefined.Instance ? TypeConverter.ToString(flags).AsString() : "";
             }
 
             r = new RegExpInstance(Engine);

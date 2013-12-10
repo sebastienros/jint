@@ -40,12 +40,12 @@ namespace Jint.Native.Function
 
         public FunctionPrototype PrototypeObject { get; private set; }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             return Construct(arguments);
         }
 
-        public ObjectInstance Construct(object[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments)
         {
             var argCount = arguments.Length;
             string p = "";
@@ -53,21 +53,21 @@ namespace Jint.Native.Function
 
             if (argCount == 1)
             {
-                body = TypeConverter.ToString(arguments[0]);
+                body = TypeConverter.ToString(arguments[0]).AsString();
             }
             else if (argCount > 1)
             {
                 var firstArg = arguments[0];
-                p = TypeConverter.ToString(firstArg);
+                p = TypeConverter.ToString(firstArg).AsString();
                 for (var k = 1; k < argCount - 1; k++)
                 {
                     var nextArg = arguments[k];
                     p += "," + TypeConverter.ToString(nextArg);
                 }
 
-                body = TypeConverter.ToString(arguments[argCount-1]);
+                body = TypeConverter.ToString(arguments[argCount-1]).AsString();
             }
-            body = TypeConverter.ToString(body);
+            body = TypeConverter.ToString(body).AsString();
             
             // todo: ensure parsable as parameter list
             var parameters = p.Split(new [] {','}, StringSplitOptions.RemoveEmptyEntries);
@@ -143,14 +143,14 @@ namespace Jint.Native.Function
             }
         }
 
-        public object Apply(object thisObject, object[] arguments)
+        public object Apply(JsValue thisObject, JsValue[] arguments)
         {
             if (arguments.Length != 2)
             {
                 throw new ArgumentException("Apply has to be called with two arguments.");
             }
 
-            var func = thisObject as ICallable;
+            var func = thisObject.TryCast<ICallable>();
             var thisArg = arguments[0];
             var argArray = arguments[1];
 
@@ -164,7 +164,7 @@ namespace Jint.Native.Function
                 return func.Call(thisArg, Arguments.Empty);
             }
 
-            var argArrayObj = argArray as ObjectInstance;
+            var argArrayObj = argArray.TryCast<ObjectInstance>();
             if (argArrayObj == null)
             {
                 throw new JavaScriptException(Engine.TypeError);
@@ -172,7 +172,7 @@ namespace Jint.Native.Function
 
             var len = argArrayObj.Get("length");
             var n = TypeConverter.ToUint32(len);
-            var argList = new List<object>();
+            var argList = new List<JsValue>();
             for (var index = 0; index < n; index++)
             {
                 var indexName = index.ToString();

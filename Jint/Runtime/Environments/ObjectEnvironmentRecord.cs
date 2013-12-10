@@ -14,7 +14,7 @@ namespace Jint.Runtime.Environments
         private readonly ObjectInstance _bindingObject;
         private readonly bool _provideThis;
 
-        public ObjectEnvironmentRecord(Engine engine, ObjectInstance bindingObject, bool provideThis)
+        public ObjectEnvironmentRecord(Engine engine, ObjectInstance bindingObject, bool provideThis) : base(engine)
         {
             _engine = engine;
             _bindingObject = bindingObject;
@@ -36,12 +36,12 @@ namespace Jint.Runtime.Environments
             _bindingObject.DefineOwnProperty(name, new PropertyDescriptor(Undefined.Instance, true, true, configurable), true);
         }
 
-        public override void SetMutableBinding(string name, object value, bool strict)
+        public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
             _bindingObject.Put(name, value, strict);
         }
 
-        public override object GetBindingValue(string name, bool strict)
+        public override JsValue GetBindingValue(string name, bool strict)
         {
             // todo: can be optimized
 
@@ -63,11 +63,11 @@ namespace Jint.Runtime.Environments
             return _bindingObject.Delete(name, false);
         }
 
-        public override object ImplicitThisValue()
+        public override JsValue ImplicitThisValue()
         {
             if (_provideThis)
             {
-                return _bindingObject;
+                return new JsValue(_bindingObject);
             }
 
             return Undefined.Instance;

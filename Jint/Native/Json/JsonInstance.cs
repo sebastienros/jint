@@ -32,20 +32,20 @@ namespace Jint.Native.Json
         public void Configure()
         {
 
-            FastAddProperty("parse", new ClrFunctionInstance<JsonInstance, object>(Engine, Parse), true, false, true);
-            FastAddProperty("stringify", new ClrFunctionInstance<JsonInstance, object>(Engine, Stringify), true, false, true);
+            FastAddProperty("parse", new ClrFunctionInstance(Engine, Parse), true, false, true);
+            FastAddProperty("stringify", new ClrFunctionInstance(Engine, Stringify), true, false, true);
         }
 
-        public object Parse(JsonInstance thisObject, object[] arguments)
+        public JsValue Parse(JsValue thisObject, JsValue[] arguments)
         {
             var parser = new JsonParser(_engine);
 
             return parser.Parse(arguments[0].ToString());
         }
 
-        public object Stringify(JsonInstance thisObject, object[] arguments)
+        public JsValue Stringify(JsValue thisObject, JsValue[] arguments)
         {
-            object 
+            JsValue 
                 value = Undefined.Instance, 
                 replacer = Undefined.Instance,
                 space = Undefined.Instance;

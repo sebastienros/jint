@@ -3,7 +3,6 @@ using System.Linq;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Number;
-using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -25,10 +24,10 @@ namespace Jint.Runtime
             return _engine.EvaluateExpression(expression);
         }
 
-        public object EvaluateConditionalExpression(ConditionalExpression conditionalExpression)
+        public JsValue EvaluateConditionalExpression(ConditionalExpression conditionalExpression)
         {
             var lref = _engine.EvaluateExpression(conditionalExpression.Test);
-            if (TypeConverter.ToBoolean(_engine.GetValue(lref)))
+            if (TypeConverter.ToBoolean(_engine.GetValue(lref)).AsBoolean())
             {
                 var trueRef = _engine.EvaluateExpression(conditionalExpression.Consequent);
                 return _engine.GetValue(trueRef);
@@ -40,9 +39,9 @@ namespace Jint.Runtime
             }
         }
 
-        public object EvaluateAssignmentExpression(AssignmentExpression assignmentExpression)
+        public JsValue EvaluateAssignmentExpression(AssignmentExpression assignmentExpression)
         {
-            object rval = _engine.GetValue(EvaluateExpression(assignmentExpression.Right));
+            JsValue rval = _engine.GetValue(EvaluateExpression(assignmentExpression.Right));
 
             var lref = EvaluateExpression(assignmentExpression.Left) as Reference;
 
@@ -54,7 +53,7 @@ namespace Jint.Runtime
             if (assignmentExpression.Operator == "=")
             {
  
-                if(lref.IsStrict() && lref.GetBase() is EnvironmentRecord && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
+                if(lref.IsStrict() && lref.GetBase().TryCast<EnvironmentRecord>() != null && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
                 {
                     throw new JavaScriptException(_engine.SyntaxError);
                 }
@@ -63,26 +62,25 @@ namespace Jint.Runtime
                 return rval;
             }
 
-            object lval = _engine.GetValue(lref);
+            JsValue lval = _engine.GetValue(lref);
 
             switch (assignmentExpression.Operator)
             {
                 case "+=":
                     var lprim = TypeConverter.ToPrimitive(lval);
                     var rprim = TypeConverter.ToPrimitive(rval);
-                    if (TypeConverter.GetType(lprim) == Types.String ||
-                        TypeConverter.GetType(rprim) == Types.String)
+                    if (lprim.IsString() || rprim.IsString())
                     {
-                        lval = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
+                        lval = TypeConverter.ToString(lprim).AsString() + TypeConverter.ToString(rprim).AsString();
                     }
                     else
                     {
-                        lval = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
+                        lval = TypeConverter.ToNumber(lprim).AsNumber() + TypeConverter.ToNumber(rprim).AsNumber();
                     }
                     break;
 
                 case "-=":
-                    lval = TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval);
+                    lval = TypeConverter.ToNumber(lval).AsNumber() - TypeConverter.ToNumber(rval).AsNumber();
                     break;
 
                 case "*=":
@@ -92,7 +90,7 @@ namespace Jint.Runtime
                     }
                     else
                     {
-                        lval = TypeConverter.ToNumber(lval) * TypeConverter.ToNumber(rval);
+                        lval = TypeConverter.ToNumber(lval).AsNumber() * TypeConverter.ToNumber(rval).AsNumber();
                     }
                     break;
 
@@ -107,7 +105,7 @@ namespace Jint.Runtime
                     }
                     else
                     {
-                        lval = TypeConverter.ToNumber(lval) % TypeConverter.ToNumber(rval);
+                        lval = TypeConverter.ToNumber(lval).AsNumber() % TypeConverter.ToNumber(rval).AsNumber();
                     }
                     break;
 
@@ -145,7 +143,7 @@ namespace Jint.Runtime
             return lval;
         }
 
-        private object Divide(object lval, object rval)
+        private JsValue Divide(JsValue lval, JsValue rval)
         {
             if (lval == Undefined.Instance || rval == Undefined.Instance)
             {
@@ -153,8 +151,8 @@ namespace Jint.Runtime
             }
             else
             {
-                var lN = TypeConverter.ToNumber(lval);
-                var rN = TypeConverter.ToNumber(rval);
+                var lN = TypeConverter.ToNumber(lval).AsNumber();
+                var rN = TypeConverter.ToNumber(rval).AsNumber();
 
                 if (double.IsNaN(rN) || double.IsNaN(lN))
                 {
@@ -195,29 +193,29 @@ namespace Jint.Runtime
             }
         }
 
-        public object EvaluateBinaryExpression(BinaryExpression expression)
+        public JsValue EvaluateBinaryExpression(BinaryExpression expression)
         {
-            object left = _engine.GetValue(EvaluateExpression(expression.Left));
-            object right = _engine.GetValue(EvaluateExpression(expression.Right));
-            object value;
+            JsValue left = _engine.GetValue(EvaluateExpression(expression.Left));
+            JsValue right = _engine.GetValue(EvaluateExpression(expression.Right));
+            JsValue value;
 
             switch (expression.Operator)
             {
                 case "+":
                     var lprim = TypeConverter.ToPrimitive(left);
                     var rprim = TypeConverter.ToPrimitive(right);
-                    if (TypeConverter.GetType(lprim) == Types.String || TypeConverter.GetType(rprim) == Types.String)
+                    if (lprim.IsString() || rprim.IsString())
                     {
-                        value = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
+                        value = TypeConverter.ToString(lprim).AsString() + TypeConverter.ToString(rprim).AsString();
                     }
                     else
                     {
-                        value = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
+                        value = TypeConverter.ToNumber(lprim).AsNumber() + TypeConverter.ToNumber(rprim).AsNumber();
                     }
                     break;
                 
                 case "-":
-                    value = TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right);
+                    value = TypeConverter.ToNumber(left).AsNumber() - TypeConverter.ToNumber(right).AsNumber();
                     break;
                 
                 case "*":
@@ -227,7 +225,7 @@ namespace Jint.Runtime
                     }
                     else
                     {
-                        value = TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right);
+                        value = TypeConverter.ToNumber(left).AsNumber() * TypeConverter.ToNumber(right).AsNumber();
                     }
                     break;
                 
@@ -242,7 +240,7 @@ namespace Jint.Runtime
                     }
                     else
                     {
-                        value = TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right);
+                        value = TypeConverter.ToNumber(left).AsNumber() % TypeConverter.ToNumber(right).AsNumber();
                     }
                     break;
 
@@ -264,7 +262,7 @@ namespace Jint.Runtime
 
                 case ">=":
                     value = Compare(left, right);
-                    if (value == Undefined.Instance || (bool) value)
+                    if (value == Undefined.Instance || value.AsBoolean())
                     {
                         value = false;
                     }
@@ -284,7 +282,7 @@ namespace Jint.Runtime
                 
                 case "<=":
                     value = Compare(right, left, false);
-                    if (value == Undefined.Instance || (bool) value)
+                    if (value == Undefined.Instance || value.AsBoolean())
                     {
                         value = false;
                     }
@@ -319,7 +317,7 @@ namespace Jint.Runtime
                     return (uint)TypeConverter.ToInt32(left) >> (int)(TypeConverter.ToUint32(right) & 0x1F);
 
                 case "instanceof":
-                    var f = right as FunctionInstance;
+                    var f = right.TryCast<FunctionInstance>();
 
                     if (f == null)
                     {
@@ -330,14 +328,12 @@ namespace Jint.Runtime
                     break;
                 
                 case "in":
-                    var o = right as ObjectInstance;
-
-                    if (o == null)
+                    if (!right.IsObject())
                     {
                         throw new JavaScriptException(_engine.TypeError, "in can only be used with an object");
                     }
 
-                    value = o.HasProperty(TypeConverter.ToString(left));
+                    value = right.AsObject().HasProperty(TypeConverter.ToString(left).AsString());
                     break;
                 
                 default:
@@ -347,7 +343,7 @@ namespace Jint.Runtime
             return value;
         }
 
-        public object EvaluateLogicalExpression(LogicalExpression logicalExpression)
+        public JsValue EvaluateLogicalExpression(LogicalExpression logicalExpression)
         {
             var left = _engine.GetValue(EvaluateExpression(logicalExpression.Left));
 
@@ -355,7 +351,7 @@ namespace Jint.Runtime
             {
 
                 case "&&":
-                    if (!TypeConverter.ToBoolean(left))
+                    if (!TypeConverter.ToBoolean(left).AsBoolean())
                     {
                         return left;
                     }
@@ -363,7 +359,7 @@ namespace Jint.Runtime
                     return _engine.GetValue(EvaluateExpression(logicalExpression.Right));
 
                 case "||":
-                    if (TypeConverter.ToBoolean(left))
+                    if (TypeConverter.ToBoolean(left).AsBoolean())
                     {
                         return left;
                     }
@@ -375,10 +371,10 @@ namespace Jint.Runtime
             }
         }
 
-        public static bool Equal(object x, object y)
+        public static bool Equal(JsValue x, JsValue y)
         {
-            var typex = TypeConverter.GetType(x);
-            var typey = TypeConverter.GetType(y);
+            var typex = x.Type;
+            var typey = y.Type;
 
             if (typex == typey)
             {
@@ -389,8 +385,8 @@ namespace Jint.Runtime
 
                 if (typex == Types.Number)
                 {
-                    var nx = TypeConverter.ToNumber(x);
-                    var ny = TypeConverter.ToNumber(y);
+                    var nx = TypeConverter.ToNumber(x).AsNumber();
+                    var ny = TypeConverter.ToNumber(y).AsNumber();
 
                     if (double.IsNaN(nx) || double.IsNaN(ny))
                     {
@@ -412,7 +408,7 @@ namespace Jint.Runtime
 
                 if (typex == Types.Boolean)
                 {
-                    return (bool) x == (bool) y;
+                    return x.AsBoolean() == y.AsBoolean();
                 }
 
                 return x == y;
@@ -461,10 +457,10 @@ namespace Jint.Runtime
             return false;
         }
 
-        public static bool StriclyEqual(object x, object y)
+        public static bool StriclyEqual(JsValue x, JsValue y)
         {
-            var typea = TypeConverter.GetType(x);
-            var typeb = TypeConverter.GetType(y);
+            var typea = x.Type;
+            var typeb = y.Type;
 
             if (typea != typeb)
             {
@@ -482,8 +478,9 @@ namespace Jint.Runtime
             }
             if (typea == Types.Number)
             {
-                var nx = TypeConverter.ToNumber(x);
-                var ny = TypeConverter.ToNumber(y);
+                var nx = TypeConverter.ToNumber(x).AsNumber();
+                var ny = TypeConverter.ToNumber(y).AsNumber();
+
                 if (double.IsNaN(nx) || double.IsNaN(ny))
                 {
                     return false;
@@ -507,10 +504,10 @@ namespace Jint.Runtime
             return x == y;
         }
 
-        public static bool SameValue(object x, object y)
+        public static bool SameValue(JsValue x, JsValue y)
         {
-            var typea = TypeConverter.GetType(x);
-            var typeb = TypeConverter.GetType(y);
+            var typea = x.Type;
+            var typeb = y.Type;
 
             if (typea != typeb)
             {
@@ -523,8 +520,9 @@ namespace Jint.Runtime
             }
             if (typea == Types.Number)
             {
-                var nx = TypeConverter.ToNumber(x);
-                var ny = TypeConverter.ToNumber(y);
+                var nx = TypeConverter.ToNumber(x).AsNumber();
+                var ny = TypeConverter.ToNumber(y).AsNumber();
+
                 if (double.IsNaN(nx) && double.IsNaN(ny))
                 {
                     return true;
@@ -554,9 +552,9 @@ namespace Jint.Runtime
             return x == y;
         }
 
-        public static object Compare(object x, object y, bool leftFirst = true)
+        public static JsValue Compare(JsValue x, JsValue y, bool leftFirst = true)
         {
-            object px, py;
+            JsValue px, py;
             if (leftFirst)
             {
                 px = TypeConverter.ToPrimitive(x, Types.Number);
@@ -568,13 +566,13 @@ namespace Jint.Runtime
                 px = TypeConverter.ToPrimitive(x, Types.Number);
             }
 
-            var typea = TypeConverter.GetType(px);
-            var typeb = TypeConverter.GetType(py);
+            var typea = px.Type;
+            var typeb = py.Type;
 
             if (typea != Types.String || typeb != Types.String)
             {
-                var nx = TypeConverter.ToNumber(px);
-                var ny = TypeConverter.ToNumber(py);
+                var nx = TypeConverter.ToNumber(px).AsNumber();
+                var ny = TypeConverter.ToNumber(py).AsNumber();
 
                 if (double.IsNaN(nx) || double.IsNaN(ny))
                 {
@@ -610,7 +608,7 @@ namespace Jint.Runtime
             }
             else
             {
-                return String.CompareOrdinal(TypeConverter.ToString(x), TypeConverter.ToString(y)) < 0;
+                return String.CompareOrdinal(TypeConverter.ToString(x).AsString(), TypeConverter.ToString(y).AsString()) < 0;
             }
         }
 
@@ -622,17 +620,17 @@ namespace Jint.Runtime
             return LexicalEnvironment.GetIdentifierReference(env, identifier.Name, strict);
         }
 
-        public object EvaluateLiteral(Literal literal)
+        public JsValue EvaluateLiteral(Literal literal)
         {
             if (literal.Type == SyntaxNodes.RegularExpressionLiteral)
             {
                 return _engine.RegExp.Construct(literal.Raw);
             }
 
-            return literal.Value ?? Null.Instance;
+            return JsValue.FromObject(literal.Value);
         }
 
-        public object EvaluateObjectExpression(ObjectExpression objectExpression)
+        public JsValue EvaluateObjectExpression(ObjectExpression objectExpression)
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-11.1.5
 
@@ -718,12 +716,12 @@ namespace Jint.Runtime
 
                     if (previous.IsAccessorDescriptor() && propDesc.IsAccessorDescriptor())
                     {
-                        if (propDesc.Set.IsPresent && previous.Set.IsPresent)
+                        if (propDesc.Set.HasValue && previous.Set.HasValue)
                         {
                             throw new JavaScriptException(_engine.SyntaxError);
                         }
-                        
-                        if (propDesc.Get.IsPresent && previous.Get.IsPresent)
+
+                        if (propDesc.Get.HasValue && previous.Get.HasValue)
                         {
                             throw new JavaScriptException(_engine.SyntaxError);
                         }
@@ -741,7 +739,7 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="memberExpression"></param>
         /// <returns></returns>
-        public object EvaluateMemberExpression(MemberExpression memberExpression)
+        public Reference EvaluateMemberExpression(MemberExpression memberExpression)
         {
             var baseReference = EvaluateExpression(memberExpression.Object);
             var baseValue = _engine.GetValue(baseReference);
@@ -756,12 +754,12 @@ namespace Jint.Runtime
             var propertyNameReference = EvaluateExpression(expression);
             var propertyNameValue = _engine.GetValue(propertyNameReference);
             TypeConverter.CheckObjectCoercible(_engine, baseValue);
-            var propertyNameString = TypeConverter.ToString(propertyNameValue);
+            var propertyNameString = TypeConverter.ToString(propertyNameValue).AsString();
 
             return new Reference(baseValue, propertyNameString, StrictModeScope.IsStrictModeCode);
         }
 
-        public object EvaluateFunctionExpression(FunctionExpression functionExpression)
+        public JsValue EvaluateFunctionExpression(FunctionExpression functionExpression)
         {
             var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
             var envRec = (DeclarativeEnvironmentRecord)funcEnv.Record;
@@ -786,11 +784,11 @@ namespace Jint.Runtime
             return closure;
         }
 
-        public object EvaluateCallExpression(CallExpression callExpression)
+        public JsValue EvaluateCallExpression(CallExpression callExpression)
         {
             var callee = EvaluateExpression(callExpression.Callee);
 
-            object thisObject;
+            JsValue thisObject;
 
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
             var arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
@@ -802,12 +800,12 @@ namespace Jint.Runtime
                 throw new JavaScriptException(_engine.TypeError);
             }
 
-            if (TypeConverter.GetType(func) != Types.Object)
+            if (func.IsObject())
             {
                 throw new JavaScriptException(_engine.TypeError);
             }
 
-            var callable = func as ICallable;
+            var callable = func.TryCast<ICallable>();
             if (callable == null)
             {
                 throw new JavaScriptException(_engine.TypeError);
@@ -822,7 +820,7 @@ namespace Jint.Runtime
                 }
                 else
                 {
-                    var env = r.GetBase() as EnvironmentRecord;
+                    var env = r.GetBase().TryCast<EnvironmentRecord>();
                     thisObject = env.ImplicitThisValue();
                 }
             }
@@ -840,7 +838,7 @@ namespace Jint.Runtime
             return callable.Call(thisObject, arguments);
         }
 
-        public object EvaluateSequenceExpression(SequenceExpression sequenceExpression)
+        public JsValue EvaluateSequenceExpression(SequenceExpression sequenceExpression)
         {
             var result = Undefined.Instance;
             foreach (var expression in sequenceExpression.Expressions)
@@ -851,7 +849,7 @@ namespace Jint.Runtime
             return result;
         }
 
-        public object EvaluateUpdateExpression(UpdateExpression updateExpression)
+        public JsValue EvaluateUpdateExpression(UpdateExpression updateExpression)
         {
             var value = _engine.EvaluateExpression(updateExpression.Argument);
             Reference r;
@@ -862,13 +860,13 @@ namespace Jint.Runtime
                     r = value as Reference;
                     if (r != null
                         && r.IsStrict()
-                        && (r.GetBase() is EnvironmentRecord)
+                        && (r.GetBase().TryCast<EnvironmentRecord>() != null)
                         && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
                     }
 
-                    var oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
+                    var oldValue = TypeConverter.ToNumber(_engine.GetValue(value)).AsNumber();
                     var newValue = oldValue + 1;
                     _engine.PutValue(r, newValue);
 
@@ -878,13 +876,13 @@ namespace Jint.Runtime
                     r = value as Reference;
                     if (r != null
                         && r.IsStrict()
-                        && (r.GetBase() is EnvironmentRecord)
+                        && (r.GetBase().TryCast<EnvironmentRecord>() != null)
                         && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
                     }
 
-                    oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
+                    oldValue = TypeConverter.ToNumber(_engine.GetValue(value)).AsNumber();
                     newValue = oldValue - 1;
                     _engine.PutValue(r, newValue);
 
@@ -895,17 +893,17 @@ namespace Jint.Runtime
 
         }
 
-        public object EvaluateThisExpression(ThisExpression thisExpression)
+        public JsValue EvaluateThisExpression(ThisExpression thisExpression)
         {
             return _engine.ExecutionContext.ThisBinding;
         }
 
-        public object EvaluateNewExpression(NewExpression newExpression)
+        public JsValue EvaluateNewExpression(NewExpression newExpression)
         {
             var arguments = newExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
             
             // todo: optimize by defining a common abstract class or interface
-            var callee = _engine.GetValue(EvaluateExpression(newExpression.Callee)) as IConstructor;
+            var callee = _engine.GetValue(EvaluateExpression(newExpression.Callee)).TryCast<IConstructor>();
             
             if (callee == null)
             {
@@ -918,9 +916,9 @@ namespace Jint.Runtime
             return instance;
         }
 
-        public object EvaluateArrayExpression(ArrayExpression arrayExpression)
+        public JsValue EvaluateArrayExpression(ArrayExpression arrayExpression)
         {
-            var a = _engine.Array.Construct(new object[] { arrayExpression.Elements.Count() });
+            var a = _engine.Array.Construct(new JsValue[] { arrayExpression.Elements.Count() });
             var n = 0;
             foreach (var expr in arrayExpression.Elements)
             {
@@ -936,7 +934,7 @@ namespace Jint.Runtime
             return a;
         }
 
-        public object EvaluateUnaryExpression(UnaryExpression unaryExpression)
+        public JsValue EvaluateUnaryExpression(UnaryExpression unaryExpression)
         {
             var value = _engine.EvaluateExpression(unaryExpression.Argument);
             Reference r;
@@ -947,14 +945,14 @@ namespace Jint.Runtime
                     return TypeConverter.ToNumber(_engine.GetValue(value));
                     
                 case "-":
-                    var n = TypeConverter.ToNumber(_engine.GetValue(value));
+                    var n = TypeConverter.ToNumber(_engine.GetValue(value)).AsNumber();
                     return double.IsNaN(n) ? double.NaN : n*-1;
                 
                 case "~":
                     return ~TypeConverter.ToInt32(_engine.GetValue(value));
                 
                 case "!":
-                    return !TypeConverter.ToBoolean(_engine.GetValue(value));
+                    return !TypeConverter.ToBoolean(_engine.GetValue(value)).AsBoolean();
                 
                 case "delete":
                     r = value as Reference;
@@ -973,14 +971,14 @@ namespace Jint.Runtime
                     }
                     if (r.IsPropertyReference())
                     {
-                        var o = TypeConverter.ToObject(_engine, r.GetBase());
+                        var o = TypeConverter.ToObject(_engine, r.GetBase()).AsObject();
                         return o.Delete(r.GetReferencedName(), r.IsStrict());
                     }
                     if (r.IsStrict())
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
                     }
-                    var bindings = r.GetBase() as EnvironmentRecord;
+                    var bindings = r.GetBase().TryCast<EnvironmentRecord>();
                     return bindings.DeleteBinding(r.GetReferencedName());
                 
                 case "void":
@@ -1005,13 +1003,13 @@ namespace Jint.Runtime
                     {
                         return "object";
                     }
-                    switch (TypeConverter.GetType(v))
+                    switch (v.Type)
                     {
                         case Types.Boolean: return "boolean";
                         case Types.Number: return "number";
                         case Types.String: return "string";
                     }
-                    if (v is ICallable)
+                    if (v.TryCast<ICallable>() != null)
                     {
                         return "function";
                     }

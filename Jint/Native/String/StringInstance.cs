@@ -4,7 +4,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.String
 {
-    public class StringInstance : ObjectInstance, IPrimitiveType
+    public class StringInstance : ObjectInstance, IPrimitiveInstance
     {
         public StringInstance(Engine engine)
             : base(engine)
@@ -19,17 +19,17 @@ namespace Jint.Native.String
             }
         }
 
-        Types IPrimitiveType.Type
+        Types IPrimitiveInstance.Type
         {
             get { return Types.String; }
         }
 
-        object IPrimitiveType.PrimitiveValue
+        JsValue IPrimitiveInstance.PrimitiveValue
         {
             get { return PrimitiveValue; }
         }
 
-        public string PrimitiveValue { get; set; }
+        public JsValue PrimitiveValue { get; set; }
 
         public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
@@ -39,20 +39,20 @@ namespace Jint.Native.String
                 return desc;
             }
 
-            if (propertyName != System.Math.Abs(TypeConverter.ToInteger(propertyName)).ToString())
+            if (propertyName != System.Math.Abs(TypeConverter.ToInteger(propertyName).AsNumber()).ToString())
             {
                 return PropertyDescriptor.Undefined;
             }
 
             var str = PrimitiveValue;
-            var index = (int)TypeConverter.ToInteger(propertyName);
-            var len = str.Length;
+            var index = (int)TypeConverter.ToInteger(propertyName).AsNumber();
+            var len = str.AsString().Length;
             if (len <= index)
             {
                 return PropertyDescriptor.Undefined;
             }
-            var resultStr = str[index].ToString();
-            return new PropertyDescriptor(resultStr, false, true, false);
+            var resultStr = str.AsString()[index].ToString();
+            return new PropertyDescriptor(new JsValue(resultStr), false, true, false);
         }
     }
 }

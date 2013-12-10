@@ -1,11 +1,12 @@
 ﻿using System;
+using Jint.Native;
 using Jint.Native.Error;
 
 namespace Jint.Runtime
 {
     public class JavaScriptException : Exception
     {
-        private readonly object _errorObject;
+        private readonly JsValue _errorObject;
 
         public JavaScriptException(ErrorConstructor errorConstructor) : base("")
         {
@@ -15,15 +16,15 @@ namespace Jint.Runtime
         public JavaScriptException(ErrorConstructor errorConstructor, string message)
             : base(message)
         {
-            _errorObject = errorConstructor.Construct(new object[] { message });
+            _errorObject = errorConstructor.Construct(new JsValue[] { message });
         }
 
-        public JavaScriptException(object error)
+        public JavaScriptException(JsValue error)
             : base("")
         {
             _errorObject = error;
         }
 
-        public object Error { get { return _errorObject; } }
+        public JsValue Error { get { return _errorObject; } }
     }
 }

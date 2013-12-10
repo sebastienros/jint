@@ -1,5 +1,4 @@
-﻿using System;
-using Jint.Native.Function;
+﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
@@ -33,35 +32,36 @@ namespace Jint.Native.Array
 
         public void Configure()
         {
-            FastAddProperty("isArray", new ClrFunctionInstance<object, object>(Engine, IsArray, 1), true, false, true);
+            FastAddProperty("isArray", new ClrFunctionInstance(Engine, IsArray, 1), true, false, true);
         }
 
-        private object IsArray(object thisObj, object[] arguments)
+        private JsValue IsArray(JsValue thisObj, JsValue[] arguments)
         {
             if (arguments.Length == 0)
             {
                 return false;
             }
 
-            var o = arguments[0] as ObjectInstance;
-            return o != null && o.Class == "Array";
+            var o = arguments.At(0);
+
+            return o.IsObject() && o.AsObject().Class == "Array";
         }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             return Construct(arguments);
         }
 
-        public ObjectInstance Construct(object[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments)
         {
             var instance = new ArrayInstance(Engine);
             instance.Prototype = PrototypeObject;
             instance.Extensible = true;
 
-            if (arguments.Length == 1 && TypeConverter.GetType(arguments[0]) == Types.Number)
+            if (arguments.Length == 1 && arguments.At(0).IsNumber())
             {
                 var length = TypeConverter.ToUint32(arguments[0]);
-                if (TypeConverter.ToNumber(arguments[0]) != length)
+                if (TypeConverter.ToNumber(arguments[0]).AsNumber() != length)
                 {
                     throw new JavaScriptException(Engine.RangeError);
                 }

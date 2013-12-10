@@ -1,4 +1,6 @@
-﻿namespace Jint.Runtime
+﻿using Jint.Native;
+
+namespace Jint.Runtime
 {
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.9
@@ -11,7 +13,7 @@
         public static string Return = "return";
         public static string Throw = "throw";
 
-        public Completion(string type, object value, string identifier)
+        public Completion(string type, JsValue value, string identifier)
         {
             Type = type;
             Value = value;
@@ -20,7 +22,7 @@
 
 
         public string Type { get; private set; }
-        public object Value { get; private set; }
+        public JsValue Value { get; private set; }
         public string Identifier { get; private set; }
 
     }

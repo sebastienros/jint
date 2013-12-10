@@ -31,10 +31,10 @@ namespace Jint.Native.String
 
         public void Configure()
         {
-            FastAddProperty("fromCharCode", new ClrFunctionInstance<object, string>(Engine, FromCharCode, 1), true, false, true);
+            FastAddProperty("fromCharCode", new ClrFunctionInstance(Engine, FromCharCode, 1), true, false, true);
         }
 
-        private static string FromCharCode(object thisObj, object[] arguments)
+        private static JsValue FromCharCode(JsValue thisObj, JsValue[] arguments)
         {
             var chars = new char[arguments.Length];
             for (var i = 0; i < chars.Length; i++ )
@@ -45,7 +45,7 @@ namespace Jint.Native.String
             return new System.String(chars);
         }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             if (arguments.Length == 0)
             {
@@ -60,9 +60,9 @@ namespace Jint.Native.String
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public ObjectInstance Construct(object[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments)
         {
-            return Construct(arguments.Length > 0 ? TypeConverter.ToString(arguments[0]) : "");
+            return Construct(arguments.Length > 0 ? TypeConverter.ToString(arguments[0]).AsString() : "");
         }
 
         public StringPrototype PrototypeObject { get; private set; }

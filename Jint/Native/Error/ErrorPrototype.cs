@@ -30,12 +30,12 @@ namespace Jint.Native.Error
         public void Configure()
         {
             // Error prototype functions
-            FastAddProperty("toString", new ClrFunctionInstance<object, object>(Engine, ToString), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToString), true, false, true);
         }
 
-        private object ToString(object thisObject, object[] arguments)
+        private JsValue ToString(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject as ObjectInstance;
+            var o = thisObject.TryCast<ObjectInstance>();
             if (o == null)
             {
                 throw new JavaScriptException(Engine.TypeError);

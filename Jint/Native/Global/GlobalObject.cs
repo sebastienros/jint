@@ -50,22 +50,22 @@ namespace Jint.Native.Global
             FastAddProperty("undefined", Undefined.Instance, false, false, false);
 
             // Global object functions
-            FastAddProperty("parseInt", new ClrFunctionInstance<object, double>(Engine, ParseInt, 2), true, false, true);
-            FastAddProperty("parseFloat", new ClrFunctionInstance<object, double>(Engine, ParseFloat, 1), true, false, true);
-            FastAddProperty("isNaN", new ClrFunctionInstance<object, bool>(Engine, IsNaN, 1), true, false, true);
-            FastAddProperty("isFinite", new ClrFunctionInstance<object, bool>(Engine, IsFinite, 1), true, false, true);
-            FastAddProperty("decodeURI", new ClrFunctionInstance<object, string>(Engine, DecodeUri, 1), true, false, true);
-            FastAddProperty("decodeURIComponent", new ClrFunctionInstance<object, string>(Engine, DecodeUriComponent, 1), true, false, true);
-            FastAddProperty("encodeURI", new ClrFunctionInstance<object, string>(Engine, EncodeUri, 1), true, false, true);
-            FastAddProperty("encodeURIComponent", new ClrFunctionInstance<object, string>(Engine, EncodeUriComponent, 1), true, false, true);
+            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, ParseInt, 2), true, false, true);
+            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, ParseFloat, 1), true, false, true);
+            FastAddProperty("isNaN", new ClrFunctionInstance(Engine, IsNaN, 1), true, false, true);
+            FastAddProperty("isFinite", new ClrFunctionInstance(Engine, IsFinite, 1), true, false, true);
+            FastAddProperty("decodeURI", new ClrFunctionInstance(Engine, DecodeUri, 1), true, false, true);
+            FastAddProperty("decodeURIComponent", new ClrFunctionInstance(Engine, DecodeUriComponent, 1), true, false, true);
+            FastAddProperty("encodeURI", new ClrFunctionInstance(Engine, EncodeUri, 1), true, false, true);
+            FastAddProperty("encodeURIComponent", new ClrFunctionInstance(Engine, EncodeUriComponent, 1), true, false, true);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.2
         /// </summary>
-        public static double ParseInt(object thisObject, object[] arguments)
+        public static JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
         {
-            string inputString = TypeConverter.ToString(arguments.At(0));
+            string inputString = TypeConverter.ToString(arguments.At(0)).AsString();
             var s = inputString.Trim();
 
             var sign = 1;
@@ -113,7 +113,7 @@ namespace Jint.Native.Global
 
             try
             {
-                return sign * Parse(s, radix);
+                return sign * Parse(s, radix).AsNumber();
             }
             catch
             {
@@ -122,7 +122,7 @@ namespace Jint.Native.Global
 
         }
 
-        private static double Parse(string number, int radix)
+        private static JsValue Parse(string number, int radix)
         {
             if (number == "")
             {
@@ -164,9 +164,9 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.3
         /// </summary>
-        public static double ParseFloat(object thisObject, object[] arguments)
+        public static JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
         {
-            var inputString = TypeConverter.ToString(arguments.At(0));
+            var inputString = TypeConverter.ToString(arguments.At(0)).AsString();
             var trimmedString = inputString.TrimStart();
 
             var sign = 1;
@@ -315,23 +315,23 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.4
         /// </summary>
-        public static bool IsNaN(object thisObject, object[] arguments)
+        public static JsValue IsNaN(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]);
+            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
             return double.IsNaN(x);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.5
         /// </summary>
-        public static bool IsFinite(object thisObject, object[] arguments)
+        public static JsValue IsFinite(JsValue thisObject, JsValue[] arguments)
         {
             if (arguments.Length != 1)
             {
                 return false;
             }
 
-            var n = TypeConverter.ToNumber(arguments[0]);
+            var n = TypeConverter.ToNumber(arguments[0]).AsNumber();
             if (double.IsNaN(n) || double.IsInfinity(n))
             {
                 return false;
@@ -365,9 +365,9 @@ namespace Jint.Native.Global
         /// <param name="thisObject"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public string EncodeUri(object thisObject, object[] arguments)
+        public JsValue EncodeUri(JsValue thisObject, JsValue[] arguments)
         {
-            var uriString = TypeConverter.ToString(arguments.At(0));
+            var uriString = TypeConverter.ToString(arguments.At(0)).AsString();
             var unescapedUriSet = UriReserved.Concat(UriUnescaped).Concat(new [] {'#'}).ToArray();
 
             return Encode(uriString, unescapedUriSet);
@@ -380,9 +380,9 @@ namespace Jint.Native.Global
         /// <param name="thisObject"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public string EncodeUriComponent(object thisObject, object[] arguments)
+        public JsValue EncodeUriComponent(JsValue thisObject, JsValue[] arguments)
         {
-            var uriString = TypeConverter.ToString(arguments.At(0));
+            var uriString = TypeConverter.ToString(arguments.At(0)).AsString();
 
             return Encode(uriString, UriUnescaped);
         }
@@ -490,17 +490,17 @@ namespace Jint.Native.Global
             return r.ToString();
         }
 
-        public string DecodeUri(object thisObject, object[] arguments)
+        public JsValue DecodeUri(JsValue thisObject, JsValue[] arguments)
         {
-            var uriString = TypeConverter.ToString(arguments.At(0));
+            var uriString = TypeConverter.ToString(arguments.At(0)).AsString();
             var reservedUriSet = UriReserved.Concat(new[] { '#' }).ToArray();
 
             return Decode(uriString, reservedUriSet);
         }
 
-        public string DecodeUriComponent(object thisObject, object[] arguments)
+        public JsValue DecodeUriComponent(JsValue thisObject, JsValue[] arguments)
         {
-            var componentString = TypeConverter.ToString(arguments.At(0));
+            var componentString = TypeConverter.ToString(arguments.At(0)).AsString();
             var reservedUriComponentSet = new char[0];
 
             return Decode(componentString, reservedUriComponentSet);

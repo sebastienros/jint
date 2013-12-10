@@ -2,6 +2,6 @@
 {
     public interface ICallable
     {
-        object Call(object thisObject, object[] arguments);
+        JsValue Call(JsValue thisObject, JsValue[] arguments);
     }
 }

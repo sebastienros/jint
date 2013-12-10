@@ -1,5 +1,4 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -11,42 +10,39 @@ namespace Jint.Native.Function
         {
         }
 
-        public object TargetFunction { get; set; }
+        public JsValue TargetFunction { get; set; }
 
-        public object BoundThis { get; set; }
+        public JsValue BoundThis { get; set; }
 
-        public object[] BoundArgs { get; set; }
+        public JsValue[] BoundArgs { get; set; }
 
-        public override object Call(object thisObject, object[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            var f = TargetFunction as FunctionInstance;
-            if (f == null)
+            var f = TargetFunction.TryCast<FunctionInstance>(x =>
             {
                 throw new JavaScriptException(Engine.TypeError);
-            }
+            });
 
             return f.Call(BoundThis, BoundArgs.Union(arguments).ToArray());
         }
 
-        public ObjectInstance Construct(object[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments)
         {
-            var target = TargetFunction as IConstructor;
-            if (target == null)
+            var target = TargetFunction.TryCast<IConstructor>(x =>
             {
                 throw new JavaScriptException(Engine.TypeError);
-            }
+            });
 
             return target.Construct(BoundArgs.Union(arguments).ToArray());
         }
 
         public override bool HasInstance(object v)
         {
-            var f = TargetFunction as FunctionInstance;
-            if (f == null)
+            var f = TargetFunction.TryCast<FunctionInstance>(x =>
             {
                 throw new JavaScriptException(Engine.TypeError);
-            }
-
+            });
+              
             return f.HasInstance(v);
         }
     }

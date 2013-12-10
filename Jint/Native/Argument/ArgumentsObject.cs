@@ -21,7 +21,7 @@ namespace Jint.Native.Argument
 
         public bool Strict { get; set; }
 
-        public static ArgumentsInstance CreateArgumentsObject(Engine engine, FunctionInstance func, string[] names, object[] args, EnvironmentRecord env, bool strict)
+        public static ArgumentsInstance CreateArgumentsObject(Engine engine, FunctionInstance func, string[] names, JsValue[] args, EnvironmentRecord env, bool strict)
         {
             var len = args.Length;
             var obj = new ArgumentsInstance(engine);
@@ -34,7 +34,7 @@ namespace Jint.Native.Argument
             var indx = len - 1;
             while (indx >= 0)
             {
-                var indxStr = TypeConverter.ToString(indx);
+                var indxStr = TypeConverter.ToString(indx).AsString();
                 var val = args[indx];
                 obj.FastAddProperty(indxStr, val, true, true, true);
                 if (indx < names.Length)
@@ -43,10 +43,10 @@ namespace Jint.Native.Argument
                     if (!strict && !mappedNamed.Contains(name))
                     {
                         mappedNamed.Add(name);
-                        Func<object, object> g = n => env.GetBindingValue(name, false);
-                        var p = new Action<object, object>((n, o) => env.SetMutableBinding(name, o, true));
+                        Func<JsValue, JsValue> g = n => env.GetBindingValue(name, false);
+                        var p = new Action<JsValue, JsValue>((n, o) => env.SetMutableBinding(name, o, true));
 
-                        map.DefineOwnProperty(indxStr, new ClrAccessDescriptor<object>(engine, g, p) { Configurable = new Field<bool>(true) }, false);
+                        map.DefineOwnProperty(indxStr, new ClrAccessDescriptor(engine, g, p) { Configurable = true }, false);
                     }
                 }
                 indx--;
@@ -98,7 +98,7 @@ namespace Jint.Native.Argument
                 var isMapped = ParameterMap.GetOwnProperty(propertyName);
                 if (isMapped != PropertyDescriptor.Undefined)
                 {
-                    desc.Value = new Field<object>(ParameterMap.Get(propertyName));
+                    desc.Value = ParameterMap.Get(propertyName);
                 }
 
                 return desc;
@@ -129,12 +129,12 @@ namespace Jint.Native.Argument
                     }
                     else
                     {
-                        if (desc.Value.Value != null)
+                        if (desc.Value.HasValue && desc.Value.Value != Undefined.Instance)
                         {
                             map.Put(propertyName, desc.Value.Value, throwOnError);
                         }
 
-                        if (desc.Writable.IsAbsent)
+                        if (!desc.Writable.HasValue)
                         {
                             map.Delete(propertyName, false);
                         }
