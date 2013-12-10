@@ -1,4 +1,5 @@
 ﻿using Jint.Native;
+using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.References
 {
@@ -47,7 +48,7 @@ namespace Jint.Runtime.References
         public bool IsPropertyReference()
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
-            return _baseValue.IsObject() || HasPrimitiveBase();
+            return (_baseValue.IsObject() && _baseValue.TryCast<EnvironmentRecord>() == null) || HasPrimitiveBase();
         }
     }
 }

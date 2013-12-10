@@ -122,6 +122,7 @@ namespace Jint.Native
             return _object;
         }
 
+        [Pure]
         public T TryCast<T>(Action<JsValue> fail = null) where T: class
         {
             if (!this.IsObject())

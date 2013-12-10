@@ -800,7 +800,7 @@ namespace Jint.Runtime
                 throw new JavaScriptException(_engine.TypeError);
             }
 
-            if (func.IsObject())
+            if (!func.IsObject())
             {
                 throw new JavaScriptException(_engine.TypeError);
             }
