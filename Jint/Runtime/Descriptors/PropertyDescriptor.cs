@@ -103,10 +103,9 @@ namespace Jint.Runtime.Descriptors
             return !IsDataDescriptor() && !IsAccessorDescriptor();
         }
 
-        public static PropertyDescriptor ToPropertyDescriptor(Engine engine, object o)
+        public static PropertyDescriptor ToPropertyDescriptor(Engine engine, JsValue o)
         {
-            var obj = o as ObjectInstance;
-
+            var obj = o.TryCast<ObjectInstance>();
             if (obj == null)
             {
                 throw new JavaScriptException(engine.TypeError);
@@ -144,7 +143,7 @@ namespace Jint.Runtime.Descriptors
             if (obj.HasProperty("get"))
             {
                 var getter = obj.Get("get");
-                if (getter != JsValue.Undefined && !(getter is ICallable))
+                if (getter != JsValue.Undefined && getter.TryCast<ICallable>() == null)
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
@@ -154,7 +153,7 @@ namespace Jint.Runtime.Descriptors
             if (obj.HasProperty("set"))
             {
                 var setter = obj.Get("set");
-                if (setter != Native.Undefined.Instance && !(setter is ICallable))
+                if (setter != Native.Undefined.Instance && setter.TryCast<ICallable>() == null)
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }

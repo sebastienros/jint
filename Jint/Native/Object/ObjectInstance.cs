@@ -58,7 +58,7 @@ namespace Jint.Native.Object
                 return desc.Value.Value;
             }
 
-            var getter = desc.Get.Value;
+            var getter = desc.Get.HasValue ? desc.Get.Value : Undefined.Instance;
 
             if (getter.IsUndefined())
             {
@@ -66,7 +66,7 @@ namespace Jint.Native.Object
             }
 
             // if getter is not undefined it must be ICallable
-            var callable = (ICallable)(getter.AsObject());
+            var callable = getter.TryCast<ICallable>();
             return callable.Call(this, Arguments.Empty);
         }
 
@@ -173,7 +173,7 @@ namespace Jint.Native.Object
 
             if (desc.IsAccessorDescriptor())
             {
-                var setter = (ICallable)desc.Set.Value.AsObject();
+                var setter = desc.Set.Value.TryCast<ICallable>();
                 setter.Call(new JsValue(this), new [] {value});
             }
             else
@@ -199,7 +199,7 @@ namespace Jint.Native.Object
             {
                 if (desc.IsAccessorDescriptor())
                 {
-                    if (desc.Set.Value.IsUndefined())
+                    if (!desc.Set.HasValue || desc.Set.Value.IsUndefined())
                     {
                         return false;
                     }
@@ -207,7 +207,7 @@ namespace Jint.Native.Object
                     return true;
                 }
 
-                return desc.Writable.Value.AsBoolean();
+                return desc.Writable.HasValue && desc.Writable.Value.AsBoolean();
             }
 
             if (Prototype == null)
@@ -224,7 +224,7 @@ namespace Jint.Native.Object
 
             if (inherited.IsAccessorDescriptor())
             {
-                if (inherited.Set.Value.IsUndefined())
+                if (!inherited.Set.HasValue || inherited.Set.Value.IsUndefined())
                 {
                     return false;
                 }
@@ -238,7 +238,7 @@ namespace Jint.Native.Object
             }
             else
             {
-                return inherited.Writable.Value.AsBoolean();
+                return inherited.Writable.HasValue && inherited.Writable.Value.AsBoolean();
             }
         }
 
@@ -271,7 +271,7 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            if (desc.Configurable.Value.AsBoolean())
+            if (desc.Configurable.HasValue && desc.Configurable.Value.AsBoolean())
             {
                 Properties.Remove(propertyName);
                 return true;
@@ -297,22 +297,20 @@ namespace Jint.Native.Object
         {
             if ((hint == Types.String) || (hint == Types.None && this is StringInstance) || this is DateInstance)
             {
-                var toString = Get("toString").AsObject();
-                var callable = toString as ICallable;
-                if (callable != null)
+                var toString = Get("toString").TryCast<ICallable>();
+                if (toString != null)
                 {
-                    var str = callable.Call(new JsValue(this), Arguments.Empty);
+                    var str = toString.Call(new JsValue(this), Arguments.Empty);
                     if (str.IsPrimitive())
                     {
                         return str;
                     }
                 }
 
-                var valueOf = Get("valueOf").AsObject();
-                callable = valueOf as ICallable;
-                if (callable != null)
+                var valueOf = Get("valueOf").TryCast<ICallable>();
+                if (valueOf != null)
                 {
-                    var val = callable.Call(new JsValue(this), Arguments.Empty);
+                    var val = valueOf.Call(new JsValue(this), Arguments.Empty);
                     if (val.IsPrimitive())
                     {
                         return val;
@@ -324,22 +322,20 @@ namespace Jint.Native.Object
 
             if ((hint == Types.Number) || (hint == Types.None))
             {
-                var valueOf = Get("valueOf").AsObject();
-                var callable = valueOf as ICallable;
-                if (callable != null)
+                var valueOf = Get("valueOf").TryCast<ICallable>();
+                if (valueOf != null)
                 {
-                    var val = callable.Call(new JsValue(this), Arguments.Empty);
+                    var val = valueOf.Call(new JsValue(this), Arguments.Empty);
                     if (val.IsPrimitive())
                     {
                         return val;
                     }
                 }
 
-                var toString = Get("toString").AsObject();
-                callable = toString as ICallable;
-                if (callable != null)
+                var toString = Get("toString").TryCast<ICallable>();
+                if (toString != null)
                 {
-                    var str = callable.Call(new JsValue(this), Arguments.Empty);
+                    var str = toString.Call(new JsValue(this), Arguments.Empty);
                     if (str.IsPrimitive())
                     {
                         return str;

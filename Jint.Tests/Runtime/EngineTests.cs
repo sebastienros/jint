@@ -14,7 +14,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine(cfg => cfg
                 .WithDelegate("log", new Action<object>(Console.WriteLine))
                 .WithDelegate("assert", new Action<bool>(Assert.True))
-            );
+                );
 
             engine.Execute(source);
 
@@ -45,8 +45,8 @@ namespace Jint.Tests.Runtime
         public void ShouldInterpretLiterals(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.GetValue(engine.Execute(source));
-            
+            var result = engine.Execute(source).ToObject();
+
             Assert.Equal(expected, result);
         }
 
@@ -64,16 +64,16 @@ namespace Jint.Tests.Runtime
         [InlineData(-2d, "1 - 3")]
         [InlineData(3d, "1 * 3")]
         [InlineData(2d, "6 / 3")]
-        [InlineData(9, "15 & 9")]
-        [InlineData(15, "15 | 9")]
-        [InlineData(6, "15 ^ 9")]
-        [InlineData(36, "9 << 2")]
-        [InlineData(2, "9 >> 2")]
-        [InlineData((uint)4, "19 >>> 2")]
+        [InlineData(9d, "15 & 9")]
+        [InlineData(15d, "15 | 9")]
+        [InlineData(6d, "15 ^ 9")]
+        [InlineData(36d, "9 << 2")]
+        [InlineData(2d, "9 >> 2")]
+        [InlineData(4d, "19 >>> 2")]
         public void ShouldInterpretBinaryExpression(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.GetValue(engine.Execute(source));
+            var result = engine.Execute(source).ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -527,7 +527,7 @@ namespace Jint.Tests.Runtime
         public void OperatorsPrecedence(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.GetValue(engine.Execute(source));
+            var result = engine.Execute(source).ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -553,19 +553,9 @@ namespace Jint.Tests.Runtime
         public void ShouldEvaluateParseInt(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.GetValue(engine.Execute(source));
+            var result = engine.Execute(source).ToObject();
 
             Assert.Equal(expected, result);
         }
-
-        /*
-                        [Fact]
-                        public void ()
-                        {
-                            RunTest(@"
-                            ");
-                        }
-                */
-
-        }
+    }
 }

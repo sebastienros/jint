@@ -29,9 +29,9 @@ namespace Jint.Native.Function
         public string[] FormalParameters { get; private set; }
         public bool Strict { get; private set; }
 
-        public virtual bool HasInstance(object v)
+        public virtual bool HasInstance(JsValue v)
         {
-            var vObj = v as ObjectInstance;
+            var vObj = v.TryCast<ObjectInstance>();
             if (vObj == null)
             {
                 return false;

@@ -29,7 +29,7 @@ namespace Jint.Native.Json
 
             if (replacer.IsObject())
             {
-                if (replacer.AsObject() is ICallable)
+                if (replacer.Is<ICallable>())
                 {
                     _replacerFunction = replacer;
                 }

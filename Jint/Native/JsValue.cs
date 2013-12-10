@@ -145,7 +145,7 @@ namespace Jint.Native
             return null;
         }
 
-        public bool Is<T>() where T : ObjectInstance
+        public bool Is<T>()
         {
             return IsObject() && AsObject() is T;
         }
@@ -239,6 +239,11 @@ namespace Jint.Native
         private static readonly Type[] NumberTypes = { typeof(double), typeof(int), typeof(float), typeof(uint), typeof(byte), typeof(short), typeof(ushort), typeof(long), typeof(ulong) };
         public static JsValue FromObject(object value)
         {
+            if (value == null)
+            {
+                return Null;
+            }
+
             var s = value as string;
             if (s != null)
             {
@@ -256,6 +261,31 @@ namespace Jint.Native
             }
 
             return Undefined;
+        }
+
+        /// <summary>
+        /// Converts a <see cref="JsValue"/> to its underlying CLR value.
+        /// </summary>
+        /// <returns>The underlying CLR value of the <see cref="JsValue"/> instance.</returns>
+        public object ToObject()
+        {
+            switch (_type)
+            {
+                case Types.None:
+                case Types.Undefined:
+                case Types.Null:
+                    return null;
+                case Types.Boolean:
+                    return _bool;
+                case Types.String:
+                    return _string;
+                case Types.Number:
+                    return _double;
+                case Types.Object:
+                    return _object;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
 
         public static bool operator ==(JsValue a, JsValue b)

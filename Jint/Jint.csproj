@@ -38,9 +38,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <!-- A reference to the entire .NET Framework is automatically included -->
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="DeclarationBindingType.cs" />
     <Compile Include="EvalCodeScope.cs" />
     <Compile Include="Engine.cs" />

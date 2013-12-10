@@ -169,13 +169,13 @@ namespace Jint
             _executionContexts.Pop();
         }
 
-        public object Execute(string source)
+        public JsValue Execute(string source)
         {
             var parser = new JavaScriptParser();
             return Execute(parser.Parse(source));
         }
 
-        public object Execute(Program program)
+        public JsValue Execute(Program program)
         {
             using (new StrictModeScope(Options.IsStrict() || program.Strict))
             {

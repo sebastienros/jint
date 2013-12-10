@@ -36,7 +36,7 @@ namespace Jint.Native.Function
             return target.Construct(BoundArgs.Union(arguments).ToArray());
         }
 
-        public override bool HasInstance(object v)
+        public override bool HasInstance(JsValue v)
         {
             var f = TargetFunction.TryCast<FunctionInstance>(x =>
             {

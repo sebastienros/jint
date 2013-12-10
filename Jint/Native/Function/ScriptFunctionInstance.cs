@@ -38,8 +38,11 @@ namespace Jint.Native.Function
             var proto = engine.Object.Construct(Arguments.Empty);
             proto.DefineOwnProperty("constructor", new PropertyDescriptor(this, true, false, true), false);
             DefineOwnProperty("prototype", new PropertyDescriptor(proto, true, false, false ), false);
-            DefineOwnProperty("name", new PropertyDescriptor(_functionDeclaration.Id.Name, null, null, null), false);
-            
+            if (_functionDeclaration.Id != null)
+            {
+                DefineOwnProperty("name", new PropertyDescriptor(_functionDeclaration.Id.Name, null, null, null), false);
+            }
+
             if (strict)
             {
                 var thrower = engine.Function.ThrowTypeError;
