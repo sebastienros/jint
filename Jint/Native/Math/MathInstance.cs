@@ -64,32 +64,32 @@ namespace Jint.Native.Math
 
         private static JsValue Abs(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Abs(x);
         }
 
         private static JsValue Acos(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Acos(x);
         }
 
         private static JsValue Asin(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Asin(x);
         }
 
         private static JsValue Atan(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Atan(x);
         }
 
         private static JsValue Atan2(JsValue thisObject, JsValue[] arguments)
         {
-            var y = TypeConverter.ToNumber(arguments[0]).AsNumber();
-            var x = TypeConverter.ToNumber(arguments[1]).AsNumber();
+            var y = TypeConverter.ToNumber(arguments[0]);
+            var x = TypeConverter.ToNumber(arguments[1]);
 
             // If either x or y is NaN, the result is NaN.
             if (double.IsNaN(x) || double.IsNaN(y))
@@ -236,31 +236,31 @@ namespace Jint.Native.Math
 
         private static JsValue Ceil(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Ceiling(x);
         }
 
         private static JsValue Cos(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Cos(x);
         }
 
         private static JsValue Exp(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Exp(x);
         }
 
         private static JsValue Floor(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Floor(x);
         }
 
         private static JsValue Log(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Log(x);
         }
 
@@ -271,10 +271,10 @@ namespace Jint.Native.Math
                 return Double.NegativeInfinity;
             }
 
-            double max = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            double max = TypeConverter.ToNumber(arguments[0]);
             for (int i = 0; i < arguments.Length; i++)
             {
-                max = System.Math.Max(max, TypeConverter.ToNumber(arguments[i]).AsNumber());
+                max = System.Math.Max(max, TypeConverter.ToNumber(arguments[i]));
             }
             return max;
         }
@@ -286,18 +286,18 @@ namespace Jint.Native.Math
                 return Double.PositiveInfinity;
             }
 
-            double min = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            double min = TypeConverter.ToNumber(arguments[0]);
             for (int i = 0; i < arguments.Length; i++)
             {
-                min = System.Math.Min(min, TypeConverter.ToNumber(arguments[i]).AsNumber());
+                min = System.Math.Min(min, TypeConverter.ToNumber(arguments[i]));
             }
             return min;
         }
 
         private static JsValue Pow(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
-            var y = TypeConverter.ToNumber(arguments[1]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
+            var y = TypeConverter.ToNumber(arguments[1]);
 
             if (double.IsNaN(y))
             {
@@ -443,7 +443,7 @@ namespace Jint.Native.Math
 
         private static JsValue Round(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             var round = System.Math.Round(x);
             if (round == x - 0.5)
             {
@@ -455,19 +455,19 @@ namespace Jint.Native.Math
 
         private static JsValue Sin(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Sin(x);
         }
 
         private static JsValue Sqrt(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Sqrt(x);
         }
 
         private static JsValue Tan(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return System.Math.Tan(x);
         }
 

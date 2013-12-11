@@ -54,13 +54,13 @@ namespace Jint.Native.Number
 
         private JsValue ToFixed(JsValue thisObj, JsValue[] arguments)
         {
-            var f = (int)TypeConverter.ToInteger(arguments.At(0, 0)).AsNumber();
+            var f = (int)TypeConverter.ToInteger(arguments.At(0, 0));
             if (f < 0 || f > 20)
             {
                 throw new JavaScriptException(Engine.RangeError, "fractionDigits argument must be between 0 and 20");
             }
 
-            var x = TypeConverter.ToNumber(thisObj).AsNumber();
+            var x = TypeConverter.ToNumber(thisObj);
 
             if (double.IsNaN(x))
             {
@@ -77,7 +77,7 @@ namespace Jint.Native.Number
             string m = "";
             if (x >= System.Math.Pow(10, 21))
             {
-                m = TypeConverter.ToString(x).AsString();
+                m = TypeConverter.ToString(x);
             }
             else
             {
@@ -131,10 +131,10 @@ namespace Jint.Native.Number
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            return ToNumberString(TypeConverter.ToNumber(thisObject).AsNumber());
+            return ToNumberString(TypeConverter.ToNumber(thisObject));
         }
 
-        public static JsValue ToNumberString(double m) 
+        public static string ToNumberString(double m) 
         {
             if (double.IsNaN(m))
             {

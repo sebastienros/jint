@@ -51,14 +51,14 @@ namespace Jint.Native.Json
                         }
                         else if (v.IsNumber())
                         {
-                            item = TypeConverter.ToString(v).AsString();
+                            item = TypeConverter.ToString(v);
                         }
                         else if (v.IsObject())
                         {
                             var propertyObj = v.AsObject();
                             if (propertyObj.Class == "String" || propertyObj.Class == "Number")
                             {
-                                item = TypeConverter.ToString(v).AsString();
+                                item = TypeConverter.ToString(v);
                             }
                         }
 
@@ -76,7 +76,7 @@ namespace Jint.Native.Json
                 var spaceObj = space.AsObject();
                 if (spaceObj.Class == "Number")
                 {
-                    space = TypeConverter.ToNumber(spaceObj).AsNumber();
+                    space = TypeConverter.ToNumber(spaceObj);
                 }
                 else if (spaceObj.Class == "String")
                 {
@@ -134,7 +134,7 @@ namespace Jint.Native.Json
                 switch (valueObj.Class)
                 {
                     case "Number":
-                        value = TypeConverter.ToNumber(value).AsNumber();
+                        value = TypeConverter.ToNumber(value);
                         break;
                     case "String":
                         value = TypeConverter.ToString(value);
@@ -169,7 +169,7 @@ namespace Jint.Native.Json
             {
                 if (GlobalObject.IsFinite(Undefined.Instance, Arguments.From(value)).AsBoolean())
                 {
-                    return TypeConverter.ToString(value).AsString();
+                    return TypeConverter.ToString(value);
                 }
                 
                 return "null";
@@ -247,7 +247,7 @@ namespace Jint.Native.Json
             var len = TypeConverter.ToUint32(value.Get("length"));
             for (int i = 0; i < len; i++)
             {
-                var strP = Str(TypeConverter.ToString(i).AsString(), value);
+                var strP = Str(TypeConverter.ToString(i), value);
                 partial.Add(strP);
             }
             if (partial.Count == 0)

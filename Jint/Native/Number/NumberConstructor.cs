@@ -47,7 +47,7 @@ namespace Jint.Native.Number
                 return 0d;
             }
 
-            return TypeConverter.ToNumber(arguments[0]).AsNumber();
+            return TypeConverter.ToNumber(arguments[0]);
         }
 
         /// <summary>
@@ -57,7 +57,7 @@ namespace Jint.Native.Number
         /// <returns></returns>
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            return Construct(arguments.Length > 0 ? TypeConverter.ToNumber(arguments[0]).AsNumber() : 0);
+            return Construct(arguments.Length > 0 ? TypeConverter.ToNumber(arguments[0]) : 0);
         }
 
         public NumberPrototype PrototypeObject { get; private set; }

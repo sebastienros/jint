@@ -290,122 +290,122 @@ namespace Jint.Native.Date
 
         private JsValue SetTime(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.TimeClip(TypeConverter.ToNumber(arguments.At(0)).AsNumber());
+            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.TimeClip(TypeConverter.ToNumber(arguments.At(0)));
         }
 
         private JsValue SetMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime();
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), DateTimeKind.Local);
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, (int)TypeConverter.ToNumber(arguments.At(0)), DateTimeKind.Local);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetUTCMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), DateTimeKind.Utc);
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, (int)TypeConverter.ToNumber(arguments.At(0)), DateTimeKind.Utc);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetSeconds(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
-            var ms = arguments.At(1) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)ms, DateTimeKind.Local);
+            var ms = arguments.At(1) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(1));
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, (int)TypeConverter.ToNumber(arguments.At(0)), (int)ms, DateTimeKind.Local);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetUTCSeconds(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            var ms = arguments.At(1) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)ms, DateTimeKind.Utc);
+            var ms = arguments.At(1) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(1));
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, (int)TypeConverter.ToNumber(arguments.At(0)), (int)ms, DateTimeKind.Utc);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetMinutes(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
-            var s = arguments.At(1) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
-            var ms = arguments.At(2) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(2)).AsNumber();
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)s, (int)ms, DateTimeKind.Local);
+            var s = arguments.At(1) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(1));
+            var ms = arguments.At(2) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(2));
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, (int)TypeConverter.ToNumber(arguments.At(0)), (int)s, (int)ms, DateTimeKind.Local);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetUTCMinutes(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            var s = arguments.At(1) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
-            var ms = arguments.At(2) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(2)).AsNumber();
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)s, (int)ms, DateTimeKind.Utc);
+            var s = arguments.At(1) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(1));
+            var ms = arguments.At(2) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(2));
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, (int)TypeConverter.ToNumber(arguments.At(0)), (int)s, (int)ms, DateTimeKind.Utc);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetHours(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
-            var min = arguments.At(1) == Undefined.Instance ? dt.Minute : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
-            var s = arguments.At(2) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(2)).AsNumber();
-            var ms = arguments.At(3) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(3)).AsNumber();
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)min, (int)s, (int)ms, DateTimeKind.Local);
+            var min = arguments.At(1) == Undefined.Instance ? dt.Minute : TypeConverter.ToNumber(arguments.At(1));
+            var s = arguments.At(2) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(2));
+            var ms = arguments.At(3) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(3));
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, (int)TypeConverter.ToNumber(arguments.At(0)), (int)min, (int)s, (int)ms, DateTimeKind.Local);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetUTCHours(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            var min = arguments.At(1) == Undefined.Instance ? dt.Minute : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
-            var s = arguments.At(2) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(2)).AsNumber();
-            var ms = arguments.At(3) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(3)).AsNumber();
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)min, (int)s, (int)ms, DateTimeKind.Utc);
+            var min = arguments.At(1) == Undefined.Instance ? dt.Minute : TypeConverter.ToNumber(arguments.At(1));
+            var s = arguments.At(2) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(2));
+            var ms = arguments.At(3) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(3));
+            dt = new DateTime(dt.Year, dt.Month, dt.Day, (int)TypeConverter.ToNumber(arguments.At(0)), (int)min, (int)s, (int)ms, DateTimeKind.Utc);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetDate(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
-            dt = new DateTime(dt.Year, dt.Month, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
+            dt = new DateTime(dt.Year, dt.Month, (int)TypeConverter.ToNumber(arguments.At(0)), dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetUTCDate(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            dt = new DateTime(dt.Year, dt.Month, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
+            dt = new DateTime(dt.Year, dt.Month, (int)TypeConverter.ToNumber(arguments.At(0)), dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetMonth(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            var date = arguments.At(1) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
-            dt = new DateTime(dt.Year, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
+            var date = arguments.At(1) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(1));
+            dt = new DateTime(dt.Year, (int)TypeConverter.ToNumber(arguments.At(0)), (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetUTCMonth(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            var date = arguments.At(1) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
-            dt = new DateTime(dt.Year, (int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
+            var date = arguments.At(1) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(1));
+            dt = new DateTime(dt.Year, (int)TypeConverter.ToNumber(arguments.At(0)), (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetFullYear(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
-            var month = arguments.At(1) == Undefined.Instance ? dt.Month : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
-            var date = arguments.At(2) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(2)).AsNumber();
-            dt = new DateTime((int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)month, (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
+            var month = arguments.At(1) == Undefined.Instance ? dt.Month : TypeConverter.ToNumber(arguments.At(1));
+            var date = arguments.At(2) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(2));
+            dt = new DateTime((int)TypeConverter.ToNumber(arguments.At(0)), (int)month, (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 
         private JsValue SetUTCFullYear(JsValue thisObj, JsValue[] arguments)
         {
             var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            var month = arguments.At(1) == Undefined.Instance ? dt.Month : TypeConverter.ToNumber(arguments.At(1)).AsNumber();
-            var date = arguments.At(2) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(2)).AsNumber();
-            dt = new DateTime((int)TypeConverter.ToNumber(arguments.At(0)).AsNumber(), (int)month, (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
+            var month = arguments.At(1) == Undefined.Instance ? dt.Month : TypeConverter.ToNumber(arguments.At(1));
+            var date = arguments.At(2) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(2));
+            dt = new DateTime((int)TypeConverter.ToNumber(arguments.At(0)), (int)month, (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
             return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
         }
 

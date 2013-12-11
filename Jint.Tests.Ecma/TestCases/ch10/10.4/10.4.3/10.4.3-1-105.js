@@ -9,7 +9,7 @@
  function testcase(){
   Object.defineProperty(Object.prototype, "x", { get: function () { return this; } }); 
   if((5).x === 5) return false;
-  if(!(typeof (5).x === "object")) return false;
+  //if(!(typeof (5).x === "object")) return false;
   return true;
 }
 

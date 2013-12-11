@@ -68,7 +68,7 @@ namespace Jint.Native.RegExp
         private JsValue Test(JsValue thisObj, JsValue[] arguments)
         {
             var r = TypeConverter.ToObject(Engine, thisObj);
-            if (r.AsObject().Class != "RegExp")
+            if (r.Class != "RegExp")
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -79,16 +79,16 @@ namespace Jint.Native.RegExp
 
         internal JsValue Exec(JsValue thisObj, JsValue[] arguments)
         {
-            var R = TypeConverter.ToObject(Engine, thisObj).TryCast<RegExpInstance>();
+            var R = TypeConverter.ToObject(Engine, thisObj) as RegExpInstance;
             if (R == null)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var s = TypeConverter.ToString(arguments.At(0)).AsString();
+            var s = TypeConverter.ToString(arguments.At(0));
             var length = s.Length;
-            var lastIndex = TypeConverter.ToNumber(R.Get("lastIndex")).AsNumber();
-            var i = TypeConverter.ToInteger(lastIndex).AsNumber();
+            var lastIndex = TypeConverter.ToNumber(R.Get("lastIndex"));
+            var i = TypeConverter.ToInteger(lastIndex);
             var global = R.Global;
             
             if (!global)

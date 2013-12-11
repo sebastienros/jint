@@ -49,7 +49,7 @@ namespace Jint.Native.Boolean
         /// <returns></returns>
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            return Construct(TypeConverter.ToBoolean(arguments.At(0)).AsBoolean());
+            return Construct(TypeConverter.ToBoolean(arguments.At(0)));
         }
 
         public BooleanPrototype PrototypeObject { get; private set; }

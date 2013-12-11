@@ -55,7 +55,7 @@ namespace Jint.Native.Function
             var o = target as FunctionInstance;
             if (o != null)
             {
-                var l = TypeConverter.ToNumber(o.Get("length")).AsNumber() - (arguments.Length - 1);
+                var l = TypeConverter.ToNumber(o.Get("length")) - (arguments.Length - 1);
                 f.FastAddProperty("length", System.Math.Max(l, 0), false, false, false); 
             }
             else

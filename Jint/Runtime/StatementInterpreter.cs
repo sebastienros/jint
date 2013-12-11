@@ -38,7 +38,7 @@ namespace Jint.Runtime
             var exprRef = _engine.EvaluateExpression(ifStatement.Test);
             Completion result;
 
-            if (TypeConverter.ToBoolean(_engine.GetValue(exprRef)).AsBoolean())
+            if (TypeConverter.ToBoolean(_engine.GetValue(exprRef)))
             {
                 result = ExecuteStatement(ifStatement.Consequent);
             }
@@ -96,7 +96,7 @@ namespace Jint.Runtime
                     }
                 }
                 var exprRef = _engine.EvaluateExpression(doWhileStatement.Test);
-                iterating = TypeConverter.ToBoolean(_engine.GetValue(exprRef)).AsBoolean();
+                iterating = TypeConverter.ToBoolean(_engine.GetValue(exprRef));
 
             } while (iterating);
 
@@ -115,7 +115,7 @@ namespace Jint.Runtime
             {
                 var exprRef = _engine.EvaluateExpression(whileStatement.Test);
 
-                if (!TypeConverter.ToBoolean(_engine.GetValue(exprRef)).AsBoolean())
+                if (!TypeConverter.ToBoolean(_engine.GetValue(exprRef)))
                 {
                     return new Completion(Completion.Normal, v, null);
                 }
@@ -168,7 +168,7 @@ namespace Jint.Runtime
                 if (forStatement.Test != null)
                 {
                     var testExprRef = _engine.EvaluateExpression(forStatement.Test);
-                    if (!TypeConverter.ToBoolean(_engine.GetValue(testExprRef)).AsBoolean())
+                    if (!TypeConverter.ToBoolean(_engine.GetValue(testExprRef)))
                     {
                         return new Completion(Completion.Normal, v, null);
                     }
@@ -218,7 +218,7 @@ namespace Jint.Runtime
             }
 
 
-            var obj = TypeConverter.ToObject(_engine, experValue).AsObject();
+            var obj = TypeConverter.ToObject(_engine, experValue);
             JsValue v = Null.Instance;
             
             // keys are constructed using the prototype chain
@@ -319,7 +319,7 @@ namespace Jint.Runtime
         public Completion ExecuteWithStatement(WithStatement withStatement)
         {
             var val = _engine.EvaluateExpression(withStatement.Object);
-            var obj = TypeConverter.ToObject(_engine, _engine.GetValue(val)).AsObject();
+            var obj = TypeConverter.ToObject(_engine, _engine.GetValue(val));
             var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
             var newEnv = LexicalEnvironment.NewObjectEnvironment(_engine, obj, oldEnv, true);
             _engine.ExecutionContext.LexicalEnvironment = newEnv;

@@ -90,7 +90,7 @@ namespace Jint.Native.Object
                 var type = value.Type;
                 if (type == Types.String || type == Types.Number || type == Types.Boolean)
                 {
-                    return TypeConverter.ToObject(_engine, value).AsObject();
+                    return TypeConverter.ToObject(_engine, value);
                 }
             }
 
@@ -125,7 +125,7 @@ namespace Jint.Native.Object
             }
 
             var p = arguments.At(1);
-            var name = TypeConverter.ToString(p).AsString();
+            var name = TypeConverter.ToString(p);
 
             var desc = o.GetOwnProperty(name);
             return PropertyDescriptor.FromPropertyDescriptor(Engine, desc);
@@ -193,7 +193,7 @@ namespace Jint.Native.Object
             }
 
             var p = arguments.At(1);
-            var name = TypeConverter.ToString(p).AsString();
+            var name = TypeConverter.ToString(p);
 
             var attributes = arguments.At(2);
             var desc = PropertyDescriptor.ToPropertyDescriptor(Engine, attributes);
@@ -212,7 +212,7 @@ namespace Jint.Native.Object
             }
 
             var properties = arguments.At(1);
-            var props = TypeConverter.ToObject(Engine, properties).AsObject();
+            var props = TypeConverter.ToObject(Engine, properties);
             var descriptors = new List<KeyValuePair<string, PropertyDescriptor>>();
             foreach (var p in props.Properties)
             {

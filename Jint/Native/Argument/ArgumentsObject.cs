@@ -34,7 +34,7 @@ namespace Jint.Native.Argument
             var indx = len - 1;
             while (indx >= 0)
             {
-                var indxStr = TypeConverter.ToString(indx).AsString();
+                var indxStr = TypeConverter.ToString(indx);
                 var val = args[indx];
                 obj.FastAddProperty(indxStr, val, true, true, true);
                 if (indx < names.Length)

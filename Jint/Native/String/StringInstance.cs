@@ -39,13 +39,13 @@ namespace Jint.Native.String
                 return desc;
             }
 
-            if (propertyName != System.Math.Abs(TypeConverter.ToInteger(propertyName).AsNumber()).ToString())
+            if (propertyName != System.Math.Abs(TypeConverter.ToInteger(propertyName)).ToString())
             {
                 return PropertyDescriptor.Undefined;
             }
 
             var str = PrimitiveValue;
-            var index = (int)TypeConverter.ToInteger(propertyName).AsNumber();
+            var index = (int)TypeConverter.ToInteger(propertyName);
             var len = str.AsString().Length;
             if (len <= index)
             {

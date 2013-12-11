@@ -2,6 +2,7 @@
 using System.Globalization;
 using Jint.Native;
 using Jint.Native.Number;
+using Jint.Native.Object;
 
 namespace Jint.Runtime
 {
@@ -45,7 +46,7 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="o"></param>
         /// <returns></returns>
-        public static JsValue ToBoolean(JsValue o)
+        public static bool ToBoolean(JsValue o)
         {
             if (o.IsObject())
             {
@@ -58,12 +59,12 @@ namespace Jint.Runtime
 
             if (o == Undefined.Instance || o == Null.Instance)
             {
-                return JsValue.False;
+                return false;
             }
             
             if (o.IsBoolean())
             {
-                return o;
+                return o.AsBoolean();
             }
 
             if (o.IsNumber())
@@ -71,11 +72,11 @@ namespace Jint.Runtime
                 var n = o.AsNumber();
                 if (n == 0 || double.IsNaN(n))
                 {
-                    return JsValue.False;
+                    return false;
                 }
                 else
                 {
-                    return JsValue.True;
+                    return true;
                 }
             }
 
@@ -84,15 +85,15 @@ namespace Jint.Runtime
                 var s = o.AsString();
                 if (String.IsNullOrEmpty(s))
                 {
-                    return JsValue.False;
+                    return false;
                 }
                 else
                 {
-                    return JsValue.True;
+                    return true;
                 }
             }
-            
-            return JsValue.True;
+
+            return true;
         }
 
         /// <summary>
@@ -100,7 +101,7 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="o"></param>
         /// <returns></returns>
-        public static JsValue ToNumber(JsValue o)
+        public static double ToNumber(JsValue o)
         {
             if (o.IsObject())
             {
@@ -113,7 +114,7 @@ namespace Jint.Runtime
 
             if (o.IsNumber())
             {
-                return o;
+                return o.AsNumber();
             }
 
             if (o == Undefined.Instance)
@@ -198,9 +199,9 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="o"></param>
         /// <returns></returns>
-        public static JsValue ToInteger(JsValue o)
+        public static double ToInteger(JsValue o)
         {
-            var number = ToNumber(o).AsNumber();
+            var number = ToNumber(o);
 
             if (double.IsNaN(number))
             {
@@ -222,7 +223,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static int ToInt32(JsValue o)
         {
-            return (int)(uint)ToNumber(o).AsNumber();
+            return (int)(uint)ToNumber(o);
         }
 
         /// <summary>
@@ -232,7 +233,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static uint ToUint32(JsValue o)
         {
-            return (uint)ToNumber(o).AsNumber();
+            return (uint)ToNumber(o);
         }
 
         /// <summary>
@@ -242,7 +243,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static ushort ToUint16(JsValue o)
         {
-            return (ushort)(uint)ToNumber(o).AsNumber();
+            return (ushort)(uint)ToNumber(o);
         }
 
         /// <summary>
@@ -250,7 +251,7 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="o"></param>
         /// <returns></returns>
-        public static JsValue ToString(JsValue o)
+        public static string ToString(JsValue o)
         {
             if (o.IsObject())
             {
@@ -263,7 +264,7 @@ namespace Jint.Runtime
 
             if (o.IsString())
             {
-                return o;
+                return o.AsString();
             }
 
             if (o == Undefined.Instance)
@@ -289,11 +290,11 @@ namespace Jint.Runtime
             return ToString(ToPrimitive(o, Types.String));
         }
 
-        public static JsValue ToObject(Engine engine, JsValue value)
+        public static ObjectInstance ToObject(Engine engine, JsValue value)
         {
             if (value.IsObject())
             {
-                return value;
+                return value.AsObject();
             }
 
             if (value == Undefined.Instance)
@@ -322,6 +323,22 @@ namespace Jint.Runtime
             }
 
             throw new JavaScriptException(engine.TypeError);
+        }
+
+        public static Types GetPrimitiveType(JsValue value)
+        {
+            if (value.IsObject())
+            {
+                var primitive = value.TryCast<IPrimitiveInstance>();
+                if (primitive != null)
+                {
+                    return primitive.Type;
+                }
+
+                return Types.Object;
+            }
+
+            return value.Type;
         }
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)

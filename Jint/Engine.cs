@@ -352,12 +352,12 @@ namespace Jint
             {
                 if (reference.HasPrimitiveBase() == false)
                 {
-                    var o = TypeConverter.ToObject(this, baseValue).AsObject();
+                    var o = TypeConverter.ToObject(this, baseValue);
                     return o.Get(reference.GetReferencedName());
                 }
                 else
                 {
-                    var o = TypeConverter.ToObject(this, baseValue).AsObject();
+                    var o = TypeConverter.ToObject(this, baseValue);
                     var desc = o.GetProperty(reference.GetReferencedName());
                     if (desc == PropertyDescriptor.Undefined)
                     {
@@ -443,7 +443,7 @@ namespace Jint
         /// <param name="throwOnError"></param>
         public void PutPrimitiveBase(JsValue b, string name, JsValue value, bool throwOnError)
         {
-            var o = TypeConverter.ToObject(this, b).AsObject();
+            var o = TypeConverter.ToObject(this, b);
             if (!o.CanPut(name))
             {
                 if (throwOnError)

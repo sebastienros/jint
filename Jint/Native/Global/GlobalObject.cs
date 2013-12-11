@@ -65,7 +65,7 @@ namespace Jint.Native.Global
         /// </summary>
         public static JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
         {
-            string inputString = TypeConverter.ToString(arguments.At(0)).AsString();
+            string inputString = TypeConverter.ToString(arguments.At(0));
             var s = inputString.Trim();
 
             var sign = 1;
@@ -166,7 +166,7 @@ namespace Jint.Native.Global
         /// </summary>
         public static JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
         {
-            var inputString = TypeConverter.ToString(arguments.At(0)).AsString();
+            var inputString = TypeConverter.ToString(arguments.At(0));
             var trimmedString = inputString.TrimStart();
 
             var sign = 1;
@@ -317,7 +317,7 @@ namespace Jint.Native.Global
         /// </summary>
         public static JsValue IsNaN(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var x = TypeConverter.ToNumber(arguments[0]);
             return double.IsNaN(x);
         }
 
@@ -331,7 +331,7 @@ namespace Jint.Native.Global
                 return false;
             }
 
-            var n = TypeConverter.ToNumber(arguments[0]).AsNumber();
+            var n = TypeConverter.ToNumber(arguments[0]);
             if (double.IsNaN(n) || double.IsInfinity(n))
             {
                 return false;
@@ -367,7 +367,7 @@ namespace Jint.Native.Global
         /// <returns></returns>
         public JsValue EncodeUri(JsValue thisObject, JsValue[] arguments)
         {
-            var uriString = TypeConverter.ToString(arguments.At(0)).AsString();
+            var uriString = TypeConverter.ToString(arguments.At(0));
             var unescapedUriSet = UriReserved.Concat(UriUnescaped).Concat(new [] {'#'}).ToArray();
 
             return Encode(uriString, unescapedUriSet);
@@ -382,7 +382,7 @@ namespace Jint.Native.Global
         /// <returns></returns>
         public JsValue EncodeUriComponent(JsValue thisObject, JsValue[] arguments)
         {
-            var uriString = TypeConverter.ToString(arguments.At(0)).AsString();
+            var uriString = TypeConverter.ToString(arguments.At(0));
 
             return Encode(uriString, UriUnescaped);
         }
@@ -492,7 +492,7 @@ namespace Jint.Native.Global
 
         public JsValue DecodeUri(JsValue thisObject, JsValue[] arguments)
         {
-            var uriString = TypeConverter.ToString(arguments.At(0)).AsString();
+            var uriString = TypeConverter.ToString(arguments.At(0));
             var reservedUriSet = UriReserved.Concat(new[] { '#' }).ToArray();
 
             return Decode(uriString, reservedUriSet);
@@ -500,7 +500,7 @@ namespace Jint.Native.Global
 
         public JsValue DecodeUriComponent(JsValue thisObject, JsValue[] arguments)
         {
-            var componentString = TypeConverter.ToString(arguments.At(0)).AsString();
+            var componentString = TypeConverter.ToString(arguments.At(0));
             var reservedUriComponentSet = new char[0];
 
             return Decode(componentString, reservedUriComponentSet);

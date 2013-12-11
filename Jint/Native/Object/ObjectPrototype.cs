@@ -31,8 +31,8 @@ namespace Jint.Native.Object
 
         private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue[] arguments)
         {
-            var p = TypeConverter.ToString(arguments[0]).AsString();
-            var o = TypeConverter.ToObject(Engine, thisObject).AsObject();
+            var p = TypeConverter.ToString(arguments[0]);
+            var o = TypeConverter.ToObject(Engine, thisObject);
             var desc = o.GetOwnProperty(p);
             if (desc == PropertyDescriptor.Undefined)
             {
@@ -72,7 +72,7 @@ namespace Jint.Native.Object
 
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(Engine, thisObject).AsObject();
+            var o = TypeConverter.ToObject(Engine, thisObject);
             var toString = o.Get("toString").TryCast<ICallable>(x =>
             {
                 throw new JavaScriptException(Engine.TypeError);
@@ -99,7 +99,7 @@ namespace Jint.Native.Object
                 return "[object Null]";
             }
 
-            var o = TypeConverter.ToObject(Engine, thisObject).AsObject();
+            var o = TypeConverter.ToObject(Engine, thisObject);
             return "[object " + o.Class + "]";
         }
 
@@ -111,8 +111,8 @@ namespace Jint.Native.Object
         /// <returns></returns>
         public JsValue HasOwnProperty(JsValue thisObject, JsValue[] arguments)
         {
-            var p = TypeConverter.ToString(arguments[0]).AsString();
-            var o = TypeConverter.ToObject(Engine, thisObject).AsObject();
+            var p = TypeConverter.ToString(arguments[0]);
+            var o = TypeConverter.ToObject(Engine, thisObject);
             var desc = o.GetOwnProperty(p);
             return desc != PropertyDescriptor.Undefined;
         }

@@ -62,7 +62,7 @@ namespace Jint.Native.String
         /// <returns></returns>
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            return Construct(arguments.Length > 0 ? TypeConverter.ToString(arguments[0]).AsString() : "");
+            return Construct(arguments.Length > 0 ? TypeConverter.ToString(arguments[0]) : "");
         }
 
         public StringPrototype PrototypeObject { get; private set; }

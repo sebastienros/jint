@@ -25,7 +25,7 @@ namespace Jint.Native.Array
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             var oldLenDesc = GetOwnProperty("length");
-            var oldLen = TypeConverter.ToNumber(oldLenDesc.Value.Value).AsNumber();
+            var oldLen = TypeConverter.ToNumber(oldLenDesc.Value.Value);
             if (propertyName == "length")
             {
                 if (!desc.Value.HasValue)
@@ -35,7 +35,7 @@ namespace Jint.Native.Array
 
                 var newLenDesc = new PropertyDescriptor(desc);
                 uint newLen = TypeConverter.ToUint32(desc.Value.Value);
-                if (newLen != TypeConverter.ToNumber(desc.Value.Value).AsNumber())
+                if (newLen != TypeConverter.ToNumber(desc.Value.Value))
                 {
                     throw new JavaScriptException(_engine.RangeError);
                 }
@@ -107,7 +107,7 @@ namespace Jint.Native.Array
                     {
                         // algorithm as per the spec
                         oldLen--;
-                        var deleteSucceeded = Delete(TypeConverter.ToString(oldLen).AsString(), false);
+                        var deleteSucceeded = Delete(TypeConverter.ToString(oldLen), false);
                         if (!deleteSucceeded)
                         {
                             newLenDesc.Value = oldLen + 1;

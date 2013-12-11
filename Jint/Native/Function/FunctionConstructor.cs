@@ -53,21 +53,21 @@ namespace Jint.Native.Function
 
             if (argCount == 1)
             {
-                body = TypeConverter.ToString(arguments[0]).AsString();
+                body = TypeConverter.ToString(arguments[0]);
             }
             else if (argCount > 1)
             {
                 var firstArg = arguments[0];
-                p = TypeConverter.ToString(firstArg).AsString();
+                p = TypeConverter.ToString(firstArg);
                 for (var k = 1; k < argCount - 1; k++)
                 {
                     var nextArg = arguments[k];
                     p += "," + TypeConverter.ToString(nextArg);
                 }
 
-                body = TypeConverter.ToString(arguments[argCount-1]).AsString();
+                body = TypeConverter.ToString(arguments[argCount-1]);
             }
-            body = TypeConverter.ToString(body).AsString();
+            body = TypeConverter.ToString(body);
             
             // todo: ensure parsable as parameter list
             var parameters = p.Split(new [] {','}, StringSplitOptions.RemoveEmptyEntries);

@@ -605,7 +605,7 @@ namespace Jint.Native.Object
 
         public override string ToString()
         {
-            return TypeConverter.ToString(this).AsString();
+            return TypeConverter.ToString(this);
         }
     }
 }

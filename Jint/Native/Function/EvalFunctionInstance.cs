@@ -27,7 +27,7 @@ namespace Jint.Native.Function
                 return arguments.At(0);
             }
 
-            var code = TypeConverter.ToString(arguments.At(0)).AsString();
+            var code = TypeConverter.ToString(arguments.At(0));
 
             try
             {
