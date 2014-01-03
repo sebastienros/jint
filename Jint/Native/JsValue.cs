@@ -351,6 +351,25 @@ namespace Jint.Native
                 }
             }
         }
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            return obj is JsValue && Equals((JsValue)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = _bool.GetHashCode();
+                hashCode = (hashCode * 397) ^ _double.GetHashCode();
+                hashCode = (hashCode * 397) ^ (_object != null ? _object.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (_string != null ? _string.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (int)_type;
+                return hashCode;
+            }
+        }
+
     }
 
     public static class Undefined

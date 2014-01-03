@@ -1,6 +1,4 @@
-﻿using System;
-using System.Linq;
-using Jint.Native.Argument;
+﻿using System.Linq;
 using Jint.Native.Object;
 using Jint.Parser;
 using Jint.Runtime;
@@ -14,7 +12,6 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        private readonly Engine Engine;
         private readonly IFunctionDeclaration _functionDeclaration;
 
         /// <summary>

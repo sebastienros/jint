@@ -183,8 +183,6 @@ namespace Jint.Runtime
                 {
                     return double.NaN;
                 }
-
-                return double.NaN;
             }
 
             return ToNumber(ToPrimitive(o, Types.Number));
