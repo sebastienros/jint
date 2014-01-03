@@ -122,7 +122,7 @@ namespace Jint.Native.RegExp
             var matchIndex = r.Index;
             a.DefineOwnProperty("index", new PropertyDescriptor(matchIndex, writable: true, enumerable: true, configurable: true), true);
             a.DefineOwnProperty("input", new PropertyDescriptor(s, writable: true, enumerable: true, configurable: true), true);
-            a.DefineOwnProperty("length", new PropertyDescriptor(value: n, writable:null, enumerable: null, configurable:null), true);
+            a.DefineOwnProperty("length", new PropertyDescriptor(value: n, writable:false, enumerable: false, configurable:false), true);
             for (var k = 0; k < n; k++)
             {
                 var group = r.Groups[k];

@@ -24,7 +24,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteEmptyStatement(EmptyStatement emptyStatement)
         {
-            return new Completion(Completion.Normal, Undefined.Instance, null);
+            return new Completion(Completion.Normal, null, null);
         }
 
         public Completion ExecuteExpressionStatement(ExpressionStatement expressionStatement)
@@ -48,7 +48,7 @@ namespace Jint.Runtime
             }
             else
             {
-                return new Completion(Completion.Normal, Null.Instance, null);
+                return new Completion(Completion.Normal, null, null);
             }
 
             return result;
@@ -73,15 +73,15 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteDoWhileStatement(DoWhileStatement doWhileStatement)
         {
-            JsValue v = Null.Instance;
+            JsValue v = Undefined.Instance;
             bool iterating;
 
             do
             {
                 var stmt = ExecuteStatement(doWhileStatement.Body);
-                if (stmt.Value != Undefined.Instance)
+                if (stmt.Value.HasValue)
                 {
-                    v = stmt.Value;
+                    v = stmt.Value.Value;
                 }
                 if (stmt.Type != Completion.Continue || stmt.Identifier != doWhileStatement.LabelSet)
                 {
@@ -110,7 +110,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteWhileStatement(WhileStatement whileStatement)
         {
-            JsValue v = Null.Instance; 
+            JsValue v = Undefined.Instance; 
             while (true)
             {
                 var exprRef = _engine.EvaluateExpression(whileStatement.Test);
@@ -122,9 +122,9 @@ namespace Jint.Runtime
 
                 var stmt = ExecuteStatement(whileStatement.Body);
 
-                if (stmt.Value != Null.Instance)
+                if (stmt.Value.HasValue)
                 {
-                    v = stmt.Value;
+                    v = stmt.Value.Value;
                 }
 
                 if (stmt.Type != Completion.Continue || stmt.Identifier != whileStatement.LabelSet)
@@ -162,7 +162,7 @@ namespace Jint.Runtime
                 }
             }
 
-            JsValue v = Null.Instance;
+            JsValue v = Undefined.Instance;
             while (true)
             {
                 if (forStatement.Test != null)
@@ -175,9 +175,9 @@ namespace Jint.Runtime
                 }
 
                 var stmt = ExecuteStatement(forStatement.Body);
-                if (stmt.Value != Null.Instance)
+                if (stmt.Value.HasValue)
                 {
-                    v = stmt.Value;
+                    v = stmt.Value.Value;
                 }
                 if (stmt.Type == Completion.Break && (stmt.Identifier == null || stmt.Identifier == forStatement.LabelSet))
                 {
@@ -214,7 +214,7 @@ namespace Jint.Runtime
             var experValue = _engine.GetValue(exprRef);
             if (experValue == Undefined.Instance || experValue == Null.Instance)
             {
-                return new Completion(Completion.Normal, Null.Instance, null);
+                return new Completion(Completion.Normal, null, null);
             }
 
 
@@ -252,15 +252,15 @@ namespace Jint.Runtime
                     _engine.PutValue(varRef, p);
 
                     var stmt = ExecuteStatement(forInStatement.Body);
-                    if (stmt.Value != Null.Instance)
+                    if (stmt.Value.HasValue)
                     {
-                        v = stmt.Value;
+                        v = stmt.Value.Value;
                     }
-                    if (stmt.Type == Completion.Break /* todo: complete */)
+                    if (stmt.Type == Completion.Break)
                     {
                         return new Completion(Completion.Normal, v, null);
                     }
-                    if (stmt.Type != Completion.Continue /* todo: complete */)
+                    if (stmt.Type != Completion.Continue)
                     {
                         if (stmt.Type != Completion.Normal)
                         {
@@ -282,7 +282,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteContinueStatement(ContinueStatement continueStatement)
         {
-            return new Completion(Completion.Continue, Null.Instance, continueStatement.Label != null ? continueStatement.Label.Name : null);
+            return new Completion(Completion.Continue, null, continueStatement.Label != null ? continueStatement.Label.Name : null);
         }
 
         /// <summary>
@@ -292,7 +292,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteBreakStatement(BreakStatement breakStatement)
         {
-            return new Completion(Completion.Break, Null.Instance, breakStatement.Label != null ? breakStatement.Label.Name : null);
+            return new Completion(Completion.Break, null, breakStatement.Label != null ? breakStatement.Label.Name : null);
         }
 
         /// <summary>
@@ -359,7 +359,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteSwitchBlock(IEnumerable<SwitchCase> switchBlock, JsValue input)
         {
-            JsValue v = Null.Instance;
+            JsValue v = Undefined.Instance;
             SwitchCase defaultCase = null;
             bool hit = false;
             foreach (var clause in switchBlock)
@@ -384,7 +384,8 @@ namespace Jint.Runtime
                     {
                         return r;
                     }
-                    v = r.Value;
+                    
+                    v = r.Value.HasValue ? r.Value.Value : Undefined.Instance;
                 }
 
             }
@@ -397,7 +398,8 @@ namespace Jint.Runtime
                 {
                     return r;
                 }
-                v = r.Value;
+
+                v = r.Value.HasValue ? r.Value.Value : Undefined.Instance;
             }
 
             return new Completion(Completion.Normal, v, null);
@@ -405,7 +407,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteStatementList(IEnumerable<Statement> statementList)
         {
-            var c = new Completion(Completion.Normal, Null.Instance, null);
+            var c = new Completion(Completion.Normal, null, null);
             Completion sl = c;
 
             try
@@ -415,7 +417,7 @@ namespace Jint.Runtime
                     c = ExecuteStatement(statement);
                     if (c.Type != Completion.Normal)
                     {
-                        return new Completion(c.Type, c.Value != Null.Instance ? c.Value : sl.Value, c.Identifier);
+                        return new Completion(c.Type, c.Value.HasValue ? c.Value : sl.Value, c.Identifier);
                     }
 
                     sl = c;
@@ -426,7 +428,7 @@ namespace Jint.Runtime
                 return new Completion(Completion.Throw, v.Error, null);
             }
 
-            return new Completion(c.Type, c.Value != Null.Instance ? c.Value : sl.Value, c.Identifier);
+            return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
         }
 
         /// <summary>
@@ -511,7 +513,7 @@ namespace Jint.Runtime
                 }
             }
 
-            return new Completion(Completion.Normal, Null.Instance, null);
+            return new Completion(Completion.Normal, Undefined.Instance, null);
         }
 
         public Completion ExecuteBlockStatement(BlockStatement blockStatement)
@@ -528,7 +530,7 @@ namespace Jint.Runtime
             
             System.Diagnostics.Debugger.Break();
 
-            return new Completion(Completion.Normal, Null.Instance, null);
+            return new Completion(Completion.Normal, null, null);
         }
     }
 }

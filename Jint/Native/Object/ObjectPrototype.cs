@@ -49,19 +49,24 @@ namespace Jint.Native.Object
 
         private JsValue IsPrototypeOf(JsValue thisObject, JsValue[] arguments)
         {
-            var v = arguments[0];
-            if (!v.IsObject())
+            var arg = arguments[0];
+            if (!arg.IsObject())
             {
                 return false;
             }
 
+            var v = arg.AsObject();
+
             var o = TypeConverter.ToObject(Engine, thisObject);
             while (true)
             {
-                if (v.AsObject().Prototype == null)
+                v = v.Prototype;
+
+                if (v == null)
                 {
                     return false;
                 }
+
                 if (o == v)
                 {
                     return true;

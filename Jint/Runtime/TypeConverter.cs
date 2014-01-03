@@ -50,11 +50,7 @@ namespace Jint.Runtime
         {
             if (o.IsObject())
             {
-                var p = o.AsObject() as IPrimitiveInstance;
-                if (p != null)
-                {
-                    o = p.PrimitiveValue;
-                }
+                return true;
             }
 
             if (o == Undefined.Instance || o == Null.Instance)

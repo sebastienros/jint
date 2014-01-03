@@ -55,7 +55,7 @@ namespace Jint.Native.Object
 
             if (desc.IsDataDescriptor())
             {
-                return desc.Value.Value;
+                return desc.Value.HasValue ? desc.Value.Value : Undefined.Instance;
             }
 
             var getter = desc.Get.HasValue ? desc.Get.Value : Undefined.Instance;
@@ -416,15 +416,39 @@ namespace Jint.Native.Object
                 ? descDataDescriptor.Writable.HasValue && (currentDataDescriptor.Writable.Value == descDataDescriptor.Writable.Value)
                 : !descDataDescriptor.Writable.HasValue;
 
-                valueIsSame = ExpressionInterpreter.SameValue(currentDataDescriptor.Value.Value, descDataDescriptor.Value.Value);
+                var valueA = currentDataDescriptor.Value.HasValue
+                    ? currentDataDescriptor.Value.Value
+                    : Undefined.Instance;
+
+                var valueB = descDataDescriptor.Value.HasValue
+                                    ? descDataDescriptor.Value.Value
+                                    : Undefined.Instance;
+
+                valueIsSame = ExpressionInterpreter.SameValue(valueA, valueB);
             }
             else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())
             {
                 var currentAccessorDescriptor = current;
                 var descAccessorDescriptor = desc;
 
-                valueIsSame = ExpressionInterpreter.SameValue(currentAccessorDescriptor.Get.Value, descAccessorDescriptor.Get.Value)
-                              && ExpressionInterpreter.SameValue(currentAccessorDescriptor.Set.Value, descAccessorDescriptor.Set.Value);
+                var getValueA = currentAccessorDescriptor.Get.HasValue
+                    ? currentAccessorDescriptor.Get.Value
+                    : Undefined.Instance;
+
+                var getValueB = descAccessorDescriptor.Get.HasValue
+                                    ? descAccessorDescriptor.Get.Value
+                                    : Undefined.Instance;
+
+                var setValueA = currentAccessorDescriptor.Set.HasValue
+                   ? currentAccessorDescriptor.Set.Value
+                   : Undefined.Instance;
+
+                var setValueB = descAccessorDescriptor.Set.HasValue
+                                    ? descAccessorDescriptor.Set.Value
+                                    : Undefined.Instance;
+
+                valueIsSame = ExpressionInterpreter.SameValue(getValueA, getValueB)
+                              && ExpressionInterpreter.SameValue(setValueA, setValueB);
             }
             else
             {
@@ -448,7 +472,7 @@ namespace Jint.Native.Object
                     return false;
                 }
 
-                if (desc.Enumerable.HasValue && desc.Enumerable.Value != current.Enumerable.Value)
+                if (desc.Enumerable.HasValue && (!current.Enumerable.HasValue || desc.Enumerable.Value != current.Enumerable.Value))
                 {
                     if (throwOnError)
                     {
@@ -464,7 +488,7 @@ namespace Jint.Native.Object
 
                 if (current.IsDataDescriptor() != desc.IsDataDescriptor())
                 {
-                    if (!current.Configurable.Value.AsBoolean())
+                    if (!current.Configurable.HasValue || !current.Configurable.Value.AsBoolean())
                     {
                         if (throwOnError)
                         {
@@ -479,8 +503,8 @@ namespace Jint.Native.Object
                         Properties[propertyName] = current = new PropertyDescriptor(
                             get: Undefined.Instance,
                             set: Undefined.Instance,
-                            enumerable: current.Enumerable.Value.AsBoolean(), 
-                            configurable: current.Configurable.Value.AsBoolean()
+                            enumerable: current.Enumerable.HasValue && current.Enumerable.Value.AsBoolean(),
+                            configurable: current.Configurable.HasValue && current.Configurable.Value.AsBoolean()
                             );
                     }
                     else
@@ -488,16 +512,16 @@ namespace Jint.Native.Object
                         Properties[propertyName] = current = new PropertyDescriptor(
                             value: Undefined.Instance, 
                             writable: null,
-                            enumerable: current.Enumerable.Value.AsBoolean(), 
-                            configurable: current.Configurable.Value.AsBoolean()
+                            enumerable: current.Enumerable.HasValue && current.Enumerable.Value.AsBoolean(),
+                            configurable: current.Configurable.HasValue && current.Configurable.Value.AsBoolean()
                             );
                     }
                 }
                 else if (current.IsDataDescriptor() && desc.IsDataDescriptor())
                 {
-                    if (current.Configurable.Value.AsBoolean() == false)
+                    if (!current.Configurable.HasValue || current.Configurable.Value.AsBoolean() == false)
                     {
-                        if (!current.Writable.Value.AsBoolean() && desc.Writable.Value.AsBoolean())
+                        if (!current.Writable.HasValue || !current.Writable.Value.AsBoolean() && desc.Writable.HasValue && desc.Writable.Value.AsBoolean())
                         {
                             if (throwOnError)
                             {
@@ -531,7 +555,7 @@ namespace Jint.Native.Object
                     if (!current.Configurable.HasValue || !current.Configurable.Value.AsBoolean())
                     {
                         if ((desc.Set.HasValue && desc.Set.Value != Undefined.Instance &&
-                             !ExpressionInterpreter.SameValue(desc.Set.Value, current.Set.Value))
+                            !ExpressionInterpreter.SameValue(desc.Set.Value, current.Set.HasValue ? current.Set.Value : Undefined.Instance))
                             ||
                             (desc.Get.HasValue && desc.Get.Value != Undefined.Instance &&
                              !ExpressionInterpreter.SameValue(desc.Get.Value, current.Get.Value)))

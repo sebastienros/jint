@@ -184,7 +184,7 @@ namespace Jint
                 var result = _statements.ExecuteProgram(program);
                 if (result.Type == Completion.Throw)
                 {
-                    throw new JavaScriptException(result.Value);
+                    throw new JavaScriptException(result.GetValueOrDefault());
                 }
 
                 return GetValue(result.Value);
@@ -223,7 +223,7 @@ namespace Jint
                     return _statements.ExecuteForInStatement(statement.As<ForInStatement>());
 
                 case SyntaxNodes.FunctionDeclaration:
-                    return new Completion(Completion.Normal, Undefined.Instance, null);
+                    return new Completion(Completion.Normal, null, null);
                     
                 case SyntaxNodes.IfStatement:
                     return _statements.ExecuteIfStatement(statement.As<IfStatement>());

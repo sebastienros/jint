@@ -43,14 +43,15 @@ namespace Jint.Native.Error
 
             var name = TypeConverter.ToString(o.Get("name"));
 
-            var msg = o.Get("message");
-            if (msg == Undefined.Instance)
+            var msgProp = o.Get("message");
+            string msg;
+            if (msgProp == Undefined.Instance)
             {
                 msg = "";
             }
             else
             {
-                msg = TypeConverter.ToString(msg);
+                msg = TypeConverter.ToString(msgProp);
             }
             if (name == "")
             {

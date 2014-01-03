@@ -97,12 +97,12 @@ namespace Jint.Native.Function
 
                     if (result.Type == Completion.Throw)
                     {
-                        throw new JavaScriptException(result.Value);
+                        throw new JavaScriptException(result.GetValueOrDefault());
                     }
 
                     if (result.Type == Completion.Return)
                     {
-                        return result.Value;
+                        return result.GetValueOrDefault();
                     }
                 }
                 finally

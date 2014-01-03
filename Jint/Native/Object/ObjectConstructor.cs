@@ -165,8 +165,9 @@ namespace Jint.Native.Object
         public JsValue Create(JsValue thisObject, JsValue[] arguments)
         {
             var oArg = arguments.At(0);
+
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (o == null && oArg != Null.Instance)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -216,7 +217,7 @@ namespace Jint.Native.Object
             var descriptors = new List<KeyValuePair<string, PropertyDescriptor>>();
             foreach (var p in props.Properties)
             {
-                if (!p.Value.Enumerable.HasValue)
+                if (!p.Value.Enumerable.HasValue || !p.Value.Enumerable.Value.AsBoolean())
                 {
                     continue;
                 }

@@ -76,7 +76,7 @@ namespace Jint.Runtime.Descriptors
         
         public bool IsAccessorDescriptor()
         {
-            if (!Get.HasValue && !Get.HasValue)
+            if (!Get.HasValue && !Set.HasValue)
             {
                 return false;
             }
@@ -182,7 +182,7 @@ namespace Jint.Runtime.Descriptors
 
             if (desc.IsDataDescriptor())
             {
-                obj.DefineOwnProperty("value", new PropertyDescriptor(value: desc.Value.Value, writable: true, enumerable: true, configurable: true ), false);
+                obj.DefineOwnProperty("value", new PropertyDescriptor(value: desc.Value.HasValue ? desc.Value.Value : Native.Undefined.Instance, writable: true, enumerable: true, configurable: true ), false);
                 obj.DefineOwnProperty("writable", new PropertyDescriptor(value: desc.Writable.HasValue && desc.Writable.Value.AsBoolean(), writable: true, enumerable: true, configurable: true), false);
             }
             else

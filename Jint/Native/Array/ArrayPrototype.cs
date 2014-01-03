@@ -875,7 +875,7 @@ namespace Jint.Native.Array
         public JsValue Push(JsValue thisObject, JsValue[] arguments)
         {
             ObjectInstance o = TypeConverter.ToObject(Engine, thisObject);
-            var lenVal = o.Get("length").AsNumber();
+            var lenVal = TypeConverter.ToNumber(o.Get("length"));
             
             // cast to double as we need to prevent an overflow
             double n = TypeConverter.ToUint32(lenVal);
@@ -893,7 +893,8 @@ namespace Jint.Native.Array
         public JsValue Pop(JsValue thisObject, JsValue[] arguments)
         {
             ObjectInstance o = TypeConverter.ToObject(Engine, thisObject);
-            var lenVal = o.Get("length").AsNumber();
+            var lenVal = TypeConverter.ToNumber(o.Get("length"));
+
             uint len = TypeConverter.ToUint32(lenVal);
             if (len == 0)
             {

@@ -33,10 +33,9 @@ namespace Jint.Native.Boolean
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
         {
             var B = thisObj;
-            object b;
             if (B.IsBoolean())
             {
-                b = B;
+                return B;
             }
             else
             {
@@ -50,8 +49,6 @@ namespace Jint.Native.Boolean
                     throw new JavaScriptException(Engine.TypeError);
                 }
             }
-
-            return (bool)b;
         }
 
         private JsValue ToBooleanString(JsValue thisObj, JsValue[] arguments)

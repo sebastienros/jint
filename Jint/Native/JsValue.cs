@@ -125,18 +125,16 @@ namespace Jint.Native
         [Pure]
         public T TryCast<T>(Action<JsValue> fail = null) where T: class
         {
-            if (!this.IsObject())
+            if (this.IsObject())
             {
-                return null;
+                var o = this.AsObject();
+                var t = o as T;
+                if (t != null)
+                {
+                    return t;
+                }
             }
 
-            var o = this.AsObject();
-            var t = o as T;
-            if (t != null)
-            {
-                return t;
-            }
-            
             if (fail != null)
             {
                 fail(this);
@@ -252,7 +250,7 @@ namespace Jint.Native
 
             if (System.Array.IndexOf(NumberTypes, value.GetType()) != -1)
             {
-                return (double) value;
+                return Convert.ToDouble(value);
             }
 
             if (value is bool)
@@ -366,6 +364,4 @@ namespace Jint.Native
         public static JsValue Instance = JsValue.Null;
         public static string Text = "null";
     }
-
-
 }
