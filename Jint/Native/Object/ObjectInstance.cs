@@ -554,11 +554,9 @@ namespace Jint.Native.Object
                 {
                     if (!current.Configurable.HasValue || !current.Configurable.Value.AsBoolean())
                     {
-                        if ((desc.Set.HasValue && desc.Set.Value != Undefined.Instance &&
-                            !ExpressionInterpreter.SameValue(desc.Set.Value, current.Set.HasValue ? current.Set.Value : Undefined.Instance))
+                        if ((desc.Set.HasValue && !ExpressionInterpreter.SameValue(desc.Set.Value, current.Set.HasValue ? current.Set.Value : Undefined.Instance))
                             ||
-                            (desc.Get.HasValue && desc.Get.Value != Undefined.Instance &&
-                             !ExpressionInterpreter.SameValue(desc.Get.Value, current.Get.Value)))
+                            (desc.Get.HasValue && !ExpressionInterpreter.SameValue(desc.Get.Value, current.Get.HasValue ? current.Get.Value : Undefined.Instance)))
                         {
                             if (throwOnError)
                             {
