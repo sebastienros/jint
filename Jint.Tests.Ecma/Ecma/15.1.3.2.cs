@@ -3,7 +3,7 @@ using Xunit;
 namespace Jint.Tests.Ecma
 {
 
-#if RELEASE
+#if! RELEASE
     // Ignore in DEBUG to prevent too long running test
     [Trait("Category", "Pass")]
 #endif
