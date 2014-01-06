@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
@@ -411,17 +412,29 @@ namespace Jint.Native.Date
 
         private JsValue ToUTCString(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            return thisObj.TryCast<DateInstance>(x =>
+            {
+                throw new JavaScriptException(Engine.TypeError);
+            } )
+            .ToDateTime().ToUniversalTime().ToString("r");
         }
 
         private JsValue ToISOString(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            return thisObj.TryCast<DateInstance>(x =>
+            {
+                throw new JavaScriptException(Engine.TypeError);
+            })
+           .ToDateTime().ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         }
 
         private JsValue ToJSON(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            return thisObj.TryCast<DateInstance>(x =>
+            {
+                throw new JavaScriptException(Engine.TypeError);
+            })
+           .ToDateTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         }
     }
 }

@@ -9,7 +9,7 @@ namespace Jint.Native.Date
 {
     public sealed class DateConstructor : FunctionInstance, IConstructor
     {
-        private static readonly DateTime Origin = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        internal static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         private const long MsPerSecond = 1000;
         private const long MsPerMinute = MsPerSecond * 60;
         private const long MsPerHour = MsPerMinute * 60;
@@ -51,9 +51,25 @@ namespace Jint.Native.Date
             var date = TypeConverter.ToString(arguments.At(0));
 
 
-            if (!DateTime.TryParseExact(date, new[] { "yyyy-MM-ddTH:m:s.fffK", "yyyy-MM-dd", "yyyy-MM", "yyyy", "THH:m:s.fff", "TH:mm:sm", "THH:mm", "THH" }, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result))
+            if (!DateTime.TryParseExact(date, new[]
             {
-                throw new JavaScriptException(Engine.SyntaxError, "Invalid date");
+                "yyyy/MM/ddTH:m:s.fffK", 
+                "yyyy/MM/dd", 
+                "yyyy/MM", 
+                "yyyy-MM-ddTH:m:s.fffK", 
+                "yyyy-MM-dd", 
+                "yyyy-MM", 
+                "yyyy", 
+                "THH:m:s.fff", 
+                "TH:mm:sm", 
+                "THH:mm", 
+                "THH"
+            }, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result))
+            {
+                if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result))
+                {
+                    throw new JavaScriptException(Engine.SyntaxError, "Invalid date");
+                }
             }
 
             return Construct(result);
@@ -67,7 +83,7 @@ namespace Jint.Native.Date
 
         private JsValue Now(JsValue thisObj, JsValue[] arguments)
         {
-            return (DateTime.UtcNow - Origin).TotalMilliseconds;
+            return (DateTime.UtcNow - Epoch).TotalMilliseconds;
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -130,7 +146,7 @@ namespace Jint.Native.Date
                                          + seconds*MsPerSecond
                                          + minutes*MsPerMinute
                                          + hours*MsPerHour
-                                         + date*MsPerDay;
+                                         + (date-1)*MsPerDay;
 
                     return Construct(primitiveValue);
                 }
@@ -184,7 +200,7 @@ namespace Jint.Native.Date
 
         public static double FromDateTime(DateTime dt)
         {
-            return (dt.ToUniversalTime() - Origin).TotalMilliseconds;
+            return (dt.ToUniversalTime() - Epoch).TotalMilliseconds;
         }
     }
 }
