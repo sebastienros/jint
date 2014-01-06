@@ -50,7 +50,6 @@ namespace Jint.Native.Date
             DateTime result;
             var date = TypeConverter.ToString(arguments.At(0));
 
-
             if (!DateTime.TryParseExact(date, new[]
             {
                 "yyyy/MM/ddTH:m:s.fffK", 
@@ -59,16 +58,18 @@ namespace Jint.Native.Date
                 "yyyy-MM-ddTH:m:s.fffK", 
                 "yyyy-MM-dd", 
                 "yyyy-MM", 
-                "yyyy", 
                 "THH:m:s.fff", 
                 "TH:mm:sm", 
                 "THH:mm", 
                 "THH"
             }, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result))
             {
-                if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result))
+                if (!DateTime.TryParseExact(date, "yyyy", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out result))
                 {
-                    throw new JavaScriptException(Engine.SyntaxError, "Invalid date");
+                    if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result))
+                    {
+                        throw new JavaScriptException(Engine.SyntaxError, "Invalid date");
+                    }
                 }
             }
 
