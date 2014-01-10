@@ -1,0 +1,9 @@
+This file contains the list of open-source tools Jint is using directly or indirectly
+
+Esprima
+-----
+Jint contains a C# port of the Esprima Javascript parser.
+
+Website:      http://esprima.org/
+Copyright:    Copyright (c) Ariya Hidayat
+License:      BSD - https://github.com/ariya/esprima/blob/master/LICENSE.BSD
