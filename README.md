@@ -12,16 +12,16 @@ Jint is a Javascript interpreter for .NET. Jint doesn't compile Javascript to .N
 
 
     script= @"
-      function square(x) { 
-        return x * x; 
+      function hello() { 
+        log("Hello World");
       };
-  
-    return square(number);
     ";
   
-    var result = new JintEngine()
-      .SetParameter("number", 3)
-      .Run(script));
+    var engine = new Engine(cfg => cfg
+        .WithDelegate("log", new Action<object>(Console.WriteLine))
+    );
+    
+    engine.Execute("hello()");
 
 
 You can also check the actual implemented test suite for more samples.
