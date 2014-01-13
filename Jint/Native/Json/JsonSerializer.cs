@@ -125,7 +125,7 @@ namespace Jint.Native.Json
             if (_replacerFunction != Undefined.Instance)
             {
                 var replacerFunctionCallable = (ICallable)_replacerFunction.AsObject();
-                value = replacerFunctionCallable.Call(holder, Arguments.From(key, value)); // 15.12.3-11-12 added missing value parameter
+                value = replacerFunctionCallable.Call(holder, Arguments.From(key, value));
             }
 
             
@@ -143,19 +143,18 @@ namespace Jint.Native.Json
                     case "Boolean":
                         value = TypeConverter.ToPrimitive(value);
                         break;
-                    case "Array":  // 15.12.3-11-12 added missing serialization of array           
+                    case "Array": 
                         value = SerializeArray(value.As<ArrayInstance>());
                         return value;
-                        break;
-                    case "Object":  // 15.12.3-11-13
+                    case "Object":
                         value = SerializeObject(value.ToObject() as ObjectInstance);
                         return value;
-                        break;
                 }
             }
             
-            if (value == Undefined.Instance) {
-                return Undefined.Instance; // 15.12.3-11-10 
+            if (value == Undefined.Instance) 
+            {
+                return Undefined.Instance;
             }
 
             if (value == Null.Instance)
@@ -261,7 +260,7 @@ namespace Jint.Native.Json
             for (int i = 0; i < len; i++)
             {
                 var strP = Str(TypeConverter.ToString(i), value);
-                partial.Add(strP.AsString()); // 15.12.3-11-12
+                partial.Add(strP.AsString());
             }
             if (partial.Count == 0)
             {
