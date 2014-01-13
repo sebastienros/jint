@@ -147,6 +147,10 @@ namespace Jint.Native.Json
                         value = SerializeArray(value.As<ArrayInstance>());
                         return value;
                         break;
+                    case "Object":  // 15.12.3-11-13
+                        value = SerializeObject(value.ToObject() as ObjectInstance);
+                        return value;
+                        break;
                 }
             }
             
@@ -320,7 +324,7 @@ namespace Jint.Native.Json
                     {
                         member += " ";
                     }
-                    member += strP;
+                    member += strP.AsString(); // TODO:This could be undefined
                     partial.Add(member);
                 }
             }
