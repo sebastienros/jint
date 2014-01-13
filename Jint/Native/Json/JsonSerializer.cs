@@ -105,8 +105,9 @@ namespace Jint.Native.Json
             return Str("", wrapper);
         }
 
-        private string Str(string key, ObjectInstance holder)
+        private JsValue Str(string key, ObjectInstance holder)
         {
+            
             var value = holder.Get(key);
             if (value.IsObject())
             {
@@ -124,7 +125,7 @@ namespace Jint.Native.Json
             if (_replacerFunction != Undefined.Instance)
             {
                 var replacerFunctionCallable = (ICallable)_replacerFunction.AsObject();
-                value = replacerFunctionCallable.Call(holder, Arguments.From(key));
+                value = replacerFunctionCallable.Call(holder, Arguments.From(key, value));
             }
 
             
@@ -142,7 +143,18 @@ namespace Jint.Native.Json
                     case "Boolean":
                         value = TypeConverter.ToPrimitive(value);
                         break;
+                    case "Array": 
+                        value = SerializeArray(value.As<ArrayInstance>());
+                        return value;
+                    case "Object":
+                        value = SerializeObject(value.AsObject());
+                        return value;
                 }
+            }
+            
+            if (value == Undefined.Instance) 
+            {
+                return Undefined.Instance;
             }
 
             if (value == Null.Instance)
@@ -248,7 +260,7 @@ namespace Jint.Native.Json
             for (int i = 0; i < len; i++)
             {
                 var strP = Str(TypeConverter.ToString(i), value);
-                partial.Add(strP);
+                partial.Add(strP.AsString());
             }
             if (partial.Count == 0)
             {
@@ -311,7 +323,7 @@ namespace Jint.Native.Json
                     {
                         member += " ";
                     }
-                    member += strP;
+                    member += strP.AsString(); // TODO:This could be undefined
                     partial.Add(member);
                 }
             }

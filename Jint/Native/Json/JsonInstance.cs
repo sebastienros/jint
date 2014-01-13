@@ -31,9 +31,8 @@ namespace Jint.Native.Json
 
         public void Configure()
         {
-
-            FastAddProperty("parse", new ClrFunctionInstance(Engine, Parse), true, false, true);
-            FastAddProperty("stringify", new ClrFunctionInstance(Engine, Stringify), true, false, true);
+            FastAddProperty("parse", new ClrFunctionInstance(Engine, Parse, 2), true, false, true);
+            FastAddProperty("stringify", new ClrFunctionInstance(Engine, Stringify, 3), true, false, true);
         }
 
         public JsValue Parse(JsValue thisObject, JsValue[] arguments)
@@ -66,7 +65,12 @@ namespace Jint.Native.Json
             }
 
             var serializer = new JsonSerializer(_engine);
-            return serializer.Serialize(value, replacer, space);
+            if (value == Undefined.Instance) {
+                return Undefined.Instance;
+            }
+            else {
+                return serializer.Serialize(value, replacer, space);
+            }
         }
     }
 }
