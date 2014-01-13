@@ -147,7 +147,7 @@ namespace Jint.Native.Json
                         value = SerializeArray(value.As<ArrayInstance>());
                         return value;
                     case "Object":
-                        value = SerializeObject(value.ToObject() as ObjectInstance);
+                        value = SerializeObject(value.AsObject());
                         return value;
                 }
             }
