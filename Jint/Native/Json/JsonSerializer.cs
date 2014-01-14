@@ -28,7 +28,7 @@ namespace Jint.Native.Json
             _stack = new Stack<object>();
 
             // for JSON.stringify(), any function passed as the first argument will return undefined
-            // if the replacer if not defined. The function is not called either.
+            // if the replacer is not defined. The function is not called either.
             if (value.Is<ICallable>() && replacer == Undefined.Instance) 
             {
                 return Undefined.Instance;

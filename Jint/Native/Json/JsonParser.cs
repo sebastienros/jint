@@ -76,7 +76,7 @@ namespace Jint.Native.Json
                 }
                 else
                 {
-                    return char.MinValue;
+                    throw new JavaScriptException(_engine.SyntaxError, string.Format("Expected hexadecimal digit:{0}", _source));
                 }
             }
             return (char)code;
