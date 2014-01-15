@@ -130,8 +130,7 @@ namespace Jint.Native.Json
                             Range = new[] {start, _index}
                         };
             }
-
-            throw new Exception(Messages.UnexpectedToken);
+            throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, code));
         }
 
         private Token ScanNumericLiteral()
@@ -624,6 +623,10 @@ namespace Jint.Native.Json
                 }
 
                 var name = Lex().Value.ToString();
+                if (!IsValidJsonObjectPropertyName(name))
+                {
+                    throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character in property name '{0}'", name));
+                }
 
                 Expect(":");
                 var value = ParseJsonValue();
@@ -639,6 +642,25 @@ namespace Jint.Native.Json
             Expect("}");
 
             return obj;
+        }
+
+        /// <summary>
+        /// * @path ch15/15.12/15.12.2/15.12.2-2-3.js
+        /// * @description JSON.parse - parsing an object where property name ends with a null character
+        /// </summary>
+        /// <param name="propertyName"></param>
+        /// <returns></returns>
+        private bool IsValidJsonObjectPropertyName(string propertyName)
+        {
+            for (var i = 0; i < propertyName.Length; i++)
+            {
+                var val = (int)propertyName[i];
+                if (val <= 31) 
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private JsValue ParseJsonValue()
