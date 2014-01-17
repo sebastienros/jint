@@ -206,6 +206,11 @@ namespace Jint.Native.Json
 
         const string TrueValue  = "true";
         const string FalseValue = "false";
+        
+        private static bool IsNullChar(char ch)
+        {
+            return Null.Text.Contains(ch.ToString());
+        }
 
         private static bool IsTrueOrFalseChar(char ch)
         {
@@ -222,7 +227,7 @@ namespace Jint.Native.Json
             {
                 s += _source.CharCodeAt(_index++).ToString();
             }
-
+            
             if (s == TrueValue || s == FalseValue)
             {
                 return new Token
@@ -235,6 +240,33 @@ namespace Jint.Native.Json
                 };
             }
             else 
+            {
+                throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, s));
+            }
+        }
+
+        private Token ScanNullLiteral()
+        {
+            int start = _index;
+            string s = string.Empty;
+            
+            while (IsNullChar(_source.CharCodeAt(_index)))
+            {
+                s += _source.CharCodeAt(_index++).ToString();
+            }
+
+            if (s == Null.Text)
+            {
+                return new Token
+                {
+                    Type = Tokens.NullLiteral,
+                    Value = Null.Instance,
+                    LineNumber = _lineNumber,
+                    LineStart = _lineStart,
+                    Range = new[] { start, _index }
+                };
+            }
+            else
             {
                 throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, s));
             }
@@ -258,10 +290,16 @@ namespace Jint.Native.Json
                     quote = char.MinValue;
                     break;
                 }
+
+                if ((int)ch <= 31)
+                {
+                    throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character '{0}', position:{1}, string:{2}", ch, _index, _source));
+                }
                 
                 if (ch == '\\')
                 {
                     ch = _source.CharCodeAt(_index++);
+
                     if (ch > 0 || !IsLineTerminator(ch))
                     {
                         switch (ch)
@@ -350,11 +388,6 @@ namespace Jint.Native.Json
                 throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, _source));
             }
             
-            if (StringContainsInvalidChar(str))
-            {
-                throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character in string '{0}' '", str));
-            }
-
             return new Token
                 {
                     Type = Tokens.String,
@@ -414,6 +447,11 @@ namespace Jint.Native.Json
             if (ch == TrueValue[0] || ch == FalseValue[0])
             {
                 return ScanBooleanLiteral();
+            }
+
+            if (ch == Null.Text[0])
+            {
+                return ScanNullLiteral();
             }
 
             return ScanPunctuator();
@@ -656,7 +694,6 @@ namespace Jint.Native.Json
 
         public ObjectInstance ParseJsonObject()
         {
-
             Expect("{");
 
             var obj = _engine.Object.Construct(Arguments.Empty);
@@ -670,21 +707,13 @@ namespace Jint.Native.Json
                 }
 
                 var name = Lex().Value.ToString();
-                if (StringContainsInvalidChar(name))
+                if (PropertyNameContainsInvalidChar0To31(name))
                 {
                     throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character in property name '{0}'", name));
                 }
 
                 Expect(":");
                 var value = ParseJsonValue();
-
-                if (value.IsString())
-                {
-                    if (StringContainsInvalidChar(value.AsString()))
-                    {
-                        throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character in string '{0}' property '{1}'", value.AsString(), name));
-                    }
-                }
 
                 obj.FastAddProperty(name, value, true, true, true);
                 
@@ -699,22 +728,26 @@ namespace Jint.Native.Json
             return obj;
         }
 
-        /// <summary>
-        /// * @path ch15/15.12/15.12.2/15.12.2-2-3.js
-        /// * @description JSON.parse - parsing an object where property name ends with a null character
-        /// </summary>
-        /// <param name="s"></param>
-        /// <returns></returns>
-        private bool StringContainsInvalidChar(string s)
-        {
+        private bool PropertyNameContainsInvalidChar0To31(string s)
+        {    
+            const int max = 31;
+
             for (var i = 0; i < s.Length; i++)
             {
-                if ((int)s[i] <= 31) 
+                var val = (int)s[i];
+                if (val <= max)
                     return true;
             }
             return false;
         }
-
+        
+        /// <summary>
+        /// Optimization.
+        /// By calling Lex().Value for each type, we parse the token twice.
+        /// It was already parsed by the peek() method.
+        /// _lookahead.Value already contain the value.
+        /// </summary>
+        /// <returns></returns>
         private JsValue ParseJsonValue()
         {
             Tokens type = _lookahead.Type;
@@ -722,12 +755,16 @@ namespace Jint.Native.Json
 
             if (type == Tokens.NullLiteral)
             {
+                var v = Lex().Value;
                 return Null.Instance;
+                // if FromObject() is modified to handle JsValue of type null
+                // as input parameter we could use the following
+                // return JsValue.FromObject(Lex().Value);
             }
             
             if (type == Tokens.String)
             {
-                return JsValue.FromObject(Lex().Value);
+                return JsValue.FromObject(Lex().Value.ToString());
             }
 
             if (type == Tokens.Number)
