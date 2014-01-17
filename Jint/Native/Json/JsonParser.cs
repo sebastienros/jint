@@ -204,6 +204,42 @@ namespace Jint.Native.Json
                 };
         }
 
+        const string TrueValue  = "true";
+        const string FalseValue = "false";
+
+        private static bool IsTrueOrFalseChar(char ch)
+        {
+            // TODO: Should be optimized
+            return TrueValue.Contains(ch.ToString()) || FalseValue.Contains(ch.ToString());
+        }
+
+        private Token ScanBooleanLiteral()
+        {
+            int start   = _index;
+            string s    = string.Empty;
+            
+            while (IsTrueOrFalseChar(_source.CharCodeAt(_index)))
+            {
+                s += _source.CharCodeAt(_index++).ToString();
+            }
+
+            if (s == TrueValue || s == FalseValue)
+            {
+                return new Token
+                {
+                    Type = Tokens.BooleanLiteral,
+                    Value = s == TrueValue,
+                    LineNumber = _lineNumber,
+                    LineStart = _lineStart,
+                    Range = new[] { start, _index }
+                };
+            }
+            else 
+            {
+                throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, s));
+            }
+        }
+
         private Token ScanStringLiteral()
         {
             string str = "";
@@ -311,7 +347,12 @@ namespace Jint.Native.Json
 
             if (quote != 0)
             {
-                throw new Exception(Messages.UnexpectedToken);
+                throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, _source));
+            }
+            
+            if (StringContainsInvalidChar(str))
+            {
+                throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character in string '{0}' '", str));
             }
 
             return new Token
@@ -347,8 +388,9 @@ namespace Jint.Native.Json
                 return ScanPunctuator();
             }
 
-            // String literal starts with single quote (#39) or double quote (#34).
-            if (ch == 39 || ch == 34)
+            // String literal starts with double quote (#34).
+            // Single quote (#39) are not allowed in JSON.
+            if (ch == 34) 
             {
                 return ScanStringLiteral();
             }
@@ -367,6 +409,11 @@ namespace Jint.Native.Json
             if (IsDecimalDigit(ch))
             {
                 return ScanNumericLiteral();
+            }
+
+            if (ch == TrueValue[0] || ch == FalseValue[0])
+            {
+                return ScanBooleanLiteral();
             }
 
             return ScanPunctuator();
@@ -623,13 +670,21 @@ namespace Jint.Native.Json
                 }
 
                 var name = Lex().Value.ToString();
-                if (!IsValidJsonObjectPropertyName(name))
+                if (StringContainsInvalidChar(name))
                 {
                     throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character in property name '{0}'", name));
                 }
 
                 Expect(":");
                 var value = ParseJsonValue();
+
+                if (value.IsString())
+                {
+                    if (StringContainsInvalidChar(value.AsString()))
+                    {
+                        throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character in string '{0}' property '{1}'", value.AsString(), name));
+                    }
+                }
 
                 obj.FastAddProperty(name, value, true, true, true);
                 
@@ -648,19 +703,16 @@ namespace Jint.Native.Json
         /// * @path ch15/15.12/15.12.2/15.12.2-2-3.js
         /// * @description JSON.parse - parsing an object where property name ends with a null character
         /// </summary>
-        /// <param name="propertyName"></param>
+        /// <param name="s"></param>
         /// <returns></returns>
-        private bool IsValidJsonObjectPropertyName(string propertyName)
+        private bool StringContainsInvalidChar(string s)
         {
-            for (var i = 0; i < propertyName.Length; i++)
+            for (var i = 0; i < s.Length; i++)
             {
-                var val = (int)propertyName[i];
-                if (val <= 31) 
-                {
-                    return false;
-                }
+                if ((int)s[i] <= 31) 
+                    return true;
             }
-            return true;
+            return false;
         }
 
         private JsValue ParseJsonValue()
@@ -677,15 +729,15 @@ namespace Jint.Native.Json
             {
                 return JsValue.FromObject(Lex().Value);
             }
-            
+
             if (type == Tokens.Number)
             {
                 return JsValue.FromObject(Lex().Value);
             }
-            
+
             if (type == Tokens.BooleanLiteral)
             {
-                return "true".Equals(Lex().Value);
+                return (bool)Lex().Value;
             }
             
             if (Match("["))
@@ -753,7 +805,16 @@ namespace Jint.Native.Json
             {
                 MarkStart();
                 Peek();
-                return ParseJsonValue();
+                JsValue jsv = ParseJsonValue();
+
+                Peek();
+                Tokens type = _lookahead.Type;
+                object value = _lookahead.Value;                
+                if(_lookahead.Type != Tokens.EOF)
+                {
+                    throw new JavaScriptException(_engine.SyntaxError, string.Format("Unexpected {0} {1}", _lookahead.Type, _lookahead.Value));
+                }
+                return jsv;
             }
             finally
             {
