@@ -761,28 +761,17 @@ namespace Jint.Native.Json
             Tokens type = _lookahead.Type;
             MarkStart();
 
-            if (type == Tokens.NullLiteral)
+            switch (type)
             {
-                var v = Lex().Value;
-                return Null.Instance;
-                // if FromObject() is modified to handle JsValue of type null
-                // as input parameter we could use the following
-                // return JsValue.FromObject(Lex().Value);
-            }
-            
-            if (type == Tokens.String)
-            {
-                return JsValue.FromObject(Lex().Value.ToString());
-            }
-
-            if (type == Tokens.Number)
-            {
-                return JsValue.FromObject(Lex().Value);
-            }
-
-            if (type == Tokens.BooleanLiteral)
-            {
-                return (bool)Lex().Value;
+                case Tokens.NullLiteral:
+                    var v = Lex().Value;
+                    return Null.Instance;
+                case Tokens.BooleanLiteral:
+                    return new JsValue((bool)Lex().Value);
+                case Tokens.String:
+                    return new JsValue((string)Lex().Value);
+                case Tokens.Number:
+                    return new JsValue((double)Lex().Value);
             }
             
             if (Match("["))
