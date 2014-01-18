@@ -76,7 +76,7 @@ namespace Jint.Native.Json
                 }
                 else
                 {
-                    return char.MinValue;
+                    throw new JavaScriptException(_engine.SyntaxError, string.Format("Expected hexadecimal digit:{0}", _source));
                 }
             }
             return (char)code;
@@ -130,8 +130,7 @@ namespace Jint.Native.Json
                             Range = new[] {start, _index}
                         };
             }
-
-            throw new Exception(Messages.UnexpectedToken);
+            throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, code));
         }
 
         private Token ScanNumericLiteral()
@@ -205,6 +204,74 @@ namespace Jint.Native.Json
                 };
         }
 
+        const string TrueValue  = "true";
+        const string FalseValue = "false";
+        
+        private static bool IsNullChar(char ch)
+        {
+            return Null.Text.Contains(ch.ToString());
+        }
+
+        private static bool IsTrueOrFalseChar(char ch)
+        {
+            // TODO: Should be optimized
+            return TrueValue.Contains(ch.ToString()) || FalseValue.Contains(ch.ToString());
+        }
+
+        private Token ScanBooleanLiteral()
+        {
+            int start   = _index;
+            string s    = string.Empty;
+            
+            while (IsTrueOrFalseChar(_source.CharCodeAt(_index)))
+            {
+                s += _source.CharCodeAt(_index++).ToString();
+            }
+            
+            if (s == TrueValue || s == FalseValue)
+            {
+                return new Token
+                {
+                    Type = Tokens.BooleanLiteral,
+                    Value = s == TrueValue,
+                    LineNumber = _lineNumber,
+                    LineStart = _lineStart,
+                    Range = new[] { start, _index }
+                };
+            }
+            else 
+            {
+                throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, s));
+            }
+        }
+
+        private Token ScanNullLiteral()
+        {
+            int start = _index;
+            string s = string.Empty;
+            
+            while (IsNullChar(_source.CharCodeAt(_index)))
+            {
+                s += _source.CharCodeAt(_index++).ToString();
+            }
+
+            if (s == Null.Text)
+            {
+                return new Token
+                {
+                    Type = Tokens.NullLiteral,
+                    Value = Null.Instance,
+                    LineNumber = _lineNumber,
+                    LineStart = _lineStart,
+                    Range = new[] { start, _index }
+                };
+            }
+            else
+            {
+                throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, s));
+            }
+        }
+
         private Token ScanStringLiteral()
         {
             string str = "";
@@ -223,10 +290,16 @@ namespace Jint.Native.Json
                     quote = char.MinValue;
                     break;
                 }
+
+                if ((int)ch <= 31)
+                {
+                    throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character '{0}', position:{1}, string:{2}", ch, _index, _source));
+                }
                 
                 if (ch == '\\')
                 {
                     ch = _source.CharCodeAt(_index++);
+
                     if (ch > 0 || !IsLineTerminator(ch))
                     {
                         switch (ch)
@@ -312,9 +385,9 @@ namespace Jint.Native.Json
 
             if (quote != 0)
             {
-                throw new Exception(Messages.UnexpectedToken);
+                throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, _source));
             }
-
+            
             return new Token
                 {
                     Type = Tokens.String,
@@ -348,8 +421,9 @@ namespace Jint.Native.Json
                 return ScanPunctuator();
             }
 
-            // String literal starts with single quote (#39) or double quote (#34).
-            if (ch == 39 || ch == 34)
+            // String literal starts with double quote (#34).
+            // Single quote (#39) are not allowed in JSON.
+            if (ch == 34) 
             {
                 return ScanStringLiteral();
             }
@@ -368,6 +442,16 @@ namespace Jint.Native.Json
             if (IsDecimalDigit(ch))
             {
                 return ScanNumericLiteral();
+            }
+
+            if (ch == TrueValue[0] || ch == FalseValue[0])
+            {
+                return ScanBooleanLiteral();
+            }
+
+            if (ch == Null.Text[0])
+            {
+                return ScanNullLiteral();
             }
 
             return ScanPunctuator();
@@ -610,7 +694,6 @@ namespace Jint.Native.Json
 
         public ObjectInstance ParseJsonObject()
         {
-
             Expect("{");
 
             var obj = _engine.Object.Construct(Arguments.Empty);
@@ -624,6 +707,10 @@ namespace Jint.Native.Json
                 }
 
                 var name = Lex().Value.ToString();
+                if (PropertyNameContainsInvalidChar0To31(name))
+                {
+                    throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character in property name '{0}'", name));
+                }
 
                 Expect(":");
                 var value = ParseJsonValue();
@@ -641,6 +728,26 @@ namespace Jint.Native.Json
             return obj;
         }
 
+        private bool PropertyNameContainsInvalidChar0To31(string s)
+        {    
+            const int max = 31;
+
+            for (var i = 0; i < s.Length; i++)
+            {
+                var val = (int)s[i];
+                if (val <= max)
+                    return true;
+            }
+            return false;
+        }
+        
+        /// <summary>
+        /// Optimization.
+        /// By calling Lex().Value for each type, we parse the token twice.
+        /// It was already parsed by the peek() method.
+        /// _lookahead.Value already contain the value.
+        /// </summary>
+        /// <returns></returns>
         private JsValue ParseJsonValue()
         {
             Tokens type = _lookahead.Type;
@@ -648,22 +755,26 @@ namespace Jint.Native.Json
 
             if (type == Tokens.NullLiteral)
             {
+                var v = Lex().Value;
                 return Null.Instance;
+                // if FromObject() is modified to handle JsValue of type null
+                // as input parameter we could use the following
+                // return JsValue.FromObject(Lex().Value);
             }
             
             if (type == Tokens.String)
             {
-                return JsValue.FromObject(Lex().Value);
+                return JsValue.FromObject(Lex().Value.ToString());
             }
-            
+
             if (type == Tokens.Number)
             {
                 return JsValue.FromObject(Lex().Value);
             }
-            
+
             if (type == Tokens.BooleanLiteral)
             {
-                return "true".Equals(Lex().Value);
+                return (bool)Lex().Value;
             }
             
             if (Match("["))
@@ -731,7 +842,16 @@ namespace Jint.Native.Json
             {
                 MarkStart();
                 Peek();
-                return ParseJsonValue();
+                JsValue jsv = ParseJsonValue();
+
+                Peek();
+                Tokens type = _lookahead.Type;
+                object value = _lookahead.Value;                
+                if(_lookahead.Type != Tokens.EOF)
+                {
+                    throw new JavaScriptException(_engine.SyntaxError, string.Format("Unexpected {0} {1}", _lookahead.Type, _lookahead.Value));
+                }
+                return jsv;
             }
             finally
             {

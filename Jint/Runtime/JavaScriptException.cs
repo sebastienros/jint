@@ -20,9 +20,22 @@ namespace Jint.Runtime
         }
 
         public JavaScriptException(JsValue error)
-            : base("")
+            : base(GetErrorMessage(error))
         {
             _errorObject = error;
+            
+        }
+
+        private static string GetErrorMessage(JsValue error) 
+        {
+            if (error.IsObject())
+            {
+                var oi = error.AsObject();
+                var message = oi.Get("message").AsString();
+                return message;
+            }
+            else
+                return string.Empty;            
         }
 
         public JsValue Error { get { return _errorObject; } }

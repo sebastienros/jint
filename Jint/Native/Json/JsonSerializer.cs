@@ -27,6 +27,13 @@ namespace Jint.Native.Json
         {
             _stack = new Stack<object>();
 
+            // for JSON.stringify(), any function passed as the first argument will return undefined
+            // if the replacer is not defined. The function is not called either.
+            if (value.Is<ICallable>() && replacer == Undefined.Instance) 
+            {
+                return Undefined.Instance;
+            }
+
             if (replacer.IsObject())
             {
                 if (replacer.Is<ICallable>())
@@ -87,7 +94,13 @@ namespace Jint.Native.Json
             // defining the gap
             if (space.IsNumber())
             {
-                _gap = new System.String(' ', (int) System.Math.Min(10, space.AsNumber()));
+                if (space.AsNumber() > 0) {
+                    _gap = new System.String(' ', (int)System.Math.Min(10, space.AsNumber()));
+                }
+                else 
+                {
+                    _gap = string.Empty;
+                }
             }
             else if (space.IsString())
             {
@@ -96,7 +109,7 @@ namespace Jint.Native.Json
             }
             else
             {
-                _gap = "";
+                _gap = string.Empty;
             }
 
             var wrapper = _engine.Object.Construct(Arguments.Empty);
