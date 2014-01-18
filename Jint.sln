@@ -7,8 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Tests", "Jint.Tests\Ji
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Benchmark", "Jint.Benchmark\Jint.Benchmark.csproj", "{8922A952-4F82-4A97-B41C-C0A9932BFFA8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Tests.Scaffolding", "Jint.Tests.Scaffolding\Jint.Tests.Scaffolding.csproj", "{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Tests.Ecma", "Jint.Tests.Ecma\Jint.Tests.Ecma.csproj", "{201EB165-EE2D-45F1-AF0E-75F1CD1A20EE}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint", "Jint\Jint.csproj", "{678738DA-F723-4920-B9E5-CAD667104BDA}"
@@ -29,10 +27,6 @@ Global
 		{8922A952-4F82-4A97-B41C-C0A9932BFFA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8922A952-4F82-4A97-B41C-C0A9932BFFA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8922A952-4F82-4A97-B41C-C0A9932BFFA8}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3F0178B0-6E36-4AE3-B791-25E3BBF04B03}.Release|Any CPU.Build.0 = Release|Any CPU
 		{201EB165-EE2D-45F1-AF0E-75F1CD1A20EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{201EB165-EE2D-45F1-AF0E-75F1CD1A20EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{201EB165-EE2D-45F1-AF0E-75F1CD1A20EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
