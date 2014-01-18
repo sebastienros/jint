@@ -62,6 +62,28 @@ namespace Jint.Native.Json
             return (ch == 10) || (ch == 13) || (ch == 0x2028) || (ch == 0x2029);
         }
 
+        private static bool IsNullChar(char ch)
+        {
+            return ch == 'n'
+                || ch == 'u'
+                || ch == 'l'
+                || ch == 'l'
+                ;
+        }
+
+        private static bool IsTrueOrFalseChar(char ch)
+        {
+            return ch == 't'
+                || ch == 'r'
+                || ch == 'u'
+                || ch == 'e'
+                || ch == 'f'
+                || ch == 'a'
+                || ch == 'l'
+                || ch == 's'
+                ;
+        }
+
         private char ScanHexEscape(char prefix)
         {
             int code = char.MinValue;
@@ -204,36 +226,22 @@ namespace Jint.Native.Json
                 };
         }
 
-        const string TrueValue  = "true";
-        const string FalseValue = "false";
-        
-        private static bool IsNullChar(char ch)
-        {
-            return Null.Text.Contains(ch.ToString());
-        }
-
-        private static bool IsTrueOrFalseChar(char ch)
-        {
-            // TODO: Should be optimized
-            return TrueValue.Contains(ch.ToString()) || FalseValue.Contains(ch.ToString());
-        }
-
         private Token ScanBooleanLiteral()
         {
-            int start   = _index;
-            string s    = string.Empty;
+            int start = _index;
+            string s = "";
             
             while (IsTrueOrFalseChar(_source.CharCodeAt(_index)))
             {
                 s += _source.CharCodeAt(_index++).ToString();
             }
             
-            if (s == TrueValue || s == FalseValue)
+            if (s == "true" || s == "false")
             {
                 return new Token
                 {
                     Type = Tokens.BooleanLiteral,
-                    Value = s == TrueValue,
+                    Value = s == "true",
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
                     Range = new[] { start, _index }
@@ -248,7 +256,7 @@ namespace Jint.Native.Json
         private Token ScanNullLiteral()
         {
             int start = _index;
-            string s = string.Empty;
+            string s = "";
             
             while (IsNullChar(_source.CharCodeAt(_index)))
             {
@@ -291,7 +299,7 @@ namespace Jint.Native.Json
                     break;
                 }
 
-                if ((int)ch <= 31)
+                if (ch <= 31)
                 {
                     throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character '{0}', position:{1}, string:{2}", ch, _index, _source));
                 }
@@ -444,12 +452,12 @@ namespace Jint.Native.Json
                 return ScanNumericLiteral();
             }
 
-            if (ch == TrueValue[0] || ch == FalseValue[0])
+            if (ch == 't' || ch == 'f')
             {
                 return ScanBooleanLiteral();
             }
 
-            if (ch == Null.Text[0])
+            if (ch == 'n')
             {
                 return ScanNullLiteral();
             }
