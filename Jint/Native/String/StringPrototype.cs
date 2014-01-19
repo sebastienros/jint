@@ -252,6 +252,7 @@ namespace Jint.Native.String
             var searchValue = arguments.At(0);
             var replaceValue = arguments.At(1);
 
+            // If the second parameter is not a function we create one
             var replaceFunction = replaceValue.TryCast<FunctionInstance>();
             if (replaceFunction == null)
             {
@@ -299,16 +300,16 @@ namespace Jint.Native.String
                                     matchNumber2 = matchNumber1 * 10 + (replaceString[i + 1] - '0');
 
                                 // Try the two digit capture first.
-                                if (matchNumber2 > 0 && matchNumber2 < args.Length - 3)
+                                if (matchNumber2 > 0 && matchNumber2 < args.Length - 2)
                                 {
                                     // Two digit capture replacement.
-                                    replacementBuilder.Append(TypeConverter.ToString(args[matchNumber2 + 1]));
+                                    replacementBuilder.Append(TypeConverter.ToString(args[matchNumber2]));
                                     i++;
                                 }
-                                else if (matchNumber1 > 0 && matchNumber1 < args.Length - 3)
+                                else if (matchNumber1 > 0 && matchNumber1 < args.Length - 2)
                                 {
                                     // Single digit capture replacement.
-                                    replacementBuilder.Append(TypeConverter.ToString(args[matchNumber1 + 1]));
+                                    replacementBuilder.Append(TypeConverter.ToString(args[matchNumber1]));
                                 }
                                 else
                                 {
@@ -333,6 +334,16 @@ namespace Jint.Native.String
             }
 
             // searchValue is a regular expression
+
+            if (searchValue.IsNull()) 
+            {
+                searchValue = new JsValue(Null.Text);
+            }
+            if (searchValue.IsUndefined())
+            {
+                searchValue = new JsValue(Undefined.Text);
+            }
+            
             var rx = TypeConverter.ToObject(Engine, searchValue) as RegExpInstance;
             if (rx != null)
             {
@@ -340,7 +351,7 @@ namespace Jint.Native.String
                 string result = rx.Value.Replace(thisString, match =>
                 {
                     var args = new List<JsValue>();
-                    args.Add(match.Value);
+                    //if (match.Groups.Count == 0)  args.Add(match.Value);
                     for (var k = 0; k < match.Groups.Count; k++)
                     {
                         var group = match.Groups[k];
@@ -351,7 +362,8 @@ namespace Jint.Native.String
                     args.Add(match.Index);
                     args.Add(thisString);
 
-                    return TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args.ToArray()));
+                    var v = TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args.ToArray()));
+                    return v;
                 }, rx.Global == true ? -1 : 1);
 
                 // Set the deprecated RegExp properties if at least one match was found.

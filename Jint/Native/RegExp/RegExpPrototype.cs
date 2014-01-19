@@ -96,6 +96,14 @@ namespace Jint.Native.RegExp
                 i = 0;
             }
 
+            if (R.Source == "(?:)")  // Reg Exp is really ""
+            {
+                // "aaa".match() => [ '', index: 0, input: 'aaa' ]
+                var aa = InitReturnValueArray(Engine.Array.Construct(Arguments.Empty), s, 1, 0);
+                aa.DefineOwnProperty("0", new PropertyDescriptor("", true, true, true), true);
+                return aa;
+            }
+
             Match r = null;
             if (i < 0 || i >= length)
             {
@@ -118,20 +126,26 @@ namespace Jint.Native.RegExp
                 R.Put("lastIndex", (double) e, true);
             }
             var n = r.Groups.Count;
-            var a = Engine.Array.Construct(Arguments.Empty);
             var matchIndex = r.Index;
-            a.DefineOwnProperty("index", new PropertyDescriptor(matchIndex, writable: true, enumerable: true, configurable: true), true);
-            a.DefineOwnProperty("input", new PropertyDescriptor(s, writable: true, enumerable: true, configurable: true), true);
-            a.DefineOwnProperty("length", new PropertyDescriptor(value: n, writable:false, enumerable: false, configurable:false), true);
+
+            var a = InitReturnValueArray(Engine.Array.Construct(Arguments.Empty), s, n, matchIndex);
+            
             for (var k = 0; k < n; k++)
             {
                 var group = r.Groups[k];
                 var value = group.Success ? group.Value : Undefined.Instance;
-                a.DefineOwnProperty(k.ToString(), new PropertyDescriptor(value, true, true, true), true);
-            
+                a.DefineOwnProperty(k.ToString(), new PropertyDescriptor(value, true, true, true), true);            
             }
 
             return a;
+        }
+
+        private static Object.ObjectInstance InitReturnValueArray(Object.ObjectInstance array, string inputValue, int lengthValue, int indexValue)
+        {
+            array.DefineOwnProperty("index", new PropertyDescriptor(indexValue, writable: true, enumerable: true, configurable: true), true);
+            array.DefineOwnProperty("input", new PropertyDescriptor(inputValue, writable: true, enumerable: true, configurable: true), true);
+            array.DefineOwnProperty("length", new PropertyDescriptor(value: lengthValue, writable: false, enumerable: false, configurable: false), true);
+            return array;
         }
     }
 }
