@@ -225,14 +225,14 @@ namespace Jint.Native.String
             else
             {
                 var segments = new List<string>();
+                var sep = TypeConverter.ToString(separator);
 
-                if (rx != null && rx.Source == regExpForMatchingAllCharactere) // for s.split(new RegExp)
+                if (sep == string.Empty || (rx != null && rx.Source == regExpForMatchingAllCharactere)) // for s.split(new RegExp)
                 {
                     segments.AddRange(from object c in s select c.ToString());
                 }
                 else
                 {
-                    var sep = TypeConverter.ToString(separator);
                     segments = s.Split(new[] {sep}, StringSplitOptions.None).ToList();
                 }
 
