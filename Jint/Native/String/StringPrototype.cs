@@ -132,8 +132,9 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
 
             var separator = arguments.At(0);
-            var l = arguments.At(1);
 
+            // Coerce into a number, true will become 1 
+            var l = arguments.At(1);
             var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
             var limit = l == Undefined.Instance ? UInt32.MaxValue : TypeConverter.ToUint32(l);
             var len = s.Length;
@@ -143,12 +144,24 @@ namespace Jint.Native.String
                 return a;
             }
 
-            if (separator == Undefined.Instance)
+            if (separator == Null.Instance)
             {
-                return (ArrayInstance) Engine.Array.Construct(Arguments.From(s));
+                separator = Null.Text;
+            }
+            else if (separator == Undefined.Instance)
+            {
+                return (ArrayInstance)Engine.Array.Construct(Arguments.From(s));
+            }
+            else
+            {
+                if (!separator.IsRegExp())
+                {
+                    separator = TypeConverter.ToString(separator); // Coerce into a string, for an object call toString()
+                }
             }
 
             var rx = TypeConverter.ToObject(Engine, separator) as RegExpInstance;
+
             if (rx != null)
             {
                 var match = rx.Value.Match(s, 0);
@@ -190,6 +203,10 @@ namespace Jint.Native.String
                     }
 
                     match = match.NextMatch();
+                    if (!match.Success) // Add the last part of the split
+                    {
+                        a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(s.Substring(lastIndex), true, true, true), false);                        
+                    }
                 }
 
                 return a;
@@ -197,8 +214,7 @@ namespace Jint.Native.String
             else
             {
                 var sep = TypeConverter.ToString(separator);
-
-
+                
                 var segments = s.Split(new [] { sep }, StringSplitOptions.None);
                 for (int i = 0; i < segments.Length && i < limit; i++)
                 {
@@ -215,8 +231,23 @@ namespace Jint.Native.String
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
             var s = TypeConverter.ToString(thisObj);
+
             var start = TypeConverter.ToNumber(arguments.At(0));
+            if (start == double.NegativeInfinity)
+            {
+                start = 0;
+            }
+            if (start == double.PositiveInfinity)
+            {
+                return string.Empty;
+            }
+            
             var end = TypeConverter.ToNumber(arguments.At(1));
+            if (end == double.PositiveInfinity)
+            {
+                end = s.Length;
+            }
+
             var len = s.Length;
             var intStart = (int)TypeConverter.ToInteger(start);
             var intEnd = arguments.At(1) == Undefined.Instance ? len : (int)TypeConverter.ToInteger(end);
@@ -234,6 +265,16 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
 
             var regex = arguments.At(0);
+
+            if (regex.IsUndefined())
+            {
+                regex = string.Empty;
+            }
+            else if (regex.IsNull())
+            {
+                regex = Null.Text;
+            }
+
             var rx = TypeConverter.ToObject(Engine, regex) as RegExpInstance ?? (RegExpInstance)Engine.RegExp.Construct(new[] { regex });
             var match = rx.Value.Match(s);
             if (!match.Success)

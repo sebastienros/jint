@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using Jint.Native.Object;
+using Jint.Native.RegExp;
 using Jint.Runtime;
 
 namespace Jint.Native
@@ -80,6 +81,18 @@ namespace Jint.Native
         {
             return _type == Types.Undefined;
         }
+
+        [Pure]
+        public bool IsArray()
+        {
+            return this.IsObject() && this.AsObject() is Jint.Native.Array.ArrayInstance;
+        }
+
+        [Pure]
+        public bool IsRegExp()
+        {
+            return this.IsObject() && this.AsObject() is RegExpInstance;
+        }
         
         [Pure]
         public bool IsObject()
@@ -120,6 +133,16 @@ namespace Jint.Native
             }
 
             return _object;
+        }
+
+        [Pure]
+        public Jint.Native.Array.ArrayInstance AsArray()
+        {
+            if (!this.IsArray())
+            {
+                throw new ArgumentException("The value is not an array");
+            }
+            return this.AsObject() as Jint.Native.Array.ArrayInstance;            
         }
 
         [Pure]
