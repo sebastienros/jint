@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Jint.Native.Array;
 using Jint.Native.Function;
@@ -162,9 +163,19 @@ namespace Jint.Native.String
 
             var rx = TypeConverter.ToObject(Engine, separator) as RegExpInstance;
 
-            if (rx != null)
+            const string regExpForMatchingAllCharactere = "(?:)";
+
+            if (rx != null &&
+                rx.Source != regExpForMatchingAllCharactere // We need pattern to be defined -> for s.split(new RegExp) 
+                )
             {
                 var match = rx.Value.Match(s, 0);
+
+                if (!match.Success) // No match at all return the string in an array
+                {
+                    a.DefineOwnProperty("0", new PropertyDescriptor(s, true, true, true), false);
+                    return a;
+                }
 
                 int lastIndex = 0;
                 int index = 0;
@@ -213,17 +224,25 @@ namespace Jint.Native.String
             }
             else
             {
-                var sep = TypeConverter.ToString(separator);
-                
-                var segments = s.Split(new [] { sep }, StringSplitOptions.None);
-                for (int i = 0; i < segments.Length && i < limit; i++)
+                var segments = new List<string>();
+
+                if (rx != null && rx.Source == regExpForMatchingAllCharactere) // for s.split(new RegExp)
+                {
+                    segments.AddRange(from object c in s select c.ToString());
+                }
+                else
+                {
+                    var sep = TypeConverter.ToString(separator);
+                    segments = s.Split(new[] {sep}, StringSplitOptions.None).ToList();
+                }
+
+                for (int i = 0; i < segments.Count && i < limit; i++)
                 {
                     a.DefineOwnProperty(i.ToString(), new PropertyDescriptor(segments[i], true, true, true), false);
                 }
             
                 return a;
             }
-            
         }
 
         private JsValue Slice(JsValue thisObj, JsValue[] arguments)
