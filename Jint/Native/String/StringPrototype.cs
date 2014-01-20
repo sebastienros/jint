@@ -99,6 +99,19 @@ namespace Jint.Native.String
             return s.ToLowerInvariant();
         }
 
+        private static int ToIntegerSupportInfinity(JsValue numberVal)
+        {
+            var doubleVal = TypeConverter.ToInteger(numberVal);
+            var intVal = (int) doubleVal;
+            if (double.IsPositiveInfinity(doubleVal))
+                intVal = int.MaxValue;
+            else if (double.IsNegativeInfinity(doubleVal))
+                intVal = int.MinValue;
+            else
+                intVal = (int) doubleVal;
+            return intVal;
+        }
+
         private JsValue Substring(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
@@ -118,10 +131,12 @@ namespace Jint.Native.String
             }
 
             var len = s.Length;
-            var intStart = (int)TypeConverter.ToInteger(start);
-            var intEnd = arguments.At(1) == Undefined.Instance ? len : (int)TypeConverter.ToInteger(end);
+            var intStart = ToIntegerSupportInfinity(start);
+
+            var intEnd = arguments.At(1) == Undefined.Instance ? len : (int)ToIntegerSupportInfinity(end);
             var finalStart = System.Math.Min(len, System.Math.Max(intStart, 0));
             var finalEnd = System.Math.Min(len, System.Math.Max(intEnd, 0));
+            // Swap value if finalStart < finalEnd
             var from = System.Math.Min(finalStart, finalEnd);
             var to = System.Math.Max(finalStart, finalEnd);
             return s.Substring(from, to - from);
