@@ -325,7 +325,7 @@ namespace Jint.Native.String
             {
                 start = 0;
             }
-            if (start == double.PositiveInfinity)
+            if (double.PositiveInfinity.Equals(start))
             {
                 return string.Empty;
             }
