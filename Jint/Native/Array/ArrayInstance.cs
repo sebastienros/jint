@@ -164,19 +164,6 @@ namespace Jint.Native.Array
             return base.DefineOwnProperty(propertyName, desc, throwOnError);
         }
 
-        internal long Length
-        {
-            get
-            {
-                var v = this.Get("length");
-                if (v.IsNumber())
-                {
-                    return (long)v.AsNumber();
-                }
-                return -1;
-            }
-        }
-
         public static bool IsArrayIndex(JsValue p)
         {
             return TypeConverter.ToString(TypeConverter.ToUint32(p)) == TypeConverter.ToString(p) && TypeConverter.ToUint32(p) != uint.MaxValue;
