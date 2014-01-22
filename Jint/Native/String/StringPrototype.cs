@@ -321,7 +321,7 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
 
             var start = TypeConverter.ToNumber(arguments.At(0));
-            if (start == double.NegativeInfinity)
+            if (double.NegativeInfinity.Equals(start))
             {
                 start = 0;
             }
@@ -331,7 +331,7 @@ namespace Jint.Native.String
             }
             
             var end = TypeConverter.ToNumber(arguments.At(1));
-            if (end == double.PositiveInfinity)
+            if (double.PositiveInfinity.Equals(end))
             {
                 end = s.Length;
             }
@@ -480,7 +480,7 @@ namespace Jint.Native.String
                 string result = rx.Value.Replace(thisString, match =>
                 {
                     var args = new List<JsValue>();
-                    //if (match.Groups.Count == 0)  args.Add(match.Value);
+                    
                     for (var k = 0; k < match.Groups.Count; k++)
                     {
                         var group = match.Groups[k];
