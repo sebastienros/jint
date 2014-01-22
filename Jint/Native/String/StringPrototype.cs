@@ -12,6 +12,8 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.String
 {
+
+
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.4
     /// </summary>
@@ -68,13 +70,65 @@ namespace Jint.Native.String
             return s.PrimitiveValue;
         }
 
+        // http://msdn.microsoft.com/en-us/library/system.char.iswhitespace(v=vs.110).aspx
+        // http://en.wikipedia.org/wiki/Byte_order_mark
+        const char BOM_CHAR = '\uFEFF';
+
+        private static bool IsWhiteSpaceEx(char c)
+        {
+            return char.IsWhiteSpace(c) || c == BOM_CHAR;
+        }
+
+        private static string TrimEndEx(string s)
+        {
+            if (s.Length == 0)
+                return string.Empty;
+
+            var i = s.Length - 1;
+            while (i >= 0)
+            {
+                if (IsWhiteSpaceEx(s[i]))
+                    i--;
+                else
+                    break;
+            }
+            if (i >= 0)
+                return s.Substring(0, i + 1);
+            else
+                return string.Empty;
+        }
+
+        private static string TrimStartEx(string s)
+        {
+            if (s.Length == 0)
+                return string.Empty;
+
+            var i = 0;
+            while (i < s.Length)
+            {
+                if (IsWhiteSpaceEx(s[i]))
+                    i++;
+                else
+                    break;
+            }
+            if (i >= s.Length)
+                return string.Empty;
+            else
+                return s.Substring(i);
+        }
+
+        private static string TrimEx(string s)
+        {
+            return TrimEndEx(TrimStartEx(s));
+        } 
+
         private JsValue Trim(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
             var s = TypeConverter.ToString(thisObj);
-            return s.Trim();
+            return TrimEx(s);
         }
-
+        
         private static JsValue ToLocaleUpperCase(JsValue thisObj, JsValue[] arguments)
         {
             var s = TypeConverter.ToString(thisObj);
