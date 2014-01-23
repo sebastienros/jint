@@ -37,4 +37,11 @@ Todo:
 
 - Improve C# interoperability
 - Finish up ECMAScript test suite
+  - Regular expression (15.10)
+  -	Error object (15.11)
+  -	Object constructor (15.2.3)
+  -	Object prototype (15.2.4)
+  -	Function object (15.3)
+  -	String object (15.5.4 & 15.5.5) _work in progress_
+  
 
