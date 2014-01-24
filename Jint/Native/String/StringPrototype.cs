@@ -595,19 +595,71 @@ namespace Jint.Native.String
             return string.CompareOrdinal(s, that);
         }
 
+        private static List<int> AllIndexesOf(string str, string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return new List<int>();
+
+            var indexes = new List<int>();
+            for (int index = 0; ; index += value.Length)
+            {
+                index = str.IndexOf(value, index);
+                if (index == -1) // no more fond
+                    return indexes;
+                indexes.Add(index);
+            }
+        }
+
+        private int LastIndexJavaScriptImplementation(string s, string search, int pos = -1)
+        {
+            if (pos == -1)
+                pos = s.Length;
+
+            var allPositions = AllIndexesOf(s, search);
+
+            if (allPositions.Count == 0) // Nothing found
+                return -1;
+            else if (allPositions.Count == 1) // Only one found
+                return allPositions[0];
+
+            for (var i = 0; i < allPositions.Count; i++)
+            {
+                if (allPositions[i] <= pos)
+                {
+                    // ok move to the next one to find a greater position
+                }
+                else
+                {
+                    if (i > 0)
+                        return allPositions[i - 1];
+                    else
+                        return -1;
+                }
+            }
+            return allPositions[allPositions.Count - 1];
+        }
+
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
             var s = TypeConverter.ToString(thisObj);
             var searchStr = TypeConverter.ToString(arguments.At(0));
-            double numPos = arguments.At(0) == Undefined.Instance ? double.NaN : TypeConverter.ToNumber(arguments.At(0));
+            double numPos = arguments.At(1) == Undefined.Instance ? s.Length : TypeConverter.ToNumber(arguments.At(1));
             double pos = double.IsNaN(numPos) ? double.PositiveInfinity : TypeConverter.ToInteger(numPos);
             var len = s.Length;
             var start = System.Math.Min(len, System.Math.Max(pos, 0));
-            var searchLen = searchStr.Length;
 
-            return s.LastIndexOf(searchStr, len - (int) start, StringComparison.Ordinal);
+            // The JavaScript spec of string.lastIndexOf does match the C# spec
+            // Therefore we to write our own specific implementation.
+            // Enjoy the fact that Ecma spec and Mozilla spec have different definition which
+            // I guess mean the same thing.
+            // Ecma spec
+            // http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.4.8
+            // Mozilla spec
+            // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/lastIndexOf
+
+            return LastIndexJavaScriptImplementation(s, searchStr, (int)start);
         }
 
         private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)
