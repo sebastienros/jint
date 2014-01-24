@@ -651,7 +651,7 @@ namespace Jint.Native.String
             var start = System.Math.Min(len, System.Math.Max(pos, 0));
 
             // The JavaScript spec of string.lastIndexOf does match the C# spec
-            // Therefore we to write our own specific implementation.
+            // Therefore we need to write our own specific implementation.
             // Enjoy the fact that Ecma spec and Mozilla spec have different definition which
             // I guess mean the same thing.
             // Ecma spec
