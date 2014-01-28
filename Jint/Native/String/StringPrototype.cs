@@ -610,33 +610,42 @@ namespace Jint.Native.String
             }
         }
 
-        private int LastIndexJavaScriptImplementation(string s, string search, int pos = -1)
+        private int LastIndexJavaScriptImplementation(string s, string searchStr, int pos = -1)
         {
             if (pos == -1)
                 pos = s.Length;
 
-            var allPositions = AllIndexesOf(s, search);
+            var len          = s.Length;
+            var start        = System.Math.Min(System.Math.Max(pos, 0), len);
+            var searchLen    = searchStr.Length;
+            var kPositions   = AllIndexesOf(s, searchStr);
 
-            if (allPositions.Count == 0) // Nothing found
-                return -1;
-            else if (allPositions.Count == 1) // Only one found
-                return allPositions[0];
-
-            for (var i = 0; i < allPositions.Count; i++)
+            if (kPositions.Count == 0) // Nothing found
             {
-                if (allPositions[i] <= pos)
+                return -1;
+            }
+            else if (kPositions.Count == 1) // Only one found
+            {
+                return kPositions[0] <= start ? kPositions[0] : -1;
+            }
+
+            // Return the largest possible nonnegative integer k not larger than start 
+            // such that k+ searchLen is not greater than len
+            for (var i = 0; i < kPositions.Count; i++)
+            {
+                if (kPositions[i] <= start)
                 {
-                    // ok move to the next one to find a greater position
+                    // ok move to the next one to find a greater pos
                 }
                 else
                 {
-                    if (i > 0)
-                        return allPositions[i - 1];
+                    if ((i > 0) && ((kPositions[i - 1] + searchLen) <= len))
+                        return kPositions[i - 1];
                     else
                         return -1;
                 }
             }
-            return allPositions[allPositions.Count - 1];
+            return kPositions[kPositions.Count - 1];
         }
 
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
