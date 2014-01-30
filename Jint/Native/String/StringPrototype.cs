@@ -45,7 +45,7 @@ namespace Jint.Native.String
             FastAddProperty("concat", new ClrFunctionInstance(Engine, Concat, 1), true, false, true);
             FastAddProperty("indexOf", new ClrFunctionInstance(Engine, IndexOf, 1), true, false, true);
             FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, LastIndexOf, 1), true, false, true);
-            FastAddProperty("localeCompare", new ClrFunctionInstance(Engine, LocaleCompare), true, false, true);
+            FastAddProperty("localeCompare", new ClrFunctionInstance(Engine, LocaleCompare, 1), true, false, true);
             FastAddProperty("match", new ClrFunctionInstance(Engine, Match, 1), true, false, true);
             FastAddProperty("replace", new ClrFunctionInstance(Engine, Replace, 2), true, false, true);
             FastAddProperty("search", new ClrFunctionInstance(Engine, Search, 1), true, false, true);
@@ -591,7 +591,7 @@ namespace Jint.Native.String
 
             var s = TypeConverter.ToString(thisObj);
             var that = TypeConverter.ToString(arguments.At(0));
-
+            
             return string.CompareOrdinal(s, that);
         }
 

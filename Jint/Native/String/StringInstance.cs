@@ -31,8 +31,22 @@ namespace Jint.Native.String
 
         public JsValue PrimitiveValue { get; set; }
 
+        private static bool IsInt(double d)
+        {
+            if (d >= long.MinValue && d <= long.MaxValue)
+            {
+                var l = (long)d;
+                return l >= int.MinValue && l <= int.MaxValue;
+            }
+            else 
+                return false;
+        }
+
         public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
+            if(propertyName == "Infinity")
+                return PropertyDescriptor.Undefined;
+
             var desc = base.GetOwnProperty(propertyName);
             if (desc != PropertyDescriptor.Undefined)
             {
@@ -45,9 +59,13 @@ namespace Jint.Native.String
             }
 
             var str = PrimitiveValue;
-            var index = (int)TypeConverter.ToInteger(propertyName);
+            var dIndex = TypeConverter.ToInteger(propertyName);
+            if(!IsInt(dIndex))
+                return PropertyDescriptor.Undefined;
+
+            var index = (int)dIndex;
             var len = str.AsString().Length;
-            if (len <= index)
+            if (len <= index || index < 0)
             {
                 return PropertyDescriptor.Undefined;
             }
