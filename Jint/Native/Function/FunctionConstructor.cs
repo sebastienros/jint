@@ -45,6 +45,16 @@ namespace Jint.Native.Function
             return Construct(arguments);
         }
 
+        private string[] TrimParameterNames(string[] values)
+        {
+            var newValues = new string[values.Length];
+            for (var i = 0; i < values.Length; i++)
+            {
+                newValues[i] = values[i].Trim();
+            }
+            return newValues;
+        }
+
         public ObjectInstance Construct(JsValue[] arguments)
         {
             var argCount = arguments.Length;
@@ -70,7 +80,7 @@ namespace Jint.Native.Function
             body = TypeConverter.ToString(body);
             
             // todo: ensure parsable as parameter list
-            var parameters = p.Split(new [] {','}, StringSplitOptions.RemoveEmptyEntries);
+            var parameters = this.TrimParameterNames(p.Split(new [] {','}, StringSplitOptions.RemoveEmptyEntries));
             var parser = new JavaScriptParser();
             FunctionExpression function;
             try
