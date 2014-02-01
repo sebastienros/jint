@@ -11,10 +11,10 @@ namespace Jint.Tests.Runtime
     {
         private Engine RunTest(string source)
         {
-            var engine = new Engine(cfg => cfg
-                .WithDelegate("log", new Action<object>(Console.WriteLine))
-                .WithDelegate("assert", new Action<bool>(Assert.True))
-                );
+            var engine = new Engine()
+                .WithMember("log", new Action<object>(Console.WriteLine))
+                .WithMember("assert", new Action<bool>(Assert.True))
+                ;
 
             engine.Execute(source);
 
