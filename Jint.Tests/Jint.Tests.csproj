@@ -54,6 +54,7 @@
   <ItemGroup>
     <Compile Include="Parser\JavascriptParserTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Runtime\InteropTests.cs" />
     <Compile Include="Runtime\EngineTests.cs" />
     <Compile Include="Runtime\SunSpiderTests.cs" />
   </ItemGroup>

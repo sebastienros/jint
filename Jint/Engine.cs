@@ -109,14 +109,6 @@ namespace Jint
                 options(Options);
             }
 
-            if (options != null)
-            {
-                foreach (var entry in Options.GetDelegates())
-                {
-                    Global.FastAddProperty(entry.Key, new DelegateWrapper(this, entry.Value), true, false, true);
-                }
-            }
-
             Eval = new EvalFunctionInstance(this, new string[0], LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
 
@@ -162,6 +154,36 @@ namespace Jint
             _executionContexts.Push(executionContext);
 
             return executionContext;
+        }
+
+        public Engine WithMember(string name, Delegate value)
+        {
+            Global.FastAddProperty(name, new DelegateWrapper(this, value), true, false, true);
+            return this;
+        }
+
+        public Engine WithMember(string name, string value)
+        {
+            Global.FastAddProperty(name, new JsValue(value), true, false, true);
+            return this;
+        }
+
+        public Engine WithMember(string name, double value)
+        {
+            Global.FastAddProperty(name, new JsValue(value), true, false, true);
+            return this;
+        }
+
+        public Engine WithMember(string name, bool value)
+        {
+            Global.FastAddProperty(name, new JsValue(value), true, false, true);
+            return this;
+        }
+
+        public Engine WithMember(string name, DateTime value)
+        {
+            Global.FastAddProperty(name, Date.Construct(value), true, false, true);
+            return this;
         }
 
         public void LeaveExecutionContext()

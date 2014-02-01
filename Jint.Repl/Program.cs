@@ -8,9 +8,9 @@ namespace Jint.Repl
     {
         static void Main(string[] args)
         {
-            var engine = new Engine(cfg => cfg
-                .WithDelegate("log", new Action<object>(Console.WriteLine))
-            );
+            var engine = new Engine()
+                .WithMember("log", new Action<object>(Console.WriteLine))
+            ;
 
             while (true)
             {
