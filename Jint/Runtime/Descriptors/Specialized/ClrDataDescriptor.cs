@@ -9,12 +9,12 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly object _item;
         private JsValue? _value;
 
-        public ClrDataDescriptor(PropertyInfo propertyInfo, object item)
+        public ClrDataDescriptor(Engine engine, PropertyInfo propertyInfo, object item)
         {
             _propertyInfo = propertyInfo;
             _item = item;
 
-            _value = JsValue.FromObject(_propertyInfo.GetValue(_item, null));
+            _value = JsValue.FromObject(engine, _propertyInfo.GetValue(_item, null));
             Writable = propertyInfo.CanWrite;
         }
 

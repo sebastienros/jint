@@ -4,6 +4,7 @@ using System.Diagnostics.Contracts;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native
 {
@@ -85,13 +86,13 @@ namespace Jint.Native
         [Pure]
         public bool IsArray()
         {
-            return this.IsObject() && this.AsObject() is Jint.Native.Array.ArrayInstance;
+            return IsObject() && AsObject() is Array.ArrayInstance;
         }
 
         [Pure]
         public bool IsRegExp()
         {
-            return this.IsObject() && this.AsObject() is RegExpInstance;
+            return IsObject() && AsObject() is RegExpInstance;
         }
         
         [Pure]
@@ -136,21 +137,21 @@ namespace Jint.Native
         }
 
         [Pure]
-        public Jint.Native.Array.ArrayInstance AsArray()
+        public Array.ArrayInstance AsArray()
         {
-            if (!this.IsArray())
+            if (!IsArray())
             {
                 throw new ArgumentException("The value is not an array");
             }
-            return this.AsObject() as Jint.Native.Array.ArrayInstance;            
+            return AsObject() as Array.ArrayInstance;            
         }
 
         [Pure]
         public T TryCast<T>(Action<JsValue> fail = null) where T: class
         {
-            if (this.IsObject())
+            if (IsObject())
             {
-                var o = this.AsObject();
+                var o = AsObject();
                 var t = o as T;
                 if (t != null)
                 {
@@ -258,7 +259,13 @@ namespace Jint.Native
         }
 
         private static readonly Type[] NumberTypes = { typeof(double), typeof(int), typeof(float), typeof(uint), typeof(byte), typeof(short), typeof(ushort), typeof(long), typeof(ulong) };
-        public static JsValue FromObject(object value)
+        /// <summary>
+        /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance
+        /// </summary>
+        /// <param name="engine"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static JsValue FromObject(Engine engine, object value)
         {
             if (value == null)
             {
@@ -281,7 +288,12 @@ namespace Jint.Native
                 return (bool) value;
             }
 
-            return Undefined;
+            if (value is DateTime)
+            {
+                return engine.Date.Construct((DateTime) value);
+            }
+
+            return new ObjectWrapper(engine, value);
         }
 
         /// <summary>
@@ -393,17 +405,5 @@ namespace Jint.Native
             }
         }
 
-    }
-
-    public static class Undefined
-    {
-        public static JsValue Instance = JsValue.Undefined;
-        public static string Text = "undefined";
-    }
-
-    public static class Null
-    {
-        public static JsValue Instance = JsValue.Null;
-        public static string Text = "null";
     }
 }

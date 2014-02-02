@@ -22,7 +22,7 @@ namespace Jint.Runtime.Interop
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return JsValue.FromObject(_d.DynamicInvoke(arguments.Select(x => x.ToObject()).ToArray()));
+            return JsValue.FromObject(Engine, _d.DynamicInvoke(arguments.Select(x => x.ToObject()).ToArray()));
         }
     }
 }
