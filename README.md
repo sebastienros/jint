@@ -12,21 +12,39 @@ Jint is a Javascript interpreter for .NET. Jint doesn't compile Javascript to .N
 
 # Example
 
+This example defines a new value named `log` pointing to `Console.WriteLine`, then executes 
+a script calling `log('Hello World!')`. 
 
-    script= @"
+    var engine = new Engine()
+        .SetValue("log", new Action<object>(Console.WriteLine))
+        ;
+    
+    engine.Execute(@"
       function hello() { 
         log("Hello World");
       };
-    ";
-  
-    var engine = new Engine(cfg => cfg
-        .WithDelegate("log", new Action<object>(Console.WriteLine))
-    );
-    
-    engine.Execute("hello()");
+      
+      hello();
+    ");
 
+Here, the variable `x` is set to `3` and `x * x` is executed in JavaScript. The result is returned to .NET directly, in this case as a `double` value `9`. 
 
-You can also check the actual implemented test suite for more samples.
+    var square = new Engine()
+        .SetValue("x", 3)
+        .Execute("x * x")
+        .ToObject()
+        ;
+
+You can also directly pass POCOs or anonymous objects and use them from JavaScript. In this example for instance a new `Person` instance is manipulated from JavaScript. 
+
+    var p = new Person {
+        Name = "Mickey Mouse"
+    };
+
+    var engine = new Engine()
+        .SetValue("p", p)
+        .Execute("p.Name === 'Mickey Mouse')
+        ;
 
 # Roadmap
 
