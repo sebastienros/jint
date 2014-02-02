@@ -37,7 +37,7 @@ namespace Jint.Runtime.Interop
             }
             else
             {
-                var descriptor = new ClrDataDescriptor(property, _obj);
+                var descriptor = new ClrDataDescriptor(Engine, property, _obj);
                 Properties.Add(propertyName, descriptor);
                 return descriptor;
             }

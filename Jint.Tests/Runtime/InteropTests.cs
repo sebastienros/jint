@@ -27,9 +27,9 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void PrimitiveTypesCanBeSet()
         {
-            _engine.WithMember("x", 10);
-            _engine.WithMember("y", true);
-            _engine.WithMember("z", "foo");
+            _engine.SetValue("x", 10);
+            _engine.SetValue("y", true);
+            _engine.SetValue("z", "foo");
 
             RunTest(@"
                 assert(x === 10);
@@ -56,7 +56,7 @@ namespace Jint.Tests.Runtime
                 Name = "Mickey Mouse"
             };
 
-            _engine.WithMember("p", p);
+            _engine.SetValue("p", p);
 
             RunTest(@"
                 assert(p.Name === 'Mickey Mouse');
@@ -71,7 +71,7 @@ namespace Jint.Tests.Runtime
                 Name = "Mickey Mouse"
             };
 
-            _engine.WithMember("p", p);
+            _engine.SetValue("p", p);
 
             RunTest(@"
                 p.Name = 'Donald Duck';
@@ -89,10 +89,28 @@ namespace Jint.Tests.Runtime
                 Name = "Mickey Mouse",
             };
 
-            _engine.WithMember("p", p);
+            _engine.SetValue("p", p);
 
             RunTest(@"
                 assert(p.Name === 'Mickey Mouse');
+            ");
+        }
+
+        [Fact]
+        public void CanAccessAnonymousObjectProperties()
+        {
+            var p = new
+            {
+                Address = new
+                {
+                    City = "Mouseton"
+                }
+            };
+
+            _engine.SetValue("p", p);
+
+            RunTest(@"
+                assert(p.Address.City === 'Mouseton');
             ");
         }
 

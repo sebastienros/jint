@@ -50,6 +50,7 @@
     <Compile Include="Native\Function\BindFunctionInstance.cs" />
     <Compile Include="Native\IPrimitiveInstance.cs" />
     <Compile Include="Native\JsValue.cs" />
+    <Compile Include="Native\Null.cs" />
     <Compile Include="Native\RegExp\RegExpConstructor.cs" />
     <Compile Include="Native\RegExp\RegExpInstance.cs" />
     <Compile Include="Native\RegExp\RegExpPrototype.cs" />
@@ -82,6 +83,7 @@
     <Compile Include="Native\String\StringPrototype.cs" />
     <Compile Include="Native\String\StringConstructor.cs" />
     <Compile Include="Native\String\StringInstance.cs" />
+    <Compile Include="Native\Undefined.cs" />
     <Compile Include="Options.cs" />
     <Compile Include="Parser\Ast\ArrayExpression.cs" />
     <Compile Include="Parser\Ast\AssignmentExpression.cs" />

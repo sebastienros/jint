@@ -162,34 +162,30 @@ namespace Jint
             return this;
         }
 
-        public Engine WithMember(string name, string value)
+        public Engine SetValue(string name, string value)
         {
-            Global.FastAddProperty(name, new JsValue(value), true, false, true);
+            return SetValue(name, new JsValue(value));
+        }
+
+        public Engine SetValue(string name, double value)
+        {
+            return SetValue(name, new JsValue(value));
+        }
+
+        public Engine SetValue(string name, bool value)
+        {
+            return SetValue(name, new JsValue(value));
+        }
+
+        public Engine SetValue(string name, JsValue value)
+        {
+            Global.FastAddProperty(name, value, true, false, true);
             return this;
         }
 
-        public Engine WithMember(string name, double value)
+        public Engine SetValue(string name, Object obj)
         {
-            Global.FastAddProperty(name, new JsValue(value), true, false, true);
-            return this;
-        }
-
-        public Engine WithMember(string name, bool value)
-        {
-            Global.FastAddProperty(name, new JsValue(value), true, false, true);
-            return this;
-        }
-
-        public Engine WithMember(string name, DateTime value)
-        {
-            Global.FastAddProperty(name, Date.Construct(value), true, false, true);
-            return this;
-        }
-
-        public Engine WithMember(string name, Object obj)
-        {
-            Global.FastAddProperty(name, new ObjectWrapper(this, obj), true, false, true);
-            return this;
+            return SetValue(name, JsValue.FromObject(this, obj));
         }
 
         public void LeaveExecutionContext()

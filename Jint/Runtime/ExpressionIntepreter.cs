@@ -627,7 +627,7 @@ namespace Jint.Runtime
                 return _engine.RegExp.Construct(literal.Raw);
             }
 
-            return JsValue.FromObject(literal.Value);
+            return JsValue.FromObject(_engine, literal.Value);
         }
 
         public JsValue EvaluateObjectExpression(ObjectExpression objectExpression)
