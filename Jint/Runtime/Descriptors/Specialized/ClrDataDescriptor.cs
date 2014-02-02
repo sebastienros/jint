@@ -1,14 +1,35 @@
-﻿using System;
+﻿using System.Reflection;
 using Jint.Native;
-using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
     public sealed class ClrDataDescriptor : PropertyDescriptor
     {
-        public ClrDataDescriptor(Engine engine, Func<JsValue, JsValue[], JsValue> func)
-            : base(value: new ClrFunctionInstance(engine, func), writable: null, enumerable: null, configurable: null)
+        private readonly PropertyInfo _propertyInfo;
+        private readonly object _item;
+        private JsValue? _value;
+
+        public ClrDataDescriptor(PropertyInfo propertyInfo, object item)
         {
+            _propertyInfo = propertyInfo;
+            _item = item;
+
+            _value = JsValue.FromObject(_propertyInfo.GetValue(_item, null));
+            Writable = propertyInfo.CanWrite;
+        }
+
+        public override JsValue? Value
+        {
+            get
+            {
+                return _value;
+            }
+
+            set
+            {
+                _value = value;
+                _propertyInfo.SetValue(_item, _value.GetValueOrDefault().ToObject(), null);
+            }
         }
     }
 }

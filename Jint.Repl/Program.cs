@@ -9,7 +9,7 @@ namespace Jint.Repl
         static void Main(string[] args)
         {
             var engine = new Engine()
-                .WithMember("log", new Action<object>(Console.WriteLine))
+                .SetValue("log", new Action<object>(Console.WriteLine))
             ;
 
             while (true)

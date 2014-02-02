@@ -10,8 +10,8 @@ namespace Jint.Tests.Runtime
         public InteropTests()
         {
             _engine = new Engine()
-                .WithMember("log", new Action<object>(Console.WriteLine))
-                .WithMember("assert", new Action<bool>(Assert.True))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
                 ;
         }
 
@@ -41,11 +41,64 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void DelegatesCanBeSet()
         {
-            _engine.WithMember("square", new Func<double, double>(x => x * x));
+            _engine.SetValue("square", new Func<double, double>(x => x * x));
 
             RunTest(@"
                 assert(square(10) === 100);
             ");
+        }
+
+        [Fact]
+        public void CanGetObjectProperties()
+        {
+            var p = new Person
+            {
+                Name = "Mickey Mouse"
+            };
+
+            _engine.WithMember("p", p);
+
+            RunTest(@"
+                assert(p.Name === 'Mickey Mouse');
+            ");
+        }
+
+        [Fact]
+        public void CanSetObjectProperties()
+        {
+            var p = new Person
+            {
+                Name = "Mickey Mouse"
+            };
+
+            _engine.WithMember("p", p);
+
+            RunTest(@"
+                p.Name = 'Donald Duck';
+                assert(p.Name === 'Donald Duck');
+            ");
+
+            Assert.Equal("Donald Duck", p.Name);
+        }
+
+        [Fact]
+        public void CanAccessAnonymousObject()
+        {
+            var p = new
+            {
+                Name = "Mickey Mouse",
+            };
+
+            _engine.WithMember("p", p);
+
+            RunTest(@"
+                assert(p.Name === 'Mickey Mouse');
+            ");
+        }
+
+        public class Person
+        {
+            public string Name { get; set; }
         }
     }
 }

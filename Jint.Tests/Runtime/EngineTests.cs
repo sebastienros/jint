@@ -12,8 +12,8 @@ namespace Jint.Tests.Runtime
         private Engine RunTest(string source)
         {
             var engine = new Engine()
-                .WithMember("log", new Action<object>(Console.WriteLine))
-                .WithMember("assert", new Action<bool>(Assert.True))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
                 ;
 
             engine.Execute(source);
