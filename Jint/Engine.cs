@@ -156,7 +156,7 @@ namespace Jint
             return executionContext;
         }
 
-        public Engine WithMember(string name, Delegate value)
+        public Engine SetValue(string name, Delegate value)
         {
             Global.FastAddProperty(name, new DelegateWrapper(this, value), true, false, true);
             return this;
@@ -183,6 +183,12 @@ namespace Jint
         public Engine WithMember(string name, DateTime value)
         {
             Global.FastAddProperty(name, Date.Construct(value), true, false, true);
+            return this;
+        }
+
+        public Engine WithMember(string name, Object obj)
+        {
+            Global.FastAddProperty(name, new ObjectWrapper(this, obj), true, false, true);
             return this;
         }
 

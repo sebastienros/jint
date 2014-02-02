@@ -72,7 +72,7 @@ namespace Jint.Runtime.Descriptors
         public JsValue? Enumerable { get; set; }
         public JsValue? Writable { get; set; }
         public JsValue? Configurable { get; set; }
-        public JsValue? Value { get; set; }
+        public virtual JsValue? Value { get; set; }
         
         public bool IsAccessorDescriptor()
         {
