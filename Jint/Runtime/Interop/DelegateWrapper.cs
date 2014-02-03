@@ -11,12 +11,10 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public sealed class DelegateWrapper : FunctionInstance
     {
-        private readonly Engine _engine;
         private readonly Delegate _d;
 
         public DelegateWrapper(Engine engine, Delegate d) : base(engine, null, null, false)
         {
-            _engine = engine;
             _d = d;
         }
 

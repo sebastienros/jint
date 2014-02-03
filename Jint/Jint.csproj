@@ -158,6 +158,7 @@
     <Compile Include="Runtime\Environments\LexicalEnvironment.cs" />
     <Compile Include="Runtime\Environments\ObjectEnvironmentRecord.cs" />
     <Compile Include="Runtime\ExpressionIntepreter.cs" />
+    <Compile Include="Runtime\Interop\MethodInfoFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\ClrFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\ObjectWrapper .cs" />
     <Compile Include="Runtime\Interop\SetterFunctionInstance.cs" />

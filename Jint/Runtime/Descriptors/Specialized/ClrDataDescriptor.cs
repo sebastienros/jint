@@ -5,16 +5,16 @@ namespace Jint.Runtime.Descriptors.Specialized
 {
     public sealed class ClrDataDescriptor : PropertyDescriptor
     {
+        private readonly Engine _engine;
         private readonly PropertyInfo _propertyInfo;
         private readonly object _item;
-        private JsValue? _value;
 
         public ClrDataDescriptor(Engine engine, PropertyInfo propertyInfo, object item)
         {
+            _engine = engine;
             _propertyInfo = propertyInfo;
             _item = item;
 
-            _value = JsValue.FromObject(engine, _propertyInfo.GetValue(_item, null));
             Writable = propertyInfo.CanWrite;
         }
 
@@ -22,13 +22,12 @@ namespace Jint.Runtime.Descriptors.Specialized
         {
             get
             {
-                return _value;
+                return JsValue.FromObject(_engine, _propertyInfo.GetValue(_item, null));
             }
 
             set
             {
-                _value = value;
-                _propertyInfo.SetValue(_item, _value.GetValueOrDefault().ToObject(), null);
+                _propertyInfo.SetValue(_item, value.GetValueOrDefault().ToObject(), null);
             }
         }
     }
