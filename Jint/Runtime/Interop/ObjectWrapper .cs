@@ -12,11 +12,11 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public sealed class ObjectWrapper : ObjectInstance
     {
-        private readonly Object _obj;
+        public Object Target { get; set; }
 
         public ObjectWrapper(Engine engine, Object obj): base(engine)
         {
-            _obj = obj;
+            Target = obj;
         }
 
         public override PropertyDescriptor GetOwnProperty(string propertyName)
@@ -27,21 +27,30 @@ namespace Jint.Runtime.Interop
                 return x;
             }
 
-            var type = _obj.GetType();
+            var type = Target.GetType();
+            
+            // look for a property
             var property = type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .FirstOrDefault(m => m.Name == propertyName);
 
-            if (property == null)
+            if (property != null)
             {
-                return PropertyDescriptor.Undefined;
-            }
-            else
-            {
-                var descriptor = new ClrDataDescriptor(Engine, property, _obj);
+                var descriptor = new ClrDataDescriptor(Engine, property, Target);
                 Properties.Add(propertyName, descriptor);
                 return descriptor;
             }
-            
+
+            // if no properties were found then look for a method 
+            var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .Where(m => m.Name == propertyName)
+                .ToArray();
+
+            if (methods.Any())
+            {
+                return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methods), false, true, false);
+            }
+
+            return PropertyDescriptor.Undefined;
         }
     }
 }

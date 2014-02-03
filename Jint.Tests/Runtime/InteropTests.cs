@@ -64,6 +64,21 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void CanInvokeObjectMethods()
+        {
+            var p = new Person
+            {
+                Name = "Mickey Mouse"
+            };
+
+            _engine.SetValue("p", p);
+
+            RunTest(@"
+                assert(p.ToString() === 'Mickey Mouse');
+            ");
+        }
+
+        [Fact]
         public void CanSetObjectProperties()
         {
             var p = new Person
@@ -117,6 +132,11 @@ namespace Jint.Tests.Runtime
         public class Person
         {
             public string Name { get; set; }
+
+            public override string ToString()
+            {
+                return Name;
+            }
         }
     }
 }
