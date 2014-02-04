@@ -79,7 +79,6 @@ namespace Jint.Native.Function
 
                 body = TypeConverter.ToString(arguments[argCount-1]);
             }
-            body = TypeConverter.ToString(body);
             
             var parameters = this.ParseArgumentNames(p);
             var parser = new JavaScriptParser();
@@ -110,8 +109,8 @@ namespace Jint.Native.Function
                                 Type = SyntaxNodes.Identifier,
                                 Name = x
                             }).ToArray(),
-                        FunctionDeclarations = new List<FunctionDeclaration>(),
-                        VariableDeclarations = new List<VariableDeclaration>()
+                        FunctionDeclarations = function.FunctionDeclarations,
+                        VariableDeclarations = function.VariableDeclarations
                     },  
                 LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment),
                 function.Strict
