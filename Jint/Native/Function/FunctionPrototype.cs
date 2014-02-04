@@ -34,7 +34,7 @@ namespace Jint.Native.Function
             FastAddProperty("constructor", Engine.Function, true, false, true);
             FastAddProperty("toString", new ClrFunctionInstance(Engine, ToString), true, false, true);
             FastAddProperty("apply", new ClrFunctionInstance(Engine, Apply), true, false, true);
-            FastAddProperty("call", new ClrFunctionInstance(Engine, Call, 1), true, false, true);
+            FastAddProperty("call", new ClrFunctionInstance(Engine, CallImpl, 1), true, false, true);
             FastAddProperty("bind", new ClrFunctionInstance(Engine, Bind, 1), true, false, true);
         }
 
@@ -118,7 +118,7 @@ namespace Jint.Native.Function
             return func.Call(thisArg, argList.ToArray());
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public JsValue CallImpl(JsValue thisObject, JsValue[] arguments)
         {
             var func = thisObject.TryCast<ICallable>();
             if (func == null)
@@ -127,6 +127,11 @@ namespace Jint.Native.Function
             }
 
             return func.Call(arguments.At(0), arguments.Length == 0 ? arguments : arguments.Skip(1).ToArray());
+        }
+
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        {
+            return Undefined.Instance;
         }
     }
 }
