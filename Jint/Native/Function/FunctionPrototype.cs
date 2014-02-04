@@ -33,7 +33,7 @@ namespace Jint.Native.Function
         {
             FastAddProperty("constructor", Engine.Function, true, false, true);
             FastAddProperty("toString", new ClrFunctionInstance(Engine, ToString), true, false, true);
-            FastAddProperty("apply", new ClrFunctionInstance(Engine, Apply), true, false, true);
+            FastAddProperty("apply", new ClrFunctionInstance(Engine, Apply, 2), true, false, true);
             FastAddProperty("call", new ClrFunctionInstance(Engine, CallImpl, 1), true, false, true);
             FastAddProperty("bind", new ClrFunctionInstance(Engine, Bind, 1), true, false, true);
         }
