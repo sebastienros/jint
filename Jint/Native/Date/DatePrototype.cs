@@ -436,5 +436,305 @@ namespace Jint.Native.Date
             })
            .ToDateTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         }
+
+        public static double MsPerDay = 86400000;
+        public static double MsPerHour = 3600000;
+
+        /// <summary>
+        /// 15.9.1.2
+        /// </summary>
+        public static double Day(double t)
+        {
+            return System.Math.Floor(t / MsPerDay);
+        }
+
+        /// <summary>
+        /// 15.9.1.2
+        /// </summary>
+        public static double TimeWithinDay(double t)
+        {
+            return t % MsPerDay;
+        }
+
+        /// <summary>
+        /// The number of days in a year
+        /// </summary>
+        public static double DaysInYear(double y)
+        {
+            if (!(y%4).Equals(0))
+            {
+                return 365;
+            }
+
+            if ((y%4).Equals(0) && !(y%100).Equals(100))
+            {
+                return 365;
+            }
+
+            if ((y%100).Equals(0) && !(y%400).Equals(100))
+            {
+                return 365;
+            }
+
+            if ((y%400).Equals(0))
+            {
+                return 366;
+            }
+
+            return 365;
+        }
+
+        /// <summary>
+        /// The day number of the first day of the year.
+        /// </summary>
+        public static double DayFromYear(double y)
+        {
+            return 365*(y - 1970) + System.Math.Floor((y - 1969)/4) - System.Math.Floor((y - 1901)/100) +
+                   System.Math.Floor((y - 1601)/400);
+        }
+
+        /// <summary>
+        /// The time value of the start of the year
+        /// </summary>
+        public static double TimeFromYear(double y)
+        {
+            return MsPerDay*DayFromYear(y);
+        }
+
+        /// <summary>
+        /// The year of a time value.
+        /// </summary>
+        public static double YearFromTime(double t)
+        {
+            double upper = double.PositiveInfinity;
+            double lower = double.NegativeInfinity;
+            while (upper > lower)
+            {
+                var current = System.Math.Floor(upper + lower / 2);
+
+                if (TimeFromYear(current) <= t)
+                {
+                    lower = current;
+                }
+                else
+                {
+                    upper = current;
+                }
+            }
+
+            return lower;
+        }
+
+        /// <summary>
+        /// <value>true</value> if the time is within a leap year, <value>false</value> otherwise
+        /// </summary>
+        public static double InLeapYear(double t)
+        {
+            var daysInYear = DaysInYear(YearFromTime(t));
+
+            if (daysInYear.Equals(365))
+            {
+                return 0;
+            }            
+
+            if (daysInYear.Equals(366))
+            {
+                return 1;
+            }            
+
+            throw new ArgumentException();
+        }
+
+        /// <summary>
+        /// The month number of a time value.
+        /// </summary>
+        public static double MonthFromTime(double t)
+        {
+            var dayWithinYear = DayWithinYear(t);
+            var inLeapYear = InLeapYear(t);
+
+            if (dayWithinYear < 31)
+            {
+                return 0;
+            }
+
+            if (dayWithinYear < 59 + inLeapYear)
+            {
+                return 1;
+            }
+
+            if (dayWithinYear < 90 + inLeapYear)
+            {
+                return 2;
+            }
+
+            if (dayWithinYear < 120 + inLeapYear)
+            {
+                return 3;
+            }
+
+            if (dayWithinYear < 151 + inLeapYear)
+            {
+                return 4;
+            }
+
+            if (dayWithinYear < 181 + inLeapYear)
+            {
+                return 5;
+            }
+
+            if (dayWithinYear < 212 + inLeapYear)
+            {
+                return 6;
+            }
+
+            if (dayWithinYear < 243 + inLeapYear)
+            {
+                return 7;
+            }
+
+            if (dayWithinYear < 273 + inLeapYear)
+            {
+                return 8;
+            }
+
+            if (dayWithinYear < 304 + inLeapYear)
+            {
+                return 9;
+            }
+
+            if (dayWithinYear < 334 + inLeapYear)
+            {
+                return 10;
+            }
+
+            if (dayWithinYear < 365 + inLeapYear)
+            {
+                return 11;
+            }
+
+            throw new InvalidOperationException();
+        }
+
+        public static double DayWithinYear(double t)
+        {
+            return Day(t) - DayFromYear(YearFromTime(t));
+        }
+
+        public static double DateFromTime(double t)
+        {
+            var monthFromTime = MonthFromTime(t);
+            var dayWithinYear = DayWithinYear(t);
+
+            if (monthFromTime.Equals(0))
+            {
+                return dayWithinYear + 1;
+            }
+
+            if (monthFromTime.Equals(1))
+            {
+                return dayWithinYear - 30;
+            }
+
+            if (monthFromTime.Equals(2))
+            {
+                return dayWithinYear - 58;
+            }
+
+            if (monthFromTime.Equals(3))
+            {
+                return dayWithinYear - 89;
+            }
+
+            if (monthFromTime.Equals(4))
+            {
+                return dayWithinYear - 119;
+            }
+
+            if (monthFromTime.Equals(5))
+            {
+                return dayWithinYear - 150;
+            }
+
+            if (monthFromTime.Equals(6))
+            {
+                return dayWithinYear - 180;
+            }
+
+            if (monthFromTime.Equals(7))
+            {
+                return dayWithinYear - 211;
+            }
+
+            if (monthFromTime.Equals(8))
+            {
+                return dayWithinYear - 242;
+            }
+
+            if (monthFromTime.Equals(9))
+            {
+                return dayWithinYear - 272;
+            }
+
+            if (monthFromTime.Equals(10))
+            {
+                return dayWithinYear - 303;
+            }
+
+            if (monthFromTime.Equals(11))
+            {
+                return dayWithinYear - 333;
+            }
+
+            throw new InvalidOperationException();
+        }
+
+        /// <summary>
+        /// The weekday for a particular time value.
+        /// </summary>
+        public static double WeekDay(double t)
+        {
+            return (Day(t) + 4)%7;
+        }
+
+        public static double LocalTza
+        {
+            get
+            {
+                return TimeZoneInfo.Local.BaseUtcOffset.TotalMilliseconds;
+            }
+        }
+
+        public static double DaylightSavingTa(double t)
+        {
+            var timeInYear = t - TimeFromYear(YearFromTime(t));
+            var isLeapYear = InLeapYear(t).Equals(1);
+            var weekDay = WeekDay(TimeFromYear(YearFromTime(t)));
+            
+            var year = YearFromTime(t);
+            if (year < 9999 && year > -9999)
+            {
+                // in DateTimeOffset range so we can use it
+            }
+            else
+            {
+                // use similar leap-ed year
+                year = isLeapYear ? 2000 : 1999;
+            }
+
+            var dateTime = new DateTime((int)year, 1, 1).AddMilliseconds(timeInYear);
+
+            return TimeZoneInfo.Local.IsDaylightSavingTime(dateTime) ? MsPerHour : 0;
+        }
+
+        public static double UtcToLocalTime(double t)
+        {
+            return t + LocalTza + DaylightSavingTa(t);
+        }
+
+        public static double LocalTimeToUtc(double t)
+        {
+            return t - LocalTza - DaylightSavingTa(t - LocalTza);
+        }
     }
 }
