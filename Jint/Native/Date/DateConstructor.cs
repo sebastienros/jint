@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -52,21 +53,35 @@ namespace Jint.Native.Date
 
             if (!DateTime.TryParseExact(date, new[]
             {
-                "yyyy/MM/ddTH:m:s.fffK", 
-                "yyyy/MM/dd", 
-                "yyyy/MM", 
-                "yyyy-MM-ddTH:m:s.fffK", 
-                "yyyy-MM-dd", 
-                "yyyy-MM", 
-                "THH:m:s.fff", 
-                "TH:mm:sm", 
-                "THH:mm", 
+                "yyyy/MM/ddTH:m:s.fff",
+                "yyyy/MM/dd",
+                "yyyy/MM",
+                "yyyy-MM-ddTH:m:s.fff",
+                "yyyy-MM-dd",
+                "yyyy-MM",
+                "yyyy",
+                "THH:m:s.fff",
+                "TH:mm:sm",
+                "THH:mm",
                 "THH"
-            }, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result))
+            }, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out result))
             {
-                if (!DateTime.TryParseExact(date, "yyyy", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out result))
+                if (!DateTime.TryParseExact(date, new[]
                 {
-                    if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out result))
+                    "yyyy/MM/ddTH:m:s.fffK",
+                    "yyyy/MM/ddK",
+                    "yyyy/MMK",
+                    "yyyy-MM-ddTH:m:s.fffK",
+                    "yyyy-MM-ddK",
+                    "yyyy-MMK",
+                    "yyyyK",
+                    "THH:m:s.fffK",
+                    "TH:mm:smK",
+                    "THH:mmK",
+                    "THHK"
+                }, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
+                {
+                    if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal,out result))
                     {
                         throw new JavaScriptException(Engine.SyntaxError, "Invalid date");
                     }
@@ -111,17 +126,17 @@ namespace Jint.Native.Date
                     return Parse(Undefined.Instance, Arguments.From(v)).AsObject();
                 }
 
-                return Construct(TypeConverter.ToNumber(v));
+                return Construct(DatePrototype.TimeClip(TypeConverter.ToNumber(v)));
             }
             else
             {
                 var y = TypeConverter.ToNumber(arguments[0]);
                 var m = (int)TypeConverter.ToInteger(arguments[1]);
-                var date = arguments.Length > 2 ? (int)TypeConverter.ToInteger(arguments[2]) : 1;
-                var hours = arguments.Length > 3 ? (int)TypeConverter.ToInteger(arguments[3]) : 0;
-                var minutes = arguments.Length > 4 ? (int)TypeConverter.ToInteger(arguments[4]) : 0;
-                var seconds = arguments.Length > 5 ? (int)TypeConverter.ToInteger(arguments[5]) : 0;
-                var ms = arguments.Length > 6 ? (int)TypeConverter.ToInteger(arguments[6]) : 0;
+                var dt = arguments.Length > 2 ? (int)TypeConverter.ToInteger(arguments[2]) : 1;
+                var h = arguments.Length > 3 ? (int)TypeConverter.ToInteger(arguments[3]) : 0;
+                var min = arguments.Length > 4 ? (int)TypeConverter.ToInteger(arguments[4]) : 0;
+                var s = arguments.Length > 5 ? (int)TypeConverter.ToInteger(arguments[5]) : 0;
+                var milli = arguments.Length > 6 ? (int)TypeConverter.ToInteger(arguments[6]) : 0;
 
                 for (int i = 2; i < arguments.Length; i++)
                 {
@@ -136,25 +151,10 @@ namespace Jint.Native.Date
                     y += 1900;
                 }
 
-                var ym = y + System.Math.Floor(m / 12);
-                var mn = m % 12;
+                var finalDate = DatePrototype.MakeDate(DatePrototype.MakeDay(y, m, dt),
+                    DatePrototype.MakeTime(h, min, s, milli));
 
-                try
-                {
-                    var dt = new DateTime((int) ym, mn + 1, 1, 0, 0, 0, 0, DateTimeKind.Local);
-                    var primitiveValue = FromDateTime(dt)
-                                         + ms
-                                         + seconds*MsPerSecond
-                                         + minutes*MsPerMinute
-                                         + hours*MsPerHour
-                                         + (date-1)*MsPerDay;
-
-                    return Construct(primitiveValue);
-                }
-                catch(ArgumentOutOfRangeException)
-                {
-                    throw new JavaScriptException(Engine.RangeError);
-                }
+                return Construct(DatePrototype.TimeClip(DatePrototype.Utc(finalDate)));
             }
         }
 
@@ -201,7 +201,7 @@ namespace Jint.Native.Date
 
         public static double FromDateTime(DateTime dt)
         {
-            return (dt.ToUniversalTime() - Epoch).TotalMilliseconds;
+            return System.Math.Floor((dt.ToUniversalTime() - Epoch).TotalMilliseconds);
         }
     }
 }

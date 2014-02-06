@@ -66,7 +66,7 @@ namespace Jint.Runtime
             if (o.IsNumber())
             {
                 var n = o.AsNumber();
-                if (n == 0 || double.IsNaN(n))
+                if (n.Equals(0) || double.IsNaN(n))
                 {
                     return false;
                 }
@@ -130,7 +130,6 @@ namespace Jint.Runtime
 
             if (o.IsString())
             {
-                double n;
                 var s = o.AsString().Trim();
 
                 if (String.IsNullOrEmpty(s))
@@ -159,11 +158,11 @@ namespace Jint.Runtime
                             return double.NaN;
                         }
 
-                        n = Double.Parse(s,
-                                         NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
-                                         NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
-                                         NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
-                        if (s.StartsWith("-") && n == 0)
+                        double n = Double.Parse(s,
+                            NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
+                            NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
+                            NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
+                        if (s.StartsWith("-") && n.Equals(0))
                         {
                             return -0.0;
                         }
@@ -202,7 +201,7 @@ namespace Jint.Runtime
                 return 0;
             }
             
-            if (number == 0 || number == double.NegativeInfinity || number == double.PositiveInfinity)
+            if (number.Equals(0) || double.IsInfinity(number))
             {
                 return number;
             }
