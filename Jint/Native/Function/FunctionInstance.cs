@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using System.Runtime.Serialization;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
 
@@ -37,7 +38,13 @@ namespace Jint.Native.Function
                 return false;
             }
 
-            var o = Get("prototype").AsObject();
+            var po = Get("prototype");
+            if (!po.IsObject())
+            {
+                throw new JavaScriptException(_engine.TypeError, string.Format("Function has non-object prototype '{0}' in instanceof check", TypeConverter.ToString(po)));    
+            }
+
+            var o = po.AsObject();
             
             if (o == null)
             {
