@@ -36,8 +36,14 @@ namespace Jint.Native.Function
             {
                 return false;
             }
+            
+            var po = Get("prototype");
+            if (!po.IsObject())
+            {
+                throw new JavaScriptException(_engine.TypeError, string.Format("Function has non-object prototype '{0}' in instanceof check", TypeConverter.ToString(po)));
+            }
 
-            var o = Get("prototype").AsObject();
+            var o = po.AsObject();
             
             if (o == null)
             {
