@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Globalization;
-using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
@@ -18,9 +17,11 @@ namespace Jint.Native.Date
 
         public static DatePrototype CreatePrototypeObject(Engine engine, DateConstructor dateConstructor)
         {
-            var obj = new DatePrototype(engine);
-            obj.Prototype = engine.Object.PrototypeObject;
-            obj.Extensible = true;
+            var obj = new DatePrototype(engine)
+            {
+                Prototype = engine.Object.PrototypeObject, 
+                Extensible = true
+            };
 
             obj.FastAddProperty("constructor", dateConstructor, true, false, true);
 
@@ -69,12 +70,12 @@ namespace Jint.Native.Date
             FastAddProperty("setUTCMonth", new ClrFunctionInstance(Engine, SetUTCMonth, 2), true, false, true);
             FastAddProperty("setFullYear", new ClrFunctionInstance(Engine, SetFullYear, 3), true, false, true);
             FastAddProperty("setUTCFullYear", new ClrFunctionInstance(Engine, SetUTCFullYear, 3), true, false, true);
-            FastAddProperty("toUTCString", new ClrFunctionInstance(Engine, ToUTCString, 0), true, false, true);
+            FastAddProperty("toUTCString", new ClrFunctionInstance(Engine, ToUtcString, 0), true, false, true);
             FastAddProperty("toISOString", new ClrFunctionInstance(Engine, ToISOString, 0), true, false, true);
             FastAddProperty("toJSON", new ClrFunctionInstance(Engine, ToJSON, 1), true, false, true);
         }
 
-        private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
+        private static JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
         {
             return thisObj.TryCast<DateInstance>().PrimitiveValue;
         }
@@ -84,22 +85,22 @@ namespace Jint.Native.Date
             return thisObj.TryCast<DateInstance>().ToDateTime().ToString("F", CultureInfo.InvariantCulture);
         }
 
-        private JsValue ToDateString(JsValue thisObj, JsValue[] arguments)
+        private static JsValue ToDateString(JsValue thisObj, JsValue[] arguments)
         {
             return thisObj.TryCast<DateInstance>().ToDateTime().ToString("D", CultureInfo.InvariantCulture);
         }
 
-        private JsValue ToTimeString(JsValue thisObj, JsValue[] arguments)
+        private static JsValue ToTimeString(JsValue thisObj, JsValue[] arguments)
         {
             return thisObj.TryCast<DateInstance>().ToDateTime().ToString("T", CultureInfo.InvariantCulture);
         }
 
-        private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
+        private static JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
         {
             return thisObj.TryCast<DateInstance>().ToDateTime().ToString("F");
         }
 
-        private JsValue ToLocaleDateString(JsValue thisObj, JsValue[] arguments)
+        private static JsValue ToLocaleDateString(JsValue thisObj, JsValue[] arguments)
         {
             return thisObj.TryCast<DateInstance>().ToDateTime().ToString("D");
         }
@@ -109,7 +110,7 @@ namespace Jint.Native.Date
             return thisObj.TryCast<DateInstance>().ToDateTime().ToString("T");
         }
 
-        private JsValue GetTime(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetTime(JsValue thisObj, JsValue[] arguments)
         {
             if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
             {
@@ -119,298 +120,357 @@ namespace Jint.Native.Date
             return thisObj.TryCast<DateInstance>().PrimitiveValue;
         }
 
-        private JsValue GetFullYear(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetFullYear(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Year;
+            return YearFromTime(LocalTime(t));
         }
 
-        private JsValue GetUTCFullYear(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetUTCFullYear(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Year;
+            return YearFromTime(t);
         }
 
-        private JsValue GetMonth(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetMonth(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Month - 1;
+            return MonthFromTime(LocalTime(t));
         }
 
-        private JsValue GetUTCMonth(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetUTCMonth(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Month;
+            return MonthFromTime(t);
         }
 
-        private JsValue GetDate(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetDate(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Day;
+            return DateFromTime(LocalTime(t));
         }
 
-        private JsValue GetUTCDate(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetUTCDate(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Day;
+            return DateFromTime(t);
         }
 
-        private JsValue GetDay(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetDay(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return (int)thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().DayOfWeek;
+            return WeekDay(LocalTime(t));
         }
 
-        private JsValue GetUTCDay(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetUTCDay(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return (int)thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().DayOfWeek;
+            return WeekDay(t);
         }
 
-        private JsValue GetHours(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetHours(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Hour;
+            return HourFromTime(LocalTime(t));
         }
 
-        private JsValue GetUTCHours(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetUTCHours(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Hour;
+            return HourFromTime(t);
         }
 
-        private JsValue GetMinutes(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetMinutes(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Minute;
+            return MinFromTime(LocalTime(t));
         }
 
-        private JsValue GetUTCMinutes(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetUTCMinutes(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Minute;
+            return MinFromTime(t);
         }
 
-        private JsValue GetSeconds(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetSeconds(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Second;
+            return SecFromTime(LocalTime(t));
         }
 
-        private JsValue GetUTCSeconds(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetUTCSeconds(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Second;
+            return SecFromTime(t);
         }
 
-        private JsValue GetMilliseconds(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().Millisecond;
+            return MsFromTime(LocalTime(t));
         }
 
-        private JsValue GetUTCMilliseconds(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetUTCMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime().Second;
+            return MsFromTime(t);
         }
 
-        private JsValue GetTimezoneOffset(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetTimezoneOffset(JsValue thisObj, JsValue[] arguments)
         {
-            if (double.IsNaN(thisObj.TryCast<DateInstance>().PrimitiveValue))
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
             {
                 return double.NaN;
             }
 
-            return - TimeZoneInfo.Local.GetUtcOffset(thisObj.TryCast<DateInstance>().ToDateTime()).Hours*60;
+            return (t - LocalTime(t))/MsPerMinute;
         }
 
-        private JsValue SetTime(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetTime(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.TimeClip(TypeConverter.ToNumber(arguments.At(0)));
+            return thisObj.As<DateInstance>().PrimitiveValue = TimeClip(TypeConverter.ToNumber(arguments.At(0)));
         }
 
-        private JsValue SetMilliseconds(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime();
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, (int)TypeConverter.ToNumber(arguments.At(0)), DateTimeKind.Local);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var t = LocalTime(thisObj.As<DateInstance>().PrimitiveValue);
+            var time = MakeTime(HourFromTime(t), MinFromTime(t), SecFromTime(t), TypeConverter.ToNumber(arguments.At(0)));
+            var u = TimeClip(Utc(MakeDate(Day(t), time)));
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetUTCMilliseconds(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, (int)TypeConverter.ToNumber(arguments.At(0)), DateTimeKind.Utc);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var t = thisObj.As<DateInstance>().PrimitiveValue;
+            var time = MakeTime(HourFromTime(t), MinFromTime(t), SecFromTime(t), TypeConverter.ToNumber(arguments.At(0)));
+            var u = TimeClip(MakeDate(Day(t), time));
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetSeconds(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetSeconds(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
-            var ms = arguments.At(1) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(1));
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, (int)TypeConverter.ToNumber(arguments.At(0)), (int)ms, DateTimeKind.Local);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var t = LocalTime(thisObj.As<DateInstance>().PrimitiveValue);
+            var s = TypeConverter.ToNumber(arguments.At(0));
+            var milli = arguments.Length <= 1 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(1)); 
+            var date = MakeDate(Day(t), MakeTime(HourFromTime(t), MinFromTime(t), s, milli));
+            var u = TimeClip(Utc(date));
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetUTCSeconds(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCSeconds(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            var ms = arguments.At(1) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(1));
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, (int)TypeConverter.ToNumber(arguments.At(0)), (int)ms, DateTimeKind.Utc);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var t = thisObj.As<DateInstance>().PrimitiveValue;
+            var s = TypeConverter.ToNumber(arguments.At(0));
+            var milli = arguments.Length <= 1 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
+            var date = MakeDate(Day(t), MakeTime(HourFromTime(t), MinFromTime(t), s, milli));
+            var u = TimeClip(date);
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetMinutes(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetMinutes(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
-            var s = arguments.At(1) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(1));
-            var ms = arguments.At(2) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(2));
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, (int)TypeConverter.ToNumber(arguments.At(0)), (int)s, (int)ms, DateTimeKind.Local);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var t = LocalTime(thisObj.As<DateInstance>().PrimitiveValue);
+            var m = TypeConverter.ToNumber(arguments.At(0));
+            var s = arguments.Length <= 1 ? SecFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
+            var milli = arguments.Length <= 2 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
+            var date = MakeDate(Day(t), MakeTime(HourFromTime(t), m, s, milli));
+            var u = TimeClip(Utc(date));
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetUTCMinutes(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCMinutes(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            var s = arguments.At(1) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(1));
-            var ms = arguments.At(2) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(2));
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, (int)TypeConverter.ToNumber(arguments.At(0)), (int)s, (int)ms, DateTimeKind.Utc);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var t = thisObj.As<DateInstance>().PrimitiveValue;
+            var m = TypeConverter.ToNumber(arguments.At(0));
+            var s = arguments.Length <= 1 ? SecFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
+            var milli = arguments.Length <= 2 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
+            var date = MakeDate(Day(t), MakeTime(HourFromTime(t), m, s, milli));
+            var u = TimeClip(date);
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetHours(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetHours(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
-            var min = arguments.At(1) == Undefined.Instance ? dt.Minute : TypeConverter.ToNumber(arguments.At(1));
-            var s = arguments.At(2) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(2));
-            var ms = arguments.At(3) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(3));
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, (int)TypeConverter.ToNumber(arguments.At(0)), (int)min, (int)s, (int)ms, DateTimeKind.Local);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var t = LocalTime(thisObj.As<DateInstance>().PrimitiveValue);
+            var h = TypeConverter.ToNumber(arguments.At(0));
+            var m = arguments.Length <= 1 ? MinFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
+            var s = arguments.Length <= 2 ? SecFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
+            var milli = arguments.Length <= 3 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(3));
+            var date = MakeDate(Day(t), MakeTime(h, m, s, milli));
+            var u = TimeClip(Utc(date));
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetUTCHours(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCHours(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            var min = arguments.At(1) == Undefined.Instance ? dt.Minute : TypeConverter.ToNumber(arguments.At(1));
-            var s = arguments.At(2) == Undefined.Instance ? dt.Second : TypeConverter.ToNumber(arguments.At(2));
-            var ms = arguments.At(3) == Undefined.Instance ? dt.Millisecond : TypeConverter.ToNumber(arguments.At(3));
-            dt = new DateTime(dt.Year, dt.Month, dt.Day, (int)TypeConverter.ToNumber(arguments.At(0)), (int)min, (int)s, (int)ms, DateTimeKind.Utc);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var t = thisObj.As<DateInstance>().PrimitiveValue;
+            var h = TypeConverter.ToNumber(arguments.At(0));
+            var m = arguments.Length <= 1 ? MinFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
+            var s = arguments.Length <= 2 ? SecFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
+            var milli = arguments.Length <= 3 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(3));
+            var date = MakeDate(Day(t), MakeTime(h, m, s, milli));
+            var u = TimeClip(date);
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetDate(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetDate(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
-            dt = new DateTime(dt.Year, dt.Month, (int)TypeConverter.ToNumber(arguments.At(0)), dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var t = LocalTime(thisObj.As<DateInstance>().PrimitiveValue);
+            var dt = TypeConverter.ToNumber(arguments.At(0));
+            var newDate = MakeDate(MakeDay(YearFromTime(t), MonthFromTime(t), dt), TimeWithinDay(t));
+            var u = TimeClip(Utc(newDate));
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetUTCDate(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCDate(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            dt = new DateTime(dt.Year, dt.Month, (int)TypeConverter.ToNumber(arguments.At(0)), dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var t = thisObj.As<DateInstance>().PrimitiveValue;
+            var dt = TypeConverter.ToNumber(arguments.At(0));
+            var newDate = MakeDate(MakeDay(YearFromTime(t), MonthFromTime(t), dt), TimeWithinDay(t));
+            var u = TimeClip(newDate);
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetMonth(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetMonth(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            var date = arguments.At(1) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(1));
-            dt = new DateTime(dt.Year, (int)TypeConverter.ToNumber(arguments.At(0)), (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var t = LocalTime(thisObj.As<DateInstance>().PrimitiveValue);
+            var m = TypeConverter.ToNumber(arguments.At(0));
+            var dt = arguments.Length <= 1 ? DateFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
+            var newDate = MakeDate(MakeDay(YearFromTime(t), m, dt), TimeWithinDay(t));
+            var u = TimeClip(Utc(newDate));
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetUTCMonth(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCMonth(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            var date = arguments.At(1) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(1));
-            dt = new DateTime(dt.Year, (int)TypeConverter.ToNumber(arguments.At(0)), (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var t = thisObj.As<DateInstance>().PrimitiveValue;
+            var m = TypeConverter.ToNumber(arguments.At(0));
+            var dt = arguments.Length <= 1 ? DateFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
+            var newDate = MakeDate(MakeDay(YearFromTime(t), m, dt), TimeWithinDay(t));
+            var u = TimeClip(newDate);
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetFullYear(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetFullYear(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime();
-            var month = arguments.At(1) == Undefined.Instance ? dt.Month : TypeConverter.ToNumber(arguments.At(1));
-            var date = arguments.At(2) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(2));
-            dt = new DateTime((int)TypeConverter.ToNumber(arguments.At(0)), (int)month, (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Local);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var thisTime = thisObj.As<DateInstance>().PrimitiveValue;
+            var t = double.IsNaN(thisTime) ? +0 : LocalTime(thisTime);
+            var y = TypeConverter.ToNumber(arguments.At(0));
+            var m = arguments.Length <= 1 ? MonthFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
+            var dt = arguments.Length <= 2 ? DateFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
+            var newDate = MakeDate(MakeDay(y, m, dt), TimeWithinDay(t));
+            var u = TimeClip(Utc(newDate));
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue SetUTCFullYear(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCFullYear(JsValue thisObj, JsValue[] arguments)
         {
-            var dt = thisObj.TryCast<DateInstance>().ToDateTime().ToUniversalTime();
-            var month = arguments.At(1) == Undefined.Instance ? dt.Month : TypeConverter.ToNumber(arguments.At(1));
-            var date = arguments.At(2) == Undefined.Instance ? dt.Day : TypeConverter.ToNumber(arguments.At(2));
-            dt = new DateTime((int)TypeConverter.ToNumber(arguments.At(0)), (int)month, (int)date, dt.Hour, dt.Minute, dt.Second, dt.Second, DateTimeKind.Utc);
-            return thisObj.TryCast<DateInstance>().PrimitiveValue = DateConstructor.FromDateTime(dt);
+            var thisTime = thisObj.As<DateInstance>().PrimitiveValue;
+            var t = double.IsNaN(thisTime) ? +0 : thisTime;
+            var y = TypeConverter.ToNumber(arguments.At(0));
+            var m = arguments.Length <= 1 ? MonthFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
+            var dt = arguments.Length <= 2 ? DateFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
+            var newDate = MakeDate(MakeDay(y, m, dt), TimeWithinDay(t));
+            var u = TimeClip(newDate);
+            thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
         }
 
-        private JsValue ToUTCString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToUtcString(JsValue thisObj, JsValue[] arguments)
         {
             return thisObj.TryCast<DateInstance>(x =>
             {
@@ -421,20 +481,509 @@ namespace Jint.Native.Date
 
         private JsValue ToISOString(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.TryCast<DateInstance>(x =>
+            var t = thisObj.TryCast<DateInstance>(x =>
             {
                 throw new JavaScriptException(Engine.TypeError);
-            })
-           .ToDateTime().ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            }).PrimitiveValue;
+
+            if (double.IsInfinity(t) || double.IsNaN(t))
+            {
+                throw new JavaScriptException(Engine.RangeError);
+            }
+
+            return string.Format("{0:0000}-{1:00}-{2:00}T{3:00}:{4:00}:{5:00}.{6:000}Z", 
+                YearFromTime(t),
+                MonthFromTime(t)+1,
+                DateFromTime(t),
+                HourFromTime(t),
+                MinFromTime(t),
+                SecFromTime(t),
+                MsFromTime(t));
         }
 
         private JsValue ToJSON(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.TryCast<DateInstance>(x =>
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            var tv = TypeConverter.ToPrimitive(o, Types.Number);
+            if (tv.IsNumber() && double.IsInfinity(tv.AsNumber()))
+            {
+                return JsValue.Null;
+            }
+
+            var toIso = o.Get("toISOString");
+            if (!toIso.Is<ICallable>())
             {
                 throw new JavaScriptException(Engine.TypeError);
-            })
-           .ToDateTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            }
+
+            return toIso.TryCast<ICallable>().Call(o, Arguments.Empty);
         }
+
+        public static double HoursPerDay = 24;
+        public static double MinutesPerHour = 60;
+        public static double SecondsPerMinute = 60;
+        public static double MsPerSecond = 1000;
+        public static double MsPerMinute = 60000;
+        public static double MsPerHour = 3600000;
+        public static double MsPerDay = 86400000;
+
+        /// <summary>
+        /// 15.9.1.2
+        /// </summary>
+        public static double Day(double t)
+        {
+            return System.Math.Floor(t / MsPerDay);
+        }
+
+        /// <summary>
+        /// 15.9.1.2
+        /// </summary>
+        public static double TimeWithinDay(double t)
+        {
+            return t % MsPerDay;
+        }
+
+        /// <summary>
+        /// The number of days in a year
+        /// </summary>
+        public static double DaysInYear(double y)
+        {
+            if (!(y%4).Equals(0))
+            {
+                return 365;
+            }
+
+            if ((y%4).Equals(0) && !(y%100).Equals(0))
+            {
+                return 366;
+            }
+
+            if ((y%100).Equals(0) && !(y%400).Equals(0))
+            {
+                return 365;
+            }
+
+            if ((y%400).Equals(0))
+            {
+                return 366;
+            }
+
+            return 365;
+        }
+
+        /// <summary>
+        /// The day number of the first day of the year.
+        /// </summary>
+        public static double DayFromYear(double y)
+        {
+            return 365*(y - 1970) 
+                + System.Math.Floor((y - 1969)/4) 
+                - System.Math.Floor((y - 1901)/100) 
+                + System.Math.Floor((y - 1601)/400);
+        }
+
+        /// <summary>
+        /// The time value of the start of the year
+        /// </summary>
+        public static double TimeFromYear(double y)
+        {
+            return MsPerDay*DayFromYear(y);
+        }
+
+        /// <summary>
+        /// The year of a time value.
+        /// </summary>
+        public static double YearFromTime(double t)
+        {
+            double upper = double.MaxValue;
+            double lower = double.MinValue;
+            while (upper > lower + 1)
+            {
+                var current = System.Math.Floor((upper + lower) / 2);
+
+                var tfy = TimeFromYear(current);
+
+                if (tfy <= t)
+                {
+                    lower = current;
+                }
+                else 
+                {
+                    upper = current;
+                }
+            }
+
+            return lower;
+        }
+
+        /// <summary>
+        /// <value>true</value> if the time is within a leap year, <value>false</value> otherwise
+        /// </summary>
+        public static double InLeapYear(double t)
+        {
+            var daysInYear = DaysInYear(YearFromTime(t));
+
+            if (daysInYear.Equals(365))
+            {
+                return 0;
+            }            
+
+            if (daysInYear.Equals(366))
+            {
+                return 1;
+            }            
+
+            throw new ArgumentException();
+        }
+
+        /// <summary>
+        /// The month number of a time value.
+        /// </summary>
+        public static double MonthFromTime(double t)
+        {
+            var dayWithinYear = DayWithinYear(t);
+            var inLeapYear = InLeapYear(t);
+
+            if (dayWithinYear < 31)
+            {
+                return 0;
+            }
+
+            if (dayWithinYear < 59 + inLeapYear)
+            {
+                return 1;
+            }
+
+            if (dayWithinYear < 90 + inLeapYear)
+            {
+                return 2;
+            }
+
+            if (dayWithinYear < 120 + inLeapYear)
+            {
+                return 3;
+            }
+
+            if (dayWithinYear < 151 + inLeapYear)
+            {
+                return 4;
+            }
+
+            if (dayWithinYear < 181 + inLeapYear)
+            {
+                return 5;
+            }
+
+            if (dayWithinYear < 212 + inLeapYear)
+            {
+                return 6;
+            }
+
+            if (dayWithinYear < 243 + inLeapYear)
+            {
+                return 7;
+            }
+
+            if (dayWithinYear < 273 + inLeapYear)
+            {
+                return 8;
+            }
+
+            if (dayWithinYear < 304 + inLeapYear)
+            {
+                return 9;
+            }
+
+            if (dayWithinYear < 334 + inLeapYear)
+            {
+                return 10;
+            }
+
+            if (dayWithinYear < 365 + inLeapYear)
+            {
+                return 11;
+            }
+
+            throw new InvalidOperationException();
+        }
+
+        public static double DayWithinYear(double t)
+        {
+            return Day(t) - DayFromYear(YearFromTime(t));
+        }
+
+        public static double DateFromTime(double t)
+        {
+            var monthFromTime = MonthFromTime(t);
+            var dayWithinYear = DayWithinYear(t);
+
+            if (monthFromTime.Equals(0))
+            {
+                return dayWithinYear + 1;
+            }
+
+            if (monthFromTime.Equals(1))
+            {
+                return dayWithinYear - 30;
+            }
+
+            if (monthFromTime.Equals(2))
+            {
+                return dayWithinYear - 58 - InLeapYear(t);
+            }
+
+            if (monthFromTime.Equals(3))
+            {
+                return dayWithinYear - 89 - InLeapYear(t);
+            }
+
+            if (monthFromTime.Equals(4))
+            {
+                return dayWithinYear - 119 - InLeapYear(t);
+            }
+
+            if (monthFromTime.Equals(5))
+            {
+                return dayWithinYear - 150 - InLeapYear(t);
+            }
+
+            if (monthFromTime.Equals(6))
+            {
+                return dayWithinYear - 180 - InLeapYear(t);
+            }
+
+            if (monthFromTime.Equals(7))
+            {
+                return dayWithinYear - 211 - InLeapYear(t);
+            }
+
+            if (monthFromTime.Equals(8))
+            {
+                return dayWithinYear - 242 - InLeapYear(t);
+            }
+
+            if (monthFromTime.Equals(9))
+            {
+                return dayWithinYear - 272 - InLeapYear(t);
+            }
+
+            if (monthFromTime.Equals(10))
+            {
+                return dayWithinYear - 303 - InLeapYear(t);
+            }
+
+            if (monthFromTime.Equals(11))
+            {
+                return dayWithinYear - 333 - InLeapYear(t);
+            }
+
+            throw new InvalidOperationException();
+        }
+
+        /// <summary>
+        /// The weekday for a particular time value.
+        /// </summary>
+        public static double WeekDay(double t)
+        {
+            return (Day(t) + 4)%7;
+        }
+
+        public static double LocalTza
+        {
+            get
+            {
+                return TimeZoneInfo.Local.BaseUtcOffset.TotalMilliseconds;
+            }
+        }
+
+        public static double DaylightSavingTa(double t)
+        {
+            var timeInYear = t - TimeFromYear(YearFromTime(t));
+
+            if (double.IsInfinity(timeInYear) || double.IsNaN(timeInYear))
+            {
+                return 0;
+            }
+
+            var year = YearFromTime(t);
+            if (year < 9999 && year > -9999)
+            {
+                // in DateTimeOffset range so we can use it
+            }
+            else
+            {
+                // use similar leap-ed year
+                var isLeapYear = InLeapYear(t).Equals(1);
+                year = isLeapYear ? 2000 : 1999;
+            }
+
+            var dateTime = new DateTime((int)year, 1, 1).AddMilliseconds(timeInYear);
+
+            return TimeZoneInfo.Local.IsDaylightSavingTime(dateTime) ? MsPerHour : 0;
+        }
+
+        public static double LocalTime(double t)
+        {
+            return t + LocalTza + DaylightSavingTa(t);
+        }
+
+        public static double Utc(double t)
+        {
+            return t - LocalTza - DaylightSavingTa(t - LocalTza);
+        }
+
+        public static double HourFromTime(double t)
+        {
+            return System.Math.Floor(t / MsPerHour) % HoursPerDay;
+        }
+
+        public static double MinFromTime(double t)
+        {
+            return System.Math.Floor(t / MsPerMinute) % MinutesPerHour;
+        }
+
+        public static double SecFromTime(double t)
+        {
+            return System.Math.Floor(t / MsPerSecond) % SecondsPerMinute;
+        }
+
+        public static double MsFromTime(double t)
+        {
+            return t % MsPerSecond;
+        }
+
+        public static double DayFromMonth(double year, double month)
+        {
+            double day = month * 30;
+
+            if (month >= 7)
+            {
+                day += month/2 - 1;
+            }
+            else if (month >= 2)
+            {
+                day += (month - 1)/2 - 1;
+            }
+            else
+            {
+                day += month;
+            }
+
+            if (month >= 2 && InLeapYear(year).Equals(1))
+            {
+                day++;
+            }
+
+            return day;
+        }
+
+
+        public static double DaysInMonth(double month, double leap)
+        {
+            month = month%12;
+
+            switch ((long) month)
+            {
+                case 0: 
+                case 2:
+                case 4:
+                case 6:
+                case 7:
+                case 9:
+                case 11:
+                    return 31;
+                case 3:
+                case 5:
+                case 8:
+                case 10:
+                    return 30;
+                case 1:
+                    return 28 + leap;
+                default:
+                    throw new ArgumentOutOfRangeException("month"); 
+
+            }
+        }
+
+        public static double MakeTime(double hour, double min, double sec, double ms)
+        {
+            if (double.IsInfinity(hour) || double.IsInfinity(min) || double.IsInfinity(sec) || double.IsInfinity(ms))
+            {
+                return double.NaN;
+            }
+
+            var h = (long) hour;
+            var m = (long) min;
+            var s = (long) sec;
+            var milli = (long) ms;
+            var t = h*MsPerHour + m*MsPerMinute + s*MsPerSecond + milli;
+
+            return t;
+        }
+
+        public static double MakeDay(double year, double month, double date)
+        {
+            if (double.IsInfinity(year) || double.IsInfinity(month) || double.IsInfinity(date))
+            {
+                return double.NaN;
+            }
+
+            year = TypeConverter.ToInteger(year);
+            month = TypeConverter.ToInteger(month);
+            date = TypeConverter.ToInteger(date);
+
+            var sign = (year < 1970) ? -1 : 1;
+            double t = (year < 1970) ? 1 : 0;
+            int y;
+
+            if (sign == -1)
+            {
+                for (y = 1969; y >= year; y += sign)
+                {
+                    t += sign * DaysInYear(y) * MsPerDay;
+                }
+            }
+            else
+            {
+                for (y = 1970; y < year; y += sign)
+                {
+                    t += sign * DaysInYear(y) * MsPerDay;
+                }
+            }
+
+            for (var m = 0; m < month; m++)
+            {
+                t += DaysInMonth(m, InLeapYear(t)) * MsPerDay;
+            }
+            
+            return Day(t) + date - 1;
+        }
+
+        public static double MakeDate(double day, double time)
+        {
+            if (double.IsInfinity(day) || double.IsInfinity(time))
+            {
+                return double.NaN;
+            }
+
+            return day * MsPerDay + time;
+        }
+
+        public static double TimeClip(double time)
+        {
+            if (double.IsInfinity(time))
+            {
+                return double.NaN;
+            }
+
+            if (System.Math.Abs(time) > 8640000000000000)
+            {
+                return double.NaN;
+            }
+
+            return (long) time + 0;
+        }
+
+
     }
 }
