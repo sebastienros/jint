@@ -53,14 +53,13 @@ Status:
 - Most of the ECMAScript test suite (http://test262.ecmascript.org/) is passing 
 - You can define custom delegates as Javascript functions
 
-Todo:
+TODO:
 
 - Improve C# interoperability
-- Finish up ECMAScript test suite
+- Fix remaining unit tests
   - Regular expression (15.10)
   -	Error object (15.11)
   -	Object constructor (15.2.3)
   -	Object prototype (15.2.4)
-  -	String object (15.5.4) _work in progress_
-  
+
 
