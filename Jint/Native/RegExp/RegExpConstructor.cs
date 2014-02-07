@@ -72,7 +72,7 @@ namespace Jint.Native.RegExp
             }
             else
             {
-                p = pattern != Undefined.Instance ? TypeConverter.ToString(pattern) : "";
+                p = pattern != Undefined.Instance ? TypeConverter.ToString(pattern).Trim('/') : "";
                 f = flags != Undefined.Instance ? TypeConverter.ToString(flags) : "";
             }
 

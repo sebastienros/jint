@@ -82,7 +82,7 @@ namespace Jint.Native.Date
 
         public JsValue ToString(JsValue thisObj, JsValue[] arg2)
         {
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToString("F", CultureInfo.InvariantCulture);
+            return thisObj.TryCast<DateInstance>().ToDateTime().ToLocalTime().ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'K", CultureInfo.InvariantCulture);
         }
 
         private static JsValue ToDateString(JsValue thisObj, JsValue[] arguments)

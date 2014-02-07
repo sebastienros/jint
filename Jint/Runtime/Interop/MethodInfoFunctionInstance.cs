@@ -11,7 +11,6 @@ namespace Jint.Runtime.Interop
     public sealed class MethodInfoFunctionInstance : FunctionInstance
     {
         private readonly MethodInfo[] _methods;
-        private readonly Func<JsValue, JsValue[], JsValue> _func;
 
         public MethodInfoFunctionInstance(Engine engine, MethodInfo[] methods)
             : base(engine, null, null, false)
