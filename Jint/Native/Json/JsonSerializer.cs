@@ -164,12 +164,7 @@ namespace Jint.Native.Json
                         return value;
                 }
             }
-            
-            if (value == Undefined.Instance) 
-            {
-                return Undefined.Instance;
-            }
-
+           
             if (value == Null.Instance)
             {
                 return "null";
@@ -200,21 +195,19 @@ namespace Jint.Native.Json
                 return "null";
             }
 
-            if (value.IsObject())
-            {
-                var valueCallable = value.AsObject() as ICallable;
-                if (valueCallable != null)
-                {
-                    if (value.AsObject().Class == "Array")
-                    {
-                        return SerializeArray(value.As<ArrayInstance>());
-                    }
+            var isCallable = value.IsObject() && value.AsObject() is ICallable;
 
-                    return SerializeObject(value.AsObject());
+            if (value.IsObject() && isCallable == false)
+            {
+                if (value.AsObject().Class == "Array")
+                {
+                    return SerializeArray(value.As<ArrayInstance>());
                 }
+
+                return SerializeObject(value.AsObject());
             }
 
-            return "null";
+            return JsValue.Undefined;
         }
 
         private string Quote(string value)
@@ -273,6 +266,8 @@ namespace Jint.Native.Json
             for (int i = 0; i < len; i++)
             {
                 var strP = Str(TypeConverter.ToString(i), value);
+                if (strP == JsValue.Undefined)
+                    strP = "null";
                 partial.Add(strP.AsString());
             }
             if (partial.Count == 0)
@@ -329,7 +324,7 @@ namespace Jint.Native.Json
             foreach (var p in k)
             {
                 var strP = Str(p, value);
-                if (strP != "null")
+                if (strP != JsValue.Undefined)
                 {
                     var member = Quote(p) + ":";
                     if (_gap != "")
