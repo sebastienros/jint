@@ -181,10 +181,50 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void EcmaValuesAreAutomaticallyConvertedWhenSetInPoco()
+        {
+            var p = new Person
+            {
+                Name = "foo",
+            };
+
+            _engine.SetValue("p", p);
+
+            RunTest(@"
+                assert(p.Name === 'foo');
+                assert(p.Age === 0);
+                p.Name = 'bar';
+                p.Age = 10;
+            ");
+
+            Assert.Equal("bar", p.Name);
+            Assert.Equal(10, p.Age);
+        }
+
+        [Fact]
+        public void EcmaValuesAreAutomaticallyConvertedToBestMatchWhenSetInPoco()
+        {
+            var p = new Person
+            {
+                Name = "foo",
+            };
+
+            _engine.SetValue("p", p);
+
+            RunTest(@"
+                p.Name = 10;
+                p.Age = '20';
+            ");
+
+            Assert.Equal("10", p.Name);
+            Assert.Equal(20, p.Age);
+        }
         public class Person
         {
             public string Name { get; set; }
-
+            public int Age { get; set; }
+            
             public override string ToString()
             {
                 return Name;
