@@ -367,7 +367,7 @@ namespace Jint
 
             if (reference.IsUnresolvableReference())
             {
-                throw new JavaScriptException(ReferenceError);
+                throw new JavaScriptException(ReferenceError, reference.GetReferencedName() + " is not defined");
             }
 
             var baseValue = reference.GetBase();

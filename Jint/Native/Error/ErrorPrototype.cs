@@ -33,7 +33,7 @@ namespace Jint.Native.Error
             FastAddProperty("toString", new ClrFunctionInstance(Engine, ToString), true, false, true);
         }
 
-        private JsValue ToString(JsValue thisObject, JsValue[] arguments)
+        public JsValue ToString(JsValue thisObject, JsValue[] arguments)
         {
             var o = thisObject.TryCast<ObjectInstance>();
             if (o == null)

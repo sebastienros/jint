@@ -23,7 +23,6 @@ namespace Jint.Runtime
             : base(GetErrorMessage(error))
         {
             _errorObject = error;
-            
         }
 
         private static string GetErrorMessage(JsValue error) 
@@ -39,5 +38,10 @@ namespace Jint.Runtime
         }
 
         public JsValue Error { get { return _errorObject; } }
+
+        public override string ToString()
+        {
+            return _errorObject.ToString();
+        }
     }
 }

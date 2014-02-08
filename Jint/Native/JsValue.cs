@@ -352,6 +352,29 @@ namespace Jint.Native
             }
         }
 
+        public override string ToString()
+        {
+            switch (Type)
+            {
+                case Types.None:
+                    return "None";
+                case Types.Undefined:
+                    return "undefined";
+                case Types.Null:
+                    return "null";
+                case Types.Boolean:
+                    return _bool.ToString();
+                case Types.String:
+                    return _string;
+                case Types.Number:
+                    return _double.ToString();
+                case Types.Object:
+                    return _object.ToString();
+                default:
+                    return string.Empty;
+            }
+        }
+
         public static bool operator ==(JsValue a, JsValue b)
         {
             return a.Equals(b);

@@ -32,7 +32,7 @@ namespace Jint.Repl
                 catch (JavaScriptException je)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("Error => {0}", engine.Json.Stringify(engine.Json, Arguments.From(je.Error, Undefined.Instance, "  ")));
+                    Console.WriteLine(je.ToString());
                 }
                 
             }

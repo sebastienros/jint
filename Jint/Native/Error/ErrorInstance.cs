@@ -1,4 +1,5 @@
 ﻿using Jint.Native.Object;
+using Jint.Runtime;
 
 namespace Jint.Native.Error
 {
@@ -17,6 +18,11 @@ namespace Jint.Native.Error
             {
                 return "Error";
             }
+        }
+
+        public override string ToString()
+        {
+            return Engine.Error.PrototypeObject.ToString(this, Arguments.Empty).ToObject().ToString();
         }
     }
 }
