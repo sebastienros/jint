@@ -1,4 +1,6 @@
 ﻿using System;
+using Jint.Native;
+using Jint.Native.Object;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -126,6 +128,56 @@ namespace Jint.Tests.Runtime
 
             RunTest(@"
                 assert(p.Address.City === 'Mouseton');
+            ");
+        }
+
+        [Fact]
+        public void PocosCanReturnJsValueDirectly()
+        {
+            var o = new
+            {
+                x = new JsValue(1),
+                y = new JsValue("string"),
+            };
+
+            _engine.SetValue("o", o);
+
+            RunTest(@"
+                assert(o.x === 1);
+                assert(o.y === 'string');
+            ");
+        }
+
+        [Fact]
+        public void PocosCanReturnObjectInstanceDirectly()
+        {
+            var x = new ObjectInstance(_engine) { Extensible = true};
+            x.Put("foo", new JsValue("bar"), false);
+
+            var o = new
+            {
+                x
+            };
+
+            _engine.SetValue("o", o);
+
+            RunTest(@"
+                assert(o.x.foo === 'bar');
+            ");
+        }
+
+        [Fact]
+        public void DateTimeIsConvertedToDate()
+        {
+            var o = new
+            {
+                z = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            };
+
+            _engine.SetValue("o", o);
+
+            RunTest(@"
+                assert(o.z.valueOf() === 0);
             ");
         }
 

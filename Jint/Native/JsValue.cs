@@ -258,7 +258,6 @@ namespace Jint.Native
             get { return _type; }
         }
 
-        private static readonly Type[] NumberTypes = { typeof(double), typeof(int), typeof(float), typeof(uint), typeof(byte), typeof(short), typeof(ushort), typeof(long), typeof(ulong) };
         /// <summary>
         /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance
         /// </summary>
@@ -272,27 +271,59 @@ namespace Jint.Native
                 return Null;
             }
 
-            var s = value as string;
-            if (s != null)
+            var typeCode = System.Type.GetTypeCode(value.GetType());
+            switch (typeCode)
             {
-                return s;
+                case TypeCode.Boolean:
+                    return new JsValue((bool)value);
+                case TypeCode.Byte:
+                    return new JsValue((double)(byte)value);
+                case TypeCode.Char:
+                    return new JsValue(value.ToString());
+                case TypeCode.DateTime:
+                    return engine.Date.Construct((DateTime)value);
+                case TypeCode.Decimal:
+                    return new JsValue((double)(decimal)value);
+                case TypeCode.Double:
+                    return new JsValue((double)value);
+                case TypeCode.Int16:
+                    return new JsValue((double)(Int16)value);
+                case TypeCode.Int32:
+                    return new JsValue((double)(Int32)value);
+                case TypeCode.Int64:
+                    return new JsValue((double)(Int64)value);
+                case TypeCode.SByte:
+                    return new JsValue((double)(SByte)value);
+                case TypeCode.Single:
+                    return new JsValue((double)(Single)value);
+                case TypeCode.String:
+                    return new JsValue((string)value);
+                case TypeCode.UInt16:
+                    return new JsValue((double)(UInt16)value);
+                case TypeCode.UInt32:
+                    return new JsValue((double)(UInt32)value);
+                case TypeCode.UInt64:
+                    return new JsValue((double)(UInt64)value);
+                case TypeCode.Object:
+                    break;
+                case TypeCode.Empty:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
 
-            if (System.Array.IndexOf(NumberTypes, value.GetType()) != -1)
+            var instance = value as ObjectInstance;
+            if (instance != null)
             {
-                return Convert.ToDouble(value);
+                return new JsValue(instance);
             }
 
-            if (value is bool)
+            if (value is JsValue)
             {
-                return (bool) value;
+                return (JsValue) value;
             }
 
-            if (value is DateTime)
-            {
-                return engine.Date.Construct((DateTime) value);
-            }
-
+            // if no known type could be guessed, wrap it as an ObjectInstance
             return new ObjectWrapper(engine, value);
         }
 
