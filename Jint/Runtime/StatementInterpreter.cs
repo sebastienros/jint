@@ -523,12 +523,15 @@ namespace Jint.Runtime
 
         public Completion ExecuteDebuggerStatement(DebuggerStatement debuggerStatement)
         {
-            if (!System.Diagnostics.Debugger.IsAttached)
+            if (_engine.Options.IsDebuggerStatementAllowed())
             {
-                System.Diagnostics.Debugger.Launch();
+                if (!System.Diagnostics.Debugger.IsAttached)
+                {
+                    System.Diagnostics.Debugger.Launch();
+                }
+
+                System.Diagnostics.Debugger.Break();
             }
-            
-            System.Diagnostics.Debugger.Break();
 
             return new Completion(Completion.Normal, null, null);
         }

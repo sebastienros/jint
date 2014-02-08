@@ -557,5 +557,11 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(expected, result);
         }
+
+        [Fact]
+        public void ShouldNotExecuteDebuggerStatement()
+        {
+            new Engine().Execute("debugger"); 
+        }
     }
 }
