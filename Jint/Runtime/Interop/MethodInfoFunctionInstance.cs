@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -34,10 +33,12 @@ namespace Jint.Runtime.Interop
 
             // todo: look for compatible types    
             var method = methods.First();
-            var parameters = new List<object>();
-            for (int i = 0; i < arguments.Length; i++)
+            var parameters = new object[arguments.Length];
+            for (var i = 0; i < arguments.Length; i++)
             {
-                parameters[i] = Convert.ChangeType(arguments[i].ToObject(), method.GetParameters()[i].ParameterType,
+                parameters[i] = Convert.ChangeType(
+                    arguments[i].ToObject(),
+                    method.GetParameters()[i].ParameterType,
                     CultureInfo.InvariantCulture);
             }
 

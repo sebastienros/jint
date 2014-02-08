@@ -220,6 +220,27 @@ namespace Jint.Tests.Runtime
             Assert.Equal("10", p.Name);
             Assert.Equal(20, p.Age);
         }
+
+        [Fact]
+        public void ShouldCallInstanceMethodWithoutArgument()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+                assert(a.Call1() === 0);
+            ");
+        }
+
+        [Fact]
+        public void ShouldCallInstanceMethodOverloadArgument()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+                assert(a.Call1(1) === 1);
+            ");
+        }
+
         public class Person
         {
             public string Name { get; set; }
@@ -228,6 +249,19 @@ namespace Jint.Tests.Runtime
             public override string ToString()
             {
                 return Name;
+            }
+        }
+
+        public class A
+        {
+            public int Call1()
+            {
+                return 0;
+            }
+
+            public int Call1(int x)
+            {
+                return x;
             }
         }
     }
