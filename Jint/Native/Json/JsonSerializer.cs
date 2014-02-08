@@ -164,13 +164,7 @@ namespace Jint.Native.Json
                         return value;
                 }
             }
-            
-            //if (value == Undefined.Instance) 
-            //{
-            //    //return Undefined.Instance;
-            //    return "null";
-            //}
-
+           
             if (value == Null.Instance)
             {
                 return "null";
