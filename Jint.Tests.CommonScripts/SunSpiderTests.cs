@@ -3,7 +3,7 @@ using System.Net;
 using Xunit;
 using Xunit.Extensions;
 
-namespace Jint.Tests.Runtime
+namespace Jint.Tests.CommonScripts
 {
     public class SunSpiderTests
     {
