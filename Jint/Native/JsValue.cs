@@ -333,7 +333,7 @@ namespace Jint.Native
             var array = value as System.Array;
             if (array != null)
             {
-                var jsArray = new ArrayInstance(engine);
+                var jsArray = engine.Array.Construct(Arguments.Empty);
                 foreach (var item in array)
                 {
                     var jsItem = FromObject(engine, item);
