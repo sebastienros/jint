@@ -30,11 +30,10 @@ namespace Jint.Runtime.Descriptors.Specialized
             set
             {
                 // attempt to convert the JsValue to the target type
-                // todo: this could be made extensible to support custom type conversion
                 var obj = value.GetValueOrDefault().ToObject();
                 if (obj.GetType() != _propertyInfo.PropertyType)
                 {
-                    obj = Convert.ChangeType(obj, _propertyInfo.PropertyType, CultureInfo.InvariantCulture);
+                    obj = _engine.Options.GetTypeConverter().Convert(obj, _propertyInfo.PropertyType, CultureInfo.InvariantCulture);
                 }
                 
                 _propertyInfo.SetValue(_item, obj, null);

@@ -1,10 +1,13 @@
-﻿namespace Jint
+﻿using Jint.Runtime.Interop;
+
+namespace Jint
 {
     public class Options
     {
         private bool _discardGlobal;
         private bool _strict;
         private bool _allowDebuggerStatement;
+        private ITypeConverter _typeConverter = new DefaultTypeConverter();
 
         /// <summary>
         /// When called, doesn't initialize the global scope.
@@ -38,6 +41,15 @@
             return this;
         }
 
+        /// <summary>
+        /// Sets a <see cref="ITypeConverter"/> instance to use when converting CLR types
+        /// </summary>
+        public Options SetTypeConverter(ITypeConverter typeConverter)
+        {
+            _typeConverter = typeConverter;
+            return this;
+        }
+
         internal bool GetDiscardGlobal()
         {
             return _discardGlobal;
@@ -51,6 +63,11 @@
         internal bool IsDebuggerStatementAllowed()
         {
             return _allowDebuggerStatement;
+        }
+
+        internal ITypeConverter GetTypeConverter()
+        {
+            return _typeConverter;
         }
     }
 }

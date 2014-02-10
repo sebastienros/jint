@@ -1,8 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
+using Jint.Native.Array;
+using Jint.Native.Boolean;
+using Jint.Native.Date;
+using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
+using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
@@ -312,15 +317,43 @@ namespace Jint.Native
                     throw new ArgumentOutOfRangeException();
             }
 
+            // if an ObjectInstance is passed directly, use it as is
             var instance = value as ObjectInstance;
             if (instance != null)
             {
                 return new JsValue(instance);
             }
 
+            // if a JsValue is passed directly, use it as is
             if (value is JsValue)
             {
                 return (JsValue) value;
+            }
+
+            var array = value as System.Array;
+            if (array != null)
+            {
+                var jsArray = new ArrayInstance(engine);
+                foreach (var item in array)
+                {
+                    var jsItem = FromObject(engine, item);
+                    engine.Array.PrototypeObject.Push(jsArray, Arguments.From(jsItem));
+                }
+
+                return jsArray;
+            }
+
+            var regex = value as System.Text.RegularExpressions.Regex;
+            if (regex != null)
+            {
+                var jsRegex = engine.RegExp.Construct(regex.ToString().Trim('/'));
+                return jsRegex;
+            }
+
+            var d = value as Delegate;
+            if (d != null)
+            {
+                return new DelegateWrapper(engine, d);
             }
 
             // if no known type could be guessed, wrap it as an ObjectInstance
@@ -346,6 +379,89 @@ namespace Jint.Native
                 case Types.Number:
                     return _double;
                 case Types.Object:
+                    var wrapper = _object as ObjectWrapper;
+                    if (wrapper != null)
+                    {
+                        return wrapper.Target;
+                    }
+
+                    switch (_object.Class)
+                    {
+                        case "Array":
+                            var arrayInstance = _object as ArrayInstance;
+                            if (arrayInstance != null)
+                            {
+                                var len = TypeConverter.ToInt32(arrayInstance.Get("length"));
+                                var result = new object[len];
+                                for (var k = 0; k < len; k++)
+                                {
+                                    var pk = k.ToString();
+                                    var kpresent = arrayInstance.HasProperty(pk);
+                                    if (kpresent)
+                                    {
+                                        var kvalue = arrayInstance.Get(pk);
+                                        result[k] = kvalue.ToObject();
+                                    }
+                                    else
+                                    {
+                                        result[k] = null;
+                                    }
+                                }
+                                return result;
+                            }
+                            break;
+                        
+                        case "String":
+                            var stringInstance = _object as StringInstance;
+                            if (stringInstance != null)
+                            {
+                                return stringInstance.PrimitiveValue.AsString();
+                            }
+
+                            break;
+
+                        case "Date":
+                            var dateInstance = _object as DateInstance;
+                            if (dateInstance != null)
+                            {
+                                return dateInstance.ToDateTime();
+                            }
+
+                            break;
+
+                        case "Boolean":
+                            var booleanInstance = _object as BooleanInstance;
+                            if (booleanInstance != null)
+                            {
+                                return booleanInstance.PrimitiveValue.AsBoolean();
+                            }
+
+                            break;
+
+                        case "Function":
+                            // todo
+                            throw new NotSupportedException("Function objects can't be converted yet");
+
+                        case "Number":
+                            var numberInstance = _object as NumberInstance;
+                            if (numberInstance != null)
+                            {
+                                return numberInstance.PrimitiveValue.AsNumber();
+                            }
+
+                            break;
+
+                        case "RegExp":
+                            var regeExpInstance = _object as RegExpInstance;
+                            if (regeExpInstance != null)
+                            {
+                                return regeExpInstance.Value;
+                            }
+
+                            break;
+                    }
+
+
                     return _object;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -459,5 +575,7 @@ namespace Jint.Native
             }
         }
 
+
+        public static object function { get; set; }
     }
 }

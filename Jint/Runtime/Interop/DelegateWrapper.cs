@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Linq;
 using Jint.Native;
 using Jint.Native.Function;
@@ -20,7 +21,18 @@ namespace Jint.Runtime.Interop
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return JsValue.FromObject(Engine, _d.DynamicInvoke(arguments.Select(x => x.ToObject()).ToArray()));
+            // convert parameter to expected types
+            var parameters = new object[arguments.Length];
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                parameters[i] = Engine.Options.GetTypeConverter().Convert(
+                    arguments[i].ToObject(),
+                    _d.Method.GetParameters()[i].ParameterType,
+                    CultureInfo.InvariantCulture);
+            }
+
+
+            return JsValue.FromObject(Engine, _d.DynamicInvoke(parameters));
         }
     }
 }

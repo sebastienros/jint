@@ -1,5 +1,4 @@
-﻿using System;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Jint.Native;
@@ -36,20 +35,13 @@ namespace Jint.Runtime.Interop
             var parameters = new object[arguments.Length];
             for (var i = 0; i < arguments.Length; i++)
             {
-                parameters[i] = Convert.ChangeType(
+                parameters[i] = Engine.Options.GetTypeConverter().Convert(
                     arguments[i].ToObject(),
                     method.GetParameters()[i].ParameterType,
                     CultureInfo.InvariantCulture);
             }
 
-            var obj = thisObject.ToObject() as ObjectWrapper;
-
-            if (obj == null)
-            {
-                throw new JavaScriptException(Engine.TypeError, "Can't call a CLR method on a non CLR instance");
-            }
-
-            return JsValue.FromObject(Engine, method.Invoke(obj.Target, parameters.ToArray()));
+            return JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters.ToArray()));
         }
     }
 }

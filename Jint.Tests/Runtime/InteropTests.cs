@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.Remoting.Messaging;
 using Jint.Native;
 using Jint.Native.Object;
 using Xunit;
@@ -241,6 +242,115 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void ShouldCallInstanceMethodWithString()
+        {
+            var p = new Person();
+            _engine.SetValue("a", new A());
+            _engine.SetValue("p", p);
+
+            RunTest(@"
+                p.Name = a.Call2('foo');
+                assert(p.Name === 'foo');
+            ");
+
+            Assert.Equal("foo", p.Name);
+        }
+
+        [Fact]
+        public void CanUseTrim()
+        {
+            var p = new Person { Name = "Mickey Mouse "};
+            _engine.SetValue("p", p);
+
+            RunTest(@"
+                assert(p.Name === 'Mickey Mouse ');
+                p.Name = p.Name.trim();
+                assert(p.Name === 'Mickey Mouse');
+            ");
+
+            Assert.Equal("Mickey Mouse", p.Name);
+        }
+
+        [Fact]
+        public void CanUseMathFloor()
+        {
+            var p = new Person();
+            _engine.SetValue("p", p);
+
+            RunTest(@"
+                p.Age = Math.floor(1.6);p
+                assert(p.Age === 1);
+            ");
+
+            Assert.Equal(1, p.Age);
+        }
+
+        [Fact]
+        public void CanUseDelegateAsFunction()
+        {
+            var even = new Func<int, bool>(x => x % 2 == 0);
+            _engine.SetValue("even", even);
+
+            RunTest(@"
+                assert(even(2) === true);
+            ");
+        }
+
+
+        [Fact]
+        public void ShouldConvertArrayInstanceToArray()
+        {
+            var result = _engine.Execute("'foo@bar.com'.split('@');");
+            var parts = result.ToObject();
+            
+            Assert.True(parts.GetType().IsArray);
+            Assert.Equal(2, ((object[])parts).Length);
+            Assert.Equal("foo", ((object[])parts)[0]);
+            Assert.Equal("bar.com", ((object[])parts)[1]);
+        }
+
+        [Fact]
+        public void ShouldConvertBooleanInstanceToBool()
+        {
+            var result = _engine.Execute("new Boolean(true)");
+            var value = result.ToObject();
+
+            Assert.Equal(typeof(bool), value.GetType());
+            Assert.Equal(true, value);
+        }
+
+        [Fact]
+        public void ShouldConvertDateInstanceToDateTime()
+        {
+            var result = _engine.Execute("new Date(0)");
+            var value = result.ToObject();
+
+            Assert.Equal(typeof(DateTime), value.GetType());
+            Assert.Equal(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc), value);
+        }
+
+        [Fact]
+        public void ShouldConvertNumberInstanceToDouble()
+        {
+            var result = _engine.Execute("new Number(10)");
+            var value = result.ToObject();
+
+            Assert.Equal(typeof(double), value.GetType());
+            Assert.Equal(10d, value);
+        }
+
+        [Fact]
+        public void ShouldConvertStringInstanceToString()
+        {
+            var result = _engine.Execute("new String('foo')");
+            var value = result.ToObject();
+
+            Assert.Equal(typeof(string), value.GetType());
+            Assert.Equal("foo", value);
+        }
+
+
         public class Person
         {
             public string Name { get; set; }
@@ -263,6 +373,12 @@ namespace Jint.Tests.Runtime
             {
                 return x;
             }
+
+            public string Call2(string x)
+            {
+                return x;
+            }
+
         }
     }
 }
