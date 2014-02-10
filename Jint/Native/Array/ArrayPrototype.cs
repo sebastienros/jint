@@ -84,7 +84,7 @@ namespace Jint.Native.Array
                 if (kPresent)
                 {
                     var elementK = o.Get(kString);
-                    var same = ExpressionInterpreter.StriclyEqual(elementK, searchElement);
+                    var same = ExpressionInterpreter.StrictlyEqual(elementK, searchElement);
                     if (same)
                     {
                         return k;
@@ -349,7 +349,7 @@ namespace Jint.Native.Array
                 if (kPresent)
                 {
                     var elementK = o.Get(kString);
-                    var same = ExpressionInterpreter.StriclyEqual(elementK, searchElement);
+                    var same = ExpressionInterpreter.StrictlyEqual(elementK, searchElement);
                     if (same)
                     {
                         return k;

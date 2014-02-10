@@ -293,10 +293,10 @@ namespace Jint.Runtime
                     break;
                 
                 case "===":
-                    return StriclyEqual(left, right);
+                    return StrictlyEqual(left, right);
                 
                 case "!==":
-                    return !StriclyEqual(left, right);
+                    return !StrictlyEqual(left, right);
 
                 case "&":
                     return TypeConverter.ToInt32(left) & TypeConverter.ToInt32(right);
@@ -457,7 +457,7 @@ namespace Jint.Runtime
             return false;
         }
 
-        public static bool StriclyEqual(JsValue x, JsValue y)
+        public static bool StrictlyEqual(JsValue x, JsValue y)
         {
             var typea = x.Type;
             var typeb = y.Type;

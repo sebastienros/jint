@@ -371,7 +371,7 @@ namespace Jint.Runtime
                 else
                 {
                     var clauseSelector = _engine.GetValue(_engine.EvaluateExpression(clause.Test));
-                    if (ExpressionInterpreter.StriclyEqual(clauseSelector, input))
+                    if (ExpressionInterpreter.StrictlyEqual(clauseSelector, input))
                     {
                         hit = true;
                     }
