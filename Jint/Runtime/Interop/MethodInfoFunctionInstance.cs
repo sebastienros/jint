@@ -36,10 +36,14 @@ namespace Jint.Runtime.Interop
             var parameters = new object[arguments.Length];
             for (var i = 0; i < arguments.Length; i++)
             {
-                parameters[i] = Convert.ChangeType(
-                    arguments[i].ToObject(),
-                    method.GetParameters()[i].ParameterType,
-                    CultureInfo.InvariantCulture);
+                if (arguments[i].IsObject() && arguments[i].AsObject() is Jint.Native.Date.DateInstance)
+                {
+                    parameters[i] = (arguments[i].AsObject() as Jint.Native.Date.DateInstance).ToDateTime();
+                }
+                else
+                {
+                    parameters[i] = Convert.ChangeType(arguments[i].ToObject(), method.GetParameters()[i].ParameterType, CultureInfo.InvariantCulture);
+                }
             }
 
             var obj = thisObject.ToObject() as ObjectWrapper;
