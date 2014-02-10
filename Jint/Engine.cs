@@ -30,7 +30,8 @@ namespace Jint
         private readonly ExpressionInterpreter _expressions;
         private readonly StatementInterpreter _statements;
         private readonly Stack<ExecutionContext> _executionContexts;
- 
+        private int _statementsCount;
+
         public Engine() : this(null)
         {
         }
@@ -193,6 +194,14 @@ namespace Jint
             _executionContexts.Pop();
         }
 
+        /// <summary>
+        /// Initializes the statements count
+        /// </summary>
+        public void ResetStatementsCount()
+        {
+            _statementsCount = 0;
+        }
+
         public JsValue Execute(string source)
         {
             var parser = new JavaScriptParser();
@@ -201,6 +210,8 @@ namespace Jint
 
         public JsValue Execute(Program program)
         {
+            ResetStatementsCount();
+
             using (new StrictModeScope(Options.IsStrict() || program.Strict))
             {
                 DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.FunctionDeclarations, program.VariableDeclarations, null, null);
@@ -217,6 +228,12 @@ namespace Jint
 
         public Completion ExecuteStatement(Statement statement)
         {
+            var maxStatements = Options.GetMaxStatements();
+            if (maxStatements > 0 && _statementsCount++ > maxStatements)
+            {
+                throw new StatementsCountOverflowException();
+            }
+
             switch (statement.Type)
             {
                 case SyntaxNodes.BlockStatement:

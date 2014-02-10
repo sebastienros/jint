@@ -8,6 +8,7 @@ namespace Jint
         private bool _strict;
         private bool _allowDebuggerStatement;
         private ITypeConverter _typeConverter = new DefaultTypeConverter();
+        private int _maxStatements = 0;
 
         /// <summary>
         /// When called, doesn't initialize the global scope.
@@ -50,6 +51,12 @@ namespace Jint
             return this;
         }
 
+        public Options MaxStatements(int maxStatements = 0)
+        {
+            _maxStatements = maxStatements;
+            return this;
+        }
+
         internal bool GetDiscardGlobal()
         {
             return _discardGlobal;
@@ -68,6 +75,11 @@ namespace Jint
         internal ITypeConverter GetTypeConverter()
         {
             return _typeConverter;
+        }
+
+        internal int GetMaxStatements()
+        {
+            return _maxStatements;
         }
     }
 }

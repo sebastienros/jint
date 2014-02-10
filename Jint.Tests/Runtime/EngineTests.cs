@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+using Jint.Runtime;
 using Xunit;
 using Xunit.Extensions;
 
@@ -562,6 +563,14 @@ namespace Jint.Tests.Runtime
         public void ShouldNotExecuteDebuggerStatement()
         {
             new Engine().Execute("debugger"); 
+        }
+       
+        [Fact]
+        public void ShouldThrowStatementCountOverflow()
+        {
+            Assert.Throws<StatementsCountOverflowException>(
+                () => new Engine(cfg => cfg.MaxStatements(100)).Execute("while(true);")
+            );
         }
     }
 }
