@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.Remoting.Messaging;
 using Jint.Native;
 using Jint.Native.Object;
@@ -363,6 +364,24 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(typeof(string), value.GetType());
             Assert.Equal("foo", value);
+        }
+
+        [Fact]
+        public void ShouldConvertObjectInstanceToExpando()
+        {
+            _engine.Execute("var o = {a: 1, b: 'foo'}");
+            var result = _engine.GetGlobalValue("o");
+
+            dynamic value = result.ToObject();
+
+            Assert.Equal(1, value.a);
+            Assert.Equal("foo", value.b);
+
+            var dic = (IDictionary<string, object>)result.ToObject();
+
+            Assert.Equal(1d, dic["a"]);
+            Assert.Equal("foo", dic["b"]);
+
         }
 
 

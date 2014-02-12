@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
+using System.Dynamic;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -459,6 +461,20 @@ namespace Jint.Native
                             }
 
                             break;
+
+                        case "Object":
+                            IDictionary<string, object> o = new ExpandoObject();
+                            foreach (var p in _object.Properties)
+                            {
+                                if (!p.Value.Enumerable.HasValue || p.Value.Enumerable.Value == false)
+                                {
+                                    continue;
+                                }
+
+                                o.Add(p.Key, _object.Get(p.Key).ToObject());
+                            }
+
+                            return o;
                     }
 
 

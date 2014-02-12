@@ -524,7 +524,7 @@ namespace Jint
         }
 
 
-        public object GetGlobalValue(string propertyName)
+        public JsValue GetGlobalValue(string propertyName)
         {
             if (System.String.IsNullOrEmpty(propertyName))
             {
