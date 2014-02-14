@@ -18,10 +18,15 @@ namespace Jint.Native.Error
         {
             var obj = new ErrorPrototype(engine, name) { Extensible = true };
             obj.FastAddProperty("constructor", errorConstructor, true, false, true);
+            obj.FastAddProperty("message", "", true, false, true);
 
             if (name != "Error")
             {
                 obj.Prototype = engine.Error.PrototypeObject;
+            }
+            else
+            {
+                obj.Prototype = engine.Object.PrototypeObject;
             }
 
             return obj;

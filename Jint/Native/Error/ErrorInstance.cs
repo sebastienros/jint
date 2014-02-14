@@ -9,7 +9,6 @@ namespace Jint.Native.Error
             : base(engine)
         {
             FastAddProperty("name", name, true, false, true);
-            FastAddProperty("message", "", true, false, true);
         }
 
         public override string Class
