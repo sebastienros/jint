@@ -24,9 +24,9 @@ namespace Jint.Native.Object
             FastAddProperty("toString", new ClrFunctionInstance(Engine, ToObjectString), true, false, true);
             FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, ToLocaleString), true, false, true);
             FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf), true, false, true);
-            FastAddProperty("hasOwnProperty", new ClrFunctionInstance(Engine, HasOwnProperty), true, false, true);
-            FastAddProperty("isPrototypeOf", new ClrFunctionInstance(Engine, IsPrototypeOf), true, false, true);
-            FastAddProperty("propertyIsEnumerable", new ClrFunctionInstance(Engine, PropertyIsEnumerable), true, false, true);
+            FastAddProperty("hasOwnProperty", new ClrFunctionInstance(Engine, HasOwnProperty, 1), true, false, true);
+            FastAddProperty("isPrototypeOf", new ClrFunctionInstance(Engine, IsPrototypeOf, 1), true, false, true);
+            FastAddProperty("propertyIsEnumerable", new ClrFunctionInstance(Engine, PropertyIsEnumerable, 1), true, false, true);
         }
 
         private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue[] arguments)

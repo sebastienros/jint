@@ -23,6 +23,10 @@ namespace Jint.Native.Error
             {
                 obj.Prototype = engine.Error.PrototypeObject;
             }
+            else
+            {
+                obj.Prototype = engine.Object.PrototypeObject;
+            }
 
             return obj;
         }

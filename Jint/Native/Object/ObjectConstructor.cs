@@ -38,15 +38,15 @@ namespace Jint.Native.Object
             FastAddProperty("getOwnPropertyDescriptor", new ClrFunctionInstance(Engine, GetOwnPropertyDescriptor, 2), true, false, true);
             FastAddProperty("getOwnPropertyNames", new ClrFunctionInstance(Engine, GetOwnPropertyNames, 1), true, false, true);
             FastAddProperty("create", new ClrFunctionInstance(Engine, Create, 2), true, false, true);
-            FastAddProperty("defineProperty", new ClrFunctionInstance(Engine, DefineProperty), true, false, true);
-            FastAddProperty("defineProperties", new ClrFunctionInstance(Engine, DefineProperties), true, false, true);
+            FastAddProperty("defineProperty", new ClrFunctionInstance(Engine, DefineProperty, 3), true, false, true);
+            FastAddProperty("defineProperties", new ClrFunctionInstance(Engine, DefineProperties, 2), true, false, true);
             FastAddProperty("seal", new ClrFunctionInstance(Engine, Seal, 1), true, false, true);
             FastAddProperty("freeze", new ClrFunctionInstance(Engine, Freeze, 1), true, false, true);
             FastAddProperty("preventExtensions", new ClrFunctionInstance(Engine, PreventExtensions, 1), true, false, true);
             FastAddProperty("isSealed", new ClrFunctionInstance(Engine, IsSealed, 1), true, false, true);
             FastAddProperty("isFrozen", new ClrFunctionInstance(Engine, IsFrozen, 1), true, false, true);
             FastAddProperty("isExtensible", new ClrFunctionInstance(Engine, IsExtensible, 1), true, false, true);
-            FastAddProperty("keys", new ClrFunctionInstance(Engine, Keys), true, false, true);
+            FastAddProperty("keys", new ClrFunctionInstance(Engine, Keys, 1), true, false, true);
         }
 
         public ObjectPrototype PrototypeObject { get; private set; }
@@ -268,21 +268,21 @@ namespace Jint.Native.Object
             }
 
             var keys = o.Properties.Keys.ToArray();
-            foreach (var key in keys)
+            foreach (var p in keys)
             {
-                var prop = o.Properties[key];
-                if (prop.IsDataDescriptor())
+                var desc = o.GetOwnProperty(p);
+                if (desc.IsDataDescriptor())
                 {
-                    if (prop.Writable.HasValue)
+                    if (desc.Writable.HasValue && desc.Writable.Value.AsBoolean())
                     {
-                        prop.Writable = JsValue.False;
+                        desc.Writable = JsValue.False;
                     }
                 }
-                if (prop.Configurable.HasValue && prop.Configurable.Value.AsBoolean())
+                if (desc.Configurable.HasValue && desc.Configurable.Value.AsBoolean())
                 {
-                    prop.Configurable = JsValue.False;
+                    desc.Configurable = JsValue.False;
                 }
-                o.DefineOwnProperty(key, prop, true);
+                o.DefineOwnProperty(p, desc, true);
             }
             
             o.Extensible = false;
@@ -338,22 +338,23 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            foreach (var prop in o.Properties)
+            foreach (var p in o.Properties.Keys)
             {
-                if (prop.Value.IsDataDescriptor())
+                var desc = o.GetOwnProperty(p);
+                if (desc.IsDataDescriptor())
                 {
-                    if (prop.Value.Writable.HasValue)
+                    if (desc.Writable.HasValue && desc.Writable.Value.AsBoolean())
                     {
                         return false;
                     }
                 }
-                if (prop.Value.Configurable.HasValue && prop.Value.Configurable.Value.AsBoolean())
+                if (desc.Configurable.HasValue && desc.Configurable.Value.AsBoolean())
                 {
                     return false;
                 }
             }
 
-            if (o.Extensible)
+            if (o.Extensible == false)
             {
                 return true;
             }
@@ -382,12 +383,19 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var n = o.Properties.Values.Count(x => x.Enumerable.HasValue && x.Enumerable.Value.AsBoolean());
+            var enumerableProperties = o.Properties
+                .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value.AsBoolean())
+                .ToArray();
+            var n = enumerableProperties.Length;
             var array = Engine.Array.Construct(new JsValue[] {n});
             var index = 0;
-            foreach (var prop in o.Properties.Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value.AsBoolean()))
+            foreach (var prop in enumerableProperties)
             {
-                array.DefineOwnProperty(index.ToString(), new PropertyDescriptor(prop.Key, true, true, true), false);
+                var p = prop.Key;
+                array.DefineOwnProperty(
+                    TypeConverter.ToString(index), 
+                    new PropertyDescriptor(p, true, true, true), 
+                    false);
                 index++;
             }
             return array;

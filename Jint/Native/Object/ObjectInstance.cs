@@ -376,11 +376,19 @@ namespace Jint.Native.Object
                 {
                     if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
                     {
-                        Properties[propertyName] = new PropertyDescriptor(desc);
+                        Properties[propertyName] = new PropertyDescriptor(desc)
+                        {
+                            Value = desc.Value.HasValue ? desc.Value : JsValue.Undefined,
+                            Writable = desc.Writable.HasValue ? desc.Writable : false
+                        };
                     }
                     else
                     {
-                        Properties[propertyName] = new PropertyDescriptor(desc);
+                        Properties[propertyName] = new PropertyDescriptor(desc)
+                        {
+                            Enumerable = desc.Enumerable.HasValue ? desc.Enumerable : false,
+                            Configurable = desc.Configurable.HasValue ? desc.Configurable : false,
+                        };
                     }
                 }
 
@@ -388,12 +396,14 @@ namespace Jint.Native.Object
             }
 
             // Step 5
-            if (!current.Configurable.HasValue && !current.Enumerable.HasValue && !(current.IsDataDescriptor() && current.Writable.HasValue))
+            if (!current.Configurable.HasValue && 
+                !current.Enumerable.HasValue &&
+                !current.Writable.HasValue &&
+                !current.Get.HasValue &&
+                !current.Set.HasValue &&
+                !current.Value.HasValue)
             {
-                if (!desc.IsDataDescriptor())
-                {
-                    return true;
-                }
+                return true;
             }
 
             // Step 6
@@ -543,11 +553,6 @@ namespace Jint.Native.Object
                                 return false;
                             }
                         }
-                    }
-
-                    if (!desc.Writable.HasValue && current.Writable.HasValue)
-                    {
-                        desc.Enumerable = current.Enumerable;
                     }
                 }
                 else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())

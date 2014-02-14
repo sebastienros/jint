@@ -31,8 +31,8 @@ namespace Jint.Native.Argument
             obj.Strict = strict;
             var map = engine.Object.Construct(Arguments.Empty);
             var mappedNamed = new List<string>();
-            var indx = len - 1;
-            while (indx >= 0)
+            var indx = 0;
+            while (indx <= len - 1)
             {
                 var indxStr = TypeConverter.ToString(indx);
                 var val = args[indx];
@@ -49,7 +49,7 @@ namespace Jint.Native.Argument
                         map.DefineOwnProperty(indxStr, new ClrAccessDescriptor(engine, g, p) { Configurable = true }, false);
                     }
                 }
-                indx--;
+                indx++;
             }
 
             // step 12
@@ -134,7 +134,7 @@ namespace Jint.Native.Argument
                             map.Put(propertyName, desc.Value.Value, throwOnError);
                         }
 
-                        if (!desc.Writable.HasValue)
+                        if (desc.Writable.HasValue && desc.Writable.Value == false)
                         {
                             map.Delete(propertyName, false);
                         }

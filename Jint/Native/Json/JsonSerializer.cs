@@ -315,11 +315,12 @@ namespace Jint.Native.Json
             _stack.Push(value);
             var stepback = _indent;
             _indent += _gap;
-            var k = _propertyList;
-            if (k == null)
-            {
-                k = value.Properties.Where(x => x.Value.Enumerable.Value.AsBoolean()).Select(x => x.Key).ToList();
-            }
+            
+            var k = _propertyList ?? value.Properties
+                .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value == true)
+                .Select(x => x.Key)
+                .ToList();
+
             var partial = new List<string>();
             foreach (var p in k)
             {
