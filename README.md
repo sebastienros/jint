@@ -48,18 +48,29 @@ You can also directly pass POCOs or anonymous objects and use them from JavaScri
 
 # Roadmap
 
-Status:
+## Features already implemented:
 
 - Most of the ECMAScript test suite (http://test262.ecmascript.org/) is passing 
-- You can define custom delegates as Javascript functions
+- Manipulate CLR objects from JavaScript, including:
+  - Single values
+  - Objects
+    - Properties
+    - Methods
+  - Delegates
+  - Anonymous objects
+- Convert JavaScript values to CLR objects
+  - Primitive values
+  - Object -> expando objects (`IDictionary<string, object>` and dynamic)
+  - Array -> object[]
+  - Date -> DateTime
+  - number -> double
+  - string -> string
+  - boolean -> bool
+  - Regex -> RegExp
 
-TODO:
+## Current tasks:
 
-- Improve C# interoperability
 - Fix remaining unit tests
-  - Regular expression (15.10)
-  -	Error object (15.11)
-  -	Object constructor (15.2.3)
-  -	Object prototype (15.2.4)
+  - Regular expressions (15.10)
 
 
