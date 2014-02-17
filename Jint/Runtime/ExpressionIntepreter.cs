@@ -797,12 +797,18 @@ namespace Jint.Runtime
 
             if (func == Undefined.Instance)
             {
-                throw new JavaScriptException(_engine.TypeError);
+                if ((callee as Reference) == null)
+                    throw new JavaScriptException(_engine.TypeError);
+                else
+                    throw new JavaScriptException(_engine.TypeError, string.Format("Object has no method '{0}'", (callee as Reference).GetReferencedName()));
             }
 
             if (!func.IsObject())
             {
-                throw new JavaScriptException(_engine.TypeError);
+                if ((callee as Reference) == null)
+                    throw new JavaScriptException(_engine.TypeError);
+                else
+                    throw new JavaScriptException(_engine.TypeError, string.Format("Property '{0}' of object is not a function", (callee as Reference).GetReferencedName()));
             }
 
             var callable = func.TryCast<ICallable>();
