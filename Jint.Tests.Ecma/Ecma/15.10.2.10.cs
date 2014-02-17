@@ -53,7 +53,7 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.10/S15.10.2.10_A2.1_T2.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.10")]
         public void CharacterescapeCControlletter3()
         {
@@ -95,7 +95,7 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.10/S15.10.2.10_A4.1_T3.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.10")]
         public void CharacterescapeIdentityescapesequenceSourcecharacterButNotIdentifierpart()
         {

@@ -88,28 +88,28 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A2_T5.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.8")]
         public void TheFormDisjunctionSpecifiesAZeroWidthNegativeLookaheadInOrderForItToSucceedThePatternInsideDisjunctionMustFailToMatchAtTheCurrentPositionTheCurrentPositionIsNotAdvancedBeforeMatchingTheSequel8()
         {
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A2_T6.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.8")]
         public void TheFormDisjunctionSpecifiesAZeroWidthNegativeLookaheadInOrderForItToSucceedThePatternInsideDisjunctionMustFailToMatchAtTheCurrentPositionTheCurrentPositionIsNotAdvancedBeforeMatchingTheSequel9()
         {
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A2_T7.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.8")]
         public void TheFormDisjunctionSpecifiesAZeroWidthNegativeLookaheadInOrderForItToSucceedThePatternInsideDisjunctionMustFailToMatchAtTheCurrentPositionTheCurrentPositionIsNotAdvancedBeforeMatchingTheSequel10()
         {
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A2_T8.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.8")]
         public void TheFormDisjunctionSpecifiesAZeroWidthNegativeLookaheadInOrderForItToSucceedThePatternInsideDisjunctionMustFailToMatchAtTheCurrentPositionTheCurrentPositionIsNotAdvancedBeforeMatchingTheSequel11()
         {
@@ -172,14 +172,14 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A3_T16.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.8")]
         public void ParenthesesOfTheFormDisjunctionServeBothToGroupTheComponentsOfTheDisjunctionPatternTogetherAndToSaveTheResultOfTheMatchTheResultCanBeUsedEitherInABackreferenceFollowedByANonzeroDecimalNumberReferencedInAReplaceStringOrReturnedAsPartOfAnArrayFromTheRegularExpressionMatchingFunction9()
         {
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A3_T17.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.8")]
         public void ParenthesesOfTheFormDisjunctionServeBothToGroupTheComponentsOfTheDisjunctionPatternTogetherAndToSaveTheResultOfTheMatchTheResultCanBeUsedEitherInABackreferenceFollowedByANonzeroDecimalNumberReferencedInAReplaceStringOrReturnedAsPartOfAnArrayFromTheRegularExpressionMatchingFunction10()
         {

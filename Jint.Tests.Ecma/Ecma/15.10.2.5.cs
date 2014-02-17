@@ -32,7 +32,7 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.5/S15.10.2.5_A1_T3.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.5")]
         public void AnAtomFollowedByAQuantifierIsRepeatedTheNumberOfTimesSpecifiedByTheQuantifier4()
         {

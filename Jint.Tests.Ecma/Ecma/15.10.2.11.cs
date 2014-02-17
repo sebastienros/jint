@@ -18,7 +18,7 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.11/S15.10.2.11_A1_T4.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.11")]
         public void DecimalescapeDecimalintegerliteralLookaheadNotInDecimaldigit3()
         {
@@ -32,7 +32,7 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.11/S15.10.2.11_A1_T6.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.11")]
         public void DecimalescapeDecimalintegerliteralLookaheadNotInDecimaldigit5()
         {

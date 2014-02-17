@@ -4,14 +4,14 @@ namespace Jint.Tests.Ecma
 {
     public class Test_15_10_2_12 : EcmaTest
     {
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.12")]
         public void TheProductionCharacterclassescapeSEvaluatesByReturningTheSetOfCharactersContainingTheCharactersThatAreOnTheRightHandSideOfTheWhitespace72OrLineterminator73Productions()
         {
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A1_T1.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.12")]
         public void TheProductionCharacterclassescapeSEvaluatesByReturningTheSetOfCharactersContainingTheCharactersThatAreOnTheRightHandSideOfTheWhitespace72OrLineterminator73Productions2()
         {
@@ -39,14 +39,14 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A1_T5.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.12")]
         public void TheProductionCharacterclassescapeSEvaluatesByReturningTheSetOfAllCharactersNotIncludedInTheSetReturnedByCharacterclassescapeS()
         {
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A2_T1.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.12")]
         public void TheProductionCharacterclassescapeSEvaluatesByReturningTheSetOfAllCharactersNotIncludedInTheSetReturnedByCharacterclassescapeS2()
         {
@@ -74,7 +74,7 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A2_T5.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.12")]
         public void TheProductionCharacterclassescapeWEvaluatesByReturningTheSetOfCharactersContainingTheSixtyThreeCharactersAZAZ09()
         {
@@ -109,7 +109,7 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A3_T5.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.12")]
         public void TheProductionCharacterclassescapeWEvaluatesByReturningTheSetOfAllCharactersNotIncludedInTheSetReturnedByCharacterclassescapeW()
         {

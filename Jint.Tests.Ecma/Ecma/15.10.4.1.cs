@@ -235,7 +235,7 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch15/15.10/15.10.4/S15.10.4.1_A8_T13.js", false);
         }
 
-        [Fact]
+        [Fact(Skip="Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.4.1")]
         public void LetPBeTostringPatternAndLetFBeTostringFlags6()
         {

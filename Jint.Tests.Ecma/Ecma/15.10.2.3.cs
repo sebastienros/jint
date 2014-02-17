@@ -53,14 +53,14 @@ namespace Jint.Tests.Ecma
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.3/S15.10.2.3_A1_T15.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.3")]
         public void TheRegularExpressionOperatorSeparatesTwoAlternativesThePatternFirstTriesToMatchTheLeftAlternativeFollowedByTheSequelOfTheRegularExpressionIfItFailsItTriesToMatchTheRightDisjunctionFollowedByTheSequelOfTheRegularExpression8()
         {
 			RunTest(@"TestCases/ch15/15.10/15.10.2/15.10.2.3/S15.10.2.3_A1_T16.js", false);
         }
 
-        [Fact]
+        [Fact(Skip = "Regular expression discrepancies between CLR and ECMAScript")]
         [Trait("Category", "15.10.2.3")]
         public void TheRegularExpressionOperatorSeparatesTwoAlternativesThePatternFirstTriesToMatchTheLeftAlternativeFollowedByTheSequelOfTheRegularExpressionIfItFailsItTriesToMatchTheRightDisjunctionFollowedByTheSequelOfTheRegularExpression9()
         {

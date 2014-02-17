@@ -61,12 +61,11 @@ namespace Jint.Native.RegExp
             var flags = arguments.At(1);
 
             var r = pattern.TryCast<RegExpInstance>();
-            if (pattern.IsString() && flags == Undefined.Instance && r != null)
+            if (flags == Undefined.Instance && r != null)
             {
-                p = r.Pattern;
-                f = r.Flags;
+                return r;
             }
-            else if (pattern.IsString() && flags != Undefined.Instance && r != null)
+            else if (flags != Undefined.Instance && r != null)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -92,33 +91,31 @@ namespace Jint.Native.RegExp
             }
 
             string s;
-            if (string.IsNullOrEmpty(p))
+            s = p;
+             
+            if (s.StartsWith("/"))
+            {
+                s = "\\" + s;
+            }
+
+            if (s.EndsWith("/"))
+            {
+                s = s.TrimEnd('/') + "\\/";
+            }
+
+            if (System.String.IsNullOrEmpty(s))
             {
                 s = "(?:)";
             }
-            else
-            {
-                s = p;
-             
-                if (s.StartsWith("/"))
-                {
-                    s = "\\" + s;
-                }
 
-                if (s.EndsWith("/"))
-                {
-                    s = s.TrimEnd('/') + "\\/";
-                }
-            }
+            r.Flags = f;
+            r.Source = s;
 
             r.FastAddProperty("global", r.Global, false, false, false);
             r.FastAddProperty("ignoreCase", r.IgnoreCase, false, false, false);
             r.FastAddProperty("multiline", r.Multiline, false, false, false);
+            r.FastAddProperty("source", r.Source, false, false, false);
             r.FastAddProperty("lastIndex", 0, true, false, false);
-            r.FastAddProperty("source", s, false, false, false);
-
-            r.Flags = f;
-            r.Source = s;
 
             return r;
         }
@@ -144,14 +141,14 @@ namespace Jint.Native.RegExp
                 throw new JavaScriptException(Engine.SyntaxError, e.Message);
             }
 
+            r.Flags = flags;
+            r.Source = System.String.IsNullOrEmpty(pattern) ? "(?:)" : pattern;
+
             r.FastAddProperty("global", r.Global, false, false, false);
             r.FastAddProperty("ignoreCase", r.IgnoreCase, false, false, false);
             r.FastAddProperty("multiline", r.Multiline, false, false, false);
+            r.FastAddProperty("source", r.Source, false, false, false);
             r.FastAddProperty("lastIndex", 0, true, false, false);
-            r.FastAddProperty("source", pattern, false, false, false);
-
-            r.Flags = flags;
-            r.Source = pattern;
 
             return r;
         }

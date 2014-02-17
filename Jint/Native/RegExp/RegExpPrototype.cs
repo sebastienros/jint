@@ -19,7 +19,6 @@ namespace Jint.Native.RegExp
             obj.Extensible = true;
 
             obj.FastAddProperty("constructor", regExpConstructor, true, false, true);
-
             return obj;
         }
 
@@ -29,29 +28,11 @@ namespace Jint.Native.RegExp
             FastAddProperty("exec", new ClrFunctionInstance(Engine, Exec, 1), true, false, true);
             FastAddProperty("test", new ClrFunctionInstance(Engine, Test, 1), true, false, true);
 
-            FastAddProperty("global", new ClrFunctionInstance(Engine, GetGlobal, 1), false, false, false);
-            FastAddProperty("ignoreCase", new ClrFunctionInstance(Engine, GetIgnoreCase, 1), false, false, false);
-            FastAddProperty("multiline", new ClrFunctionInstance(Engine, GetMultiLine, 1), false, false, false);
-            FastAddProperty("source", new ClrFunctionInstance(Engine, GetSource, 1), false, false, false);
-        }
-
-        private JsValue GetGlobal(JsValue thisObj, JsValue[] arguments)
-        {
-            return thisObj.TryCast<RegExpInstance>().Global;
-        }
-        private JsValue GetMultiLine(JsValue thisObj, JsValue[] arguments)
-        {
-            return thisObj.TryCast<RegExpInstance>().Multiline;
-        }
-
-        private JsValue GetIgnoreCase(JsValue thisObj, JsValue[] arguments)
-        {
-            return thisObj.TryCast<RegExpInstance>().IgnoreCase;
-        }
-
-        private JsValue GetSource(JsValue thisObj, JsValue[] arguments)
-        {
-            return thisObj.TryCast<RegExpInstance>().Source;
+            FastAddProperty("global", false, false, false, false);
+            FastAddProperty("ignoreCase", false, false, false, false);
+            FastAddProperty("multiline", false, false, false, false);
+            FastAddProperty("source", "(?:)", false, false, false);
+            FastAddProperty("lastIndex", 0, true, false, false);
         }
 
         private JsValue ToRegExpString(JsValue thisObj, JsValue[] arguments)
