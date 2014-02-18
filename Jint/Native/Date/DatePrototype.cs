@@ -39,6 +39,7 @@ namespace Jint.Native.Date
             FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf, 0), true, false, true);
             FastAddProperty("getTime", new ClrFunctionInstance(Engine, GetTime, 0), true, false, true);
             FastAddProperty("getFullYear", new ClrFunctionInstance(Engine, GetFullYear, 0), true, false, true);
+            FastAddProperty("getYear", new ClrFunctionInstance(Engine, GetYear, 0), true, false, true);
             FastAddProperty("getUTCFullYear", new ClrFunctionInstance(Engine, GetUTCFullYear, 0), true, false, true);
             FastAddProperty("getMonth", new ClrFunctionInstance(Engine, GetMonth, 0), true, false, true);
             FastAddProperty("getUTCMonth", new ClrFunctionInstance(Engine, GetUTCMonth, 0), true, false, true);
@@ -69,6 +70,7 @@ namespace Jint.Native.Date
             FastAddProperty("setMonth", new ClrFunctionInstance(Engine, SetMonth, 2), true, false, true);
             FastAddProperty("setUTCMonth", new ClrFunctionInstance(Engine, SetUTCMonth, 2), true, false, true);
             FastAddProperty("setFullYear", new ClrFunctionInstance(Engine, SetFullYear, 3), true, false, true);
+            FastAddProperty("setYear", new ClrFunctionInstance(Engine, SetYear, 1), true, false, true);
             FastAddProperty("setUTCFullYear", new ClrFunctionInstance(Engine, SetUTCFullYear, 3), true, false, true);
             FastAddProperty("toUTCString", new ClrFunctionInstance(Engine, ToUtcString, 0), true, false, true);
             FastAddProperty("toISOString", new ClrFunctionInstance(Engine, ToISOString, 0), true, false, true);
@@ -129,6 +131,17 @@ namespace Jint.Native.Date
             }
 
             return YearFromTime(LocalTime(t));
+        }
+
+        private static JsValue GetYear(JsValue thisObj, JsValue[] arguments)
+        {
+            var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
+            if (double.IsNaN(t))
+            {
+                return double.NaN;
+            }
+
+            return YearFromTime(LocalTime(t)) - 1900;
         }
 
         private static JsValue GetUTCFullYear(JsValue thisObj, JsValue[] arguments)
@@ -454,6 +467,29 @@ namespace Jint.Native.Date
             var newDate = MakeDate(MakeDay(y, m, dt), TimeWithinDay(t));
             var u = TimeClip(Utc(newDate));
             thisObj.As<DateInstance>().PrimitiveValue = u;
+            return u;
+        }
+
+        private static JsValue SetYear(JsValue thisObj, JsValue[] arguments)
+        {
+            var thisTime = thisObj.As<DateInstance>().PrimitiveValue;
+            var t = double.IsNaN(thisTime) ? +0 : LocalTime(thisTime);
+            var y = TypeConverter.ToNumber(arguments.At(0));
+            if (double.IsNaN(y))
+            {
+                thisObj.As<DateInstance>().PrimitiveValue = double.NaN;
+                return double.NaN;
+            }
+
+            var fy = TypeConverter.ToInteger(y);
+            if (y >= 0 && y <= 99)
+            {
+                fy = fy + 1900;
+            }
+
+            var newDate = MakeDay(fy, MonthFromTime(t), DateFromTime(t));
+            var u = Utc(MakeDate(newDate, TimeWithinDay(t)));
+            thisObj.As<DateInstance>().PrimitiveValue = TimeClip(u);
             return u;
         }
 
