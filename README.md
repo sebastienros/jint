@@ -70,7 +70,10 @@ You can also directly pass POCOs or anonymous objects and use them from JavaScri
 
 ## Current tasks:
 
-- Fix remaining unit tests
-  - Regular expressions (15.10)
+- Fix remaining SunSpider scripts
+  - crypto-aes
+  - string-tagcloud
+  - string-unpack-code
+  - 3d-raytrace
 
 
