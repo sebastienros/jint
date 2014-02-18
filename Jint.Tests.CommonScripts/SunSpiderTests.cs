@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
+using Jint.Runtime;
 using Xunit;
 using Xunit.Extensions;
 
@@ -14,7 +17,14 @@ namespace Jint.Tests.CommonScripts
                 .SetValue("assert", new Action<bool>(Assert.True))
             ;
 
-            engine.Execute(source);
+            try
+            {
+                engine.Execute(source);
+            }
+            catch (JavaScriptException je)
+            {
+                throw new Exception(je.ToString());
+            }
 
             return engine;
         }
@@ -24,7 +34,7 @@ namespace Jint.Tests.CommonScripts
         public void ThreeDCube(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -32,7 +42,7 @@ namespace Jint.Tests.CommonScripts
         public void ThreeDMorph(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -40,7 +50,7 @@ namespace Jint.Tests.CommonScripts
         public void ThreeDRaytrace(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -48,7 +58,7 @@ namespace Jint.Tests.CommonScripts
         public void AccessBinaryTrees(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -56,7 +66,7 @@ namespace Jint.Tests.CommonScripts
         public void AccessFannkych(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -64,7 +74,7 @@ namespace Jint.Tests.CommonScripts
         public void AccessNBody(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -72,14 +82,14 @@ namespace Jint.Tests.CommonScripts
         public void AccessNSieve(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [InlineData("bitops-3bit-bits-in-byte", "https://raw.github.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.1/bitops-3bit-bits-in-byte.js")]
         public void Bitops3BitBitsInByte(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -87,7 +97,7 @@ namespace Jint.Tests.CommonScripts
         public void BitopsBitsInByte(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -95,7 +105,7 @@ namespace Jint.Tests.CommonScripts
         public void BitopsBitwiseAnd(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -103,15 +113,21 @@ namespace Jint.Tests.CommonScripts
         public void BitopsNSieveBits(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
         [InlineData("controlflow-recursive", "https://raw.github.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.1/controlflow-recursive.js")]
         public void ControlFlowRecursive(string name, string url)
         {
-            var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            var t = new Thread(() =>
+            {
+                var content = new WebClient().DownloadString(url);
+                RunTest(content);    
+            }, 1000000000);
+            
+            t.Start();
+            t.Join();
         }
 
         [Theory]
@@ -119,7 +135,7 @@ namespace Jint.Tests.CommonScripts
         public void CryptoAES(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -127,14 +143,14 @@ namespace Jint.Tests.CommonScripts
         public void CryptoMD5(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [InlineData("crypto-sha1", "https://raw.github.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.1/crypto-sha1.js")]
         public void CryptoSha1(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -142,7 +158,7 @@ namespace Jint.Tests.CommonScripts
         public void DateFormatTofte(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -150,14 +166,14 @@ namespace Jint.Tests.CommonScripts
         public void DateFormatXParb(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [InlineData("math-cordic", "https://raw.github.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.1/math-cordic.js")]
         public void MathCordic(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -165,7 +181,7 @@ namespace Jint.Tests.CommonScripts
         public void MathPartialSums(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -173,7 +189,7 @@ namespace Jint.Tests.CommonScripts
         public void MathSpectralNorm(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -181,7 +197,7 @@ namespace Jint.Tests.CommonScripts
         public void RegexpDna(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -189,14 +205,14 @@ namespace Jint.Tests.CommonScripts
         public void StringBase64(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [InlineData("string-fasta", "https://raw.github.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.1/string-fasta.js")]
         public void StringFasta(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -204,7 +220,7 @@ namespace Jint.Tests.CommonScripts
         public void StringTagCloud(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -212,7 +228,7 @@ namespace Jint.Tests.CommonScripts
         public void StringUnpackCode(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
 
         [Theory]
@@ -220,7 +236,7 @@ namespace Jint.Tests.CommonScripts
         public void StringValidateInput(string name, string url)
         {
             var content = new WebClient().DownloadString(url);
-            Assert.DoesNotThrow(() => RunTest(content));
+            RunTest(content);
         }
     }
 }
