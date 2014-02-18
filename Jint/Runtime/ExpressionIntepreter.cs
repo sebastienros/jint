@@ -795,14 +795,16 @@ namespace Jint.Runtime
 
             var func = _engine.GetValue(callee);
 
+            var r = callee as Reference;
+
             if (func == Undefined.Instance)
             {
-                throw new JavaScriptException(_engine.TypeError);
+                throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Object has no method '{0}'", (callee as Reference).GetReferencedName()));
             }
 
             if (!func.IsObject())
             {
-                throw new JavaScriptException(_engine.TypeError);
+                throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Property '{0}' of object is not a function", (callee as Reference).GetReferencedName()));
             }
 
             var callable = func.TryCast<ICallable>();
@@ -810,8 +812,7 @@ namespace Jint.Runtime
             {
                 throw new JavaScriptException(_engine.TypeError);
             }
-
-            var r = callee as Reference;
+            
             if (r != null)
             {
                 if (r.IsPropertyReference())
