@@ -51,6 +51,7 @@ namespace Jint.Native.String
             FastAddProperty("search", new ClrFunctionInstance(Engine, Search, 1), true, false, true);
             FastAddProperty("slice", new ClrFunctionInstance(Engine, Slice, 2), true, false, true);
             FastAddProperty("split", new ClrFunctionInstance(Engine, Split, 2), true, false, true);
+            FastAddProperty("substr", new ClrFunctionInstance(Engine, Substr, 2), true, false, true);
             FastAddProperty("substring", new ClrFunctionInstance(Engine, Substring, 2), true, false, true);
             FastAddProperty("toLowerCase", new ClrFunctionInstance(Engine, ToLowerCase), true, false, true);
             FastAddProperty("toLocaleLowerCase", new ClrFunctionInstance(Engine, ToLocaleLowerCase), true, false, true);
@@ -194,6 +195,24 @@ namespace Jint.Native.String
             var from = System.Math.Min(finalStart, finalEnd);
             var to = System.Math.Max(finalStart, finalEnd);
             return s.Substring(from, to - from);
+        }
+
+        private JsValue Substr(JsValue thisObj, JsValue[] arguments)
+        {
+            var s = TypeConverter.ToString(thisObj);
+            var start = TypeConverter.ToInteger(arguments.At(0));
+            var length = arguments.At(1) == JsValue.Undefined 
+                ? double.PositiveInfinity 
+                : TypeConverter.ToInteger(arguments.At(1));
+
+            start = start >= 0 ? start : System.Math.Max(s.Length + start, 0);
+            length = System.Math.Min(System.Math.Max(length, 0), s.Length - start);
+            if (length <= 0)
+            {
+                return "";
+            }
+
+            return s.Substring(TypeConverter.ToInt32(start), TypeConverter.ToInt32(length));
         }
 
         private JsValue Split(JsValue thisObj, JsValue[] arguments)
