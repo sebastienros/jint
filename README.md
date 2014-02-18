@@ -50,7 +50,7 @@ You can also directly pass POCOs or anonymous objects and use them from JavaScri
 
 ## Features already implemented:
 
-- Most of the ECMAScript test suite (http://test262.ecmascript.org/) is passing 
+- ECMAScript test suite (http://test262.ecmascript.org/) 
 - Manipulate CLR objects from JavaScript, including:
   - Single values
   - Objects
