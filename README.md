@@ -30,9 +30,10 @@ a script calling `log('Hello World!')`.
 Here, the variable `x` is set to `3` and `x * x` is executed in JavaScript. The result is returned to .NET directly, in this case as a `double` value `9`. 
 
     var square = new Engine()
-        .SetValue("x", 3)
-        .Execute("x * x")
-        .ToObject()
+        .SetValue("x", 3) // define a new variable
+        .Execute("x * x") // execute a statement
+        .GetCompletionValue() // get the latest statement completion value
+        .ToObject() // converts the value to .NET
         ;
 
 You can also directly pass POCOs or anonymous objects and use them from JavaScript. In this example for instance a new `Person` instance is manipulated from JavaScript. 
@@ -46,6 +47,20 @@ You can also directly pass POCOs or anonymous objects and use them from JavaScri
         .Execute("p.Name === 'Mickey Mouse')
         ;
 
+If you need to pass a JavaScript callback to the CLR, then it will be converted to a `Delegate`. You can also use it as a parameter of a CLR method from JavaScript.
+
+    var engine = new Engine()
+        .Execute("function add(a, b) { return this + a + b; }");
+
+    var function = engine
+        .GetGlobalValue("add")
+        .ToObject() as Delegate;
+        
+    var result = function.DynamicInvoke(
+        new JsValue("foo") /* thisArg */, 
+        new JsValue[] { 1, "bar" } /* arguments */
+        ); // "foo1bar"
+        
 # Roadmap
 
 ## Features already implemented:
@@ -67,6 +82,7 @@ You can also directly pass POCOs or anonymous objects and use them from JavaScri
   - string -> string
   - boolean -> bool
   - Regex -> RegExp
+  - Function -> Delegate
 
 ## Current tasks:
 
