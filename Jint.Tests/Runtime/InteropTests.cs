@@ -398,13 +398,32 @@ namespace Jint.Tests.Runtime
         public void ShouldNotTryToConvertDerivedTypes()
         {
             _engine.SetValue("a", new A());
-            _engine.SetValue("p", new Person { Name = "Mickey"});
+            _engine.SetValue("p", new Person { Name = "Mickey" });
 
             RunTest(@"
                 assert(a.Call4(p) === 'Mickey');
             ");
         }
 
+        [Fact]
+        public void ShouldExecuteFunctionCallBackAsDelegate()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+                assert(a.Call5(function(a,b){ return a+b }) === '1foo');
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteFunctionCallBackAsFuncAndThisCanBeAssigned()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+                assert(a.Call6(function(a,b){ return this+a+b }) === 'bar1foo');
+            ");
+        }
 
         public interface IPerson
         {
@@ -449,6 +468,21 @@ namespace Jint.Tests.Runtime
                 return x.ToString();
             }
 
+            public string Call5(Delegate callback)
+            {
+                var thisArg = JsValue.Undefined;
+                var arguments = new JsValue[] { 1, "foo" };
+
+                return callback.DynamicInvoke(thisArg, arguments).ToString();
+            }
+
+            public string Call6(Func<JsValue, JsValue[], JsValue> callback)
+            {
+                var thisArg = new JsValue("bar");
+                var arguments = new JsValue[] { 1, "foo" };
+
+                return callback(thisArg, arguments).ToString();
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ using System.Dynamic;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
+using Jint.Native.Function;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
@@ -93,7 +94,7 @@ namespace Jint.Native
         [Pure]
         public bool IsArray()
         {
-            return IsObject() && AsObject() is Array.ArrayInstance;
+            return IsObject() && AsObject() is ArrayInstance;
         }
 
         [Pure]
@@ -144,13 +145,13 @@ namespace Jint.Native
         }
 
         [Pure]
-        public Array.ArrayInstance AsArray()
+        public ArrayInstance AsArray()
         {
             if (!IsArray())
             {
                 throw new ArgumentException("The value is not an array");
             }
-            return AsObject() as Array.ArrayInstance;            
+            return AsObject() as ArrayInstance;            
         }
 
         [Pure]
@@ -441,8 +442,13 @@ namespace Jint.Native
                             break;
 
                         case "Function":
-                            // todo
-                            throw new NotSupportedException("Function objects can't be converted yet");
+                            var function = _object as FunctionInstance;
+                            if (function != null)
+                            {
+                                return (Func<JsValue, JsValue[], JsValue>) function.Call;
+                            }
+
+                            break; 
 
                         case "Number":
                             var numberInstance = _object as NumberInstance;
@@ -590,8 +596,5 @@ namespace Jint.Native
                 return hashCode;
             }
         }
-
-
-        public static object function { get; set; }
     }
 }
