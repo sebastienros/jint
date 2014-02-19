@@ -45,7 +45,7 @@ namespace Jint.Tests.Runtime
         public void ShouldInterpretLiterals(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).ToObject();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -73,7 +73,7 @@ namespace Jint.Tests.Runtime
         public void ShouldInterpretBinaryExpression(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).ToObject();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -527,7 +527,7 @@ namespace Jint.Tests.Runtime
         public void OperatorsPrecedence(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).ToObject();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -553,7 +553,7 @@ namespace Jint.Tests.Runtime
         public void ShouldEvaluateParseInt(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).ToObject();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
 
             Assert.Equal(expected, result);
         }

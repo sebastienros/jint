@@ -30,8 +30,9 @@ namespace Jint
         private readonly ExpressionInterpreter _expressions;
         private readonly StatementInterpreter _statements;
         private readonly Stack<ExecutionContext> _executionContexts;
+        private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
-
+        
         public Engine() : this(null)
         {
         }
@@ -202,13 +203,13 @@ namespace Jint
             _statementsCount = 0;
         }
 
-        public JsValue Execute(string source)
+        public Engine Execute(string source)
         {
             var parser = new JavaScriptParser();
             return Execute(parser.Parse(source));
         }
 
-        public JsValue Execute(Program program)
+        public Engine Execute(Program program)
         {
             ResetStatementsCount();
 
@@ -222,8 +223,18 @@ namespace Jint
                     throw new JavaScriptException(result.GetValueOrDefault());
                 }
 
-                return GetValue(result.Value);
+                _completionValue = result.GetValueOrDefault();
             }
+
+            return this;
+        }
+
+        /// <summary>
+        /// Gets the last evaluated statement completion value
+        /// </summary>
+        public JsValue GetCompletionValue()
+        {
+            return _completionValue;
         }
 
         public Completion ExecuteStatement(Statement statement)

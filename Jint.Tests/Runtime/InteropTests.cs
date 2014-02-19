@@ -304,7 +304,7 @@ namespace Jint.Tests.Runtime
                 .SetValue("values", new[] { 1, 2, 3, 4, 5, 6 })
                 .Execute("values.filter(function(x){ return x % 2 == 0; })");
 
-            var parts = result.ToObject();
+            var parts = result.GetCompletionValue().ToObject();
 
             Assert.True(parts.GetType().IsArray);
             Assert.Equal(3, ((object[])parts).Length);
@@ -320,7 +320,7 @@ namespace Jint.Tests.Runtime
                 .SetValue("values", new List<object> { 1, 2, 3, 4, 5, 6 })
                 .Execute("values.filter(function(x){ return x % 2 == 0; })");
 
-            var parts = result.ToObject();
+            var parts = result.GetCompletionValue().ToObject();
 
             Assert.True(parts.GetType().IsArray);
             Assert.Equal(3, ((object[])parts).Length);
@@ -333,7 +333,7 @@ namespace Jint.Tests.Runtime
         public void ShouldConvertArrayInstanceToArray()
         {
             var result = _engine.Execute("'foo@bar.com'.split('@');");
-            var parts = result.ToObject();
+            var parts = result.GetCompletionValue().ToObject();
             
             Assert.True(parts.GetType().IsArray);
             Assert.Equal(2, ((object[])parts).Length);
@@ -345,7 +345,7 @@ namespace Jint.Tests.Runtime
         public void ShouldConvertBooleanInstanceToBool()
         {
             var result = _engine.Execute("new Boolean(true)");
-            var value = result.ToObject();
+            var value = result.GetCompletionValue().ToObject();
 
             Assert.Equal(typeof(bool), value.GetType());
             Assert.Equal(true, value);
@@ -355,7 +355,7 @@ namespace Jint.Tests.Runtime
         public void ShouldConvertDateInstanceToDateTime()
         {
             var result = _engine.Execute("new Date(0)");
-            var value = result.ToObject();
+            var value = result.GetCompletionValue().ToObject();
 
             Assert.Equal(typeof(DateTime), value.GetType());
             Assert.Equal(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc), value);
@@ -365,7 +365,7 @@ namespace Jint.Tests.Runtime
         public void ShouldConvertNumberInstanceToDouble()
         {
             var result = _engine.Execute("new Number(10)");
-            var value = result.ToObject();
+            var value = result.GetCompletionValue().ToObject();
 
             Assert.Equal(typeof(double), value.GetType());
             Assert.Equal(10d, value);
@@ -375,7 +375,7 @@ namespace Jint.Tests.Runtime
         public void ShouldConvertStringInstanceToString()
         {
             var result = _engine.Execute("new String('foo')");
-            var value = result.ToObject();
+            var value = result.GetCompletionValue().ToObject();
 
             Assert.Equal(typeof(string), value.GetType());
             Assert.Equal("foo", value);
