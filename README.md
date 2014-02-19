@@ -49,10 +49,8 @@ You can also directly pass POCOs or anonymous objects and use them from JavaScri
 
 If you need to pass a JavaScript callback to the CLR, then it will be converted to a `Delegate`. You can also use it as a parameter of a CLR method from JavaScript.
 
-    var engine = new Engine()
+    var function = new Engine()
         .Execute("function add(a, b) { return this + a + b; }");
-
-    var function = engine
         .GetGlobalValue("add")
         .ToObject() as Delegate;
         
