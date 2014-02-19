@@ -2,7 +2,6 @@ using Xunit;
 
 namespace Jint.Tests.Ecma
 {
-    [Trait("Category", "Pass")]
     public class Test_15_9_4_3 : EcmaTest
     {
         [Fact]

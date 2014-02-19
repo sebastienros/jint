@@ -9,7 +9,6 @@ using Xunit.Extensions;
 
 namespace Jint.Tests.Parser
 {
-    [Trait("Category", "Pass")]
     public class JavascriptParserTests
     {
         private readonly JavaScriptParser _parser = new JavaScriptParser();

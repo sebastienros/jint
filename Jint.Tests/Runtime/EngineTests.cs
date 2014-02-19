@@ -7,7 +7,6 @@ using Xunit.Extensions;
 
 namespace Jint.Tests.Runtime
 {
-    [Trait("Category", "Pass")]
     public class EngineTests
     {
         private Engine RunTest(string source)
