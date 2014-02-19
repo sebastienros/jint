@@ -56,7 +56,7 @@ If you need to pass a JavaScript callback to the CLR, then it will be converted 
         
     var result = function.DynamicInvoke(
         new JsValue("foo") /* thisArg */, 
-        new JsValue[] { 1, "bar" } /* arguments */
+        new JsValue[] { 1, "bar" } /* arguments */,
         ); // "foo1bar"
         
 # Roadmap
