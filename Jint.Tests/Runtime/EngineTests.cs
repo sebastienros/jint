@@ -54,7 +54,10 @@ namespace Jint.Tests.Runtime
         public void ShouldInterpretVariableDeclaration()
         {
             var engine = new Engine();
-            var result = engine.GetValue(engine.Execute("var foo = 'bar'; foo;"));
+            var result = engine
+                .Execute("var foo = 'bar'; foo;")
+                .GetCompletionValue()
+                .ToObject();
 
             Assert.Equal("bar", result);
         }
