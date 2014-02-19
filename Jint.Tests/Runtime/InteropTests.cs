@@ -301,9 +301,25 @@ namespace Jint.Tests.Runtime
         public void ShouldConvertArrayToArrayInstance()
         {
             var result = _engine
-                .SetValue("values", new [] {1,2,3,4,5,6})
+                .SetValue("values", new[] { 1, 2, 3, 4, 5, 6 })
                 .Execute("values.filter(function(x){ return x % 2 == 0; })");
-            
+
+            var parts = result.ToObject();
+
+            Assert.True(parts.GetType().IsArray);
+            Assert.Equal(3, ((object[])parts).Length);
+            Assert.Equal(2d, ((object[])parts)[0]);
+            Assert.Equal(4d, ((object[])parts)[1]);
+            Assert.Equal(6d, ((object[])parts)[2]);
+        }
+
+        [Fact]
+        public void ShouldConvertListsToArrayInstance()
+        {
+            var result = _engine
+                .SetValue("values", new List<object> { 1, 2, 3, 4, 5, 6 })
+                .Execute("values.filter(function(x){ return x % 2 == 0; })");
+
             var parts = result.ToObject();
 
             Assert.True(parts.GetType().IsArray);
