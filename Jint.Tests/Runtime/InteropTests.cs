@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.Remoting.Messaging;
 using Jint.Native;
 using Jint.Native.Object;
 using Xunit;
@@ -384,8 +383,35 @@ namespace Jint.Tests.Runtime
 
         }
 
+        [Fact]
+        public void ShouldNotTryToConvertCompatibleTypes()
+        {
+            _engine.SetValue("a", new A());
 
-        public class Person
+            RunTest(@"
+                assert(a.Call3('foo') === 'foo');
+                assert(a.Call3(1) === '1');
+            ");
+        }
+
+        [Fact]
+        public void ShouldNotTryToConvertDerivedTypes()
+        {
+            _engine.SetValue("a", new A());
+            _engine.SetValue("p", new Person { Name = "Mickey"});
+
+            RunTest(@"
+                assert(a.Call4(p) === 'Mickey');
+            ");
+        }
+
+
+        public interface IPerson
+        {
+            string Name { get; }
+        }
+
+        public class Person : IPerson
         {
             public string Name { get; set; }
             public int Age { get; set; }
@@ -411,6 +437,16 @@ namespace Jint.Tests.Runtime
             public string Call2(string x)
             {
                 return x;
+            }
+
+            public string Call3(object x)
+            {
+                return x.ToString();
+            }
+
+            public string Call4(IPerson x)
+            {
+                return x.ToString();
             }
 
         }
