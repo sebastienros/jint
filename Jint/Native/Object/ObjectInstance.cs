@@ -295,7 +295,7 @@ namespace Jint.Native.Object
         /// <returns></returns>
         public JsValue DefaultValue(Types hint)
         {
-            if ((hint == Types.String) || (hint == Types.None && this is StringInstance) || this is DateInstance)
+            if (hint == Types.String || (hint == Types.None && Class == "Date"))
             {
                 var toString = Get("toString").TryCast<ICallable>();
                 if (toString != null)
@@ -320,7 +320,7 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            if ((hint == Types.Number) || (hint == Types.None))
+            if (hint == Types.Number || hint == Types.None)
             {
                 var valueOf = Get("valueOf").TryCast<ICallable>();
                 if (valueOf != null)

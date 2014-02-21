@@ -20,7 +20,8 @@ namespace Jint.Native.Date
             var obj = new DatePrototype(engine)
             {
                 Prototype = engine.Object.PrototypeObject, 
-                Extensible = true
+                Extensible = true,
+                PrimitiveValue = double.NaN
             };
 
             obj.FastAddProperty("constructor", dateConstructor, true, false, true);

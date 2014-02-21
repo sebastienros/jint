@@ -317,6 +317,22 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldConvertDateToNumber()
+        {
+            RunTest(@"
+                assert(Number(new Date(0)) === 0);
+            ");
+        }
+
+        [Fact]
+        public void DatePrimitiveValueShouldBeNaN()
+        {
+            RunTest(@"
+                assert(isNaN(Date.prototype.valueOf()));
+            ");
+        }
+
+        [Fact]
         public void MathObjectIsDefined()
         {
             RunTest(@"
