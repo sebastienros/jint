@@ -37,6 +37,12 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AssemblyOriginatorKeyFile>Jint.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="DeclarationBindingType.cs" />
     <Compile Include="EvalCodeScope.cs" />
@@ -172,6 +178,9 @@
     <Compile Include="Runtime\StatementsCountOverflowException.cs" />
     <Compile Include="Runtime\TypeConverter.cs" />
     <Compile Include="StrictModeScope.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Jint.snk" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
