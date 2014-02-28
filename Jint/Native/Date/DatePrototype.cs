@@ -632,6 +632,11 @@ namespace Jint.Native.Date
         /// </summary>
         public static double YearFromTime(double t)
         {
+            if (!AreFinite(t))
+            {
+                return Double.NaN;
+            }
+
             double upper = double.MaxValue;
             double lower = double.MinValue;
             while (upper > lower + 1)
@@ -944,7 +949,7 @@ namespace Jint.Native.Date
 
         public static double MakeTime(double hour, double min, double sec, double ms)
         {
-            if (double.IsInfinity(hour) || double.IsInfinity(min) || double.IsInfinity(sec) || double.IsInfinity(ms))
+            if (!AreFinite(hour, min, sec, ms))
             {
                 return double.NaN;
             }
@@ -960,7 +965,7 @@ namespace Jint.Native.Date
 
         public static double MakeDay(double year, double month, double date)
         {
-            if (double.IsInfinity(year) || double.IsInfinity(month) || double.IsInfinity(date))
+            if (!AreFinite(year, month, date))
             {
                 return double.NaN;
             }
@@ -998,7 +1003,7 @@ namespace Jint.Native.Date
 
         public static double MakeDate(double day, double time)
         {
-            if (double.IsInfinity(day) || double.IsInfinity(time))
+            if (!AreFinite(day, time))
             {
                 return double.NaN;
             }
@@ -1008,7 +1013,7 @@ namespace Jint.Native.Date
 
         public static double TimeClip(double time)
         {
-            if (double.IsInfinity(time))
+            if (!AreFinite(time))
             {
                 return double.NaN;
             }
@@ -1021,6 +1026,18 @@ namespace Jint.Native.Date
             return (long) time + 0;
         }
 
+        private static bool AreFinite(params double[] values)
+        {
+            for (int index = 0; index < values.Length; index++)
+            {
+                var value = values[index];
+                if (double.IsNaN(value) || double.IsInfinity(value))
+                {
+                    return false;
+                }
+            }
 
+            return true;
+        }
     }
 }
