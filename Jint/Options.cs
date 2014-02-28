@@ -1,4 +1,5 @@
-﻿using Jint.Runtime.Interop;
+﻿using System.Globalization;
+using Jint.Runtime.Interop;
 
 namespace Jint
 {
@@ -9,6 +10,7 @@ namespace Jint
         private bool _allowDebuggerStatement;
         private ITypeConverter _typeConverter = new DefaultTypeConverter();
         private int _maxStatements = 0;
+        private CultureInfo _culture = CultureInfo.CurrentCulture;
 
         /// <summary>
         /// When called, doesn't initialize the global scope.
@@ -57,6 +59,12 @@ namespace Jint
             return this;
         }
 
+        public Options Culture(CultureInfo cultureInfo)
+        {
+            _culture = cultureInfo;
+            return this;
+        }
+
         internal bool GetDiscardGlobal()
         {
             return _discardGlobal;
@@ -81,5 +89,11 @@ namespace Jint
         {
             return _maxStatements;
         }
+
+        internal CultureInfo GetCulture()
+        {
+            return _culture;
+        }
+
     }
 }

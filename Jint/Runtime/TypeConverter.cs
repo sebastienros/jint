@@ -99,6 +99,12 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static double ToNumber(JsValue o)
         {
+            // check number first as this is what is usually expected
+            if (o.IsNumber())
+            {
+                return o.AsNumber();
+            } 
+            
             if (o.IsObject())
             {
                 var p = o.AsObject() as IPrimitiveInstance;
@@ -106,11 +112,6 @@ namespace Jint.Runtime
                 {
                     o = p.PrimitiveValue;
                 }
-            }
-
-            if (o.IsNumber())
-            {
-                return o.AsNumber();
             }
 
             if (o == Undefined.Instance)

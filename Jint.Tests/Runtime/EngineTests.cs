@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+using Jint.Native.Number;
 using Jint.Runtime;
 using Xunit;
 using Xunit.Extensions;
@@ -590,5 +591,39 @@ namespace Jint.Tests.Runtime
                 () => new Engine(cfg => cfg.MaxStatements(100)).Execute("while(true);")
             );
         }
+
+        [Fact]
+        public void ShouldConvertDoubleToStringWithoutLosingPrecision()
+        {
+            RunTest(@"
+                assert(String(14.915832707045631) === '14.915832707045631');
+                assert(String(-14.915832707045631) === '-14.915832707045631');
+                assert(String(0.5) === '0.5');
+                assert(String(0.00000001) === '1e-8');
+                assert(String(-1.0) === '-1');
+            ");
+        }
+
+        [Fact]
+        public void ShouldWriteNumbersUsingBases()
+        {
+            RunTest(@"
+                assert(15.0.toString() === '15');
+                assert(15.0.toString(2) === '1111');
+                assert(15.0.toString(8) === '17');
+                assert(15.0.toString(16) === 'f');
+                assert(15.0.toString(17) === 'f');
+                assert(15.0.toString(36) === 'f');
+                assert(15.1.toString(36) === 'f.3llllllllkau6snqkpygsc3di');
+            ");
+        }
+
+        [Fact]
+        public void ShouldComputeFractionInBase()
+        {
+            Assert.Equal("011", NumberPrototype.ToFractionBase(0.375, 2));
+            Assert.Equal("14141414141414141414141414141414141414141414141414", NumberPrototype.ToFractionBase(0.375, 5));
+        }
+
     }
 }
