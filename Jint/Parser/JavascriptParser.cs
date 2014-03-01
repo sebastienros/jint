@@ -731,7 +731,7 @@ namespace Jint.Parser
             return new Token
                 {
                     Type = Tokens.NumericLiteral,
-                    Value = Convert.ToInt32(number, 16),
+                    Value = Convert.ToInt64(number, 16),
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
                     Range = new[] {start, _index}

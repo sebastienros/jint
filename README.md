@@ -85,7 +85,6 @@ If you need to pass a JavaScript callback to the CLR, then it will be converted 
 ## Current tasks:
 
 - Fix remaining SunSpider scripts
-  - crypto-aes
   - 3d-raytrace
 
 
