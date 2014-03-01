@@ -71,7 +71,16 @@ namespace Jint.Native.RegExp
             }
             else
             {
-                p = pattern != Undefined.Instance ? TypeConverter.ToString(pattern).Trim('/') : "";
+                if (pattern == Undefined.Instance)
+                {
+                    p = "";
+
+                }
+                else
+                {
+                    p = TypeConverter.ToString(pattern);
+                }
+                
                 f = flags != Undefined.Instance ? TypeConverter.ToString(flags) : "";
             }
 
@@ -93,16 +102,6 @@ namespace Jint.Native.RegExp
             string s;
             s = p;
              
-            if (s.StartsWith("/"))
-            {
-                s = "\\" + s;
-            }
-
-            if (s.EndsWith("/"))
-            {
-                s = s.TrimEnd('/') + "\\/";
-            }
-
             if (System.String.IsNullOrEmpty(s))
             {
                 s = "(?:)";

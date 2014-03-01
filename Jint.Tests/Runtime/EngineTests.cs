@@ -622,6 +622,14 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldNotAlterSlashesInRegex()
+        {
+            RunTest(@"
+                assert(new RegExp('/').toString() === '///');
+            ");
+        }
+
+        [Fact]
         public void ShouldComputeFractionInBase()
         {
             Assert.Equal("011", NumberPrototype.ToFractionBase(0.375, 2));
