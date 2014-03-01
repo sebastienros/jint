@@ -211,14 +211,7 @@ namespace Jint.Native.Number
                 return ToNumberString(x);    
             }
 
-            const string format = "0.00000000000000000e0";
-            var parts = x.ToString(format, CultureInfo.InvariantCulture).Split('e');
-            var s = parts[0].TrimEnd('0').Replace(".", "");
-            var n = int.Parse(parts[1]) + 1;
-
-            var integerPart = s.Substring(0, n);
-            
-            var integer = long.Parse(integerPart);
+            var integer = (long) x;
             var fraction = x -  integer;
 
             string result = ToBase(integer, radix);

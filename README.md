@@ -86,7 +86,6 @@ If you need to pass a JavaScript callback to the CLR, then it will be converted 
 
 - Fix remaining SunSpider scripts
   - crypto-aes
-  - string-unpack-code
   - 3d-raytrace
 
 
