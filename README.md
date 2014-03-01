@@ -61,9 +61,9 @@ If you need to pass a JavaScript callback to the CLR, then it will be converted 
         
 # Roadmap
 
-## Features already implemented:
+## Features:
 
-- ECMAScript test suite (http://test262.ecmascript.org/) 
+- ECMAScript 5.1 test suite (http://test262.ecmascript.org/) 
 - Manipulate CLR objects from JavaScript, including:
   - Single values
   - Objects
@@ -82,9 +82,7 @@ If you need to pass a JavaScript callback to the CLR, then it will be converted 
   - Regex -> RegExp
   - Function -> Delegate
 
-## Current tasks:
+## Roadmap:
 
-- Fix remaining SunSpider scripts
-  - 3d-raytrace
-
-
+- Instantiate CLR classes from Javascript
+- ECMAScript 6.0

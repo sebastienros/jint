@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using System.Text;
+using Jint.Native.Number.Dtoa;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
@@ -286,6 +287,14 @@ namespace Jint.Native.Number
             if (m < 0)
             {
                 return "-" + ToNumberString(-m);
+            }
+
+            // V8 FastDtoa can't convert all numbers, so try it first but
+            // fall back to old DToA in case it fails
+            var result = FastDtoa.NumberToString(m);
+            if (result != null)
+            {
+                return result;
             }
 
             // s is all digits (significand)

@@ -600,7 +600,10 @@ namespace Jint.Tests.Runtime
                 assert(String(-14.915832707045631) === '-14.915832707045631');
                 assert(String(0.5) === '0.5');
                 assert(String(0.00000001) === '1e-8');
+                assert(String(0.000001) === '0.000001');
                 assert(String(-1.0) === '-1');
+                assert(String(30.0) === '30');
+                assert(String(0.2388906159889881) === '0.2388906159889881');
             ");
         }
 

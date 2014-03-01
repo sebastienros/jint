@@ -57,6 +57,12 @@
     <Compile Include="Native\IPrimitiveInstance.cs" />
     <Compile Include="Native\JsValue.cs" />
     <Compile Include="Native\Null.cs" />
+    <Compile Include="Native\Number\Dtoa\CachePowers.cs" />
+    <Compile Include="Native\Number\Dtoa\DiyFp.cs" />
+    <Compile Include="Native\Number\Dtoa\DoubleHelper.cs" />
+    <Compile Include="Native\Number\Dtoa\FastDtoa.cs" />
+    <Compile Include="Native\Number\Dtoa\FastDtoaBuilder.cs" />
+    <Compile Include="Native\Number\Dtoa\NumberExtensions.cs" />
     <Compile Include="Native\RegExp\RegExpConstructor.cs" />
     <Compile Include="Native\RegExp\RegExpInstance.cs" />
     <Compile Include="Native\RegExp\RegExpPrototype.cs" />
