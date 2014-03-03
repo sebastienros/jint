@@ -661,8 +661,6 @@ namespace Jint.Tests.Runtime
                 result = d.ToString("r");
             }
             Console.WriteLine("{0}: {1}", result, standard = sw.ElapsedMilliseconds);
-
-            Assert.True(fastDtoa < standard);
         }
     }
 }
