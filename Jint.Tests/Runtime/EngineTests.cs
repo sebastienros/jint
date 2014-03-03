@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using Jint.Native.Number;
+using Jint.Native.Number.Dtoa;
 using Jint.Runtime;
 using Xunit;
 using Xunit.Extensions;
@@ -563,13 +565,13 @@ namespace Jint.Tests.Runtime
         }
 
         [Theory]
-        //[InlineData(double.NaN, "parseInt(NaN)")]
-        //[InlineData(double.NaN, "parseInt(null)")]
-        //[InlineData(double.NaN, "parseInt(undefined)")]
-        //[InlineData(double.NaN, "parseInt(new Boolean(true))")]
-        //[InlineData(double.NaN, "parseInt(Infinity)")]
+        [InlineData(double.NaN, "parseInt(NaN)")]
+        [InlineData(double.NaN, "parseInt(null)")]
+        [InlineData(double.NaN, "parseInt(undefined)")]
+        [InlineData(double.NaN, "parseInt(new Boolean(true))")]
+        [InlineData(double.NaN, "parseInt(Infinity)")]
         [InlineData(-1d, "parseInt(-1)")]
-        //[InlineData(-1d, "parseInt('-1')")]
+        [InlineData(-1d, "parseInt('-1')")]
         public void ShouldEvaluateParseInt(object expected, string source)
         {
             var engine = new Engine();
@@ -636,5 +638,31 @@ namespace Jint.Tests.Runtime
             Assert.Equal("14141414141414141414141414141414141414141414141414", NumberPrototype.ToFractionBase(0.375, 5));
         }
 
+        [Fact]
+        public void ShouldComputeFastDtoaFaster()
+        {
+            const int iterations = 100000;
+
+            var sw = new Stopwatch();
+            string result = "";
+            double d = 0.2388906159889881;
+            long standard, fastDtoa;
+
+            sw.Restart();
+            for (int i = 0; i < iterations; i++)
+            {
+                result = FastDtoa.NumberToString(d);
+            }
+            Console.WriteLine("{0}: {1}", result, fastDtoa = sw.ElapsedMilliseconds);
+
+            sw.Restart();
+            for (int i = 0; i < iterations; i++)
+            {
+                result = d.ToString("r");
+            }
+            Console.WriteLine("{0}: {1}", result, standard = sw.ElapsedMilliseconds);
+
+            Assert.True(fastDtoa < standard);
+        }
     }
 }
