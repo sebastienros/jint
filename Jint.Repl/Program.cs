@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using Jint.Native;
 using Jint.Runtime;
 
 namespace Jint.Repl
@@ -10,7 +11,7 @@ namespace Jint.Repl
     {
         static void Main(string[] args)
         {
-            var engine = new Engine()
+            var engine = new Engine(cfg => cfg.AllowClr())
                 .SetValue("print", new Action<object>(Console.WriteLine))
             ;
 
@@ -49,9 +50,11 @@ namespace Jint.Repl
                 try
                 {
                     var result = engine.GetValue(engine.Execute(input).GetCompletionValue());
-                    //var str = TypeConverter.ToString(engine.Json.Stringify(engine.Json, Arguments.From(result, Undefined.Instance, "  ")));
-                    //Console.ForegroundColor = ConsoleColor.Magenta;
-                    //Console.WriteLine("=> {0}", str);
+                    if (result.Type != Types.None && result.Type != Types.Null && result.Type != Types.Undefined)
+                    {
+                        var str = TypeConverter.ToString(engine.Json.Stringify(engine.Json, Arguments.From(result, Undefined.Instance, "  ")));
+                        Console.WriteLine("=> {0}", str);
+                    }
                 }
                 catch (JavaScriptException je)
                 {

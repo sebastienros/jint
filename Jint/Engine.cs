@@ -116,6 +116,11 @@ namespace Jint
 
             _statements = new StatementInterpreter(this);
             _expressions = new ExpressionInterpreter(this);
+
+            if (Options.IsClrAllowed())
+            {
+                Global.FastAddProperty("System", new NamespaceReference(this, "System"), false, false, false);
+            }
         }
 
         public LexicalEnvironment GlobalEnvironment;

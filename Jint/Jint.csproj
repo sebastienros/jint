@@ -171,13 +171,17 @@
     <Compile Include="Runtime\Environments\ObjectEnvironmentRecord.cs" />
     <Compile Include="Runtime\ExpressionIntepreter.cs" />
     <Compile Include="Runtime\Interop\DefaultTypeConverter.cs" />
+    <Compile Include="Runtime\Interop\IObjectWrapper.cs" />
     <Compile Include="Runtime\Interop\ITypeConverter.cs" />
     <Compile Include="Runtime\Interop\MethodInfoFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\ClrFunctionInstance.cs" />
+    <Compile Include="Runtime\Interop\NamespaceReference.cs" />
     <Compile Include="Runtime\Interop\ObjectWrapper .cs" />
     <Compile Include="Runtime\Interop\SetterFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\GetterFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\DelegateWrapper.cs" />
+    <Compile Include="Runtime\Interop\TypeReference.cs" />
+    <Compile Include="Runtime\Interop\TypeReferencePrototype.cs" />
     <Compile Include="Runtime\JavaScriptException.cs" />
     <Compile Include="Runtime\References\Reference.cs" />
     <Compile Include="Runtime\StatementInterpreter.cs" />

@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using System.Reflection;
 using Jint.Native;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -341,6 +344,66 @@ namespace Jint.Runtime
             {
                 throw new JavaScriptException(engine.TypeError);
             }
+        }
+
+        public static IEnumerable<MethodBase> FindBestMatch(Engine engine, MethodBase[] methods, JsValue[] arguments)
+        {
+            methods = methods
+                .Where(m => m.GetParameters().Count() == arguments.Length)
+                .ToArray()
+                ;
+
+            if (methods.Length == 1 && !methods[0].GetParameters().Any())
+            {
+                yield return methods[0];
+                yield break;
+            }
+
+            var objectArguments = arguments.Select(x => x.ToObject()).ToArray();
+            foreach (var method in methods)
+            {
+                var perfectMatch = true;
+                var parameters = method.GetParameters();
+                for (var i = 0; i < arguments.Length; i++)
+                {
+                    if (objectArguments[i].GetType() != parameters[i].ParameterType)
+                    {
+                        perfectMatch = false;
+                        break;
+                    }
+                }
+
+                if (perfectMatch)
+                {
+                    yield return method;
+                    yield break;
+                }
+            }
+
+            var candidates = new List<MethodBase>();
+            foreach (var method in methods)
+            {
+                var parameters = new object[arguments.Length];
+                try
+                {
+                    for (var i = 0; i < arguments.Length; i++)
+                    {
+                        parameters[i] = engine.Options.GetTypeConverter().Convert(
+                            arguments[i].ToObject(),
+                            method.GetParameters()[i].ParameterType,
+                            CultureInfo.InvariantCulture);
+                    }
+                }
+                catch
+                {
+                    // ignore method
+                }
+
+                candidates.Add(method);
+            }
+
+            foreach (var candidate in candidates)
+                yield return candidate;
         }
 
     }

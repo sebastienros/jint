@@ -8,8 +8,9 @@ namespace Jint
         private bool _discardGlobal;
         private bool _strict;
         private bool _allowDebuggerStatement;
+        private bool _allowClr;
         private ITypeConverter _typeConverter = new DefaultTypeConverter();
-        private int _maxStatements = 0;
+        private int _maxStatements;
         private CultureInfo _culture = CultureInfo.CurrentCulture;
 
         /// <summary>
@@ -53,6 +54,12 @@ namespace Jint
             return this;
         }
 
+        public Options AllowClr(bool allowClr = true)
+        {
+            _allowClr = allowClr;
+            return this;
+        }
+
         public Options MaxStatements(int maxStatements = 0)
         {
             _maxStatements = maxStatements;
@@ -74,10 +81,15 @@ namespace Jint
         {
             return _strict;
         }
-        
+
         internal bool IsDebuggerStatementAllowed()
         {
             return _allowDebuggerStatement;
+        }
+
+        internal bool IsClrAllowed()
+        {
+            return _allowClr;
         }
 
         internal ITypeConverter GetTypeConverter()
@@ -94,6 +106,5 @@ namespace Jint
         {
             return _culture;
         }
-
     }
 }

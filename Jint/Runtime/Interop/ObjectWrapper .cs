@@ -10,7 +10,7 @@ namespace Jint.Runtime.Interop
     /// <summary>
     /// Wrapps a CLR instance
     /// </summary>
-    public sealed class ObjectWrapper : ObjectInstance
+    public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper
     {
         public Object Target { get; set; }
 

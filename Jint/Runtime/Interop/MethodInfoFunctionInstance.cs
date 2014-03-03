@@ -19,29 +19,40 @@ namespace Jint.Runtime.Interop
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            // filter methods with the expected number of parameters
-            var methods = _methods
-                .Where(m => m.GetParameters().Count() == arguments.Length)
-                .ToArray()
-                ;
-
-            if (!methods.Any())
-            {
-                throw new JavaScriptException(Engine.TypeError, "Invalid number of arguments");
-            }
-
-            // todo: look for compatible types    
-            var method = methods.First();
-            var parameters = new object[arguments.Length];
-            for (var i = 0; i < arguments.Length; i++)
-            {
-                parameters[i] = Engine.Options.GetTypeConverter().Convert(
-                    arguments[i].ToObject(),
-                    method.GetParameters()[i].ParameterType,
-                    CultureInfo.InvariantCulture);
-            }
-
-            return JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters.ToArray()));
+            return Invoke(_methods, thisObject, arguments);
         }
+
+        public JsValue Invoke(MethodInfo[] methodInfos, JsValue thisObject, JsValue[] arguments)
+        {
+            var methods = TypeConverter.FindBestMatch(Engine, methodInfos, arguments).ToList();
+
+            foreach (var method in methods)
+            {
+                var parameters = new object[arguments.Length];
+                try
+                {
+                    for (var i = 0; i < arguments.Length; i++)
+                    {
+                        parameters[i] = Engine.Options.GetTypeConverter().Convert(
+                            arguments[i].ToObject(),
+                            method.GetParameters()[i].ParameterType,
+                            CultureInfo.InvariantCulture);
+                    }
+
+                    var result = JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters.ToArray()));
+
+                    // todo: cache method info
+
+                    return result;
+                }
+                catch
+                {
+                    // ignore method
+                }
+            }
+
+            throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
+        }
+
     }
 }

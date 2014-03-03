@@ -58,10 +58,30 @@ If you need to pass a JavaScript callback to the CLR, then it will be converted 
         new JsValue("foo") /* thisArg */, 
         new JsValue[] { 1, "bar" } /* arguments */,
         ); // "foo1bar"
-        
-# Roadmap
 
-## Features:
+## Accessing .NET assemblies and classes
+
+You can allow an engine to access any .NET class by configuring the engine instance like this:
+
+    var engine = new Engine(cfg => cfg.AllowClr())
+
+Then you have access to the `System` namespace as a global value. Here is how it's used in the context on the command line utility:
+
+    jint> var file = new System.IO.File('log.txt');
+    jint> file.WriteLine('Hello World !');
+    jint> file.Dispose();
+
+And even create shortcuts to commong .NET methods
+
+    jint> var log = System.Console.WriteLine;
+    jint> log('Hello World !');
+    => "Hello World !"
+
+Loading custom assemblies dynamically can be done by using standard reflection
+
+    var import = System.Reflection.Assembly.Load;
+    
+## Implemented features:
 
 - ECMAScript 5.1 test suite (http://test262.ecmascript.org/) 
 - Manipulate CLR objects from JavaScript, including:
@@ -81,8 +101,3 @@ If you need to pass a JavaScript callback to the CLR, then it will be converted 
   - boolean -> bool
   - Regex -> RegExp
   - Function -> Delegate
-
-## Roadmap:
-
-- Instantiate CLR classes from Javascript
-- ECMAScript 6.0

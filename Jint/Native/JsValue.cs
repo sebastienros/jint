@@ -383,7 +383,7 @@ namespace Jint.Native
                 case Types.Number:
                     return _double;
                 case Types.Object:
-                    var wrapper = _object as ObjectWrapper;
+                    var wrapper = _object as IObjectWrapper;
                     if (wrapper != null)
                     {
                         return wrapper.Target;
