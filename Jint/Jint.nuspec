@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+  <metadata>
+    <id>Jint</id>
+    <version>$version$</version>
+    <owners>$author$</owners>
+    <authors>$author$</authors>
+    <description>$description$</description>
+    <language>en-US</language>
+    <projectUrl>http://github.com/sebastienros/jint</projectUrl>
+    <licenseUrl>https://raw.github.com/sebastienros/jint/master/LICENSE.txt</licenseUrl>
+    <releaseNotes>Complete rewrite as a PCL (Portable Class library).</releaseNotes>
+    <tags>javascript interpreter</tags>
+  </metadata>
+</package>
