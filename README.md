@@ -77,9 +77,12 @@ And even create shortcuts to commong .NET methods
     jint> log('Hello World !');
     => "Hello World !"
 
-Loading custom assemblies dynamically can be done by using standard reflection
+Loading custom assemblies dynamically can be done by using standard reflection `System.Reflection.Assembly.Load`. You will also need
+to assign local namespace the same way `System` does it for you, by using `importNamespace`:
 
-    var import = System.Reflection.Assembly.Load;
+    var Foo = importNamespace('Foo');
+    var bar = new Foo.Bar();
+    log(bar.ToString());
     
 ## Implemented features:
 

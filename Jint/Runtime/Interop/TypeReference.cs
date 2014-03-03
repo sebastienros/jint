@@ -61,7 +61,8 @@ namespace Jint.Runtime.Interop
                             CultureInfo.InvariantCulture);
                     }
 
-                    var result =  TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, method.Invoke(Type, parameters.ToArray())));
+                    var constructor = (ConstructorInfo)method;
+                    var result = TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, constructor.Invoke(parameters.ToArray())));
 
                     // todo: cache method info
 
