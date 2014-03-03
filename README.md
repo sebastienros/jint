@@ -3,6 +3,7 @@
 # Jint
 
 Jint is a Javascript interpreter for .NET. Jint doesn't compile Javascript to .NET bytecode and in this sense might be best suited for projects requiring to run relatively small scripts faster, or which need to run on different platforms.
+It's available on nuget at https://www.nuget.org/packages/Jint
 
 # Objectives
 
