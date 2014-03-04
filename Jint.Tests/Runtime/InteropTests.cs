@@ -387,7 +387,7 @@ namespace Jint.Tests.Runtime
         public void ShouldConvertObjectInstanceToExpando()
         {
             _engine.Execute("var o = {a: 1, b: 'foo'}");
-            var result = _engine.GetGlobalValue("o");
+            var result = _engine.GetValue("o");
 
             dynamic value = result.ToObject();
 
@@ -481,5 +481,24 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void ShouldInvokeAFunctionByName()
+        {
+            RunTest(@"
+                function add(x, y) { return x + y; }
+            ");
+
+            Assert.Equal(3, _engine.Invoke("add", 1, 2));
+        }
+
+        [Fact]
+        public void ShouldNotInvokeNonFunctionValue()
+        {
+            RunTest(@"
+                var x= 10;
+            ");
+
+            Assert.Throws<ArgumentException>(() => _engine.Invoke("x", 1, 2));
+        }
     }
 }

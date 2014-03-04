@@ -10,18 +10,27 @@ using Xunit.Extensions;
 
 namespace Jint.Tests.Runtime
 {
-    public class EngineTests
+    public class EngineTests : IDisposable
     {
-        private Engine RunTest(string source)
+        private readonly Engine _engine;
+
+        public EngineTests()
         {
-            var engine = new Engine()
+            _engine = new Engine()
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
                 ;
+        }
 
-            engine.Execute(source);
+        void IDisposable.Dispose()
+        {
+        }
 
-            return engine;
+
+        private void RunTest(string source)
+        {
+
+            _engine.Execute(source);
         }
 
         [Theory]
@@ -661,6 +670,31 @@ namespace Jint.Tests.Runtime
                 result = d.ToString("r");
             }
             Console.WriteLine("{0}: {1}", result, standard = sw.ElapsedMilliseconds);
+        }
+
+        [Fact]
+        public void ShouldInvokeAFunctionValue()
+        {
+            RunTest(@"
+                function add(x, y) { return x + y; }
+            ");
+
+            var add = _engine.GetValue("add");
+
+            Assert.Equal(3, add.Invoke(1, 2));
+        }
+
+
+        [Fact]
+        public void ShouldNotInvokeNonFunctionValue()
+        {
+            RunTest(@"
+                var x= 10;
+            ");
+
+            var x = _engine.GetValue("x");
+
+            Assert.Throws<ArgumentException>(() => x.Invoke(1, 2));
         }
     }
 }

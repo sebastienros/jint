@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Dynamic;
+using System.Linq;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -489,6 +490,34 @@ namespace Jint.Native
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+        }
+
+        /// <summary>
+        /// Invoke the current value as function.
+        /// </summary>
+        /// <param name="arguments">The arguments of the function call.</param>
+        /// <returns>The value returned by the function call.</returns>
+        public JsValue Invoke(params JsValue[] arguments)
+        {
+            return Invoke(Undefined, arguments);
+        }
+
+        /// <summary>
+        /// Invoke the current value as function.
+        /// </summary>
+        /// <param name="thisObj">The this value inside the function call.</param>
+        /// <param name="arguments">The arguments of the function call.</param>
+        /// <returns>The value returned by the function call.</returns>
+        public JsValue Invoke(JsValue thisObj, JsValue[] arguments)
+        {
+            var callable = TryCast<ICallable>();
+
+            if (callable == null)
+            {
+                throw new ArgumentException("Can only invoke functions");
+            }
+
+            return callable.Call(thisObj, arguments);
         }
 
         public override string ToString()

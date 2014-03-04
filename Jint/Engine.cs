@@ -546,15 +546,60 @@ namespace Jint
             }
         }
 
+        /// <summary>
+        /// Invoke the current value as function.
+        /// </summary>
+        /// <param name="propertyName">The arguments of the function call.</param>
+        /// <returns>The value returned by the function call.</returns>
+        public JsValue Invoke(string propertyName, params object[] arguments)
+        {
+            return Invoke(propertyName, null, arguments);
+        }
 
-        public JsValue GetGlobalValue(string propertyName)
+        /// <summary>
+        /// Invoke the current value as function.
+        /// </summary>
+        /// <param name="propertyName">The name of the function to call.</param>
+        /// <param name="thisObj">The this value inside the function call.</param>
+        /// <param name="arguments">The arguments of the function call.</param>
+        /// <returns>The value returned by the function call.</returns>
+        public JsValue Invoke(string propertyName, object thisObj, object[] arguments)
+        {
+            var value = GetValue(propertyName);
+            var callable = value.TryCast<ICallable>();
+
+            if (callable == null)
+            {
+                throw new ArgumentException("Can only invoke functions");
+            }
+
+            return callable.Call(JsValue.FromObject(this, thisObj), arguments.Select(x => JsValue.FromObject(this, x)).ToArray());
+        }
+
+        /// <summary>
+        /// Gets a named value from the Global scope.
+        /// </summary>
+        /// <param name="propertyName">The name of the property to return.</param>
+        public JsValue GetValue(string propertyName)
+        {
+            return GetValue(Global, propertyName);
+        }
+
+        /// <summary>
+        /// Gets a named value from the specified scope.
+        /// </summary>
+        /// <param name="scope">The scope to get the property from.</param>
+        /// <param name="propertyName">The name of the property to return.</param>
+        public JsValue GetValue(JsValue scope, string propertyName)
         {
             if (System.String.IsNullOrEmpty(propertyName))
             {
                 throw new ArgumentException("propertyName");
             }
 
-            return GetValue(Global.Get(propertyName));
+            var reference = new Reference(scope, propertyName, Options.IsStrict());
+
+            return GetValue(reference);
         }
 
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
