@@ -78,8 +78,13 @@ And even create shortcuts to commong .NET methods
     jint> log('Hello World !');
     => "Hello World !"
 
-Loading custom assemblies dynamically can be done by using standard reflection `System.Reflection.Assembly.Load`. You will also need
-to assign local namespace the same way `System` does it for you, by using `importNamespace`:
+When allowing the CLR, you can optionnally pass custom assemblies to load types from. 
+
+    var engine = new Engine(cfg => cfg
+        .AllowClr(typeof(Bar).Assembly)
+    )
+
+and then to assign local namespaces the same way `System` does it for you, use `importNamespace`
 
     var Foo = importNamespace('Foo');
     var bar = new Foo.Bar();
