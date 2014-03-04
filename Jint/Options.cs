@@ -1,4 +1,7 @@
-﻿using System.Globalization;
+﻿using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Reflection;
 using Jint.Runtime.Interop;
 
 namespace Jint
@@ -12,6 +15,7 @@ namespace Jint
         private ITypeConverter _typeConverter = new DefaultTypeConverter();
         private int _maxStatements;
         private CultureInfo _culture = CultureInfo.CurrentCulture;
+        private List<Assembly> _lookupAssemblies = new List<Assembly>(); 
 
         /// <summary>
         /// When called, doesn't initialize the global scope.
@@ -54,9 +58,14 @@ namespace Jint
             return this;
         }
 
-        public Options AllowClr(bool allowClr = true)
+        /// <summary>
+        /// Allows scripts to call CLR types directly like <example>System.IO.File</example>
+        /// </summary>
+        public Options AllowClr(params Assembly[] assemblies)
         {
-            _allowClr = allowClr;
+            _allowClr = true;
+            _lookupAssemblies.AddRange(assemblies);
+            _lookupAssemblies = _lookupAssemblies.Distinct().ToList();
             return this;
         }
 
@@ -90,6 +99,11 @@ namespace Jint
         internal bool IsClrAllowed()
         {
             return _allowClr;
+        }
+        
+        internal IList<Assembly> GetLookupAssemblies()
+        {
+            return _lookupAssemblies;
         }
 
         internal ITypeConverter GetTypeConverter()

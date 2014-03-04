@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
@@ -46,10 +45,32 @@ namespace Jint.Runtime.Interop
         public override JsValue Get(string propertyName)
         {
             var newPath = _path + "." + propertyName;
+            
+            // search for type in mscorlib
             var type = Type.GetType(newPath);
             if (type != null)
             {
                 return TypeReference.CreateTypeReference(Engine, type);
+            }
+
+            // search in loaded assemblies
+            foreach (var assembly in new [] { Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly() }.Distinct())
+            {
+                type = assembly.GetType(newPath);
+                if (type != null)
+                {
+                    return TypeReference.CreateTypeReference(Engine, type);
+                }
+            }
+
+            // search in lookup asemblies
+            foreach (var assembly in Engine.Options.GetLookupAssemblies())
+            {
+                type = assembly.GetType(newPath);
+                if (type != null)
+                {
+                    return TypeReference.CreateTypeReference(Engine, type);
+                }
             }
 
             // the new path doesn't represent a known class, thus return a new namespace instance
