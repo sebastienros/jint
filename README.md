@@ -51,7 +51,7 @@ You can also directly pass POCOs or anonymous objects and use them from JavaScri
 You can invoke JavaScript function reference
 ```csharp
     var add = new Engine()
-        .Execute("function add(a, b) { return this + a + b; }");
+        .Execute("function add(a, b) { return a + b; }");
         .GetValue("add")
         ;
 
@@ -60,7 +60,7 @@ You can invoke JavaScript function reference
 or directly by name 
 ```csharp
     var engine = new Engine()
-        .Execute("function add(a, b) { return this + a + b; }");
+        .Execute("function add(a, b) { return a + b; }")
         ;
 
     engine.Invoke("add", 1, 2); // -> 3
@@ -69,7 +69,7 @@ or directly by name
 
 You can allow an engine to access any .NET class by configuring the engine instance like this:
 ```csharp
-    var engine = new Engine(cfg => cfg.AllowClr())
+    var engine = new Engine(cfg => cfg.AllowClr());
 ```
 Then you have access to the `System` namespace as a global value. Here is how it's used in the context on the command line utility:
 ```javascript
@@ -87,7 +87,7 @@ When allowing the CLR, you can optionnally pass custom assemblies to load types 
 ```csharp
     var engine = new Engine(cfg => cfg
         .AllowClr(typeof(Bar).Assembly)
-    )
+    );
 ```
 and then to assign local namespaces the same way `System` does it for you, use `importNamespace`
 ```javascript
