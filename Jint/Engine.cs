@@ -33,6 +33,9 @@ namespace Jint
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
         
+        // cache of types used when resolving CLR type names
+        internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>(); 
+
         public Engine() : this(null)
         {
         }

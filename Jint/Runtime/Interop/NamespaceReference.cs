@@ -45,11 +45,24 @@ namespace Jint.Runtime.Interop
         public override JsValue Get(string propertyName)
         {
             var newPath = _path + "." + propertyName;
-            
+
+            Type type;
+
+            if (Engine.TypeCache.TryGetValue(newPath, out type))
+            {
+                if (type == null)
+                {
+                    return new NamespaceReference(Engine, newPath);
+                }
+
+                return TypeReference.CreateTypeReference(Engine, type);
+            }
+
             // search for type in mscorlib
-            var type = Type.GetType(newPath);
+            type = Type.GetType(newPath);
             if (type != null)
             {
+                Engine.TypeCache.Add(newPath, type);
                 return TypeReference.CreateTypeReference(Engine, type);
             }
 
@@ -59,6 +72,7 @@ namespace Jint.Runtime.Interop
                 type = assembly.GetType(newPath);
                 if (type != null)
                 {
+                    Engine.TypeCache.Add(newPath, type);
                     return TypeReference.CreateTypeReference(Engine, type);
                 }
             }
@@ -69,12 +83,14 @@ namespace Jint.Runtime.Interop
                 type = assembly.GetType(newPath);
                 if (type != null)
                 {
+                    Engine.TypeCache.Add(newPath, type);
                     return TypeReference.CreateTypeReference(Engine, type);
                 }
             }
 
             // the new path doesn't represent a known class, thus return a new namespace instance
 
+            Engine.TypeCache.Add(newPath, null);
             return new NamespaceReference(Engine, newPath);
         }
 
