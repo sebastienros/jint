@@ -22,7 +22,7 @@ a script calling `log('Hello World!')`.
     
     engine.Execute(@"
       function hello() { 
-        log(""Hello World"");
+        log('Hello World');
       };
       
       hello();
