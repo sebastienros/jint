@@ -28,14 +28,23 @@ namespace Jint.Runtime.Interop
             }
 
             var type = Target.GetType();
-            
+
             // look for a property
-            var property = type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                .FirstOrDefault(m => m.Name == propertyName);
+            var property = type.GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
 
             if (property != null)
             {
-                var descriptor = new ClrDataDescriptor(Engine, property, Target);
+                var descriptor = new PropertyInfoDescriptor(Engine, property, Target);
+                Properties.Add(propertyName, descriptor);
+                return descriptor;
+            }
+
+            // look for a field
+            var field = type.GetField(propertyName, BindingFlags.Instance | BindingFlags.Public);
+
+            if (field != null)
+            {
+                var descriptor = new FieldInfoDescriptor(Engine, field, Target);
                 Properties.Add(propertyName, descriptor);
                 return descriptor;
             }

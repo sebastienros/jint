@@ -113,7 +113,7 @@ namespace Jint.Runtime.Interop
             var propertyInfo = Type.GetProperty(propertyName);
             if (propertyInfo != null)
             {
-                return new ClrDataDescriptor(Engine, propertyInfo, Type);
+                return new PropertyInfoDescriptor(Engine, propertyInfo, Type);
             }
 
             var methodInfo = Type

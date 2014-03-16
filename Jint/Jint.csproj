@@ -161,7 +161,8 @@
     <Compile Include="Runtime\Arguments.cs" />
     <Compile Include="Runtime\Completion.cs" />
     <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />
-    <Compile Include="Runtime\Descriptors\Specialized\ClrDataDescriptor.cs" />
+    <Compile Include="Runtime\Descriptors\Specialized\FieldInfoDescriptor.cs" />
+    <Compile Include="Runtime\Descriptors\Specialized\PropertyInfoDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\Specialized\ClrAccessDescriptor.cs" />
     <Compile Include="Runtime\Environments\Binding.cs" />
     <Compile Include="Runtime\Environments\DeclarativeEnvironmentRecord.cs" />

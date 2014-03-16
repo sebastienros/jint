@@ -500,5 +500,37 @@ namespace Jint.Tests.Runtime
 
             Assert.Throws<ArgumentException>(() => _engine.Invoke("x", 1, 2));
         }
+
+        [Fact]
+        public void CanGetField()
+        {
+            var o = new ClassWithField
+            {
+                Field = "Mickey Mouse"
+            };
+
+            _engine.SetValue("o", o);
+
+            RunTest(@"
+                assert(o.Field === 'Mickey Mouse');
+            ");
+        }
+
+        [Fact]
+        public void CanSetField()
+        {
+            var o = new ClassWithField();
+
+            _engine.SetValue("o", o);
+
+            RunTest(@"
+                o.Field = 'Mickey Mouse';
+                assert(o.Field === 'Mickey Mouse');
+            ");
+
+            Assert.Equal("Mickey Mouse", o.Field);
+        }
+
+
     }
 }

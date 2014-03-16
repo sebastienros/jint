@@ -4,33 +4,33 @@ using Jint.Native;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class ClrDataDescriptor : PropertyDescriptor
+    public sealed class FieldInfoDescriptor : PropertyDescriptor
     {
         private readonly Engine _engine;
-        private readonly PropertyInfo _propertyInfo;
+        private readonly FieldInfo _fieldInfo;
         private readonly object _item;
 
-        public ClrDataDescriptor(Engine engine, PropertyInfo propertyInfo, object item)
+        public FieldInfoDescriptor(Engine engine, FieldInfo fieldInfo, object item)
         {
             _engine = engine;
-            _propertyInfo = propertyInfo;
+            _fieldInfo = fieldInfo;
             _item = item;
 
-            Writable = propertyInfo.CanWrite;
+            Writable = true; // a field is always writable
         }
 
         public override JsValue? Value
         {
             get
             {
-                return JsValue.FromObject(_engine, _propertyInfo.GetValue(_item, null));
+                return JsValue.FromObject(_engine, _fieldInfo.GetValue(_item));
             }
 
             set
             {
                 var currentValue = value.GetValueOrDefault();
                 object obj;
-                if (_propertyInfo.PropertyType == typeof (JsValue))
+                if (_fieldInfo.FieldType == typeof (JsValue))
                 {
                     obj = currentValue;
                 }
@@ -38,13 +38,13 @@ namespace Jint.Runtime.Descriptors.Specialized
                 {
                     // attempt to convert the JsValue to the target type
                     obj = currentValue.ToObject();
-                    if (obj.GetType() != _propertyInfo.PropertyType)
+                    if (obj.GetType() != _fieldInfo.FieldType)
                     {
-                        obj = _engine.Options.GetTypeConverter().Convert(obj, _propertyInfo.PropertyType, CultureInfo.InvariantCulture);
+                        obj = _engine.Options.GetTypeConverter().Convert(obj, _fieldInfo.FieldType, CultureInfo.InvariantCulture);
                     }
                 }
                 
-                _propertyInfo.SetValue(_item, obj, null);
+                _fieldInfo.SetValue(_item, obj);
             }
         }
     }
