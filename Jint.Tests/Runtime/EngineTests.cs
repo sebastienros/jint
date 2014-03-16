@@ -706,5 +706,18 @@ namespace Jint.Tests.Runtime
 
             Assert.Throws<ArgumentException>(() => x.Invoke(1, 2));
         }
+
+        [Theory]
+        [InlineData("0", 0, 16)]
+        [InlineData("1", 1, 16)]
+        [InlineData("100", 100, 10)]
+        [InlineData("1100100", 100, 2)]
+        [InlineData("2s", 100, 36)]
+        [InlineData("2qgpckvng1s", 10000000000000000L, 36)]
+        public void ShouldConvertNumbersToDifferentBase(string expected, long number, int radix)
+        {
+          var result = NumberPrototype.ToBase(number, radix);
+          Assert.Equal(expected, result);
+        }
     }
 }
