@@ -185,6 +185,21 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void DateTimeOffsetIsConvertedToDate()
+        {
+            var o = new
+            {
+                z = new DateTimeOffset(1970, 1, 1, 0, 0, 0, new TimeSpan())
+            };
+
+            _engine.SetValue("o", o);
+
+            RunTest(@"
+                assert(o.z.valueOf() === 0);
+            ");
+        }
+
+        [Fact]
         public void EcmaValuesAreAutomaticallyConvertedWhenSetInPoco()
         {
             var p = new Person

@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Dynamic;
-using System.Linq;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -287,7 +286,7 @@ namespace Jint.Native
                 case TypeCode.Boolean:
                     return new JsValue((bool)value);
                 case TypeCode.Byte:
-                    return new JsValue((double)(byte)value);
+                    return new JsValue((byte)value);
                 case TypeCode.Char:
                     return new JsValue(value.ToString());
                 case TypeCode.DateTime:
@@ -297,29 +296,34 @@ namespace Jint.Native
                 case TypeCode.Double:
                     return new JsValue((double)value);
                 case TypeCode.Int16:
-                    return new JsValue((double)(Int16)value);
+                    return new JsValue((Int16)value);
                 case TypeCode.Int32:
-                    return new JsValue((double)(Int32)value);
+                    return new JsValue((Int32)value);
                 case TypeCode.Int64:
-                    return new JsValue((double)(Int64)value);
+                    return new JsValue((Int64)value);
                 case TypeCode.SByte:
-                    return new JsValue((double)(SByte)value);
+                    return new JsValue((SByte)value);
                 case TypeCode.Single:
-                    return new JsValue((double)(Single)value);
+                    return new JsValue((Single)value);
                 case TypeCode.String:
                     return new JsValue((string)value);
                 case TypeCode.UInt16:
-                    return new JsValue((double)(UInt16)value);
+                    return new JsValue((UInt16)value);
                 case TypeCode.UInt32:
-                    return new JsValue((double)(UInt32)value);
+                    return new JsValue((UInt32)value);
                 case TypeCode.UInt64:
-                    return new JsValue((double)(UInt64)value);
+                    return new JsValue((UInt64)value);
                 case TypeCode.Object:
                     break;
                 case TypeCode.Empty:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
+            }
+
+            if (value is DateTimeOffset)
+            {
+                    return engine.Date.Construct((DateTimeOffset)value);
             }
 
             // if an ObjectInstance is passed directly, use it as is

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Globalization;
-using System.Text.RegularExpressions;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -11,12 +10,6 @@ namespace Jint.Native.Date
     public sealed class DateConstructor : FunctionInstance, IConstructor
     {
         internal static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        private const long MsPerSecond = 1000;
-        private const long MsPerMinute = MsPerSecond * 60;
-        private const long MsPerHour = MsPerMinute * 60;
-        private const long MsPerDay = MsPerHour * 24;
-
-
 
         public DateConstructor(Engine engine) : base(engine, null, null, false)
         {
@@ -159,6 +152,11 @@ namespace Jint.Native.Date
         }
 
         public DatePrototype PrototypeObject { get; private set; }
+
+        public DateInstance Construct(DateTimeOffset value)
+        {
+            return Construct(value.UtcDateTime);
+        }
 
         public DateInstance Construct(DateTime value)
         {
