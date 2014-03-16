@@ -48,7 +48,8 @@ namespace Jint.Native.RegExp
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.7.2.1
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-7.8.5
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.10.4
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns></returns>
@@ -124,11 +125,15 @@ namespace Jint.Native.RegExp
             var r = new RegExpInstance(Engine);
             r.Prototype = PrototypeObject;
             r.Extensible = true;
-
-            var segments = regExp.Split('/');
-
-            var pattern = segments[1];
-            var flags = segments[2];
+ 
+            if (regExp[0] != '/')
+            {
+                throw new JavaScriptException(Engine.SyntaxError, "Regexp should start with slash");
+            }
+            var lastSlash = regExp.LastIndexOf('/');
+            // Unescape escaped forward slashes (\/)
+            var pattern = regExp.Substring(1, lastSlash - 1).Replace("\\/", "/");
+            var flags = regExp.Substring(lastSlash + 1);
 
             var options = ParseOptions(r, flags);
             try

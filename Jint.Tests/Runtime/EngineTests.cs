@@ -641,6 +641,16 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldHandleEscapedSlashesInRegex()
+        {
+            RunTest(@"
+                var regex = /[a-z]\/[a-z]/;
+                assert(regex.test('a/b') === true);
+                assert(regex.test('a\\/b') === false);
+            ");
+      }
+
+        [Fact]
         public void ShouldComputeFractionInBase()
         {
             Assert.Equal("011", NumberPrototype.ToFractionBase(0.375, 2));
