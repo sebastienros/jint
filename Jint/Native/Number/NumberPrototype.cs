@@ -235,7 +235,7 @@ namespace Jint.Native.Number
             var result = new StringBuilder();
             while (n > 0)
             {
-                var digit = (int)n % radix;
+                var digit = (int)(n % radix);
                 n = n / radix;
                 result.Insert(0, digits[digit].ToString());
             }
