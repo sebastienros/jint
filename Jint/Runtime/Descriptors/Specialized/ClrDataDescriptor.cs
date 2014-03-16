@@ -1,5 +1,4 @@
-﻿using System;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Reflection;
 using Jint.Native;
 
@@ -29,11 +28,20 @@ namespace Jint.Runtime.Descriptors.Specialized
 
             set
             {
-                // attempt to convert the JsValue to the target type
-                var obj = value.GetValueOrDefault().ToObject();
-                if (obj.GetType() != _propertyInfo.PropertyType)
+                var currentValue = value.GetValueOrDefault();
+                object obj;
+                if (_propertyInfo.PropertyType == typeof (JsValue))
                 {
-                    obj = _engine.Options.GetTypeConverter().Convert(obj, _propertyInfo.PropertyType, CultureInfo.InvariantCulture);
+                    obj = currentValue;
+                }
+                else
+                {
+                    // attempt to convert the JsValue to the target type
+                    obj = currentValue.ToObject();
+                    if (obj.GetType() != _propertyInfo.PropertyType)
+                    {
+                        obj = _engine.Options.GetTypeConverter().Convert(obj, _propertyInfo.PropertyType, CultureInfo.InvariantCulture);
+                    }
                 }
                 
                 _propertyInfo.SetValue(_item, obj, null);

@@ -55,10 +55,19 @@ namespace Jint.Runtime.Interop
                 {
                     for (var i = 0; i < arguments.Length; i++)
                     {
-                        parameters[i] = Engine.Options.GetTypeConverter().Convert(
-                            arguments[i].ToObject(),
-                            method.GetParameters()[i].ParameterType,
-                            CultureInfo.InvariantCulture);
+                        var parameterType =  method.GetParameters()[i].ParameterType;
+
+                        if (parameterType == typeof(JsValue))
+                        {
+                            parameters[i] = arguments[i];
+                        }
+                        else
+                        {
+                            parameters[i] = Engine.Options.GetTypeConverter().Convert(
+                                arguments[i].ToObject(),
+                                parameterType,
+                                CultureInfo.InvariantCulture);
+                        }
                     }
 
                     var constructor = (ConstructorInfo)method;
