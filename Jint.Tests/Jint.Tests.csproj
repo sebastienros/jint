@@ -54,6 +54,7 @@
   <ItemGroup>
     <Compile Include="Parser\JavascriptParserTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Runtime\Converters\NegateBoolConverter.cs" />
     <Compile Include="Runtime\Domain\A.cs" />
     <Compile Include="Runtime\Domain\ClassWithField.cs" />
     <Compile Include="Runtime\Domain\IPerson.cs" />

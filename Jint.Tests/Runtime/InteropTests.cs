@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
 using Shapes;
 using Xunit;
@@ -544,6 +545,22 @@ namespace Jint.Tests.Runtime
             ");
 
             Assert.Equal("Mickey Mouse", o.Field);
+        }
+
+        [Fact]
+        public void CanSetCustomConverters()
+        {
+
+            var engine1 = new Engine();
+            engine1.SetValue("p", new { Test = true });
+            engine1.Execute("var result = p.Test;");
+            Assert.True((bool)engine1.GetValue("result").ToObject());
+
+            var engine2 = new Engine(o => o.AddObjectConverter(new NegateBoolConverter()));
+            engine2.SetValue("p", new { Test = true });
+            engine2.Execute("var result = p.Test;");
+            Assert.False((bool)engine2.GetValue("result").ToObject());
+
         }
 
 

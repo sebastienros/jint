@@ -280,6 +280,15 @@ namespace Jint.Native
                 return Null;
             }
 
+            foreach(var converter in engine.Options.GetObjectConverters())
+            {
+                JsValue result;
+                if (converter.TryConvert(value, out result))
+                {
+                    return result;
+                }
+            }
+
             var typeCode = System.Type.GetTypeCode(value.GetType());
             switch (typeCode)
             {

@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Jint.Native;
 using Jint.Runtime.Interop;
 
 namespace Jint
@@ -13,6 +14,7 @@ namespace Jint
         private bool _allowDebuggerStatement;
         private bool _allowClr;
         private ITypeConverter _typeConverter = new DefaultTypeConverter();
+        private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private int _maxStatements;
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private List<Assembly> _lookupAssemblies = new List<Assembly>(); 
@@ -55,6 +57,15 @@ namespace Jint
         public Options SetTypeConverter(ITypeConverter typeConverter)
         {
             _typeConverter = typeConverter;
+            return this;
+        }
+
+        /// <summary>
+         /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
+        /// </summary>
+        public Options AddObjectConverter(IObjectConverter objectConverter)
+        {
+            _objectConverters.Add(objectConverter);
             return this;
         }
 
@@ -109,6 +120,11 @@ namespace Jint
         internal ITypeConverter GetTypeConverter()
         {
             return _typeConverter;
+        }
+
+        internal IEnumerable<IObjectConverter> GetObjectConverters()
+        {
+            return _objectConverters;
         }
 
         internal int GetMaxStatements()
