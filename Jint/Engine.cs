@@ -155,7 +155,7 @@ namespace Jint
 
         public ExecutionContext ExecutionContext { get { return _executionContexts.Peek(); } }
 
-        public Options Options { get; private set; }
+        internal Options Options { get; private set; }
 
         public ExecutionContext EnterExecutionContext(LexicalEnvironment lexicalEnvironment, LexicalEnvironment variableEnvironment, JsValue thisBinding)
         {
