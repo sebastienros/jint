@@ -574,7 +574,7 @@ namespace Jint.Tests.Runtime
             _engine.SetValue("p", p);
 
             RunTest(@"
-                assert(p.Age++ === 2);
+                assert(++p.Age === 2);
             ");
 
             Assert.Equal(2, p.Age);

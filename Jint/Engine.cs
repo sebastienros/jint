@@ -193,7 +193,7 @@ namespace Jint
 
         public Engine SetValue(string name, JsValue value)
         {
-            Global.Set(name, value);
+            Global.Put(name, value, false);
             return this;
         }
 

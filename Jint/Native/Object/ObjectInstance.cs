@@ -69,20 +69,7 @@ namespace Jint.Native.Object
             var callable = getter.TryCast<ICallable>();
             return callable.Call(this, Arguments.Empty);
         }
-
-        public void Set(string name, JsValue value)
-        {
-
-            if (!HasProperty(name))
-            {
-                DefineOwnProperty(name, new PropertyDescriptor(value, true, true, true), false);
-            }
-            else
-            {
-                Put(name, value, false);
-            }
-        }
-
+        
         /// <summary>
         /// Returns the Property Descriptor of the named 
         /// own property of this object, or undefined if 
@@ -147,7 +134,7 @@ namespace Jint.Native.Object
         /// <param name="propertyName"></param>
         /// <param name="value"></param>
         /// <param name="throwOnError"></param>
-        public void Put(string propertyName, JsValue value, bool throwOnError)
+        public virtual void Put(string propertyName, JsValue value, bool throwOnError)
         {
             if (!CanPut(propertyName))
             {

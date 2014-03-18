@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Reflection;
+using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -17,6 +18,35 @@ namespace Jint.Runtime.Interop
         public ObjectWrapper(Engine engine, Object obj): base(engine)
         {
             Target = obj;
+        }
+
+        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        {
+            if (!CanPut(propertyName))
+            {
+                if (throwOnError)
+                {
+                    throw new JavaScriptException(Engine.TypeError);
+                }
+
+                return;
+            }
+
+            var ownDesc = GetOwnProperty(propertyName);
+
+            if (ownDesc == null)
+            {
+                if (throwOnError)
+                {
+                    throw new JavaScriptException(Engine.TypeError, "Unknown member: " + propertyName);
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            ownDesc.Value = value;
         }
 
         public override PropertyDescriptor GetOwnProperty(string propertyName)
