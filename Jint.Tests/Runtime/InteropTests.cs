@@ -563,6 +563,15 @@ namespace Jint.Tests.Runtime
 
         }
 
+        [Fact]
+        public void CanOverwriteValues()
+        {
+            _engine.SetValue("x", 3);
+            _engine.SetValue("x", 4);
 
+            RunTest(@"
+                assert(x === 4);
+            ");
+        }
     }
 }
