@@ -564,6 +564,23 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void CanUserIncrementOperator()
+        {
+            var p = new Person
+            {
+                Age = 1,
+            };
+
+            _engine.SetValue("p", p);
+
+            RunTest(@"
+                assert(p.Age++ === 2);
+            ");
+
+            Assert.Equal(2, p.Age);
+        }
+
+        [Fact]
         public void CanOverwriteValues()
         {
             _engine.SetValue("x", 3);
@@ -573,5 +590,8 @@ namespace Jint.Tests.Runtime
                 assert(x === 4);
             ");
         }
+
+
+
     }
 }
