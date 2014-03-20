@@ -1292,6 +1292,7 @@ namespace Jint.Parser
 
         private void MarkStart()
         {
+            SkipComment();
             if (_extra.Loc.HasValue)
             {
                 _state.MarkerStack.Push(_index - _lineStart);
@@ -2047,7 +2048,6 @@ namespace Jint.Parser
             EnterFunctionScope();
 
             bool previousStrict = _strict;
-            SkipComment();
             MarkStart();
             Statement body = ParseFunctionSourceElements();
             if (first != null && _strict && IsRestrictedWord(parameters[0].Name))
@@ -2061,7 +2061,6 @@ namespace Jint.Parser
 
         private IPropertyKeyExpression ParseObjectPropertyKey()
         {
-            SkipComment();
             MarkStart();
             Token token = Lex();
 
@@ -2085,7 +2084,6 @@ namespace Jint.Parser
             Expression value;
 
             Token token = _lookahead;
-            SkipComment();
             MarkStart();
 
             if (token.Type == Tokens.Identifier)
@@ -2763,7 +2761,6 @@ namespace Jint.Parser
 
         private BlockStatement ParseBlock()
         {
-            SkipComment();
             MarkStart();
             Expect("{");
 
@@ -2778,7 +2775,6 @@ namespace Jint.Parser
 
         private Identifier ParseVariableIdentifier()
         {
-            SkipComment();
             MarkStart();
             Token token = Lex();
 
@@ -2794,7 +2790,6 @@ namespace Jint.Parser
         {
             Expression init = null;
 
-            SkipComment();
             MarkStart();
             Identifier id = ParseVariableIdentifier();
 
@@ -2852,7 +2847,6 @@ namespace Jint.Parser
         // and http://wiki.ecmascript.org/doku.php?id=harmony:let
         private VariableDeclaration ParseConstLetDeclaration(string kind)
         {
-            SkipComment();
             MarkStart();
 
             ExpectKeyword(kind);
@@ -3228,8 +3222,6 @@ namespace Jint.Parser
             Expression test;
             var consequent = new List<Statement>();
 
-
-            SkipComment();
             MarkStart();
             if (MatchKeyword("default"))
             {
@@ -3327,7 +3319,6 @@ namespace Jint.Parser
 
         private CatchClause ParseCatchClause()
         {
-            SkipComment();
             MarkStart();
             ExpectKeyword("catch");
 
@@ -3399,7 +3390,6 @@ namespace Jint.Parser
                 ThrowUnexpected(_lookahead);
             }
 
-            SkipComment();
             MarkStart();
 
             if (type == Tokens.Punctuator)
@@ -3482,7 +3472,6 @@ namespace Jint.Parser
 
             var sourceElements = new List<Statement>();
 
-            SkipComment();
             MarkStart();
             Expect("{");
 
@@ -3629,7 +3618,6 @@ namespace Jint.Parser
             Token firstRestricted = Token.Empty;
             string message = null;
 
-            SkipComment();
             MarkStart();
 
             ExpectKeyword("function");
@@ -3846,7 +3834,6 @@ namespace Jint.Parser
             EnterVariableScope();
             EnterFunctionScope();
             
-            SkipComment();
             MarkStart();
             Peek();
             ICollection<Statement> body = ParseSourceElements();
