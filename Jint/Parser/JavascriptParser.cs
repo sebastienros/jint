@@ -845,7 +845,7 @@ namespace Jint.Parser
             double n;
             try
             {
-                n = Double.Parse(number, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent);
+                n = Double.Parse(number, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
 
                 if (n > double.MaxValue)
                 {
