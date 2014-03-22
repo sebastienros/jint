@@ -1744,14 +1744,26 @@ namespace Jint.Parser
 
         public UnaryExpression CreateUnaryExpression(string op, Expression argument)
         {
-            return new UpdateExpression
+            if (op == "++" || op == "--")
+            {
+                return new UpdateExpression
                 {
                     Type = SyntaxNodes.UpdateExpression,
                     Operator = UnaryExpression.ParseUnaryOperator(op),
                     Argument = argument,
-                    Prefix = (op == "++" || op == "--")
+                    Prefix = true
                 };
+            }
+
+            return new UnaryExpression
+            {
+                Type = SyntaxNodes.UnaryExpression,
+                Operator = UnaryExpression.ParseUnaryOperator(op),
+                Argument = argument,
+                Prefix = true
+            };
         }
+
 
         public VariableDeclaration CreateVariableDeclaration(IEnumerable<VariableDeclarator> declarations, string kind)
         {
