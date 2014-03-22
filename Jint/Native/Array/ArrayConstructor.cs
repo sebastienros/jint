@@ -60,8 +60,8 @@ namespace Jint.Native.Array
 
             if (arguments.Length == 1 && arguments.At(0).IsNumber())
             {
-                var length = TypeConverter.ToUint32(arguments[0]);
-                if (TypeConverter.ToNumber(arguments[0]) != length)
+                var length = TypeConverter.ToUint32(arguments.At(0));
+                if (!TypeConverter.ToNumber(arguments[0]).Equals(length))
                 {
                     throw new JavaScriptException(Engine.RangeError);
                 }
