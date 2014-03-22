@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using Jint.Native.Number;
 using Jint.Native.Number.Dtoa;
 using Jint.Runtime;
@@ -716,8 +718,21 @@ namespace Jint.Tests.Runtime
         [InlineData("2qgpckvng1s", 10000000000000000L, 36)]
         public void ShouldConvertNumbersToDifferentBase(string expected, long number, int radix)
         {
-          var result = NumberPrototype.ToBase(number, radix);
-          Assert.Equal(expected, result);
+            var result = NumberPrototype.ToBase(number, radix);
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void ShouldBeCultureInvariant()
+        {
+            // decimals in french are separated by commas
+            Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
+
+            var engine = new Engine();
+            var result = engine.Execute("1.2 + 2.1").GetCompletionValue().AsNumber();
+
+            Assert.Equal(3.3d, result);
+
         }
     }
 }
