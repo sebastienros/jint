@@ -1,4 +1,4 @@
-[![Build status](https://ci.appveyor.com/api/projects/status?id=c84b8rdswh2w4744)](https://ci.appveyor.com/project/jint)
+[![Build status](https://ci.appveyor.com/api/projects/status/c84b8rdswh2w4744)](https://ci.appveyor.com/project/SebastienRos/jint)
 
 # Jint
 
