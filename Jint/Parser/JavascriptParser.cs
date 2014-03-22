@@ -1374,26 +1374,27 @@ namespace Jint.Parser
             return new AssignmentExpression
                 {
                     Type = SyntaxNodes.AssignmentExpression,
-                    Operator = op,
+                    Operator = AssignmentExpression.ParseAssignmentOperator(op),
                     Left = left,
                     Right = right
                 };
         }
 
-        public BinaryExpression CreateBinaryExpression(string op, Expression left, Expression right)
+        public Expression CreateBinaryExpression(string op, Expression left, Expression right)
         {
+            
             return (op == "||" || op == "&&")
-                       ? new LogicalExpression
+                       ? (Expression)new LogicalExpression
                            {
                                Type = SyntaxNodes.LogicalExpression,
-                               Operator = op,
+                               Operator = LogicalExpression.ParseLogicalOperator(op),
                                Left = left,
                                Right = right
                            }
                        : new BinaryExpression
                            {
                                Type = SyntaxNodes.BinaryExpression,
-                               Operator = op,
+                               Operator = BinaryExpression.ParseBinaryOperator(op),
                                Left = left,
                                Right = right
                            };
@@ -1644,7 +1645,7 @@ namespace Jint.Parser
             return new UpdateExpression
                 {
                     Type = SyntaxNodes.UpdateExpression,
-                    Operator = op,
+                    Operator = UnaryExpression.ParseUnaryOperator(op),
                     Argument = argument,
                     Prefix = false
                 };
@@ -1743,22 +1744,12 @@ namespace Jint.Parser
 
         public UnaryExpression CreateUnaryExpression(string op, Expression argument)
         {
-            if (op == "++" || op == "--")
-            {
-                return new UpdateExpression
-                    {
-                        Type = SyntaxNodes.UpdateExpression,
-                        Operator = op,
-                        Argument = argument,
-                        Prefix = true
-                    };
-            }
-            return new UnaryExpression
+            return new UpdateExpression
                 {
-                    Type = SyntaxNodes.UnaryExpression,
-                    Operator = op,
+                    Type = SyntaxNodes.UpdateExpression,
+                    Operator = UnaryExpression.ParseUnaryOperator(op),
                     Argument = argument,
-                    Prefix = true
+                    Prefix = (op == "++" || op == "--")
                 };
         }
 
@@ -2487,7 +2478,7 @@ namespace Jint.Parser
                 Token token = Lex();
                 expr = ParseUnaryExpression();
                 UnaryExpression unaryExpr = CreateUnaryExpression((string) token.Value, expr);
-                if (_strict && unaryExpr.Operator == "delete" && unaryExpr.Argument.Type == SyntaxNodes.Identifier)
+                if (_strict && unaryExpr.Operator == UnaryOperator.Delete && unaryExpr.Argument.Type == SyntaxNodes.Identifier)
                 {
                     ThrowErrorTolerant(Token.Empty, Messages.StrictDelete);
                 }

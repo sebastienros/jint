@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+
 namespace Jint.Parser.Ast
 {
     public class SyntaxNode
@@ -10,7 +11,7 @@ namespace Jint.Parser.Ast
         [DebuggerStepThrough]
         public T As<T>() where T : SyntaxNode
         {
-            return this as T;
+            return (T)this;
         }
     }
 }

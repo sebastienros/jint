@@ -89,10 +89,10 @@ namespace Jint.Tests.Parser
             Assert.Equal(1, body.Count());
             Assert.NotNull(binary = body.First().As<ExpressionStatement>().Expression.As<BinaryExpression>());
             Assert.Equal(3d, binary.Right.As<Literal>().Value);
-            Assert.Equal("*", binary.Operator);
+            Assert.Equal(BinaryOperator.Times, binary.Operator);
             Assert.Equal(1d, binary.Left.As<BinaryExpression>().Left.As<Literal>().Value);
             Assert.Equal(2d, binary.Left.As<BinaryExpression>().Right.As<Literal>().Value);
-            Assert.Equal("+", binary.Left.As<BinaryExpression>().Operator);
+            Assert.Equal(BinaryOperator.Plus, binary.Left.As<BinaryExpression>().Operator);
         }
 
         [Theory]

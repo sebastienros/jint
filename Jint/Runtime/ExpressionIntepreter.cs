@@ -50,7 +50,7 @@ namespace Jint.Runtime
                 throw new JavaScriptException(_engine.ReferenceError);
             }
 
-            if (assignmentExpression.Operator == "=")
+            if (assignmentExpression.Operator == AssignmentOperator.Assign) // "="
             {
  
                 if(lref.IsStrict() && lref.GetBase().TryCast<EnvironmentRecord>() != null && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
@@ -66,7 +66,7 @@ namespace Jint.Runtime
 
             switch (assignmentExpression.Operator)
             {
-                case "+=":
+                case AssignmentOperator.PlusAssign:
                     var lprim = TypeConverter.ToPrimitive(lval);
                     var rprim = TypeConverter.ToPrimitive(rval);
                     if (lprim.IsString() || rprim.IsString())
@@ -79,11 +79,11 @@ namespace Jint.Runtime
                     }
                     break;
 
-                case "-=":
+                case AssignmentOperator.MinusAssign:
                     lval = TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval);
                     break;
 
-                case "*=":
+                case AssignmentOperator.TimesAssign:
                     if (lval == Undefined.Instance || rval == Undefined.Instance)
                     {
                         lval = Undefined.Instance;
@@ -94,11 +94,11 @@ namespace Jint.Runtime
                     }
                     break;
 
-                case "/=":
+                case AssignmentOperator.DivideAssign:
                     lval = Divide(lval, rval);
                     break;
 
-                case "%=":
+                case AssignmentOperator.ModuloAssign:
                     if (lval == Undefined.Instance || rval == Undefined.Instance)
                     {
                         lval = Undefined.Instance;
@@ -109,27 +109,27 @@ namespace Jint.Runtime
                     }
                     break;
 
-                case "&=":
+                case AssignmentOperator.BitwiseAndAssign:
                     lval = TypeConverter.ToInt32(lval) & TypeConverter.ToInt32(rval);
                     break;
 
-                case "|=":
+                case AssignmentOperator.BitwiseOrAssign:
                     lval = TypeConverter.ToInt32(lval) | TypeConverter.ToInt32(rval);
                     break;
 
-                case "^=":
+                case AssignmentOperator.BitwiseXOrAssign:
                     lval = TypeConverter.ToInt32(lval) ^ TypeConverter.ToInt32(rval);
                     break;
 
-                case "<<=":
+                case AssignmentOperator.LeftShiftAssign:
                     lval = TypeConverter.ToInt32(lval) << (int)(TypeConverter.ToUint32(rval) & 0x1F);
                     break;
 
-                case ">>=":
+                case AssignmentOperator.RightShiftAssign:
                     lval = TypeConverter.ToInt32(lval) >> (int)(TypeConverter.ToUint32(rval) & 0x1F);
                     break;
 
-                case ">>>=":
+                case AssignmentOperator.UnsignedRightShiftAssign:
                     lval = (uint)TypeConverter.ToInt32(lval) >> (int)(TypeConverter.ToUint32(rval) & 0x1F);
                     break;
                 
@@ -199,9 +199,10 @@ namespace Jint.Runtime
             JsValue right = _engine.GetValue(EvaluateExpression(expression.Right));
             JsValue value;
 
+              
             switch (expression.Operator)
             {
-                case "+":
+                case BinaryOperator.Plus:
                     var lprim = TypeConverter.ToPrimitive(left);
                     var rprim = TypeConverter.ToPrimitive(right);
                     if (lprim.IsString() || rprim.IsString())
@@ -214,11 +215,11 @@ namespace Jint.Runtime
                     }
                     break;
                 
-                case "-":
+                case BinaryOperator.Minus:
                     value = TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right);
                     break;
                 
-                case "*":
+                case BinaryOperator.Times:
                     if (left == Undefined.Instance || right == Undefined.Instance)
                     {
                         value = Undefined.Instance;
@@ -229,11 +230,11 @@ namespace Jint.Runtime
                     }
                     break;
                 
-                case "/":
+                case BinaryOperator.Divide:
                     value = Divide(left, right);
                     break;
 
-                case "%":
+                case BinaryOperator.Modulo:
                     if (left == Undefined.Instance || right == Undefined.Instance)
                     {
                         value = Undefined.Instance;
@@ -244,15 +245,15 @@ namespace Jint.Runtime
                     }
                     break;
 
-                case "==":
+                case BinaryOperator.Equal:
                     value = Equal(left, right);
                     break;
                 
-                case "!=":
+                case BinaryOperator.NotEqual:
                     value = !Equal(left, right);
                     break;
                 
-                case ">":
+                case BinaryOperator.Greater:
                     value = Compare(right, left, false);
                     if (value == Undefined.Instance)
                     {
@@ -260,7 +261,7 @@ namespace Jint.Runtime
                     }
                     break;
 
-                case ">=":
+                case BinaryOperator.GreaterOrEqual:
                     value = Compare(left, right);
                     if (value == Undefined.Instance || value.AsBoolean())
                     {
@@ -272,7 +273,7 @@ namespace Jint.Runtime
                     }
                     break;
                 
-                case "<":
+                case BinaryOperator.Less:
                     value = Compare(left, right);
                     if (value == Undefined.Instance)
                     {
@@ -280,7 +281,7 @@ namespace Jint.Runtime
                     }
                     break;
                 
-                case "<=":
+                case BinaryOperator.LessOrEqual:
                     value = Compare(right, left, false);
                     if (value == Undefined.Instance || value.AsBoolean())
                     {
@@ -292,31 +293,31 @@ namespace Jint.Runtime
                     }
                     break;
                 
-                case "===":
+                case BinaryOperator.StrictlyEqual:
                     return StrictlyEqual(left, right);
                 
-                case "!==":
+                case BinaryOperator.StricltyNotEqual:
                     return !StrictlyEqual(left, right);
 
-                case "&":
+                case BinaryOperator.BitwiseAnd:
                     return TypeConverter.ToInt32(left) & TypeConverter.ToInt32(right);
 
-                case "|":
+                case BinaryOperator.BitwiseOr:
                     return TypeConverter.ToInt32(left) | TypeConverter.ToInt32(right);
 
-                case "^":
+                case BinaryOperator.BitwiseXOr:
                     return TypeConverter.ToInt32(left) ^ TypeConverter.ToInt32(right);
 
-                case "<<":
+                case BinaryOperator.LeftShift:
                     return TypeConverter.ToInt32(left) << (int)(TypeConverter.ToUint32(right) & 0x1F);
 
-                case ">>":
+                case BinaryOperator.RightShift:
                     return TypeConverter.ToInt32(left) >> (int)(TypeConverter.ToUint32(right) & 0x1F);
 
-                case ">>>":
+                case BinaryOperator.UnsignedRightShift:
                     return (uint)TypeConverter.ToInt32(left) >> (int)(TypeConverter.ToUint32(right) & 0x1F);
 
-                case "instanceof":
+                case BinaryOperator.InstanceOf:
                     var f = right.TryCast<FunctionInstance>();
 
                     if (f == null)
@@ -327,7 +328,7 @@ namespace Jint.Runtime
                     value = f.HasInstance(left);
                     break;
                 
-                case "in":
+                case BinaryOperator.In:
                     if (!right.IsObject())
                     {
                         throw new JavaScriptException(_engine.TypeError, "in can only be used with an object");
@@ -350,7 +351,7 @@ namespace Jint.Runtime
             switch (logicalExpression.Operator)
             {
 
-                case "&&":
+                case LogicalOperator.LogicalAnd:
                     if (!TypeConverter.ToBoolean(left))
                     {
                         return left;
@@ -358,7 +359,7 @@ namespace Jint.Runtime
 
                     return _engine.GetValue(EvaluateExpression(logicalExpression.Right));
 
-                case "||":
+                case LogicalOperator.LogicalOr:
                     if (TypeConverter.ToBoolean(left))
                     {
                         return left;
@@ -857,7 +858,7 @@ namespace Jint.Runtime
 
             switch (updateExpression.Operator)
             {
-                case "++":
+                case UnaryOperator.Increment:
                     r = value as Reference;
                     if (r != null
                         && r.IsStrict()
@@ -873,7 +874,7 @@ namespace Jint.Runtime
 
                     return updateExpression.Prefix ? newValue : oldValue;
 
-                case "--":
+                case UnaryOperator.Decrement:
                     r = value as Reference;
                     if (r != null
                         && r.IsStrict()
@@ -942,20 +943,20 @@ namespace Jint.Runtime
 
             switch (unaryExpression.Operator)
             {
-                case "+":
+                case UnaryOperator.Plus:
                     return TypeConverter.ToNumber(_engine.GetValue(value));
                     
-                case "-":
+                case UnaryOperator.Minus:
                     var n = TypeConverter.ToNumber(_engine.GetValue(value));
                     return double.IsNaN(n) ? double.NaN : n*-1;
                 
-                case "~":
+                case UnaryOperator.BitwiseNot:
                     return ~TypeConverter.ToInt32(_engine.GetValue(value));
                 
-                case "!":
+                case UnaryOperator.LogicalNot:
                     return !TypeConverter.ToBoolean(_engine.GetValue(value));
                 
-                case "delete":
+                case UnaryOperator.Delete:
                     r = value as Reference;
                     if (r == null)
                     {
@@ -982,11 +983,11 @@ namespace Jint.Runtime
                     var bindings = r.GetBase().TryCast<EnvironmentRecord>();
                     return bindings.DeleteBinding(r.GetReferencedName());
                 
-                case "void":
+                case UnaryOperator.Void:
                     _engine.GetValue(value);
                     return Undefined.Instance;
 
-                case "typeof":
+                case UnaryOperator.TypeOf:
                     r = value as Reference;
                     if (r != null)
                     {
