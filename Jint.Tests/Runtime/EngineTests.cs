@@ -660,31 +660,6 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldComputeFastDtoaFaster()
-        {
-            const int iterations = 100000;
-
-            var sw = new Stopwatch();
-            string result = "";
-            double d = 0.2388906159889881;
-            long standard, fastDtoa;
-
-            sw.Restart();
-            for (int i = 0; i < iterations; i++)
-            {
-                result = FastDtoa.NumberToString(d);
-            }
-            Console.WriteLine("{0}: {1}", result, fastDtoa = sw.ElapsedMilliseconds);
-
-            sw.Restart();
-            for (int i = 0; i < iterations; i++)
-            {
-                result = d.ToString("r");
-            }
-            Console.WriteLine("{0}: {1}", result, standard = sw.ElapsedMilliseconds);
-        }
-
-        [Fact]
         public void ShouldInvokeAFunctionValue()
         {
             RunTest(@"
