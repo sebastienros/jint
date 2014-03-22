@@ -5,7 +5,7 @@
     <version>$version$</version>
     <owners>Sebastien Ros</owners>
     <authors>Sebastien Ros</authors>
-    <description>$description$</description>
+    <description>Javascript Interpreter for .NET</description>
     <language>en-US</language>
     <projectUrl>http://github.com/sebastienros/jint</projectUrl>
     <licenseUrl>https://raw.github.com/sebastienros/jint/master/LICENSE.txt</licenseUrl>
