@@ -3,8 +3,8 @@
   <metadata>
     <id>Jint</id>
     <version>$version$</version>
-    <owners>$author$</owners>
-    <authors>$author$</authors>
+    <owners>Sebastien Ros</owners>
+    <authors>Sebastien Ros</authors>
     <description>$description$</description>
     <language>en-US</language>
     <projectUrl>http://github.com/sebastienros/jint</projectUrl>
