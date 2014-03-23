@@ -95,6 +95,15 @@ and then to assign local namespaces the same way `System` does it for you, use `
     jint> var bar = new Foo.Bar();
     jint> log(bar.ToString());
 ```    
+Generic types are also supported. Here is how to declare, instantiate and use a `List<string>`:
+```javascript
+    jint> var ListOfString = System.Collections.Generic.List(System.String);
+    jint> var list = new ListOfString();
+    jint> list.Add('foo');
+    jint> list.Add(1); // automatically converted to String
+    jint> list.Count; // 2
+```
+
 ## Implemented features:
 
 - ECMAScript 5.1 test suite (http://test262.ecmascript.org/) 
