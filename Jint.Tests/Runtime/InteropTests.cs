@@ -336,7 +336,7 @@ namespace Jint.Tests.Runtime
         {
             var result = _engine
                 .SetValue("values", new List<object> { 1, 2, 3, 4, 5, 6 })
-                .Execute("values.filter(function(x){ return x % 2 == 0; })");
+                .Execute("new Array(values).filter(function(x){ return x % 2 == 0; })");
 
             var parts = result.GetCompletionValue().ToObject();
 
@@ -591,7 +591,16 @@ namespace Jint.Tests.Runtime
             ");
         }
 
-
-
+        [Fact]
+        public void ShouldCreateGenericType()
+        {
+            RunTest(@"
+                var ListOfString = System.Collections.Generic.List(System.String);
+                var list = new ListOfString();
+                list.Add('foo');
+                list.Add(1);
+                assert(2 === list.Count);
+            ");
+        }
     }
 }

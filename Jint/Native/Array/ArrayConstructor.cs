@@ -1,4 +1,5 @@
-﻿using Jint.Native.Function;
+﻿using System.Collections;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
@@ -67,6 +68,22 @@ namespace Jint.Native.Array
                 }
                 
                 instance.FastAddProperty("length", length, true, false, false);
+            }
+            else if (arguments.Length == 1 && arguments.At(0).IsObject() && arguments.At(0).As<ObjectWrapper>() != null )
+            {
+                var enumerable = arguments.At(0).As<ObjectWrapper>().Target as IEnumerable;
+
+                if (enumerable != null)
+                {
+                    var jsArray = Engine.Array.Construct(Arguments.Empty);
+                    foreach (var item in enumerable)
+                    {
+                        var jsItem = JsValue.FromObject(Engine, item);
+                        Engine.Array.PrototypeObject.Push(jsArray, Arguments.From(jsItem));
+                    }
+
+                    return jsArray;
+                }
             }
             else
             {

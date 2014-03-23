@@ -139,7 +139,7 @@ namespace Jint.Runtime.Interop
 
         public override string Class
         {
-            get { return Type.FullName; }
+            get { return "TypeReference"; }
         }
     }
 }

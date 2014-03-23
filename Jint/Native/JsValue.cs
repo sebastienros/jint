@@ -348,7 +348,7 @@ namespace Jint.Native
                 return (JsValue) value;
             }
 
-            var array = value as IEnumerable;
+            var array = value as System.Array;
             if (array != null)
             {
                 var jsArray = engine.Array.Construct(Arguments.Empty);

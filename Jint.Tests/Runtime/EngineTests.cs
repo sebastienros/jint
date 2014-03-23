@@ -1,11 +1,9 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Threading;
 using Jint.Native.Number;
-using Jint.Native.Number.Dtoa;
 using Jint.Runtime;
 using Xunit;
 using Xunit.Extensions;
