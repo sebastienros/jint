@@ -79,6 +79,21 @@
       <Name>Jint</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Parser\Scripts\underscore.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Parser\Scripts\mootools.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Parser\Scripts\angular.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Parser\Scripts\backbone.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Parser\Scripts\JSXTransformer.js" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
