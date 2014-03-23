@@ -41,8 +41,9 @@
     <Reference Include="IronJS">
       <HintPath>..\packages\IronJS.Core.0.2.0.1\lib\net40\IronJS.dll</HintPath>
     </Reference>
-    <Reference Include="Jurassic">
-      <HintPath>..\packages\Jurassic.2.1.1\lib\Jurassic.dll</HintPath>
+    <Reference Include="Jurassic, Version=2.1.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\Jurassic.2.2.0\lib\Jurassic.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Dynamic">
       <HintPath>..\packages\IronJS.Core.0.2.0.1\lib\net40\Microsoft.Dynamic.dll</HintPath>
