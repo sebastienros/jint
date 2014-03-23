@@ -3,7 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
+#if !__IOS__
 using System.Dynamic;
+#endif
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -484,21 +486,22 @@ namespace Jint.Native
                             break;
 
                         case "Object":
-                            IDictionary<string, object> o = new ExpandoObject();
+                            #if __IOS__
+                                IDictionary<string, object> o = new Dictionary<string, object>();
+                            #else
+                                IDictionary<string, object> o = new ExpandoObject();
+                            #endif
                             foreach (var p in _object.Properties)
                             {
                                 if (!p.Value.Enumerable.HasValue || p.Value.Enumerable.Value == false)
                                 {
                                     continue;
                                 }
-
                                 o.Add(p.Key, _object.Get(p.Key).ToObject());
                             }
-
-                            return o;
+                            return o;                            
                     }
-
-
+                    
                     return _object;
                 default:
                     throw new ArgumentOutOfRangeException();

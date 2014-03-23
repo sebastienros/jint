@@ -1,0 +1,17 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" PreferredExecutionTarget="MonoDevelop.IPhone.IPhoneSimulatorTarget.IPhoneRetina.7.0" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="../Jint.Fred/JsLibUnitTestRunner/Program.cs">
+    <Files>
+      <File FileName="../Jint.Fred/JsLibUnitTestRunner/fjs_lib_UnitTestRunnerViewController.cs" Line="1" Column="1" />
+      <File FileName="../Jint.Fred/JsLibUnitTestRunner/Program.cs" Line="86" Column="25" />
+      <File FileName="Engine.cs" Line="1" Column="1" />
+      <File FileName="Native/JsValue.cs" Line="1" Column="1" />
+      <File FileName="../Jint.Fred/JsLibUnitTestRunner/fjs_lib_UnitTestRunnerViewController.designer.cs" Line="1" Column="1" />
+      <File FileName="Runtime/Interop/DelegateWrapper.cs" Line="1" Column="1" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>
