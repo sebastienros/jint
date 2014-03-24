@@ -63,7 +63,7 @@ namespace Jint.Parser
         static JavaScriptParser()
         {
             WhiteSpaceMap = new BitArray(0xFEFF+1);
-
+            #region WhiteSpaceMap
             WhiteSpaceMap[9] = true;
             WhiteSpaceMap[32] = true;
             WhiteSpaceMap[0xB] = true;
@@ -71,15 +71,30 @@ namespace Jint.Parser
             WhiteSpaceMap[0xA0] = true;
             WhiteSpaceMap[0x1680] = true;
             WhiteSpaceMap[0x180E] = true;
-            for (var i = 0x2000; i <= 0x200A; i++)
-            {
-                WhiteSpaceMap[i] = true;
-            }
+            WhiteSpaceMap[0x2000] = true;
+            WhiteSpaceMap[0x2001] = true;
+            WhiteSpaceMap[0x2002] = true;
+            WhiteSpaceMap[0x2003] = true;
+            WhiteSpaceMap[0x2004] = true;
+            WhiteSpaceMap[0x2005] = true;
+            WhiteSpaceMap[0x2006] = true;
+            WhiteSpaceMap[0x2007] = true;
+            WhiteSpaceMap[0x2008] = true;
+            WhiteSpaceMap[0x2009] = true;
+            WhiteSpaceMap[0x200A] = true;
             WhiteSpaceMap[0x202F] = true;
             WhiteSpaceMap[0x205F] = true;
             WhiteSpaceMap[0x3000] = true;
             WhiteSpaceMap[0xFEFF] = true;
+            #endregion
 
+            LineTerminatorMap = new BitArray(0x2029+1);
+            #region LineTerminatorMap
+            LineTerminatorMap[10] = true;
+            LineTerminatorMap[13] = true;
+            LineTerminatorMap[0x2028] = true;
+            LineTerminatorMap[0x2029] = true;
+            #endregion 
         }
 
         public JavaScriptParser()
@@ -115,16 +130,17 @@ namespace Jint.Parser
         // 7.2 White Space
         private static readonly BitArray WhiteSpaceMap;
 
+        public static bool IsWhiteSpace(char ch)
+        {
+            return ch <= 0xFEFF && WhiteSpaceMap[ch];
+        }
 
         // 7.3 Line Terminators
-
+        private static readonly BitArray LineTerminatorMap;
         private static bool IsLineTerminator(char ch)
         {
-            return (ch == 10) 
-                || (ch == 13) 
-                || (ch == 0x2028) // line separator
-                || (ch == 0x2029) // paragraph separator
-                ;
+            // todo: original method seems to be faster 
+            return ch <= 0x2029 && LineTerminatorMap[ch];
         }
 
         // 7.6 Identifier Names and Identifiers
