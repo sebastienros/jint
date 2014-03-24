@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -51,7 +52,7 @@ namespace Jint.Parser
         private int _lineStart;
         private Location _location;
         private Token _lookahead;
-        private string _source;
+        private SourceReader _source;
 
         private State _state;
         private bool _strict;
@@ -59,6 +60,27 @@ namespace Jint.Parser
         private readonly Stack<IVariableScope> _variableScopes = new Stack<IVariableScope>();
         private readonly Stack<IFunctionScope> _functionScopes = new Stack<IFunctionScope>();
 
+        static JavaScriptParser()
+        {
+            WhiteSpaceMap = new BitArray(0xFEFF+1);
+
+            WhiteSpaceMap[9] = true;
+            WhiteSpaceMap[32] = true;
+            WhiteSpaceMap[0xB] = true;
+            WhiteSpaceMap[0xC] = true;
+            WhiteSpaceMap[0xA0] = true;
+            WhiteSpaceMap[0x1680] = true;
+            WhiteSpaceMap[0x180E] = true;
+            for (var i = 0x2000; i <= 0x200A; i++)
+            {
+                WhiteSpaceMap[i] = true;
+            }
+            WhiteSpaceMap[0x202F] = true;
+            WhiteSpaceMap[0x205F] = true;
+            WhiteSpaceMap[0x3000] = true;
+            WhiteSpaceMap[0xFEFF] = true;
+
+        }
 
         public JavaScriptParser()
         {
@@ -91,23 +113,8 @@ namespace Jint.Parser
 
 
         // 7.2 White Space
+        private static readonly BitArray WhiteSpaceMap;
 
-        private static bool IsWhiteSpace(char ch)
-        {
-            return (ch == 32) || // space
-                   (ch == 9) || // tab
-                   (ch == 0xB) ||
-                   (ch == 0xC) ||
-                   (ch == 0xA0) ||
-                   (ch >= 0x1680 && (
-                                        ch == 0x1680 ||
-                                        ch == 0x180E ||
-                                        (ch >= 0x2000 && ch <= 0x200A) ||
-                                        ch == 0x202F ||
-                                        ch == 0x205F ||
-                                        ch == 0x3000 ||
-                                        ch == 0xFEFF));
-        }
 
         // 7.3 Line Terminators
 
@@ -328,7 +335,7 @@ namespace Jint.Parser
             {
                 char ch = _source.CharCodeAt(_index);
 
-                if (IsWhiteSpace(ch))
+                if (WhiteSpaceMap[ch])
                 {
                     ++_index;
                 }
@@ -3864,11 +3871,11 @@ namespace Jint.Parser
         {
             Program program;
 
-            _source = code;
+            _source = new SourceReader(code);
             _index = 0;
-            _lineNumber = (_source.Length > 0) ? 1 : 0;
+            _lineNumber = (code.Length > 0) ? 1 : 0;
             _lineStart = 0;
-            _length = _source.Length;
+            _length = code.Length;
             _lookahead = null;
             _state = new State
             {
@@ -3940,11 +3947,11 @@ namespace Jint.Parser
 
         public FunctionExpression ParseFunctionExpression(string functionExpression)
         {
-            _source = functionExpression;
+            _source = new SourceReader(functionExpression);
             _index = 0;
-            _lineNumber = (_source.Length > 0) ? 1 : 0;
+            _lineNumber = (functionExpression.Length > 0) ? 1 : 0;
             _lineStart = 0;
-            _length = _source.Length;
+            _length = functionExpression.Length;
             _lookahead = null;
             _state = new State
             {

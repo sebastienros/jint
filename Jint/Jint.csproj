@@ -155,6 +155,7 @@
     <Compile Include="Parser\ParserExtensions.cs" />
     <Compile Include="Parser\ParserOptions.cs" />
     <Compile Include="Parser\Position.cs" />
+    <Compile Include="Parser\SourceReader.cs" />
     <Compile Include="Parser\State.cs" />
     <Compile Include="Parser\Token.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

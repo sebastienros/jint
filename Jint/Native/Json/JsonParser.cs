@@ -26,7 +26,7 @@ namespace Jint.Native.Json
         private int _lineStart;
         private Location _location;
         private Token _lookahead;
-        private string _source;
+        private SourceReader _source;
 
         private State _state;
 
@@ -797,11 +797,11 @@ namespace Jint.Native.Json
 
         public JsValue Parse(string code, ParserOptions options)
         {
-            _source = code;
+            _source = new SourceReader(code);
             _index = 0;
-            _lineNumber = (_source.Length > 0) ? 1 : 0;
+            _lineNumber = (code.Length > 0) ? 1 : 0;
             _lineStart = 0;
-            _length = _source.Length;
+            _length = code.Length;
             _lookahead = null;
             _state = new State
                 {
