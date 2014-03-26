@@ -602,5 +602,53 @@ namespace Jint.Tests.Runtime
                 assert(2 === list.Count);
             ");
         }
+
+
+        [Fact]
+        public void EnumIsConvertedToNumber()
+        {
+            var o = new
+            {
+                r = Colors.Red,
+                b = Colors.Blue,
+                g = Colors.Green
+            };
+
+            _engine.SetValue("o", o);
+
+            RunTest(@"
+                assert(o.r === 0);
+                assert(o.g === 1);
+                assert(o.b === 10);
+            ");
+        }
+
+
+        [Fact]
+        public void ShouldConvertToEnum()
+        {
+            var s = new Circle
+            {
+                Color = Colors.Red,
+            };
+
+            _engine.SetValue("s", s);
+
+            RunTest(@"
+                assert(s.Color === 0);
+                s.Color = 10;
+                assert(s.Color === 10);
+            ");
+
+            _engine.SetValue("s", s);
+
+            RunTest(@"
+                s.Color = 11;
+                assert(s.Color === 11);
+            ");
+
+            Assert.Equal(Colors.Blue | Colors.Green, s.Color);
+        }
+
     }
 }

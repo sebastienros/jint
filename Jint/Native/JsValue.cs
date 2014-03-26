@@ -374,6 +374,11 @@ namespace Jint.Native
                 return new DelegateWrapper(engine, d);
             }
 
+            if (value.GetType().IsEnum)
+            {
+                return new JsValue((Int32)value);
+            }
+
             // if no known type could be guessed, wrap it as an ObjectInstance
             return new ObjectWrapper(engine, value);
         }

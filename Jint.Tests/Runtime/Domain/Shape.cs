@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Jint.Tests.Runtime.Domain;
 
 namespace Shapes
 {
     public abstract class Shape
     {
         public abstract double Perimeter();
+        public Colors Color { get; set; }
+
     }
 
     public class Circle : Shape

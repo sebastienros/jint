@@ -12,6 +12,17 @@ namespace Jint.Runtime.Interop
                 return value;
             }
 
+            if (type.IsEnum)
+            {
+                var integer = System.Convert.ChangeType(value, typeof (int), formatProvider);
+                if (integer == null)
+                {
+                    throw new ArgumentOutOfRangeException();
+                }
+
+                return Enum.ToObject(type, integer);
+            }
+
             return System.Convert.ChangeType(value, type, formatProvider);
         }
     }
