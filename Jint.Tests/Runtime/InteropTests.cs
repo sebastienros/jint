@@ -460,6 +460,16 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldExecuteFunctionCallBackAsPredicate()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+                assert(a.Call7('foo', function(a){ return a === 'foo'; }) === true);
+            ");
+        }
+
+        [Fact]
         public void ShouldUseSystemIO()
         {
             RunTest(@"

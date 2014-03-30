@@ -32,7 +32,8 @@ namespace Jint
         private readonly Stack<ExecutionContext> _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
-        
+        public ITypeConverter ClrTypeConverter;
+
         // cache of types used when resolving CLR type names
         internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>(); 
 
@@ -128,6 +129,8 @@ namespace Jint
                     return new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)));
                 }), false, false, false);
             }
+
+            ClrTypeConverter = new DefaultTypeConverter(this);
         }
 
         public LexicalEnvironment GlobalEnvironment;

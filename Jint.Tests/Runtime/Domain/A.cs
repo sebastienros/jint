@@ -45,5 +45,11 @@ namespace Jint.Tests.Runtime.Domain
 
             return callback(thisArg, arguments).ToString();
         }
+
+        public bool Call7(string str, Func<string, bool> predicate)
+        {
+            return predicate(str);
+        }
+
     }
 }

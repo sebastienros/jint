@@ -40,7 +40,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                     obj = currentValue.ToObject();
                     if (obj.GetType() != _propertyInfo.PropertyType)
                     {
-                        obj = _engine.Options.GetTypeConverter().Convert(obj, _propertyInfo.PropertyType, CultureInfo.InvariantCulture);
+                        obj = _engine.ClrTypeConverter.Convert(obj, _propertyInfo.PropertyType, CultureInfo.InvariantCulture);
                     }
                 }
                 
