@@ -312,7 +312,7 @@ namespace Jint.Parser
                     _lineStart = _index;
                     if (_index >= _length)
                     {
-                        ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+                        ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
                     }
                 }
                 else if (ch == 42)
@@ -342,7 +342,7 @@ namespace Jint.Parser
                 }
             }
 
-            ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+            ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
         }
 
         private void SkipComment()
@@ -430,13 +430,13 @@ namespace Jint.Parser
             {
                 if (_source.CharCodeAt(_index) != 117)
                 {
-                    ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+                    ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
                 }
                 ++_index;
 
                 if (!ScanHexEscape('u', out ch) || ch == '\\' || !IsIdentifierStart(ch))
                 {
-                    ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+                    ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
                 }
                 id = new StringBuilder(ch.ToString());
             }
@@ -456,13 +456,13 @@ namespace Jint.Parser
                 {
                     if (_source.CharCodeAt(_index) != 117)
                     {
-                        ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+                        ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
                     }
                     ++_index;
 
                     if (!ScanHexEscape('u', out ch) || ch == '\\' || !IsIdentifierPart(ch))
                     {
-                        ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+                        ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
                     }
                     id.Append(ch);
                 }
@@ -537,7 +537,8 @@ namespace Jint.Parser
                     Value = id,
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
-                    Range = new[] {start, _index}
+                    Start = start,
+                    End = _index
                 };
         }
 
@@ -573,14 +574,15 @@ namespace Jint.Parser
                             Value = code.ToString(),
                             LineNumber = _lineNumber,
                             LineStart = _lineStart,
-                            Range = new[] {start, _index}
+                            Start = start,
+                            End = _index
                         };
 
                 default:
                     char code2 = _source.CharCodeAt(_index + 1);
 
                     // '=' (char #61) marks an assignment or comparison operator.
-                    if (code2 == 61)
+                    if (code2 == 0x3D)
                     {
                         switch ((int) code)
                         {
@@ -598,12 +600,11 @@ namespace Jint.Parser
                                 return new Token
                                     {
                                         Type = Tokens.Punctuator,
-                                        Value =
-                                            code.ToString() +
-                                            code2.ToString(),
+                                        Value = code + code2,
                                         LineNumber = _lineNumber,
                                         LineStart = _lineStart,
-                                        Range = new[] {start, _index}
+                                        Start = start,
+                                        End = _index
                                     };
 
                             case 33: // !
@@ -621,7 +622,8 @@ namespace Jint.Parser
                                         Value = _source.Slice(start, _index),
                                         LineNumber = _lineNumber,
                                         LineStart = _lineStart,
-                                        Range = new[] {start, _index}
+                                        Start = start,
+                                        End = _index
                                     };
                         }
                     }
@@ -647,7 +649,8 @@ namespace Jint.Parser
                             Value = ">>>=",
                             LineNumber = _lineNumber,
                             LineStart = _lineStart,
-                            Range = new[] {start, _index}
+                            Start = start,
+                            End = _index
                         };
                 }
             }
@@ -663,7 +666,8 @@ namespace Jint.Parser
                         Value = ">>>",
                         LineNumber = _lineNumber,
                         LineStart = _lineStart,
-                        Range = new[] {start, _index}
+                        Start = start,
+                        End = _index
                     };
             }
 
@@ -676,7 +680,8 @@ namespace Jint.Parser
                         Value = "<<=",
                         LineNumber = _lineNumber,
                         LineStart = _lineStart,
-                        Range = new[] {start, _index}
+                        Start = start,
+                        End = _index
                     };
             }
 
@@ -689,7 +694,8 @@ namespace Jint.Parser
                         Value = ">>=",
                         LineNumber = _lineNumber,
                         LineStart = _lineStart,
-                        Range = new[] {start, _index}
+                        Start = start,
+                        End = _index
                     };
             }
 
@@ -704,7 +710,8 @@ namespace Jint.Parser
                         Value = ch1.ToString() + ch2.ToString(),
                         LineNumber = _lineNumber,
                         LineStart = _lineStart,
-                        Range = new[] {start, _index}
+                        Start = start,
+                        End = _index
                     };
             }
 
@@ -717,13 +724,14 @@ namespace Jint.Parser
                         Value = ch1.ToString(),
                         LineNumber = _lineNumber,
                         LineStart = _lineStart,
-                        Range = new[] {start, _index}
+                        Start = start,
+                        End = _index
                     };
             }
 
-            ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+            ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
 
-            return null;
+            return Token.Empty;
         }
 
         // 7.8.3 Numeric Literals
@@ -743,12 +751,12 @@ namespace Jint.Parser
 
             if (number.Length == 0)
             {
-                ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+                ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
             }
 
             if (IsIdentifierStart(_source.CharCodeAt(_index)))
             {
-                ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+                ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
             }
 
             return new Token
@@ -757,7 +765,8 @@ namespace Jint.Parser
                     Value = Convert.ToInt64(number, 16),
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
-                    Range = new[] {start, _index}
+                    Start = start,
+                    End = _index
                 };
         }
 
@@ -775,7 +784,7 @@ namespace Jint.Parser
 
             if (IsIdentifierStart(_source.CharCodeAt(_index)) || IsDecimalDigit(_source.CharCodeAt(_index)))
             {
-                ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+                ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
             }
 
             return new Token
@@ -785,7 +794,8 @@ namespace Jint.Parser
                     Octal = true,
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
-                    Range = new[] {start, _index}
+                    Start = start,
+                    End = _index
                 };
         }
 
@@ -817,7 +827,7 @@ namespace Jint.Parser
                     // decimal number starts with '0' such as '09' is illegal.
                     if (ch > 0 && IsDecimalDigit(ch))
                     {
-                        ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+                        ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
                     }
                 }
 
@@ -856,13 +866,13 @@ namespace Jint.Parser
                 }
                 else
                 {
-                    ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+                    ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
                 }
             }
 
             if (IsIdentifierStart(_source.CharCodeAt(_index)))
             {
-                ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+                ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
             }
 
             double n;
@@ -894,7 +904,8 @@ namespace Jint.Parser
                     Value = n,
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
-                    Range = new[] {start, _index}
+                    Start = start,
+                    End = _index
                 };
         }
 
@@ -1015,7 +1026,7 @@ namespace Jint.Parser
 
             if (quote != 0)
             {
-                ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
+                ThrowError(Token.Empty, Messages.UnexpectedToken, "ILLEGAL");
             }
 
             return new Token
@@ -1025,7 +1036,8 @@ namespace Jint.Parser
                     Octal = octal,
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
-                    Range = new[] {start, _index}
+                    Start = start,
+                    End = _index
                 };
         }
 
@@ -1052,13 +1064,13 @@ namespace Jint.Parser
                     // ECMA-262 7.8.5
                     if (IsLineTerminator(ch))
                     {
-                        ThrowError(null, Messages.UnterminatedRegExp);
+                        ThrowError(Token.Empty, Messages.UnterminatedRegExp);
                     }
                     str.Append(ch);
                 }
                 else if (IsLineTerminator(ch))
                 {
-                    ThrowError(null, Messages.UnterminatedRegExp);
+                    ThrowError(Token.Empty, Messages.UnterminatedRegExp);
                 }
                 else if (classMarker)
                 {
@@ -1084,7 +1096,7 @@ namespace Jint.Parser
 
             if (!terminated)
             {
-                ThrowError(null, Messages.UnterminatedRegExp);
+                ThrowError(Token.Empty, Messages.UnterminatedRegExp);
             }
 
             // Exclude leading and trailing slash.
@@ -1141,7 +1153,8 @@ namespace Jint.Parser
                     Type = Tokens.RegularExpression,
                     Literal = str.ToString(),
                     Value = pattern + flags,
-                    Range = new[] {start, _index}
+                    Start = start,
+                    End = _index
                 };
         }
 
@@ -1170,7 +1183,7 @@ namespace Jint.Parser
             if (_extra.Tokens != null)
             {
                 Token token = _extra.Tokens[_extra.Tokens.Count - 1];
-                if (token.Range[0] == pos && token.Type == Tokens.Punctuator)
+                if (token.Start == pos && token.Type == Tokens.Punctuator)
                 {
                     if ("/".Equals(token.Value) || "/=".Equals(token.Value))
                     {
@@ -1182,7 +1195,8 @@ namespace Jint.Parser
                 {
                     Type = Tokens.RegularExpression,
                     Value = regex.Literal,
-                    Range = new[] { pos, _index },
+                    Start = pos,
+                    End = _index,
                     Location = loc
                 });
             }
@@ -1209,7 +1223,8 @@ namespace Jint.Parser
                         Type = Tokens.EOF,
                         LineNumber = _lineNumber,
                         LineStart = _lineStart,
-                        Range = new[] {_index, _index}
+                        Start = _index,
+                        End = _index
                     };
             }
 
@@ -1272,13 +1287,13 @@ namespace Jint.Parser
 
             if (token.Type != Tokens.EOF)
             {
-                var range = new[] {token.Range[0], token.Range[1]};
-                string value = _source.Slice(token.Range[0], token.Range[1]);
+                string value = _source.Slice(token.Start, token.End);
                 _extra.Tokens.Add(new Token
                     {
                         Type = token.Type,
                         Value = value,
-                        Range = range,
+                        Start = token.Start,
+                        End = token.End,
                         Location = _location
                     });
             }
@@ -1289,13 +1304,13 @@ namespace Jint.Parser
         private Token Lex()
         {
             Token token = _lookahead;
-            _index = token.Range[1];
+            _index = token.End;
             _lineNumber = token.LineNumber.HasValue ? token.LineNumber.Value : 0;
             _lineStart = token.LineStart;
 
             _lookahead = (_extra.Tokens != null) ? CollectToken() : Advance();
 
-            _index = token.Range[1];
+            _index = token.End;
             _lineNumber = token.LineNumber.HasValue ? token.LineNumber.Value : 0;
             _lineStart = token.LineStart;
 
@@ -1621,7 +1636,7 @@ namespace Jint.Parser
                 {
                     Type = SyntaxNodes.RegularExpressionLiteral,
                     Value = token.Value,
-                    Raw = _source.Slice(token.Range[0], token.Range[1])
+                    Raw = _source.Slice(token.Start, token.End)
                 };
             }
 
@@ -1629,7 +1644,7 @@ namespace Jint.Parser
                 {
                     Type = SyntaxNodes.Literal,
                     Value = token.Value,
-                    Raw = _source.Slice(token.Range[0], token.Range[1])
+                    Raw = _source.Slice(token.Start, token.End)
                 };
         }
 
@@ -1855,13 +1870,13 @@ namespace Jint.Parser
             ParserError error;
             string msg = String.Format(messageFormat, arguments);
 
-            if (token != null && token.LineNumber.HasValue)
+            if (token != Token.Empty && token.LineNumber.HasValue)
             {
                 error = new ParserError("Line " + token.LineNumber + ": " + msg)
                     {
-                        Index = token.Range[0],
+                        Index = token.Start,
                         LineNumber = token.LineNumber.Value,
-                        Column = token.Range[0] - _lineStart + 1
+                        Column = token.Start - _lineStart + 1
                     };
             }
             else
@@ -2068,7 +2083,7 @@ namespace Jint.Parser
 
         // 11.1.5 Object Initialiser
 
-        private FunctionExpression ParsePropertyFunction(Identifier[] parameters, Token first = null)
+        private FunctionExpression ParsePropertyFunction(Identifier[] parameters, Token first)
         {
             EnterVariableScope();
             EnterFunctionScope();
@@ -2076,7 +2091,7 @@ namespace Jint.Parser
             bool previousStrict = _strict;
             MarkStart();
             Statement body = ParseFunctionSourceElements();
-            if (first != null && _strict && IsRestrictedWord(parameters[0].Name))
+            if (first != Token.Empty && _strict && IsRestrictedWord(parameters[0].Name))
             {
                 ThrowErrorTolerant(first, Messages.StrictParamName);
             }
@@ -2123,7 +2138,7 @@ namespace Jint.Parser
                     var key = ParseObjectPropertyKey();
                     Expect("(");
                     Expect(")");
-                    value = ParsePropertyFunction(new Identifier[0]);
+                    value = ParsePropertyFunction(new Identifier[0], Token.Empty);
                     return MarkEnd(CreateProperty(PropertyKind.Get, key, value));
                 }
                 if ("set".Equals(token.Value) && !Match(":"))
@@ -2135,7 +2150,7 @@ namespace Jint.Parser
                     {
                         Expect(")");
                         ThrowErrorTolerant(token, Messages.UnexpectedToken, (string) token.Value);
-                        value = ParsePropertyFunction(new Identifier[0]);
+                        value = ParsePropertyFunction(new Identifier[0], Token.Empty);
                     }
                     else
                     {
@@ -2527,7 +2542,7 @@ namespace Jint.Parser
             return MarkEndIf(expr);
         }
 
-        private int binaryPrecedence(Token token, bool allowIn)
+        private int BinaryPrecedence(Token token, bool allowIn)
         {
             int prec = 0;
 
@@ -2614,7 +2629,7 @@ namespace Jint.Parser
             Expression left = ParseUnaryExpression();
 
             Token token = _lookahead;
-            int prec = binaryPrecedence(token, _state.AllowIn);
+            int prec = BinaryPrecedence(token, _state.AllowIn);
             if (prec == 0)
             {
                 return left;
@@ -2627,7 +2642,7 @@ namespace Jint.Parser
 
             var stack = new List<object>( new object[] {left, token, right});
 
-            while ((prec = binaryPrecedence(_lookahead, _state.AllowIn)) > 0)
+            while ((prec = BinaryPrecedence(_lookahead, _state.AllowIn)) > 0)
             {
                 // Reduce: make a binary expression from the three topmost entries.
                 while ((stack.Count > 2) && (prec <= ((Token) stack[stack.Count - 2]).Precedence))
@@ -3516,7 +3531,7 @@ namespace Jint.Parser
                     // this is not directive
                     break;
                 }
-                string directive = _source.Slice(token.Range[0] + 1, token.Range[1] - 1);
+                string directive = _source.Slice(token.Start + 1, token.End - 1);
                 if (directive == "use strict")
                 {
                     _strict = true;
@@ -3825,7 +3840,7 @@ namespace Jint.Parser
                     // this is not directive
                     break;
                 }
-                string directive = _source.Slice(token.Range[0] + 1, token.Range[1] - 1);
+                string directive = _source.Slice(token.Start + 1, token.End - 1);
                 if (directive == "use strict")
                 {
                     _strict = true;
@@ -3892,7 +3907,7 @@ namespace Jint.Parser
             _lineNumber = (code.Length > 0) ? 1 : 0;
             _lineStart = 0;
             _length = code.Length;
-            _lookahead = null;
+            _lookahead = Token.Empty;
             _state = new State
             {
                 AllowIn = true,
@@ -3968,7 +3983,7 @@ namespace Jint.Parser
             _lineNumber = (functionExpression.Length > 0) ? 1 : 0;
             _lineStart = 0;
             _length = functionExpression.Length;
-            _lookahead = null;
+            _lookahead = Token.Empty;
             _state = new State
             {
                 AllowIn = true,
