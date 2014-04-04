@@ -219,7 +219,7 @@ namespace Jint.Native.Json
             return new Token
                 {
                     Type = Tokens.Number,
-                    Value = Double.Parse(number, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent),
+                    Value = Double.Parse(number, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, System.Globalization.CultureInfo.InvariantCulture),
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
                     Range = new[] {start, _index}
