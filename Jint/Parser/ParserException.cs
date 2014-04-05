@@ -2,14 +2,15 @@
 
 namespace Jint.Parser
 {
-    public class ParserError : Exception
+    public class ParserException : Exception
     {
         public int Column;
         public string Description;
         public int Index;
         public int LineNumber;
+        public string Source;
 
-        public ParserError(string message) : base(message)
+        public ParserException(string message) : base(message)
         {
         }
     }

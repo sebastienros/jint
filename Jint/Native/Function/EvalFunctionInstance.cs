@@ -80,7 +80,7 @@ namespace Jint.Native.Function
                     }
                 }
             }
-            catch (ParserError)
+            catch (ParserException)
             {
                 throw new JavaScriptException(Engine.SyntaxError);
             }

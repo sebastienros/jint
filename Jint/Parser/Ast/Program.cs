@@ -12,7 +12,7 @@ namespace Jint.Parser.Ast
 
         public List<Comment> Comments;
         public List<Token> Tokens;
-        public List<ParserError> Errors;
+        public List<ParserException> Errors;
         public bool Strict;
 
         public IList<VariableDeclaration> VariableDeclarations { get; set; }

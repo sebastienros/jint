@@ -603,12 +603,12 @@ namespace Jint.Native.Json
 
         private void ThrowError(Token token, string messageFormat, params object[] arguments)
         {
-            ParserError error;
+            ParserException exception;
             string msg = System.String.Format(messageFormat, arguments);
 
             if (token.LineNumber.HasValue)
             {
-                error = new ParserError("Line " + token.LineNumber + ": " + msg)
+                exception = new ParserException("Line " + token.LineNumber + ": " + msg)
                     {
                         Index = token.Range[0],
                         LineNumber = token.LineNumber.Value,
@@ -617,7 +617,7 @@ namespace Jint.Native.Json
             }
             else
             {
-                error = new ParserError("Line " + _lineNumber + ": " + msg)
+                exception = new ParserException("Line " + _lineNumber + ": " + msg)
                     {
                         Index = _index,
                         LineNumber = _lineNumber,
@@ -625,8 +625,8 @@ namespace Jint.Native.Json
                     };
             }
 
-            error.Description = msg;
-            throw error;
+            exception.Description = msg;
+            throw exception;
         }
 
         // Throw an exception because of the token.

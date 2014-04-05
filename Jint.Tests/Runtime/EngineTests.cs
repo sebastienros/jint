@@ -4,6 +4,8 @@ using System.IO;
 using System.Reflection;
 using System.Threading;
 using Jint.Native.Number;
+using Jint.Parser;
+using Jint.Parser.Ast;
 using Jint.Runtime;
 using Xunit;
 using Xunit.Extensions;
@@ -709,5 +711,32 @@ namespace Jint.Tests.Runtime
             result = engine.Execute("JSON.parse('{\"x\" : 3.3}').x").GetCompletionValue().AsNumber();
             Assert.Equal(3.3d, result);
         }
+
+        [Fact]
+        public void ShouldGetTheLastSyntaxNode()
+        {
+            var engine = new Engine();
+            engine.Execute("1.2");
+
+            var result = engine.GetLastSyntaxNode();
+            Assert.Equal(SyntaxNodes.Literal, result.Type);
+        }
+
+        [Fact]
+        public void ShouldGetParseErrorLocation()
+        {
+            var engine = new Engine();
+            try
+            {
+                engine.Execute("1.2+ new", new ParserOptions { Source = "jQuery.js" });
+            }
+            catch (ParserException e)
+            {
+                Assert.Equal(1, e.LineNumber);
+                Assert.Equal(9, e.Column);
+                Assert.Equal("jQuery.js", e.Source);
+            }
+        }
+
     }
 }

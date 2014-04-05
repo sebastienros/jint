@@ -32,7 +32,8 @@ namespace Jint
         private readonly Stack<ExecutionContext> _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
-        
+        private SyntaxNode _lastSyntaxNode = null;
+
         // cache of types used when resolving CLR type names
         internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>(); 
 
@@ -221,9 +222,16 @@ namespace Jint
             return Execute(parser.Parse(source));
         }
 
+        public Engine Execute(string source, ParserOptions parserOptions)
+        {
+            var parser = new JavaScriptParser();
+            return Execute(parser.Parse(source, parserOptions));
+        }
+
         public Engine Execute(Program program)
         {
             ResetStatementsCount();
+            ResetLastStatement();
 
             using (new StrictModeScope(Options.IsStrict() || program.Strict))
             {
@@ -241,6 +249,11 @@ namespace Jint
             return this;
         }
 
+        private void ResetLastStatement()
+        {
+            _lastSyntaxNode = null;
+        }
+
         /// <summary>
         /// Gets the last evaluated statement completion value
         /// </summary>
@@ -256,6 +269,8 @@ namespace Jint
             {
                 throw new StatementsCountOverflowException();
             }
+
+            _lastSyntaxNode = statement;
 
             switch (statement.Type)
             {
@@ -326,6 +341,8 @@ namespace Jint
 
         public object EvaluateExpression(Expression expression)
         {
+            _lastSyntaxNode = expression;
+
             switch (expression.Type)
             {
                 case SyntaxNodes.AssignmentExpression:
@@ -583,6 +600,14 @@ namespace Jint
         public JsValue GetValue(string propertyName)
         {
             return GetValue(Global, propertyName);
+        }
+
+        /// <summary>
+        /// Gets the last evaluated <see cref="SyntaxNode"/>.
+        /// </summary>
+        public SyntaxNode GetLastSyntaxNode()
+        {
+            return _lastSyntaxNode;
         }
 
         /// <summary>

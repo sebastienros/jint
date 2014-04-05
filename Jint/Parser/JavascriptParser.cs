@@ -1829,30 +1829,32 @@ namespace Jint.Parser
 
         private void ThrowError(Token token, string messageFormat, params object[] arguments)
         {
-            ParserError error;
+            ParserException exception;
             string msg = String.Format(messageFormat, arguments);
 
             if (token != null && token.LineNumber.HasValue)
             {
-                error = new ParserError("Line " + token.LineNumber + ": " + msg)
+                exception = new ParserException("Line " + token.LineNumber + ": " + msg)
                     {
                         Index = token.Range[0],
                         LineNumber = token.LineNumber.Value,
-                        Column = token.Range[0] - _lineStart + 1
+                        Column = token.Range[0] - _lineStart + 1,
+                        Source = _extra.Source
                     };
             }
             else
             {
-                error = new ParserError("Line " + _lineNumber + ": " + msg)
+                exception = new ParserException("Line " + _lineNumber + ": " + msg)
                     {
                         Index = _index,
                         LineNumber = _lineNumber,
-                        Column = _index - _lineStart + 1
+                        Column = _index - _lineStart + 1,
+                        Source = _extra.Source
                     };
             }
 
-            error.Description = msg;
-            throw error;
+            exception.Description = msg;
+            throw exception;
         }
 
         private void ThrowErrorTolerant(Token token, string messageFormat, params object[] arguments)
@@ -1865,7 +1867,10 @@ namespace Jint.Parser
             {
                 if (_extra.Errors != null)
                 {
-                    _extra.Errors.Add(new ParserError(e.Message));
+                    _extra.Errors.Add(new ParserException(e.Message)
+                    {
+                        Source = _extra.Source
+                    });
                 }
                 else
                 {
@@ -3907,7 +3912,7 @@ namespace Jint.Parser
 
                 if (options.Tolerant)
                 {
-                    _extra.Errors = new List<ParserError>();
+                    _extra.Errors = new List<ParserException>();
                 }
             }
 
@@ -3977,7 +3982,7 @@ namespace Jint.Parser
 
             public List<Comment> Comments;
             public List<Token> Tokens;
-            public List<ParserError> Errors;
+            public List<ParserException> Errors;
         }
 
         private class LocationMarker
