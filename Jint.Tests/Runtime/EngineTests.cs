@@ -702,10 +702,12 @@ namespace Jint.Tests.Runtime
             Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
 
             var engine = new Engine();
+            
             var result = engine.Execute("1.2 + 2.1").GetCompletionValue().AsNumber();
-
             Assert.Equal(3.3d, result);
 
+            result = engine.Execute("JSON.parse('{\"x\" : 3.3}').x").GetCompletionValue().AsNumber();
+            Assert.Equal(3.3d, result);
         }
     }
 }
