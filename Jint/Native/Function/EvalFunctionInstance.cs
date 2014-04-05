@@ -58,7 +58,7 @@ namespace Jint.Native.Function
 
                             if (result.Type == Completion.Throw)
                             {
-                                throw new JavaScriptException(result.GetValueOrDefault());
+                                throw new JavaScriptException(result.GetValueOrDefault(), result.Location);
                             }
                             else
                             {
@@ -80,9 +80,15 @@ namespace Jint.Native.Function
                     }
                 }
             }
-            catch (ParserError)
+            catch (ParserError er)
             {
-                throw new JavaScriptException(Engine.SyntaxError);
+                Jint.Parser.Location location = new Location();
+                location.Start.Line = er.LineNumber;
+                location.Start.Column = er.Column;
+                location.End.Line = er.LineNumber;
+                location.End.Column = er.Column + 20;
+
+                throw new JavaScriptException(Engine.SyntaxError,location);
             }
         }
     }

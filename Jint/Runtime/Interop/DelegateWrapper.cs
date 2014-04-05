@@ -55,7 +55,29 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            return JsValue.FromObject(Engine, _d.DynamicInvoke(parameters));
+            object result = null;
+
+            try
+            {
+                result = _d.DynamicInvoke(parameters);
+            }
+            catch (System.Reflection.TargetInvocationException ex)
+            {
+                if (ex.InnerException != null)
+                {
+                    throw new JavaScriptException(new JsValue(ex.InnerException.Message));
+                }
+                else
+                {
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message));
+            }
+
+            return JsValue.FromObject(Engine, result);
         }
     }
 }
