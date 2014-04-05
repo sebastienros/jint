@@ -94,7 +94,7 @@ namespace Jint.Native.Function
 
                     if (result.Type == Completion.Throw)
                     {
-                        throw new JavaScriptException(result.GetValueOrDefault());
+                        throw new JavaScriptException(result.GetValueOrDefault(), result.Location);
                     }
 
                     if (result.Type == Completion.Return)

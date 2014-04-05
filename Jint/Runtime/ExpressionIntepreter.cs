@@ -26,121 +26,155 @@ namespace Jint.Runtime
 
         public JsValue EvaluateConditionalExpression(ConditionalExpression conditionalExpression)
         {
-            var lref = _engine.EvaluateExpression(conditionalExpression.Test);
-            if (TypeConverter.ToBoolean(_engine.GetValue(lref)))
+            try
             {
-                var trueRef = _engine.EvaluateExpression(conditionalExpression.Consequent);
-                return _engine.GetValue(trueRef);
+                var lref = _engine.EvaluateExpression(conditionalExpression.Test);
+                if (TypeConverter.ToBoolean(_engine.GetValue(lref)))
+                {
+                    var trueRef = _engine.EvaluateExpression(conditionalExpression.Consequent);
+                    return _engine.GetValue(trueRef);
+                }
+                else
+                {
+                    var falseRef = _engine.EvaluateExpression(conditionalExpression.Alternate);
+                    return _engine.GetValue(falseRef);
+                }
             }
-            else
+            catch (JavaScriptException ex)
             {
-                var falseRef = _engine.EvaluateExpression(conditionalExpression.Alternate);
-                return _engine.GetValue(falseRef);
+                ex.InitLocation(conditionalExpression.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(conditionalExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), conditionalExpression.Location);
             }
         }
 
         public JsValue EvaluateAssignmentExpression(AssignmentExpression assignmentExpression)
         {
-            JsValue rval = _engine.GetValue(EvaluateExpression(assignmentExpression.Right));
-
-            var lref = EvaluateExpression(assignmentExpression.Left) as Reference;
-
-            if (lref == null)
+            try
             {
-                throw new JavaScriptException(_engine.ReferenceError);
-            }
+                JsValue rval = _engine.GetValue(EvaluateExpression(assignmentExpression.Right));
 
-            if (assignmentExpression.Operator == AssignmentOperator.Assign) // "="
-            {
- 
-                if(lref.IsStrict() && lref.GetBase().TryCast<EnvironmentRecord>() != null && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
+                var lref = EvaluateExpression(assignmentExpression.Left) as Reference;
+
+                if (lref == null)
                 {
-                    throw new JavaScriptException(_engine.SyntaxError);
+                    throw new JavaScriptException(_engine.ReferenceError, assignmentExpression.Location);
                 }
 
-                _engine.PutValue(lref, rval);
-                return rval;
+                if (assignmentExpression.Operator == AssignmentOperator.Assign) // "="
+                {
+
+                    if (lref.IsStrict() && lref.GetBase().TryCast<EnvironmentRecord>() != null && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
+                    {
+                        throw new JavaScriptException(_engine.SyntaxError, assignmentExpression.Location);
+                    }
+
+                    _engine.PutValue(lref, rval);
+                    return rval;
+                }
+
+                JsValue lval = _engine.GetValue(lref);
+
+                switch (assignmentExpression.Operator)
+                {
+                    case AssignmentOperator.PlusAssign:
+                        var lprim = TypeConverter.ToPrimitive(lval);
+                        var rprim = TypeConverter.ToPrimitive(rval);
+                        if (lprim.IsString() || rprim.IsString())
+                        {
+                            lval = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
+                        }
+                        else
+                        {
+                            lval = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
+                        }
+                        break;
+
+                    case AssignmentOperator.MinusAssign:
+                        lval = TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval);
+                        break;
+
+                    case AssignmentOperator.TimesAssign:
+                        if (lval == Undefined.Instance || rval == Undefined.Instance)
+                        {
+                            lval = Undefined.Instance;
+                        }
+                        else
+                        {
+                            lval = TypeConverter.ToNumber(lval) * TypeConverter.ToNumber(rval);
+                        }
+                        break;
+
+                    case AssignmentOperator.DivideAssign:
+                        lval = Divide(lval, rval);
+                        break;
+
+                    case AssignmentOperator.ModuloAssign:
+                        if (lval == Undefined.Instance || rval == Undefined.Instance)
+                        {
+                            lval = Undefined.Instance;
+                        }
+                        else
+                        {
+                            lval = TypeConverter.ToNumber(lval) % TypeConverter.ToNumber(rval);
+                        }
+                        break;
+
+                    case AssignmentOperator.BitwiseAndAssign:
+                        lval = TypeConverter.ToInt32(lval) & TypeConverter.ToInt32(rval);
+                        break;
+
+                    case AssignmentOperator.BitwiseOrAssign:
+                        lval = TypeConverter.ToInt32(lval) | TypeConverter.ToInt32(rval);
+                        break;
+
+                    case AssignmentOperator.BitwiseXOrAssign:
+                        lval = TypeConverter.ToInt32(lval) ^ TypeConverter.ToInt32(rval);
+                        break;
+
+                    case AssignmentOperator.LeftShiftAssign:
+                        lval = TypeConverter.ToInt32(lval) << (int)(TypeConverter.ToUint32(rval) & 0x1F);
+                        break;
+
+                    case AssignmentOperator.RightShiftAssign:
+                        lval = TypeConverter.ToInt32(lval) >> (int)(TypeConverter.ToUint32(rval) & 0x1F);
+                        break;
+
+                    case AssignmentOperator.UnsignedRightShiftAssign:
+                        lval = (uint)TypeConverter.ToInt32(lval) >> (int)(TypeConverter.ToUint32(rval) & 0x1F);
+                        break;
+
+                    default:
+                        throw new JavaScriptException(new JsValue("Unknown operator " + assignmentExpression.Operator.ToString()), assignmentExpression.Location);
+
+                }
+
+                _engine.PutValue(lref, lval);
+
+                return lval;
             }
-
-            JsValue lval = _engine.GetValue(lref);
-
-            switch (assignmentExpression.Operator)
+            catch (JavaScriptException ex)
             {
-                case AssignmentOperator.PlusAssign:
-                    var lprim = TypeConverter.ToPrimitive(lval);
-                    var rprim = TypeConverter.ToPrimitive(rval);
-                    if (lprim.IsString() || rprim.IsString())
-                    {
-                        lval = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
-                    }
-                    else
-                    {
-                        lval = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
-                    }
-                    break;
-
-                case AssignmentOperator.MinusAssign:
-                    lval = TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval);
-                    break;
-
-                case AssignmentOperator.TimesAssign:
-                    if (lval == Undefined.Instance || rval == Undefined.Instance)
-                    {
-                        lval = Undefined.Instance;
-                    }
-                    else
-                    {
-                        lval = TypeConverter.ToNumber(lval) * TypeConverter.ToNumber(rval);
-                    }
-                    break;
-
-                case AssignmentOperator.DivideAssign:
-                    lval = Divide(lval, rval);
-                    break;
-
-                case AssignmentOperator.ModuloAssign:
-                    if (lval == Undefined.Instance || rval == Undefined.Instance)
-                    {
-                        lval = Undefined.Instance;
-                    }
-                    else
-                    {
-                        lval = TypeConverter.ToNumber(lval) % TypeConverter.ToNumber(rval);
-                    }
-                    break;
-
-                case AssignmentOperator.BitwiseAndAssign:
-                    lval = TypeConverter.ToInt32(lval) & TypeConverter.ToInt32(rval);
-                    break;
-
-                case AssignmentOperator.BitwiseOrAssign:
-                    lval = TypeConverter.ToInt32(lval) | TypeConverter.ToInt32(rval);
-                    break;
-
-                case AssignmentOperator.BitwiseXOrAssign:
-                    lval = TypeConverter.ToInt32(lval) ^ TypeConverter.ToInt32(rval);
-                    break;
-
-                case AssignmentOperator.LeftShiftAssign:
-                    lval = TypeConverter.ToInt32(lval) << (int)(TypeConverter.ToUint32(rval) & 0x1F);
-                    break;
-
-                case AssignmentOperator.RightShiftAssign:
-                    lval = TypeConverter.ToInt32(lval) >> (int)(TypeConverter.ToUint32(rval) & 0x1F);
-                    break;
-
-                case AssignmentOperator.UnsignedRightShiftAssign:
-                    lval = (uint)TypeConverter.ToInt32(lval) >> (int)(TypeConverter.ToUint32(rval) & 0x1F);
-                    break;
-                
-                default:
-                    throw new NotImplementedException();
-
+                ex.InitLocation(assignmentExpression.Location);
+                throw;
             }
-
-            _engine.PutValue(lref, lval);
-
-            return lval;
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(assignmentExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), assignmentExpression.Location);
+            }
         }
 
         private JsValue Divide(JsValue lval, JsValue rval)
@@ -195,180 +229,214 @@ namespace Jint.Runtime
 
         public JsValue EvaluateBinaryExpression(BinaryExpression expression)
         {
-            JsValue left = _engine.GetValue(EvaluateExpression(expression.Left));
-            JsValue right = _engine.GetValue(EvaluateExpression(expression.Right));
-            JsValue value;
-
-              
-            switch (expression.Operator)
+            try
             {
-                case BinaryOperator.Plus:
-                    var lprim = TypeConverter.ToPrimitive(left);
-                    var rprim = TypeConverter.ToPrimitive(right);
-                    if (lprim.IsString() || rprim.IsString())
-                    {
-                        value = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
-                    }
-                    else
-                    {
-                        value = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
-                    }
-                    break;
-                
-                case BinaryOperator.Minus:
-                    value = TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right);
-                    break;
-                
-                case BinaryOperator.Times:
-                    if (left == Undefined.Instance || right == Undefined.Instance)
-                    {
-                        value = Undefined.Instance;
-                    }
-                    else
-                    {
-                        value = TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right);
-                    }
-                    break;
-                
-                case BinaryOperator.Divide:
-                    value = Divide(left, right);
-                    break;
+                JsValue left = _engine.GetValue(EvaluateExpression(expression.Left));
+                JsValue right = _engine.GetValue(EvaluateExpression(expression.Right));
+                JsValue value;
 
-                case BinaryOperator.Modulo:
-                    if (left == Undefined.Instance || right == Undefined.Instance)
-                    {
-                        value = Undefined.Instance;
-                    }
-                    else
-                    {
-                        value = TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right);
-                    }
-                    break;
 
-                case BinaryOperator.Equal:
-                    value = Equal(left, right);
-                    break;
-                
-                case BinaryOperator.NotEqual:
-                    value = !Equal(left, right);
-                    break;
-                
-                case BinaryOperator.Greater:
-                    value = Compare(right, left, false);
-                    if (value == Undefined.Instance)
-                    {
-                        value = false;
-                    }
-                    break;
+                switch (expression.Operator)
+                {
+                    case BinaryOperator.Plus:
+                        var lprim = TypeConverter.ToPrimitive(left);
+                        var rprim = TypeConverter.ToPrimitive(right);
+                        if (lprim.IsString() || rprim.IsString())
+                        {
+                            value = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
+                        }
+                        else
+                        {
+                            value = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
+                        }
+                        break;
 
-                case BinaryOperator.GreaterOrEqual:
-                    value = Compare(left, right);
-                    if (value == Undefined.Instance || value.AsBoolean())
-                    {
-                        value = false;
-                    }
-                    else
-                    {
-                        value = true;
-                    }
-                    break;
-                
-                case BinaryOperator.Less:
-                    value = Compare(left, right);
-                    if (value == Undefined.Instance)
-                    {
-                        value = false;
-                    }
-                    break;
-                
-                case BinaryOperator.LessOrEqual:
-                    value = Compare(right, left, false);
-                    if (value == Undefined.Instance || value.AsBoolean())
-                    {
-                        value = false;
-                    }
-                    else
-                    {
-                        value = true;
-                    }
-                    break;
-                
-                case BinaryOperator.StrictlyEqual:
-                    return StrictlyEqual(left, right);
-                
-                case BinaryOperator.StricltyNotEqual:
-                    return !StrictlyEqual(left, right);
+                    case BinaryOperator.Minus:
+                        value = TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right);
+                        break;
 
-                case BinaryOperator.BitwiseAnd:
-                    return TypeConverter.ToInt32(left) & TypeConverter.ToInt32(right);
+                    case BinaryOperator.Times:
+                        if (left == Undefined.Instance || right == Undefined.Instance)
+                        {
+                            value = Undefined.Instance;
+                        }
+                        else
+                        {
+                            value = TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right);
+                        }
+                        break;
 
-                case BinaryOperator.BitwiseOr:
-                    return TypeConverter.ToInt32(left) | TypeConverter.ToInt32(right);
+                    case BinaryOperator.Divide:
+                        value = Divide(left, right);
+                        break;
 
-                case BinaryOperator.BitwiseXOr:
-                    return TypeConverter.ToInt32(left) ^ TypeConverter.ToInt32(right);
+                    case BinaryOperator.Modulo:
+                        if (left == Undefined.Instance || right == Undefined.Instance)
+                        {
+                            value = Undefined.Instance;
+                        }
+                        else
+                        {
+                            value = TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right);
+                        }
+                        break;
 
-                case BinaryOperator.LeftShift:
-                    return TypeConverter.ToInt32(left) << (int)(TypeConverter.ToUint32(right) & 0x1F);
+                    case BinaryOperator.Equal:
+                        value = Equal(left, right);
+                        break;
 
-                case BinaryOperator.RightShift:
-                    return TypeConverter.ToInt32(left) >> (int)(TypeConverter.ToUint32(right) & 0x1F);
+                    case BinaryOperator.NotEqual:
+                        value = !Equal(left, right);
+                        break;
 
-                case BinaryOperator.UnsignedRightShift:
-                    return (uint)TypeConverter.ToInt32(left) >> (int)(TypeConverter.ToUint32(right) & 0x1F);
+                    case BinaryOperator.Greater:
+                        value = Compare(right, left, false);
+                        if (value == Undefined.Instance)
+                        {
+                            value = false;
+                        }
+                        break;
 
-                case BinaryOperator.InstanceOf:
-                    var f = right.TryCast<FunctionInstance>();
+                    case BinaryOperator.GreaterOrEqual:
+                        value = Compare(left, right);
+                        if (value == Undefined.Instance || value.AsBoolean())
+                        {
+                            value = false;
+                        }
+                        else
+                        {
+                            value = true;
+                        }
+                        break;
 
-                    if (f == null)
-                    {
-                        throw new JavaScriptException(_engine.TypeError, "instanceof can only be used with a function object");
-                    }
+                    case BinaryOperator.Less:
+                        value = Compare(left, right);
+                        if (value == Undefined.Instance)
+                        {
+                            value = false;
+                        }
+                        break;
 
-                    value = f.HasInstance(left);
-                    break;
-                
-                case BinaryOperator.In:
-                    if (!right.IsObject())
-                    {
-                        throw new JavaScriptException(_engine.TypeError, "in can only be used with an object");
-                    }
+                    case BinaryOperator.LessOrEqual:
+                        value = Compare(right, left, false);
+                        if (value == Undefined.Instance || value.AsBoolean())
+                        {
+                            value = false;
+                        }
+                        else
+                        {
+                            value = true;
+                        }
+                        break;
 
-                    value = right.AsObject().HasProperty(TypeConverter.ToString(left));
-                    break;
-                
-                default:
-                    throw new NotImplementedException();
+                    case BinaryOperator.StrictlyEqual:
+                        return StrictlyEqual(left, right);
+
+                    case BinaryOperator.StricltyNotEqual:
+                        return !StrictlyEqual(left, right);
+
+                    case BinaryOperator.BitwiseAnd:
+                        return TypeConverter.ToInt32(left) & TypeConverter.ToInt32(right);
+
+                    case BinaryOperator.BitwiseOr:
+                        return TypeConverter.ToInt32(left) | TypeConverter.ToInt32(right);
+
+                    case BinaryOperator.BitwiseXOr:
+                        return TypeConverter.ToInt32(left) ^ TypeConverter.ToInt32(right);
+
+                    case BinaryOperator.LeftShift:
+                        return TypeConverter.ToInt32(left) << (int)(TypeConverter.ToUint32(right) & 0x1F);
+
+                    case BinaryOperator.RightShift:
+                        return TypeConverter.ToInt32(left) >> (int)(TypeConverter.ToUint32(right) & 0x1F);
+
+                    case BinaryOperator.UnsignedRightShift:
+                        return (uint)TypeConverter.ToInt32(left) >> (int)(TypeConverter.ToUint32(right) & 0x1F);
+
+                    case BinaryOperator.InstanceOf:
+                        var f = right.TryCast<FunctionInstance>();
+
+                        if (f == null)
+                        {
+                            throw new JavaScriptException(_engine.TypeError, "instanceof can only be used with a function object", expression.Location);
+                        }
+
+                        value = f.HasInstance(left);
+                        break;
+
+                    case BinaryOperator.In:
+                        if (!right.IsObject())
+                        {
+                            throw new JavaScriptException(_engine.TypeError, "in can only be used with an object", expression.Location);
+                        }
+
+                        value = right.AsObject().HasProperty(TypeConverter.ToString(left));
+                        break;
+
+                    default:
+                        throw new JavaScriptException(new JsValue("Unknown binary operator " + expression.Operator.ToString()), expression.Location);
+                }
+
+                return value;
             }
-
-            return value;
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(expression.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(expression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), expression.Location);
+            }
         }
 
         public JsValue EvaluateLogicalExpression(LogicalExpression logicalExpression)
         {
-            var left = _engine.GetValue(EvaluateExpression(logicalExpression.Left));
-
-            switch (logicalExpression.Operator)
+            try
             {
+                var left = _engine.GetValue(EvaluateExpression(logicalExpression.Left));
 
-                case LogicalOperator.LogicalAnd:
-                    if (!TypeConverter.ToBoolean(left))
-                    {
-                        return left;
-                    }
+                switch (logicalExpression.Operator)
+                {
 
-                    return _engine.GetValue(EvaluateExpression(logicalExpression.Right));
+                    case LogicalOperator.LogicalAnd:
+                        if (!TypeConverter.ToBoolean(left))
+                        {
+                            return left;
+                        }
 
-                case LogicalOperator.LogicalOr:
-                    if (TypeConverter.ToBoolean(left))
-                    {
-                        return left;
-                    }
+                        return _engine.GetValue(EvaluateExpression(logicalExpression.Right));
 
-                    return _engine.GetValue(EvaluateExpression(logicalExpression.Right));
+                    case LogicalOperator.LogicalOr:
+                        if (TypeConverter.ToBoolean(left))
+                        {
+                            return left;
+                        }
 
-                default:
-                    throw new NotImplementedException();
+                        return _engine.GetValue(EvaluateExpression(logicalExpression.Right));
+
+                    default:
+                        throw new JavaScriptException(new JsValue("Unknown logical operator " + logicalExpression.Operator.ToString()), logicalExpression.Location);
+                }
+            }
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(logicalExpression.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(logicalExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), logicalExpression.Location);
             }
         }
 
@@ -615,124 +683,192 @@ namespace Jint.Runtime
 
         public Reference EvaluateIdentifier(Identifier identifier)
         {
-            var env = _engine.ExecutionContext.LexicalEnvironment;
-            var strict = StrictModeScope.IsStrictModeCode;
+            try
+            {
+                var env = _engine.ExecutionContext.LexicalEnvironment;
+                var strict = StrictModeScope.IsStrictModeCode;
 
-            return LexicalEnvironment.GetIdentifierReference(env, identifier.Name, strict);
+                return LexicalEnvironment.GetIdentifierReference(env, identifier.Name, strict);
+            }
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(identifier.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(identifier.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), identifier.Location);
+            }
         }
 
         public JsValue EvaluateLiteral(Literal literal)
         {
-            if (literal.Type == SyntaxNodes.RegularExpressionLiteral)
+            try
             {
-                return _engine.RegExp.Construct(literal.Raw);
-            }
+                if (literal.Type == SyntaxNodes.RegularExpressionLiteral)
+                {
+                    return _engine.RegExp.Construct(literal.Raw);
+                }
 
-            return JsValue.FromObject(_engine, literal.Value);
+                return JsValue.FromObject(_engine, literal.Value);
+            }
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(literal.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(literal.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), literal.Location);
+            }
         }
 
         public JsValue EvaluateObjectExpression(ObjectExpression objectExpression)
         {
-            // http://www.ecma-international.org/ecma-262/5.1/#sec-11.1.5
-
-            var obj = _engine.Object.Construct(Arguments.Empty);
-            foreach (var property in objectExpression.Properties)
+            try
             {
-                var propName = property.Key.GetKey();
-                var previous = obj.GetOwnProperty(propName);
-                PropertyDescriptor propDesc;
+                // http://www.ecma-international.org/ecma-262/5.1/#sec-11.1.5
 
-                switch (property.Kind)
+                var obj = _engine.Object.Construct(Arguments.Empty);
+                foreach (var property in objectExpression.Properties)
                 {
-                    case PropertyKind.Data:
-                        var exprValue = _engine.EvaluateExpression(property.Value);
-                        var propValue = _engine.GetValue(exprValue);
-                        propDesc = new PropertyDescriptor(propValue, true, true, true);
-                        break;
+                    try
+                    {
+                        var propName = property.Key.GetKey();
+                        var previous = obj.GetOwnProperty(propName);
+                        PropertyDescriptor propDesc;
 
-                    case PropertyKind.Get:
-                        var getter = property.Value as FunctionExpression;
-
-                        if (getter == null)
+                        switch (property.Kind)
                         {
-                            throw new JavaScriptException(_engine.SyntaxError);
+                            case PropertyKind.Data:
+                                var exprValue = _engine.EvaluateExpression(property.Value);
+                                var propValue = _engine.GetValue(exprValue);
+                                propDesc = new PropertyDescriptor(propValue, true, true, true);
+                                break;
+
+                            case PropertyKind.Get:
+                                var getter = property.Value as FunctionExpression;
+
+                                if (getter == null)
+                                {
+                                    throw new JavaScriptException(_engine.SyntaxError, property.Location);
+                                }
+
+                                ScriptFunctionInstance get;
+                                using (new StrictModeScope(getter.Strict))
+                                {
+                                    get = new ScriptFunctionInstance(
+                                        _engine,
+                                        getter,
+                                        _engine.ExecutionContext.LexicalEnvironment,
+                                        StrictModeScope.IsStrictModeCode
+                                    );
+                                }
+
+                                propDesc = new PropertyDescriptor(get: get, set: null, enumerable: true, configurable: true);
+                                break;
+
+                            case PropertyKind.Set:
+                                var setter = property.Value as FunctionExpression;
+
+                                if (setter == null)
+                                {
+                                    throw new JavaScriptException(_engine.SyntaxError, property.Location);
+                                }
+
+                                ScriptFunctionInstance set;
+                                using (new StrictModeScope(setter.Strict))
+                                {
+
+                                    set = new ScriptFunctionInstance(
+                                        _engine,
+                                        setter,
+                                        _engine.ExecutionContext.LexicalEnvironment,
+                                        StrictModeScope.IsStrictModeCode
+                                        );
+                                }
+                                propDesc = new PropertyDescriptor(get: null, set: set, enumerable: true, configurable: true);
+                                break;
+
+                            default:
+                                throw new JavaScriptException(new JsValue("ArgumentOutOfRange: property kind " + property.Kind.ToString()), property.Location);
                         }
 
-                        ScriptFunctionInstance get; 
-                        using (new StrictModeScope(getter.Strict))
+                        if (previous != PropertyDescriptor.Undefined)
                         {
-                            get = new ScriptFunctionInstance(
-                                _engine,
-                                getter,
-                                _engine.ExecutionContext.LexicalEnvironment, 
-                                StrictModeScope.IsStrictModeCode
-                            );
+                            if (StrictModeScope.IsStrictModeCode && previous.IsDataDescriptor() && propDesc.IsDataDescriptor())
+                            {
+                                throw new JavaScriptException(_engine.SyntaxError, property.Location);
+                            }
+
+                            if (previous.IsDataDescriptor() && propDesc.IsAccessorDescriptor())
+                            {
+                                throw new JavaScriptException(_engine.SyntaxError);
+                            }
+
+                            if (previous.IsAccessorDescriptor() && propDesc.IsDataDescriptor())
+                            {
+                                throw new JavaScriptException(_engine.SyntaxError, property.Location);
+                            }
+
+                            if (previous.IsAccessorDescriptor() && propDesc.IsAccessorDescriptor())
+                            {
+                                if (propDesc.Set.HasValue && previous.Set.HasValue)
+                                {
+                                    throw new JavaScriptException(_engine.SyntaxError, property.Location);
+                                }
+
+                                if (propDesc.Get.HasValue && previous.Get.HasValue)
+                                {
+                                    throw new JavaScriptException(_engine.SyntaxError, property.Location);
+                                }
+                            }
                         }
 
-                        propDesc = new PropertyDescriptor(get: get, set: null, enumerable: true, configurable:true);
-                        break;
-                    
-                    case PropertyKind.Set:
-                        var setter = property.Value as FunctionExpression;
-
-                        if (setter == null)
-                        {
-                            throw new JavaScriptException(_engine.SyntaxError);
-                        }
-
-                        ScriptFunctionInstance set;
-                        using (new StrictModeScope(setter.Strict))
-                        {
-                            
-                            set = new ScriptFunctionInstance(
-                                _engine,
-                                setter,
-                                _engine.ExecutionContext.LexicalEnvironment,
-                                StrictModeScope.IsStrictModeCode
-                                );
-                        }
-                        propDesc = new PropertyDescriptor(get:null, set: set, enumerable: true, configurable: true);
-                        break;
-
-                    default:
-                        throw new ArgumentOutOfRangeException();
+                        obj.DefineOwnProperty(propName, propDesc, false);
+                    }
+                    catch (JavaScriptException ex)
+                    {
+                        ex.InitLocation(property.Location);
+                        throw;
+                    }
+                    catch (StatementsCountOverflowException ex)
+                    {
+                        ex.InitLocation(property.Location);
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new JavaScriptException(new JsValue(ex.Message), property.Location);
+                    }
                 }
 
-                if (previous != PropertyDescriptor.Undefined)
-                {
-                    if (StrictModeScope.IsStrictModeCode && previous.IsDataDescriptor() && propDesc.IsDataDescriptor())
-                    {
-                        throw new JavaScriptException(_engine.SyntaxError);
-                    }
-
-                    if (previous.IsDataDescriptor() && propDesc.IsAccessorDescriptor())
-                    {
-                        throw new JavaScriptException(_engine.SyntaxError);
-                    }
-
-                    if (previous.IsAccessorDescriptor() && propDesc.IsDataDescriptor())
-                    {
-                        throw new JavaScriptException(_engine.SyntaxError);
-                    }
-
-                    if (previous.IsAccessorDescriptor() && propDesc.IsAccessorDescriptor())
-                    {
-                        if (propDesc.Set.HasValue && previous.Set.HasValue)
-                        {
-                            throw new JavaScriptException(_engine.SyntaxError);
-                        }
-
-                        if (propDesc.Get.HasValue && previous.Get.HasValue)
-                        {
-                            throw new JavaScriptException(_engine.SyntaxError);
-                        }
-                    }
-                }
-
-                obj.DefineOwnProperty(propName, propDesc, false);
+                return obj;
             }
-
-            return obj;
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(objectExpression.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(objectExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), objectExpression.Location);
+            }
         }
 
         /// <summary>
@@ -742,283 +878,452 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Reference EvaluateMemberExpression(MemberExpression memberExpression)
         {
-            var baseReference = EvaluateExpression(memberExpression.Object);
-            var baseValue = _engine.GetValue(baseReference);
-            Expression expression = memberExpression.Property;
-
-            
-            if (!memberExpression.Computed) // index accessor ?
+            try
             {
-                expression = new Literal { Type = SyntaxNodes.Literal, Value = memberExpression.Property.As<Identifier>().Name };
+                var baseReference = EvaluateExpression(memberExpression.Object);
+                var baseValue = _engine.GetValue(baseReference);
+                Expression expression = memberExpression.Property;
+
+
+                if (!memberExpression.Computed) // index accessor ?
+                {
+                    expression = new Literal { Type = SyntaxNodes.Literal, Value = memberExpression.Property.As<Identifier>().Name };
+                }
+
+                var propertyNameReference = EvaluateExpression(expression);
+                var propertyNameValue = _engine.GetValue(propertyNameReference);
+                TypeConverter.CheckObjectCoercible(_engine, baseValue);
+                var propertyNameString = TypeConverter.ToString(propertyNameValue);
+
+                return new Reference(baseValue, propertyNameString, StrictModeScope.IsStrictModeCode);
             }
-
-            var propertyNameReference = EvaluateExpression(expression);
-            var propertyNameValue = _engine.GetValue(propertyNameReference);
-            TypeConverter.CheckObjectCoercible(_engine, baseValue);
-            var propertyNameString = TypeConverter.ToString(propertyNameValue);
-
-            return new Reference(baseValue, propertyNameString, StrictModeScope.IsStrictModeCode);
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(memberExpression.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(memberExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), memberExpression.Location);
+            }
         }
 
         public JsValue EvaluateFunctionExpression(FunctionExpression functionExpression)
         {
-            var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
-            var envRec = (DeclarativeEnvironmentRecord)funcEnv.Record;
-
-            if (functionExpression.Id != null && !String.IsNullOrEmpty(functionExpression.Id.Name))
+            try
             {
-                envRec.CreateMutableBinding(functionExpression.Id.Name);
+                var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
+                var envRec = (DeclarativeEnvironmentRecord)funcEnv.Record;
+
+                if (functionExpression.Id != null && !String.IsNullOrEmpty(functionExpression.Id.Name))
+                {
+                    envRec.CreateMutableBinding(functionExpression.Id.Name);
+                }
+
+                var closure = new ScriptFunctionInstance(
+                    _engine,
+                    functionExpression,
+                    funcEnv,
+                    functionExpression.Strict
+                    );
+
+                if (functionExpression.Id != null && !String.IsNullOrEmpty(functionExpression.Id.Name))
+                {
+                    envRec.InitializeImmutableBinding(functionExpression.Id.Name, closure);
+                }
+
+                return closure;
             }
-
-            var closure = new ScriptFunctionInstance(
-                _engine,
-                functionExpression,
-                funcEnv,
-                functionExpression.Strict
-                );
-
-            if (functionExpression.Id != null && !String.IsNullOrEmpty(functionExpression.Id.Name))
+            catch (JavaScriptException ex)
             {
-                envRec.InitializeImmutableBinding(functionExpression.Id.Name, closure);
+                ex.InitLocation(functionExpression.Location);
+                throw;
             }
-
-            return closure;
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(functionExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), functionExpression.Location);
+            }
         }
 
         public JsValue EvaluateCallExpression(CallExpression callExpression)
         {
-            var callee = EvaluateExpression(callExpression.Callee);
-
-            JsValue thisObject;
-
-            // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
-            var arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
-
-            var func = _engine.GetValue(callee);
-
-            var r = callee as Reference;
-
-            if (func == Undefined.Instance)
+            try
             {
-                throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Object has no method '{0}'", (callee as Reference).GetReferencedName()));
-            }
+                var callee = EvaluateExpression(callExpression.Callee);
 
-            if (!func.IsObject())
-            {
-                throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Property '{0}' of object is not a function", (callee as Reference).GetReferencedName()));
-            }
+                JsValue thisObject;
 
-            var callable = func.TryCast<ICallable>();
-            if (callable == null)
-            {
-                throw new JavaScriptException(_engine.TypeError);
-            }
-            
-            if (r != null)
-            {
-                if (r.IsPropertyReference())
+                // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
+                var arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
+
+                var func = _engine.GetValue(callee);
+
+                var r = callee as Reference;
+
+                if (func == Undefined.Instance)
                 {
-                    thisObject = r.GetBase();
+                    throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Object has no method '{0}'", (callee as Reference).GetReferencedName()), callExpression.Location);
+                }
+
+                if (!func.IsObject())
+                {
+                    throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Property '{0}' of object is not a function", (callee as Reference).GetReferencedName()), callExpression.Location);
+                }
+
+                var callable = func.TryCast<ICallable>();
+                if (callable == null)
+                {
+                    throw new JavaScriptException(_engine.TypeError, callExpression.Location);
+                }
+
+                if (r != null)
+                {
+                    if (r.IsPropertyReference())
+                    {
+                        thisObject = r.GetBase();
+                    }
+                    else
+                    {
+                        var env = r.GetBase().TryCast<EnvironmentRecord>();
+                        thisObject = env.ImplicitThisValue();
+                    }
                 }
                 else
                 {
-                    var env = r.GetBase().TryCast<EnvironmentRecord>();
-                    thisObject = env.ImplicitThisValue();
+                    thisObject = Undefined.Instance;
                 }
-            }
-            else
-            {
-                thisObject = Undefined.Instance;
-            }
 
-            // is it a direct call to eval ? http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.1.1
-            if (r != null && r.GetReferencedName() == "eval" && callable is EvalFunctionInstance)
-            {
-                return ((EvalFunctionInstance) callable).Call(thisObject, arguments, true);
+                // is it a direct call to eval ? http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.1.1
+                if (r != null && r.GetReferencedName() == "eval" && callable is EvalFunctionInstance)
+                {
+                    return ((EvalFunctionInstance)callable).Call(thisObject, arguments, true);
+                }
+
+                return callable.Call(thisObject, arguments);
             }
-            
-            return callable.Call(thisObject, arguments);
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(callExpression.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(callExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), callExpression.Location);
+            }
         }
 
         public JsValue EvaluateSequenceExpression(SequenceExpression sequenceExpression)
         {
-            var result = Undefined.Instance;
-            foreach (var expression in sequenceExpression.Expressions)
+            try
             {
-                result = _engine.GetValue(_engine.EvaluateExpression(expression));
-            }
+                var result = Undefined.Instance;
+                foreach (var expression in sequenceExpression.Expressions)
+                {
+                    result = _engine.GetValue(_engine.EvaluateExpression(expression));
+                }
 
-            return result;
+                return result;
+            }
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(sequenceExpression.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(sequenceExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), sequenceExpression.Location);
+            }
         }
 
         public JsValue EvaluateUpdateExpression(UpdateExpression updateExpression)
         {
-            var value = _engine.EvaluateExpression(updateExpression.Argument);
-            Reference r;
-
-            switch (updateExpression.Operator)
+            try
             {
-                case UnaryOperator.Increment:
-                    r = value as Reference;
-                    if (r != null
-                        && r.IsStrict()
-                        && (r.GetBase().TryCast<EnvironmentRecord>() != null)
-                        && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
-                    {
-                        throw new JavaScriptException(_engine.SyntaxError);
-                    }
+                var value = _engine.EvaluateExpression(updateExpression.Argument);
+                Reference r;
 
-                    var oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
-                    var newValue = oldValue + 1;
-                    _engine.PutValue(r, newValue);
-
-                    return updateExpression.Prefix ? newValue : oldValue;
-
-                case UnaryOperator.Decrement:
-                    r = value as Reference;
-                    if (r != null
-                        && r.IsStrict()
-                        && (r.GetBase().TryCast<EnvironmentRecord>() != null)
-                        && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
-                    {
-                        throw new JavaScriptException(_engine.SyntaxError);
-                    }
-
-                    oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
-                    newValue = oldValue - 1;
-                    _engine.PutValue(r, newValue);
-
-                    return updateExpression.Prefix ? newValue : oldValue;
-                default:
-                    throw new ArgumentException();
-            }
-
-        }
-
-        public JsValue EvaluateThisExpression(ThisExpression thisExpression)
-        {
-            return _engine.ExecutionContext.ThisBinding;
-        }
-
-        public JsValue EvaluateNewExpression(NewExpression newExpression)
-        {
-            var arguments = newExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
-            
-            // todo: optimize by defining a common abstract class or interface
-            var callee = _engine.GetValue(EvaluateExpression(newExpression.Callee)).TryCast<IConstructor>();
-            
-            if (callee == null)
-            {
-                throw new JavaScriptException(_engine.TypeError, "The object can't be used as constructor.");
-            }
-
-            // construct the new instance using the Function's constructor method
-            var instance = callee.Construct(arguments);
-
-            return instance;
-        }
-
-        public JsValue EvaluateArrayExpression(ArrayExpression arrayExpression)
-        {
-            var a = _engine.Array.Construct(new JsValue[] { arrayExpression.Elements.Count() });
-            var n = 0;
-            foreach (var expr in arrayExpression.Elements)
-            {
-                if (expr != null)
+                switch (updateExpression.Operator)
                 {
-                    var value = _engine.GetValue(EvaluateExpression(expr));
-                    a.DefineOwnProperty(n.ToString(),
-                        new PropertyDescriptor(value, true, true, true), false);
-                }
-                n++;
-            }
-            
-            return a;
-        }
+                    case UnaryOperator.Increment:
+                        r = value as Reference;
+                        if (r != null
+                            && r.IsStrict()
+                            && (r.GetBase().TryCast<EnvironmentRecord>() != null)
+                            && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
+                        {
+                            throw new JavaScriptException(_engine.SyntaxError, updateExpression.Location);
+                        }
 
-        public JsValue EvaluateUnaryExpression(UnaryExpression unaryExpression)
-        {
-            var value = _engine.EvaluateExpression(unaryExpression.Argument);
-            Reference r;
+                        var oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
+                        var newValue = oldValue + 1;
+                        _engine.PutValue(r, newValue);
 
-            switch (unaryExpression.Operator)
-            {
-                case UnaryOperator.Plus:
-                    return TypeConverter.ToNumber(_engine.GetValue(value));
-                    
-                case UnaryOperator.Minus:
-                    var n = TypeConverter.ToNumber(_engine.GetValue(value));
-                    return double.IsNaN(n) ? double.NaN : n*-1;
-                
-                case UnaryOperator.BitwiseNot:
-                    return ~TypeConverter.ToInt32(_engine.GetValue(value));
-                
-                case UnaryOperator.LogicalNot:
-                    return !TypeConverter.ToBoolean(_engine.GetValue(value));
-                
-                case UnaryOperator.Delete:
-                    r = value as Reference;
-                    if (r == null)
-                    {
-                        return true;
-                    }
-                    if (r.IsUnresolvableReference())
-                    {
-                        if (r.IsStrict())
+                        return updateExpression.Prefix ? newValue : oldValue;
+
+                    case UnaryOperator.Decrement:
+                        r = value as Reference;
+                        if (r != null
+                            && r.IsStrict()
+                            && (r.GetBase().TryCast<EnvironmentRecord>() != null)
+                            && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
                         {
                             throw new JavaScriptException(_engine.SyntaxError);
                         }
 
-                        return true;
-                    }
-                    if (r.IsPropertyReference())
-                    {
-                        var o = TypeConverter.ToObject(_engine, r.GetBase());
-                        return o.Delete(r.GetReferencedName(), r.IsStrict());
-                    }
-                    if (r.IsStrict())
-                    {
-                        throw new JavaScriptException(_engine.SyntaxError);
-                    }
-                    var bindings = r.GetBase().TryCast<EnvironmentRecord>();
-                    return bindings.DeleteBinding(r.GetReferencedName());
-                
-                case UnaryOperator.Void:
-                    _engine.GetValue(value);
-                    return Undefined.Instance;
+                        oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
+                        newValue = oldValue - 1;
+                        _engine.PutValue(r, newValue);
 
-                case UnaryOperator.TypeOf:
-                    r = value as Reference;
-                    if (r != null)
+                        return updateExpression.Prefix ? newValue : oldValue;
+                    default:
+                        throw new JavaScriptException(new JsValue("Unknown unary operator: " + updateExpression.Operator.ToString()), updateExpression.Location);
+                }
+            }
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(updateExpression.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(updateExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), updateExpression.Location);
+            }
+        }
+
+        public JsValue EvaluateThisExpression(ThisExpression thisExpression)
+        {
+            try
+            {
+                return _engine.ExecutionContext.ThisBinding;
+            }
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(thisExpression.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(thisExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), thisExpression.Location);
+            }
+        }
+
+        public JsValue EvaluateNewExpression(NewExpression newExpression)
+        {
+            try
+            {
+                var arguments = newExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
+
+                // todo: optimize by defining a common abstract class or interface
+                var callee = _engine.GetValue(EvaluateExpression(newExpression.Callee)).TryCast<IConstructor>();
+
+                if (callee == null)
+                {
+                    throw new JavaScriptException(_engine.TypeError, "The object can't be used as constructor.", newExpression.Location);
+                }
+
+                // construct the new instance using the Function's constructor method
+                var instance = callee.Construct(arguments);
+
+                return instance;
+            }
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(newExpression.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(newExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), newExpression.Location);
+            }
+        }
+
+        public JsValue EvaluateArrayExpression(ArrayExpression arrayExpression)
+        {
+            try
+            {
+                var a = _engine.Array.Construct(new JsValue[] { arrayExpression.Elements.Count() });
+                var n = 0;
+                foreach (var expr in arrayExpression.Elements)
+                {
+                    try
                     {
+                        if (expr != null)
+                        {
+                            var value = _engine.GetValue(EvaluateExpression(expr));
+                            a.DefineOwnProperty(n.ToString(),
+                                new PropertyDescriptor(value, true, true, true), false);
+                        }
+                        n++;
+                    }
+                    catch (JavaScriptException ex)
+                    {
+                        ex.InitLocation(expr.Location);
+                        throw;
+                    }
+                    catch (StatementsCountOverflowException ex)
+                    {
+                        ex.InitLocation(expr.Location);
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new JavaScriptException(new JsValue(ex.Message), expr.Location);
+                    }
+                }
+
+                return a;
+            }
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(arrayExpression.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(arrayExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), arrayExpression.Location);
+            }
+        }
+
+        public JsValue EvaluateUnaryExpression(UnaryExpression unaryExpression)
+        {
+            try
+            {
+                var value = _engine.EvaluateExpression(unaryExpression.Argument);
+                Reference r;
+
+                switch (unaryExpression.Operator)
+                {
+                    case UnaryOperator.Plus:
+                        return TypeConverter.ToNumber(_engine.GetValue(value));
+
+                    case UnaryOperator.Minus:
+                        var n = TypeConverter.ToNumber(_engine.GetValue(value));
+                        return double.IsNaN(n) ? double.NaN : n * -1;
+
+                    case UnaryOperator.BitwiseNot:
+                        return ~TypeConverter.ToInt32(_engine.GetValue(value));
+
+                    case UnaryOperator.LogicalNot:
+                        return !TypeConverter.ToBoolean(_engine.GetValue(value));
+
+                    case UnaryOperator.Delete:
+                        r = value as Reference;
+                        if (r == null)
+                        {
+                            return true;
+                        }
                         if (r.IsUnresolvableReference())
+                        {
+                            if (r.IsStrict())
+                            {
+                                throw new JavaScriptException(_engine.SyntaxError, unaryExpression.Location);
+                            }
+
+                            return true;
+                        }
+                        if (r.IsPropertyReference())
+                        {
+                            var o = TypeConverter.ToObject(_engine, r.GetBase());
+                            return o.Delete(r.GetReferencedName(), r.IsStrict());
+                        }
+                        if (r.IsStrict())
+                        {
+                            throw new JavaScriptException(_engine.SyntaxError, unaryExpression.Location);
+                        }
+                        var bindings = r.GetBase().TryCast<EnvironmentRecord>();
+                        return bindings.DeleteBinding(r.GetReferencedName());
+
+                    case UnaryOperator.Void:
+                        _engine.GetValue(value);
+                        return Undefined.Instance;
+
+                    case UnaryOperator.TypeOf:
+                        r = value as Reference;
+                        if (r != null)
+                        {
+                            if (r.IsUnresolvableReference())
+                            {
+                                return "undefined";
+                            }
+                        }
+                        var v = _engine.GetValue(value);
+                        if (v == Undefined.Instance)
                         {
                             return "undefined";
                         }
-                    }
-                    var v = _engine.GetValue(value);
-                    if (v == Undefined.Instance)
-                    {
-                        return "undefined";
-                    }
-                    if (v == Null.Instance)
-                    {
+                        if (v == Null.Instance)
+                        {
+                            return "object";
+                        }
+                        switch (v.Type)
+                        {
+                            case Types.Boolean: return "boolean";
+                            case Types.Number: return "number";
+                            case Types.String: return "string";
+                        }
+                        if (v.TryCast<ICallable>() != null)
+                        {
+                            return "function";
+                        }
                         return "object";
-                    }
-                    switch (v.Type)
-                    {
-                        case Types.Boolean: return "boolean";
-                        case Types.Number: return "number";
-                        case Types.String: return "string";
-                    }
-                    if (v.TryCast<ICallable>() != null)
-                    {
-                        return "function";
-                    }
-                    return "object";
 
-                default:
-                    throw new ArgumentException();
+                    default:
+                        throw new JavaScriptException(new JsValue("Unknown unary operator: " + unaryExpression.Operator.ToString()), unaryExpression.Location);
+                }
+            }
+            catch (JavaScriptException ex)
+            {
+                ex.InitLocation(unaryExpression.Location);
+                throw;
+            }
+            catch (StatementsCountOverflowException ex)
+            {
+                ex.InitLocation(unaryExpression.Location);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(new JsValue(ex.Message), unaryExpression.Location);
             }
         }
     }
