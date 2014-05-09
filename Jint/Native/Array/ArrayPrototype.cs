@@ -642,7 +642,13 @@ namespace Jint.Native.Array
             var o = TypeConverter.ToObject(Engine, thisObj);
             var lenVal = o.Get("length");
             var len = TypeConverter.ToUint32(lenVal);
+
+            #if __IOS__
+            var middle = (uint)System.Math.Floor(len/2.0);
+            #else
             var middle = (uint)System.Math.Floor(len/2);
+            #endif
+
             uint lower = 0;
             while (lower != middle)
             {
