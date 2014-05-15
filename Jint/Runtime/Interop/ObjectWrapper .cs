@@ -5,6 +5,7 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
+using System.Collections;
 
 namespace Jint.Runtime.Interop
 {
@@ -87,6 +88,12 @@ namespace Jint.Runtime.Interop
             if (methods.Any())
             {
                 return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methods), false, true, false);
+            }
+
+            // if no methods are found check if target is an IDictionary
+            if (typeof(IDictionary).IsAssignableFrom(type))
+            {
+                return new IndexDescriptor(Engine, propertyName, Target);
             }
 
             return PropertyDescriptor.Undefined;

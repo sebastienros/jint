@@ -103,6 +103,71 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void CanGetIndexUsingStringKey()
+        {
+            var dictionary = new Dictionary<string, Person>();
+            dictionary.Add("person1", new Person { Name = "Mickey Mouse" });
+            dictionary.Add("person2", new Person { Name = "Goofy" });
+
+            _engine.SetValue("dictionary", dictionary);
+
+            RunTest(@"
+                assert(dictionary['person1'].Name === 'Mickey Mouse');
+                assert(dictionary['person2'].Name === 'Goofy');
+            ");
+        }
+
+        [Fact]
+        public void CanSetIndexUsingStringKey()
+        {
+            var dictionary = new Dictionary<string, Person>();
+            dictionary.Add("person1", new Person { Name = "Mickey Mouse" });
+            dictionary.Add("person2", new Person { Name = "Goofy" });
+
+            _engine.SetValue("dictionary", dictionary);
+
+            RunTest(@"
+                dictionary['person2'].Name = 'Donald Duck';
+                assert(dictionary['person2'].Name === 'Donald Duck');
+            ");
+
+            Assert.Equal("Donald Duck", dictionary["person2"].Name);
+        }
+
+        [Fact]
+        public void CanGetIndexUsingIntegerKey()
+        {
+            var dictionary = new Dictionary<int, string>();
+            dictionary.Add(1, "Mickey Mouse");
+            dictionary.Add(2, "Goofy");
+
+            _engine.SetValue("dictionary", dictionary);
+
+            RunTest(@"
+                assert(dictionary[1] === 'Mickey Mouse');
+                assert(dictionary[2] === 'Goofy');
+            ");
+        }
+
+        [Fact]
+        public void CanSetIndexUsingIntegerKey()
+        {
+            var dictionary = new Dictionary<int, string>();
+            dictionary.Add(1, "Mickey Mouse");
+            dictionary.Add(2, "Goofy");
+
+            _engine.SetValue("dictionary", dictionary);
+
+            RunTest(@"
+                dictionary[2] = 'Donald Duck';
+                assert(dictionary[2] === 'Donald Duck');
+            ");
+
+            Assert.Equal("Mickey Mouse", dictionary[1]);
+            Assert.Equal("Donald Duck", dictionary[2]);
+        }
+
+        [Fact]
         public void CanAccessAnonymousObject()
         {
             var p = new

@@ -162,6 +162,7 @@
     <Compile Include="Runtime\Completion.cs" />
     <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\Specialized\FieldInfoDescriptor.cs" />
+    <Compile Include="Runtime\Descriptors\Specialized\IndexDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\Specialized\PropertyInfoDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\Specialized\ClrAccessDescriptor.cs" />
     <Compile Include="Runtime\Environments\Binding.cs" />
