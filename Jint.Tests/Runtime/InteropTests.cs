@@ -603,6 +603,57 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void EnumComparesByName()
+        {
+            var o = new
+            {
+                r = Colors.Red,
+                b = Colors.Blue,
+                g = Colors.Green,
+                b2 = Colors.Red
+            };
+
+            _engine.SetValue("o", o);
+            _engine.SetValue("assertFalse", new Action<bool>(Assert.False));
+
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                var colors = domain.Colors;
+                assert(o.r === colors.Red);
+                assert(o.g === colors.Green);
+                assert(o.b === colors.Blue);
+                assertFalse(o.b2 === colors.Blue);
+            ");
+        }
+
+        [Fact]
+        public void ShouldSetEnumProperty()
+        {
+            var s = new Circle
+            {
+                Color = Colors.Red,
+            };
+
+            _engine.SetValue("s", s);
+
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                var colors = domain.Colors;
+                
+                s.Color = colors.Blue;
+                assert(s.Color === colors.Blue);
+            ");
+
+            _engine.SetValue("s", s);
+
+            RunTest(@"
+                s.Color = colors.Blue | colors.Green;
+                assert(s.Color === colors.Blue | colors.Green);
+            ");
+
+            Assert.Equal(Colors.Blue | Colors.Green, s.Color);
+        }
 
         [Fact]
         public void EnumIsConvertedToNumber()

@@ -110,6 +110,22 @@ namespace Jint.Runtime.Interop
         public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
             // todo: cache members locally
+
+            if (Type.IsEnum)
+            {
+                Array enumValues = Enum.GetValues(Type);
+                Array enumNames = Enum.GetNames(Type);
+
+                for (int i = 0; i < enumValues.Length; i++)
+                {
+                    if (enumNames.GetValue(i) as string == propertyName)
+                    {
+                        return new PropertyDescriptor((int)enumValues.GetValue(i), false, false, false);
+                    }
+                }
+                return PropertyDescriptor.Undefined;
+            }
+
             var propertyInfo = Type.GetProperty(propertyName);
             if (propertyInfo != null)
             {
