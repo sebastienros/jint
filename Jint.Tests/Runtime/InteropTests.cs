@@ -168,6 +168,42 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void CanUseIndexOnCollection()
+        {
+            var collection = new System.Collections.ObjectModel.Collection<string>();
+            collection.Add("Mickey Mouse");
+            collection.Add("Goofy");
+
+            _engine.SetValue("dictionary", collection);
+
+            RunTest(@"
+                dictionary[1] = 'Donald Duck';
+                assert(dictionary[1] === 'Donald Duck');
+            ");
+
+            Assert.Equal("Mickey Mouse", collection[0]);
+            Assert.Equal("Donald Duck", collection[1]);
+        }
+
+        [Fact]
+        public void CanUseIndexOnList()
+        {
+            var arrayList = new System.Collections.ArrayList(2);
+            arrayList.Add("Mickey Mouse");
+            arrayList.Add("Goofy");
+
+            _engine.SetValue("dictionary", arrayList);
+
+            RunTest(@"
+                dictionary[1] = 'Donald Duck';
+                assert(dictionary[1] === 'Donald Duck');
+            ");
+
+            Assert.Equal("Mickey Mouse", arrayList[0]);
+            Assert.Equal("Donald Duck", arrayList[1]);
+        }
+
+        [Fact]
         public void CanAccessAnonymousObject()
         {
             var p = new
