@@ -45,6 +45,11 @@ namespace Jint.Runtime.Interop
                                 arguments[i].ToObject(),
                                 parameterType,
                                 CultureInfo.InvariantCulture);
+
+                            if (typeof(System.Linq.Expressions.LambdaExpression).IsAssignableFrom(parameters[i].GetType()))
+                            {
+                                parameters[i] = (parameters[i] as System.Linq.Expressions.LambdaExpression).Compile();
+                            }
                         }
                     }
 
