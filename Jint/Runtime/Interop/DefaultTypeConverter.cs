@@ -95,6 +95,31 @@ namespace Jint.Runtime.Interop
                     {
                         return (Action)(() => function(JsValue.Undefined, new JsValue[0]));
                     }
+                    else if (type.IsSubclassOf(typeof(System.MulticastDelegate)))
+                    {
+                        var method = type.GetMethod("Invoke");
+                        var arguments = method.GetParameters();
+
+                        var @params = new ParameterExpression[arguments.Count()];
+                        for (var i = 0; i < @params.Count(); i++)
+                        {
+                            @params[i] = Expression.Parameter(typeof(object), arguments[i].Name);
+                        }
+                        var @vars = Expression.NewArrayInit(typeof(JsValue), @params.Select(p => Expression.Call(null, typeof(JsValue).GetMethod("FromObject"), Expression.Constant(_engine, typeof(Engine)), p)));
+
+                        var callExpression = Expression.Block(
+                                                Expression.Call(
+                                                    Expression.Call(Expression.Constant(function.Target),
+                                                        function.Method,
+                                                        Expression.Constant(JsValue.Undefined, typeof(JsValue)),
+                                                        @vars),
+                                                    typeof(JsValue).GetMethod("ToObject")),
+                                                Expression.Empty());
+
+                        var dynamicExpression = Expression.Invoke(Expression.Lambda(callExpression, new ReadOnlyCollection<ParameterExpression>(@params)), new ReadOnlyCollection<ParameterExpression>(@params));
+
+                        return Expression.Lambda(type, dynamicExpression, new ReadOnlyCollection<ParameterExpression>(@params));
+                    }
                 }
 
             }

@@ -521,6 +521,25 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldExecuteActionCallbackOnEventChanged()
+        {
+            var collection = new System.Collections.ObjectModel.ObservableCollection<string>();
+            Assert.True(collection.Count == 0);
+
+            _engine.SetValue("collection", collection);
+
+            RunTest(@"
+                var eventAction;
+                collection.add_CollectionChanged(function(sender, eventArgs) { eventAction = eventArgs.Action; } );
+                collection.Add('test');
+            ");
+
+            var eventAction = _engine.GetValue("eventAction").AsNumber();
+            Assert.True(eventAction == 0);
+            Assert.True(collection.Count == 1);
+        }
+
+        [Fact]
         public void ShouldUseSystemIO()
         {
             RunTest(@"
