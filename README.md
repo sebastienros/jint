@@ -83,7 +83,7 @@ And even create shortcuts to commong .NET methods
     jint> log('Hello World !');
     => "Hello World !"
 ```
-When allowing the CLR, you can optionnally pass custom assemblies to load types from. 
+When allowing the CLR, you can optionally pass custom assemblies to load types from. 
 ```csharp
     var engine = new Engine(cfg => cfg
         .AllowClr(typeof(Bar).Assembly)
