@@ -90,8 +90,8 @@ namespace Jint.Runtime.Interop
                 return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methods), false, true, false);
             }
 
-            // if no methods are found check if target is an IDictionary
-            if (typeof(IDictionary).IsAssignableFrom(type))
+            // if no methods are found check if target implemented indexing
+            if (type.GetProperties().Where(p => p.GetIndexParameters().Length != 0).FirstOrDefault() != null)
             {
                 return new IndexDescriptor(Engine, propertyName, Target);
             }
