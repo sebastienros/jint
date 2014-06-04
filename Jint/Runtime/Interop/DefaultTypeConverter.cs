@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Linq.Expressions;
 using Jint.Native;
@@ -43,70 +44,49 @@ namespace Jint.Runtime.Interop
                 {
                     var genericType = type.GetGenericTypeDefinition();
 
-                    if (type == typeof(Func<string, bool>))
-                    {
-                        //return (Func<string, bool>)(x =>
-                        //{
-                        //    var arguments = new JsValue[1];
-                        //    arguments[0] = JsValue.FromObject(_engine, x);
-                        //    var o = function(JsValue.Undefined, arguments).ToObject();
-                        //    return (bool)Convert(o, typeof(bool), formatProvider);
-                        //});
-                    }
-
                     // create the requested Delegate
-                    if (genericType == typeof (Action<>))
+                    if (genericType.Name.StartsWith("Action"))
                     {
-                    }
-                    else if (genericType == typeof (Func<>))
-                    {
-                    }
-                    else if (genericType == typeof (Func<,>))
-                    {
-                        // return a function instance containing the following body
+                        var genericArguments = type.GetGenericArguments();
 
-                        //var arguments = new JsValue[1];
-                        //arguments[0] = JsValue.FromObject(_engine, x);
-                        //var o = function(JsValue.Undefined, arguments).ToObject();
-                        //return (bool) Convert(o, typeof (bool), formatProvider);
+                        var @params = new ParameterExpression[genericArguments.Count()];
+                        for (var i = 0; i < @params.Count(); i++)
+                        {
+                            @params[i] = Expression.Parameter(genericArguments[i], genericArguments[i].Name + i);
+                        }
+                        var @vars = Expression.NewArrayInit(typeof(JsValue), @params.Select(p => Expression.Call(null, typeof(JsValue).GetMethod("FromObject"), Expression.Constant(_engine, typeof(Engine)), p)));
 
+                        var callExpresion = Expression.Block(Expression.Call(
+                                                Expression.Call(Expression.Constant(function.Target),
+                                                    function.Method,
+                                                    Expression.Constant(JsValue.Undefined, typeof(JsValue)),
+                                                    @vars),
+                                                typeof(JsValue).GetMethod("ToObject")), Expression.Empty());
+
+                        return Expression.Lambda(callExpresion, new ReadOnlyCollection<ParameterExpression>(@params));
+                    }
+                    else if (genericType.Name.StartsWith("Func"))
+                    {
                         var genericArguments = type.GetGenericArguments();
                         var returnType = genericArguments.Last();
+                        
+                        var @params = new ParameterExpression[genericArguments.Count() - 1];
+                        for (var i = 0; i < @params.Count(); i++)
+                        {
+                            @params[i] = Expression.Parameter(genericArguments[i], genericArguments[i].Name + i);
+                        }
+                        var @vars = Expression.NewArrayInit(typeof(JsValue), @params.Select(p => Expression.Call(null, typeof(JsValue).GetMethod("FromObject"), Expression.Constant(_engine, typeof(Engine)), p)));
 
-                        ParameterExpression xExpr = Expression.Parameter(genericArguments[0], "x");
+                        var callExpresion = Expression.Convert(
+                                                Expression.Call(
+                                                    Expression.Call(Expression.Constant(function.Target),
+                                                            function.Method,
+                                                            Expression.Constant(JsValue.Undefined, typeof(JsValue)),
+                                                            @vars),
+                                                    typeof(JsValue).GetMethod("ToObject")),
+                                                returnType);
 
-                        // var arguments = new JsValue[1];
-                        ParameterExpression argumentsVariable = Expression.Variable(typeof (JsValue[]), "arguments");
-                        var argumentsExpression = Expression.Constant(new JsValue[genericArguments.Length - 1]);
-                        Expression.Assign(argumentsVariable, argumentsExpression);
-
-                        //arguments[0] = JsValue.FromObject(_engine, x);
-                        IndexExpression arrayAccess = Expression.ArrayAccess(argumentsExpression, Expression.Constant(0, typeof (int)));
-                        var convertExpression = Expression.Call(null,
-                            typeof (JsValue).GetMethod("FromObject"),
-                            Expression.Constant(_engine, typeof (Engine)),
-                            xExpr);
-
-                        Expression.Assign(arrayAccess, convertExpression);
-
-                        //var o = function(JsValue.Undefined, arguments).ToObject();
-                        ParameterExpression oVariable = Expression.Variable(typeof(object), "o");
-                        Expression.Assign(oVariable,
-                            Expression.Call(Expression.Constant(null),
-                                function.Method, 
-                                Expression.Constant(JsValue.Undefined, typeof (JsValue)),
-                                argumentsExpression));
-
-                        var castExpression = Expression.Convert(
-                            Expression.Call(
-                                Expression.Constant(this), 
-                                this.GetType().GetMethod("Convert"), 
-                                oVariable,
-                                Expression.Constant(returnType), 
-                                Expression.Constant(formatProvider)), 
-                            returnType);
-
-                        return Expression.Lambda(castExpression);
+                        return Expression.Lambda(callExpresion, new ReadOnlyCollection<ParameterExpression>(@params));
                     }
                 }
                 else
@@ -114,6 +94,31 @@ namespace Jint.Runtime.Interop
                     if (type == typeof (Action))
                     {
                         return (Action)(() => function(JsValue.Undefined, new JsValue[0]));
+                    }
+                    else if (type.IsSubclassOf(typeof(System.MulticastDelegate)))
+                    {
+                        var method = type.GetMethod("Invoke");
+                        var arguments = method.GetParameters();
+
+                        var @params = new ParameterExpression[arguments.Count()];
+                        for (var i = 0; i < @params.Count(); i++)
+                        {
+                            @params[i] = Expression.Parameter(typeof(object), arguments[i].Name);
+                        }
+                        var @vars = Expression.NewArrayInit(typeof(JsValue), @params.Select(p => Expression.Call(null, typeof(JsValue).GetMethod("FromObject"), Expression.Constant(_engine, typeof(Engine)), p)));
+
+                        var callExpression = Expression.Block(
+                                                Expression.Call(
+                                                    Expression.Call(Expression.Constant(function.Target),
+                                                        function.Method,
+                                                        Expression.Constant(JsValue.Undefined, typeof(JsValue)),
+                                                        @vars),
+                                                    typeof(JsValue).GetMethod("ToObject")),
+                                                Expression.Empty());
+
+                        var dynamicExpression = Expression.Invoke(Expression.Lambda(callExpression, new ReadOnlyCollection<ParameterExpression>(@params)), new ReadOnlyCollection<ParameterExpression>(@params));
+
+                        return Expression.Lambda(type, dynamicExpression, new ReadOnlyCollection<ParameterExpression>(@params));
                     }
                 }
 

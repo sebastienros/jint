@@ -463,10 +463,80 @@ namespace Jint.Tests.Runtime
         public void ShouldExecuteFunctionCallBackAsPredicate()
         {
             _engine.SetValue("a", new A());
+            
+            // Func<>
+            RunTest(@"
+                assert(a.Call8(function(){ return 'foo'; }) === 'foo');
+            ");
+        }
 
+        [Fact]
+        public void ShouldExecuteFunctionWithParameterCallBackAsPredicate()
+        {
+            _engine.SetValue("a", new A());
+
+            // Func<,>
             RunTest(@"
                 assert(a.Call7('foo', function(a){ return a === 'foo'; }) === true);
             ");
+        }
+
+        [Fact]
+        public void ShouldExecuteActionCallBackAsPredicate()
+        {
+            _engine.SetValue("a", new A());
+
+            // Action
+            RunTest(@"
+                var value;
+                a.Call9(function(){ value = 'foo'; });
+                assert(value === 'foo');
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteActionWithParameterCallBackAsPredicate()
+        {
+            _engine.SetValue("a", new A());
+
+            // Action<>
+            RunTest(@"
+                var value;
+                a.Call10('foo', function(b){ value = b; });
+                assert(value === 'foo');
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteActionWithMultipleParametersCallBackAsPredicate()
+        {
+            _engine.SetValue("a", new A());
+
+            // Action<,>
+            RunTest(@"
+                var value;
+                a.Call11('foo', 'bar', function(a,b){ value = a + b; });
+                assert(value === 'foobar');
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteActionCallbackOnEventChanged()
+        {
+            var collection = new System.Collections.ObjectModel.ObservableCollection<string>();
+            Assert.True(collection.Count == 0);
+
+            _engine.SetValue("collection", collection);
+
+            RunTest(@"
+                var eventAction;
+                collection.add_CollectionChanged(function(sender, eventArgs) { eventAction = eventArgs.Action; } );
+                collection.Add('test');
+            ");
+
+            var eventAction = _engine.GetValue("eventAction").AsNumber();
+            Assert.True(eventAction == 0);
+            Assert.True(collection.Count == 1);
         }
 
         [Fact]
