@@ -107,6 +107,35 @@ namespace Jint.Runtime.Interop
             return false;
         }
 
+        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        {
+            if (!CanPut(propertyName))
+            {
+                if (throwOnError)
+                {
+                    throw new JavaScriptException(Engine.TypeError);
+                }
+
+                return;
+            }
+
+            var ownDesc = GetOwnProperty(propertyName);
+
+            if (ownDesc == null)
+            {
+                if (throwOnError)
+                {
+                    throw new JavaScriptException(Engine.TypeError, "Unknown member: " + propertyName);
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            ownDesc.Value = value;
+        }
+
         public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
             // todo: cache members locally
@@ -126,10 +155,16 @@ namespace Jint.Runtime.Interop
                 return PropertyDescriptor.Undefined;
             }
 
-            var propertyInfo = Type.GetProperty(propertyName);
+            var propertyInfo = Type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Static);
             if (propertyInfo != null)
             {
                 return new PropertyInfoDescriptor(Engine, propertyInfo, Type);
+            }
+
+            var fieldInfo = Type.GetField(propertyName, BindingFlags.Public | BindingFlags.Static);
+            if (fieldInfo != null)
+            {
+                return new FieldInfoDescriptor(Engine, fieldInfo, Type);
             }
 
             var methodInfo = Type
