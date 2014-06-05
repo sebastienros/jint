@@ -649,6 +649,65 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void CanGetStaticField()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                var statics = domain.ClassWithStaticFields;
+                assert(statics.Get == 'Get');
+            ");
+        }
+
+        [Fact]
+        public void CanSetStaticField()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                var statics = domain.ClassWithStaticFields;
+                statics.Set = 'hello';
+                assert(statics.Set == 'hello');
+            ");
+
+            Assert.Equal(ClassWithStaticFields.Set, "hello");
+        }
+
+        [Fact]
+        public void CanGetStaticAccessor()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                var statics = domain.ClassWithStaticFields;
+                assert(statics.Getter == 'Getter');
+            ");
+        }
+
+        [Fact]
+        public void CanSetStaticAccessor()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                var statics = domain.ClassWithStaticFields;
+                statics.Setter = 'hello';
+                assert(statics.Setter == 'hello');
+            ");
+
+            Assert.Equal(ClassWithStaticFields.Setter, "hello");
+        }
+
+        [Fact]
+        public void CantSetStaticReadonly()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                var statics = domain.ClassWithStaticFields;
+                statics.Readonly = 'hello';
+                assert(statics.Readonly == 'Readonly');
+            ");
+
+            Assert.Equal(ClassWithStaticFields.Readonly, "Readonly");
+        }
+
+        [Fact]
         public void CanSetCustomConverters()
         {
 
