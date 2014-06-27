@@ -81,13 +81,12 @@ namespace Jint.Native.Date
                 }
             }
 
-            return Construct(result);
+            return FromDateTime(result);
         }
 
         private JsValue Utc(JsValue thisObj, JsValue[] arguments)
         {
-            var local = (DateInstance) Construct(arguments);
-            return local.PrimitiveValue;
+            return TimeClip(ConstructTimeValue(arguments, useUtc: true));
         }
 
         private JsValue Now(JsValue thisObj, JsValue[] arguments)
@@ -109,46 +108,56 @@ namespace Jint.Native.Date
         {
             if (arguments.Length == 0)
             {
-                return Construct(DateTime.Now);
+                return Construct(DateTime.UtcNow);
             }
             else if (arguments.Length == 1)
             {
                 var v = TypeConverter.ToPrimitive(arguments[0]);
                 if (v.IsString())
                 {
-                    return Parse(Undefined.Instance, Arguments.From(v)).AsObject();
+                    return Construct(Parse(Undefined.Instance, Arguments.From(v)).AsNumber());
                 }
 
-                return Construct(DatePrototype.TimeClip(TypeConverter.ToNumber(v)));
+                return Construct(TypeConverter.ToNumber(v));
             }
             else
             {
-                var y = TypeConverter.ToNumber(arguments[0]);
-                var m = (int)TypeConverter.ToInteger(arguments[1]);
-                var dt = arguments.Length > 2 ? (int)TypeConverter.ToInteger(arguments[2]) : 1;
-                var h = arguments.Length > 3 ? (int)TypeConverter.ToInteger(arguments[3]) : 0;
-                var min = arguments.Length > 4 ? (int)TypeConverter.ToInteger(arguments[4]) : 0;
-                var s = arguments.Length > 5 ? (int)TypeConverter.ToInteger(arguments[5]) : 0;
-                var milli = arguments.Length > 6 ? (int)TypeConverter.ToInteger(arguments[6]) : 0;
-
-                for (int i = 2; i < arguments.Length; i++)
-                {
-                    if (double.IsNaN(TypeConverter.ToNumber(arguments[i])))
-                    {
-                        return Construct(double.NaN);
-                    }
-                }
-
-                if ((!double.IsNaN(y)) && (0 <= TypeConverter.ToInteger(y)) && (TypeConverter.ToInteger(y) <= 99))
-                {
-                    y += 1900;
-                }
-
-                var finalDate = DatePrototype.MakeDate(DatePrototype.MakeDay(y, m, dt),
-                    DatePrototype.MakeTime(h, min, s, milli));
-
-                return Construct(DatePrototype.TimeClip(DatePrototype.Utc(finalDate, Engine.Options)));
+                return Construct(ConstructTimeValue(arguments, useUtc: false));
             }
+        }
+
+        private double ConstructTimeValue(JsValue[] arguments, bool useUtc)
+        {
+            if (arguments.Length < 2)
+            {
+                throw new ArgumentOutOfRangeException("arguments", "There must be at least two arguments.");
+            }
+
+            var y = TypeConverter.ToNumber(arguments[0]);
+            var m = (int)TypeConverter.ToInteger(arguments[1]);
+            var dt = arguments.Length > 2 ? (int)TypeConverter.ToInteger(arguments[2]) : 1;
+            var h = arguments.Length > 3 ? (int)TypeConverter.ToInteger(arguments[3]) : 0;
+            var min = arguments.Length > 4 ? (int)TypeConverter.ToInteger(arguments[4]) : 0;
+            var s = arguments.Length > 5 ? (int)TypeConverter.ToInteger(arguments[5]) : 0;
+            var milli = arguments.Length > 6 ? (int)TypeConverter.ToInteger(arguments[6]) : 0;
+
+            for (int i = 2; i < arguments.Length; i++)
+            {
+                if (double.IsNaN(TypeConverter.ToNumber(arguments[i])))
+                {
+                    return double.NaN;
+                }
+            }
+
+            if ((!double.IsNaN(y)) && (0 <= TypeConverter.ToInteger(y)) && (TypeConverter.ToInteger(y) <= 99))
+            {
+                y += 1900;
+            }
+
+            var finalDate = DatePrototype.MakeDate(DatePrototype.MakeDay(y, m, dt),
+                DatePrototype.MakeTime(h, min, s, milli));
+
+            return useUtc ? finalDate : DatePrototype.Utc(finalDate, Engine.Options);
         }
 
         public DatePrototype PrototypeObject { get; private set; }
