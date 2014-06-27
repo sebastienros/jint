@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using Jint.Native.Number;
@@ -736,6 +737,66 @@ namespace Jint.Tests.Runtime
                 Assert.Equal(9, e.Column);
                 Assert.Equal("jQuery.js", e.Source);
             }
+        }
+
+        [Fact]
+        public void ShouldUseLocalTimeZoneOverride()
+        {
+            //var all = TimeZoneInfo.GetSystemTimeZones();
+            //var skip = new[]
+            //{
+            //    "Dateline Standard Time",
+            //    "UTC-11",
+            //    "Hawaiian Standard Time"
+            //};
+            //foreach (var localTimeZone in all)
+            //{
+
+            //    if (skip.Contains(localTimeZone.Id))
+            //    {
+            //        continue;
+            //    }
+
+            //    //var localTimeZone = TimeZoneInfo.Local;
+
+            //    var customHoursOffsetFromLocal = 1;
+            //    var expectedToStringValue = "Mon Feb 02 1990 15:00:00 GMT";
+            //    var expectedGetHoursValue = 15d;
+            //    if (localTimeZone.BaseUtcOffset.Hours > 11)
+            //    {
+            //        customHoursOffsetFromLocal = -1;
+            //        expectedToStringValue = "Mon Feb 02 1990 13:00:00 GMT";
+            //        expectedGetHoursValue = 13d;
+            //    }
+
+                const string customName = "Custom Time";
+                //var customUtcOffset = localTimeZone.BaseUtcOffset.Add(new TimeSpan(customHoursOffsetFromLocal, 0, 0));
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName,
+                customName, customName, null, false);
+
+                //var d = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+
+                //var u = TimeZoneInfo.ConvertTime(d, localTimeZone, TimeZoneInfo.Utc);
+                //var l = TimeZoneInfo.ConvertTime(u, customTimeZone);
+
+                var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
+
+
+                var d1 = engine.Execute("var d = new Date(0); d.getTime();").GetCompletionValue().AsNumber();
+                var d2 = engine.Execute("var d = new Date(Date.UTC(1970,0,1)); d.getTime();").GetCompletionValue().AsNumber();
+
+
+                var result = engine.Execute("var d1 = new Date(0); var d2 = new Date(Date.UTC(1970,0,1)); d1.getTime() === d2.getTime();").GetCompletionValue().AsBoolean();
+                Assert.Equal(true, result);
+
+                var toStringResult = engine.Execute("var d = new Date(946684800000); d.toString();").GetCompletionValue().AsString();
+                Assert.Equal("Sat Jan 01 2000 00:11:00 GMT", toStringResult);
+
+                var getMinutesResult = engine.Execute("var d = new Date(946684800000); d.getMinutes();").GetCompletionValue().AsNumber();
+                Assert.Equal(11, getMinutesResult);
+
+            //}
+
         }
 
     }
