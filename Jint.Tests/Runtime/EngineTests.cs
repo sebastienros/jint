@@ -738,5 +738,37 @@ namespace Jint.Tests.Runtime
             }
         }
 
+        [Fact]
+        public void ParseShouldReturnNumber()
+        {
+            
+
+            RunTest(@"
+                var d = Date.parse('1970-01-01'); 
+                assert(d === 0);
+            ");
+
+            var engine = new Engine();
+
+            var result = engine.Execute("Date.parse('1970-01-01');").GetCompletionValue().AsNumber();
+            Assert.Equal(0, result);
+        }
+
+        [Fact]
+        public void UtcShouldUseUtc()
+        {
+            
+
+            RunTest(@"
+                var d = Date.UTC(1970,0,1); 
+                assert(d === 0);
+            ");
+
+            var engine = new Engine();
+
+            var result = engine.Execute("Date.UTC(1970,0,1)").GetCompletionValue().AsNumber();
+            Assert.Equal(0, result);
+        }
+
     }
 }
