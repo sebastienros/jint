@@ -606,6 +606,14 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldThrowTimeout()
+        {
+            Assert.Throws<TimeoutException>(
+                () => new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0,0,0,0,500))).Execute("while(true);")
+            );
+        }
+
+        [Fact]
         public void ShouldConvertDoubleToStringWithoutLosingPrecision()
         {
             RunTest(@"
