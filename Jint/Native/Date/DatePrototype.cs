@@ -832,7 +832,10 @@ namespace Jint.Native.Date
 
         public double LocalTza
         {
-            get { return Engine.Options.GetLocalTimeZone().BaseUtcOffset.TotalMilliseconds; }
+            get
+            {
+                return Engine.Options.GetLocalTimeZone().BaseUtcOffset.TotalMilliseconds;
+            }
         }
 
         public double DaylightSavingTa(double t)
