@@ -157,7 +157,7 @@ namespace Jint.Native.Date
             var finalDate = DatePrototype.MakeDate(DatePrototype.MakeDay(y, m, dt),
                 DatePrototype.MakeTime(h, min, s, milli));
 
-            return useUtc ? finalDate : DatePrototype.Utc(finalDate, Engine.Options);
+            return useUtc ? finalDate : PrototypeObject.Utc(finalDate);
         }
 
         public DatePrototype PrototypeObject { get; private set; }

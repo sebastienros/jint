@@ -830,22 +830,12 @@ namespace Jint.Native.Date
             return (Day(t) + 4)%7;
         }
 
-        private double LocalTza()
+        public double LocalTza
         {
-            return LocalTza(Engine.Options);
+            get { return Engine.Options.GetLocalTimeZone().BaseUtcOffset.TotalMilliseconds; }
         }
 
-        public static double LocalTza(Options options)
-        {
-            return options.GetLocalTimeZone().BaseUtcOffset.TotalMilliseconds;
-        }
-
-        private double DaylightSavingTa(double t)
-        {
-            return DaylightSavingTa(t, Engine.Options);
-        }
-
-        public static double DaylightSavingTa(double t, Options options)
+        public double DaylightSavingTa(double t)
         {
             var timeInYear = t - TimeFromYear(YearFromTime(t));
 
@@ -868,7 +858,7 @@ namespace Jint.Native.Date
 
             var dateTime = new DateTime((int)year, 1, 1).AddMilliseconds(timeInYear);
 
-            return options.GetLocalTimeZone().IsDaylightSavingTime(dateTime) ? MsPerHour : 0;
+            return Engine.Options.GetLocalTimeZone().IsDaylightSavingTime(dateTime) ? MsPerHour : 0;
         }
 
         public DateTime ToLocalTime(DateTime t)
@@ -888,17 +878,12 @@ namespace Jint.Native.Date
 
         public double LocalTime(double t)
         {
-            return t + LocalTza() + DaylightSavingTa(t);
+            return t + LocalTza + DaylightSavingTa(t);
         }
 
-        private double Utc(double t)
+        public double Utc(double t)
         {
-            return Utc(t, Engine.Options);
-        }
-
-        public static double Utc(double t, Options options)
-        {
-            return t - LocalTza(options) - DaylightSavingTa(t - LocalTza(options), options);
+            return t - LocalTza - DaylightSavingTa(t - LocalTza);
         }
 
         public static double HourFromTime(double t)
