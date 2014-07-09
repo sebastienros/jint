@@ -2,14 +2,14 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
     <id>Jint</id>
-    <version>$version$</version>
+    <version>2.2.0</version>
     <owners>Sebastien Ros</owners>
     <authors>Sebastien Ros</authors>
     <description>Javascript Interpreter for .NET</description>
     <language>en-US</language>
     <projectUrl>http://github.com/sebastienros/jint</projectUrl>
     <licenseUrl>https://raw.github.com/sebastienros/jint/master/LICENSE.txt</licenseUrl>
-    <releaseNotes>Complete rewrite as a PCL (Portable Class library).</releaseNotes>
+    <releaseNotes>Added more bindings: enums, static members, indexes, typed delegates</releaseNotes>
     <tags>javascript interpreter</tags>
   </metadata>
 </package>
