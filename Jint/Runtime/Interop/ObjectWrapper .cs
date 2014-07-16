@@ -100,9 +100,9 @@ namespace Jint.Runtime.Interop
 
             // try to find a single explicit property implementation
             var explicitProperties = (from iface in interfaces
-                from iprop in iface.GetProperties()
-                where propertyName.Equals(iprop.Name)
-                select iprop).ToList();
+                                      from iprop in iface.GetProperties()
+                                      where propertyName.Equals(iprop.Name)
+                                      select iprop).ToList();
 
             if (explicitProperties.Count == 1)
             {
@@ -113,9 +113,9 @@ namespace Jint.Runtime.Interop
 
             // try to find explicit method implementations
             var explicitMethods = (from iface in interfaces
-                from imethod in iface.GetMethods()
-                where propertyName.Equals(imethod.Name)
-                select imethod).ToList();
+                                   from imethod in iface.GetMethods()
+                                   where propertyName.Equals(imethod.Name)
+                                   select imethod).ToList();
 
             if (explicitMethods.Count > 0)
             {
@@ -125,9 +125,9 @@ namespace Jint.Runtime.Interop
             // try to find explicit indexer implementations
             var explicitIndexers =
                 (from iface in interfaces
-                    from iprop in iface.GetProperties()
-                    where iprop.GetIndexParameters().Length != 0
-                    select iprop).ToList();
+                 from iprop in iface.GetProperties()
+                 where iprop.GetIndexParameters().Length != 0
+                 select iprop).ToList();
 
             if (explicitIndexers.Count == 1)
             {
