@@ -795,8 +795,21 @@ namespace Jint.Runtime
             var arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
 
             var func = _engine.GetValue(callee);
-
+            
             var r = callee as Reference;
+
+            var funcName = r.GetReferencedName();
+            var recursionDepth = _engine.CallStack.Count(s => s == funcName);
+
+            if (recursionDepth > 0)
+            {
+                if (!_engine.Options.IsRecursionAllowed())
+                {
+                    throw new RecursionDiscardedException();
+                }
+            }
+            
+            _engine.CallStack.Push(funcName);
 
             if (func == Undefined.Instance)
             {
@@ -837,7 +850,11 @@ namespace Jint.Runtime
                 return ((EvalFunctionInstance) callable).Call(thisObject, arguments, true);
             }
             
-            return callable.Call(thisObject, arguments);
+            var result = callable.Call(thisObject, arguments);
+
+            _engine.CallStack.Pop();
+
+            return result;
         }
 
         public JsValue EvaluateSequenceExpression(SequenceExpression sequenceExpression)

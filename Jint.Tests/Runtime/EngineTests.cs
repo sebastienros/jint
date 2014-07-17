@@ -606,6 +606,23 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldThrowRecursionDiscarded()
+        {
+            var script = @"var factorial = function(n) {
+                if (n>1) {
+                    return n * factorial(n - 1);
+                }
+            };
+
+            var result = factorial(500);
+            ";
+
+            Assert.Throws<RecursionDiscardedException>(
+                () => new Engine(cfg => cfg.DiscardRecursion()).Execute(script)
+            );
+        }
+
+        [Fact]
         public void ShouldConvertDoubleToStringWithoutLosingPrecision()
         {
             RunTest(@"

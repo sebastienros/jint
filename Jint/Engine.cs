@@ -37,6 +37,8 @@ namespace Jint
         // cache of types used when resolving CLR type names
         internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>(); 
 
+        internal Stack<string> CallStack = new Stack<string>(); 
+
         public Engine() : this(null)
         {
         }
@@ -216,6 +218,14 @@ namespace Jint
             _statementsCount = 0;
         }
 
+        /// <summary>
+        /// Initializes list of references of called functions
+        /// </summary>
+        public void ResetCallStack()
+        {
+            CallStack.Clear();
+        }
+
         public Engine Execute(string source)
         {
             var parser = new JavaScriptParser();
@@ -232,6 +242,7 @@ namespace Jint
         {
             ResetStatementsCount();
             ResetLastStatement();
+            ResetCallStack();
 
             using (new StrictModeScope(Options.IsStrict() || program.Strict))
             {

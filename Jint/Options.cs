@@ -10,12 +10,14 @@ namespace Jint
     public class Options
     {
         private bool _discardGlobal;
+        private bool _discardRecursion;
         private bool _strict;
         private bool _allowDebuggerStatement;
         private bool _allowClr;
         private ITypeConverter _typeConverter = new DefaultTypeConverter();
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private int _maxStatements;
+        private int _maxRecursionDepth;
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private List<Assembly> _lookupAssemblies = new List<Assembly>(); 
 
@@ -26,6 +28,16 @@ namespace Jint
         public Options DiscardGlobal(bool discard = true)
         {
             _discardGlobal = discard;
+            return this;
+        }
+
+        /// <summary>
+        /// When called, doesn't allow to use recursion.
+        /// Can be useful when you can not trust to author of the script and safety has higher priority. 
+        /// </summary>
+        public Options DiscardRecursion(bool discard = true)
+        {
+            _discardRecursion = discard;
             return this;
         }
 
@@ -86,6 +98,12 @@ namespace Jint
             return this;
         }
 
+        public Options MaxRecursionDepth(int maxRecursionDepth = 0)
+        {
+            _maxRecursionDepth = maxRecursionDepth;
+            return this;
+        }
+
         public Options Culture(CultureInfo cultureInfo)
         {
             _culture = cultureInfo;
@@ -130,6 +148,11 @@ namespace Jint
         internal int GetMaxStatements()
         {
             return _maxStatements;
+        }
+
+        internal bool IsRecursionAllowed()
+        {
+            return !_discardRecursion;
         }
 
         internal CultureInfo GetCulture()
