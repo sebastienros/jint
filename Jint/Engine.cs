@@ -35,9 +35,9 @@ namespace Jint
         private SyntaxNode _lastSyntaxNode = null;
 
         // cache of types used when resolving CLR type names
-        internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>(); 
+        internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
 
-        internal Stack<string> CallStack = new Stack<string>(); 
+        internal Stack<CallExpression> CallStack = new Stack<CallExpression>(); 
 
         public Engine() : this(null)
         {

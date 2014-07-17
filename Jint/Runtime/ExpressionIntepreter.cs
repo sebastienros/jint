@@ -798,8 +798,8 @@ namespace Jint.Runtime
             
             var r = callee as Reference;
 
-            var funcName = r.GetReferencedName();
-            var recursionDepth = _engine.CallStack.Count(s => s == funcName);
+            //var funcName = r.GetReferencedName();
+            var recursionDepth = _engine.CallStack.Count(ce => ce == callExpression);
 
             if (recursionDepth > 0)
             {
@@ -808,8 +808,8 @@ namespace Jint.Runtime
                     throw new RecursionDiscardedException();
                 }
             }
-            
-            _engine.CallStack.Push(funcName);
+
+            _engine.CallStack.Push(callExpression);
 
             if (func == Undefined.Instance)
             {

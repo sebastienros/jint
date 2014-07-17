@@ -606,7 +606,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldThrowRecursionDiscarded()
+        public void ShouldDiscardRecursion()
         {
             var script = @"var factorial = function(n) {
                 if (n>1) {
@@ -615,6 +615,25 @@ namespace Jint.Tests.Runtime
             };
 
             var result = factorial(500);
+            ";
+
+            Assert.Throws<RecursionDiscardedException>(
+                () => new Engine(cfg => cfg.DiscardRecursion()).Execute(script)
+            );
+        }
+
+        [Fact]
+        public void ShouldDiscardHiddenRecursion()
+        {
+            var script = @"var renamedFunc;
+            var exec = function(callback) {
+                renamedFunc = callback;
+                callback();
+            };
+
+            var result = exec(function() {
+                renamedFunc();
+            });
             ";
 
             Assert.Throws<RecursionDiscardedException>(
