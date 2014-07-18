@@ -642,6 +642,39 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldRecognizeAndDiscardChainedRecursion()
+        {
+            var script = @" var funcRoot, funcA, funcB, funcC, funcD;
+
+            var funcRoot = function() {
+                funcA();
+            };
+ 
+            var funcA = function() {
+                funcB();
+            };
+
+            var funcB = function() {
+                funcC();
+            };
+
+            var funcC = function() {
+                funcD();
+            };
+
+            var funcD = function() {
+                funcRoot();
+            };
+
+            funcRoot();
+            ";
+
+            Assert.Throws<RecursionDiscardedException>(
+                () => new Engine(cfg => cfg.DiscardRecursion()).Execute(script)
+            );
+        }
+
+        [Fact]
         public void ShouldConvertDoubleToStringWithoutLosingPrecision()
         {
             RunTest(@"
