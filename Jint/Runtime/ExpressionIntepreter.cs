@@ -797,19 +797,19 @@ namespace Jint.Runtime
             var func = _engine.GetValue(callee);
             
             var r = callee as Reference;
+            var stackItem = new Tuple<CallExpression, JsValue, string>(callExpression, func, r.GetReferencedName());
 
-            //var funcName = r.GetReferencedName();
-            var recursionDepth = _engine.CallStack.Count(ce => ce == callExpression);
+            var recursionDepth = _engine.CallStack.Count(ce => ce.Item1 == callExpression || ce.Item2 == func);
 
             if (recursionDepth > 0)
             {
                 if (!_engine.Options.IsRecursionAllowed())
                 {
-                    throw new RecursionDiscardedException();
+                    throw new RecursionDiscardedException(_engine.CallStack, stackItem);
                 }
             }
 
-            _engine.CallStack.Push(callExpression);
+            _engine.CallStack.Push(stackItem);
 
             if (func == Undefined.Instance)
             {

@@ -37,7 +37,7 @@ namespace Jint
         // cache of types used when resolving CLR type names
         internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
 
-        internal Stack<CallExpression> CallStack = new Stack<CallExpression>(); 
+        internal Stack<Tuple<CallExpression, JsValue, string>> CallStack = new Stack<Tuple<CallExpression, JsValue, string>>();
 
         public Engine() : this(null)
         {
