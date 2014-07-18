@@ -807,6 +807,12 @@ namespace Jint.Runtime
                 {
                     throw new RecursionDiscardedException(_engine.CallStack, stackItem);
                 }
+
+                if (_engine.Options.GetMaxRecursionDepth() != 0
+                    && recursionDepth > _engine.Options.GetMaxRecursionDepth())
+                {
+                    throw new RecursionDepthOverflowException(_engine.CallStack, stackItem);
+                }
             }
 
             _engine.CallStack.Push(stackItem);

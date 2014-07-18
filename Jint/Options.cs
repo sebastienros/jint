@@ -150,6 +150,11 @@ namespace Jint
             return _maxStatements;
         }
 
+        internal int GetMaxRecursionDepth()
+        {
+            return _maxRecursionDepth;
+        }
+
         internal bool IsRecursionAllowed()
         {
             return !_discardRecursion;

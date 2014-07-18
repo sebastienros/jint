@@ -719,6 +719,38 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldAllowShallowRecursion()
+        {
+            var script = @"var factorial = function(n) {
+                if (n>1) {
+                    return n * factorial(n - 1);
+                }
+            };
+
+            var result = factorial(8);
+            ";
+
+            new Engine(cfg => cfg.MaxRecursionDepth(20)).Execute(script);
+        }
+
+        [Fact]
+        public void ShouldDiscardDeepRecursion()
+        {
+            var script = @"var factorial = function(n) {
+                if (n>1) {
+                    return n * factorial(n - 1);
+                }
+            };
+
+            var result = factorial(38);
+            ";
+
+            Assert.Throws<RecursionDepthOverflowException>(
+                () => new Engine(cfg => cfg.MaxRecursionDepth(20)).Execute(script)
+            );
+        }
+
+        [Fact]
         public void ShouldConvertDoubleToStringWithoutLosingPrecision()
         {
             RunTest(@"
