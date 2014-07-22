@@ -46,30 +46,35 @@ namespace Jint.Native.Date
 
             if (!DateTime.TryParseExact(date, new[]
             {
-                "yyyy/MM/ddTH:m:s.fff",
-                "yyyy/MM/dd",
-                "yyyy/MM",
-                "yyyy-MM-ddTH:m:s.fff",
+                "yyyy-MM-ddTHH:mm:ss.FFF",
+                "yyyy-MM-ddTHH:mm:ss",
+                "yyyy-MM-ddTHH:mm",
                 "yyyy-MM-dd",
                 "yyyy-MM",
-                "yyyy",
-                "THH:m:s.fff",
-                "TH:mm:sm",
-                "THH:mm",
-                "THH"
+                "yyyy"
             }, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out result))
             {
                 if (!DateTime.TryParseExact(date, new[]
                 {
-                    "yyyy/MM/ddTH:m:s.fffK",
-                    "yyyy/MM/ddK",
-                    "yyyy/MMK",
-                    "yyyy-MM-ddTH:m:s.fffK",
-                    "yyyy-MM-ddK",
-                    "yyyy-MMK",
+                    "yyyy-M-dTH:m:s.FFFK",
+                    "yyyy/M/dTH:m:s.FFFK",
+                    "yyyy-M-dTH:m:sK",
+                    "yyyy/M/dTH:m:sK",
+                    "yyyy-M-dTH:mK",
+                    "yyyy/M/dTH:mK",
+                    "yyyy-M-d H:m:s.FFFK",
+                    "yyyy/M/d H:m:s.FFFK",
+                    "yyyy-M-d H:m:sK",
+                    "yyyy/M/d H:m:sK",
+                    "yyyy-M-d H:mK",
+                    "yyyy/M/d H:mK",
+                    "yyyy-M-dK",
+                    "yyyy/M/dK",
+                    "yyyy-MK",
+                    "yyyy/MK",
                     "yyyyK",
-                    "THH:m:s.fffK",
-                    "TH:mm:smK",
+                    "THH:mm:ss.FFFK",
+                    "THH:mm:ssK",
                     "THH:mmK",
                     "THHK"
                 }, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
@@ -157,7 +162,7 @@ namespace Jint.Native.Date
             var finalDate = DatePrototype.MakeDate(DatePrototype.MakeDay(y, m, dt),
                 DatePrototype.MakeTime(h, min, s, milli));
 
-            return useUtc ? finalDate : DatePrototype.Utc(finalDate);
+            return useUtc ? finalDate : PrototypeObject.Utc(finalDate);
         }
 
         public DatePrototype PrototypeObject { get; private set; }
@@ -206,9 +211,22 @@ namespace Jint.Native.Date
             return TypeConverter.ToInteger(time);
         }
 
-        public static double FromDateTime(DateTime dt)
+        public double FromDateTime(DateTime dt)
         {
-            return System.Math.Floor((dt.ToUniversalTime() - Epoch).TotalMilliseconds);
+            var convertToUtcAfter = (dt.Kind == DateTimeKind.Unspecified);
+
+            var dateAsUtc = dt.Kind == DateTimeKind.Local
+                ? dt.ToUniversalTime()
+                : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+
+            var result = (dateAsUtc - Epoch).TotalMilliseconds;
+
+            if (convertToUtcAfter)
+            {
+                result = PrototypeObject.Utc(result);
+            }
+
+            return System.Math.Floor(result);
         }
     }
 }
