@@ -335,7 +335,7 @@ namespace Jint.Native.Date
             return u;
         }
 
-        private JsValue SetUTCMilliseconds(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
             var t = thisObj.As<DateInstance>().PrimitiveValue;
             var time = MakeTime(HourFromTime(t), MinFromTime(t), SecFromTime(t), TypeConverter.ToNumber(arguments.At(0)));
@@ -355,7 +355,7 @@ namespace Jint.Native.Date
             return u;
         }
 
-        private JsValue SetUTCSeconds(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCSeconds(JsValue thisObj, JsValue[] arguments)
         {
             var t = thisObj.As<DateInstance>().PrimitiveValue;
             var s = TypeConverter.ToNumber(arguments.At(0));
@@ -378,7 +378,7 @@ namespace Jint.Native.Date
             return u;
         }
 
-        private JsValue SetUTCMinutes(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCMinutes(JsValue thisObj, JsValue[] arguments)
         {
             var t = thisObj.As<DateInstance>().PrimitiveValue;
             var m = TypeConverter.ToNumber(arguments.At(0));
@@ -403,7 +403,7 @@ namespace Jint.Native.Date
             return u;
         }
 
-        private JsValue SetUTCHours(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCHours(JsValue thisObj, JsValue[] arguments)
         {
             var t = thisObj.As<DateInstance>().PrimitiveValue;
             var h = TypeConverter.ToNumber(arguments.At(0));
@@ -426,7 +426,7 @@ namespace Jint.Native.Date
             return u;
         }
 
-        private JsValue SetUTCDate(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCDate(JsValue thisObj, JsValue[] arguments)
         {
             var t = thisObj.As<DateInstance>().PrimitiveValue;
             var dt = TypeConverter.ToNumber(arguments.At(0));
@@ -447,7 +447,7 @@ namespace Jint.Native.Date
             return u;
         }
 
-        private JsValue SetUTCMonth(JsValue thisObj, JsValue[] arguments)
+        private static JsValue SetUTCMonth(JsValue thisObj, JsValue[] arguments)
         {
             var t = thisObj.As<DateInstance>().PrimitiveValue;
             var m = TypeConverter.ToNumber(arguments.At(0));
@@ -866,14 +866,9 @@ namespace Jint.Native.Date
 
         public DateTime ToLocalTime(DateTime t)
         {
-            if (t.Kind == DateTimeKind.Local)
-            {
-                return t;
-            }
-
             if (t.Kind == DateTimeKind.Unspecified)
             {
-                t = DateTime.SpecifyKind(t, DateTimeKind.Utc);
+                return t;
             }
 
             return TimeZoneInfo.ConvertTime(t, Engine.Options.GetLocalTimeZone());
