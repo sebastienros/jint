@@ -173,6 +173,7 @@
     <Compile Include="Runtime\Environments\ObjectEnvironmentRecord.cs" />
     <Compile Include="Runtime\ExpressionIntepreter.cs" />
     <Compile Include="Runtime\Interop\DefaultTypeConverter.cs" />
+    <Compile Include="Runtime\Interop\JintInteropException.cs" />
     <Compile Include="Runtime\Interop\IObjectWrapper.cs" />
     <Compile Include="Runtime\Interop\IObjectConverter.cs" />
     <Compile Include="Runtime\Interop\ITypeConverter.cs" />
