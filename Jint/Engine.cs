@@ -727,5 +727,9 @@ namespace Jint
                 }
             }
         }
-    }
+
+		public Object Run( string p ) {
+			return Execute( p ).GetCompletionValue();
+		}
+	}
 }
