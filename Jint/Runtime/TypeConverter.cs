@@ -366,7 +366,18 @@ namespace Jint.Runtime
                 var parameters = method.GetParameters();
                 for (var i = 0; i < arguments.Length; i++)
                 {
-                    if (objectArguments[i].GetType() != parameters[i].ParameterType)
+                    var arg = objectArguments[i];
+                    var paramType = parameters[i].ParameterType;
+                    
+                    if (arg == null)
+                    {
+                        if (paramType.IsValueType && Nullable.GetUnderlyingType(paramType) == null)
+                        {
+                            perfectMatch = false;
+                            break;
+                        }
+                    }
+                    else if (arg.GetType() != paramType)
                     {
                         perfectMatch = false;
                         break;
