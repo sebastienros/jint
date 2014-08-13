@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using Jint.Native;
 
@@ -9,18 +11,38 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly Engine _engine;
         private readonly object _key;
         private readonly object _item;
-        private readonly MethodInfo _getter;
-        private readonly MethodInfo _setter;
+        private readonly PropertyInfo _indexer;
 
         public IndexDescriptor(Engine engine, string key, object item)
         {
             _engine = engine;
             _item = item;
 
-            _getter = item.GetType().GetMethod("get_Item", BindingFlags.Instance | BindingFlags.Public);
-            _setter = item.GetType().GetMethod("set_Item", BindingFlags.Instance | BindingFlags.Public);
+            // get all instance indexers with exactly 1 argument
+            var indexers = item
+                .GetType()
+                .GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                .Where(x => x.GetIndexParameters().Length == 1);
+            
+            // try to find first indexer having either public getter or setter with matching argument type
+            foreach (var indexer in indexers)
+            {
+                if (indexer.GetGetMethod() != null || indexer.GetSetMethod() != null)
+                {
+                    var paramType = indexer.GetIndexParameters()[0].ParameterType;
+                    try
+                    {
+                        _key = _engine.Options.GetTypeConverter().Convert(key, paramType, CultureInfo.InvariantCulture);
+                        _indexer = indexer;
+                        break;
+                    }
+                    catch { }
+                }
+            }
 
-            _key = _engine.Options.GetTypeConverter().Convert(key, _getter.GetParameters()[0].ParameterType, CultureInfo.InvariantCulture);
+            // throw if no indexer found
+            if(_indexer == null)
+                throw new InvalidOperationException("No matching indexer found.");
 
             Writable = true;
         }
@@ -29,15 +51,22 @@ namespace Jint.Runtime.Descriptors.Specialized
         {
             get
             {
+                var getter = _indexer.GetGetMethod();
+                if(getter == null)
+                    throw new InvalidOperationException("Indexer has no public getter.");
+
                 object[] parameters = { _key };
-                return JsValue.FromObject(_engine, _getter.Invoke(_item, parameters));
+                return JsValue.FromObject(_engine, getter.Invoke(_item, parameters));
             }
 
             set
             {
-                var defaultValue = _item.GetType().IsValueType ? System.Activator.CreateInstance(_item.GetType()) : null;
+                var setter = _indexer.GetSetMethod();
+                if (setter == null)
+                    throw new InvalidOperationException("Indexer has no public setter.");
+
                 object[] parameters = { _key, value.HasValue ? value.Value.ToObject() : null };
-                _setter.Invoke(_item, parameters);
+                setter.Invoke(_item, parameters);
             }
         }
     }
