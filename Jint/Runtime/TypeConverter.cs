@@ -380,30 +380,8 @@ namespace Jint.Runtime
                 }
             }
 
-            var candidates = new List<MethodBase>();
             foreach (var method in methods)
-            {
-                var parameters = new object[arguments.Length];
-                try
-                {
-                    for (var i = 0; i < arguments.Length; i++)
-                    {
-                        parameters[i] = engine.Options.GetTypeConverter().Convert(
-                            arguments[i].ToObject(),
-                            method.GetParameters()[i].ParameterType,
-                            CultureInfo.InvariantCulture);
-                    }
-                }
-                catch
-                {
-                    // ignore method
-                }
-
-                candidates.Add(method);
-            }
-
-            foreach (var candidate in candidates)
-                yield return candidate;
+                yield return method;
         }
 
     }
