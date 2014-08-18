@@ -23,20 +23,22 @@ namespace Jint.Runtime.Descriptors.Specialized
                 .GetType()
                 .GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
                 .Where(x => x.GetIndexParameters().Length == 1);
-            
+
+            var converter = _engine.Options.GetTypeConverter();
+
             // try to find first indexer having either public getter or setter with matching argument type
             foreach (var indexer in indexers)
             {
                 if (indexer.GetGetMethod() != null || indexer.GetSetMethod() != null)
                 {
                     var paramType = indexer.GetIndexParameters()[0].ParameterType;
-                    try
+
+                    if (converter.TryConvert(key, paramType, CultureInfo.InvariantCulture, out _key))
                     {
-                        _key = _engine.Options.GetTypeConverter().Convert(key, paramType, CultureInfo.InvariantCulture);
                         _indexer = indexer;
                         break;
+
                     }
-                    catch { }
                 }
             }
 
