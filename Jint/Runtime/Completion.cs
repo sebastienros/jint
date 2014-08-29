@@ -1,4 +1,5 @@
 ﻿using Jint.Native;
+using System;
 
 namespace Jint.Runtime
 {
@@ -12,12 +13,14 @@ namespace Jint.Runtime
         public static string Continue = "continue";
         public static string Return = "return";
         public static string Throw = "throw";
+		public Exception ExceptionLocation { get; set; }
 
-        public Completion(string type, JsValue? value, string identifier)
+        public Completion(string type, JsValue? value, string identifier, Exception ex=null)
         {
             Type = type;
             Value = value;
             Identifier = identifier;
+			ExceptionLocation = ex;
         }
 
         public string Type { get; private set; }

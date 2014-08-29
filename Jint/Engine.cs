@@ -240,7 +240,8 @@ namespace Jint
                 var result = _statements.ExecuteProgram(program);
                 if (result.Type == Completion.Throw)
                 {
-                    throw new JavaScriptException(result.GetValueOrDefault());
+					Completion c = (Completion)result;
+                    throw new JavaScriptException(c.Identifier, c.ExceptionLocation );
                 }
 
                 _completionValue = result.GetValueOrDefault();
@@ -727,5 +728,9 @@ namespace Jint
                 }
             }
         }
-    }
+
+		public Object Run( string p ) {
+			return Execute( p ).GetCompletionValue();
+		}
+	}
 }

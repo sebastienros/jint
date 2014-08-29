@@ -46,9 +46,11 @@ namespace Jint.Native.Date
 
             if (!DateTime.TryParseExact(date, new[]
             {
+                "yyyy/MM/dd H:m:s.fff",
                 "yyyy/MM/ddTH:m:s.fff",
                 "yyyy/MM/dd",
                 "yyyy/MM",
+                "yyyy-MM-dd H:m:s.fff",
                 "yyyy-MM-ddTH:m:s.fff",
                 "yyyy-MM-dd",
                 "yyyy-MM",
@@ -61,9 +63,11 @@ namespace Jint.Native.Date
             {
                 if (!DateTime.TryParseExact(date, new[]
                 {
+                    "yyyy/MM/dd H:m:s.fffK",
                     "yyyy/MM/ddTH:m:s.fffK",
                     "yyyy/MM/ddK",
                     "yyyy/MMK",
+                    "yyyy-MM-dd H:m:s.fffK",
                     "yyyy-MM-ddTH:m:s.fffK",
                     "yyyy-MM-ddK",
                     "yyyy-MMK",
@@ -76,7 +80,7 @@ namespace Jint.Native.Date
                 {
                     if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal,out result))
                     {
-                        throw new JavaScriptException(Engine.SyntaxError, "Invalid date");
+                        throw new JavaScriptException(Engine.SyntaxError, "Invalid date: '"+date+"'");
                     }
                 }
             }
