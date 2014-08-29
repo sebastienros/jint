@@ -8,6 +8,7 @@ namespace Jint.Runtime
     {
         private readonly JsValue _errorObject;
 
+		public JavaScriptException( string msg, Exception inner ) : base(msg, inner) { }
         public JavaScriptException(ErrorConstructor errorConstructor) : base("")
         {
             _errorObject = errorConstructor.Construct(Arguments.Empty);

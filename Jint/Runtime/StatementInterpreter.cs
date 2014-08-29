@@ -425,7 +425,7 @@ namespace Jint.Runtime
             }
             catch(JavaScriptException v)
             {
-                return new Completion(Completion.Throw, v.Error, null);
+                return new Completion(Completion.Throw, v.Error, v.Message, v);
             }
 
             return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
