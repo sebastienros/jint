@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -17,6 +18,7 @@ namespace Jint
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private int _maxStatements;
         private CultureInfo _culture = CultureInfo.CurrentCulture;
+        private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>(); 
 
         /// <summary>
@@ -92,6 +94,12 @@ namespace Jint
             return this;
         }
 
+        public Options LocalTimeZone(TimeZoneInfo timeZoneInfo)
+        {
+            _localTimeZone = timeZoneInfo;
+            return this;
+        }
+
         internal bool GetDiscardGlobal()
         {
             return _discardGlobal;
@@ -135,6 +143,11 @@ namespace Jint
         internal CultureInfo GetCulture()
         {
             return _culture;
+        }
+
+        internal TimeZoneInfo GetLocalTimeZone()
+        {
+            return _localTimeZone;
         }
     }
 }
