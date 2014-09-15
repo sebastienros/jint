@@ -752,7 +752,8 @@ namespace Jint.Tests.Runtime
         {
             if (TimeZoneInfo.Local.BaseUtcOffset.Equals(new TimeSpan(0)))
             {
-                throw new Exception("Test is not valid if the Local timezone offset is the same as UTC.");
+                // Test is not valid if the Local timezone offset is the same as UTC
+                return;
             }
 
             var engine = new Engine();
