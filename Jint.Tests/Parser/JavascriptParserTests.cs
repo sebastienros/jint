@@ -21,6 +21,7 @@ namespace Jint.Tests.Parser
         [InlineData("mootools.js", "1.4.5")]
         [InlineData("angular.js", "1.2.5")]
         [InlineData("JSXTransformer.js", "0.10.0")]
+        [InlineData("handlebars.js", "2.0.0")]
         public void ShouldParseScriptFile(string file, string version)
         {
             const string prefix = "Jint.Tests.Parser.Scripts.";
