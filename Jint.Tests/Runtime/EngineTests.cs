@@ -865,5 +865,17 @@ namespace Jint.Tests.Runtime
                 assert('Hello Paul' == html);
             ");
         }
+
+    	[Theory]
+    	[InlineData("3456", "'345a'.replace('a', '6')")]
+    	[InlineData("34561", "'345ab1'.replace('ab', '6')")]
+    	[InlineData("34561345a1", "'345a1345a1'.replace('a', '6')")]
+    	public void ShouldReplaceInString(object expected, string source)
+    	{
+        	var engine = new Engine();
+        	var result = engine.Execute(source).GetCompletionValue().ToObject();
+
+        	Assert.Equal(expected, result);
+    	}
     }
 }
