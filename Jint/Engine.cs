@@ -32,6 +32,7 @@ namespace Jint
         private readonly Stack<ExecutionContext> _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
+        private long _timeoutTicks;
         private SyntaxNode _lastSyntaxNode = null;
 
         // cache of types used when resolving CLR type names
@@ -216,6 +217,12 @@ namespace Jint
             _statementsCount = 0;
         }
 
+        public void ResetTimeoutTicks()
+        {
+            var timeoutIntervalTicks = Options.GetTimeoutInterval().Ticks;
+            _timeoutTicks = timeoutIntervalTicks > 0 ? DateTime.UtcNow.Ticks + timeoutIntervalTicks : 0;
+        }
+
         public Engine Execute(string source)
         {
             var parser = new JavaScriptParser();
@@ -231,6 +238,7 @@ namespace Jint
         public Engine Execute(Program program)
         {
             ResetStatementsCount();
+            ResetTimeoutTicks();
             ResetLastStatement();
 
             using (new StrictModeScope(Options.IsStrict() || program.Strict))
@@ -268,6 +276,11 @@ namespace Jint
             if (maxStatements > 0 && _statementsCount++ > maxStatements)
             {
                 throw new StatementsCountOverflowException();
+            }
+
+            if (_timeoutTicks > 0 && _timeoutTicks < DateTime.UtcNow.Ticks)
+            {
+                throw new TimeoutException();
             }
 
             _lastSyntaxNode = statement;

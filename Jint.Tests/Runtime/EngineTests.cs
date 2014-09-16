@@ -9,6 +9,7 @@ using Jint.Parser.Ast;
 using Jint.Runtime;
 using Xunit;
 using Xunit.Extensions;
+using System.Net;
 
 namespace Jint.Tests.Runtime
 {
@@ -31,7 +32,6 @@ namespace Jint.Tests.Runtime
 
         private void RunTest(string source)
         {
-
             _engine.Execute(source);
         }
 
@@ -606,6 +606,14 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldThrowTimeout()
+        {
+            Assert.Throws<TimeoutException>(
+                () => new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0,0,0,0,500))).Execute("while(true);")
+            );
+        }
+
+        [Fact]
         public void ShouldConvertDoubleToStringWithoutLosingPrecision()
         {
             RunTest(@"
@@ -839,5 +847,31 @@ namespace Jint.Tests.Runtime
             Assert.Equal(-11 * 60 * 1000, result);
         }
 
+        [Fact]
+        public void EmptyStringShouldMatchRegex()
+        {
+            RunTest(@"
+                var regex = /^(?:$)/g;
+                assert(''.match(regex) instanceof Array);
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteHandlebars()
+        {
+            var url = "http://cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0/handlebars.js";
+            var content = new WebClient().DownloadString(url);
+            
+            RunTest(content);
+
+            RunTest(@"
+                var source = 'Hello {{name}}';
+                var template = Handlebars.compile(source);
+                var context = {name: 'Paul'};
+                var html = template(context);
+
+                assert('Hello Paul' == html);
+            ");
+        }
     }
 }
