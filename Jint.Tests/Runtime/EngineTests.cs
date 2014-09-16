@@ -750,13 +750,9 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void UtcShouldUseUtc()
         {
-            if (TimeZoneInfo.Local.BaseUtcOffset.Equals(new TimeSpan(0)))
-            {
-                // Test is not valid if the Local timezone offset is the same as UTC
-                return;
-            }
-
-            var engine = new Engine();
+            const string customName = "Custom Time";
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(7, 11, 0), customName, customName, customName, null, false);
+            var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)); 
 
             var result = engine.Execute("Date.UTC(1970,0,1)").GetCompletionValue().AsNumber();
             Assert.Equal(0, result);
@@ -805,7 +801,11 @@ namespace Jint.Tests.Runtime
         [InlineData("1970-01-01T00:00:00.000-00:00")]
         public void ShouldParseAsUtc(string date)
         {
-            var engine = new Engine().SetValue("d", date);
+            const string customName = "Custom Time";
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(7, 11, 0), customName, customName, customName, null, false);
+            var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
+
+            engine.SetValue("d", date);
             var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
 
             Assert.Equal(0, result);
