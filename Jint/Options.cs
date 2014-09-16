@@ -17,6 +17,7 @@ namespace Jint
         private ITypeConverter _typeConverter = new DefaultTypeConverter();
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private int _maxStatements;
+        private TimeSpan _timeoutInterval;
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>(); 
@@ -88,6 +89,12 @@ namespace Jint
             return this;
         }
 
+        public Options TimeoutInterval(TimeSpan timeoutInterval)
+        {
+            _timeoutInterval = timeoutInterval;
+            return this;
+        }
+
         public Options Culture(CultureInfo cultureInfo)
         {
             _culture = cultureInfo;
@@ -138,6 +145,11 @@ namespace Jint
         internal int GetMaxStatements()
         {
             return _maxStatements;
+        }
+
+        internal TimeSpan GetTimeoutInterval()
+        {
+            return _timeoutInterval;
         }
 
         internal CultureInfo GetCulture()
