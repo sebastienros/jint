@@ -867,9 +867,7 @@ namespace Jint.Tests.Runtime
         }
 
     	[Theory]
-    	[InlineData("3-456", "'3-45a'.replace('a', '6')")]
-    	[InlineData("3456", "'345A'.replace('A', '6')")]
-    	[InlineData("34561", "'345a1'.replace('a', '6')")]
+    	[InlineData("3456", "'345a'.replace('a', '6')")]
     	[InlineData("34561", "'345ab1'.replace('ab', '6')")]
     	[InlineData("34561345a1", "'345a1345a1'.replace('a', '6')")]
     	public void ShouldReplaceInString(object expected, string source)
