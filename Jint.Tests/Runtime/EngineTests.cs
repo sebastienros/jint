@@ -716,29 +716,29 @@ namespace Jint.Tests.Runtime
                 function f() {
                     try {
                         JSON.parse('{ ""x"": -.1 }'); // Not allowed
+                        return false;
                     }
                     catch(ex) {
-                        return ex.toString();
+                        return ex.toString().indexOf('Unexpected token') !== -1;
                     }
                 }
                 f();
             ";
-            var resultS = engine.Execute(code).GetCompletionValue().AsString();
-            Assert.True(resultS.Contains("Unexpected token"));
+            Assert.True(engine.Execute(code).GetCompletionValue().AsBoolean());
 
             code = @"
                 function f() {
                     try {
                         JSON.parse('{ ""x"": - 1 }'); // Not allowed
+                        return false;
                     }
                     catch(ex) {
-                        return ex.toString();
+                        return ex.toString().indexOf('Unexpected token') !== -1;
                     }
                 }
                 f();
             ";
-            resultS = engine.Execute(code).GetCompletionValue().AsString();
-            Assert.True(resultS.Contains("Unexpected token"));
+            Assert.True(engine.Execute(code).GetCompletionValue().AsBoolean());
         }
 
         [Fact]
