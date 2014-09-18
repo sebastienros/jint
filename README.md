@@ -1,4 +1,4 @@
-[![Build status](https://ci.appveyor.com/api/projects/status/c84b8rdswh2w4744/branch/master)](https://ci.appveyor.com/project/SebastienRos/jint)
+[![Build status](http://teamcity.codebetter.com/app/rest/builds/buildType:(id:Jint_Master)/statusIcon)](http://teamcity.codebetter.com/project.html?projectId=Jint&tab=projectOverview)
 
 # Jint
 
@@ -124,3 +124,7 @@ Generic types are also supported. Here is how to declare, instantiate and use a 
   - boolean -> bool
   - Regex -> RegExp
   - Function -> Delegate
+
+Continuous Integration kindly provided by  
+[![](http://www.jetbrains.com/img/banners/Codebetter300x250.png)](http://www.jetbrains.com/teamcity)
+
