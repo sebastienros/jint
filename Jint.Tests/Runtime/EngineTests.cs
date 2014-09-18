@@ -708,45 +708,37 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void JsonParserShouldParseNegativeNumber()
         {
-            var engine = new Engine();
-            var result = engine.Execute(@"JSON.parse('{ ""x"":-1 }').x === -1").GetCompletionValue().AsBoolean();
-            Assert.Equal(true, result);
+            RunTest(@"
+                var a = JSON.parse('{ ""x"":-1 }');
+                assert(a.x === -1);
 
-            result = engine.Execute(@"JSON.parse('{ ""x"": -1 }').x === -1").GetCompletionValue().AsBoolean();
-            Assert.Equal(true, result);
+                var b = JSON.parse('{ ""x"": -1 }');
+                assert(b.x === -1);
+            ");
         }
 
         [Fact]
         public void JsonParserShouldDetectInvalidNegativeNumberSyntax()
         {
-            var engine = new Engine();            
-            var code = @"
-                function f() {
-                    try {
-                        JSON.parse('{ ""x"": -.1 }'); // Not allowed
-                        return false;
-                    }
-                    catch(ex) {
-                        return ex.toString().indexOf('Unexpected token') !== -1;
-                    }
+            RunTest(@"
+                try {
+                    JSON.parse('{ ""x"": -.1 }'); // Not allowed
+                    assert(false);
                 }
-                f();
-            ";
-            Assert.True(engine.Execute(code).GetCompletionValue().AsBoolean());
+                catch(ex) {
+                    assert(ex instanceof SyntaxError);
+                }
+            ");
 
-            code = @"
-                function f() {
-                    try {
-                        JSON.parse('{ ""x"": - 1 }'); // Not allowed
-                        return false;
-                    }
-                    catch(ex) {
-                        return ex.toString().indexOf('Unexpected token') !== -1;
-                    }
+            RunTest(@"
+                try {
+                    JSON.parse('{ ""x"": - 1 }'); // Not allowed
+                    assert(false);
                 }
-                f();
-            ";
-            Assert.True(engine.Execute(code).GetCompletionValue().AsBoolean());
+                catch(ex) {
+                    assert(ex instanceof SyntaxError);
+                }
+            ");
         }
 
         [Fact]
