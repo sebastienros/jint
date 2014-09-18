@@ -706,6 +706,50 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void JsonParserShouldParseNegativeNumber()
+        {
+            var engine = new Engine();
+            var result = engine.Execute(@"JSON.parse('{ ""x"":-1 }').x === -1").GetCompletionValue().AsBoolean();
+            Assert.Equal(true, result);
+
+            result = engine.Execute(@"JSON.parse('{ ""x"": -1 }').x === -1").GetCompletionValue().AsBoolean();
+            Assert.Equal(true, result);
+        }
+
+        [Fact]
+        public void JsonParserShouldDetectInvalidNegativeNumberSyntax()
+        {
+            var engine = new Engine();            
+            var code = @"
+                function f() {
+                    try {
+                        JSON.parse('{ ""x"": -.1 }'); // Not allowed
+                        return false;
+                    }
+                    catch(ex) {
+                        return ex.toString().indexOf('Unexpected token') !== -1;
+                    }
+                }
+                f();
+            ";
+            Assert.True(engine.Execute(code).GetCompletionValue().AsBoolean());
+
+            code = @"
+                function f() {
+                    try {
+                        JSON.parse('{ ""x"": - 1 }'); // Not allowed
+                        return false;
+                    }
+                    catch(ex) {
+                        return ex.toString().indexOf('Unexpected token') !== -1;
+                    }
+                }
+                f();
+            ";
+            Assert.True(engine.Execute(code).GetCompletionValue().AsBoolean());
+        }
+
+        [Fact]
         public void ShouldBeCultureInvariant()
         {
             // decimals in french are separated by commas

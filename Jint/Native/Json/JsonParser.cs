@@ -161,9 +161,17 @@ namespace Jint.Native.Json
 
             int start = _index;
             string number = "";
+            
+            // Number start with a -
+            if (ch == '-')
+            {
+                number += _source.CharCodeAt(_index++).ToString();
+                ch = _source.CharCodeAt(_index);
+            }
+
             if (ch != '.')
             {
-                number = _source.CharCodeAt(_index++).ToString();
+                number += _source.CharCodeAt(_index++).ToString();
                 ch = _source.CharCodeAt(_index);
 
                 // Hex number starts with '0x'.
@@ -219,7 +227,7 @@ namespace Jint.Native.Json
             return new Token
                 {
                     Type = Tokens.Number,
-                    Value = Double.Parse(number, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture),
+                    Value = Double.Parse(number, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture),
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
                     Range = new[] {start, _index}
@@ -439,6 +447,15 @@ namespace Jint.Native.Json
             // Dot (.) char #46 can also start a floating-point number, hence the need
             // to check the next character.
             if (ch == 46)
+            {
+                if (IsDecimalDigit(_source.CharCodeAt(_index + 1)))
+                {
+                    return ScanNumericLiteral();
+                }
+                return ScanPunctuator();
+            }
+
+            if (ch == '-') // Negative Number
             {
                 if (IsDecimalDigit(_source.CharCodeAt(_index + 1)))
                 {
