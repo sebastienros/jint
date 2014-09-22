@@ -388,8 +388,8 @@ namespace Jint.Runtime
                 {
                     for (var i = 0; i < arguments.Length; i++)
                     {
-                        parameters[i] = engine.Options.GetTypeConverter().Convert(
-                            arguments[i].ToObject(),
+                        parameters[i] = engine.ClrTypeConverter.Convert(
+                            objectArguments[i],
                             method.GetParameters()[i].ParameterType,
                             CultureInfo.InvariantCulture);
                     }
