@@ -20,7 +20,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             _getter = item.GetType().GetMethod("get_Item", BindingFlags.Instance | BindingFlags.Public);
             _setter = item.GetType().GetMethod("set_Item", BindingFlags.Instance | BindingFlags.Public);
 
-            _key = _engine.Options.GetTypeConverter().Convert(key, _getter.GetParameters()[0].ParameterType, CultureInfo.InvariantCulture);
+            _key = _engine.ClrTypeConverter.Convert(key, _getter.GetParameters()[0].ParameterType, CultureInfo.InvariantCulture);
 
             Writable = true;
         }
