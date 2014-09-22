@@ -34,6 +34,8 @@ namespace Jint
         private int _statementsCount;
         private long _timeoutTicks;
         private SyntaxNode _lastSyntaxNode = null;
+        
+        public ITypeConverter ClrTypeConverter;
 
         // cache of types used when resolving CLR type names
         internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>(); 
@@ -130,6 +132,8 @@ namespace Jint
                     return new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)));
                 }), false, false, false);
             }
+
+            ClrTypeConverter = new DefaultTypeConverter(this);
         }
 
         public LexicalEnvironment GlobalEnvironment;
