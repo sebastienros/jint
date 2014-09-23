@@ -594,9 +594,9 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldNotExecuteDebuggerStatement()
         {
-            new Engine().Execute("debugger"); 
+            new Engine().Execute("debugger");
         }
-       
+
         [Fact]
         public void ShouldThrowStatementCountOverflow()
         {
@@ -609,7 +609,7 @@ namespace Jint.Tests.Runtime
         public void ShouldThrowTimeout()
         {
             Assert.Throws<TimeoutException>(
-                () => new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0,0,0,0,500))).Execute("while(true);")
+                () => new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0, 0, 0, 0, 500))).Execute("while(true);")
             );
         }
 
@@ -658,7 +658,7 @@ namespace Jint.Tests.Runtime
                 assert(regex.test('a/b') === true);
                 assert(regex.test('a\\/b') === false);
             ");
-      }
+        }
 
         [Fact]
         public void ShouldComputeFractionInBase()
@@ -748,7 +748,7 @@ namespace Jint.Tests.Runtime
             Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
 
             var engine = new Engine();
-            
+
             var result = engine.Execute("1.2 + 2.1").GetCompletionValue().AsNumber();
             Assert.Equal(3.3d, result);
 
@@ -796,7 +796,7 @@ namespace Jint.Tests.Runtime
         {
             const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(7, 11, 0), customName, customName, customName, null, false);
-            var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)); 
+            var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
             var result = engine.Execute("Date.UTC(1970,0,1)").GetCompletionValue().AsNumber();
             Assert.Equal(0, result);
@@ -897,7 +897,7 @@ namespace Jint.Tests.Runtime
         {
             var url = "http://cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0/handlebars.js";
             var content = new WebClient().DownloadString(url);
-            
+
             RunTest(content);
 
             RunTest(@"
@@ -907,6 +907,15 @@ namespace Jint.Tests.Runtime
                 var html = template(context);
 
                 assert('Hello Paul' == html);
+            ");
+        }
+
+        [Fact]
+        public void DateParseReturnsNaN()
+        {
+            RunTest(@"
+                var d = Date.parse('not a date');
+                assert(isNaN(d));
             ");
         }
     }
