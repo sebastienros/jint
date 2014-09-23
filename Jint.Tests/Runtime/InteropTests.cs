@@ -941,5 +941,63 @@ namespace Jint.Tests.Runtime
             Assert.Equal(Colors.Blue | Colors.Green, s.Color);
         }
 
+        [Fact]
+        public void ShouldUseExplicitPropertyGetter()
+        {
+            _engine.SetValue("c", new Company("ACME"));
+
+            RunTest(@"
+                assert(c.Name === 'ACME');
+            ");
+        }
+
+        [Fact]
+        public void ShouldUseExplicitIndexerPropertyGetter()
+        {
+            var company = new Company("ACME");
+            ((ICompany)company)["Foo"] = "Bar";
+            _engine.SetValue("c", company);
+
+            RunTest(@"
+                assert(c.Foo === 'Bar');
+            ");
+        }
+
+
+        [Fact]
+        public void ShouldUseExplicitPropertySetter()
+        {
+            _engine.SetValue("c", new Company("ACME"));
+
+            RunTest(@"
+                c.Name = 'Foo';
+                assert(c.Name === 'Foo');
+            ");
+        }
+
+        [Fact]
+        public void ShouldUseExplicitIndexerPropertySetter()
+        {
+            var company = new Company("ACME");
+            ((ICompany)company)["Foo"] = "Bar";
+            _engine.SetValue("c", company);
+
+            RunTest(@"
+                c.Foo = 'Baz';
+                assert(c.Foo === 'Baz');
+            ");
+        }
+
+
+        [Fact]
+        public void ShouldUseExplicitMethod()
+        {
+            _engine.SetValue("c", new Company("ACME"));
+
+            RunTest(@"
+                assert(0 === c.CompareTo(c));
+            ");
+        }
+
     }
 }
