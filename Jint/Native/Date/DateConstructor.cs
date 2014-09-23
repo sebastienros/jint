@@ -81,7 +81,7 @@ namespace Jint.Native.Date
                 {
                     if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal,out result))
                     {
-                        throw new JavaScriptException(Engine.SyntaxError, "Invalid date");
+                        throw new JavaScriptException(Engine.SyntaxError, "Invalid date: '"+date+"'");
                     }
                 }
             }
