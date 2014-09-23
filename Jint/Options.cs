@@ -14,7 +14,6 @@ namespace Jint
         private bool _strict;
         private bool _allowDebuggerStatement;
         private bool _allowClr;
-        private ITypeConverter _typeConverter = new DefaultTypeConverter();
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private int _maxStatements;
         private TimeSpan _timeoutInterval;
@@ -51,15 +50,6 @@ namespace Jint
         public Options AllowDebuggerStatement(bool allowDebuggerStatement = true)
         {
             _allowDebuggerStatement = allowDebuggerStatement;
-            return this;
-        }
-
-        /// <summary>
-        /// Sets a <see cref="ITypeConverter"/> instance to use when converting CLR types
-        /// </summary>
-        public Options SetTypeConverter(ITypeConverter typeConverter)
-        {
-            _typeConverter = typeConverter;
             return this;
         }
 
@@ -130,11 +120,6 @@ namespace Jint
         internal IList<Assembly> GetLookupAssemblies()
         {
             return _lookupAssemblies;
-        }
-
-        internal ITypeConverter GetTypeConverter()
-        {
-            return _typeConverter;
         }
 
         internal IEnumerable<IObjectConverter> GetObjectConverters()

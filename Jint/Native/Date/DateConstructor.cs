@@ -81,7 +81,8 @@ namespace Jint.Native.Date
                 {
                     if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal,out result))
                     {
-                        throw new JavaScriptException(Engine.SyntaxError, "Invalid date");
+                        // unrecognized dates should return NaN (15.9.4.2)
+                        return double.NaN;
                     }
                 }
             }
