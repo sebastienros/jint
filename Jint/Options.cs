@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -14,11 +15,12 @@ namespace Jint
         private bool _strict;
         private bool _allowDebuggerStatement;
         private bool _allowClr;
-        private ITypeConverter _typeConverter = new DefaultTypeConverter();
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private int _maxStatements;
         private int _maxRecursionDepth;
+        private TimeSpan _timeoutInterval;
         private CultureInfo _culture = CultureInfo.CurrentCulture;
+        private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>(); 
 
         /// <summary>
@@ -64,15 +66,6 @@ namespace Jint
         }
 
         /// <summary>
-        /// Sets a <see cref="ITypeConverter"/> instance to use when converting CLR types
-        /// </summary>
-        public Options SetTypeConverter(ITypeConverter typeConverter)
-        {
-            _typeConverter = typeConverter;
-            return this;
-        }
-
-        /// <summary>
          /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
         /// </summary>
         public Options AddObjectConverter(IObjectConverter objectConverter)
@@ -97,6 +90,12 @@ namespace Jint
             _maxStatements = maxStatements;
             return this;
         }
+        
+        public Options TimeoutInterval(TimeSpan timeoutInterval)
+        {
+            _timeoutInterval = timeoutInterval;
+            return this;
+        }
 
         public Options MaxRecursionDepth(int maxRecursionDepth = 0)
         {
@@ -107,6 +106,12 @@ namespace Jint
         public Options Culture(CultureInfo cultureInfo)
         {
             _culture = cultureInfo;
+            return this;
+        }
+
+        public Options LocalTimeZone(TimeZoneInfo timeZoneInfo)
+        {
+            _localTimeZone = timeZoneInfo;
             return this;
         }
 
@@ -135,11 +140,6 @@ namespace Jint
             return _lookupAssemblies;
         }
 
-        internal ITypeConverter GetTypeConverter()
-        {
-            return _typeConverter;
-        }
-
         internal IEnumerable<IObjectConverter> GetObjectConverters()
         {
             return _objectConverters;
@@ -160,9 +160,19 @@ namespace Jint
             return !_discardRecursion;
         }
 
+        internal TimeSpan GetTimeoutInterval()
+        {
+            return _timeoutInterval;
+        }
+
         internal CultureInfo GetCulture()
         {
             return _culture;
+        }
+
+        internal TimeZoneInfo GetLocalTimeZone()
+        {
+            return _localTimeZone;
         }
     }
 }

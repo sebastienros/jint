@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Globalization;
 using System.Reflection;
 using Jint.Native;
 
@@ -12,17 +13,24 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly MethodInfo _getter;
         private readonly MethodInfo _setter;
 
-        public IndexDescriptor(Engine engine, string key, object item)
+        public IndexDescriptor(Engine engine, Type targetType, string key, object item)
         {
             _engine = engine;
             _item = item;
 
-            _getter = item.GetType().GetMethod("get_Item", BindingFlags.Instance | BindingFlags.Public);
-            _setter = item.GetType().GetMethod("set_Item", BindingFlags.Instance | BindingFlags.Public);
+            _getter = targetType.GetMethod("get_Item", BindingFlags.Instance | BindingFlags.Public);
+            _setter = targetType.GetMethod("set_Item", BindingFlags.Instance | BindingFlags.Public);
 
-            _key = _engine.Options.GetTypeConverter().Convert(key, _getter.GetParameters()[0].ParameterType, CultureInfo.InvariantCulture);
+            _key = _engine.ClrTypeConverter.Convert(key, _getter.GetParameters()[0].ParameterType, CultureInfo.InvariantCulture);
 
             Writable = true;
+        }
+
+
+        public IndexDescriptor(Engine engine, string key, object item)
+            : this(engine, item.GetType(), key, item)
+        {
+            
         }
 
         public override JsValue? Value

@@ -96,6 +96,44 @@ namespace Jint.Runtime.Interop
                 return new IndexDescriptor(Engine, propertyName, Target);
             }
 
+            var interfaces = type.GetInterfaces();
+
+            // try to find a single explicit property implementation
+            var explicitProperties = (from iface in interfaces
+                                      from iprop in iface.GetProperties()
+                                      where propertyName.Equals(iprop.Name)
+                                      select iprop).ToList();
+
+            if (explicitProperties.Count == 1)
+            {
+                var descriptor = new PropertyInfoDescriptor(Engine, explicitProperties[0], Target);
+                Properties.Add(propertyName, descriptor);
+                return descriptor;
+            }
+
+            // try to find explicit method implementations
+            var explicitMethods = (from iface in interfaces
+                                   from imethod in iface.GetMethods()
+                                   where propertyName.Equals(imethod.Name)
+                                   select imethod).ToList();
+
+            if (explicitMethods.Count > 0)
+            {
+                return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, explicitMethods.ToArray()), false, true, false);
+            }
+
+            // try to find explicit indexer implementations
+            var explicitIndexers =
+                (from iface in interfaces
+                 from iprop in iface.GetProperties()
+                 where iprop.GetIndexParameters().Length != 0
+                 select iprop).ToList();
+
+            if (explicitIndexers.Count == 1)
+            {
+                return new IndexDescriptor(Engine, explicitIndexers[0].DeclaringType, propertyName, Target);
+            }
+
             return PropertyDescriptor.Undefined;
         }
     }

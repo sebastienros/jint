@@ -561,6 +561,86 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldExecuteFunctionCallBackAsPredicate()
+        {
+            _engine.SetValue("a", new A());
+            
+            // Func<>
+            RunTest(@"
+                assert(a.Call8(function(){ return 'foo'; }) === 'foo');
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteFunctionWithParameterCallBackAsPredicate()
+        {
+            _engine.SetValue("a", new A());
+
+            // Func<,>
+            RunTest(@"
+                assert(a.Call7('foo', function(a){ return a === 'foo'; }) === true);
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteActionCallBackAsPredicate()
+        {
+            _engine.SetValue("a", new A());
+
+            // Action
+            RunTest(@"
+                var value;
+                a.Call9(function(){ value = 'foo'; });
+                assert(value === 'foo');
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteActionWithParameterCallBackAsPredicate()
+        {
+            _engine.SetValue("a", new A());
+
+            // Action<>
+            RunTest(@"
+                var value;
+                a.Call10('foo', function(b){ value = b; });
+                assert(value === 'foo');
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteActionWithMultipleParametersCallBackAsPredicate()
+        {
+            _engine.SetValue("a", new A());
+
+            // Action<,>
+            RunTest(@"
+                var value;
+                a.Call11('foo', 'bar', function(a,b){ value = a + b; });
+                assert(value === 'foobar');
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteActionCallbackOnEventChanged()
+        {
+            var collection = new System.Collections.ObjectModel.ObservableCollection<string>();
+            Assert.True(collection.Count == 0);
+
+            _engine.SetValue("collection", collection);
+
+            RunTest(@"
+                var eventAction;
+                collection.add_CollectionChanged(function(sender, eventArgs) { eventAction = eventArgs.Action; } );
+                collection.Add('test');
+            ");
+
+            var eventAction = _engine.GetValue("eventAction").AsNumber();
+            Assert.True(eventAction == 0);
+            Assert.True(collection.Count == 1);
+        }
+
+        [Fact]
         public void ShouldUseSystemIO()
         {
             RunTest(@"
@@ -859,6 +939,64 @@ namespace Jint.Tests.Runtime
             ");
 
             Assert.Equal(Colors.Blue | Colors.Green, s.Color);
+        }
+
+        [Fact]
+        public void ShouldUseExplicitPropertyGetter()
+        {
+            _engine.SetValue("c", new Company("ACME"));
+
+            RunTest(@"
+                assert(c.Name === 'ACME');
+            ");
+        }
+
+        [Fact]
+        public void ShouldUseExplicitIndexerPropertyGetter()
+        {
+            var company = new Company("ACME");
+            ((ICompany)company)["Foo"] = "Bar";
+            _engine.SetValue("c", company);
+
+            RunTest(@"
+                assert(c.Foo === 'Bar');
+            ");
+        }
+
+
+        [Fact]
+        public void ShouldUseExplicitPropertySetter()
+        {
+            _engine.SetValue("c", new Company("ACME"));
+
+            RunTest(@"
+                c.Name = 'Foo';
+                assert(c.Name === 'Foo');
+            ");
+        }
+
+        [Fact]
+        public void ShouldUseExplicitIndexerPropertySetter()
+        {
+            var company = new Company("ACME");
+            ((ICompany)company)["Foo"] = "Bar";
+            _engine.SetValue("c", company);
+
+            RunTest(@"
+                c.Foo = 'Baz';
+                assert(c.Foo === 'Baz');
+            ");
+        }
+
+
+        [Fact]
+        public void ShouldUseExplicitMethod()
+        {
+            _engine.SetValue("c", new Company("ACME"));
+
+            RunTest(@"
+                assert(0 === c.CompareTo(c));
+            ");
         }
 
     }

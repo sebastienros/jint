@@ -86,7 +86,7 @@ namespace Jint.Native.RegExp
             }
 
             Match r = null;
-            if (i < 0 || i >= length)
+            if (i < 0 || i > length)
             {
                 R.Put("lastIndex", (double) 0, true);
                 return Null.Instance;
