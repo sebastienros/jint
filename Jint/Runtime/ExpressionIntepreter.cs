@@ -797,7 +797,7 @@ namespace Jint.Runtime
             var func = _engine.GetValue(callee);
             
             var r = callee as Reference;
-            var stackItem = new Tuple<CallExpression, JsValue, string>(callExpression, func, r.GetReferencedName());
+            var stackItem = new Tuple<CallExpression, JsValue, string>(callExpression, func, r != null ? r.GetReferencedName() : "anonymous function");
 
             var recursionDepth = _engine.CallStack.Count(ce => ce.Item1 == callExpression || ce.Item2 == func);
 
