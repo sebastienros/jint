@@ -1,15 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-
 using Jint.Native;
 using Jint.Parser.Ast;
 
 namespace Jint.Runtime
 {
-    
-    
-
     public class RecursionDiscardedException : Exception 
     {
         public string CallChain { get; private set; }
