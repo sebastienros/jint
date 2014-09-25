@@ -61,9 +61,9 @@ namespace Jint.Runtime.Interop
 
                     return result;
                 }
-                catch (Exception ex)
+                catch 
                 {
-                    throw new JintInteropException(ex);
+                    // ignore method
                 }
             }
 
