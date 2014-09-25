@@ -627,7 +627,7 @@ namespace Jint.Tests.Runtime
             ";
 
             Assert.Throws<RecursionDiscardedException>(
-                () => new Engine(cfg => cfg.DiscardRecursion()).Execute(script)
+                () => new Engine(cfg => cfg.MaxRecursionDepth(0)).Execute(script)
             );
         }
 
@@ -646,7 +646,7 @@ namespace Jint.Tests.Runtime
             ";
 
             Assert.Throws<RecursionDiscardedException>(
-                () => new Engine(cfg => cfg.DiscardRecursion()).Execute(script)
+                () => new Engine(cfg => cfg.MaxRecursionDepth(0)).Execute(script)
             );
         }
 
@@ -679,7 +679,7 @@ namespace Jint.Tests.Runtime
             ";
 
             Assert.Throws<RecursionDiscardedException>(
-                () => new Engine(cfg => cfg.DiscardRecursion()).Execute(script)
+                () => new Engine(cfg => cfg.MaxRecursionDepth(0)).Execute(script)
             );
         }
 
@@ -715,7 +715,7 @@ namespace Jint.Tests.Runtime
 
             try
             {
-                new Engine(cfg => cfg.DiscardRecursion()).Execute(script);
+                new Engine(cfg => cfg.MaxRecursionDepth(0)).Execute(script);
             }
             catch (RecursionDiscardedException ex)
             {

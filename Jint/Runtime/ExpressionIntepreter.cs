@@ -797,25 +797,30 @@ namespace Jint.Runtime
             var func = _engine.GetValue(callee);
             
             var r = callee as Reference;
-            var stackItem = new Tuple<CallExpression, JsValue, string>(callExpression, func, r != null ? r.GetReferencedName() : "anonymous function");
 
-            var recursionDepth = _engine.CallStack.Count(ce => ce.Item1 == callExpression || ce.Item2 == func);
-
-            if (recursionDepth > 0)
+            var isRecursionHandled = _engine.Options.GetMaxRecursionDepth() >= 0;
+            if (isRecursionHandled)
             {
-                if (!_engine.Options.IsRecursionAllowed())
+                var stackItem = new Tuple<CallExpression, JsValue, string>(callExpression, func, r != null ? r.GetReferencedName() : "anonymous function");
+
+                var recursionDepth = _engine.CallStack.Count(ce => ce.Item1 == callExpression || ce.Item2 == func);
+
+                if (recursionDepth > 0)
                 {
-                    throw new RecursionDiscardedException(_engine.CallStack, stackItem);
+                    if (_engine.Options.GetMaxRecursionDepth() == 0)
+                    {
+                        throw new RecursionDiscardedException(_engine.CallStack, stackItem);
+                    }
+
+                    if (_engine.Options.GetMaxRecursionDepth() != 0
+                        && recursionDepth > _engine.Options.GetMaxRecursionDepth())
+                    {
+                        throw new RecursionDepthOverflowException(_engine.CallStack, stackItem);
+                    }
                 }
 
-                if (_engine.Options.GetMaxRecursionDepth() != 0
-                    && recursionDepth > _engine.Options.GetMaxRecursionDepth())
-                {
-                    throw new RecursionDepthOverflowException(_engine.CallStack, stackItem);
-                }
+                _engine.CallStack.Push(stackItem);
             }
-
-            _engine.CallStack.Push(stackItem);
 
             if (func == Undefined.Instance)
             {
@@ -858,7 +863,10 @@ namespace Jint.Runtime
             
             var result = callable.Call(thisObject, arguments);
 
-            _engine.CallStack.Pop();
+            if (isRecursionHandled)
+            {
+                _engine.CallStack.Pop();
+            }
 
             return result;
         }
