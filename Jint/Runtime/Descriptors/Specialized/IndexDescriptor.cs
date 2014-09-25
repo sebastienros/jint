@@ -13,18 +13,15 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly object _item;
         private readonly PropertyInfo _indexer;
 
-        public IndexDescriptor(Engine engine, string key, object item)
+        public IndexDescriptor(Engine engine, Type targetType, string key, object item)
         {
             _engine = engine;
             _item = item;
 
             // get all instance indexers with exactly 1 argument
-            var indexers = item
-                .GetType()
+            var indexers = targetType
                 .GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
                 .Where(x => x.GetIndexParameters().Length == 1);
-
-            var converter = _engine.Options.GetTypeConverter();
 
             // try to find first indexer having either public getter or setter with matching argument type
             foreach (var indexer in indexers)
@@ -33,7 +30,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                 {
                     var paramType = indexer.GetIndexParameters()[0].ParameterType;
 
-                    if (converter.TryConvert(key, paramType, CultureInfo.InvariantCulture, out _key))
+                    if (_engine.ClrTypeConverter.TryConvert(key, paramType, CultureInfo.InvariantCulture, out _key))
                     {
                         _indexer = indexer;
                         break;
@@ -43,10 +40,18 @@ namespace Jint.Runtime.Descriptors.Specialized
             }
 
             // throw if no indexer found
-            if(_indexer == null)
+            if (_indexer == null)
+            {
                 throw new InvalidOperationException("No matching indexer found.");
+            }
 
             Writable = true;
+        }
+
+
+        public IndexDescriptor(Engine engine, string key, object item)
+            : this(engine, item.GetType(), key, item)
+        {
         }
 
         public override JsValue? Value
@@ -54,8 +59,10 @@ namespace Jint.Runtime.Descriptors.Specialized
             get
             {
                 var getter = _indexer.GetGetMethod();
-                if(getter == null)
+                if (getter == null)
+                {
                     throw new InvalidOperationException("Indexer has no public getter.");
+                }
 
                 object[] parameters = { _key };
                 return JsValue.FromObject(_engine, getter.Invoke(_item, parameters));
@@ -65,7 +72,9 @@ namespace Jint.Runtime.Descriptors.Specialized
             {
                 var setter = _indexer.GetSetMethod();
                 if (setter == null)
+                {
                     throw new InvalidOperationException("Indexer has no public setter.");
+                }
 
                 object[] parameters = { _key, value.HasValue ? value.Value.ToObject() : null };
                 setter.Invoke(_item, parameters);

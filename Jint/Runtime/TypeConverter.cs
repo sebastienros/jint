@@ -350,8 +350,7 @@ namespace Jint.Runtime
         {
             methods = methods
                 .Where(m => m.GetParameters().Count() == arguments.Length)
-                .ToArray()
-                ;
+                .ToArray();
 
             if (methods.Length == 1 && !methods[0].GetParameters().Any())
             {
@@ -392,8 +391,9 @@ namespace Jint.Runtime
             }
 
             foreach (var method in methods)
+            {
                 yield return method;
+            }
         }
-
     }
 }

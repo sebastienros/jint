@@ -9,6 +9,7 @@ using Jint.Parser.Ast;
 using Jint.Runtime;
 using Xunit;
 using Xunit.Extensions;
+using System.Net;
 
 namespace Jint.Tests.Runtime
 {
@@ -31,7 +32,6 @@ namespace Jint.Tests.Runtime
 
         private void RunTest(string source)
         {
-
             _engine.Execute(source);
         }
 
@@ -594,14 +594,22 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldNotExecuteDebuggerStatement()
         {
-            new Engine().Execute("debugger"); 
+            new Engine().Execute("debugger");
         }
-       
+
         [Fact]
         public void ShouldThrowStatementCountOverflow()
         {
             Assert.Throws<StatementsCountOverflowException>(
                 () => new Engine(cfg => cfg.MaxStatements(100)).Execute("while(true);")
+            );
+        }
+
+        [Fact]
+        public void ShouldThrowTimeout()
+        {
+            Assert.Throws<TimeoutException>(
+                () => new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0, 0, 0, 0, 500))).Execute("while(true);")
             );
         }
 
@@ -650,7 +658,7 @@ namespace Jint.Tests.Runtime
                 assert(regex.test('a/b') === true);
                 assert(regex.test('a\\/b') === false);
             ");
-      }
+        }
 
         [Fact]
         public void ShouldComputeFractionInBase()
@@ -698,13 +706,49 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void JsonParserShouldParseNegativeNumber()
+        {
+            RunTest(@"
+                var a = JSON.parse('{ ""x"":-1 }');
+                assert(a.x === -1);
+
+                var b = JSON.parse('{ ""x"": -1 }');
+                assert(b.x === -1);
+            ");
+        }
+
+        [Fact]
+        public void JsonParserShouldDetectInvalidNegativeNumberSyntax()
+        {
+            RunTest(@"
+                try {
+                    JSON.parse('{ ""x"": -.1 }'); // Not allowed
+                    assert(false);
+                }
+                catch(ex) {
+                    assert(ex instanceof SyntaxError);
+                }
+            ");
+
+            RunTest(@"
+                try {
+                    JSON.parse('{ ""x"": - 1 }'); // Not allowed
+                    assert(false);
+                }
+                catch(ex) {
+                    assert(ex instanceof SyntaxError);
+                }
+            ");
+        }
+
+        [Fact]
         public void ShouldBeCultureInvariant()
         {
             // decimals in french are separated by commas
             Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
 
             var engine = new Engine();
-            
+
             var result = engine.Execute("1.2 + 2.1").GetCompletionValue().AsNumber();
             Assert.Equal(3.3d, result);
 
@@ -738,5 +782,141 @@ namespace Jint.Tests.Runtime
             }
         }
 
+        [Fact]
+        public void ParseShouldReturnNumber()
+        {
+            var engine = new Engine();
+
+            var result = engine.Execute("Date.parse('1970-01-01');").GetCompletionValue().AsNumber();
+            Assert.Equal(0, result);
+        }
+
+        [Fact]
+        public void UtcShouldUseUtc()
+        {
+            const string customName = "Custom Time";
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(7, 11, 0), customName, customName, customName, null, false);
+            var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
+
+            var result = engine.Execute("Date.UTC(1970,0,1)").GetCompletionValue().AsNumber();
+            Assert.Equal(0, result);
+        }
+
+        [Fact]
+        public void ShouldUseLocalTimeZoneOverride()
+        {
+            const string customName = "Custom Time";
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName, customName, customName, null, false);
+
+            var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
+
+            var epochGetLocalMinutes = engine.Execute("var d = new Date(0); d.getMinutes();").GetCompletionValue().AsNumber();
+            Assert.Equal(11, epochGetLocalMinutes);
+
+            var localEpochGetUtcMinutes = engine.Execute("var d = new Date(1970,0,1); d.getUTCMinutes();").GetCompletionValue().AsNumber();
+            Assert.Equal(-11, localEpochGetUtcMinutes);
+
+            var parseLocalEpoch = engine.Execute("Date.parse('January 1, 1970');").GetCompletionValue().AsNumber();
+            Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
+
+            var epochToLocalString = engine.Execute("var d = new Date(0); d.toString();").GetCompletionValue().AsString();
+            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT", epochToLocalString);
+        }
+
+        [Theory]
+        [InlineData("1970")]
+        [InlineData("1970-01")]
+        [InlineData("1970-01-01")]
+        [InlineData("1970-01-01T00:00")]
+        [InlineData("1970-01-01T00:00:00")]
+        [InlineData("1970-01-01T00:00:00.000")]
+        [InlineData("1970Z")]
+        [InlineData("1970-1Z")]
+        [InlineData("1970-1-1Z")]
+        [InlineData("1970-1-1T0:0Z")]
+        [InlineData("1970-1-1T0:0:0Z")]
+        [InlineData("1970-1-1T0:0:0.0Z")]
+        [InlineData("1970/1Z")]
+        [InlineData("1970/1/1Z")]
+        [InlineData("1970/1/1 0:0Z")]
+        [InlineData("1970/1/1 0:0:0Z")]
+        [InlineData("1970/1/1 0:0:0.0Z")]
+        [InlineData("January 1, 1970 GMT")]
+        [InlineData("1970-01-01T00:00:00.000-00:00")]
+        public void ShouldParseAsUtc(string date)
+        {
+            const string customName = "Custom Time";
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(7, 11, 0), customName, customName, customName, null, false);
+            var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
+
+            engine.SetValue("d", date);
+            var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
+
+            Assert.Equal(0, result);
+        }
+
+        [Theory]
+        [InlineData("1970/01")]
+        [InlineData("1970/01/01")]
+        [InlineData("1970/01/01T00:00")]
+        [InlineData("1970/01/01 00:00")]
+        [InlineData("1970-1")]
+        [InlineData("1970-1-1")]
+        [InlineData("1970-1-1T0:0")]
+        [InlineData("1970-1-1 0:0")]
+        [InlineData("1970/1")]
+        [InlineData("1970/1/1")]
+        [InlineData("1970/1/1T0:0")]
+        [InlineData("1970/1/1 0:0")]
+        [InlineData("01-1970")]
+        [InlineData("01-01-1970")]
+        [InlineData("January 1, 1970")]
+        [InlineData("1970-01-01T00:00:00.000+00:11")]
+        public void ShouldParseAsLocalTime(string date)
+        {
+            const string customName = "Custom Time";
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName, customName, customName, null, false);
+            var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)).SetValue("d", date);
+
+            var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
+
+            Assert.Equal(-11 * 60 * 1000, result);
+        }
+
+        [Fact]
+        public void EmptyStringShouldMatchRegex()
+        {
+            RunTest(@"
+                var regex = /^(?:$)/g;
+                assert(''.match(regex) instanceof Array);
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteHandlebars()
+        {
+            var url = "http://cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0/handlebars.js";
+            var content = new WebClient().DownloadString(url);
+
+            RunTest(content);
+
+            RunTest(@"
+                var source = 'Hello {{name}}';
+                var template = Handlebars.compile(source);
+                var context = {name: 'Paul'};
+                var html = template(context);
+
+                assert('Hello Paul' == html);
+            ");
+        }
+
+        [Fact]
+        public void DateParseReturnsNaN()
+        {
+            RunTest(@"
+                var d = Date.parse('not a date');
+                assert(isNaN(d));
+            ");
+        }
     }
 }

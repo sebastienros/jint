@@ -59,6 +59,8 @@
     <Compile Include="Runtime\Domain\ClassWithField.cs" />
     <Compile Include="Runtime\Domain\ClassWithStaticFields.cs" />
     <Compile Include="Runtime\Domain\Colors.cs" />
+    <Compile Include="Runtime\Domain\Company.cs" />
+    <Compile Include="Runtime\Domain\ICompany.cs" />
     <Compile Include="Runtime\Domain\IPerson.cs" />
     <Compile Include="Runtime\Domain\Person.cs" />
     <Compile Include="Runtime\Domain\Shape.cs" />
@@ -95,6 +97,12 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Parser\Scripts\JSXTransformer.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Parser\Scripts\handlebars.js" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />

@@ -35,7 +35,7 @@ namespace Jint.Runtime.Interop
                 }
                 else
                 {
-                    parameters[i] = Engine.Options.GetTypeConverter().Convert(
+                    parameters[i] = Engine.ClrTypeConverter.Convert(
                         arguments[i].ToObject(),
                         parameterType,
                         CultureInfo.InvariantCulture);

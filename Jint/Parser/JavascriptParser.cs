@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -10,7 +10,7 @@ namespace Jint.Parser
 {
     public class JavaScriptParser
     {
-        private static readonly object[] Keywords =
+        private static readonly HashSet<string> Keywords = new HashSet<string>
         {
             "if", "in", "do", "var", "for", "new", "try", "let",
             "this", "else", "case", "void", "with", "enum",
@@ -20,7 +20,7 @@ namespace Jint.Parser
             "function", "continue", "debugger", "instanceof"
         };
 
-        private static readonly object[] StrictModeReservedWords =
+        private static readonly HashSet<string> StrictModeReservedWords = new HashSet<string>
         {
             "implements",
             "interface",
@@ -33,7 +33,7 @@ namespace Jint.Parser
             "let"
         };
 
-        private static readonly object[] FutureReservedWords =
+        private static readonly HashSet<string> FutureReservedWords = new HashSet<string>
         {
             "class",
             "enum",
@@ -145,12 +145,12 @@ namespace Jint.Parser
 
         private static bool IsFutureReservedWord(string id)
         {
-            return Array.IndexOf(FutureReservedWords, id) >= 0;
+            return FutureReservedWords.Contains(id);
         }
 
         private static bool IsStrictModeReservedWord(string id)
         {
-            return Array.IndexOf(StrictModeReservedWords, id) >= 0;
+            return StrictModeReservedWords.Contains(id);
         }
 
         private static bool IsRestrictedWord(string id)
@@ -170,8 +170,8 @@ namespace Jint.Parser
             // 'const' is specialized as Keyword in V8.
             // 'yield' and 'let' are for compatiblity with SpiderMonkey and ES.next.
             // Some others are from future reserved words.
-            
-            return Array.IndexOf(Keywords, id) >= 0;
+
+            return Keywords.Contains(id);
         }
 
         // 7.4 Comments

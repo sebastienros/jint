@@ -25,12 +25,13 @@ namespace Jint.Runtime.Interop
         public JsValue Invoke(MethodInfo[] methodInfos, JsValue thisObject, JsValue[] arguments)
         {
             var methods = TypeConverter.FindBestMatch(Engine, methodInfos, arguments).ToList();
-            var converter = Engine.Options.GetTypeConverter();
+            var converter = Engine.ClrTypeConverter;
 
             foreach (var method in methods)
             {
                 var parameters = new object[arguments.Length];
                 var argumentsMatch = true;
+
                 for (var i = 0; i < arguments.Length; i++)
                 {
                     var parameterType = method.GetParameters()[i].ParameterType;
@@ -46,17 +47,21 @@ namespace Jint.Runtime.Interop
                             argumentsMatch = false;
                             break;
                         }
+
+                        if (typeof(System.Linq.Expressions.LambdaExpression).IsAssignableFrom(parameters[i].GetType()))
+                        {
+                            parameters[i] = (parameters[i] as System.Linq.Expressions.LambdaExpression).Compile();
+                        }
                     }
                 }
 
                 if (!argumentsMatch)
+                { 
                     continue;
-
-                var result = JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters.ToArray()));
+                }
 
                 // todo: cache method info
-
-                return result;
+                return JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters.ToArray()));
             }
 
             throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");

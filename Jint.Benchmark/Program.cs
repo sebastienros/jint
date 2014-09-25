@@ -30,7 +30,7 @@ namespace Jint.Benchmark
             const bool runJint = true;
             const bool runJurassic = true;
 
-            const int iterations = 100;
+            const int iterations = 1000;
             const bool reuseEngine = false;
 
             var watch = new Stopwatch();
