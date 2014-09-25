@@ -49,7 +49,5 @@
         {
             return string.Join("->", _stack.Select(cse => cse.ToString()).Reverse());
         }
-
-        // TODO printing Call Stack might become useful for debugging purposes
     }
 }
