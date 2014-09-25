@@ -808,11 +808,6 @@ namespace Jint.Runtime
                 if (recursionDepth > _engine.Options.GetMaxRecursionDepth())
                 {
                     _engine.CallStack.Pop();
-                    if (recursionDepth == 1)
-                    {
-                        throw new RecursionDiscardedException(_engine.CallStack, stackItem.ToString());
-                    }
-                    
                     throw new RecursionDepthOverflowException(_engine.CallStack, stackItem.ToString());
                 }
             }

@@ -615,7 +615,7 @@ namespace Jint.Tests.Runtime
 
 
         [Fact]
-        public void ShouldDiscardRecursion()
+        public void CanDiscardRecursion()
         {
             var script = @"var factorial = function(n) {
                 if (n>1) {
@@ -626,7 +626,7 @@ namespace Jint.Tests.Runtime
             var result = factorial(500);
             ";
 
-            Assert.Throws<RecursionDiscardedException>(
+            Assert.Throws<RecursionDepthOverflowException>(
                 () => new Engine(cfg => cfg.MaxRecursionDepth(0)).Execute(script)
             );
         }
@@ -645,7 +645,7 @@ namespace Jint.Tests.Runtime
             });
             ";
 
-            Assert.Throws<RecursionDiscardedException>(
+            Assert.Throws<RecursionDepthOverflowException>(
                 () => new Engine(cfg => cfg.MaxRecursionDepth(0)).Execute(script)
             );
         }
@@ -678,7 +678,7 @@ namespace Jint.Tests.Runtime
             funcRoot();
             ";
 
-            Assert.Throws<RecursionDiscardedException>(
+            Assert.Throws<RecursionDepthOverflowException>(
                 () => new Engine(cfg => cfg.MaxRecursionDepth(0)).Execute(script)
             );
         }
@@ -711,13 +711,13 @@ namespace Jint.Tests.Runtime
             funcRoot();
             ";
 
-            RecursionDiscardedException exception = null;
+            RecursionDepthOverflowException exception = null;
 
             try
             {
                 new Engine(cfg => cfg.MaxRecursionDepth(0)).Execute(script);
             }
-            catch (RecursionDiscardedException ex)
+            catch (RecursionDepthOverflowException ex)
             {
                 exception = ex;
             }

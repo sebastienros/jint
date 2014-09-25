@@ -190,7 +190,6 @@
     <Compile Include="Runtime\Interop\TypeReferencePrototype.cs" />
     <Compile Include="Runtime\JavaScriptException.cs" />
     <Compile Include="Runtime\RecursionDepthOverflowException.cs" />
-    <Compile Include="Runtime\RecursionDiscardedException.cs" />
     <Compile Include="Runtime\References\Reference.cs" />
     <Compile Include="Runtime\StatementInterpreter.cs" />
     <Compile Include="Runtime\StatementsCountOverflowException.cs" />
