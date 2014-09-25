@@ -1,6 +1,7 @@
 ﻿namespace Jint.Runtime.CallStack
 {
     using System.Collections.Generic;
+    using System.Linq;
 
     public class JintCallStack
     {
@@ -23,7 +24,7 @@
             }
         }
 
-        public void Pop()
+        public CallStackElement Pop()
         {
             var item = _stack.Pop();
             if (_statistics[item] == 0)
@@ -34,6 +35,19 @@
             {
                 _statistics[item]--;
             }
+
+            return item;
+        }
+
+        public void Clear()
+        {
+            _stack.Clear();
+            _statistics.Clear();
+        }
+
+        public override string ToString()
+        {
+            return string.Join("->", _stack.Select(cse => cse.ToString()).Reverse());
         }
 
         // TODO printing Call Stack might become useful for debugging purposes

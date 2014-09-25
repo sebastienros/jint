@@ -25,6 +25,8 @@ using Jint.Runtime.References;
 
 namespace Jint
 {
+    using Jint.Runtime.CallStack;
+
     public class Engine
     {
         private readonly ExpressionInterpreter _expressions;
@@ -40,7 +42,7 @@ namespace Jint
         // cache of types used when resolving CLR type names
         internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
 
-        internal Stack<Tuple<CallExpression, JsValue, string>> CallStack = new Stack<Tuple<CallExpression, JsValue, string>>();
+        internal JintCallStack CallStack = new JintCallStack();
 
         public Engine() : this(null)
         {

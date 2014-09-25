@@ -11,7 +11,9 @@
 
         public int GetHashCode(CallStackElement obj)
         {
-            return obj.CallExpression.GetHashCode() + obj.Function.GetHashCode();
+            // TO DO have not found good hash function yet
+            // not sure it can be done for OR logic
+            return 0;
         }
     }
 }

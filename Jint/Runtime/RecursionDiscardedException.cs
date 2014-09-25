@@ -6,18 +6,20 @@ using Jint.Parser.Ast;
 
 namespace Jint.Runtime
 {
+    using Jint.Runtime.CallStack;
+
     public class RecursionDiscardedException : Exception 
     {
         public string CallChain { get; private set; }
 
         public string CallExpressionReference { get; private set; }
 
-        public RecursionDiscardedException(Stack<Tuple<CallExpression, JsValue, string>> currentStack, Tuple<CallExpression, JsValue, string> currentExpression)
+        public RecursionDiscardedException(JintCallStack currentStack, string currentExpressionReference)
             : base("The recursion is forbidden by script host.")
         {
-            CallExpressionReference = currentExpression.Item3;
+            CallExpressionReference = currentExpressionReference;
 
-            CallChain = string.Join("->", currentStack.Select(t => t.Item3).ToArray().Reverse());
+            CallChain = currentStack.ToString();
         }
     }
 }

@@ -801,25 +801,20 @@ namespace Jint.Runtime
             var isRecursionHandled = _engine.Options.GetMaxRecursionDepth() >= 0;
             if (isRecursionHandled)
             {
-                var stackItem = new Tuple<CallExpression, JsValue, string>(callExpression, func, r != null ? r.GetReferencedName() : "anonymous function");
+                var stackItem = new CallStackElement(callExpression, func, r != null ? r.GetReferencedName() : "anonymous function");
 
-                var recursionDepth = _engine.CallStack.Count(ce => ce.Item1 == callExpression || ce.Item2 == func);
+                var recursionDepth = _engine.CallStack.Push(stackItem);
 
-                if (recursionDepth > 0)
+                if (recursionDepth > _engine.Options.GetMaxRecursionDepth())
                 {
-                    if (_engine.Options.GetMaxRecursionDepth() == 0)
+                    _engine.CallStack.Pop();
+                    if (recursionDepth == 1)
                     {
-                        throw new RecursionDiscardedException(_engine.CallStack, stackItem);
+                        throw new RecursionDiscardedException(_engine.CallStack, stackItem.ToString());
                     }
-
-                    if (_engine.Options.GetMaxRecursionDepth() != 0
-                        && recursionDepth > _engine.Options.GetMaxRecursionDepth())
-                    {
-                        throw new RecursionDepthOverflowException(_engine.CallStack, stackItem);
-                    }
+                    
+                    throw new RecursionDepthOverflowException(_engine.CallStack, stackItem.ToString());
                 }
-
-                _engine.CallStack.Push(stackItem);
             }
 
             if (func == Undefined.Instance)
