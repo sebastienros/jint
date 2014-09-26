@@ -25,6 +25,8 @@ using Jint.Runtime.References;
 
 namespace Jint
 {
+    using Jint.Runtime.CallStack;
+
     public class Engine
     {
         private readonly ExpressionInterpreter _expressions;
@@ -38,7 +40,9 @@ namespace Jint
         public ITypeConverter ClrTypeConverter;
 
         // cache of types used when resolving CLR type names
-        internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>(); 
+        internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
+
+        internal JintCallStack CallStack = new JintCallStack();
 
         public Engine() : this(null)
         {
@@ -220,11 +224,19 @@ namespace Jint
         {
             _statementsCount = 0;
         }
-
+        
         public void ResetTimeoutTicks()
         {
             var timeoutIntervalTicks = Options.GetTimeoutInterval().Ticks;
             _timeoutTicks = timeoutIntervalTicks > 0 ? DateTime.UtcNow.Ticks + timeoutIntervalTicks : 0;
+        }
+
+        /// <summary>
+        /// Initializes list of references of called functions
+        /// </summary>
+        public void ResetCallStack()
+        {
+            CallStack.Clear();
         }
 
         public Engine Execute(string source)
@@ -244,6 +256,7 @@ namespace Jint
             ResetStatementsCount();
             ResetTimeoutTicks();
             ResetLastStatement();
+            ResetCallStack();
 
             using (new StrictModeScope(Options.IsStrict() || program.Strict))
             {

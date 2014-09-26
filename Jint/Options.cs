@@ -16,6 +16,7 @@ namespace Jint
         private bool _allowClr;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private int _maxStatements;
+        private int _maxRecursionDepth = -1; 
         private TimeSpan _timeoutInterval;
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
@@ -78,10 +79,25 @@ namespace Jint
             _maxStatements = maxStatements;
             return this;
         }
-
+        
         public Options TimeoutInterval(TimeSpan timeoutInterval)
         {
             _timeoutInterval = timeoutInterval;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets maximum allowed depth of recursion.
+        /// </summary>
+        /// <param name="maxRecursionDepth">
+        /// The allowed depth.
+        /// a) In case max depth is zero no recursion is allowed.
+        /// b) In case max depth is equal to n it means that in one scope function can be called no more than n times.
+        /// </param>
+        /// <returns>Options instance for fluent syntax</returns>
+        public Options LimitRecursion(int maxRecursionDepth = 0)
+        {
+            _maxRecursionDepth = maxRecursionDepth;
             return this;
         }
 
@@ -130,6 +146,11 @@ namespace Jint
         internal int GetMaxStatements()
         {
             return _maxStatements;
+        }
+
+        internal int GetMaxRecursionDepth()
+        {
+            return _maxRecursionDepth;
         }
 
         internal TimeSpan GetTimeoutInterval()

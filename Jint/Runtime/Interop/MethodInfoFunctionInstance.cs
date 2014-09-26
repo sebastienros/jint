@@ -6,6 +6,8 @@ using Jint.Native.Function;
 
 namespace Jint.Runtime.Interop
 {
+    using System;
+
     public sealed class MethodInfoFunctionInstance : FunctionInstance
     {
         private readonly MethodInfo[] _methods;
@@ -59,7 +61,7 @@ namespace Jint.Runtime.Interop
 
                     return result;
                 }
-                catch
+                catch 
                 {
                     // ignore method
                 }

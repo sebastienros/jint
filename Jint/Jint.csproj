@@ -159,6 +159,9 @@
     <Compile Include="Parser\Token.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Runtime\Arguments.cs" />
+    <Compile Include="Runtime\CallStack\JintCallStack.cs" />
+    <Compile Include="Runtime\CallStack\CallStackElementComparer.cs" />
+    <Compile Include="Runtime\CallStack\CallStackElement.cs" />
     <Compile Include="Runtime\Completion.cs" />
     <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\Specialized\FieldInfoDescriptor.cs" />
@@ -186,6 +189,7 @@
     <Compile Include="Runtime\Interop\TypeReference.cs" />
     <Compile Include="Runtime\Interop\TypeReferencePrototype.cs" />
     <Compile Include="Runtime\JavaScriptException.cs" />
+    <Compile Include="Runtime\RecursionDepthOverflowException.cs" />
     <Compile Include="Runtime\References\Reference.cs" />
     <Compile Include="Runtime\StatementInterpreter.cs" />
     <Compile Include="Runtime\StatementsCountOverflowException.cs" />
