@@ -627,7 +627,7 @@ namespace Jint.Tests.Runtime
             ";
 
             Assert.Throws<RecursionDepthOverflowException>(
-                () => new Engine(cfg => cfg.MaxRecursionDepth(0)).Execute(script)
+                () => new Engine(cfg => cfg.LimitRecursion()).Execute(script)
             );
         }
 
@@ -646,7 +646,7 @@ namespace Jint.Tests.Runtime
             ";
 
             Assert.Throws<RecursionDepthOverflowException>(
-                () => new Engine(cfg => cfg.MaxRecursionDepth(0)).Execute(script)
+                () => new Engine(cfg => cfg.LimitRecursion()).Execute(script)
             );
         }
 
@@ -679,7 +679,7 @@ namespace Jint.Tests.Runtime
             ";
 
             Assert.Throws<RecursionDepthOverflowException>(
-                () => new Engine(cfg => cfg.MaxRecursionDepth(0)).Execute(script)
+                () => new Engine(cfg => cfg.LimitRecursion()).Execute(script)
             );
         }
 
@@ -715,7 +715,7 @@ namespace Jint.Tests.Runtime
 
             try
             {
-                new Engine(cfg => cfg.MaxRecursionDepth(0)).Execute(script);
+                new Engine(cfg => cfg.LimitRecursion()).Execute(script);
             }
             catch (RecursionDepthOverflowException ex)
             {
@@ -739,7 +739,7 @@ namespace Jint.Tests.Runtime
             var result = factorial(8);
             ";
 
-            new Engine(cfg => cfg.MaxRecursionDepth(20)).Execute(script);
+            new Engine(cfg => cfg.LimitRecursion(20)).Execute(script);
         }
 
         [Fact]
@@ -755,7 +755,7 @@ namespace Jint.Tests.Runtime
             ";
 
             Assert.Throws<RecursionDepthOverflowException>(
-                () => new Engine(cfg => cfg.MaxRecursionDepth(20)).Execute(script)
+                () => new Engine(cfg => cfg.LimitRecursion(20)).Execute(script)
             );
         }
 

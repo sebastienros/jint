@@ -91,12 +91,11 @@ namespace Jint
         /// </summary>
         /// <param name="maxRecursionDepth">
         /// The allowed depth.
-        /// a) In case max depth is negative engine ignores stack overflow protection logic;
-        /// b) In case max depth is zero no recursion is allowed.
-        /// c) In case max depth is equal to n it means that in one scope function can be called no more than n times.
+        /// a) In case max depth is zero no recursion is allowed.
+        /// b) In case max depth is equal to n it means that in one scope function can be called no more than n times.
         /// </param>
         /// <returns>Options instance for fluent syntax</returns>
-        public Options MaxRecursionDepth(int maxRecursionDepth = -1)
+        public Options LimitRecursion(int maxRecursionDepth = 0)
         {
             _maxRecursionDepth = maxRecursionDepth;
             return this;
