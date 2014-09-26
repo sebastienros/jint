@@ -604,12 +604,158 @@ namespace Jint.Tests.Runtime
                 () => new Engine(cfg => cfg.MaxStatements(100)).Execute("while(true);")
             );
         }
-
+        
         [Fact]
         public void ShouldThrowTimeout()
         {
             Assert.Throws<TimeoutException>(
                 () => new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0, 0, 0, 0, 500))).Execute("while(true);")
+            );
+        }
+
+
+        [Fact]
+        public void CanDiscardRecursion()
+        {
+            var script = @"var factorial = function(n) {
+                if (n>1) {
+                    return n * factorial(n - 1);
+                }
+            };
+
+            var result = factorial(500);
+            ";
+
+            Assert.Throws<RecursionDepthOverflowException>(
+                () => new Engine(cfg => cfg.LimitRecursion()).Execute(script)
+            );
+        }
+
+        [Fact]
+        public void ShouldDiscardHiddenRecursion()
+        {
+            var script = @"var renamedFunc;
+            var exec = function(callback) {
+                renamedFunc = callback;
+                callback();
+            };
+
+            var result = exec(function() {
+                renamedFunc();
+            });
+            ";
+
+            Assert.Throws<RecursionDepthOverflowException>(
+                () => new Engine(cfg => cfg.LimitRecursion()).Execute(script)
+            );
+        }
+
+        [Fact]
+        public void ShouldRecognizeAndDiscardChainedRecursion()
+        {
+            var script = @" var funcRoot, funcA, funcB, funcC, funcD;
+
+            var funcRoot = function() {
+                funcA();
+            };
+ 
+            var funcA = function() {
+                funcB();
+            };
+
+            var funcB = function() {
+                funcC();
+            };
+
+            var funcC = function() {
+                funcD();
+            };
+
+            var funcD = function() {
+                funcRoot();
+            };
+
+            funcRoot();
+            ";
+
+            Assert.Throws<RecursionDepthOverflowException>(
+                () => new Engine(cfg => cfg.LimitRecursion()).Execute(script)
+            );
+        }
+
+        [Fact]
+        public void ShouldProvideCallChainWhenDiscardRecursion()
+        {
+            var script = @" var funcRoot, funcA, funcB, funcC, funcD;
+
+            var funcRoot = function() {
+                funcA();
+            };
+ 
+            var funcA = function() {
+                funcB();
+            };
+
+            var funcB = function() {
+                funcC();
+            };
+
+            var funcC = function() {
+                funcD();
+            };
+
+            var funcD = function() {
+                funcRoot();
+            };
+
+            funcRoot();
+            ";
+
+            RecursionDepthOverflowException exception = null;
+
+            try
+            {
+                new Engine(cfg => cfg.LimitRecursion()).Execute(script);
+            }
+            catch (RecursionDepthOverflowException ex)
+            {
+                exception = ex;
+            }
+
+            Assert.NotNull(exception);
+            Assert.Equal("funcRoot->funcA->funcB->funcC->funcD", exception.CallChain);
+            Assert.Equal("funcRoot", exception.CallExpressionReference);
+        }
+
+        [Fact]
+        public void ShouldAllowShallowRecursion()
+        {
+            var script = @"var factorial = function(n) {
+                if (n>1) {
+                    return n * factorial(n - 1);
+                }
+            };
+
+            var result = factorial(8);
+            ";
+
+            new Engine(cfg => cfg.LimitRecursion(20)).Execute(script);
+        }
+
+        [Fact]
+        public void ShouldDiscardDeepRecursion()
+        {
+            var script = @"var factorial = function(n) {
+                if (n>1) {
+                    return n * factorial(n - 1);
+                }
+            };
+
+            var result = factorial(38);
+            ";
+
+            Assert.Throws<RecursionDepthOverflowException>(
+                () => new Engine(cfg => cfg.LimitRecursion(20)).Execute(script)
             );
         }
 
