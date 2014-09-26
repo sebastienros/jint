@@ -17,6 +17,16 @@ namespace Jint.Runtime.Interop
 
         public object Convert(object value, Type type, IFormatProvider formatProvider)
         {
+            if (value == null)
+            {
+                if (TypeIsNullable(type))
+                {
+                    return null;
+                }
+
+                throw new NotSupportedException(string.Format("Unable to convert null to '{0}'", type.FullName));
+            }
+
             // don't try to convert if value is derived from type
             if (type.IsInstanceOfType(value))
             {
@@ -125,6 +135,11 @@ namespace Jint.Runtime.Interop
             }
 
             return System.Convert.ChangeType(value, type, formatProvider);
+        }
+
+        private static bool TypeIsNullable(Type type)
+        {
+            return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
         }
     }
 }
