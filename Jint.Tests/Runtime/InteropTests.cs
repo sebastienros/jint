@@ -55,6 +55,26 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void DelegateWithNullableParameterCanBePassedANull()
+        {
+            _engine.SetValue("isnull", new Func<double?, bool>(x => x == null));
+
+            RunTest(@"
+                assert(isnull(null) === true);
+            ");
+        }
+
+        [Fact]
+        public void DelegateWithObjectParameterCanBePassedANull()
+        {
+            _engine.SetValue("isnull", new Func<object, bool>(x => x == null));
+
+            RunTest(@"
+                assert(isnull(null) === true);
+            ");
+        }
+
+        [Fact]
         public void CanGetObjectProperties()
         {
             var p = new Person

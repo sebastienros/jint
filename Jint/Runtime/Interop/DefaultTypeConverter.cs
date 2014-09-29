@@ -20,6 +20,16 @@ namespace Jint.Runtime.Interop
 
         public virtual object Convert(object value, Type type, IFormatProvider formatProvider)
         {
+            if (value == null)
+            {
+                if (TypeConverter.TypeIsNullable(type))
+                {
+                    return null;
+                }
+
+                throw new NotSupportedException(string.Format("Unable to convert null to '{0}'", type.FullName));
+            }
+
             // don't try to convert if value is derived from type
             if (type.IsInstanceOfType(value))
             {
@@ -39,9 +49,9 @@ namespace Jint.Runtime.Interop
 
             var valueType = value.GetType();
             // is the javascript value an ICallable instance ?
-            if (valueType == typeof (Func<JsValue, JsValue[], JsValue>))
+            if (valueType == typeof(Func<JsValue, JsValue[], JsValue>))
             {
-                var function = (Func<JsValue, JsValue[], JsValue>) value;
+                var function = (Func<JsValue, JsValue[], JsValue>)value;
 
                 if (type.IsGenericType)
                 {
@@ -72,7 +82,7 @@ namespace Jint.Runtime.Interop
                     {
                         var genericArguments = type.GetGenericArguments();
                         var returnType = genericArguments.Last();
-                        
+
                         var @params = new ParameterExpression[genericArguments.Count() - 1];
                         for (var i = 0; i < @params.Count(); i++)
                         {
@@ -94,7 +104,7 @@ namespace Jint.Runtime.Interop
                 }
                 else
                 {
-                    if (type == typeof (Action))
+                    if (type == typeof(Action))
                     {
                         return (Action)(() => function(JsValue.Undefined, new JsValue[0]));
                     }
@@ -135,24 +145,21 @@ namespace Jint.Runtime.Interop
             bool canConvert;
             var key = value == null ? String.Format("Null->{0}", type) : String.Format("{0}->{1}", value.GetType(), type);
 
-            if (!_knownConversions.TryGetValue(key, out canConvert))
+            lock (_lockObject)
             {
-                lock (_lockObject)
+                if (!_knownConversions.TryGetValue(key, out canConvert))
                 {
-                    if (!_knownConversions.TryGetValue(key, out canConvert))
+                    try
                     {
-                        try
-                        {
-                            converted = Convert(value, type, formatProvider);
-                            _knownConversions.Add(key, true);
-                            return true;
-                        }
-                        catch
-                        {
-                            converted = null;
-                            _knownConversions.Add(key, false);
-                            return false;
-                        }
+                        converted = Convert(value, type, formatProvider);
+                        _knownConversions.Add(key, true);
+                        return true;
+                    }
+                    catch
+                    {
+                        converted = null;
+                        _knownConversions.Add(key, false);
+                        return false;
                     }
                 }
             }

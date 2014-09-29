@@ -370,7 +370,7 @@ namespace Jint.Runtime
                     
                     if (arg == null)
                     {
-                        if (paramType.IsValueType && Nullable.GetUnderlyingType(paramType) == null)
+                        if (!TypeIsNullable(paramType))
                         {
                             perfectMatch = false;
                             break;
@@ -394,6 +394,11 @@ namespace Jint.Runtime
             {
                 yield return method;
             }
+        }
+
+        public static bool TypeIsNullable(Type type)
+        {
+            return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
         }
     }
 }
