@@ -6,8 +6,6 @@ using Jint.Native.Function;
 
 namespace Jint.Runtime.Interop
 {
-    using System;
-
     public sealed class MethodInfoFunctionInstance : FunctionInstance
     {
         private readonly MethodInfo[] _methods;
@@ -27,12 +25,13 @@ namespace Jint.Runtime.Interop
         public JsValue Invoke(MethodInfo[] methodInfos, JsValue thisObject, JsValue[] arguments)
         {
             var methods = TypeConverter.FindBestMatch(Engine, methodInfos, arguments).ToList();
+            var converter = Engine.ClrTypeConverter;
 
             foreach (var method in methods)
             {
                 var parameters = new object[arguments.Length];
-                try
-                {
+                var argumentsMatch = true;
+
                     for (var i = 0; i < arguments.Length; i++)
                     {
                         var parameterType = method.GetParameters()[i].ParameterType;
@@ -43,10 +42,11 @@ namespace Jint.Runtime.Interop
                         }
                         else
                         {
-                            parameters[i] = Engine.ClrTypeConverter.Convert(
-                                arguments[i].ToObject(),
-                                parameterType,
-                                CultureInfo.InvariantCulture);
+                        if (!converter.TryConvert(arguments[i].ToObject(), parameterType, CultureInfo.InvariantCulture, out parameters[i]))
+                        {
+                            argumentsMatch = false;
+                            break;
+                        }
 
                             if (typeof(System.Linq.Expressions.LambdaExpression).IsAssignableFrom(parameters[i].GetType()))
                             {
@@ -55,16 +55,13 @@ namespace Jint.Runtime.Interop
                         }
                     }
 
-                    var result = JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters.ToArray()));
-
-                    // todo: cache method info
-
-                    return result;
-                }
-                catch 
+                if (!argumentsMatch)
                 {
-                    // ignore method
+                    continue;
                 }
+
+                // todo: cache method info
+                return JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters.ToArray()));
             }
 
             throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
