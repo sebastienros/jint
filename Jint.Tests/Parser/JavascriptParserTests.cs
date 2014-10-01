@@ -197,5 +197,20 @@ namespace Jint.Tests.Parser
             Assert.NotNull(body);
         }
 
+        [Fact]
+        public void ShouldProvideLocationForMultiLinesStringLiterals()
+        {
+            var source = @"'\
+\
+'
+";
+            var program = _parser.Parse(source);
+            var expr = program.Body.First().As<ExpressionStatement>().Expression;
+            Assert.Equal(1, expr.Location.Start.Line);
+            Assert.Equal(0, expr.Location.Start.Column);
+            Assert.Equal(3, expr.Location.End.Line);
+            Assert.Equal(1, expr.Location.End.Column);
+        }
+
     }
 }
