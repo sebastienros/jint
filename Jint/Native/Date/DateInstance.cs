@@ -7,10 +7,10 @@ namespace Jint.Native.Date
     public class DateInstance : ObjectInstance
     {
         // Maximum allowed value to prevent DateTime overflow
-        internal static readonly double Max = (DateTime.MaxValue - new DateTime(170, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
+        internal static readonly double Max = (DateTime.MaxValue - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
 
         // Minimum allowed value to prevent DateTime overflow
-        internal static readonly double Min = -(new DateTime(170, 1, 1, 0, 0, 0, DateTimeKind.Utc) - DateTime.MinValue).TotalMilliseconds;
+        internal static readonly double Min = -(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc) - DateTime.MinValue).TotalMilliseconds;
 
         public DateInstance(Engine engine)
             : base(engine)

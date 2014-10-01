@@ -1073,5 +1073,17 @@ namespace Jint.Tests.Runtime
                 assert(isNaN(d));
             ");
         }
+
+        [Fact]
+        public void DateShouldAllowEntireDotNetDateRange()
+        {
+            var engine = new Engine();
+
+            var minValue = engine.Execute("new Date('0001-01-01T00:00:00.000')").GetCompletionValue().ToObject();
+            Assert.Equal(new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc), minValue);
+
+            var maxValue = engine.Execute("new Date('9999-12-31T23:59:59.999')").GetCompletionValue().ToObject();
+            Assert.Equal(new DateTime(9999, 12, 31, 23, 59, 59, 999, DateTimeKind.Utc), maxValue);
+        }
     }
 }
