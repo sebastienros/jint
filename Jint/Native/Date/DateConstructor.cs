@@ -52,7 +52,7 @@ namespace Jint.Native.Date
                 "yyyy-MM-dd",
                 "yyyy-MM",
                 "yyyy"
-            }, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out result))
+            }, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out result))
             {
                 if (!DateTime.TryParseExact(date, new[]
                 {
