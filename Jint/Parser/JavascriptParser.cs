@@ -205,18 +205,18 @@ namespace Jint.Parser
             _extra.Comments.Add(comment);
         }
 
-        private void SkipSingleLineComment()
+        private void SkipSingleLineComment(int offset)
         {
             //var start, loc, ch, comment;
 
-            int start = _index - 2;
+            int start = _index - offset;
             _location = new Location
                 {
                     Start = new Position
                         {
                             Line = _lineNumber,
-                            Column = _index - _lineStart - 2
-                        }
+                            Column = _index - _lineStart - offset
+                    }
                 };
 
             while (_index < _length)
@@ -247,7 +247,7 @@ namespace Jint.Parser
 
             if (_extra.Comments != null)
             {
-                var comment = _source.Slice(start + 2, _index);
+                var comment = _source.Slice(start + offset, _index);
                 _location.End = new Position
                     {
                         Line = _lineNumber,
@@ -324,6 +324,8 @@ namespace Jint.Parser
 
         private void SkipComment()
         {
+            bool start = _index == 0;
+
             while (_index < _length)
             {
                 char ch = _source.CharCodeAt(_index);
@@ -341,20 +343,20 @@ namespace Jint.Parser
                     }
                     ++_lineNumber;
                     _lineStart = _index;
+                    start = true;
                 }
-                else if (ch == 47)
+                else if (ch == '/')
                 {
-                    // 47 is '/'
                     ch = _source.CharCodeAt(_index + 1);
-                    if (ch == 47)
+                    if (ch == '/')
                     {
                         ++_index;
                         ++_index;
-                        SkipSingleLineComment();
+                        SkipSingleLineComment(2);
+                        start = true;
                     }
-                    else if (ch == 42)
+                    else if (ch == '*')
                     {
-                        // 42 is '*'
                         ++_index;
                         ++_index;
                         SkipMultiLineComment();
@@ -364,7 +366,35 @@ namespace Jint.Parser
                         break;
                     }
                 }
-                else
+                else if (start && ch == '-')
+                {
+                    if (_source.CharCodeAt(_index + 1) == '-' && _source.CharCodeAt(_index + 2) == '>')
+                    {
+                        // '-->' is a single line comment
+                        _index += 3;
+                        SkipSingleLineComment(3);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else if (ch == '<')
+                {
+                    if (_source.Slice(_index + 1, _index + 4) == "!--")
+                    {
+                        ++_index; // '<'
+                        ++_index; // '!'
+                        ++_index; // '-'
+                        ++_index; // '-'
+                        SkipSingleLineComment(4);
+
+                    }
+                    else
+                    {
+                        break;
+                    }
+                } else
                 {
                     break;
                 }
@@ -881,6 +911,8 @@ namespace Jint.Parser
         {
             var str = new StringBuilder();
             bool octal = false;
+            var startLineStart = _lineStart;
+            var startLineNumber = _lineNumber;
 
             char quote = _source.CharCodeAt(_index);
 
@@ -978,6 +1010,7 @@ namespace Jint.Parser
                         {
                             ++_index;
                         }
+                        _lineStart = _index;
                     }
                 }
                 else if (IsLineTerminator(ch))
