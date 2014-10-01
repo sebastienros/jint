@@ -197,6 +197,7 @@
     <Compile Include="StrictModeScope.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Jint.nuspec" />
     <None Include="Jint.snk" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
