@@ -1066,6 +1066,15 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldIgnoreHtmlComments()
+        {
+            RunTest(@"
+                var d = Date.parse('not a date'); <!-- a comment -->
+                assert(isNaN(d));
+            ");
+        }
+
+        [Fact]
         public void DateShouldAllowEntireDotNetDateRange()
         {
             var engine = new Engine();
