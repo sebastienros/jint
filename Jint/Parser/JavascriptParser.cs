@@ -324,7 +324,7 @@ namespace Jint.Parser
 
         private void SkipComment()
         {
-            bool start = false;
+            bool start = _index == 0;
 
             while (_index < _length)
             {
