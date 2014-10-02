@@ -3202,7 +3202,7 @@ namespace Jint.Parser
 
             if (!_state.InFunctionBody)
             {
-                ThrowErrorTolerant(Token.Empty, Messages.IllegalReturn);
+ //               ThrowErrorTolerant(Token.Empty, Messages.IllegalReturn);
             }
 
             // 'return' followed by a space and an identifier is very common.
