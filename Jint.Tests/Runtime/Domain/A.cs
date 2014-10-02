@@ -60,14 +60,20 @@ namespace Jint.Tests.Runtime.Domain
         {
             predicate();
         }
+
         public void Call10(string str, Action<string> predicate)
         {
             predicate(str);
         }
+
         public void Call11(string str, string str2, Action<string, string> predicate)
         {
             predicate(str, str2);
         }
 
+        public int Call12(int value, Func<int, int> map)
+        {
+            return map(value);
+        }
     }
 }

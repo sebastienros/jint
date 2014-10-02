@@ -4,6 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using Jint.Native;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace Jint.Runtime.Interop
 {
@@ -12,6 +13,10 @@ namespace Jint.Runtime.Interop
         private readonly Engine _engine;
         private static readonly Dictionary<string, bool> _knownConversions = new Dictionary<string, bool>();
         private static readonly object _lockObject = new object();
+
+        private static MethodInfo convertChangeType = typeof(System.Convert).GetMethod("ChangeType", new Type[] { typeof(object), typeof(Type), typeof(IFormatProvider) } );
+        private static MethodInfo jsValueFromObject = typeof(JsValue).GetMethod("FromObject");
+        private static MethodInfo jsValueToObject = typeof(JsValue).GetMethod("ToObject");
 
         public DefaultTypeConverter(Engine engine)
         {
@@ -67,14 +72,14 @@ namespace Jint.Runtime.Interop
                         {
                             @params[i] = Expression.Parameter(genericArguments[i], genericArguments[i].Name + i);
                         }
-                        var @vars = Expression.NewArrayInit(typeof(JsValue), @params.Select(p => Expression.Call(null, typeof(JsValue).GetMethod("FromObject"), Expression.Constant(_engine, typeof(Engine)), p)));
+                        var @vars = Expression.NewArrayInit(typeof(JsValue), @params.Select(p => Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, typeof(Engine)), p)));
 
                         var callExpresion = Expression.Block(Expression.Call(
                                                 Expression.Call(Expression.Constant(function.Target),
                                                     function.Method,
                                                     Expression.Constant(JsValue.Undefined, typeof(JsValue)),
                                                     @vars),
-                                                typeof(JsValue).GetMethod("ToObject")), Expression.Empty());
+                                                jsValueToObject), Expression.Empty());
 
                         return Expression.Lambda(callExpresion, new ReadOnlyCollection<ParameterExpression>(@params));
                     }
@@ -88,16 +93,31 @@ namespace Jint.Runtime.Interop
                         {
                             @params[i] = Expression.Parameter(genericArguments[i], genericArguments[i].Name + i);
                         }
-                        var @vars = Expression.NewArrayInit(typeof(JsValue), @params.Select(p => Expression.Call(null, typeof(JsValue).GetMethod("FromObject"), Expression.Constant(_engine, typeof(Engine)), p)));
+
+                        var @vars = 
+                            Expression.NewArrayInit(typeof(JsValue), 
+                                @params.Select(p => {
+                                    var boxingExpression = Expression.Convert(p, typeof(object));
+                                    return Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, typeof(Engine)), boxingExpression);
+                                })
+                            );
+
+                        // the final result's type needs to be changed before casting,
+                        // for instance when a function returns a number (double) but C# expects an integer
 
                         var callExpresion = Expression.Convert(
-                                                Expression.Call(
-                                                    Expression.Call(Expression.Constant(function.Target),
-                                                            function.Method,
-                                                            Expression.Constant(JsValue.Undefined, typeof(JsValue)),
-                                                            @vars),
-                                                    typeof(JsValue).GetMethod("ToObject")),
-                                                returnType);
+                                                Expression.Call(null,
+                                                    convertChangeType,
+                                                    Expression.Call(
+                                                            Expression.Call(Expression.Constant(function.Target),
+                                                                    function.Method,
+                                                                    Expression.Constant(JsValue.Undefined, typeof(JsValue)),
+                                                                    @vars),
+                                                            jsValueToObject),
+                                                        Expression.Constant(returnType, typeof(Type)),
+                                                        Expression.Constant(System.Globalization.CultureInfo.InvariantCulture, typeof(IFormatProvider))
+                                                        ),                            
+                                                    returnType);
 
                         return Expression.Lambda(callExpresion, new ReadOnlyCollection<ParameterExpression>(@params));
                     }

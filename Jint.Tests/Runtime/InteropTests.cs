@@ -642,6 +642,18 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldExecuteFunc()
+        {
+            _engine.SetValue("a", new A());
+
+            // Func<int, int>
+            RunTest(@"
+                var result = a.Call12(42, function(a){ return a + a; });
+                assert(result === 84);
+            ");
+        }
+
+        [Fact]
         public void ShouldExecuteActionCallbackOnEventChanged()
         {
             var collection = new System.Collections.ObjectModel.ObservableCollection<string>();
