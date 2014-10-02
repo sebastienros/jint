@@ -2,16 +2,15 @@
 
 # Jint
 
-Jint is a Javascript interpreter for .NET. Jint doesn't compile Javascript to .NET bytecode and in this sense might be best suited for projects requiring to run relatively small scripts faster, or which need to run on different platforms.
-It's available on nuget at https://www.nuget.org/packages/Jint
+Jint is a __Javascript interpreter__ for .NET which provides full __ECMA 5.1__ compliance and can run on __any .NET plaftform__. Because it doesn' generate any .NET bytecode nor use the DLR it runs relatively small scripts faster. It's available as a PCL on Nuget at https://www.nuget.org/packages/Jint.
 
-# Objectives
+# Features
 
 - Full support for ECMAScript 5.1 - http://www.ecma-international.org/ecma-262/5.1/
 - .NET Portable Class Library - http://msdn.microsoft.com/en-us/library/gg597391(v=vs.110).aspx
 - .NET Interoperability 
 
-# Example
+# Examples
 
 This example defines a new value named `log` pointing to `Console.WriteLine`, then executes 
 a script calling `log('Hello World!')`. 
