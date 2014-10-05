@@ -1,7 +1,10 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Function;
 
 namespace Jint.Runtime.Interop
@@ -22,8 +25,9 @@ namespace Jint.Runtime.Interop
             return Invoke(_methods, thisObject, arguments);
         }
 
-        public JsValue Invoke(MethodInfo[] methodInfos, JsValue thisObject, JsValue[] arguments)
+        public JsValue Invoke(MethodInfo[] methodInfos, JsValue thisObject, JsValue[] jsArguments)
         {
+            var arguments = ProcessParamsArrays(jsArguments, methodInfos);
             var methods = TypeConverter.FindBestMatch(Engine, methodInfos, arguments).ToList();
             var converter = Engine.ClrTypeConverter;
 
@@ -65,6 +69,32 @@ namespace Jint.Runtime.Interop
             }
 
             throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
+        }
+
+        private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, IEnumerable<MethodInfo> methodInfos)
+        {
+            foreach (var methodInfo in methodInfos)
+            {
+                var parameters = methodInfo.GetParameters();
+                if (!parameters.Any(p => Attribute.IsDefined(p, typeof(ParamArrayAttribute))))
+                    continue;
+
+                var nonParamsArgumentsCount = parameters.Length - 1;
+                if (jsArguments.Length < nonParamsArgumentsCount)
+                    continue;
+
+                var newArgumentsCollection = jsArguments.Take(nonParamsArgumentsCount).ToList();
+                var argsToTransform = jsArguments.Skip(nonParamsArgumentsCount).ToList();
+
+                if (argsToTransform.Count == 1 && argsToTransform.FirstOrDefault().IsArray())
+                    continue;
+
+                var arrayInstance = ArrayConstructor.CreateArrayConstructor(Engine).Construct(argsToTransform.ToArray());
+                newArgumentsCollection.Add(new JsValue(arrayInstance));
+                return newArgumentsCollection.ToArray();
+            }
+
+            return jsArguments;
         }
 
     }
