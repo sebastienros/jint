@@ -55,11 +55,25 @@ namespace Jint.Native.Array
 
         public ObjectInstance Construct(JsValue[] arguments)
         {
+            return ConstructInternal(arguments, newArrayMode: true);
+        }
+
+        /// <summary>
+        /// Construct an array
+        /// </summary>
+        /// <param name="arguments"></param>
+        /// <param name="newArrayMode">
+        /// if true support JavaScript syntax new Array(3) that will alllocate an array with 3 null value
+        /// if false will allocate an array with one value set to 3
+        /// </param>
+        /// <returns></returns>
+        internal ObjectInstance ConstructInternal(JsValue[] arguments, bool newArrayMode)
+        {
             var instance = new ArrayInstance(Engine);
             instance.Prototype = PrototypeObject;
             instance.Extensible = true;
 
-            if (arguments.Length == 1 && arguments.At(0).IsNumber())
+            if (arguments.Length == 1 && arguments.At(0).IsNumber() && newArrayMode)
             {
                 var length = TypeConverter.ToUint32(arguments.At(0));
                 if (!TypeConverter.ToNumber(arguments[0]).Equals(length))
