@@ -1031,5 +1031,26 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void ShouldCallInstanceMethodWithParams()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+                assert(a.Call13('1','2','3') === '1,2,3');
+                assert(a.Call13('1') === '1');
+                assert(a.Call13() === '');
+
+                assert(a.Call14('a','1','2','3') === 'a:1,2,3');
+                assert(a.Call14('a','1') === 'a:1');
+                assert(a.Call14('a') === 'a:');
+
+                function call13wrapper(){ return a.Call13.apply(a, Array.prototype.slice.call(arguments)); }
+                assert(call13wrapper('1','2','3') === '1,2,3');
+
+                assert(a.Call13('1','2','3') === a.Call13(['1','2','3']));
+            ");
+        }
+
     }
 }

@@ -75,5 +75,15 @@ namespace Jint.Tests.Runtime.Domain
         {
             return map(value);
         }
+
+        public string Call13(params object[] values)
+        {
+            return String.Join(",", values);
+        }
+
+        public string Call14(string firstParam, params object[] values)
+        {
+            return String.Format("{0}:{1}", firstParam, String.Join(",", values));
+        }
     }
 }
