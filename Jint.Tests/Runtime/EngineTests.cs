@@ -1085,5 +1085,73 @@ namespace Jint.Tests.Runtime
             var maxValue = engine.Execute("new Date('9999-12-31T23:59:59.999')").GetCompletionValue().ToObject();
             Assert.Equal(new DateTime(9999, 12, 31, 23, 59, 59, 999, DateTimeKind.Utc), maxValue);
         }
+
+        [Fact]
+        public void ShouldConstructNewArrayWithInteger()
+        {
+            RunTest(@"
+                var a = new Array(3);
+                assert(a.length === 3);
+                assert(a[0] == undefined);
+                assert(a[1] == undefined);
+                assert(a[2] == undefined);
+            ");
+        }
+
+        [Fact]
+        public void ShouldConstructNewArrayWithString()
+        {
+            RunTest(@"
+                var a = new Array('foo');
+                assert(a.length === 1);
+                assert(a[0] === 'foo');
+            ");
+        }
+
+        [Fact]
+        public void ShouldThrowRangeExceptionWhenConstructedWithNonInteger()
+        {
+            RunTest(@"
+                var result = false;
+                try {
+                    var a = new Array(3.4);
+                }
+                catch(e) {
+                    result = e instanceof RangeError;
+                }
+
+                assert(result);                
+            ");
+        }
+
+        [Fact]
+        public void ShouldInitializeArrayWithSingleIngegerValue()
+        {
+            RunTest(@"
+                var a = [3];
+                assert(a.length === 1);
+                assert(a[0] === 3);
+            ");
+        }
+
+        [Fact]
+        public void ShouldInitializeJsonObjectArrayWithSingleIntegerValue()
+        {
+            RunTest(@"
+                var x = JSON.parse('{ ""a"": [3] }');
+                assert(x.a.length === 1);
+                assert(x.a[0] === 3);
+            ");
+        }
+
+        [Fact]
+        public void ShouldInitializeJsonArrayWithSingleIntegerValue()
+        {
+            RunTest(@"
+                var a = JSON.parse('[3]');
+                assert(a.length === 1);
+                assert(a[0] === 3);
+            ");
+        }
     }
 }

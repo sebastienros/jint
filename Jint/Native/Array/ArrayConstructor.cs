@@ -64,7 +64,7 @@ namespace Jint.Native.Array
                 var length = TypeConverter.ToUint32(arguments.At(0));
                 if (!TypeConverter.ToNumber(arguments[0]).Equals(length))
                 {
-                    throw new JavaScriptException(Engine.RangeError);
+                    throw new JavaScriptException(Engine.RangeError, "Invalid array length");
                 }
                 
                 instance.FastAddProperty("length", length, true, false, false);
