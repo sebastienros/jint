@@ -20,7 +20,7 @@ namespace Jint.Tests.Runtime
         public EngineTests()
         {
             _engine = new Engine()
-                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("log", new Action<object>(Console.WriteLine))                
                 .SetValue("assert", new Action<bool>(Assert.True))
                 ;
         }
@@ -860,6 +860,20 @@ namespace Jint.Tests.Runtime
 
                 var b = JSON.parse('{ ""x"": -1 }');
                 assert(b.x === -1);
+            ");
+        }
+
+        [Fact]
+        public void JsonParserShouldParseArrayWithOneNumericValue()
+        {
+            RunTest(@"
+                var o = JSON.parse('{ ""a"": [36] }');
+                assert(o.a[0] === 36);
+                assert(o.a.length === 1);
+
+                var a = JSON.parse('[36]');
+                assert(a[0] === 36);
+                assert(a.length === 1);
             ");
         }
 
