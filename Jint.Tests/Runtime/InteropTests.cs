@@ -1052,5 +1052,16 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void NullValueAsArgumentShouldWork()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+                var x = a.Call2(null);
+                assert(x === null);
+            ");
+        }
+
     }
 }

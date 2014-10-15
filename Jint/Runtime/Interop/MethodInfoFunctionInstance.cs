@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
@@ -36,28 +37,29 @@ namespace Jint.Runtime.Interop
                 var parameters = new object[arguments.Length];
                 var argumentsMatch = true;
 
-                    for (var i = 0; i < arguments.Length; i++)
-                    {
-                        var parameterType = method.GetParameters()[i].ParameterType;
+                for (var i = 0; i < arguments.Length; i++)
+                {
+                    var parameterType = method.GetParameters()[i].ParameterType;
 
-                        if (parameterType == typeof(JsValue))
-                        {
-                            parameters[i] = arguments[i];
-                        }
-                        else
-                        {
+                    if (parameterType == typeof(JsValue))
+                    {
+                        parameters[i] = arguments[i];
+                    }
+                    else
+                    {
                         if (!converter.TryConvert(arguments[i].ToObject(), parameterType, CultureInfo.InvariantCulture, out parameters[i]))
                         {
                             argumentsMatch = false;
                             break;
                         }
 
-                            if (typeof(System.Linq.Expressions.LambdaExpression).IsAssignableFrom(parameters[i].GetType()))
-                            {
-                                parameters[i] = (parameters[i] as System.Linq.Expressions.LambdaExpression).Compile();
-                            }
+                        var lambdaExpression = parameters[i] as LambdaExpression;
+                        if (lambdaExpression != null)
+                        {
+                            parameters[i] = lambdaExpression.Compile();
                         }
                     }
+                }
 
                 if (!argumentsMatch)
                 {
