@@ -53,9 +53,10 @@ namespace Jint.Runtime.Interop
                             break;
                         }
 
-                        if (parameters[i] is LambdaExpression)
+                        var lambdaExpression = parameters[i] as LambdaExpression;
+                        if (lambdaExpression != null)
                         {
-                            parameters[i] = (parameters[i] as LambdaExpression).Compile();
+                            parameters[i] = lambdaExpression.Compile();
                         }
                     }
                 }
