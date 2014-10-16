@@ -179,6 +179,7 @@
     <Compile Include="Runtime\Interop\IObjectWrapper.cs" />
     <Compile Include="Runtime\Interop\IObjectConverter.cs" />
     <Compile Include="Runtime\Interop\ITypeConverter.cs" />
+    <Compile Include="Runtime\Interop\JintInteropException.cs" />
     <Compile Include="Runtime\Interop\MethodInfoFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\ClrFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\NamespaceReference.cs" />

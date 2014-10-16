@@ -9,6 +9,10 @@ using Xunit;
 
 namespace Jint.Tests.Runtime
 {
+    using System.Reflection;
+
+    using Jint.Runtime.Interop;
+
     public class InteropTests : IDisposable
     {
         private readonly Engine _engine;
@@ -1063,5 +1067,45 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void ShouldThrowExplicitInteropException()
+        {
+            Assert.Throws<JintInteropException>(() => RunTest(@"
+                                    var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                                    var thrower = new domain.ExceptionThrower();
+                                    thrower.Execute();                
+                                "));
+        }
+
+        [Fact]
+        public void ShouldProvideExceptionHierarchy()
+        {
+            JintInteropException exception = null;
+            try
+            {
+                RunTest(@"
+                    var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                    var thrower = new domain.ExceptionThrower();
+                    thrower.Execute();                
+                "); 
+            }
+            catch (JintInteropException ex)
+            {
+                exception = ex;
+            }
+
+            Assert.NotNull(exception);
+            
+            // Method name should mentioned in the exception method.
+            Assert.Contains("Execute", exception.Message);
+            
+            // First inner exception is reflection related one.
+            Assert.NotNull(exception.InnerException);
+            Assert.IsType(typeof(TargetInvocationException), exception.InnerException);
+
+            // Second inner exception is "real" explaining what really hapened.
+            Assert.NotNull(exception.InnerException.InnerException);
+            Assert.IsType(typeof(ApplicationException), exception.InnerException.InnerException);
+        }
     }
 }
