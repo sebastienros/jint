@@ -74,6 +74,27 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        private delegate string callParams(params object[] values);
+        private delegate string callArgumentAndParams(string firstParam, params object[] values);
+
+        [Fact]
+        public void DelegatesWithParamsParameterCanBeInvoked()
+        {
+            var a = new A();
+            _engine.SetValue("callParams", new callParams(a.Call13));
+            _engine.SetValue("callArgumentAndParams", new callArgumentAndParams(a.Call14));
+
+            RunTest(@"
+                assert(callParams('1','2','3') === '1,2,3');
+                assert(callParams('1') === '1');
+                assert(callParams() === '');
+
+                assert(callArgumentAndParams('a','1','2','3') === 'a:1,2,3');
+                assert(callArgumentAndParams('a','1') === 'a:1');
+                assert(callArgumentAndParams('a') === 'a:');
+            ");
+        }
+
         [Fact]
         public void CanGetObjectProperties()
         {
