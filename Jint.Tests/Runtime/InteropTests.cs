@@ -1093,7 +1093,7 @@ namespace Jint.Tests.Runtime
             RunTest(@"
                 assert(p.Name != null);
                 p.Name = null;
-                assert(isnull(p.Name) === true);
+                assert(p.Name == null);
             ");
             
             Assert.True(p.Name == null);
