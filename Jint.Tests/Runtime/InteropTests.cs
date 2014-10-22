@@ -1087,9 +1087,10 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldSetPropertyToNull()
         {
-            _engine.SetValue("p", new Person { Name = "Mickey" });
+            var p = new Person { Name = "Mickey" };
+            _engine.SetValue("p", p);
             
-            RuntTests(@"
+            RunTest(@"
                 assert(p.Name != null);
                 p.Name = null;
                 assert(isnull(p.Name) === true);
