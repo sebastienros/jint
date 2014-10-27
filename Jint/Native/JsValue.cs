@@ -324,6 +324,8 @@ namespace Jint.Native
                     return new JsValue((UInt64)value);
                 case TypeCode.Object:
                     break;
+                case TypeCode.DBNull:
+                    return Null;
                 case TypeCode.Empty:
                     break;
                 default:
