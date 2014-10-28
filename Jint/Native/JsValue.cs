@@ -15,9 +15,11 @@ using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Jint.Native
 {
+    [StructLayout(LayoutKind.Explicit)]
     [DebuggerTypeProxy(typeof(JsValueDebugView))]
     public struct JsValue : IEquatable<JsValue>
     {
@@ -28,20 +30,22 @@ namespace Jint.Native
 
         public JsValue(bool value)
         {
-            _bool = value;
             _double = double.NaN;
             _object = null;
             _string = null;
             _type = Types.Boolean;
+
+            _bool = value; //Set value last because of 'FieldOffset' constraints
         }
 
         public JsValue(double value)
         {
             _bool = false;
-            _double = value;
             _object = null;
             _string = null;
             _type = Types.Number;
+
+            _double = value;
         }
 
         public JsValue(string value)
@@ -49,17 +53,19 @@ namespace Jint.Native
             _bool = false;
             _double = double.NaN;
             _object = null;
-            _string = value;
             _type = Types.String;
+
+            _string = value;
         }
 
         public JsValue(ObjectInstance value)
         {
             _bool = false;
             _double = double.NaN;
-            _object = value;
             _string = null;
             _type = Types.Object;
+
+            _object = value;
         }
 
         private JsValue(Types type)
@@ -71,12 +77,16 @@ namespace Jint.Native
             _type = type;
         }
 
+        [FieldOffset(0)]
         private readonly bool _bool;
 
+        [FieldOffset(0)]
         private readonly double _double;
 
+        [FieldOffset(0)]
         private readonly ObjectInstance _object;
 
+        [FieldOffset(0)]
         private readonly string _string;
 
         private readonly Types _type;
