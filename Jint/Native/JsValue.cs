@@ -31,7 +31,7 @@ namespace Jint.Native
             _bool = value;
             _double = double.NaN;
             _object = null;
-            _string = System.String.Empty;
+            _string = null;
             _type = Types.Boolean;
         }
 
@@ -40,7 +40,7 @@ namespace Jint.Native
             _bool = false;
             _double = value;
             _object = null;
-            _string = System.String.Empty;
+            _string = null;
             _type = Types.Number;
         }
 
@@ -58,7 +58,7 @@ namespace Jint.Native
             _bool = false;
             _double = double.NaN;
             _object = value;
-            _string = System.String.Empty;
+            _string = null;
             _type = Types.Object;
         }
 
@@ -67,7 +67,7 @@ namespace Jint.Native
             _bool = false;
             _double = double.NaN;
             _object = null;
-            _string = System.String.Empty;
+            _string = null;
             _type = type;
         }
 
@@ -206,7 +206,7 @@ namespace Jint.Native
                 throw new ArgumentException("The value is not a string");
             }
 
-            if (_string == System.String.Empty)
+            if (_string == null)
             {
                 throw new ArgumentException("The value is not defined");
             }
