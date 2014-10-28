@@ -14,6 +14,7 @@ using Jint.Native.RegExp;
 using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
+using System.Runtime.CompilerServices;
 
 namespace Jint.Native
 {
@@ -28,25 +29,25 @@ namespace Jint.Native
         public JsValue(bool value)
         {
             _bool = value;
-            _double = null;
+            _double = double.NaN;
             _object = null;
-            _string = null;
+            _string = System.String.Empty;
             _type = Types.Boolean;
         }
 
         public JsValue(double value)
         {
-            _bool = null;
+            _bool = false;
             _double = value;
             _object = null;
-            _string = null;
+            _string = System.String.Empty;
             _type = Types.Number;
         }
 
         public JsValue(string value)
         {
-            _bool = null;
-            _double = null;
+            _bool = false;
+            _double = double.NaN;
             _object = null;
             _string = value;
             _type = Types.String;
@@ -54,25 +55,25 @@ namespace Jint.Native
 
         public JsValue(ObjectInstance value)
         {
-            _bool = null;
-            _double = null;
+            _bool = false;
+            _double = double.NaN;
             _object = value;
-            _string = null;
+            _string = System.String.Empty;
             _type = Types.Object;
         }
 
         private JsValue(Types type)
         {
-            _bool = null;
-            _double = null;
+            _bool = false;
+            _double = double.NaN;
             _object = null;
-            _string = null;
+            _string = System.String.Empty;
             _type = type;
         }
 
-        private readonly bool? _bool;
+        private readonly bool _bool;
 
-        private readonly double? _double;
+        private readonly double _double;
 
         private readonly ObjectInstance _object;
 
@@ -194,12 +195,7 @@ namespace Jint.Native
                 throw new ArgumentException("The value is not a boolean");
             }
 
-            if (!_bool.HasValue)
-            {
-                throw new ArgumentException("The value is not defined");
-            }
-
-            return _bool.Value;
+            return _bool;
         }
 
         [Pure]
@@ -210,7 +206,7 @@ namespace Jint.Native
                 throw new ArgumentException("The value is not a string");
             }
 
-            if (_string == null)
+            if (_string == System.String.Empty)
             {
                 throw new ArgumentException("The value is not defined");
             }
@@ -226,12 +222,7 @@ namespace Jint.Native
                 throw new ArgumentException("The value is not a number");
             }
 
-            if (!_double.HasValue)
-            {
-                throw new ArgumentException("The value is not defined");
-            }
-
-            return _double.Value;
+            return _double;
         }
 
         public bool Equals(JsValue other)
