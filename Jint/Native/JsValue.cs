@@ -281,6 +281,11 @@ namespace Jint.Native
                 return Null;
             }
 
+            if (value == DBNull.Value)
+            {
+                return Null;
+            }
+
             foreach(var converter in engine.Options.GetObjectConverters())
             {
                 JsValue result;
