@@ -89,6 +89,7 @@ namespace Jint.Native
         [FieldOffset(0)]
         private readonly string _string;
 
+        [FieldOffset(8)]
         private readonly Types _type;
 
         [Pure]
