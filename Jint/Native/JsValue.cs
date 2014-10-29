@@ -14,9 +14,11 @@ using Jint.Native.RegExp;
 using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
+using System.Runtime.InteropServices;
 
 namespace Jint.Native
 {
+    [StructLayout(LayoutKind.Explicit)]
     [DebuggerTypeProxy(typeof(JsValueDebugView))]
     public struct JsValue : IEquatable<JsValue>
     {
@@ -27,57 +29,66 @@ namespace Jint.Native
 
         public JsValue(bool value)
         {
-            _bool = value;
-            _double = null;
+            _double = double.NaN;
             _object = null;
             _string = null;
             _type = Types.Boolean;
+
+            _bool = value; //Set value last because of 'FieldOffset' constraints
         }
 
         public JsValue(double value)
         {
-            _bool = null;
-            _double = value;
+            _bool = false;
             _object = null;
             _string = null;
             _type = Types.Number;
+
+            _double = value;
         }
 
         public JsValue(string value)
         {
-            _bool = null;
-            _double = null;
+            _bool = false;
+            _double = double.NaN;
             _object = null;
-            _string = value;
             _type = Types.String;
+
+            _string = value;
         }
 
         public JsValue(ObjectInstance value)
         {
-            _bool = null;
-            _double = null;
-            _object = value;
+            _bool = false;
+            _double = double.NaN;
             _string = null;
             _type = Types.Object;
+
+            _object = value;
         }
 
         private JsValue(Types type)
         {
-            _bool = null;
-            _double = null;
+            _bool = false;
+            _double = double.NaN;
             _object = null;
             _string = null;
             _type = type;
         }
 
-        private readonly bool? _bool;
+        [FieldOffset(0)]
+        private readonly bool _bool;
 
-        private readonly double? _double;
+        [FieldOffset(0)]
+        private readonly double _double;
 
+        [FieldOffset(8)]
         private readonly ObjectInstance _object;
 
+        [FieldOffset(8)]
         private readonly string _string;
 
+        [FieldOffset(16)]
         private readonly Types _type;
 
         [Pure]
@@ -194,12 +205,7 @@ namespace Jint.Native
                 throw new ArgumentException("The value is not a boolean");
             }
 
-            if (!_bool.HasValue)
-            {
-                throw new ArgumentException("The value is not defined");
-            }
-
-            return _bool.Value;
+            return _bool;
         }
 
         [Pure]
@@ -226,12 +232,7 @@ namespace Jint.Native
                 throw new ArgumentException("The value is not a number");
             }
 
-            if (!_double.HasValue)
-            {
-                throw new ArgumentException("The value is not defined");
-            }
-
-            return _double.Value;
+            return _double;
         }
 
         public bool Equals(JsValue other)
