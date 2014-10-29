@@ -14,7 +14,6 @@ using Jint.Native.RegExp;
 using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Jint.Native
@@ -83,13 +82,13 @@ namespace Jint.Native
         [FieldOffset(0)]
         private readonly double _double;
 
-        [FieldOffset(0)]
+        [FieldOffset(8)]
         private readonly ObjectInstance _object;
 
-        [FieldOffset(0)]
+        [FieldOffset(8)]
         private readonly string _string;
 
-        [FieldOffset(8)]
+        [FieldOffset(16)]
         private readonly Types _type;
 
         [Pure]
