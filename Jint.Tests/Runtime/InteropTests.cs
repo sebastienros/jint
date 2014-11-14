@@ -1083,20 +1083,32 @@ namespace Jint.Tests.Runtime
                 assert(x === null);
             ");
         }
-        
+
         [Fact]
         public void ShouldSetPropertyToNull()
         {
             var p = new Person { Name = "Mickey" };
             _engine.SetValue("p", p);
-            
+
             RunTest(@"
                 assert(p.Name != null);
                 p.Name = null;
                 assert(p.Name == null);
             ");
-            
+
             Assert.True(p.Name == null);
+        }
+
+        [Fact]
+        public void ShouldCallMethodWithNull()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+                a.Call15(null);
+                var result = a.Call2(null);
+                assert(result == null);
+            ");
         }
 
     }
