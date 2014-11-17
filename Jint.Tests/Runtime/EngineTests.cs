@@ -1192,9 +1192,15 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldThrowParserExceptionWhenEptyReturnWithoutFunctionBody()
+        public void ShouldThrowParserExceptionWhenEmptyReturnWithoutFunctionBody()
         {
             Assert.Throws<ParserException>(() => RunTest(@"return;"));
+        }
+
+        [Fact]
+        public void ShouldThrowParserExceptionWhenEmptyReturnWithoutFunctionBody2()
+        {
+            Assert.Throws<ParserException>(() => RunTest(@"return ;"));
         }
     }
 }
