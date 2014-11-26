@@ -673,21 +673,23 @@ namespace Jint.Native.String
 
             var s = TypeConverter.ToString(thisObj);
             var searchStr = TypeConverter.ToString(arguments.At(0));
-            double numPos = arguments.At(1) == Undefined.Instance ? s.Length : TypeConverter.ToNumber(arguments.At(1));
-            double pos = double.IsNaN(numPos) ? double.PositiveInfinity : TypeConverter.ToInteger(numPos);
-            var len = s.Length;
-            var start = System.Math.Min(len, System.Math.Max(pos, 0));
+            double pos = 0;
+            if (arguments.Length > 1 && arguments[1] != Undefined.Instance)
+            {
+                pos = TypeConverter.ToInteger(arguments[1]);
+            }
 
-            // The JavaScript spec of string.lastIndexOf does match the C# spec
-            // Therefore we need to write our own specific implementation.
-            // Enjoy the fact that Ecma spec and Mozilla spec have different definition which
-            // I guess mean the same thing.
-            // Ecma spec
-            // http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.4.8
-            // Mozilla spec
-            // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/lastIndexOf
+            if (pos >= s.Length)
+            {
+                return -1;
+            }
 
-            return LastIndexJavaScriptImplementation(s, searchStr, (int)start);
+            if (pos < 0)
+            {
+                pos = 0;
+            }
+
+            return s.LastIndexOf(searchStr, (int)pos, StringComparison.Ordinal);
         }
 
         private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)
