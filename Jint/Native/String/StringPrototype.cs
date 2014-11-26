@@ -30,7 +30,7 @@ namespace Jint.Native.String
             obj.Prototype = engine.Object.PrototypeObject;
             obj.PrimitiveValue = "";
             obj.Extensible = true;
-            obj.FastAddProperty("length", 0, false, false, false); 
+            obj.FastAddProperty("length", 0, false, false, false);
             obj.FastAddProperty("constructor", stringConstructor, true, false, true);
 
             return obj;
@@ -121,7 +121,7 @@ namespace Jint.Native.String
         private static string TrimEx(string s)
         {
             return TrimEndEx(TrimStartEx(s));
-        } 
+        }
 
         private JsValue Trim(JsValue thisObj, JsValue[] arguments)
         {
@@ -129,7 +129,7 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
             return TrimEx(s);
         }
-        
+
         private static JsValue ToLocaleUpperCase(JsValue thisObj, JsValue[] arguments)
         {
             var s = TypeConverter.ToString(thisObj);
@@ -157,13 +157,13 @@ namespace Jint.Native.String
         private static int ToIntegerSupportInfinity(JsValue numberVal)
         {
             var doubleVal = TypeConverter.ToInteger(numberVal);
-            var intVal = (int) doubleVal;
+            var intVal = (int)doubleVal;
             if (double.IsPositiveInfinity(doubleVal))
                 intVal = int.MaxValue;
             else if (double.IsNegativeInfinity(doubleVal))
                 intVal = int.MinValue;
             else
-                intVal = (int) doubleVal;
+                intVal = (int)doubleVal;
             return intVal;
         }
 
@@ -201,8 +201,8 @@ namespace Jint.Native.String
         {
             var s = TypeConverter.ToString(thisObj);
             var start = TypeConverter.ToInteger(arguments.At(0));
-            var length = arguments.At(1) == JsValue.Undefined 
-                ? double.PositiveInfinity 
+            var length = arguments.At(1) == JsValue.Undefined
+                ? double.PositiveInfinity
                 : TypeConverter.ToInteger(arguments.At(1));
 
             start = start >= 0 ? start : System.Math.Max(s.Length + start, 0);
@@ -224,10 +224,10 @@ namespace Jint.Native.String
 
             // Coerce into a number, true will become 1 
             var l = arguments.At(1);
-            var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
+            var a = (ArrayInstance)Engine.Array.Construct(Arguments.Empty);
             var limit = l == Undefined.Instance ? UInt32.MaxValue : TypeConverter.ToUint32(l);
             var len = s.Length;
-            
+
             if (limit == 0)
             {
                 return a;
@@ -277,7 +277,7 @@ namespace Jint.Native.String
 
                     // Add the match results to the array.
                     a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(s.Substring(lastIndex, match.Index - lastIndex), true, true, true), false);
-                    
+
                     if (index >= limit)
                     {
                         return a;
@@ -293,7 +293,7 @@ namespace Jint.Native.String
                             item = match.Groups[i].Value;
                         }
 
-                        a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(item, true, true, true ), false);
+                        a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(item, true, true, true), false);
 
                         if (index >= limit)
                         {
@@ -304,7 +304,7 @@ namespace Jint.Native.String
                     match = match.NextMatch();
                     if (!match.Success) // Add the last part of the split
                     {
-                        a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(s.Substring(lastIndex), true, true, true), false);                        
+                        a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(s.Substring(lastIndex), true, true, true), false);
                     }
                 }
 
@@ -319,19 +319,19 @@ namespace Jint.Native.String
                 {
                     foreach (var c in s)
                     {
-                        segments.Add(c.ToString());    
+                        segments.Add(c.ToString());
                     }
                 }
                 else
                 {
-                    segments = s.Split(new[] {sep}, StringSplitOptions.None).ToList();
+                    segments = s.Split(new[] { sep }, StringSplitOptions.None).ToList();
                 }
 
                 for (int i = 0; i < segments.Count && i < limit; i++)
                 {
                     a.DefineOwnProperty(i.ToString(), new PropertyDescriptor(segments[i], true, true, true), false);
                 }
-            
+
                 return a;
             }
         }
@@ -351,7 +351,7 @@ namespace Jint.Native.String
             {
                 return string.Empty;
             }
-            
+
             var end = TypeConverter.ToNumber(arguments.At(1));
             if (double.PositiveInfinity.Equals(end))
             {
@@ -486,7 +486,7 @@ namespace Jint.Native.String
 
             // searchValue is a regular expression
 
-            if (searchValue.IsNull()) 
+            if (searchValue.IsNull())
             {
                 searchValue = new JsValue(Null.Text);
             }
@@ -494,7 +494,7 @@ namespace Jint.Native.String
             {
                 searchValue = new JsValue(Undefined.Text);
             }
-            
+
             var rx = TypeConverter.ToObject(Engine, searchValue) as RegExpInstance;
             if (rx != null)
             {
@@ -502,14 +502,14 @@ namespace Jint.Native.String
                 string result = rx.Value.Replace(thisString, match =>
                 {
                     var args = new List<JsValue>();
-                    
+
                     for (var k = 0; k < match.Groups.Count; k++)
                     {
                         var group = match.Groups[k];
                         if (group.Success)
                             args.Add(group.Value);
                     }
-                    
+
                     args.Add(match.Index);
                     args.Add(thisString);
 
@@ -560,7 +560,7 @@ namespace Jint.Native.String
             var regex = arguments.At(0);
             var rx = regex.TryCast<RegExpInstance>();
 
-            rx = rx ?? (RegExpInstance) Engine.RegExp.Construct(new[] {regex});
+            rx = rx ?? (RegExpInstance)Engine.RegExp.Construct(new[] { regex });
 
             var global = rx.Get("global").AsBoolean();
             if (!global)
@@ -610,7 +610,7 @@ namespace Jint.Native.String
 
             var s = TypeConverter.ToString(thisObj);
             var that = TypeConverter.ToString(arguments.At(0));
-            
+
             return string.CompareOrdinal(s, that);
         }
 
@@ -629,67 +629,31 @@ namespace Jint.Native.String
             }
         }
 
-        private int LastIndexJavaScriptImplementation(string s, string searchStr, int pos = -1)
-        {
-            if (pos == -1)
-                pos = s.Length;
-
-            var len          = s.Length;
-            var start        = System.Math.Min(System.Math.Max(pos, 0), len);
-            var searchLen    = searchStr.Length;
-            var kPositions   = AllIndexesOf(s, searchStr);
-
-            if (kPositions.Count == 0) // Nothing found
-            {
-                return -1;
-            }
-            else if (kPositions.Count == 1) // Only one found
-            {
-                return kPositions[0] <= start ? kPositions[0] : -1;
-            }
-
-            // Return the largest possible nonnegative integer k not larger than start 
-            // such that k+ searchLen is not greater than len
-            for (var i = 0; i < kPositions.Count; i++)
-            {
-                if (kPositions[i] <= start)
-                {
-                    // ok move to the next one to find a greater pos
-                }
-                else
-                {
-                    if ((i > 0) && ((kPositions[i - 1] + searchLen) <= len))
-                        return kPositions[i - 1];
-                    else
-                        return -1;
-                }
-            }
-            return kPositions[kPositions.Count - 1];
-        }
-
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
             var s = TypeConverter.ToString(thisObj);
             var searchStr = TypeConverter.ToString(arguments.At(0));
-            double pos = 0;
-            if (arguments.Length > 1 && arguments[1] != Undefined.Instance)
-            {
-                pos = TypeConverter.ToInteger(arguments[1]);
-            }
+            double numPos = arguments.At(1) == Undefined.Instance ? s.Length : TypeConverter.ToNumber(arguments.At(1));
+            double pos = double.IsNaN(numPos) ? double.PositiveInfinity : TypeConverter.ToInteger(numPos);
+            var len = s.Length - 1;
+            var start = System.Math.Min(len, System.Math.Max(pos != null ? pos : 0, 0));
 
-            if (pos >= s.Length)
-            {
-                return -1;
-            }
+            // The JavaScript spec of string.lastIndexOf does match the C# spec
+            // Therefore we need to write our own specific implementation.
+            // Enjoy the fact that Ecma spec and Mozilla spec have different definition which
+            // I guess mean the same thing.
+            // Ecma spec
+            // http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.4.8
+            // Mozilla spec
+            // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/lastIndexOf
 
-            if (pos < 0)
-            {
-                pos = 0;
-            }
+            if (arguments.At(0) == JsValue.Null ||
+                searchStr == null)
+                return JsValue.Null;
 
-            return s.LastIndexOf(searchStr, (int)pos, StringComparison.Ordinal);
+            return s.LastIndexOf(searchStr, (int)start);
         }
 
         private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)
@@ -714,7 +678,7 @@ namespace Jint.Native.String
                 pos = 0;
             }
 
-            return s.IndexOf(searchStr, (int) pos, StringComparison.Ordinal);
+            return s.IndexOf(searchStr, (int)pos, StringComparison.Ordinal);
         }
 
         private JsValue Concat(JsValue thisObj, JsValue[] arguments)
@@ -755,7 +719,7 @@ namespace Jint.Native.String
             {
                 return "";
             }
-            return s[(int) position].ToString();
+            return s[(int)position].ToString();
 
         }
 
