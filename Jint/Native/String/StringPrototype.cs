@@ -643,6 +643,15 @@ namespace Jint.Native.String
             if (arguments.At(1) == false)
                 start = 0;
 
+            if (arguments.At(0) == false)
+                searchStr = "false";
+            else if (arguments.At(0) == true)
+                searchStr = "true";
+
+            if (arguments.At(0) == JsValue.Null ||
+                searchStr == null)
+                searchStr = "null";
+
             // The JavaScript spec of string.lastIndexOf does match the C# spec
             // Therefore we need to write our own specific implementation.
             // Enjoy the fact that Ecma spec and Mozilla spec have different definition which
@@ -651,11 +660,8 @@ namespace Jint.Native.String
             // http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.4.8
             // Mozilla spec
             // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/lastIndexOf
+                       
 
-            if (arguments.At(0) == JsValue.Null ||
-                searchStr == null)
-                searchStr = "";
-            
             return s.LastIndexOf(searchStr, (int)start);
         }
 
