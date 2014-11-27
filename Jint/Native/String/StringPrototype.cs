@@ -614,80 +614,51 @@ namespace Jint.Native.String
             return string.CompareOrdinal(s, that);
         }
 
-        private static List<int> AllIndexesOf(string str, string value)
-        {
-            if (string.IsNullOrEmpty(value))
-                return new List<int>();
-
-            var indexes = new List<int>();
-            for (int index = 0; ; index += value.Length)
-            {
-                index = str.IndexOf(value, index);
-                if (index == -1) // no more fond
-                    return indexes;
-                indexes.Add(index);
-            }
-        }
-
-        private int LastIndexJavaScriptImplementation(string s, string searchStr, int pos = -1)
-        {
-            if (pos == -1)
-                pos = s.Length;
-
-            var len          = s.Length;
-            var start        = System.Math.Min(System.Math.Max(pos, 0), len);
-            var searchLen    = searchStr.Length;
-            var kPositions   = AllIndexesOf(s, searchStr);
-
-            if (kPositions.Count == 0) // Nothing found
-            {
-                return -1;
-            }
-            else if (kPositions.Count == 1) // Only one found
-            {
-                return kPositions[0] <= start ? kPositions[0] : -1;
-            }
-
-            // Return the largest possible nonnegative integer k not larger than start 
-            // such that k+ searchLen is not greater than len
-            for (var i = 0; i < kPositions.Count; i++)
-            {
-                if (kPositions[i] <= start)
-                {
-                    // ok move to the next one to find a greater pos
-                }
-                else
-                {
-                    if ((i > 0) && ((kPositions[i - 1] + searchLen) <= len))
-                        return kPositions[i - 1];
-                    else
-                        return -1;
-                }
-            }
-            return kPositions[kPositions.Count - 1];
-        }
-
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
             var s = TypeConverter.ToString(thisObj);
             var searchStr = TypeConverter.ToString(arguments.At(0));
-            double numPos = arguments.At(1) == Undefined.Instance ? s.Length : TypeConverter.ToNumber(arguments.At(1));
-            double pos = double.IsNaN(numPos) ? double.PositiveInfinity : TypeConverter.ToInteger(numPos);
+            double numPos = double.NaN;
+            if (arguments.Length > 1 && arguments[1] != Undefined.Instance)
+            {
+                numPos = TypeConverter.ToNumber(arguments[1]);
+            }
+
+            var pos = double.IsNaN(numPos) ? double.PositiveInfinity : TypeConverter.ToInteger(numPos);
+
             var len = s.Length;
-            var start = System.Math.Min(len, System.Math.Max(pos, 0));
+            var start = (int)System.Math.Min(System.Math.Max(pos, 0), len);
+            var searchLen = searchStr.Length;
 
-            // The JavaScript spec of string.lastIndexOf does match the C# spec
-            // Therefore we need to write our own specific implementation.
-            // Enjoy the fact that Ecma spec and Mozilla spec have different definition which
-            // I guess mean the same thing.
-            // Ecma spec
-            // http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.4.8
-            // Mozilla spec
-            // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/lastIndexOf
+            var i = start;
+            bool found;
 
-            return LastIndexJavaScriptImplementation(s, searchStr, (int)start);
+            do
+            {
+                found = true;
+                var j = 0;
+
+                while (found && j < searchLen)
+                {
+                    if ((i + searchLen > len) || (s[i + j] != searchStr[j]))
+                    {
+                        found = false;
+                    }
+                    else
+                    {
+                        j++;
+                    }
+                }
+                if (!found)
+                {
+                    i--;
+                }
+
+            } while (!found && i >= 0);
+
+            return i;
         }
 
         private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)
