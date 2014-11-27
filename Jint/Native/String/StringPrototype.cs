@@ -640,6 +640,9 @@ namespace Jint.Native.String
             var len = s.Length - 1;
             var start = System.Math.Min(len, System.Math.Max(pos != null ? pos : 0, 0));
 
+            if (arguments.At(1) == false)
+                start = 0;
+
             // The JavaScript spec of string.lastIndexOf does match the C# spec
             // Therefore we need to write our own specific implementation.
             // Enjoy the fact that Ecma spec and Mozilla spec have different definition which
@@ -651,8 +654,8 @@ namespace Jint.Native.String
 
             if (arguments.At(0) == JsValue.Null ||
                 searchStr == null)
-                return JsValue.Null;
-
+                searchStr = "";
+            
             return s.LastIndexOf(searchStr, (int)start);
         }
 
