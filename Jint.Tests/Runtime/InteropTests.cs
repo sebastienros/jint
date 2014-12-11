@@ -78,6 +78,27 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        private delegate string callParams(params object[] values);
+        private delegate string callArgumentAndParams(string firstParam, params object[] values);
+
+        [Fact]
+        public void DelegatesWithParamsParameterCanBeInvoked()
+        {
+            var a = new A();
+            _engine.SetValue("callParams", new callParams(a.Call13));
+            _engine.SetValue("callArgumentAndParams", new callArgumentAndParams(a.Call14));
+
+            RunTest(@"
+                assert(callParams('1','2','3') === '1,2,3');
+                assert(callParams('1') === '1');
+                assert(callParams() === '');
+
+                assert(callArgumentAndParams('a','1','2','3') === 'a:1,2,3');
+                assert(callArgumentAndParams('a','1') === 'a:1');
+                assert(callArgumentAndParams('a') === 'a:');
+            ");
+        }
+
         [Fact]
         public void CanGetObjectProperties()
         {
@@ -1064,6 +1085,33 @@ namespace Jint.Tests.Runtime
             RunTest(@"
                 var x = a.Call2(null);
                 assert(x === null);
+            ");
+        }
+
+        [Fact]
+        public void ShouldSetPropertyToNull()
+        {
+            var p = new Person { Name = "Mickey" };
+            _engine.SetValue("p", p);
+
+            RunTest(@"
+                assert(p.Name != null);
+                p.Name = null;
+                assert(p.Name == null);
+            ");
+
+            Assert.True(p.Name == null);
+        }
+
+        [Fact]
+        public void ShouldCallMethodWithNull()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+                a.Call15(null);
+                var result = a.Call2(null);
+                assert(result == null);
             ");
         }
 

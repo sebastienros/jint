@@ -85,5 +85,10 @@ namespace Jint.Tests.Runtime.Domain
         {
             return String.Format("{0}:{1}", firstParam, String.Join(",", values));
         }
+
+        public void Call15(string x)
+        {
+
+        }
     }
 }

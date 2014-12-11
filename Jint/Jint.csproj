@@ -183,7 +183,7 @@
     <Compile Include="Runtime\Interop\MethodInfoFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\ClrFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\NamespaceReference.cs" />
-    <Compile Include="Runtime\Interop\ObjectWrapper .cs" />
+    <Compile Include="Runtime\Interop\ObjectWrapper.cs" />
     <Compile Include="Runtime\Interop\SetterFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\GetterFunctionInstance.cs" />
     <Compile Include="Runtime\Interop\DelegateWrapper.cs" />

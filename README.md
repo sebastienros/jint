@@ -14,7 +14,7 @@ Jint is a __Javascript interpreter__ for .NET which provides full __ECMA 5.1__ c
 
 This example defines a new value named `log` pointing to `Console.WriteLine`, then executes 
 a script calling `log('Hello World!')`. 
-```csharp
+```c#
     var engine = new Engine()
         .SetValue("log", new Action<object>(Console.WriteLine))
         ;
@@ -28,7 +28,7 @@ a script calling `log('Hello World!')`.
     ");
 ```
 Here, the variable `x` is set to `3` and `x * x` is executed in JavaScript. The result is returned to .NET directly, in this case as a `double` value `9`. 
-```csharp
+```c#
     var square = new Engine()
         .SetValue("x", 3) // define a new variable
         .Execute("x * x") // execute a statement
@@ -37,18 +37,18 @@ Here, the variable `x` is set to `3` and `x * x` is executed in JavaScript. The 
         ;
 ```
 You can also directly pass POCOs or anonymous objects and use them from JavaScript. In this example for instance a new `Person` instance is manipulated from JavaScript. 
-```csharp
+```c#
     var p = new Person {
         Name = "Mickey Mouse"
     };
 
     var engine = new Engine()
         .SetValue("p", p)
-        .Execute("p.Name === 'Mickey Mouse')
+        .Execute("p.Name === 'Mickey Mouse'")
         ;
 ```
 You can invoke JavaScript function reference
-```csharp
+```c#
     var add = new Engine()
         .Execute("function add(a, b) { return a + b; }");
         .GetValue("add")
@@ -57,7 +57,7 @@ You can invoke JavaScript function reference
     add.Invoke(1, 2); // -> 3
 ```
 or directly by name 
-```csharp
+```c#
     var engine = new Engine()
         .Execute("function add(a, b) { return a + b; }")
         ;
@@ -67,7 +67,7 @@ or directly by name
 ## Accessing .NET assemblies and classes
 
 You can allow an engine to access any .NET class by configuring the engine instance like this:
-```csharp
+```c#
     var engine = new Engine(cfg => cfg.AllowClr());
 ```
 Then you have access to the `System` namespace as a global value. Here is how it's used in the context on the command line utility:
@@ -83,7 +83,7 @@ And even create shortcuts to commong .NET methods
     => "Hello World !"
 ```
 When allowing the CLR, you can optionally pass custom assemblies to load types from. 
-```csharp
+```c#
     var engine = new Engine(cfg => cfg
         .AllowClr(typeof(Bar).Assembly)
     );

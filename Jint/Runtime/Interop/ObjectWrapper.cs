@@ -10,13 +10,14 @@ using System.Collections;
 namespace Jint.Runtime.Interop
 {
     /// <summary>
-    /// Wrapps a CLR instance
+    /// Wraps a CLR instance
     /// </summary>
     public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper
     {
         public Object Target { get; set; }
 
-        public ObjectWrapper(Engine engine, Object obj): base(engine)
+        public ObjectWrapper(Engine engine, Object obj)
+            : base(engine)
         {
             Target = obj;
         }
@@ -54,9 +55,7 @@ namespace Jint.Runtime.Interop
         {
             PropertyDescriptor x;
             if (Properties.TryGetValue(propertyName, out x))
-            {
                 return x;
-            }
 
             var type = Target.GetType();
 
@@ -87,7 +86,9 @@ namespace Jint.Runtime.Interop
 
             if (methods.Any())
             {
-                return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methods), false, true, false);
+                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methods), false, true, false);
+                Properties.Add(propertyName, descriptor);
+                return descriptor;
             }
 
             // if no methods are found check if target implemented indexing
@@ -102,9 +103,9 @@ namespace Jint.Runtime.Interop
             var explicitProperties = (from iface in interfaces
                                       from iprop in iface.GetProperties()
                                       where propertyName.Equals(iprop.Name)
-                                      select iprop).ToList();
+                                      select iprop).ToArray();
 
-            if (explicitProperties.Count == 1)
+            if (explicitProperties.Length == 1)
             {
                 var descriptor = new PropertyInfoDescriptor(Engine, explicitProperties[0], Target);
                 Properties.Add(propertyName, descriptor);
@@ -115,11 +116,13 @@ namespace Jint.Runtime.Interop
             var explicitMethods = (from iface in interfaces
                                    from imethod in iface.GetMethods()
                                    where propertyName.Equals(imethod.Name)
-                                   select imethod).ToList();
+                                   select imethod).ToArray();
 
-            if (explicitMethods.Count > 0)
+            if (explicitMethods.Length > 0)
             {
-                return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, explicitMethods.ToArray()), false, true, false);
+                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, explicitMethods), false, true, false);
+                Properties.Add(propertyName, descriptor);
+                return descriptor;
             }
 
             // try to find explicit indexer implementations
@@ -127,9 +130,9 @@ namespace Jint.Runtime.Interop
                 (from iface in interfaces
                  from iprop in iface.GetProperties()
                  where iprop.GetIndexParameters().Length != 0
-                 select iprop).ToList();
+                 select iprop).ToArray();
 
-            if (explicitIndexers.Count == 1)
+            if (explicitIndexers.Length == 1)
             {
                 return new IndexDescriptor(Engine, explicitIndexers[0].DeclaringType, propertyName, Target);
             }

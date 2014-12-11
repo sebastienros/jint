@@ -8,6 +8,8 @@ namespace Jint.Native.Math
 {
     public sealed class MathInstance : ObjectInstance
     {
+        private static Random _random = new Random();
+        
         private MathInstance(Engine engine):base(engine)
         {
         }
@@ -438,7 +440,7 @@ namespace Jint.Native.Math
 
         private static JsValue Random(JsValue thisObject, JsValue[] arguments)
         {
-            return new Random().NextDouble();
+            return _random.NextDouble();
         }
 
         private static JsValue Round(JsValue thisObject, JsValue[] arguments)
