@@ -62,7 +62,7 @@ namespace Jint.Native.Function
                 JsValue thisBinding;
                 if (StrictModeScope.IsStrictModeCode)
                 {
-                    thisBinding = (thisArg == Undefined.Instance || thisArg == Null.Instance) ? Engine.Global : thisArg;
+                    thisBinding = thisArg;
                 }
                 else if (thisArg == Undefined.Instance || thisArg == Null.Instance)
                 {
