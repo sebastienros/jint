@@ -3902,12 +3902,12 @@ namespace Jint.Parser
             return new LocationMarker(_index, _lineNumber, _lineStart);
         }
 
-        public Program Parse(string code)
+        public Program Parse(string code, bool allowIncompletePrograms = false)
         {
-            return Parse(code, null);
+			return Parse(code , null , allowIncompletePrograms);
         }
 
-        public Program Parse(string code, ParserOptions options)
+		public Program Parse( string code , ParserOptions options , bool allowIncompletePrograms  = false)
         {
             Program program;
 
@@ -3960,7 +3960,7 @@ namespace Jint.Parser
 
             try
             {
-                program = ParseProgram();
+				program = ParseProgram(allowIncompletePrograms);
 
                 if (_extra.Comments != null)
                 {
