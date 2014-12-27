@@ -3819,66 +3819,73 @@ namespace Jint.Parser
             return null;
         }
 
-        private ICollection<Statement> ParseSourceElements()
+		private ICollection<Statement> ParseSourceElements( bool allowIncompletePrograms )
         {
             var sourceElements = new List<Statement>();
             Token firstRestricted = Token.Empty;
             Statement sourceElement;
 
-            while (_index < _length)
-            {
-                Token token = _lookahead;
-                if (token.Type != Tokens.StringLiteral)
-                {
-                    break;
-                }
+			try {
+				while (_index < _length)
+				{
+					Token token = _lookahead;
+					if (token.Type != Tokens.StringLiteral)
+					{
+						break;
+					}
 
-                sourceElement = ParseSourceElement();
-                sourceElements.Add(sourceElement);
-                if (((ExpressionStatement) sourceElement).Expression.Type != SyntaxNodes.Literal)
-                {
-                    // this is not directive
-                    break;
-                }
-                string directive = _source.Slice(token.Range[0] + 1, token.Range[1] - 1);
-                if (directive == "use strict")
-                {
-                    _strict = true;
-                    if (firstRestricted != Token.Empty)
-                    {
-                        ThrowErrorTolerant(firstRestricted, Messages.StrictOctalLiteral);
-                    }
-                }
-                else
-                {
-                    if (firstRestricted == Token.Empty && token.Octal)
-                    {
-                        firstRestricted = token;
-                    }
-                }
-            }
+					sourceElement = ParseSourceElement();
+					sourceElements.Add(sourceElement);
+					if (((ExpressionStatement) sourceElement).Expression.Type != SyntaxNodes.Literal)
+					{
+						// this is not directive
+						break;
+					}
+					string directive = _source.Slice(token.Range[0] + 1, token.Range[1] - 1);
+					if (directive == "use strict")
+					{
+						_strict = true;
+						if (firstRestricted != Token.Empty)
+						{
+							ThrowErrorTolerant(firstRestricted, Messages.StrictOctalLiteral);
+						}
+					}
+					else
+					{
+						if (firstRestricted == Token.Empty && token.Octal)
+						{
+							firstRestricted = token;
+						}
+					}
+				}
 
-            while (_index < _length)
-            {
-                sourceElement = ParseSourceElement();
-                if (sourceElement == null)
-                {
-                    break;
-                }
-                sourceElements.Add(sourceElement);
-            }
+				while (_index < _length)
+				{
+					sourceElement = ParseSourceElement();
+					if (sourceElement == null)
+					{
+						break;
+					}
+					sourceElements.Add(sourceElement);
+				}
+			} catch ( Exception exception) {
+				if ( !allowIncompletePrograms )
+				{
+					throw exception;
+				}
+			}
+
             return sourceElements;
         }
 
-        private Program ParseProgram()
+        private Program ParseProgram(bool allowIncompletePrograms =false)
         {
             EnterVariableScope();
             EnterFunctionScope();
-            
             MarkStart();
             Peek();
-            ICollection<Statement> body = ParseSourceElements();
-            return MarkEnd(CreateProgram(body, _strict));
+			ICollection<Statement> body = ParseSourceElements(allowIncompletePrograms);
+	        return MarkEnd(CreateProgram(body, _strict));
         }
 
         private LocationMarker CreateLocationMarker()
