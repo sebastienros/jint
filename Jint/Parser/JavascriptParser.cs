@@ -3825,7 +3825,8 @@ namespace Jint.Parser
             Token firstRestricted = Token.Empty;
             Statement sourceElement;
 
-			try {
+			try 
+			{
 				while (_index < _length)
 				{
 					Token token = _lookahead;
@@ -3874,8 +3875,7 @@ namespace Jint.Parser
 					throw exception;
 				}
 			}
-
-            return sourceElements;
+           return sourceElements;
         }
 
         private Program ParseProgram(bool allowIncompletePrograms =false)
