@@ -5,5 +5,6 @@ using System.Text;
 
 namespace Jint.Parser.Ast {
 	public class IncompleteSourceElement : Statement {
+		public string errorMessage { get; set; }
 	}
 }

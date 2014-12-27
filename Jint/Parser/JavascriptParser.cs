@@ -3872,7 +3872,9 @@ namespace Jint.Parser
 			} catch ( Exception exception) {
 				if ( !allowIncompletePrograms )
 				{
-					throw exception;
+				   throw exception;
+				} else {
+					sourceElements.Add(new IncompleteSourceElement { errorMessage = exception.Message });
 				}
 			}
            return sourceElements;
