@@ -506,8 +506,7 @@ namespace Jint.Native.String
                     for (var k = 0; k < match.Groups.Count; k++)
                     {
                         var group = match.Groups[k];
-                        if (group.Success)
-                            args.Add(group.Value);
+                        args.Add(group.Value);
                     }
                     
                     args.Add(match.Index);
