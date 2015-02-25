@@ -85,7 +85,7 @@ namespace Jint.Native
         [FieldOffset(8)]
         private readonly ObjectInstance _object;
 
-        [FieldOffset(8)]
+        [FieldOffset(12)]
         private readonly string _string;
 
         [FieldOffset(16)]
