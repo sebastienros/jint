@@ -91,8 +91,10 @@ namespace Jint.Runtime.Interop
                 if (argsToTransform.Count == 1 && argsToTransform.FirstOrDefault().IsArray())
                     continue;
 
-                var arrayInstance = ArrayConstructor.CreateArrayConstructor(Engine).Construct(argsToTransform.ToArray());
-                newArgumentsCollection.Add(new JsValue(arrayInstance));
+                var jsArray = Engine.Array.Construct(Arguments.Empty);
+                Engine.Array.PrototypeObject.Push(jsArray, argsToTransform.ToArray());
+
+                newArgumentsCollection.Add(new JsValue(jsArray));
                 return newArgumentsCollection.ToArray();
             }
 
