@@ -37,9 +37,9 @@ namespace Jint.Native.Object
             switch (token.Type)
             {
                 case JTokenType.Array:
-                    return Engine.Array.Construct(((JArray)token).Select(Convert).ToArray());
+                    return Engine.Array.Construct(token.Select(Convert).ToArray());
                 case JTokenType.Boolean:
-                    return Engine.Boolean.Construct(((Newtonsoft.Json.Linq.JValue)token).Value<bool>());
+                    return new JsValue(token.Value<bool>());
                 case JTokenType.Bytes:
                     throw new NotSupportedException();
                 case JTokenType.Comment:
@@ -47,13 +47,13 @@ namespace Jint.Native.Object
                 case JTokenType.Constructor:
                     throw new NotSupportedException();
                 case JTokenType.Date:
-                    return Engine.Date.Construct(((Newtonsoft.Json.Linq.JValue)token).Value<DateTime>());
+                    return Engine.Date.Construct(token.Value<DateTime>());
                 case JTokenType.Float:
-                    return Engine.Number.Construct(((Newtonsoft.Json.Linq.JValue)token).Value<float>());
+                    return new JsValue(token.Value<float>());
                 case JTokenType.Guid:
                     throw new NotSupportedException();
                 case JTokenType.Integer:
-                    return Engine.Number.Construct(((Newtonsoft.Json.Linq.JValue)token).Value<int>());
+                    return new JsValue(token.Value<int>());
                 case JTokenType.None:
                     throw new NotSupportedException();
                 case JTokenType.Null:
@@ -65,7 +65,7 @@ namespace Jint.Native.Object
                 case JTokenType.Raw:
                     throw new NotSupportedException();
                 case JTokenType.String:
-                    return new JsValue(Engine.String.Construct(token.Value<string>()));
+                    return new JsValue(token.Value<string>());
                 case JTokenType.TimeSpan:
                     throw new NotSupportedException();
                 case JTokenType.Undefined:

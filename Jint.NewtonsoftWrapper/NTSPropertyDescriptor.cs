@@ -13,6 +13,7 @@ namespace Jint.Runtime.Descriptors
         private Engine engine;
         private Newtonsoft.Json.Linq.JProperty prop;
         private NTSObjectInstance parent;
+        private Native.JsValue? convertedValue = null;
 
         public NTSPropertyDescriptor(Engine engine, NTSObjectInstance parent, Newtonsoft.Json.Linq.JProperty prop)
         {
@@ -28,14 +29,13 @@ namespace Jint.Runtime.Descriptors
         {
             get
             {
-                if (prop.Value != null)
-                {
-                    return parent.Convert(prop.Value);
-                }
-                return null;
+                if (convertedValue == null && prop.Value != null)
+                    convertedValue = parent.Convert(prop.Value);
+                return convertedValue;
             }
             set
             {
+                convertedValue = value;
                 if (!value.HasValue)
                     prop.Value = null;
                 else
