@@ -64,5 +64,38 @@ namespace Jint.Tests.Runtime
             Assert.Equal("bar", obj.Value<string>("z"));
         }
 
+        [Fact]
+        public void ComplexTypesCanBeRead()
+        {
+            var obj = JObject.Parse(@"{""a"":{""x"":10, ""y"":true, ""z"":""foo""}}");
+            _engine.SetValue("o", new JsValue(new Jint.Native.Object.NTSObjectInstance(_engine, obj)));
+
+            RunTest(@"
+                assert(o.a.x === 10);
+                assert(o.a.y === true);
+                assert(o.a.z === 'foo');
+            ");
+        }
+
+        [Fact]
+        public void ComplexTypesCanBeSet()
+        {
+            var obj = JObject.Parse(@"{""a"":{""x"":10, ""y"":true, ""z"":""foo""}}");
+            _engine.SetValue("o", new JsValue(new Jint.Native.Object.NTSObjectInstance(_engine, obj)));
+
+            RunTest(@"
+                o.a.x=11;
+                o.a.y=false;
+                o.a.z='bar'
+                assert(o.a.x === 11);
+                assert(o.a.y === false);
+                assert(o.a.z === 'bar');
+            ");
+
+            Assert.Equal(11, obj["a"].Value<int>("x"));
+            Assert.Equal(false, obj["a"].Value<bool>("y"));
+            Assert.Equal("bar", obj["a"].Value<string>("z"));
+        }
+
     }
 }
