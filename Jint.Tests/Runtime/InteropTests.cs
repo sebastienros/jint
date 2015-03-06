@@ -1125,5 +1125,23 @@ namespace Jint.Tests.Runtime
                 assert(!ud.undefinedProperty);
             ");
         }
+
+        [Fact]
+        public void ShouldAutomaticallyConvertArraysToFindBestInteropResulution()
+        {
+            _engine.SetValue("a", new ArrayConverterTestClass());
+            _engine.SetValue("item1", new ArrayConverterItem(1));
+            _engine.SetValue("item2", new ArrayConverterItem(2));
+
+            RunTest(@"
+                assert(a.MethodAcceptsArrayOfInt([false, '1', 2]) === a.MethodAcceptsArrayOfInt([0, 1, 2]));
+                assert(a.MethodAcceptsArrayOfStrings(['1', 2]) === a.MethodAcceptsArrayOfStrings([1, 2]));
+                assert(a.MethodAcceptsArrayOfBool(['1', 0]) === a.MethodAcceptsArrayOfBool([true, false]));
+
+                assert(a.MethodAcceptsArrayOfStrings([item1, item2]) === a.MethodAcceptsArrayOfStrings(['1', '2']));
+                assert(a.MethodAcceptsArrayOfInt([item1, item2]) === a.MethodAcceptsArrayOfInt([1, 2]));
+            ");
+        }
+
     }
 }
