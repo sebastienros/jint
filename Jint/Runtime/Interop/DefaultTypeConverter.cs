@@ -157,6 +157,19 @@ namespace Jint.Runtime.Interop
 
             }
 
+            if (type.IsArray)
+            {
+                var source = value as object[];
+                if (source == null)
+                    throw new ArgumentException(String.Format("Value of object[] type is expected, but actual type is {0}.", value.GetType()));
+
+                var targetElementType = type.GetElementType();
+                var itemsConverted = source.Select(o => Convert(o, targetElementType, formatProvider)).ToArray();
+                var result = Array.CreateInstance(targetElementType, source.Length);
+                itemsConverted.CopyTo(result, 0);
+                return result;
+            }
+
             return System.Convert.ChangeType(value, type, formatProvider);
         }
 
