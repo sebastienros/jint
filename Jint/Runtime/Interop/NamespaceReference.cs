@@ -120,19 +120,19 @@ namespace Jint.Runtime.Interop
                     return TypeReference.CreateTypeReference(Engine, type);
                 }
 				       
-                var lastPeriodPos = path.LastIndexOf(".");
-				        var trimPath = path.Substring(0, lastPeriodPos);
-				        var typeName = path.Substring(lastPeriodPos+1, path.Length - lastPeriodPos-1);
-				        type = assembly.GetType(trimPath);
-				        if (type != null)
-				        foreach (Type nType in type.GetNestedTypes(BindingFlags.Public))
-				        {
-					        if (nType.FullName.Contains(trimPath+"+"+typeName))
-					        {
-						        Engine.TypeCache.Add(path, nType);
-						        return TypeReference.CreateTypeReference(Engine, nType);
-					        }
-				        }
+                var lastPeriodPos = path.LastIndexOf(".", StringComparison.Ordinal);
+                var trimPath = path.Substring(0, lastPeriodPos);
+                var typeName = path.Substring(lastPeriodPos+1, path.Length - lastPeriodPos-1);
+                type = assembly.GetType(trimPath);
+                if (type != null)
+                foreach (Type nType in type.GetNestedTypes(BindingFlags.Public))
+                {
+	                if (nType.FullName.Contains(trimPath+"+"+typeName))
+	                {
+		                Engine.TypeCache.Add(path, nType);
+		                return TypeReference.CreateTypeReference(Engine, nType);
+	                }
+                }
             }
 
             // the new path doesn't represent a known class, thus return a new namespace instance
