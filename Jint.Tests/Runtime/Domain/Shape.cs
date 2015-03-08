@@ -16,6 +16,14 @@ namespace Shapes
 
     public class Circle : Shape
     {
+
+        public enum Kind
+        {
+          Unit,
+          Ellipse,
+          Round = 5
+        }
+
         public Circle()
         {
         }

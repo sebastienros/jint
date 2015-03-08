@@ -1143,5 +1143,17 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void ShouldImportNamespaceNestedType()
+        {
+          RunTest(@"
+                var shapes = importNamespace('Shapes.Circle');
+                var kinds = shapes.Kind;
+                assert(kinds.Unit === 0);
+                assert(kinds.Ellipse === 1);
+                assert(kinds.Round === 5);
+            ");
+        }
+
     }
 }
