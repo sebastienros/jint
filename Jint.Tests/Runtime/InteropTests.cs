@@ -1155,5 +1155,97 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void ShouldImportNamespaceNestedNestedType()
+        {
+          RunTest(@"
+                var meta = importNamespace('Shapes.Circle.Meta');
+                var usages = meta.Usage;
+                assert(usages.Public === 0);
+                assert(usages.Private === 1);
+                assert(usages.Internal === 11);
+            ");
+        }
+
+        [Fact]
+        public void ShouldGetNestedNestedProp()
+        {
+            RunTest(@"
+                var meta = importNamespace('Shapes.Circle');
+                var m = new meta.Meta();
+                assert(m.Description === 'descp');
+            ");
+        }
+
+        [Fact]
+        public void ShouldSetNestedNestedProp()
+        {
+            RunTest(@"
+                var meta = importNamespace('Shapes.Circle');
+                var m = new meta.Meta();
+                m.Description = 'hello';
+                assert(m.Description === 'hello');
+            ");
+        }
+
+        [Fact]
+        public void CanGetStaticNestedField()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain.Nested');
+                var statics = domain.ClassWithStaticFields;
+                assert(statics.Get == 'Get');
+            ");
+        }
+
+        [Fact]
+        public void CanSetStaticNestedField()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain.Nested');
+                var statics = domain.ClassWithStaticFields;
+                statics.Set = 'hello';
+                assert(statics.Set == 'hello');
+            ");
+
+            Assert.Equal(Nested.ClassWithStaticFields.Set, "hello");
+        }
+
+        [Fact]
+        public void CanGetStaticNestedAccessor()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain.Nested');
+                var statics = domain.ClassWithStaticFields;
+                assert(statics.Getter == 'Getter');
+            ");
+        }
+
+        [Fact]
+        public void CanSetStaticNestedAccessor()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain.Nested');
+                var statics = domain.ClassWithStaticFields;
+                statics.Setter = 'hello';
+                assert(statics.Setter == 'hello');
+            ");
+
+            Assert.Equal(Nested.ClassWithStaticFields.Setter, "hello");
+        }
+
+        [Fact]
+        public void CantSetStaticNestedReadonly()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain.Nested');
+                var statics = domain.ClassWithStaticFields;
+                statics.Readonly = 'hello';
+                assert(statics.Readonly == 'Readonly');
+            ");
+
+            Assert.Equal(Nested.ClassWithStaticFields.Readonly, "Readonly");
+        }
+
     }
 }
