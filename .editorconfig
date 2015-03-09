@@ -1,0 +1,7 @@
+﻿# EditorConfig is awesome: http://EditorConfig.org
+# Visual Studio extension: https://visualstudiogallery.msdn.microsoft.com/c8bccfe2-650c-4b42-bc5c-845e21f96328
+
+# 4 space indentation
+[*.cs]
+indent_style = space
+indent_size = 4
