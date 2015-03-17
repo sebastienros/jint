@@ -1153,5 +1153,13 @@ namespace Jint.Tests.Runtime
                 assert(a[0] === 3);
             ");
         }
+
+        [Fact]
+        public void ShouldReturnTrueForEmptyIsNaNStatement()
+        {
+            RunTest(@"
+                assert(true === isNaN());
+            ");
+        }    
     }
 }
