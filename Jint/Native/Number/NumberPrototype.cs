@@ -108,16 +108,8 @@ namespace Jint.Native.Number
             {
                 return ToNumberString(x);
             }
-    
-            var l = (long) x; // extract integer part
 
-            if (f == 0)
-            {
-                return l.ToString(CultureInfo.InvariantCulture);
-            }
-
-            var d = x - l;
-            return l.ToString(CultureInfo.InvariantCulture) + d.ToString("." + new string('0', f), CultureInfo.InvariantCulture);
+            return x.ToString("f" + f, CultureInfo.InvariantCulture);
         }
 
         private JsValue ToExponential(JsValue thisObj, JsValue[] arguments)

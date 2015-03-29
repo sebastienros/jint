@@ -1160,6 +1160,28 @@ namespace Jint.Tests.Runtime
             RunTest(@"
                 assert(true === isNaN());
             ");
-        }    
+        }
+
+        [Theory]
+        [InlineData(4d, 0, "4")]
+        [InlineData(4d, 1, "4.0")]
+        [InlineData(4d, 2, "4.00")]
+        [InlineData(28.995, 2, "29.00")]
+        [InlineData(-28.995, 2, "-29.00")]
+        [InlineData(-28.495, 2, "-28.50")]
+        [InlineData(-28.445, 2, "-28.45")]
+        [InlineData(28.445, 2, "28.45")]
+        [InlineData(10.995, 0, "11")]
+        public void ShouldRoundToFixedDecimal(double number, int fractionDigits, string result)
+        {
+            var engine = new Engine();
+            var value = engine.Execute(
+                String.Format("new Number({0}).toFixed({1})",
+                    number.ToString(CultureInfo.InvariantCulture),
+                    fractionDigits.ToString(CultureInfo.InvariantCulture)))
+                .GetCompletionValue().ToObject();
+
+            Assert.Equal(value, result);
+        }
     }
 }
