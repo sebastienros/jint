@@ -265,7 +265,7 @@ namespace Jint
                 var result = _statements.ExecuteProgram(program);
                 if (result.Type == Completion.Throw)
                 {
-                    throw new JavaScriptException(result.GetValueOrDefault());
+                    throw new JavaScriptException(result.GetValueOrDefault(), result.LastStatement);
                 }
 
                 _completionValue = result.GetValueOrDefault();

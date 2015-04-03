@@ -409,11 +409,12 @@ namespace Jint.Runtime
         {
             var c = new Completion(Completion.Normal, null, null);
             Completion sl = c;
-
+            Statement lastStatement = null;
             try
             {
                 foreach (var statement in statementList)
                 {
+                    lastStatement = statement;
                     c = ExecuteStatement(statement);
                     if (c.Type != Completion.Normal)
                     {
@@ -425,7 +426,7 @@ namespace Jint.Runtime
             }
             catch(JavaScriptException v)
             {
-                return new Completion(Completion.Throw, v.Error, null);
+                return new Completion(Completion.Throw, v.Error, null, lastStatement);
             }
 
             return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
