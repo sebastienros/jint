@@ -137,6 +137,22 @@ namespace Jint.Runtime.Interop
 
             // the new path doesn't represent a known class, thus return a new namespace instance
 
+            // Jesse: But first check if there is really such a namespace
+            //        If we don't do this, Jint will accept dot-seperated
+            //        strings of identifiers of arbritrary length without erroring.
+            //        If eventually the user attempts to invoke a method at the end of the namespace
+            //        chain, they would get a misleading error relating to trying to instantiate
+            //        a generic.
+            //        Hair loss likely would follow as they try to resolve the wrong thing.
+            if (Engine.NamespaceCache == null) {
+                Engine.NamespaceCache = new NamespaceCacheRoot();
+                Engine.NamespaceCache.populate(Engine.Options.GetLookupAssemblies().ToArray());
+                Engine.NamespaceCache.populate(Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly());
+            }
+
+            if (!Engine.NamespaceCache.ContainsNamespace(path))
+                throw new JavaScriptException(Engine.TypeError, path + " is not defined");
+
             Engine.TypeCache.Add(path, null);
             return new NamespaceReference(Engine, path);
         }

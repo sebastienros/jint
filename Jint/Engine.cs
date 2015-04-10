@@ -42,6 +42,9 @@ namespace Jint
         // cache of types used when resolving CLR type names
         internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
 
+        // cache of namespaces available to aid in accurate type/generic resolution
+        internal NamespaceCacheRoot NamespaceCache = null;
+
         internal JintCallStack CallStack = new JintCallStack();
 
         public Engine() : this(null)
