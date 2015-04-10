@@ -26,13 +26,11 @@ namespace Jint.Runtime
             get { return traverseToRoot(this); }
         }
 
-        public NamespaceCacheElement Parent
-        {
+        public NamespaceCacheElement Parent {
             get { return _parent; }
         }
 
-        public NamespaceCacheElement[] Ancestors
-        {
+        public NamespaceCacheElement[] Ancestors {
             get { return enumerateAncestors(this); }
         }
         
@@ -112,7 +110,7 @@ namespace Jint.Runtime
         }
 
         protected static NamespaceCacheElement findDescendent(NamespaceCacheElement ncElem, String ns, bool throwOnNamespaceNotFound) {
-            if (String.IsNullOrEmpty(ns.Trim())) throw new ArgumentException("Invalid argument: namespace");
+            if (String.IsNullOrWhiteSpace(ns)) throw new ArgumentException("Invalid argument: namespace");
 
             String[] nsParts = ns.Split('.');
 
@@ -135,7 +133,7 @@ namespace Jint.Runtime
 
         protected static NamespaceCacheElement AppendNamespaceElement(NamespaceCacheElement ncParent, string name) {
             if (ncParent == null) throw new ArgumentException("Invalid argument: parent");
-            if (String.IsNullOrWhiteSpace(name) || name.Contains(".")) new ArgumentException("Invalid argument: name");
+            if (String.IsNullOrWhiteSpace(name) || name.Contains(".")) throw new ArgumentException("Invalid argument: name");
 
             NamespaceCacheElement ncChild = findDescendent(ncParent, name, false);
 
