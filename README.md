@@ -2,7 +2,7 @@
 
 # Jint
 
-Jint is a __Javascript interpreter__ for .NET which provides full __ECMA 5.1__ compliance and can run on __any .NET plaftform__. Because it doesn' generate any .NET bytecode nor use the DLR it runs relatively small scripts faster. It's available as a PCL on Nuget at https://www.nuget.org/packages/Jint.
+Jint is a __Javascript interpreter__ for .NET which provides full __ECMA 5.1__ compliance and can run on __any .NET plaftform__. Because it doesn't generate any .NET bytecode nor use the DLR it runs relatively small scripts faster. It's available as a PCL on Nuget at https://www.nuget.org/packages/Jint.
 
 # Features
 
@@ -50,7 +50,7 @@ You can also directly pass POCOs or anonymous objects and use them from JavaScri
 You can invoke JavaScript function reference
 ```c#
     var add = new Engine()
-        .Execute("function add(a, b) { return a + b; }");
+        .Execute("function add(a, b) { return a + b; }")
         .GetValue("add")
         ;
 
@@ -72,7 +72,7 @@ You can allow an engine to access any .NET class by configuring the engine insta
 ```
 Then you have access to the `System` namespace as a global value. Here is how it's used in the context on the command line utility:
 ```javascript
-    jint> var file = new System.IO.File('log.txt');
+    jint> var file = new System.IO.StreamWriter('log.txt');
     jint> file.WriteLine('Hello World !');
     jint> file.Dispose();
 ```

@@ -152,3 +152,4 @@ $RECYCLE.BIN/
 # Mac crap
 .DS_Store
 Jint.sln.ide/*
+/Jint.sln.GhostDoc.xml

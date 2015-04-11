@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -110,7 +111,7 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            // search in lookup asemblies
+            // search in lookup assemblies
             foreach (var assembly in Engine.Options.GetLookupAssemblies())
             {
                 type = assembly.GetType(path);
@@ -119,6 +120,19 @@ namespace Jint.Runtime.Interop
                     Engine.TypeCache.Add(path, type);
                     return TypeReference.CreateTypeReference(Engine, type);
                 }
+
+                var lastPeriodPos = path.LastIndexOf(".", StringComparison.Ordinal);
+                var trimPath = path.Substring(0, lastPeriodPos);
+                type = GetType(assembly, trimPath);
+                if (type != null)
+                  foreach (Type nType in GetAllNestedTypes(type))
+                  {
+                    if (nType.FullName.Replace("+", ".").Equals(path.Replace("+", ".")))
+                    {
+                      Engine.TypeCache.Add(path.Replace("+", "."), nType);
+                      return TypeReference.CreateTypeReference(Engine, nType);
+                    }
+                  }            
             }
 
             // the new path doesn't represent a known class, thus return a new namespace instance
@@ -127,7 +141,44 @@ namespace Jint.Runtime.Interop
             return new NamespaceReference(Engine, path);
         }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        /// <summary>   Gets a type. </summary>
+        ///<remarks>Nested type separators are converted to '.' instead of '+' </remarks>
+        /// <param name="assembly"> The assembly. </param>
+        /// <param name="typeName"> Name of the type. </param>
+        ///
+        /// <returns>   The type. </returns>
+
+        private static Type GetType(Assembly assembly, string typeName)
+        {
+            Type[] types = assembly.GetTypes();
+            foreach (Type t in types)
+            {
+                if (t.FullName.Replace("+", ".") == typeName.Replace("+", "."))
+                {
+                    return t;
+                }
+            }
+            return null;
+        }
+
+        private static IEnumerable<Type> GetAllNestedTypes(Type type)
+        {
+          var types = new List<Type>();
+          AddNestedTypesRecursively(types, type);
+          return types.ToArray();
+        }
+
+        private static void AddNestedTypesRecursively(List<Type> types, Type type)
+        {
+          Type[] nestedTypes = type.GetNestedTypes(BindingFlags.Public);
+          foreach (Type nestedType in nestedTypes)
+          {
+            types.Add(nestedType);
+            AddNestedTypesRecursively(types, nestedType);
+          }
+        }
+
+      public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
             return PropertyDescriptor.Undefined;
         }

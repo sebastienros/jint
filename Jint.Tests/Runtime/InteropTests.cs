@@ -1060,6 +1060,7 @@ namespace Jint.Tests.Runtime
             RunTest(@"
                 assert(a.Call13('1','2','3') === '1,2,3');
                 assert(a.Call13('1') === '1');
+                assert(a.Call13(1) === '1');
                 assert(a.Call13() === '');
 
                 assert(a.Call14('a','1','2','3') === 'a:1,2,3');
@@ -1109,6 +1110,141 @@ namespace Jint.Tests.Runtime
                 var result = a.Call2(null);
                 assert(result == null);
             ");
+        }
+
+        [Fact]
+        public void ShouldReturnUndefinedProperty()
+        {
+            _engine.SetValue("uo", new { foo = "bar" });
+            _engine.SetValue("ud", new Dictionary<string, object>() { {"foo", "bar"} });
+            _engine.SetValue("ul", new List<string>() { "foo", "bar" });
+
+            RunTest(@"
+                assert(!uo.undefinedProperty);
+                assert(!ul[5]);
+                assert(!ud.undefinedProperty);
+            ");
+        }
+
+        [Fact]
+        public void ShouldAutomaticallyConvertArraysToFindBestInteropResulution()
+        {
+            _engine.SetValue("a", new ArrayConverterTestClass());
+            _engine.SetValue("item1", new ArrayConverterItem(1));
+            _engine.SetValue("item2", new ArrayConverterItem(2));
+
+            RunTest(@"
+                assert(a.MethodAcceptsArrayOfInt([false, '1', 2]) === a.MethodAcceptsArrayOfInt([0, 1, 2]));
+                assert(a.MethodAcceptsArrayOfStrings(['1', 2]) === a.MethodAcceptsArrayOfStrings([1, 2]));
+                assert(a.MethodAcceptsArrayOfBool(['1', 0]) === a.MethodAcceptsArrayOfBool([true, false]));
+
+                assert(a.MethodAcceptsArrayOfStrings([item1, item2]) === a.MethodAcceptsArrayOfStrings(['1', '2']));
+                assert(a.MethodAcceptsArrayOfInt([item1, item2]) === a.MethodAcceptsArrayOfInt([1, 2]));
+            ");
+        }
+
+        [Fact]
+        public void ShouldImportNamespaceNestedType()
+        {
+          RunTest(@"
+                var shapes = importNamespace('Shapes.Circle');
+                var kinds = shapes.Kind;
+                assert(kinds.Unit === 0);
+                assert(kinds.Ellipse === 1);
+                assert(kinds.Round === 5);
+            ");
+        }
+
+        [Fact]
+        public void ShouldImportNamespaceNestedNestedType()
+        {
+          RunTest(@"
+                var meta = importNamespace('Shapes.Circle.Meta');
+                var usages = meta.Usage;
+                assert(usages.Public === 0);
+                assert(usages.Private === 1);
+                assert(usages.Internal === 11);
+            ");
+        }
+
+        [Fact]
+        public void ShouldGetNestedNestedProp()
+        {
+            RunTest(@"
+                var meta = importNamespace('Shapes.Circle');
+                var m = new meta.Meta();
+                assert(m.Description === 'descp');
+            ");
+        }
+
+        [Fact]
+        public void ShouldSetNestedNestedProp()
+        {
+            RunTest(@"
+                var meta = importNamespace('Shapes.Circle');
+                var m = new meta.Meta();
+                m.Description = 'hello';
+                assert(m.Description === 'hello');
+            ");
+        }
+
+        [Fact]
+        public void CanGetStaticNestedField()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain.Nested');
+                var statics = domain.ClassWithStaticFields;
+                assert(statics.Get == 'Get');
+            ");
+        }
+
+        [Fact]
+        public void CanSetStaticNestedField()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain.Nested');
+                var statics = domain.ClassWithStaticFields;
+                statics.Set = 'hello';
+                assert(statics.Set == 'hello');
+            ");
+
+            Assert.Equal(Nested.ClassWithStaticFields.Set, "hello");
+        }
+
+        [Fact]
+        public void CanGetStaticNestedAccessor()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain.Nested');
+                var statics = domain.ClassWithStaticFields;
+                assert(statics.Getter == 'Getter');
+            ");
+        }
+
+        [Fact]
+        public void CanSetStaticNestedAccessor()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain.Nested');
+                var statics = domain.ClassWithStaticFields;
+                statics.Setter = 'hello';
+                assert(statics.Setter == 'hello');
+            ");
+
+            Assert.Equal(Nested.ClassWithStaticFields.Setter, "hello");
+        }
+
+        [Fact]
+        public void CantSetStaticNestedReadonly()
+        {
+            RunTest(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain.Nested');
+                var statics = domain.ClassWithStaticFields;
+                statics.Readonly = 'hello';
+                assert(statics.Readonly == 'Readonly');
+            ");
+
+            Assert.Equal(Nested.ClassWithStaticFields.Readonly, "Readonly");
         }
 
     }

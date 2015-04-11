@@ -1,6 +1,4 @@
-using Jint.Parser.Ast;
-
-namespace Jint
+namespace Jint.Parser.Ast
 {
     public class WithStatement : Statement
     {

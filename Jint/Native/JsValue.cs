@@ -18,7 +18,6 @@ using System.Runtime.InteropServices;
 
 namespace Jint.Native
 {
-    [StructLayout(LayoutKind.Explicit)]
     [DebuggerTypeProxy(typeof(JsValueDebugView))]
     public struct JsValue : IEquatable<JsValue>
     {
@@ -76,19 +75,14 @@ namespace Jint.Native
             _type = type;
         }
 
-        [FieldOffset(0)]
         private readonly bool _bool;
 
-        [FieldOffset(0)]
         private readonly double _double;
 
-        [FieldOffset(8)]
         private readonly ObjectInstance _object;
 
-        [FieldOffset(8)]
         private readonly string _string;
 
-        [FieldOffset(16)]
         private readonly Types _type;
 
         [Pure]

@@ -12,6 +12,7 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly object _key;
         private readonly object _item;
         private readonly PropertyInfo _indexer;
+        private readonly MethodInfo _containsKey;
 
         public IndexDescriptor(Engine engine, Type targetType, string key, object item)
         {
@@ -20,12 +21,12 @@ namespace Jint.Runtime.Descriptors.Specialized
 
             // get all instance indexers with exactly 1 argument
             var indexers = targetType
-                .GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-                .Where(x => x.GetIndexParameters().Length == 1);
+                .GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
 
             // try to find first indexer having either public getter or setter with matching argument type
             foreach (var indexer in indexers)
             {
+                if (indexer.GetIndexParameters().Length != 1) continue;
                 if (indexer.GetGetMethod() != null || indexer.GetSetMethod() != null)
                 {
                     var paramType = indexer.GetIndexParameters()[0].ParameterType;
@@ -33,6 +34,8 @@ namespace Jint.Runtime.Descriptors.Specialized
                     if (_engine.ClrTypeConverter.TryConvert(key, paramType, CultureInfo.InvariantCulture, out _key))
                     {
                         _indexer = indexer;
+                        // get contains key method to avoid index exception being thrown in dictionaries
+                        _containsKey = targetType.GetMethod("ContainsKey", new Type[] { paramType });
                         break;
 
                     }
@@ -59,13 +62,30 @@ namespace Jint.Runtime.Descriptors.Specialized
             get
             {
                 var getter = _indexer.GetGetMethod();
+
                 if (getter == null)
                 {
                     throw new InvalidOperationException("Indexer has no public getter.");
                 }
 
                 object[] parameters = { _key };
-                return JsValue.FromObject(_engine, getter.Invoke(_item, parameters));
+
+                if (_containsKey != null)
+                {
+                    if ((_containsKey.Invoke(_item, parameters) as bool?) != true)
+                    {
+                        return JsValue.Undefined;
+                    }
+                }
+                
+                try
+                {
+                    return JsValue.FromObject(_engine, getter.Invoke(_item, parameters));
+                }
+                catch
+                {
+                    return JsValue.Undefined;
+                }
             }
 
             set
