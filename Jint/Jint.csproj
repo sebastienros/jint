@@ -189,6 +189,7 @@
     <Compile Include="Runtime\Interop\TypeReference.cs" />
     <Compile Include="Runtime\Interop\TypeReferencePrototype.cs" />
     <Compile Include="Runtime\JavaScriptException.cs" />
+    <Compile Include="Runtime\NamespaceCache.cs" />
     <Compile Include="Runtime\RecursionDepthOverflowException.cs" />
     <Compile Include="Runtime\References\Reference.cs" />
     <Compile Include="Runtime\StatementInterpreter.cs" />
