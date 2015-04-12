@@ -1247,5 +1247,19 @@ namespace Jint.Tests.Runtime
             Assert.Equal(Nested.ClassWithStaticFields.Readonly, "Readonly");
         }
 
+        [Fact]
+        public void ShouldThrowRelevantExceptionOnUndefinedNamespace()
+        {
+            RunTest(@"
+                try {
+                    var Jint = importNamespace('Jint');
+                    Jint.Tests.Runtime.Domain.NonexistantNamespace.NonexistantType.NonexistantMethod(1);
+                    assert(false);
+                } catch (e) {
+                    assert(e.message == 'Jint.Tests.Runtime.Domain.NonexistantNamespace is not defined');
+                }
+            ");
+        }
+
     }
 }

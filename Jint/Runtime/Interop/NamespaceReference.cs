@@ -146,11 +146,10 @@ namespace Jint.Runtime.Interop
             //        Hair loss likely would follow as they try to resolve the wrong thing.
             if (Engine.NamespaceCache == null) {
                 Engine.NamespaceCache = new NamespaceCacheRoot();
-                Engine.NamespaceCache.populate(Engine.Options.GetLookupAssemblies().ToArray());
-                Engine.NamespaceCache.populate(Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly());
+                Engine.NamespaceCache.populate(getReferencedAssemblies(Engine));
             }
 
-            if (!Engine.NamespaceCache.ContainsNamespace(path))
+            if (!Engine.NamespaceCache.ContainsNamespace(path) && !isGenericTypeDefinition(path, getReferencedAssemblies(Engine))) 
                 throw new JavaScriptException(Engine.TypeError, path + " is not defined");
 
             Engine.TypeCache.Add(path, null);
@@ -175,6 +174,26 @@ namespace Jint.Runtime.Interop
                 }
             }
             return null;
+        }
+
+        private static bool isGenericTypeDefinition(string typeName, params Assembly[] assemblies) {
+            if (!typeName.EndsWith("`")) typeName += "`";
+            Assembly[] distinctAssemblies = assemblies.Distinct().ToArray();
+            foreach (Assembly assembly in distinctAssemblies) {
+                var genericTypes = assembly.GetTypes().Where(x => x.IsGenericTypeDefinition);
+                var matchedTypes = genericTypes.Where(x => x.FullName.Replace("+", ".").StartsWith(typeName, StringComparison.OrdinalIgnoreCase));
+                if (matchedTypes.Count() > 0) return true;
+            }
+            return false;
+        }
+
+        private static Assembly[] getReferencedAssemblies(Engine engine) {
+            List<Assembly> referencedAssemblies = new List<Assembly>();
+            if (engine.Options.IsClrAllowed()) referencedAssemblies.Add(Type.GetType("System.String").Assembly);  // include mscorlib
+            referencedAssemblies.Add(Assembly.GetCallingAssembly());
+            referencedAssemblies.Add(Assembly.GetExecutingAssembly());
+            referencedAssemblies.AddRange(engine.Options.GetLookupAssemblies());
+            return referencedAssemblies.ToArray();
         }
 
         private static IEnumerable<Type> GetAllNestedTypes(Type type)
