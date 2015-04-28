@@ -52,6 +52,12 @@ namespace Jint.Runtime.Interop
                 return Enum.ToObject(type, integer);
             }
 
+            // Map Nullable<T> to T when the current value is non-null.
+            if (type.IsGenericType && typeof(Nullable<>) == type.GetGenericTypeDefinition())
+            {
+                type = type.GetGenericArguments().First();
+            }
+
             var valueType = value.GetType();
             // is the javascript value an ICallable instance ?
             if (valueType == typeof(Func<JsValue, JsValue[], JsValue>))
