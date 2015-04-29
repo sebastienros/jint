@@ -91,6 +91,24 @@ namespace Jint.Runtime.Interop
                 return descriptor;
             }
 
+            var pascalCasedPropertyName = char.ToUpperInvariant(propertyName[0]).ToString();
+            if (propertyName.Length > 1)
+            {
+                pascalCasedPropertyName += propertyName.Substring(1);
+            }
+
+            // look for methods using pascal cased name.
+            var pascalCasedMethods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .Where(m => m.Name == pascalCasedPropertyName)
+                .ToArray();
+
+            if (pascalCasedMethods.Any())
+            {
+                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, pascalCasedMethods), false, true, false);
+                Properties.Add(propertyName, descriptor);
+                return descriptor;
+            }
+
             // if no methods are found check if target implemented indexing
             if (type.GetProperties().Where(p => p.GetIndexParameters().Length != 0).FirstOrDefault() != null)
             {
@@ -121,6 +139,19 @@ namespace Jint.Runtime.Interop
             if (explicitMethods.Length > 0)
             {
                 var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, explicitMethods), false, true, false);
+                Properties.Add(propertyName, descriptor);
+                return descriptor;
+            }
+
+            // try to find explicit method implementations using the pascal cased property name
+            var explicitPascalCasedMethods = (from iface in interfaces
+                                              from imethod in iface.GetMethods()
+                                              where pascalCasedPropertyName.Equals(imethod.Name)
+                                              select imethod).ToArray();
+
+            if (explicitPascalCasedMethods.Length > 0)
+            {
+                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, explicitPascalCasedMethods), false, true, false);
                 Properties.Add(propertyName, descriptor);
                 return descriptor;
             }

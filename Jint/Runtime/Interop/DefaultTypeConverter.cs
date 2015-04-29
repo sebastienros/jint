@@ -178,21 +178,24 @@ namespace Jint.Runtime.Interop
             bool canConvert;
             var key = value == null ? String.Format("Null->{0}", type) : String.Format("{0}->{1}", value.GetType(), type);
 
-            lock (_lockObject)
+            if (!_knownConversions.TryGetValue(key, out canConvert))
             {
-                if (!_knownConversions.TryGetValue(key, out canConvert))
+                lock (_lockObject)
                 {
-                    try
+                    if (!_knownConversions.TryGetValue(key, out canConvert))
                     {
-                        converted = Convert(value, type, formatProvider);
-                        _knownConversions.Add(key, true);
-                        return true;
-                    }
-                    catch
-                    {
-                        converted = null;
-                        _knownConversions.Add(key, false);
-                        return false;
+                        try
+                        {
+                            converted = Convert(value, type, formatProvider);
+                            _knownConversions.Add(key, true);
+                            return true;
+                        }
+                        catch
+                        {
+                            converted = null;
+                            _knownConversions.Add(key, false);
+                            return false;
+                        }
                     }
                 }
             }
