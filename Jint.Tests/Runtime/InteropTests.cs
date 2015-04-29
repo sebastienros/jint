@@ -126,6 +126,21 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void CanInvokeObjectMethodsWithPascalCase()
+        {
+            var p = new Person
+            {
+                Name = "Mickey Mouse"
+            };
+
+            _engine.SetValue("p", p);
+
+            RunTest(@"
+                assert(p.toString() === 'Mickey Mouse');
+            ");
+        }
+
+        [Fact]
         public void CanSetObjectProperties()
         {
             var p = new Person
