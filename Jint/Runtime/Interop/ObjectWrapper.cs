@@ -61,7 +61,7 @@ namespace Jint.Runtime.Interop
 
             // look for a property
             var property = type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                .Where(p => EqualsPascalCase(p.Name, propertyName))
+                .Where(p => EqualsIgnoreCasing(p.Name, propertyName))
                 .FirstOrDefault();
             if (property != null)
             {
@@ -72,7 +72,7 @@ namespace Jint.Runtime.Interop
 
             // look for a field
             var field = type.GetFields(BindingFlags.Instance | BindingFlags.Public)
-                .Where(f => EqualsPascalCase(f.Name, propertyName))
+                .Where(f => EqualsIgnoreCasing(f.Name, propertyName))
                 .FirstOrDefault();
             if (field != null)
             {
@@ -83,7 +83,7 @@ namespace Jint.Runtime.Interop
 
             // if no properties were found then look for a method 
             var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public)
-                .Where(m => EqualsPascalCase(m.Name, propertyName))
+                .Where(m => EqualsIgnoreCasing(m.Name, propertyName))
                 .ToArray();
 
             if (methods.Any())
@@ -104,7 +104,7 @@ namespace Jint.Runtime.Interop
             // try to find a single explicit property implementation
             var explicitProperties = (from iface in interfaces
                                       from iprop in iface.GetProperties()
-                                      where EqualsPascalCase(iprop.Name, propertyName)
+                                      where EqualsIgnoreCasing(iprop.Name, propertyName)
                                       select iprop).ToArray();
 
             if (explicitProperties.Length == 1)
@@ -117,7 +117,7 @@ namespace Jint.Runtime.Interop
             // try to find explicit method implementations
             var explicitMethods = (from iface in interfaces
                                    from imethod in iface.GetMethods()
-                                   where EqualsPascalCase(imethod.Name, propertyName)
+                                   where EqualsIgnoreCasing(imethod.Name, propertyName)
                                    select imethod).ToArray();
 
             if (explicitMethods.Length > 0)
@@ -142,7 +142,7 @@ namespace Jint.Runtime.Interop
             return PropertyDescriptor.Undefined;
         }
 
-        private bool EqualsPascalCase(string s1, string s2)
+        private bool EqualsIgnoreCasing(string s1, string s2)
         {
             bool equals = false;
             if (s1.Length == s2.Length)
@@ -153,7 +153,7 @@ namespace Jint.Runtime.Interop
                 }
                 if (s1.Length > 1 && s2.Length > 1) 
                 {
-                    equals = (s1.Substring(1) == s2.Substring(1));
+                    equals = equals && (s1.Substring(1) == s2.Substring(1));
                 }
             }
             return equals;
