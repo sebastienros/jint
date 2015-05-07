@@ -1183,5 +1183,24 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(value, result);
         }
+
+        [Fact]
+        public void ShouldAllowNonEmptyReturnWithoutFunctionBody()
+        {
+            RunTest(@"return 'hello';");
+            Assert.Equal("hello", _engine.GetCompletionValue().ToObject());
+        }
+
+        [Fact]
+        public void ShouldThrowParserExceptionWhenEmptyReturnWithoutFunctionBody()
+        {
+            Assert.Throws<ParserException>(() => RunTest(@"return;"));
+        }
+
+        [Fact]
+        public void ShouldThrowParserExceptionWhenEmptyReturnWithoutFunctionBody2()
+        {
+            Assert.Throws<ParserException>(() => RunTest(@"return ;"));
+        }
     }
 }

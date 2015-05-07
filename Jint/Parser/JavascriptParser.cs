@@ -3200,7 +3200,7 @@ namespace Jint.Parser
 
             ExpectKeyword("return");
 
-            if (!_state.InFunctionBody)
+            if (!_state.InFunctionBody && Equals(_lookahead.Value, ";"))
             {
                 ThrowErrorTolerant(Token.Empty, Messages.IllegalReturn);
             }
