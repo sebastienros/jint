@@ -221,7 +221,7 @@ namespace Jint.Runtime
         public static int ToInt32(JsValue o)
         {
             double num = ToNumber(o);
-            if (num == double.NaN || num == double.PositiveInfinity || num == double.NegativeInfinity || num == 0)
+            if (double.IsNaN(num) || double.IsNegativeInfinity(num) || double.IsPositiveInfinity(num) || num == 0)
             {
                 return 0;
             }
@@ -241,7 +241,7 @@ namespace Jint.Runtime
         public static uint ToUint32(JsValue o)
         {
             double num = ToNumber(o);
-            if (num == double.NaN || num == double.PositiveInfinity || num == double.NegativeInfinity || num == 0)
+            if (double.IsNaN(num) || double.IsNegativeInfinity(num) || double.IsPositiveInfinity(num) || num == 0)
             {
                 return 0;
             }
