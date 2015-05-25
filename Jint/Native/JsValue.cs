@@ -21,10 +21,10 @@ namespace Jint.Native
     [DebuggerTypeProxy(typeof(JsValueDebugView))]
     public struct JsValue : IEquatable<JsValue>
     {
-        public static JsValue Undefined = new JsValue(Types.Undefined);
-        public static JsValue Null = new JsValue(Types.Null);
-        public static JsValue False = new JsValue(false);
-        public static JsValue True = new JsValue(true);
+        public readonly static JsValue Undefined = new JsValue(Types.Undefined);
+        public readonly static JsValue Null = new JsValue(Types.Null);
+        public readonly static JsValue False = new JsValue(false);
+        public readonly static JsValue True = new JsValue(true);
 
         public JsValue(bool value)
         {
