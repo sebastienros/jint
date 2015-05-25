@@ -1090,6 +1090,20 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldCallInstanceMethodWithJsValueParams()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+                assert(a.Call16('1','2','3') === '1,2,3');
+                assert(a.Call16('1') === '1');
+                assert(a.Call16(1) === '1');
+                assert(a.Call16() === '');
+                assert(a.Call16('1','2','3') === a.Call16(['1','2','3']));
+            ");
+        }
+
+        [Fact]
         public void NullValueAsArgumentShouldWork()
         {
             _engine.SetValue("a", new A());
