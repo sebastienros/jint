@@ -105,6 +105,7 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(expected, result);
         }
+
         [Fact]
         public void ShouldEvaluateHasOwnProperty()
         {
