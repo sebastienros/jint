@@ -60,8 +60,9 @@ namespace Jint.Runtime.Interop
             var type = Target.GetType();
 
             // look for a property
-            var property = type.GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
-
+            var property = type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(p => EqualsIgnoreCasing(p.Name, propertyName))
+                .FirstOrDefault();
             if (property != null)
             {
                 var descriptor = new PropertyInfoDescriptor(Engine, property, Target);
@@ -70,8 +71,9 @@ namespace Jint.Runtime.Interop
             }
 
             // look for a field
-            var field = type.GetField(propertyName, BindingFlags.Instance | BindingFlags.Public);
-
+            var field = type.GetFields(BindingFlags.Instance | BindingFlags.Public)
+                .Where(f => EqualsIgnoreCasing(f.Name, propertyName))
+                .FirstOrDefault();
             if (field != null)
             {
                 var descriptor = new FieldInfoDescriptor(Engine, field, Target);
@@ -81,30 +83,12 @@ namespace Jint.Runtime.Interop
 
             // if no properties were found then look for a method 
             var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public)
-                .Where(m => m.Name == propertyName)
+                .Where(m => EqualsIgnoreCasing(m.Name, propertyName))
                 .ToArray();
 
             if (methods.Any())
             {
                 var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methods), false, true, false);
-                Properties.Add(propertyName, descriptor);
-                return descriptor;
-            }
-
-            var pascalCasedPropertyName = char.ToUpperInvariant(propertyName[0]).ToString();
-            if (propertyName.Length > 1)
-            {
-                pascalCasedPropertyName += propertyName.Substring(1);
-            }
-
-            // look for methods using pascal cased name.
-            var pascalCasedMethods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public)
-                .Where(m => m.Name == pascalCasedPropertyName)
-                .ToArray();
-
-            if (pascalCasedMethods.Any())
-            {
-                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, pascalCasedMethods), false, true, false);
                 Properties.Add(propertyName, descriptor);
                 return descriptor;
             }
@@ -120,7 +104,7 @@ namespace Jint.Runtime.Interop
             // try to find a single explicit property implementation
             var explicitProperties = (from iface in interfaces
                                       from iprop in iface.GetProperties()
-                                      where propertyName.Equals(iprop.Name)
+                                      where EqualsIgnoreCasing(iprop.Name, propertyName)
                                       select iprop).ToArray();
 
             if (explicitProperties.Length == 1)
@@ -133,25 +117,12 @@ namespace Jint.Runtime.Interop
             // try to find explicit method implementations
             var explicitMethods = (from iface in interfaces
                                    from imethod in iface.GetMethods()
-                                   where propertyName.Equals(imethod.Name)
+                                   where EqualsIgnoreCasing(imethod.Name, propertyName)
                                    select imethod).ToArray();
 
             if (explicitMethods.Length > 0)
             {
                 var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, explicitMethods), false, true, false);
-                Properties.Add(propertyName, descriptor);
-                return descriptor;
-            }
-
-            // try to find explicit method implementations using the pascal cased property name
-            var explicitPascalCasedMethods = (from iface in interfaces
-                                              from imethod in iface.GetMethods()
-                                              where pascalCasedPropertyName.Equals(imethod.Name)
-                                              select imethod).ToArray();
-
-            if (explicitPascalCasedMethods.Length > 0)
-            {
-                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, explicitPascalCasedMethods), false, true, false);
                 Properties.Add(propertyName, descriptor);
                 return descriptor;
             }
@@ -169,6 +140,23 @@ namespace Jint.Runtime.Interop
             }
 
             return PropertyDescriptor.Undefined;
+        }
+
+        private bool EqualsIgnoreCasing(string s1, string s2)
+        {
+            bool equals = false;
+            if (s1.Length == s2.Length)
+            {
+                if (s1.Length > 0 && s2.Length > 0) 
+                {
+                    equals = (s1.ToLower()[0] == s2.ToLower()[0]);
+                }
+                if (s1.Length > 1 && s2.Length > 1) 
+                {
+                    equals = equals && (s1.Substring(1) == s2.Substring(1));
+                }
+            }
+            return equals;
         }
     }
 }

@@ -19,6 +19,8 @@
     <UpgradeBackupLocation>
     </UpgradeBackupLocation>
     <OldToolsVersion>4.0</OldToolsVersion>
+    <ProductVersion>12.0.0</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -148,7 +150,6 @@
     <Compile Include="Parser\Ast\WhileStatement.cs" />
     <Compile Include="Parser\Ast\WithStatement.cs" />
     <Compile Include="Parser\Comment.cs" />
-    <Compile Include="Parser\JavaScriptParser.cs" />
     <Compile Include="Parser\Loc.cs" />
     <Compile Include="Parser\Messages.cs" />
     <Compile Include="Parser\ParserException.cs" />
@@ -195,6 +196,7 @@
     <Compile Include="Runtime\StatementsCountOverflowException.cs" />
     <Compile Include="Runtime\TypeConverter.cs" />
     <Compile Include="StrictModeScope.cs" />
+    <Compile Include="Parser\JavaScriptParser.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Jint.nuspec" />
