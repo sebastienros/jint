@@ -95,6 +95,17 @@ namespace Jint.Tests.Runtime
             Assert.Equal(expected, result);
         }
 
+        [Theory]
+        [InlineData(-59d, "~58")]
+        [InlineData(58d, "~~58")]
+        public void ShouldInterpretUnaryExpression(object expected, string source)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
+
+            Assert.Equal(expected, result);
+        }
+
         [Fact]
         public void ShouldEvaluateHasOwnProperty()
         {

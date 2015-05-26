@@ -90,5 +90,9 @@ namespace Jint.Tests.Runtime.Domain
         {
 
         }
+        public string Call16(params JsValue[] values)
+        {
+            return String.Join(",", values);
+        }
     }
 }
