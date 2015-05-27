@@ -1194,5 +1194,23 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(value, result);
         }
+
+
+
+        [Fact]
+        public void ShouldSortArrayWhenCompareFunctionReturnsFloatingPointNumber()
+        {
+            RunTest(@"
+                var nums = [1, 1.1, 1.2, 2, 2, 2.1, 2.2];
+                nums.sort(function(a,b){return b-a;});
+                assert(nums[0] === 2.2);
+                assert(nums[1] === 2.1);
+                assert(nums[2] === 2);
+                assert(nums[3] === 2);
+                assert(nums[4] === 1.2);
+                assert(nums[5] === 1.1);
+                assert(nums[6] === 1);
+            ");
+        }
     }
 }
