@@ -148,7 +148,7 @@
     <Compile Include="Parser\Ast\WhileStatement.cs" />
     <Compile Include="Parser\Ast\WithStatement.cs" />
     <Compile Include="Parser\Comment.cs" />
-    <Compile Include="Parser\JavaScriptParser.cs" />
+    <Compile Include="Parser\JavascriptParser.cs" />
     <Compile Include="Parser\Loc.cs" />
     <Compile Include="Parser\Messages.cs" />
     <Compile Include="Parser\ParserException.cs" />
