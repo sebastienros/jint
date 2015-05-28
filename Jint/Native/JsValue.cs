@@ -102,6 +102,12 @@ namespace Jint.Native
         {
             return IsObject() && AsObject() is ArrayInstance;
         }
+        
+        [Pure]
+        public bool IsDate()
+        {
+            return IsObject() && AsObject() is DateInstance;
+        }
 
         [Pure]
         public bool IsRegExp()
@@ -158,6 +164,16 @@ namespace Jint.Native
                 throw new ArgumentException("The value is not an array");
             }
             return AsObject() as ArrayInstance;            
+        }
+
+        [Pure]
+        public DateInstance AsDate()
+        {
+            if (!IsArray())
+            {
+                throw new ArgumentException("The value is not a date");
+            }
+            return AsObject() as DateInstance;
         }
 
         [Pure]
