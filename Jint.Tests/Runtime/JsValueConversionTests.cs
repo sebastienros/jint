@@ -23,7 +23,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(false, value.IsDate());
             Assert.Equal(false, value.IsNull());
             Assert.Equal(false, value.IsNumber());
-            Assert.Equal(false, value.IsObject());
+            Assert.Equal(true, value.IsObject());
             Assert.Equal(false, value.IsPrimitive());
             Assert.Equal(false, value.IsRegExp());
             Assert.Equal(false, value.IsString());
@@ -59,8 +59,8 @@ namespace Jint.Tests.Runtime
             Assert.Equal(true, value.IsDate());
             Assert.Equal(false, value.IsNull());
             Assert.Equal(false, value.IsNumber());
-            Assert.Equal(false, value.IsObject());
-            Assert.Equal(true, value.IsPrimitive());
+            Assert.Equal(true, value.IsObject());
+            Assert.Equal(false, value.IsPrimitive());
             Assert.Equal(false, value.IsRegExp());
             Assert.Equal(false, value.IsString());
             Assert.Equal(false, value.IsUndefined());
@@ -122,13 +122,13 @@ namespace Jint.Tests.Runtime
         public void ShouldBeARegExp()
         {
             var value = new JsValue(new RegExpInstance(null));
-            Assert.Equal(true, value.IsBoolean());
+            Assert.Equal(false, value.IsBoolean());
             Assert.Equal(false, value.IsArray());
             Assert.Equal(false, value.IsDate());
             Assert.Equal(false, value.IsNull());
             Assert.Equal(false, value.IsNumber());
-            Assert.Equal(false, value.IsObject());
-            Assert.Equal(true, value.IsPrimitive());
+            Assert.Equal(true, value.IsObject());
+            Assert.Equal(false, value.IsPrimitive());
             Assert.Equal(true, value.IsRegExp());
             Assert.Equal(true, value.AsRegExp() != null);
             Assert.Equal(false, value.IsString());
@@ -139,7 +139,7 @@ namespace Jint.Tests.Runtime
         public void ShouldBeAString()
         {
             var value = new JsValue("a");
-            Assert.Equal(true, value.IsBoolean());
+            Assert.Equal(false, value.IsBoolean());
             Assert.Equal(false, value.IsArray());
             Assert.Equal(false, value.IsDate());
             Assert.Equal(false, value.IsNull());
@@ -156,7 +156,7 @@ namespace Jint.Tests.Runtime
         public void ShouldBeUndefined()
         {
             var value = Undefined.Instance;
-            Assert.Equal(true, value.IsBoolean());
+            Assert.Equal(false, value.IsBoolean());
             Assert.Equal(false, value.IsArray());
             Assert.Equal(false, value.IsDate());
             Assert.Equal(false, value.IsNull());
