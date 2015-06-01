@@ -72,6 +72,7 @@
     <Compile Include="Runtime\Domain\IPerson.cs" />
     <Compile Include="Runtime\Domain\Person.cs" />
     <Compile Include="Runtime\Domain\Shape.cs" />
+    <Compile Include="Runtime\JsValueConversionTests.cs" />
     <Compile Include="Runtime\SamplesTests.cs" />
     <Compile Include="Runtime\InteropTests.cs" />
     <Compile Include="Runtime\EngineTests.cs" />
