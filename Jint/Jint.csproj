@@ -163,6 +163,10 @@
     <Compile Include="Runtime\CallStack\CallStackElementComparer.cs" />
     <Compile Include="Runtime\CallStack\CallStackElement.cs" />
     <Compile Include="Runtime\Completion.cs" />
+    <Compile Include="Runtime\Debugger\BreakPoint.cs" />
+    <Compile Include="Runtime\Debugger\DebugHandler.cs" />
+    <Compile Include="Runtime\Debugger\DebugInformation.cs" />
+    <Compile Include="Runtime\Debugger\StepMode.cs" />
     <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\Specialized\FieldInfoDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\Specialized\IndexDescriptor.cs" />

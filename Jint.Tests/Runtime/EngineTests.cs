@@ -7,6 +7,7 @@ using Jint.Native.Number;
 using Jint.Parser;
 using Jint.Parser.Ast;
 using Jint.Runtime;
+using Jint.Runtime.Debugger;
 using Xunit;
 using Xunit.Extensions;
 using System.Net;
@@ -16,6 +17,8 @@ namespace Jint.Tests.Runtime
     public class EngineTests : IDisposable
     {
         private readonly Engine _engine;
+        private int countBreak = 0;
+        private StepMode stepMode;
 
         public EngineTests()
         {
@@ -1211,6 +1214,144 @@ namespace Jint.Tests.Runtime
                 assert(nums[5] === 1.1);
                 assert(nums[6] === 1);
             ");
+        }
+
+        [Fact]
+        public void ShouldBreakWhenBreakpointIsReached()
+        {
+            countBreak = 0;
+            stepMode = StepMode.None;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Break += EngineStep;
+
+            engine.BreakPoints.Add(new BreakPoint(1, 1));
+
+            engine.Execute(@"var local = true;
+                if (local === true)
+                {}");
+
+            engine.Break -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        [Fact]
+        public void ShouldExecuteStepByStep()
+        {
+            countBreak = 0;
+            stepMode = StepMode.Into;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Step += EngineStep;
+            
+            engine.Execute(@"var local = true;
+                var creatingSomeOtherLine = 0;
+                var lastOneIPromise = true");
+
+            engine.Step -= EngineStep;
+
+            Assert.Equal(3, countBreak);
+        }
+
+        [Fact]
+        public void ShouldNotBreakTwiceIfSteppingOverBreakpoint()
+        {
+            countBreak = 0;
+            stepMode = StepMode.Into;
+
+            var engine = new Engine(options => options.DebugMode());
+            engine.BreakPoints.Add(new BreakPoint(1, 1));
+            engine.Step += EngineStep;
+            engine.Break += EngineStep;
+
+            engine.Execute(@"var local = true;");
+
+            engine.Step -= EngineStep;
+            engine.Break -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+        
+        private StepMode EngineStep(object sender, DebugInformation debugInfo)
+        {
+            Assert.NotNull(sender);
+            Assert.IsType(typeof(Engine), sender);
+            Assert.NotNull(debugInfo);
+
+            countBreak++;
+            return stepMode;
+        }
+
+        [Fact]
+        public void ShouldShowProperDebugInformation()
+        {
+            countBreak = 0;
+            stepMode = StepMode.None;
+
+            var engine = new Engine(options => options.DebugMode());
+            engine.BreakPoints.Add(new BreakPoint(5, 0));
+            engine.Break += EngineStepVerifyDebugInfo;
+
+            engine.Execute(@"var global = true;
+                            function func1()
+                            {
+                                var local = false;
+;
+                            }
+                            func1();");
+
+            engine.Break -= EngineStepVerifyDebugInfo;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        private StepMode EngineStepVerifyDebugInfo(object sender, DebugInformation debugInfo)
+        {
+            Assert.NotNull(sender);
+            Assert.IsType(typeof(Engine), sender);
+            Assert.NotNull(debugInfo);
+
+            Assert.NotNull(debugInfo.CallStack);
+            Assert.NotNull(debugInfo.CurrentStatement);
+            Assert.NotNull(debugInfo.Locals);
+
+            Assert.Equal(1, debugInfo.CallStack.Count);
+            Assert.Equal("func1()", debugInfo.CallStack.Peek());
+            Assert.Contains(debugInfo.Locals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal) && kvp.Value.AsBoolean() == true);
+            Assert.Contains(debugInfo.Locals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
+
+
+            countBreak++;
+            return stepMode;
+        }
+
+        [Fact]
+        public void ShouldBreakWhenConditionIsMatched()
+        {
+            countBreak = 0;
+            stepMode = StepMode.None;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Break += EngineStep;
+
+            engine.BreakPoints.Add(new BreakPoint(5, 16, "condition === true"));
+            engine.BreakPoints.Add(new BreakPoint(6, 16, "condition === false"));
+
+            engine.Execute(@"var local = true;
+                var condition = true;
+                if (local === true)
+                {
+                ;
+                ;
+                }");
+
+            engine.Break -= EngineStep;
+
+            Assert.Equal(1, countBreak);
         }
     }
 }
