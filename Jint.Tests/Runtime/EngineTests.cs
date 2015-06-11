@@ -1353,5 +1353,86 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(1, countBreak);
         }
+
+        [Fact]
+        public void ShouldNotStepInSameLevelStatementsWhenStepOver()
+        {
+            countBreak = 0;
+            stepMode = StepMode.Over;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Step += EngineStep;
+
+            engine.Execute(@"function func() // first step - then stepping over
+                {
+                    ; // shall not step
+                    ; // not even here
+                }
+                func(); // shall not step                 
+                ; // shall not step ");
+
+            engine.Step -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        [Fact]
+        public void ShouldNotStepInIfRequiredToStepOver()
+        {
+            countBreak = 0;
+            
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Step += EngineStepOverWhenInsideFunction;
+
+            engine.Execute(@"function func() // first step
+                {
+                    ; // third step - now stepping over
+                    ; // it should not step here
+                }
+                func(); // second step                 
+                ; // fourth step ");
+
+            engine.Step -= EngineStepOverWhenInsideFunction;
+
+            Assert.Equal(4, countBreak);
+        }
+
+        private StepMode EngineStepOverWhenInsideFunction(object sender, DebugInformation debugInfo)
+        {
+            Assert.NotNull(sender);
+            Assert.IsType(typeof(Engine), sender);
+            Assert.NotNull(debugInfo);
+
+            countBreak++;
+            if (debugInfo.CallStack.Count > 0)
+                return StepMode.Over;
+            
+            return StepMode.Into;
+        }
+
+        [Fact]
+        public void ShouldBreakWhenStatementIsMultiLine()
+        {
+            countBreak = 0;
+            stepMode = StepMode.None;
+
+            var engine = new Engine(options => options.DebugMode());
+            engine.BreakPoints.Add(new BreakPoint(4, 33));
+            engine.Break += EngineStep;
+
+            engine.Execute(@"var global = true;
+                            function func1()
+                            {
+                                var local = 
+                                    false;
+                            }
+                            func1();");
+
+            engine.Break -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
     }
 }

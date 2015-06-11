@@ -28,7 +28,7 @@ namespace Jint.Runtime.Debugger
             {
                 _debugCallStack.Pop();
             }
-            if (_stepMode == StepMode.Over && _debugCallStack.Count <= _callBackStepOverDepth)
+            if (_stepMode == StepMode.Over && _debugCallStack.Count < _callBackStepOverDepth)
             {
                 _callBackStepOverDepth = _debugCallStack.Count;
                 _stepMode = StepMode.Into;
@@ -69,8 +69,6 @@ namespace Jint.Runtime.Debugger
             {
                 return;
             }
-
-            
             
             BreakPoint breakpoint = _engine.BreakPoints.FirstOrDefault(breakPoint => BpTest(statement, breakPoint));
             bool breakpointFound = false;
@@ -107,15 +105,16 @@ namespace Jint.Runtime.Debugger
             bool afterStart, beforeEnd;
 
             afterStart = (breakpoint.Line == statement.Location.Start.Line &&
-                          breakpoint.Char >= statement.Location.Start.Column);
+                             breakpoint.Char >= statement.Location.Start.Column);
 
             if (!afterStart)
             {
                 return false;
             }
 
-            beforeEnd = (breakpoint.Line == statement.Location.End.Line &&
-                         breakpoint.Char <= statement.Location.End.Column);
+            beforeEnd = breakpoint.Line < statement.Location.End.Line
+                        || (breakpoint.Line == statement.Location.End.Line &&
+                            breakpoint.Char <= statement.Location.End.Column);
 
             if (!beforeEnd)
             {
