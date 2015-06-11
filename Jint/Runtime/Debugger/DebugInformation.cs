@@ -11,5 +11,6 @@ namespace Jint.Runtime.Debugger
         public Stack<String> CallStack { get; set; }
         public Statement CurrentStatement { get; set; }
         public Dictionary<string, JsValue> Locals { get; set; }
+        public Dictionary<string, JsValue> Globals { get; set; }
     }
 }

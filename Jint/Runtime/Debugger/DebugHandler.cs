@@ -135,34 +135,51 @@ namespace Jint.Runtime.Debugger
 
             if (_engine.ExecutionContext != null && _engine.ExecutionContext.LexicalEnvironment != null)
             {
-                info.Locals = GetIdentifierReference(_engine.ExecutionContext.LexicalEnvironment);
+                var lexicalEnvironment = _engine.ExecutionContext.LexicalEnvironment;
+                info.Locals = GetLocalVariables(lexicalEnvironment);
+                info.Globals = GetGlobalVariables(lexicalEnvironment);
             }
 
             return info;
         }
 
-        public static Dictionary<string, JsValue> GetIdentifierReference(LexicalEnvironment lex)
+        private static Dictionary<string, JsValue> GetLocalVariables(LexicalEnvironment lex)
         {
             Dictionary<string, JsValue> locals = new Dictionary<string, JsValue>();
+            if (lex != null && lex.Record != null)
+            {
+                AddRecordsFromEnvironment(lex, locals);
+            }
+            return locals;
+        }
+
+        private static Dictionary<string, JsValue> GetGlobalVariables(LexicalEnvironment lex)
+        {
+            Dictionary<string, JsValue> globals = new Dictionary<string, JsValue>();
             LexicalEnvironment tempLex = lex;
 
             while (tempLex != null && tempLex.Record != null)
             {
-                var bindings = tempLex.Record.GetAllBindingNames();
-                foreach (var binding in bindings)
-                {
-                    if (locals.ContainsKey(binding) == false)
-                    {
-                        var jsValue = tempLex.Record.GetBindingValue(binding, false);
-                        if (jsValue.TryCast<ICallable>() == null)
-                        {
-                            locals.Add(binding, jsValue);
-                        }
-                    }
-                }
+                AddRecordsFromEnvironment(tempLex, globals);
                 tempLex = tempLex.Outer;
             }
-            return locals;
+            return globals;
+        }
+
+        private static void AddRecordsFromEnvironment(LexicalEnvironment lex, Dictionary<string, JsValue> locals)
+        {
+            var bindings = lex.Record.GetAllBindingNames();
+            foreach (var binding in bindings)
+            {
+                if (locals.ContainsKey(binding) == false)
+                {
+                    var jsValue = lex.Record.GetBindingValue(binding, false);
+                    if (jsValue.TryCast<ICallable>() == null)
+                    {
+                        locals.Add(binding, jsValue);
+                    }
+                }
+            }
         }
     }
 }
