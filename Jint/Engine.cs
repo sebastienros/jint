@@ -403,10 +403,10 @@ namespace Jint
                     throw new ArgumentOutOfRangeException();
             }
         }
-        
+
         public object EvaluateExpression(Expression expression)
         {
-			_lastSyntaxNode = expression;
+            _lastSyntaxNode = expression;
 
             switch (expression.Type)
             {
