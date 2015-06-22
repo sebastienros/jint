@@ -74,6 +74,56 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void DelegateWithNullableParameterCanBePassedAnUndefined()
+        {
+            _engine.SetValue("isnull", new Func<double?, bool>(x => x == null));
+
+            RunTest(@"
+                assert(isnull(undefined) === true);
+            ");
+        }
+
+        [Fact]
+        public void DelegateWithObjectParameterCanBePassedAnUndefined()
+        {
+            _engine.SetValue("isnull", new Func<object, bool>(x => x == null));
+
+            RunTest(@"
+                assert(isnull(undefined) === true);
+            ");
+        }
+
+        [Fact]
+        public void DelegateWithNullableParameterCanBeExcluded()
+        {
+            _engine.SetValue("isnull", new Func<double?, bool>(x => x == null));
+
+            RunTest(@"
+                assert(isnull() === true);
+            ");
+        }
+
+        [Fact]
+        public void DelegateWithObjectParameterCanBeExcluded()
+        {
+            _engine.SetValue("isnull", new Func<object, bool>(x => x == null));
+
+            RunTest(@"
+                assert(isnull() === true);
+            ");
+        }
+
+        [Fact]
+        public void ExtraParametersAreIgnored()
+        {
+            _engine.SetValue("passNumber", new Func<int, int>(x => x));
+
+            RunTest(@"
+                assert(passNumber(123,'test',{},[],null) === 123);
+            ");
+        }
+
         private delegate string callParams(params object[] values);
         private delegate string callArgumentAndParams(string firstParam, params object[] values);
 
@@ -92,6 +142,7 @@ namespace Jint.Tests.Runtime
                 assert(callArgumentAndParams('a','1','2','3') === 'a:1,2,3');
                 assert(callArgumentAndParams('a','1') === 'a:1');
                 assert(callArgumentAndParams('a') === 'a:');
+                assert(callArgumentAndParams() === ':');
             ");
         }
 
