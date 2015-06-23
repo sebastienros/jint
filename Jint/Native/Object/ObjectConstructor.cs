@@ -148,14 +148,14 @@ namespace Jint.Native.Object
             {
                 for (var i = 0; i < s.PrimitiveValue.AsString().Length; i++)
                 {
-                    array.DefineOwnProperty(n.ToString(), new PropertyDescriptor(i.ToString(), true, true, true), false);
+                    array.DefineOwnProperty(n.ToString(), new PropertyDescriptor(i.ToString(), DescriptorAttributes.All), false);
                     n++;
                 }  
             }
 
             foreach (var p in o.Properties)
             {
-                array.DefineOwnProperty(n.ToString(), new PropertyDescriptor(p.Key, true, true, true), false);
+                array.DefineOwnProperty(n.ToString(), new PropertyDescriptor(p.Key, DescriptorAttributes.All), false);
                 n++;
             }
 
@@ -217,7 +217,7 @@ namespace Jint.Native.Object
             var descriptors = new List<KeyValuePair<string, PropertyDescriptor>>();
             foreach (var p in props.Properties)
             {
-                if (!p.Value.Enumerable.HasValue || !p.Value.Enumerable.Value.AsBoolean())
+                if (!p.Value.Enumerable)
                 {
                     continue;
                 }
@@ -245,9 +245,9 @@ namespace Jint.Native.Object
 
             foreach (var prop in o.Properties)
             {
-                if (prop.Value.Configurable.HasValue && prop.Value.Configurable.Value.AsBoolean())
+                if (prop.Value.Configurable)
                 {
-                    prop.Value.Configurable = JsValue.False;
+                    prop.Value.WithNotConfigurable();
                 }
 
                 o.DefineOwnProperty(prop.Key, prop.Value, true);
@@ -273,14 +273,14 @@ namespace Jint.Native.Object
                 var desc = o.GetOwnProperty(p);
                 if (desc.IsDataDescriptor())
                 {
-                    if (desc.Writable.HasValue && desc.Writable.Value.AsBoolean())
+                    if (desc.Writable)
                     {
-                        desc.Writable = JsValue.False;
+                        desc.WithNotWritable();
                     }
                 }
-                if (desc.Configurable.HasValue && desc.Configurable.Value.AsBoolean())
+                if (desc.Configurable)
                 {
-                    desc.Configurable = JsValue.False;
+                    desc.WithNotConfigurable();
                 }
                 o.DefineOwnProperty(p, desc, true);
             }
@@ -315,7 +315,7 @@ namespace Jint.Native.Object
 
             foreach (var prop in o.Properties)
             {
-                if (prop.Value.Configurable.Value == true)
+                if (prop.Value.Configurable)
                 {
                     return false;
                 }
@@ -343,12 +343,12 @@ namespace Jint.Native.Object
                 var desc = o.GetOwnProperty(p);
                 if (desc.IsDataDescriptor())
                 {
-                    if (desc.Writable.HasValue && desc.Writable.Value.AsBoolean())
+                    if (desc.Writable)
                     {
                         return false;
                     }
                 }
-                if (desc.Configurable.HasValue && desc.Configurable.Value.AsBoolean())
+                if (desc.Configurable)
                 {
                     return false;
                 }
@@ -384,7 +384,7 @@ namespace Jint.Native.Object
             }
 
             var enumerableProperties = o.Properties
-                .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value.AsBoolean())
+                .Where(x => x.Value.Enumerable)
                 .ToArray();
             var n = enumerableProperties.Length;
             var array = Engine.Array.Construct(new JsValue[] {n});
@@ -394,7 +394,7 @@ namespace Jint.Native.Object
                 var p = prop.Key;
                 array.DefineOwnProperty(
                     TypeConverter.ToString(index), 
-                    new PropertyDescriptor(p, true, true, true), 
+                    new PropertyDescriptor(p, DescriptorAttributes.All), 
                     false);
                 index++;
             }

@@ -732,19 +732,16 @@ namespace Jint
                     {
                         var go = Global;
                         var existingProp = go.GetProperty(fn);
-                        if (existingProp.Configurable.Value.AsBoolean())
+                        if (existingProp.Configurable)
                         {
                             go.DefineOwnProperty(fn,
-                                                 new PropertyDescriptor(
-                                                     value: Undefined.Instance,
-                                                     writable: true,
-                                                     enumerable: true,
-                                                     configurable: configurableBindings
-                                                     ), true);
+                                                 new PropertyDescriptor(value: Undefined.Instance)
+                                                    .WithAttributes(true, true, configurableBindings), 
+                                                 true);
                         }
                         else
                         {
-                            if (existingProp.IsAccessorDescriptor() || (!existingProp.Enumerable.Value.AsBoolean()))
+                            if (existingProp.IsAccessorDescriptor() || (!existingProp.Enumerable))
                             {
                                 throw new JavaScriptException(TypeError);
                             }

@@ -70,7 +70,7 @@ namespace Jint.Native.String
                 return PropertyDescriptor.Undefined;
             }
             var resultStr = str.AsString()[index].ToString();
-            return new PropertyDescriptor(new JsValue(resultStr), false, true, false);
+            return new PropertyDescriptor(new JsValue(resultStr)).WithAttributes(false, true, false);
         }
     }
 }

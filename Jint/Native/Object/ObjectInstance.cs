@@ -150,7 +150,7 @@ namespace Jint.Native.Object
 
             if (ownDesc.IsDataDescriptor())
             {
-                var valueDesc = new PropertyDescriptor(value: value, writable: null, enumerable:null, configurable:null);
+                var valueDesc = new PropertyDescriptor(value: value);
                 DefineOwnProperty(propertyName, valueDesc, throwOnError);
                 return;
             }
@@ -165,7 +165,7 @@ namespace Jint.Native.Object
             }
             else
             {
-                var newDesc = new PropertyDescriptor(value, true, true, true);
+                var newDesc = new PropertyDescriptor(value, DescriptorAttributes.All);
                 DefineOwnProperty(propertyName, newDesc, throwOnError);
             }
         }
@@ -194,7 +194,7 @@ namespace Jint.Native.Object
                     return true;
                 }
 
-                return desc.Writable.HasValue && desc.Writable.Value.AsBoolean();
+                return desc.Writable;
             }
 
             if (Prototype == null)
@@ -225,7 +225,7 @@ namespace Jint.Native.Object
             }
             else
             {
-                return inherited.Writable.HasValue && inherited.Writable.Value.AsBoolean();
+                return inherited.Writable;
             }
         }
 
@@ -258,7 +258,7 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            if (desc.Configurable.HasValue && desc.Configurable.Value.AsBoolean())
+            if (desc.Configurable)
             {
                 Properties.Remove(propertyName);
                 return true;
@@ -363,29 +363,24 @@ namespace Jint.Native.Object
                 {
                     if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
                     {
-                        Properties[propertyName] = new PropertyDescriptor(desc)
-                        {
-                            Value = desc.Value.HasValue ? desc.Value : JsValue.Undefined,
-                            Writable = desc.Writable.HasValue ? desc.Writable : false
-                        };
+                        Properties[propertyName] = new PropertyDescriptor(desc) {
+                            Value = desc.Value.HasValue ? desc.Value : JsValue.Undefined
+                        }.WithAttributes(desc.Writable, null, null);
                     }
                     else
                     {
                         Properties[propertyName] = new PropertyDescriptor(desc)
-                        {
-                            Enumerable = desc.Enumerable.HasValue ? desc.Enumerable : false,
-                            Configurable = desc.Configurable.HasValue ? desc.Configurable : false,
-                        };
-                    }
+                        .WithAttributes(null, desc.Enumerable, desc.Configurable);
+                }
                 }
 
                 return true;
             }
 
             // Step 5
-            if (!current.Configurable.HasValue && 
-                !current.Enumerable.HasValue &&
-                !current.Writable.HasValue &&
+            if (!current.Configurable && 
+                !current.Enumerable &&
+                !current.Writable &&
                 !current.Get.HasValue &&
                 !current.Set.HasValue &&
                 !current.Value.HasValue)
@@ -394,13 +389,13 @@ namespace Jint.Native.Object
             }
 
             // Step 6
-            var configurableIsSame = current.Configurable.HasValue
-                ? desc.Configurable.HasValue && (current.Configurable.Value == desc.Configurable.Value)
-                : !desc.Configurable.HasValue;
+            var configurableIsSame = current.Configurable
+                ? desc.Configurable && (current.Configurable)
+                : !desc.Configurable;
 
-            var enumerableIsSame = current.Enumerable.HasValue
-                ? desc.Enumerable.HasValue && (current.Enumerable.Value == desc.Enumerable.Value)
-                : !desc.Enumerable.HasValue;
+            var enumerableIsSame = current.Enumerable
+                ? desc.Enumerable && (current.Enumerable)
+                : !desc.Enumerable;
 
             var writableIsSame = true;
             var valueIsSame = true;
@@ -409,9 +404,9 @@ namespace Jint.Native.Object
             {
                 var currentDataDescriptor = current;
                 var descDataDescriptor = desc;
-                writableIsSame = currentDataDescriptor.Writable.HasValue
-                ? descDataDescriptor.Writable.HasValue && (currentDataDescriptor.Writable.Value == descDataDescriptor.Writable.Value)
-                : !descDataDescriptor.Writable.HasValue;
+                writableIsSame = currentDataDescriptor.Writable
+                ? descDataDescriptor.Writable && (currentDataDescriptor.Writable == descDataDescriptor.Writable)
+                : !descDataDescriptor.Writable;
 
                 var valueA = currentDataDescriptor.Value.HasValue
                     ? currentDataDescriptor.Value.Value
@@ -457,9 +452,9 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            if (!current.Configurable.HasValue || !current.Configurable.Value.AsBoolean())
+            if (!current.Configurable)
             {
-                if (desc.Configurable.HasValue && desc.Configurable.Value.AsBoolean())
+                if (desc.Configurable)
                 {
                     if (throwOnError)
                     {
@@ -469,7 +464,7 @@ namespace Jint.Native.Object
                     return false;
                 }
 
-                if (desc.Enumerable.HasValue && (!current.Enumerable.HasValue || desc.Enumerable.Value != current.Enumerable.Value))
+                if (desc.Enumerable && (!current.Enumerable || desc.Enumerable!= current.Enumerable))
                 {
                     if (throwOnError)
                     {
@@ -485,7 +480,7 @@ namespace Jint.Native.Object
 
                 if (current.IsDataDescriptor() != desc.IsDataDescriptor())
                 {
-                    if (!current.Configurable.HasValue || !current.Configurable.Value.AsBoolean())
+                    if (!current.Configurable)
                     {
                         if (throwOnError)
                         {
@@ -499,26 +494,26 @@ namespace Jint.Native.Object
                     {
                         Properties[propertyName] = current = new PropertyDescriptor(
                             get: Undefined.Instance,
-                            set: Undefined.Instance,
-                            enumerable: current.Enumerable.HasValue && current.Enumerable.Value.AsBoolean(),
-                            configurable: current.Configurable.HasValue && current.Configurable.Value.AsBoolean()
+                            set: Undefined.Instance).WithAttributes(null,
+                            enumerable: current.Enumerable,
+                            configurable: current.Configurable
                             );
                     }
                     else
                     {
                         Properties[propertyName] = current = new PropertyDescriptor(
-                            value: Undefined.Instance, 
+                            value: Undefined.Instance).WithAttributes(
                             writable: null,
-                            enumerable: current.Enumerable.HasValue && current.Enumerable.Value.AsBoolean(),
-                            configurable: current.Configurable.HasValue && current.Configurable.Value.AsBoolean()
+                            enumerable: current.Enumerable,
+                            configurable: current.Configurable
                             );
                     }
                 }
                 else if (current.IsDataDescriptor() && desc.IsDataDescriptor())
                 {
-                    if (!current.Configurable.HasValue || current.Configurable.Value.AsBoolean() == false)
+                    if (!current.Configurable)
                     {
-                        if (!current.Writable.HasValue || !current.Writable.Value.AsBoolean() && desc.Writable.HasValue && desc.Writable.Value.AsBoolean())
+                        if (!current.Writable && desc.Writable)
                         {
                             if (throwOnError)
                             {
@@ -528,7 +523,7 @@ namespace Jint.Native.Object
                             return false;
                         }
 
-                        if (!current.Writable.Value.AsBoolean())
+                        if (!current.Writable)
                         {
                             if (desc.Value.HasValue && !valueIsSame)
                             {
@@ -544,7 +539,7 @@ namespace Jint.Native.Object
                 }
                 else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())
                 {
-                    if (!current.Configurable.HasValue || !current.Configurable.Value.AsBoolean())
+                    if (!current.Configurable)
                     {
                         if ((desc.Set.HasValue && !ExpressionInterpreter.SameValue(desc.Set.Value, current.Set.HasValue ? current.Set.Value : Undefined.Instance))
                             ||
@@ -566,19 +561,19 @@ namespace Jint.Native.Object
                 current.Value = desc.Value;
             }
 
-            if (desc.Writable.HasValue)
+            if (desc.Writable)
             {
-                current.Writable = desc.Writable;
+                current.WithWritable();
             }
 
-            if (desc.Enumerable.HasValue)
+            if (desc.Enumerable)
             {
-                current.Enumerable = desc.Enumerable;
+                current.WithEnumerable();
             }
 
-            if (desc.Configurable.HasValue)
+            if (desc.Configurable)
             {
-                current.Configurable = desc.Configurable;
+                current.WithConfigurable();
             }
 
             if (desc.Get.HasValue)
@@ -604,7 +599,7 @@ namespace Jint.Native.Object
         /// <param name="enumerable"></param>
         public void FastAddProperty(string name, JsValue value, bool writable, bool enumerable, bool configurable)
         {
-            Properties.Add(name, new PropertyDescriptor(value, writable, enumerable, configurable));
+            Properties.Add(name, new PropertyDescriptor(value).WithAttributes(writable, enumerable, configurable));
         }
 
         /// <summary>

@@ -48,7 +48,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                 throw new InvalidOperationException("No matching indexer found.");
             }
 
-            Writable = true;
+            Attributes |= DescriptorAttributes.Writable;
         }
 
 

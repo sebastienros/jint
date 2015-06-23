@@ -647,7 +647,7 @@ namespace Jint.Runtime
                     case PropertyKind.Data:
                         var exprValue = _engine.EvaluateExpression(property.Value);
                         var propValue = _engine.GetValue(exprValue);
-                        propDesc = new PropertyDescriptor(propValue, true, true, true);
+                        propDesc = new PropertyDescriptor(propValue, DescriptorAttributes.All);
                         break;
 
                     case PropertyKind.Get:
@@ -669,7 +669,7 @@ namespace Jint.Runtime
                             );
                         }
 
-                        propDesc = new PropertyDescriptor(get: get, set: null, enumerable: true, configurable:true);
+                        propDesc = new PropertyDescriptor(get: get, set: null).WithEnumerable().WithConfigurable();
                         break;
                     
                     case PropertyKind.Set:
@@ -691,7 +691,7 @@ namespace Jint.Runtime
                                 StrictModeScope.IsStrictModeCode
                                 );
                         }
-                        propDesc = new PropertyDescriptor(get:null, set: set, enumerable: true, configurable: true);
+                        propDesc = new PropertyDescriptor(get:null, set: set).WithEnumerable().WithConfigurable();
                         break;
 
                     default:
@@ -959,7 +959,7 @@ namespace Jint.Runtime
                 {
                     var value = _engine.GetValue(EvaluateExpression(expr));
                     a.DefineOwnProperty(n.ToString(),
-                        new PropertyDescriptor(value, true, true, true), false);
+                        new PropertyDescriptor(value, DescriptorAttributes.All), false);
                 }
                 n++;
             }

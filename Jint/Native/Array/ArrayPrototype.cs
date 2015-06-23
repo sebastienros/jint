@@ -181,7 +181,7 @@ namespace Jint.Native.Array
                     var selected = callable.Call(thisArg, new [] { kvalue, k, o });
                     if (TypeConverter.ToBoolean(selected))
                     {
-                        a.DefineOwnProperty(to.ToString(), new PropertyDescriptor(kvalue, true, true, true), false);
+                        a.DefineOwnProperty(to.ToString(), new PropertyDescriptor(kvalue, DescriptorAttributes.All), false);
                         to++;
                     }
                 }
@@ -214,7 +214,7 @@ namespace Jint.Native.Array
                 {
                     var kvalue = o.Get(pk);
                     var mappedValue = callable.Call(thisArg, new [] { kvalue, k, o });
-                    a.DefineOwnProperty(pk, new PropertyDescriptor(mappedValue, true, true, true), false);
+                    a.DefineOwnProperty(pk, new PropertyDescriptor(mappedValue, DescriptorAttributes.All), false);
                 }
             }
 
@@ -388,7 +388,7 @@ namespace Jint.Native.Array
                 if (fromPresent)
                 {
                     var fromValue = o.Get(from); 
-                    a.DefineOwnProperty(k.ToString(), new PropertyDescriptor(fromValue, true, true, true), false);
+                    a.DefineOwnProperty(k.ToString(), new PropertyDescriptor(fromValue, DescriptorAttributes.All), false);
                 }
             }
             
@@ -605,7 +605,7 @@ namespace Jint.Native.Array
                 {
                     var kValue = o.Get(pk);
                     a.DefineOwnProperty(TypeConverter.ToString(n),
-                                        new PropertyDescriptor(kValue, true, true, true), false);
+                                        new PropertyDescriptor(kValue, DescriptorAttributes.All), false);
                 }
                 n++;
             }
@@ -788,21 +788,21 @@ namespace Jint.Native.Array
                         if (exists)
                         {
                             var subElement = eArray.Get(p);
-                            a.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(subElement, true, true, true), false);
+                            a.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(subElement, DescriptorAttributes.All), false);
                         }
                         n++;
                     }
                 }
                 else
                 {
-                    a.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(e, true, true, true ), false);
+                    a.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(e, DescriptorAttributes.All), false);
                     n++;
                 }
             }
 
             // this is not in the specs, but is necessary in case the last element of the last
             // array doesn't exist, and thus the length would not be incremented
-            a.DefineOwnProperty("length", new PropertyDescriptor(n, null, null, null), false);
+            a.DefineOwnProperty("length", new PropertyDescriptor(n), false);
             
             return a;
         }

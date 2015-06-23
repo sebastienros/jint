@@ -81,7 +81,7 @@ namespace Jint.Native.RegExp
             {
                 // "aaa".match() => [ '', index: 0, input: 'aaa' ]
                 var aa = InitReturnValueArray(Engine.Array.Construct(Arguments.Empty), s, 1, 0);
-                aa.DefineOwnProperty("0", new PropertyDescriptor("", true, true, true), true);
+                aa.DefineOwnProperty("0", new PropertyDescriptor("", DescriptorAttributes.All), true);
                 return aa;
             }
 
@@ -115,7 +115,7 @@ namespace Jint.Native.RegExp
             {
                 var group = r.Groups[k];
                 var value = group.Success ? group.Value : Undefined.Instance;
-                a.DefineOwnProperty(k.ToString(), new PropertyDescriptor(value, true, true, true), true);            
+                a.DefineOwnProperty(k.ToString(), new PropertyDescriptor(value, DescriptorAttributes.All), true);            
             }
 
             return a;
@@ -123,9 +123,9 @@ namespace Jint.Native.RegExp
 
         private static Object.ObjectInstance InitReturnValueArray(Object.ObjectInstance array, string inputValue, int lengthValue, int indexValue)
         {
-            array.DefineOwnProperty("index", new PropertyDescriptor(indexValue, writable: true, enumerable: true, configurable: true), true);
-            array.DefineOwnProperty("input", new PropertyDescriptor(inputValue, writable: true, enumerable: true, configurable: true), true);
-            array.DefineOwnProperty("length", new PropertyDescriptor(value: lengthValue, writable: false, enumerable: false, configurable: false), true);
+            array.DefineOwnProperty("index", new PropertyDescriptor(indexValue, DescriptorAttributes.All), true);
+            array.DefineOwnProperty("input", new PropertyDescriptor(inputValue, DescriptorAttributes.All), true);
+            array.DefineOwnProperty("length", new PropertyDescriptor(value: lengthValue), true);
             return array;
         }
     }

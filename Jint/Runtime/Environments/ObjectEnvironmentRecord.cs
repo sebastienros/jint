@@ -34,7 +34,7 @@ namespace Jint.Runtime.Environments
         /// <param name="configurable"></param>
         public override void CreateMutableBinding(string name, bool configurable = true)
         {
-            _bindingObject.DefineOwnProperty(name, new PropertyDescriptor(Undefined.Instance, true, true, configurable), true);
+            _bindingObject.DefineOwnProperty(name, new PropertyDescriptor(Undefined.Instance).WithAttributes(true, true, configurable), true);
         }
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)

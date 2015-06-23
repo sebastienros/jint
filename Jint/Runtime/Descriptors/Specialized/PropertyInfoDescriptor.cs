@@ -16,7 +16,9 @@ namespace Jint.Runtime.Descriptors.Specialized
             _propertyInfo = propertyInfo;
             _item = item;
 
-            Writable = propertyInfo.CanWrite;
+            if (propertyInfo.CanWrite) {
+                WithWritable();
+            }
         }
 
         public override JsValue? Value
