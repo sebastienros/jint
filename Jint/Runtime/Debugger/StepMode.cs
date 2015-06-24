@@ -4,6 +4,7 @@
     {
         None,
         Over,
-        Into
+        Into,
+        Out
     }
 }
