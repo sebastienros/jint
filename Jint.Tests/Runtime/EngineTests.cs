@@ -1356,16 +1356,16 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldNotStepInSameLevelStatementsWhenStepOver()
+        public void ShouldNotStepInSameLevelStatementsWhenStepOut()
         {
             countBreak = 0;
-            stepMode = StepMode.Over;
+            stepMode = StepMode.Out;
 
             var engine = new Engine(options => options.DebugMode());
 
             engine.Step += EngineStep;
 
-            engine.Execute(@"function func() // first step - then stepping over
+            engine.Execute(@"function func() // first step - then stepping out
                 {
                     ; // shall not step
                     ; // not even here
@@ -1379,28 +1379,28 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldNotStepInIfRequiredToStepOver()
+        public void ShouldNotStepInIfRequiredToStepOut()
         {
             countBreak = 0;
             
             var engine = new Engine(options => options.DebugMode());
 
-            engine.Step += EngineStepOverWhenInsideFunction;
+            engine.Step += EngineStepOutWhenInsideFunction;
 
             engine.Execute(@"function func() // first step
                 {
-                    ; // third step - now stepping over
+                    ; // third step - now stepping out
                     ; // it should not step here
                 }
                 func(); // second step                 
                 ; // fourth step ");
 
-            engine.Step -= EngineStepOverWhenInsideFunction;
+            engine.Step -= EngineStepOutWhenInsideFunction;
 
             Assert.Equal(4, countBreak);
         }
 
-        private StepMode EngineStepOverWhenInsideFunction(object sender, DebugInformation debugInfo)
+        private StepMode EngineStepOutWhenInsideFunction(object sender, DebugInformation debugInfo)
         {
             Assert.NotNull(sender);
             Assert.IsType(typeof(Engine), sender);
@@ -1408,7 +1408,7 @@ namespace Jint.Tests.Runtime
 
             countBreak++;
             if (debugInfo.CallStack.Count > 0)
-                return StepMode.Over;
+                return StepMode.Out;
             
             return StepMode.Into;
         }
@@ -1434,6 +1434,51 @@ namespace Jint.Tests.Runtime
             engine.Break -= EngineStep;
 
             Assert.Equal(1, countBreak);
+        }
+
+        [Fact]
+        public void ShouldNotStepInsideIfRequiredToStepOver()
+        {
+            countBreak = 0;
+            
+            var engine = new Engine(options => options.DebugMode());
+
+            stepMode = StepMode.Over;
+            engine.Step += EngineStep;
+
+            engine.Execute(@"function func() // first step
+                {
+                    ; // third step - it shall not step here
+                    ; // it shall not step here
+                }
+                func(); // second step                 
+                ; // third step ");
+
+            engine.Step -= EngineStep;
+
+            Assert.Equal(3, countBreak);
+        }
+
+        [Fact]
+        public void ShouldStepAllStatementsWithoutInvocationsIfStepOver()
+        {
+            countBreak = 0;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            stepMode = StepMode.Over;
+            engine.Step += EngineStep;
+
+            engine.Execute(@"var step1 = 1; // first step
+                var step2 = 2; // second step                 
+                if (step1 !== step2) // third step
+                { // fourth step
+                    ; // fifth step
+                }");
+
+            engine.Step -= EngineStep;
+
+            Assert.Equal(5, countBreak);
         }
     }
 }
