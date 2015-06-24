@@ -28,7 +28,12 @@ namespace Jint.Runtime.Debugger
             {
                 _debugCallStack.Pop();
             }
-            if (_stepMode == StepMode.Over && _debugCallStack.Count < _callBackStepOverDepth)
+            if (_stepMode == StepMode.Out && _debugCallStack.Count < _callBackStepOverDepth)
+            {
+                _callBackStepOverDepth = _debugCallStack.Count;
+                _stepMode = StepMode.Into;
+            }
+            else if (_stepMode == StepMode.Over && _debugCallStack.Count == _callBackStepOverDepth)
             {
                 _callBackStepOverDepth = _debugCallStack.Count;
                 _stepMode = StepMode.Into;
@@ -94,9 +99,21 @@ namespace Jint.Runtime.Debugger
                 }
             }
 
-            if (old == StepMode.Into && _stepMode == StepMode.Over)
+            if (old == StepMode.Into && _stepMode == StepMode.Out)
             {
                 _callBackStepOverDepth = _debugCallStack.Count;
+            }
+            else if (old == StepMode.Into && _stepMode == StepMode.Over)
+            {
+                var expressionStatement = statement as ExpressionStatement;
+                if (expressionStatement != null && expressionStatement.Expression is CallExpression)
+                {
+                    _callBackStepOverDepth = _debugCallStack.Count;
+                }
+                else
+                {
+                    _stepMode = StepMode.Into;
+                }
             }
         }
 
