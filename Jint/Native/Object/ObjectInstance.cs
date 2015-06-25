@@ -407,9 +407,9 @@ namespace Jint.Native.Object
                 current.Writable == desc.Writable &&
                 current.Enumerable == desc.Enumerable &&
 
-                (!current.Get.HasValue && !desc.Get.HasValue) || (current.Get.HasValue && desc.Get.HasValue && ExpressionInterpreter.SameValue(current.Get.Value, desc.Get.Value)) &&
-                (!current.Set.HasValue && !desc.Set.HasValue) || (current.Set.HasValue && desc.Set.HasValue && ExpressionInterpreter.SameValue(current.Set.Value, desc.Set.Value)) &&
-                (!current.Value.HasValue && !desc.Value.HasValue) || (current.Value.HasValue && desc.Value.HasValue && (current.Value.Value.Type == desc.Value.Value.Type) && ExpressionInterpreter.SameValue(current.Value.Value, desc.Value.Value))
+                ((!current.Get.HasValue && !desc.Get.HasValue) || (current.Get.HasValue && desc.Get.HasValue && ExpressionInterpreter.SameValue(current.Get.Value, desc.Get.Value))) &&
+                ((!current.Set.HasValue && !desc.Set.HasValue) || (current.Set.HasValue && desc.Set.HasValue && ExpressionInterpreter.SameValue(current.Set.Value, desc.Set.Value))) &&
+                ((!current.Value.HasValue && !desc.Value.HasValue) || (current.Value.HasValue && desc.Value.HasValue && (current.Value.Value.Type == desc.Value.Value.Type) && ExpressionInterpreter.SameValue(current.Value.Value, desc.Value.Value)))
             ) {
                 return true;
             }
