@@ -9,7 +9,7 @@ namespace Jint.Native.Object
         public ObjectInstance(Engine engine)
         {
             Engine = engine;
-            Properties = new Dictionary<string, PropertyDescriptor>();
+            Properties = new MruPropertyCache<string, PropertyDescriptor>(3);
         }
 
         public Engine Engine { get; set; }
@@ -68,10 +68,6 @@ namespace Jint.Native.Object
             return callable.Call(this, Arguments.Empty);
         }
 
-        // memorizing the latest accessed property
-        string _recentPropertyName = "";
-        PropertyDescriptor _recentProperty = null;
-
         /// <summary>
         /// Returns the Property Descriptor of the named 
         /// own property of this object, or undefined if 
@@ -82,10 +78,6 @@ namespace Jint.Native.Object
         /// <returns></returns>
         public virtual PropertyDescriptor GetOwnProperty(string propertyName)
         {
-            if (_recentPropertyName == propertyName && _recentProperty != null) {
-                return _recentProperty;
-            }
-
             PropertyDescriptor x;
             if (Properties.TryGetValue(propertyName, out x))
             {
@@ -104,10 +96,6 @@ namespace Jint.Native.Object
                 */
 
                 // optimmized implementation
-
-                _recentPropertyName = propertyName;
-                _recentProperty = x;
-
                 return x;
             }
             
@@ -275,8 +263,6 @@ namespace Jint.Native.Object
 
             if (desc.Configurable.HasValue && desc.Configurable.Value)
             {
-                _recentProperty = null;
-
                 Properties.Remove(propertyName);
                 return true;
             }
@@ -382,11 +368,9 @@ namespace Jint.Native.Object
                 }
                 else
                 {
-                    _recentPropertyName = propertyName;
-
                     if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
                     {
-                        Properties[propertyName] = _recentProperty = new PropertyDescriptor(desc)
+                        Properties[propertyName] = new PropertyDescriptor(desc)
                         {
                             Value = desc.Value.HasValue ? desc.Value : JsValue.Undefined,
                             Writable = desc.Writable.HasValue ? desc.Writable : false
@@ -394,7 +378,7 @@ namespace Jint.Native.Object
                     }
                     else
                     {
-                        Properties[propertyName] = _recentProperty = new PropertyDescriptor(desc)
+                        Properties[propertyName] = new PropertyDescriptor(desc)
                         {
                             Enumerable = desc.Enumerable.HasValue ? desc.Enumerable : false,
                             Configurable = desc.Configurable.HasValue ? desc.Configurable : false,
@@ -414,9 +398,6 @@ namespace Jint.Native.Object
                 !current.Value.HasValue)
             {
 
-                _recentPropertyName = propertyName;
-                _recentProperty = current;
-
                 return true;
             }
 
@@ -430,9 +411,6 @@ namespace Jint.Native.Object
                 (!current.Set.HasValue && !desc.Set.HasValue) || (current.Set.HasValue && desc.Set.HasValue && ExpressionInterpreter.SameValue(current.Set.Value, desc.Set.Value)) &&
                 (!current.Value.HasValue && !desc.Value.HasValue) || (current.Value.HasValue && desc.Value.HasValue && (current.Value.Value.Type == desc.Value.Value.Type) && ExpressionInterpreter.SameValue(current.Value.Value, desc.Value.Value))
             ) {
-                _recentPropertyName = propertyName;
-                _recentProperty = current;
-
                 return true;
             }
 
@@ -474,11 +452,9 @@ namespace Jint.Native.Object
                         return false;
                     }
 
-                    _recentPropertyName = propertyName;
-
                     if (current.IsDataDescriptor())
                     {
-                        Properties[propertyName] = _recentProperty = current = new PropertyDescriptor(
+                        Properties[propertyName] = current = new PropertyDescriptor(
                             get: Undefined.Instance,
                             set: Undefined.Instance,
                             enumerable: current.Enumerable.HasValue && current.Enumerable.Value,
@@ -487,7 +463,7 @@ namespace Jint.Native.Object
                     }
                     else
                     {
-                        Properties[propertyName] = _recentProperty = current = new PropertyDescriptor(
+                        Properties[propertyName] = current = new PropertyDescriptor(
                             value: Undefined.Instance, 
                             writable: null,
                             enumerable: current.Enumerable.HasValue && current.Enumerable.Value,
@@ -572,9 +548,6 @@ namespace Jint.Native.Object
                 current.Set = desc.Set;
             }
 
-            _recentPropertyName = propertyName;
-            _recentProperty = current;
-
             return true;
         }
 
@@ -588,8 +561,7 @@ namespace Jint.Native.Object
         /// <param name="enumerable"></param>
         public void FastAddProperty(string name, JsValue value, bool writable, bool enumerable, bool configurable)
         {
-            _recentPropertyName = name;
-            Properties.Add(name, _recentProperty = new PropertyDescriptor(value, writable, enumerable, configurable));
+            Properties.Add(name, new PropertyDescriptor(value, writable, enumerable, configurable));
         }
 
         /// <summary>
@@ -599,8 +571,7 @@ namespace Jint.Native.Object
         /// <param name="value"></param>
         public void FastSetProperty(string name, PropertyDescriptor value)
         {
-            _recentPropertyName = name;
-            Properties[name] = _recentProperty = value;
+            Properties[name] = value;
         }
 
         public override string ToString()

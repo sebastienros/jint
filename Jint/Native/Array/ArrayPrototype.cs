@@ -886,7 +886,13 @@ namespace Jint.Native.Array
             var lenVal = TypeConverter.ToNumber(o.Get("length"));
             
             // cast to double as we need to prevent an overflow
-            double n = TypeConverter.ToUint32(lenVal);
+            uint n = TypeConverter.ToUint32(lenVal);
+
+            if(n + lenVal > uint.MaxValue) 
+            {
+                throw new JavaScriptException(Engine.RangeError);
+            }
+
             foreach (JsValue e in arguments)
             {
                 o.Put(TypeConverter.ToString(n), e, true);
