@@ -211,7 +211,7 @@ namespace Jint.Native.Object
                     return true;
                 }
 
-                return desc.Writable.HasValue && desc.Writable.Value.AsBoolean();
+                return desc.Writable.HasValue && desc.Writable.Value;
             }
 
             if (Prototype == null)
@@ -242,7 +242,7 @@ namespace Jint.Native.Object
             }
             else
             {
-                return inherited.Writable.HasValue && inherited.Writable.Value.AsBoolean();
+                return inherited.Writable.HasValue && inherited.Writable.Value;
             }
         }
 
@@ -275,7 +275,7 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            if (desc.Configurable.HasValue && desc.Configurable.Value.AsBoolean())
+            if (desc.Configurable.HasValue && desc.Configurable.Value)
             {
                 Properties.Remove(propertyName);
                 return true;
@@ -432,9 +432,9 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            if (!current.Configurable.HasValue || !current.Configurable.Value.AsBoolean())
+            if (!current.Configurable.HasValue || !current.Configurable.Value)
             {
-                if (desc.Configurable.HasValue && desc.Configurable.Value.AsBoolean())
+                if (desc.Configurable.HasValue && desc.Configurable.Value)
                 {
                     if (throwOnError)
                     {
@@ -460,7 +460,7 @@ namespace Jint.Native.Object
 
                 if (current.IsDataDescriptor() != desc.IsDataDescriptor())
                 {
-                    if (!current.Configurable.HasValue || !current.Configurable.Value.AsBoolean())
+                    if (!current.Configurable.HasValue || !current.Configurable.Value)
                     {
                         if (throwOnError)
                         {
@@ -475,8 +475,8 @@ namespace Jint.Native.Object
                         Properties[propertyName] = current = new PropertyDescriptor(
                             get: Undefined.Instance,
                             set: Undefined.Instance,
-                            enumerable: current.Enumerable.HasValue && current.Enumerable.Value.AsBoolean(),
-                            configurable: current.Configurable.HasValue && current.Configurable.Value.AsBoolean()
+                            enumerable: current.Enumerable.HasValue && current.Enumerable.Value,
+                            configurable: current.Configurable.HasValue && current.Configurable.Value
                             );
                     }
                     else
@@ -484,16 +484,16 @@ namespace Jint.Native.Object
                         Properties[propertyName] = current = new PropertyDescriptor(
                             value: Undefined.Instance, 
                             writable: null,
-                            enumerable: current.Enumerable.HasValue && current.Enumerable.Value.AsBoolean(),
-                            configurable: current.Configurable.HasValue && current.Configurable.Value.AsBoolean()
+                            enumerable: current.Enumerable.HasValue && current.Enumerable.Value,
+                            configurable: current.Configurable.HasValue && current.Configurable.Value
                             );
                     }
                 }
                 else if (current.IsDataDescriptor() && desc.IsDataDescriptor())
                 {
-                    if (!current.Configurable.HasValue || current.Configurable.Value.AsBoolean() == false)
+                    if (!current.Configurable.HasValue || current.Configurable.Value == false)
                     {
-                        if (!current.Writable.HasValue || !current.Writable.Value.AsBoolean() && desc.Writable.HasValue && desc.Writable.Value.AsBoolean())
+                        if (!current.Writable.HasValue || !current.Writable.Value && desc.Writable.HasValue && desc.Writable.Value)
                         {
                             if (throwOnError)
                             {
@@ -503,7 +503,7 @@ namespace Jint.Native.Object
                             return false;
                         }
 
-                        if (!current.Writable.Value.AsBoolean())
+                        if (!current.Writable.Value)
                         {
                             if (desc.Value.HasValue && !ExpressionInterpreter.SameValue(desc.Value.Value, current.Value.Value))
                             {
@@ -519,7 +519,7 @@ namespace Jint.Native.Object
                 }
                 else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())
                 {
-                    if (!current.Configurable.HasValue || !current.Configurable.Value.AsBoolean())
+                    if (!current.Configurable.HasValue || !current.Configurable.Value)
                     {
                         if ((desc.Set.HasValue && !ExpressionInterpreter.SameValue(desc.Set.Value, current.Set.HasValue ? current.Set.Value : Undefined.Instance))
                             ||
