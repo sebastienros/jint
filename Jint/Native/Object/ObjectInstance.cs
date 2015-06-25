@@ -69,7 +69,11 @@ namespace Jint.Native.Object
             var callable = getter.TryCast<ICallable>();
             return callable.Call(this, Arguments.Empty);
         }
-        
+
+        // memorizing the latest accessed property
+        string _recentPropertyName = "";
+        PropertyDescriptor _recentProperty = null;
+
         /// <summary>
         /// Returns the Property Descriptor of the named 
         /// own property of this object, or undefined if 
@@ -80,6 +84,10 @@ namespace Jint.Native.Object
         /// <returns></returns>
         public virtual PropertyDescriptor GetOwnProperty(string propertyName)
         {
+            if (_recentPropertyName == propertyName && _recentProperty != null) {
+                return _recentProperty;
+            }
+
             PropertyDescriptor x;
             if (Properties.TryGetValue(propertyName, out x))
             {
@@ -98,6 +106,10 @@ namespace Jint.Native.Object
                 */
 
                 // optimmized implementation
+
+                _recentPropertyName = propertyName;
+                _recentProperty = x;
+
                 return x;
             }
             
@@ -150,7 +162,12 @@ namespace Jint.Native.Object
 
             if (ownDesc.IsDataDescriptor())
             {
-                var valueDesc = new PropertyDescriptor(value: value, writable: null, enumerable:null, configurable:null);
+                if (ownDesc != PropertyDescriptor.Undefined) {
+                    ownDesc.Value = value;
+                    return;
+                }
+
+                var valueDesc = new PropertyDescriptor(value: value, writable: null, enumerable: null, configurable: null);
                 DefineOwnProperty(propertyName, valueDesc, throwOnError);
                 return;
             }
@@ -347,7 +364,14 @@ namespace Jint.Native.Object
         public virtual bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             var current = GetOwnProperty(propertyName);
-            
+
+            if (current == desc) {
+                return true;
+            }
+
+            _recentPropertyName = null;
+            _recentProperty = null;
+
             if (current == PropertyDescriptor.Undefined)
             {
                 if (!Extensible)
@@ -361,9 +385,11 @@ namespace Jint.Native.Object
                 }
                 else
                 {
+                    _recentPropertyName = propertyName;
+
                     if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
                     {
-                        Properties[propertyName] = new PropertyDescriptor(desc)
+                        Properties[propertyName] = _recentProperty = new PropertyDescriptor(desc)
                         {
                             Value = desc.Value.HasValue ? desc.Value : JsValue.Undefined,
                             Writable = desc.Writable.HasValue ? desc.Writable : false
@@ -371,7 +397,7 @@ namespace Jint.Native.Object
                     }
                     else
                     {
-                        Properties[propertyName] = new PropertyDescriptor(desc)
+                        Properties[propertyName] = _recentProperty = new PropertyDescriptor(desc)
                         {
                             Enumerable = desc.Enumerable.HasValue ? desc.Enumerable : false,
                             Configurable = desc.Configurable.HasValue ? desc.Configurable : false,
