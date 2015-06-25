@@ -113,7 +113,7 @@ namespace Jint.Native.Json
             }
 
             var wrapper = _engine.Object.Construct(Arguments.Empty);
-            wrapper.DefineOwnProperty("", new PropertyDescriptor(value, true, true, true), false);
+            wrapper.DefineOwnProperty("", new PropertyDescriptor(value, DescriptorAttributes.All), false);
 
             return Str("", wrapper);
         }
@@ -317,7 +317,7 @@ namespace Jint.Native.Json
             _indent += _gap;
             
             var k = _propertyList ?? value.Properties
-                .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value == true)
+                .Where(x => x.Value.Enumerable)
                 .Select(x => x.Key)
                 .ToList();
 

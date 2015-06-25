@@ -46,7 +46,7 @@ namespace Jint.Native.Argument
                         Func<JsValue, JsValue> g = n => env.GetBindingValue(name, false);
                         var p = new Action<JsValue, JsValue>((n, o) => env.SetMutableBinding(name, o, true));
 
-                        map.DefineOwnProperty(indxStr, new ClrAccessDescriptor(engine, g, p) { Configurable = true }, false);
+                        map.DefineOwnProperty(indxStr, new ClrAccessDescriptor(engine, g, p) { Attributes = DescriptorAttributes.Configurable }, false);
                     }
                 }
                 indx++;
@@ -67,8 +67,8 @@ namespace Jint.Native.Argument
             else
             {
                 var thrower = engine.Function.ThrowTypeError;
-                obj.DefineOwnProperty("caller", new PropertyDescriptor(get: thrower, set: thrower, enumerable:false, configurable:false), false);
-                obj.DefineOwnProperty("callee", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
+                obj.DefineOwnProperty("caller", new PropertyDescriptor(get: thrower, set: thrower, attributes: DescriptorAttributes.None), false);
+                obj.DefineOwnProperty("callee", new PropertyDescriptor(get: thrower, set: thrower, attributes: DescriptorAttributes.None), false);
             }
 
             return obj;
@@ -134,7 +134,7 @@ namespace Jint.Native.Argument
                             map.Put(propertyName, desc.Value.Value, throwOnError);
                         }
 
-                        if (desc.Writable.HasValue && desc.Writable.Value == false)
+                        if (desc.Writable)
                         {
                             map.Delete(propertyName, false);
                         }

@@ -149,7 +149,7 @@ namespace Jint.Runtime.Interop
                 {
                     if (enumNames.GetValue(i) as string == propertyName)
                     {
-                        return new PropertyDescriptor((int)enumValues.GetValue(i), false, false, false);
+                        return new PropertyDescriptor((int)enumValues.GetValue(i));
                     }
                 }
                 return PropertyDescriptor.Undefined;
@@ -177,7 +177,7 @@ namespace Jint.Runtime.Interop
                 return PropertyDescriptor.Undefined;
             }
 
-            return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methodInfo), false, false, false);
+            return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methodInfo));
         }
 
         public object Target

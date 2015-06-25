@@ -45,7 +45,7 @@ namespace Jint.Native.Array
                 {
                     return base.DefineOwnProperty("length", newLenDesc, throwOnError);
                 }
-                if (!oldLenDesc.Writable.Value.AsBoolean())
+                if (!oldLenDesc.Writable)
                 {
                     if (throwOnError)
                     {
@@ -55,14 +55,14 @@ namespace Jint.Native.Array
                     return false;
                 }
                 bool newWritable;
-                if (!newLenDesc.Writable.HasValue || newLenDesc.Writable.Value.AsBoolean())
+                if (!newLenDesc.Writable)
                 {
                     newWritable = true;
                 }
                 else
                 {
                     newWritable = false;
-                    newLenDesc.Writable = true;
+                    newLenDesc.WithWritable();
                 }
                 
                 var succeeded = base.DefineOwnProperty("length", newLenDesc, throwOnError);
@@ -88,7 +88,7 @@ namespace Jint.Native.Array
                                 newLenDesc.Value = new JsValue(index + 1);
                                 if (!newWritable)
                                 {
-                                    newLenDesc.Writable = JsValue.False;
+                                    newLenDesc.WithNotWritable();
                                 }
                                 base.DefineOwnProperty("length", newLenDesc, false);
                                 if (throwOnError)
@@ -113,7 +113,7 @@ namespace Jint.Native.Array
                             newLenDesc.Value = oldLen + 1;
                             if (!newWritable)
                             {
-                                newLenDesc.Writable = false;
+                                newLenDesc.WithNotWritable();
                             }
                             base.DefineOwnProperty("length", newLenDesc, false);
                             if (throwOnError)
@@ -127,14 +127,14 @@ namespace Jint.Native.Array
                 }
                 if (!newWritable)
                 {
-                    DefineOwnProperty("length", new PropertyDescriptor(value: null, writable: false, enumerable: null, configurable: null), false);
+                    DefineOwnProperty("length", new PropertyDescriptor(value: null), false);
                 }
                 return true;
             }
             else if (IsArrayIndex(propertyName))
             {
                 var index = TypeConverter.ToUint32(propertyName);
-                if (index >= oldLen && !oldLenDesc.Writable.Value.AsBoolean())
+                if (index >= oldLen && !oldLenDesc.Writable)
                 {
                     if (throwOnError)
                     {

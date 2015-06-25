@@ -244,7 +244,7 @@ namespace Jint.Runtime
                     }
 
                     var value = cursor.Properties[p];
-                    if (!value.Enumerable.HasValue || !value.Enumerable.Value.AsBoolean())
+                    if (!value.Enumerable)
                     {
                         continue;
                     }

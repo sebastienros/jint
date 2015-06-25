@@ -518,7 +518,7 @@ namespace Jint.Native
 
                             foreach (var p in _object.Properties)
                             {
-                                if (!p.Value.Enumerable.HasValue || p.Value.Enumerable.Value == false)
+                                if (!p.Value.Enumerable)
                                 {
                                     continue;
                                 }

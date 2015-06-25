@@ -261,7 +261,7 @@ namespace Jint.Native.String
 
                 if (!match.Success) // No match at all return the string in an array
                 {
-                    a.DefineOwnProperty("0", new PropertyDescriptor(s, true, true, true), false);
+                    a.DefineOwnProperty("0", new PropertyDescriptor(s, DescriptorAttributes.All), false);
                     return a;
                 }
 
@@ -276,7 +276,7 @@ namespace Jint.Native.String
                     }
 
                     // Add the match results to the array.
-                    a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(s.Substring(lastIndex, match.Index - lastIndex), true, true, true), false);
+                    a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(s.Substring(lastIndex, match.Index - lastIndex), DescriptorAttributes.All), false);
                     
                     if (index >= limit)
                     {
@@ -293,7 +293,7 @@ namespace Jint.Native.String
                             item = match.Groups[i].Value;
                         }
 
-                        a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(item, true, true, true ), false);
+                        a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(item, DescriptorAttributes.All), false);
 
                         if (index >= limit)
                         {
@@ -304,7 +304,7 @@ namespace Jint.Native.String
                     match = match.NextMatch();
                     if (!match.Success) // Add the last part of the split
                     {
-                        a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(s.Substring(lastIndex), true, true, true), false);                        
+                        a.DefineOwnProperty(index++.ToString(), new PropertyDescriptor(s.Substring(lastIndex), DescriptorAttributes.All), false);                        
                     }
                 }
 
@@ -329,7 +329,7 @@ namespace Jint.Native.String
 
                 for (int i = 0; i < segments.Count && i < limit; i++)
                 {
-                    a.DefineOwnProperty(i.ToString(), new PropertyDescriptor(segments[i], true, true, true), false);
+                    a.DefineOwnProperty(i.ToString(), new PropertyDescriptor(segments[i], DescriptorAttributes.All), false);
                 }
             
                 return a;
@@ -590,7 +590,7 @@ namespace Jint.Native.String
                         }
 
                         var matchStr = result.Get("0");
-                        a.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(matchStr, true, true, true), false);
+                        a.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(matchStr, DescriptorAttributes.All), false);
                         n++;
                     }
                 }
