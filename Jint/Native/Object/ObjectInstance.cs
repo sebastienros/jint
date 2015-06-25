@@ -389,13 +389,8 @@ namespace Jint.Native.Object
             }
 
             // Step 6
-            var configurableIsSame = current.Configurable
-                ? desc.Configurable && (current.Configurable)
-                : !desc.Configurable;
-
-            var enumerableIsSame = current.Enumerable
-                ? desc.Enumerable && (current.Enumerable)
-                : !desc.Enumerable;
+            var configurableIsSame = current.Configurable == desc.Configurable;
+            var enumerableIsSame = current.Enumerable == desc.Enumerable;
 
             var writableIsSame = true;
             var valueIsSame = true;

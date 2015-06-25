@@ -177,8 +177,8 @@ namespace Jint.Runtime.Descriptors
             }
             else
             {
-                obj.DefineOwnProperty("get", new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, DescriptorAttributes.None ), false);
-                obj.DefineOwnProperty("set", new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, DescriptorAttributes.None), false);
+                obj.DefineOwnProperty("get", new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, DescriptorAttributes.All), false);
+                obj.DefineOwnProperty("set", new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, DescriptorAttributes.All), false);
             }
 
             obj.DefineOwnProperty("enumerable", new PropertyDescriptor(desc.Enumerable, DescriptorAttributes.All), false);
