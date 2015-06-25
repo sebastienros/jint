@@ -394,66 +394,15 @@ namespace Jint.Native.Object
             }
 
             // Step 6
-            var configurableIsSame = current.Configurable.HasValue
-                ? desc.Configurable.HasValue && (current.Configurable.Value == desc.Configurable.Value)
-                : !desc.Configurable.HasValue;
+            if (
+                current.Configurable == desc.Configurable &&
+                current.Writable == desc.Writable &&
+                current.Enumerable == desc.Enumerable &&
 
-            var enumerableIsSame = current.Enumerable.HasValue
-                ? desc.Enumerable.HasValue && (current.Enumerable.Value == desc.Enumerable.Value)
-                : !desc.Enumerable.HasValue;
-
-            var writableIsSame = true;
-            var valueIsSame = true;
-
-            if (current.IsDataDescriptor() && desc.IsDataDescriptor())
-            {
-                var currentDataDescriptor = current;
-                var descDataDescriptor = desc;
-                writableIsSame = currentDataDescriptor.Writable.HasValue
-                ? descDataDescriptor.Writable.HasValue && (currentDataDescriptor.Writable.Value == descDataDescriptor.Writable.Value)
-                : !descDataDescriptor.Writable.HasValue;
-
-                var valueA = currentDataDescriptor.Value.HasValue
-                    ? currentDataDescriptor.Value.Value
-                    : Undefined.Instance;
-
-                var valueB = descDataDescriptor.Value.HasValue
-                                    ? descDataDescriptor.Value.Value
-                                    : Undefined.Instance;
-
-                valueIsSame = ExpressionInterpreter.SameValue(valueA, valueB);
-            }
-            else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())
-            {
-                var currentAccessorDescriptor = current;
-                var descAccessorDescriptor = desc;
-
-                var getValueA = currentAccessorDescriptor.Get.HasValue
-                    ? currentAccessorDescriptor.Get.Value
-                    : Undefined.Instance;
-
-                var getValueB = descAccessorDescriptor.Get.HasValue
-                                    ? descAccessorDescriptor.Get.Value
-                                    : Undefined.Instance;
-
-                var setValueA = currentAccessorDescriptor.Set.HasValue
-                   ? currentAccessorDescriptor.Set.Value
-                   : Undefined.Instance;
-
-                var setValueB = descAccessorDescriptor.Set.HasValue
-                                    ? descAccessorDescriptor.Set.Value
-                                    : Undefined.Instance;
-
-                valueIsSame = ExpressionInterpreter.SameValue(getValueA, getValueB)
-                              && ExpressionInterpreter.SameValue(setValueA, setValueB);
-            }
-            else
-            {
-                valueIsSame = false;
-            }
-
-            if (configurableIsSame && enumerableIsSame && writableIsSame && valueIsSame)
-            {
+                (!current.Get.HasValue && !desc.Get.HasValue) || (current.Get.HasValue && desc.Get.HasValue && ExpressionInterpreter.SameValue(current.Get.Value, desc.Get.Value)) &&
+                (!current.Set.HasValue && !desc.Set.HasValue) || (current.Set.HasValue && desc.Set.HasValue && ExpressionInterpreter.SameValue(current.Set.Value, desc.Set.Value)) &&
+                (!current.Value.HasValue && !desc.Value.HasValue) || (current.Value.HasValue && desc.Value.HasValue && ExpressionInterpreter.SameValue(current.Value.Value, desc.Value.Value))
+            ) {
                 return true;
             }
 
@@ -530,7 +479,7 @@ namespace Jint.Native.Object
 
                         if (!current.Writable.Value.AsBoolean())
                         {
-                            if (desc.Value.HasValue && !valueIsSame)
+                            if (desc.Value.HasValue && !ExpressionInterpreter.SameValue(desc.Value.Value, current.Value.Value))
                             {
                                 if (throwOnError)
                                 {
