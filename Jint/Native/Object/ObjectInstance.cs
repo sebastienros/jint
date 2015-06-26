@@ -20,7 +20,7 @@ namespace Jint.Native.Object
         /// The prototype of this object.
         /// </summary>
         public ObjectInstance Prototype { get; set; }
-        
+
         /// <summary>
         /// If true, own properties may be added to the 
         /// object.
@@ -98,7 +98,7 @@ namespace Jint.Native.Object
                 // optimmized implementation
                 return x;
             }
-            
+
             return PropertyDescriptor.Undefined;
         }
 
@@ -115,8 +115,8 @@ namespace Jint.Native.Object
             {
                 return prop;
             }
-            
-            if(Prototype == null)
+
+            if (Prototype == null)
             {
                 return PropertyDescriptor.Undefined;
             }
@@ -159,7 +159,7 @@ namespace Jint.Native.Object
             if (desc.IsAccessorDescriptor())
             {
                 var setter = desc.Set.Value.TryCast<ICallable>();
-                setter.Call(new JsValue(this), new [] {value});
+                setter.Call(new JsValue(this), new[] { value });
             }
             else
             {
@@ -250,7 +250,7 @@ namespace Jint.Native.Object
         public virtual bool Delete(string propertyName, bool throwOnError)
         {
             var desc = GetOwnProperty(propertyName);
-            
+
             if (desc == PropertyDescriptor.Undefined)
             {
                 return true;
@@ -385,7 +385,7 @@ namespace Jint.Native.Object
             }
 
             // Step 5
-            if (!current.Configurable.HasValue && 
+            if (!current.Configurable.HasValue &&
                 !current.Enumerable.HasValue &&
                 !current.Writable.HasValue &&
                 !current.Get.HasValue &&
@@ -398,9 +398,9 @@ namespace Jint.Native.Object
 
             // Step 6
             if (
-                current.Configurable == desc.Configurable &&
-                current.Writable == desc.Writable &&
-                current.Enumerable == desc.Enumerable &&
+                (!desc.Configurable.HasValue || current.Configurable == desc.Configurable) &&
+                (!desc.Writable.HasValue || current.Writable == desc.Writable) &&
+                (!desc.Enumerable.HasValue || current.Enumerable == desc.Enumerable) &&
 
                 ((!current.Get.HasValue && !desc.Get.HasValue) || (current.Get.HasValue && desc.Get.HasValue && ExpressionInterpreter.SameValue(current.Get.Value, desc.Get.Value))) &&
                 ((!current.Set.HasValue && !desc.Set.HasValue) || (current.Set.HasValue && desc.Set.HasValue && ExpressionInterpreter.SameValue(current.Set.Value, desc.Set.Value))) &&
