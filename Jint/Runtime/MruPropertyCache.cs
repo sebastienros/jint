@@ -19,34 +19,37 @@ namespace Jint.Runtime {
             }
         }
 
-        private bool Find(TKey key, out KeyValuePair<TKey, TValue> result) {
-            var cursor = _list.First;
-            while(cursor != null) {
-                if(key.Equals(cursor.Value.Key)) {
-                    result = cursor.Value;
+        private bool Find(TKey key, out LinkedListNode<KeyValuePair<TKey, TValue>> result) {
+            result = _list.First;
+            while(result != null) {
+                if(key.Equals(result.Value.Key)) {
                     return true;
                 }
 
-                cursor = cursor.Next;
+                result = result.Next;
             }
 
             return false;
         }
         public TValue this[TKey key] {
             get {
-                KeyValuePair<TKey, TValue> node;
+                LinkedListNode<KeyValuePair<TKey, TValue>> node;
                 if(Find(key, out node)) {
-                    return node.Value;
+                    return node.Value.Value;
                 }
                 
                 return _dictionary[key];
             }
 
             set {
-                KeyValuePair<TKey, TValue> node;
+                LinkedListNode<KeyValuePair<TKey, TValue>> node;
                 if (!Find(key, out node)) {
                     _list.AddFirst(new KeyValuePair<TKey, TValue>(key, value));
                     _list.RemoveLast();
+                }
+                else
+                {
+                    node.Value = new KeyValuePair<TKey, TValue>(key, value);
                 }
 
                 _dictionary[key] = value;
@@ -78,7 +81,7 @@ namespace Jint.Runtime {
         }
 
         public void Add(KeyValuePair<TKey, TValue> item) {
-            KeyValuePair<TKey, TValue> node;
+            LinkedListNode<KeyValuePair<TKey, TValue>> node;
             if (!Find(item.Key, out node)) {
                 _list.AddFirst(item);
                 _list.RemoveLast();
@@ -88,7 +91,7 @@ namespace Jint.Runtime {
         }
 
         public void Add(TKey key, TValue value) {
-            KeyValuePair<TKey, TValue> node;
+            LinkedListNode<KeyValuePair<TKey, TValue>> node;
             if (!Find(key, out node)) {
                 _list.AddFirst(new KeyValuePair<TKey, TValue>(key, value));
                 _list.RemoveLast();
@@ -102,7 +105,7 @@ namespace Jint.Runtime {
         }
 
         public bool Contains(KeyValuePair<TKey, TValue> item) {
-            KeyValuePair<TKey, TValue> node;
+            LinkedListNode<KeyValuePair<TKey, TValue>> node;
             if (Find(item.Key, out node)) {
                 return true;
             }
@@ -111,7 +114,7 @@ namespace Jint.Runtime {
         }
 
         public bool ContainsKey(TKey key) {
-            KeyValuePair<TKey, TValue> node;
+            LinkedListNode<KeyValuePair<TKey, TValue>> node;
             if (Find(key, out node)) {
                 return true;
             }
@@ -128,8 +131,9 @@ namespace Jint.Runtime {
         }
 
         public bool Remove(KeyValuePair<TKey, TValue> item) {
-            KeyValuePair<TKey, TValue> node;
-            if (Find(item.Key, out node)) {
+            LinkedListNode<KeyValuePair<TKey, TValue>> node;
+            if (Find(item.Key, out node))
+            {
                 _list.Remove(node);
             }
 
@@ -137,8 +141,9 @@ namespace Jint.Runtime {
         }
 
         public bool Remove(TKey key) {
-            KeyValuePair<TKey, TValue> node;
-            if (Find(key, out node)) {
+            LinkedListNode<KeyValuePair<TKey, TValue>> node;
+            if (Find(key, out node))
+            {
                 _list.Remove(node);
             }
 
@@ -146,9 +151,9 @@ namespace Jint.Runtime {
         }
 
         public bool TryGetValue(TKey key, out TValue value) {
-            KeyValuePair<TKey, TValue> node;
+            LinkedListNode<KeyValuePair<TKey, TValue>> node;
             if (Find(key, out node)) {
-                value = node.Value;
+                value = node.Value.Value;
                 return true;
             }
 
