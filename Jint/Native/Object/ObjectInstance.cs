@@ -368,15 +368,17 @@ namespace Jint.Native.Object
                         Properties[propertyName] = new PropertyDescriptor(desc)
                         {
                             Value = desc.Value.HasValue ? desc.Value : JsValue.Undefined,
-                            Writable = desc.Writable,
-                            Enumerable = desc.Enumerable,
-                            Configurable = desc.Configurable
+                            Writable = desc.Writable.HasValue ? desc.Writable.Value : false,
+                            Enumerable = desc.Enumerable.HasValue ? desc.Enumerable.Value : false,
+                            Configurable = desc.Configurable.HasValue ? desc.Configurable.Value : false
                         };
                     }
                     else
                     {
                         Properties[propertyName] = new PropertyDescriptor(desc)
                         {
+                            Get = desc.Get.HasValue ? desc.Get.Value : JsValue.Undefined,
+                            Set = desc.Set.HasValue ? desc.Set.Value : JsValue.Undefined,
                             Enumerable = desc.Enumerable.HasValue ? desc.Enumerable : false,
                             Configurable = desc.Configurable.HasValue ? desc.Configurable : false,
                         };
