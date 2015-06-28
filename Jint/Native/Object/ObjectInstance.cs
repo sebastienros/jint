@@ -368,7 +368,9 @@ namespace Jint.Native.Object
                         Properties[propertyName] = new PropertyDescriptor(desc)
                         {
                             Value = desc.Value.HasValue ? desc.Value : JsValue.Undefined,
-                            Writable = desc.Writable.HasValue ? desc.Writable : false
+                            Writable = desc.Writable,
+                            Enumerable = desc.Enumerable,
+                            Configurable = desc.Configurable
                         };
                     }
                     else
@@ -452,8 +454,8 @@ namespace Jint.Native.Object
                         Properties[propertyName] = current = new PropertyDescriptor(
                             get: Undefined.Instance,
                             set: Undefined.Instance,
-                            enumerable: desc.Enumerable,
-                            configurable: desc.Configurable
+                            enumerable: current.Enumerable,
+                            configurable: current.Configurable
                             );
                     }
                     else
@@ -461,8 +463,8 @@ namespace Jint.Native.Object
                         Properties[propertyName] = current = new PropertyDescriptor(
                             value: Undefined.Instance, 
                             writable: null,
-                            enumerable: desc.Enumerable,
-                            configurable: desc.Configurable
+                            enumerable: current.Enumerable,
+                            configurable: current.Configurable
                             );
                     }
                 }
