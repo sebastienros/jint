@@ -9,7 +9,7 @@ namespace Jint.Native.Object
         public ObjectInstance(Engine engine)
         {
             Engine = engine;
-            Properties = new MruPropertyCache<string, PropertyDescriptor>(3);
+            Properties = new MruPropertyCache2<string, PropertyDescriptor>();
         }
 
         public Engine Engine { get; set; }

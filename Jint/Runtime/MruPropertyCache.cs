@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
-namespace Jint.Runtime {
+namespace Jint.Runtime
+{
     public class MruPropertyCache<TKey, TValue> : IDictionary<TKey, TValue>
     {
         private IDictionary<TKey, TValue> _dictionary = new Dictionary<TKey, TValue>();
