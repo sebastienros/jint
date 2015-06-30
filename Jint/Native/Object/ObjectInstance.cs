@@ -148,8 +148,15 @@ namespace Jint.Native.Object
 
             if (ownDesc.IsDataDescriptor())
             {
-                ownDesc.Value = value;
-                return;
+                // we can't optimize this code path for "length" as DefineOwnProperty has a 
+                // different behavior for it. 
+                // we might not even be able to optimize it for Arrays at all as it has
+                // some specific behavior for other indexes too (conversion and changing length)
+                if (propertyName != "length")
+                {
+                    ownDesc.Value = value;
+                    return;
+                }
                 
                 var valueDesc = new PropertyDescriptor(value: value, writable: null, enumerable: null, configurable: null);
                 DefineOwnProperty(propertyName, valueDesc, throwOnError);
