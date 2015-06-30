@@ -148,6 +148,9 @@ namespace Jint.Native.Object
 
             if (ownDesc.IsDataDescriptor())
             {
+                ownDesc.Value = value;
+                return;
+                
                 var valueDesc = new PropertyDescriptor(value: value, writable: null, enumerable: null, configurable: null);
                 DefineOwnProperty(propertyName, valueDesc, throwOnError);
                 return;
