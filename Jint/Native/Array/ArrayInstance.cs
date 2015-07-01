@@ -22,6 +22,45 @@ namespace Jint.Native.Array
             }
         }
 
+        /// Implementation from ObjectInstance official specs as the one 
+        /// in ObjectInstance is optimized for the general case and wouldn't work 
+        /// for arrays
+        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        {
+            if (!CanPut(propertyName))
+            {
+                if (throwOnError)
+                {
+                    throw new JavaScriptException(Engine.TypeError);
+                }
+
+                return;
+            }
+
+            var ownDesc = GetOwnProperty(propertyName);
+
+            if (ownDesc.IsDataDescriptor())
+            {
+                var valueDesc = new PropertyDescriptor(value: value, writable: null, enumerable: null, configurable: null);
+                DefineOwnProperty(propertyName, valueDesc, throwOnError);
+                return;
+            }
+
+            // property is an accessor or inherited
+            var desc = GetProperty(propertyName);
+
+            if (desc.IsAccessorDescriptor())
+            {
+                var setter = desc.Set.Value.TryCast<ICallable>();
+                setter.Call(new JsValue(this), new[] { value });
+            }
+            else
+            {
+                var newDesc = new PropertyDescriptor(value, true, true, true);
+                DefineOwnProperty(propertyName, newDesc, throwOnError);
+            }
+        }
+
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             var oldLenDesc = GetOwnProperty("length");
@@ -45,7 +84,7 @@ namespace Jint.Native.Array
                 {
                     return base.DefineOwnProperty("length", newLenDesc, throwOnError);
                 }
-                if (!oldLenDesc.Writable.Value.AsBoolean())
+                if (!oldLenDesc.Writable.Value)
                 {
                     if (throwOnError)
                     {
@@ -55,7 +94,7 @@ namespace Jint.Native.Array
                     return false;
                 }
                 bool newWritable;
-                if (!newLenDesc.Writable.HasValue || newLenDesc.Writable.Value.AsBoolean())
+                if (!newLenDesc.Writable.HasValue || newLenDesc.Writable.Value)
                 {
                     newWritable = true;
                 }
@@ -88,7 +127,7 @@ namespace Jint.Native.Array
                                 newLenDesc.Value = new JsValue(index + 1);
                                 if (!newWritable)
                                 {
-                                    newLenDesc.Writable = JsValue.False;
+                                    newLenDesc.Writable = false;
                                 }
                                 base.DefineOwnProperty("length", newLenDesc, false);
                                 if (throwOnError)
@@ -134,7 +173,7 @@ namespace Jint.Native.Array
             else if (IsArrayIndex(propertyName))
             {
                 var index = TypeConverter.ToUint32(propertyName);
-                if (index >= oldLen && !oldLenDesc.Writable.Value.AsBoolean())
+                if (index >= oldLen && !oldLenDesc.Writable.Value)
                 {
                     if (throwOnError)
                     {
