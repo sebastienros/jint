@@ -387,8 +387,8 @@ namespace Jint.Native.Object
                     {
                         Properties[propertyName] = new PropertyDescriptor(desc)
                         {
-                            Get = desc.Get.HasValue ? desc.Get.Value : JsValue.Undefined,
-                            Set = desc.Set.HasValue ? desc.Set.Value : JsValue.Undefined,
+                            Get = desc.Get,
+                            Set = desc.Set,
                             Enumerable = desc.Enumerable.HasValue ? desc.Enumerable : false,
                             Configurable = desc.Configurable.HasValue ? desc.Configurable : false,
                         };
