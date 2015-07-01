@@ -144,9 +144,9 @@ namespace Jint.Native.Object
                 return;
             }
 
-            var desc = GetOwnProperty(propertyName);
+            var ownDesc = GetOwnProperty(propertyName);
 
-            if (desc.IsDataDescriptor())
+            if (ownDesc.IsDataDescriptor())
             {
                 // we can't optimize this code path for "length" as DefineOwnProperty has a 
                 // different behavior for it. 
@@ -154,7 +154,7 @@ namespace Jint.Native.Object
                 // some specific behavior for other indexes too (conversion and changing length)
                 if (propertyName != "length")
                 {
-                    desc.Value = value;
+                    ownDesc.Value = value;
                     return;
                 }
                 
@@ -163,18 +163,19 @@ namespace Jint.Native.Object
                 return;
             }
 
+            // property is an accessor or inherited
+            var desc = GetProperty(propertyName);
+
             if (desc.IsAccessorDescriptor())
             {
                 var setter = desc.Set.Value.TryCast<ICallable>();
                 setter.Call(new JsValue(this), new [] {value});
-                return;
             }
-
-            // property is inherited
-            desc = GetProperty(propertyName);
-
-            var newDesc = new PropertyDescriptor(value, true, true, true);
-            DefineOwnProperty(propertyName, newDesc, throwOnError);
+            else
+            {
+                var newDesc = new PropertyDescriptor(value, true, true, true);
+                DefineOwnProperty(propertyName, newDesc, throwOnError);
+            }
         }
 
         /// <summary>
