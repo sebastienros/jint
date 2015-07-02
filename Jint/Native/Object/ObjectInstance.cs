@@ -14,7 +14,7 @@ namespace Jint.Native.Object
 
         public Engine Engine { get; set; }
 
-        public IDictionary<string, PropertyDescriptor> Properties { get; private set; }
+        protected IDictionary<string, PropertyDescriptor> Properties { get; private set; }
 
         /// <summary>
         /// The prototype of this object.
@@ -34,6 +34,21 @@ namespace Jint.Native.Object
         public virtual string Class
         {
             get { return "Object"; }
+        }
+
+        public virtual IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
+        {
+            return Properties;
+        }
+
+        public virtual bool HasOwnProperty(string p)
+        {
+            return Properties.ContainsKey(p);
+        }
+
+        public virtual void RemoveOwnProperty(string p)
+        {
+            Properties.Remove(p);
         }
 
         /// <summary>
@@ -262,7 +277,7 @@ namespace Jint.Native.Object
 
             if (desc.Configurable.HasValue && desc.Configurable.Value)
             {
-                Properties.Remove(propertyName);
+                RemoveOwnProperty(propertyName);
                 return true;
             }
             else

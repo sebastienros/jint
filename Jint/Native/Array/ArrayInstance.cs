@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -8,7 +9,8 @@ namespace Jint.Native.Array
     public class ArrayInstance : ObjectInstance
     {
         private readonly Engine _engine;
- 
+        private Dictionary<uint, PropertyDescriptor> _array = new Dictionary<uint, PropertyDescriptor>();
+
         public ArrayInstance(Engine engine) : base(engine)
         {
             _engine = engine;
@@ -202,6 +204,58 @@ namespace Jint.Native.Array
             }
 
             return base.DefineOwnProperty(propertyName, desc, throwOnError);
+        }
+
+        public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
+        {
+            foreach(var entry in _array)
+            {
+                yield return new KeyValuePair<string, PropertyDescriptor>(entry.Key.ToString(), entry.Value);
+            }
+
+            foreach(var entry in base.GetOwnProperties())
+            {
+                yield return entry;
+            }
+        }
+
+        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        {
+            uint index;
+            if (IsArrayIndex(propertyName, out index))
+            {
+                PropertyDescriptor result;
+                if(_array.TryGetValue(index, out result))
+                {
+                    return result;
+                }
+
+                return PropertyDescriptor.Undefined;
+            }
+
+            return base.GetOwnProperty(propertyName);
+        }
+
+        public override bool HasOwnProperty(string p)
+        {
+            uint index;
+            if (IsArrayIndex(p, out index))
+            {
+                _array.ContainsKey(index);
+            }
+
+            return base.HasOwnProperty(p);
+        }
+
+        public override void RemoveOwnProperty(string p)
+        {
+            uint index;
+            if(IsArrayIndex(p, out index))
+            {
+                _array.Remove(index);
+            }
+
+            base.RemoveOwnProperty(p);
         }
 
         public static bool IsArrayIndex(JsValue p, out uint index)

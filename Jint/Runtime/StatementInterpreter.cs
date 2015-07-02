@@ -227,7 +227,7 @@ namespace Jint.Runtime
 
             while (cursor != null)
             {
-                var keys = cursor.Properties.Keys.ToArray();
+                var keys = cursor.GetOwnProperties().Select(x => x.Key);
                 foreach (var p in keys)
                 {
                     if (processedKeys.Contains(p))
@@ -238,12 +238,12 @@ namespace Jint.Runtime
                     processedKeys.Add(p);
                     
                     // collection might be modified by inner statement 
-                    if (!cursor.Properties.ContainsKey(p))
+                    if (!cursor.HasOwnProperty(p))
                     {
                         continue;
                     }
 
-                    var value = cursor.Properties[p];
+                    var value = cursor.GetOwnProperty(p);
                     if (!value.Enumerable.HasValue || !value.Enumerable.Value)
                     {
                         continue;
