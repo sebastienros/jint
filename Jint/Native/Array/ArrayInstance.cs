@@ -65,6 +65,8 @@ namespace Jint.Native.Array
         {
             var oldLenDesc = GetOwnProperty("length");
             var oldLen = TypeConverter.ToNumber(oldLenDesc.Value.Value);
+            uint index;
+
             if (propertyName == "length")
             {
                 if (!desc.Value.HasValue)
@@ -117,14 +119,14 @@ namespace Jint.Native.Array
                     var keys = Properties.Keys.ToArray();
                     foreach (var key in keys)
                     {
-                        uint index;
+                        uint keyIndex;
                         // is it the index of the array
-                        if (uint.TryParse(key, out index) && index >= newLen && index < oldLen)
+                        if (IsArrayIndex(key, out keyIndex) && keyIndex >= newLen && keyIndex < oldLen)
                         {
                             var deleteSucceeded = Delete(key, false);
                             if (!deleteSucceeded)
                             {
-                                newLenDesc.Value = new JsValue(index + 1);
+                                newLenDesc.Value = new JsValue(keyIndex + 1);
                                 if (!newWritable)
                                 {
                                     newLenDesc.Writable = false;
@@ -170,9 +172,8 @@ namespace Jint.Native.Array
                 }
                 return true;
             }
-            else if (IsArrayIndex(propertyName))
+            else if (IsArrayIndex(propertyName, out index))
             {
-                var index = TypeConverter.ToUint32(propertyName);
                 if (index >= oldLen && !oldLenDesc.Writable.Value)
                 {
                     if (throwOnError)
@@ -203,10 +204,45 @@ namespace Jint.Native.Array
             return base.DefineOwnProperty(propertyName, desc, throwOnError);
         }
 
-        public static bool IsArrayIndex(JsValue p)
+        public static bool IsArrayIndex(JsValue p, out uint index)
         {
-            return TypeConverter.ToString(TypeConverter.ToUint32(p)) == TypeConverter.ToString(p) && TypeConverter.ToUint32(p) != uint.MaxValue;
+            index = ParseArrayIndex(TypeConverter.ToString(p));
+
+            return index != uint.MaxValue;
+
+            // 15.4 - Use an optimized version of the specification
+            // return TypeConverter.ToString(index) == TypeConverter.ToString(p) && index != uint.MaxValue;
         }
 
+        internal static uint ParseArrayIndex(string p)
+        {
+            int d = p[0] - '0';
+
+            if (d < 0 || d > 9)
+            {
+                return uint.MaxValue;
+            }
+
+            uint result = (uint)d;
+
+            for (int i = 1; i < p.Length; i++)
+            {
+                d = p[i] - '0';
+
+                if (d < 0 || d > 9)
+                {
+                    return uint.MaxValue;
+                }
+
+                if (result >= uint.MaxValue)
+                {
+                        return uint.MaxValue;
+                }
+
+                result = result * 10 + (uint)d;
+            }
+
+            return result;
+        }
     }
 }
