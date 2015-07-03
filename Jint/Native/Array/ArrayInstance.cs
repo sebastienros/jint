@@ -9,7 +9,7 @@ namespace Jint.Native.Array
     public class ArrayInstance : ObjectInstance
     {
         private readonly Engine _engine;
-        private Dictionary<uint, PropertyDescriptor> _array = new Dictionary<uint, PropertyDescriptor>();
+        private IDictionary<uint, PropertyDescriptor> _array = new Dictionary<uint, PropertyDescriptor>();
 
         public ArrayInstance(Engine engine) : base(engine)
         {
@@ -234,6 +234,19 @@ namespace Jint.Native.Array
             }
 
             return base.GetOwnProperty(propertyName);
+        }
+
+        protected override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
+        {
+            uint index;
+            if (IsArrayIndex(propertyName, out index))
+            {
+                _array[index] = desc;
+            }
+            else
+            {
+                base.SetOwnProperty(propertyName, desc);
+            }            
         }
 
         public override bool HasOwnProperty(string p)
