@@ -227,7 +227,7 @@ namespace Jint.Runtime
 
             while (cursor != null)
             {
-                var keys = cursor.GetOwnProperties().Select(x => x.Key);
+                var keys = cursor.GetOwnProperties().Select(x => x.Key).ToArray();
                 foreach (var p in keys)
                 {
                     if (processedKeys.Contains(p))

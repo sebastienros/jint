@@ -267,7 +267,7 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var keys = o.GetOwnProperties().Select(x => x.Key);
+            var keys = o.GetOwnProperties().Select(x => x.Key).ToArray();
             foreach (var p in keys)
             {
                 var desc = o.GetOwnProperty(p);
@@ -338,7 +338,7 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            foreach (var p in o.GetOwnProperties().Select(x => x.Key))
+            foreach (var p in o.GetOwnProperties().Select(x => x.Key).ToArray())
             {
                 var desc = o.GetOwnProperty(p);
                 if (desc.IsDataDescriptor())
