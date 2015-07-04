@@ -16,6 +16,41 @@ namespace Shapes
 
     public class Circle : Shape
     {
+        public class Meta
+        {
+            public Meta()
+            {
+                _description = "descp";
+            }
+          private string _description;
+
+          public string Description
+          {
+            get
+            {
+              return _description;
+            }
+            set
+            {
+              _description = value;
+            }
+          }
+
+          public enum Usage
+          {
+            Public,
+            Private,
+            Internal = 11
+          }
+        }
+
+        public enum Kind
+        {
+          Unit,
+          Ellipse,
+          Round = 5
+        }
+
         public Circle()
         {
         }

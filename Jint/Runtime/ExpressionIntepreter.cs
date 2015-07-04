@@ -789,6 +789,11 @@ namespace Jint.Runtime
         {
             var callee = EvaluateExpression(callExpression.Callee);
 
+            if (_engine.Options.IsDebugMode())
+            {
+                _engine.DebugHandler.AddToDebugCallStack(callExpression);
+            }
+
             JsValue thisObject;
 
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
@@ -852,6 +857,11 @@ namespace Jint.Runtime
             }
             
             var result = callable.Call(thisObject, arguments);
+
+            if (_engine.Options.IsDebugMode())
+            {
+                _engine.DebugHandler.PopDebugCallStack();
+            }
 
             if (isRecursionHandled)
             {

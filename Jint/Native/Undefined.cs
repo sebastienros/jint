@@ -2,7 +2,7 @@
 {
     public static class Undefined
     {
-        public static JsValue Instance = JsValue.Undefined;
-        public static string Text = "undefined";
+        public readonly static JsValue Instance = JsValue.Undefined;
+        public readonly static string Text = "undefined";
     }
 }

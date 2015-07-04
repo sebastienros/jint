@@ -28,6 +28,7 @@ build/
 *_p.c
 *.ilk
 *.meta
+*.nupkg
 *.obj
 *.pch
 *.pdb
@@ -152,3 +153,4 @@ $RECYCLE.BIN/
 # Mac crap
 .DS_Store
 Jint.sln.ide/*
+/Jint.sln.GhostDoc.xml

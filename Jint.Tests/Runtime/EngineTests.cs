@@ -7,6 +7,7 @@ using Jint.Native.Number;
 using Jint.Parser;
 using Jint.Parser.Ast;
 using Jint.Runtime;
+using Jint.Runtime.Debugger;
 using Xunit;
 using Xunit.Extensions;
 using System.Net;
@@ -16,6 +17,8 @@ namespace Jint.Tests.Runtime
     public class EngineTests : IDisposable
     {
         private readonly Engine _engine;
+        private int countBreak = 0;
+        private StepMode stepMode;
 
         public EngineTests()
         {
@@ -88,6 +91,17 @@ namespace Jint.Tests.Runtime
         [InlineData(2d, "9 >> 2")]
         [InlineData(4d, "19 >>> 2")]
         public void ShouldInterpretBinaryExpression(object expected, string source)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
+
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData(-59d, "~58")]
+        [InlineData(58d, "~~58")]
+        public void ShouldInterpretUnaryExpression(object expected, string source)
         {
             var engine = new Engine();
             var result = engine.Execute(source).GetCompletionValue().ToObject();
@@ -1152,6 +1166,319 @@ namespace Jint.Tests.Runtime
                 assert(a.length === 1);
                 assert(a[0] === 3);
             ");
+        }
+
+        [Fact]
+        public void ShouldReturnTrueForEmptyIsNaNStatement()
+        {
+            RunTest(@"
+                assert(true === isNaN());
+            ");
+        }
+
+        [Theory]
+        [InlineData(4d, 0, "4")]
+        [InlineData(4d, 1, "4.0")]
+        [InlineData(4d, 2, "4.00")]
+        [InlineData(28.995, 2, "29.00")]
+        [InlineData(-28.995, 2, "-29.00")]
+        [InlineData(-28.495, 2, "-28.50")]
+        [InlineData(-28.445, 2, "-28.45")]
+        [InlineData(28.445, 2, "28.45")]
+        [InlineData(10.995, 0, "11")]
+        public void ShouldRoundToFixedDecimal(double number, int fractionDigits, string result)
+        {
+            var engine = new Engine();
+            var value = engine.Execute(
+                String.Format("new Number({0}).toFixed({1})",
+                    number.ToString(CultureInfo.InvariantCulture),
+                    fractionDigits.ToString(CultureInfo.InvariantCulture)))
+                .GetCompletionValue().ToObject();
+
+            Assert.Equal(value, result);
+        }
+
+
+
+        [Fact]
+        public void ShouldSortArrayWhenCompareFunctionReturnsFloatingPointNumber()
+        {
+            RunTest(@"
+                var nums = [1, 1.1, 1.2, 2, 2, 2.1, 2.2];
+                nums.sort(function(a,b){return b-a;});
+                assert(nums[0] === 2.2);
+                assert(nums[1] === 2.1);
+                assert(nums[2] === 2);
+                assert(nums[3] === 2);
+                assert(nums[4] === 1.2);
+                assert(nums[5] === 1.1);
+                assert(nums[6] === 1);
+            ");
+        }
+
+        [Fact]
+        public void ShouldBreakWhenBreakpointIsReached()
+        {
+            countBreak = 0;
+            stepMode = StepMode.None;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Break += EngineStep;
+
+            engine.BreakPoints.Add(new BreakPoint(1, 1));
+
+            engine.Execute(@"var local = true;
+                if (local === true)
+                {}");
+
+            engine.Break -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        [Fact]
+        public void ShouldExecuteStepByStep()
+        {
+            countBreak = 0;
+            stepMode = StepMode.Into;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Step += EngineStep;
+            
+            engine.Execute(@"var local = true;
+                var creatingSomeOtherLine = 0;
+                var lastOneIPromise = true");
+
+            engine.Step -= EngineStep;
+
+            Assert.Equal(3, countBreak);
+        }
+
+        [Fact]
+        public void ShouldNotBreakTwiceIfSteppingOverBreakpoint()
+        {
+            countBreak = 0;
+            stepMode = StepMode.Into;
+
+            var engine = new Engine(options => options.DebugMode());
+            engine.BreakPoints.Add(new BreakPoint(1, 1));
+            engine.Step += EngineStep;
+            engine.Break += EngineStep;
+
+            engine.Execute(@"var local = true;");
+
+            engine.Step -= EngineStep;
+            engine.Break -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+        
+        private StepMode EngineStep(object sender, DebugInformation debugInfo)
+        {
+            Assert.NotNull(sender);
+            Assert.IsType(typeof(Engine), sender);
+            Assert.NotNull(debugInfo);
+
+            countBreak++;
+            return stepMode;
+        }
+
+        [Fact]
+        public void ShouldShowProperDebugInformation()
+        {
+            countBreak = 0;
+            stepMode = StepMode.None;
+
+            var engine = new Engine(options => options.DebugMode());
+            engine.BreakPoints.Add(new BreakPoint(5, 0));
+            engine.Break += EngineStepVerifyDebugInfo;
+
+            engine.Execute(@"var global = true;
+                            function func1()
+                            {
+                                var local = false;
+;
+                            }
+                            func1();");
+
+            engine.Break -= EngineStepVerifyDebugInfo;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        private StepMode EngineStepVerifyDebugInfo(object sender, DebugInformation debugInfo)
+        {
+            Assert.NotNull(sender);
+            Assert.IsType(typeof(Engine), sender);
+            Assert.NotNull(debugInfo);
+
+            Assert.NotNull(debugInfo.CallStack);
+            Assert.NotNull(debugInfo.CurrentStatement);
+            Assert.NotNull(debugInfo.Locals);
+
+            Assert.Equal(1, debugInfo.CallStack.Count);
+            Assert.Equal("func1()", debugInfo.CallStack.Peek());
+            Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal) && kvp.Value.AsBoolean() == true);
+            Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
+            Assert.Contains(debugInfo.Locals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
+            Assert.DoesNotContain(debugInfo.Locals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal));
+            
+            countBreak++;
+            return stepMode;
+        }
+
+        [Fact]
+        public void ShouldBreakWhenConditionIsMatched()
+        {
+            countBreak = 0;
+            stepMode = StepMode.None;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Break += EngineStep;
+
+            engine.BreakPoints.Add(new BreakPoint(5, 16, "condition === true"));
+            engine.BreakPoints.Add(new BreakPoint(6, 16, "condition === false"));
+
+            engine.Execute(@"var local = true;
+                var condition = true;
+                if (local === true)
+                {
+                ;
+                ;
+                }");
+
+            engine.Break -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        [Fact]
+        public void ShouldNotStepInSameLevelStatementsWhenStepOut()
+        {
+            countBreak = 0;
+            stepMode = StepMode.Out;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Step += EngineStep;
+
+            engine.Execute(@"function func() // first step - then stepping out
+                {
+                    ; // shall not step
+                    ; // not even here
+                }
+                func(); // shall not step                 
+                ; // shall not step ");
+
+            engine.Step -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        [Fact]
+        public void ShouldNotStepInIfRequiredToStepOut()
+        {
+            countBreak = 0;
+            
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Step += EngineStepOutWhenInsideFunction;
+
+            engine.Execute(@"function func() // first step
+                {
+                    ; // third step - now stepping out
+                    ; // it should not step here
+                }
+                func(); // second step                 
+                ; // fourth step ");
+
+            engine.Step -= EngineStepOutWhenInsideFunction;
+
+            Assert.Equal(4, countBreak);
+        }
+
+        private StepMode EngineStepOutWhenInsideFunction(object sender, DebugInformation debugInfo)
+        {
+            Assert.NotNull(sender);
+            Assert.IsType(typeof(Engine), sender);
+            Assert.NotNull(debugInfo);
+
+            countBreak++;
+            if (debugInfo.CallStack.Count > 0)
+                return StepMode.Out;
+            
+            return StepMode.Into;
+        }
+
+        [Fact]
+        public void ShouldBreakWhenStatementIsMultiLine()
+        {
+            countBreak = 0;
+            stepMode = StepMode.None;
+
+            var engine = new Engine(options => options.DebugMode());
+            engine.BreakPoints.Add(new BreakPoint(4, 33));
+            engine.Break += EngineStep;
+
+            engine.Execute(@"var global = true;
+                            function func1()
+                            {
+                                var local = 
+                                    false;
+                            }
+                            func1();");
+
+            engine.Break -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        [Fact]
+        public void ShouldNotStepInsideIfRequiredToStepOver()
+        {
+            countBreak = 0;
+            
+            var engine = new Engine(options => options.DebugMode());
+
+            stepMode = StepMode.Over;
+            engine.Step += EngineStep;
+
+            engine.Execute(@"function func() // first step
+                {
+                    ; // third step - it shall not step here
+                    ; // it shall not step here
+                }
+                func(); // second step                 
+                ; // third step ");
+
+            engine.Step -= EngineStep;
+
+            Assert.Equal(3, countBreak);
+        }
+
+        [Fact]
+        public void ShouldStepAllStatementsWithoutInvocationsIfStepOver()
+        {
+            countBreak = 0;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            stepMode = StepMode.Over;
+            engine.Step += EngineStep;
+
+            engine.Execute(@"var step1 = 1; // first step
+                var step2 = 2; // second step                 
+                if (step1 !== step2) // third step
+                { // fourth step
+                    ; // fifth step
+                }");
+
+            engine.Step -= EngineStep;
+
+            Assert.Equal(5, countBreak);
         }
     }
 }

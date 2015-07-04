@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+﻿using System.Linq;
+using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 
@@ -71,6 +72,15 @@ namespace Jint.Runtime.Environments
             }
 
             return Undefined.Instance;
+        }
+
+        public override string[] GetAllBindingNames()
+        {
+            if (_bindingObject != null && _bindingObject.Properties != null)
+            {
+                return _bindingObject.Properties.Keys.ToArray();
+            }
+            return new string[0];
         }
     }
 }
