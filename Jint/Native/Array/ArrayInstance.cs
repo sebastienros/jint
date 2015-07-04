@@ -9,7 +9,8 @@ namespace Jint.Native.Array
     public class ArrayInstance : ObjectInstance
     {
         private readonly Engine _engine;
-        private IDictionary<uint, PropertyDescriptor> _array = new Dictionary<uint, PropertyDescriptor>();
+        private PropertyDescriptor[] _array = new PropertyDescriptor[10];
+        private uint _length;
 
         public ArrayInstance(Engine engine) : base(engine)
         {
@@ -66,7 +67,7 @@ namespace Jint.Native.Array
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             var oldLenDesc = GetOwnProperty("length");
-            var oldLen = TypeConverter.ToNumber(oldLenDesc.Value.Value);
+            var oldLen = (uint)TypeConverter.ToNumber(oldLenDesc.Value.Value);
             uint index;
 
             if (propertyName == "length")
@@ -208,9 +209,16 @@ namespace Jint.Native.Array
 
         public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {
-            foreach(var entry in _array)
+            for(int i=0; i<_length; i++)
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(entry.Key.ToString(), entry.Value);
+                var value = i < _array.Length 
+                    ? _array[i] 
+                    : PropertyDescriptor.Undefined;
+
+                if (value != null)
+                {
+                    yield return new KeyValuePair<string, PropertyDescriptor>(i.ToString(), value);
+                }
             }
 
             foreach(var entry in base.GetOwnProperties())
@@ -224,16 +232,20 @@ namespace Jint.Native.Array
             uint index;
             if (IsArrayIndex(propertyName, out index))
             {
-                PropertyDescriptor result;
-                if(_array.TryGetValue(index, out result))
+                if(index >= _length)
                 {
-                    return result;
+                    return PropertyDescriptor.Undefined;
                 }
 
-                return PropertyDescriptor.Undefined;
+                return _array[index] ?? PropertyDescriptor.Undefined;
             }
 
             return base.GetOwnProperty(propertyName);
+        }
+
+        private void ExpandArray()
+        {
+            System.Array.Resize<PropertyDescriptor>(ref _array, _array.Length + 10);
         }
 
         protected override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
@@ -241,10 +253,19 @@ namespace Jint.Native.Array
             uint index;
             if (IsArrayIndex(propertyName, out index))
             {
+                if (index >= _array.Length)
+                {
+                    ExpandArray();
+                }
+
                 _array[index] = desc;
             }
             else
             {
+                if(propertyName == "length")
+                {
+                    _length = TypeConverter.ToUint32(desc.Value.Value);
+                }
                 base.SetOwnProperty(propertyName, desc);
             }            
         }
@@ -254,7 +275,8 @@ namespace Jint.Native.Array
             uint index;
             if (IsArrayIndex(p, out index))
             {
-                _array.ContainsKey(index);
+                return index < _length 
+                    && _array[index] != null;
             }
 
             return base.HasOwnProperty(p);
@@ -265,7 +287,7 @@ namespace Jint.Native.Array
             uint index;
             if(IsArrayIndex(p, out index))
             {
-                _array.Remove(index);
+                _array[index] = null;
             }
 
             base.RemoveOwnProperty(p);
