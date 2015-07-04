@@ -87,6 +87,7 @@ namespace Jint.Native.Array
                 newLenDesc.Value = newLen;
                 if (newLen >= oldLen)
                 {
+                    _length = TypeConverter.ToUint32(newLenDesc.Value.Value); 
                     return base.DefineOwnProperty("length", newLenDesc, throwOnError);
                 }
                 if (!oldLenDesc.Writable.Value)
@@ -108,12 +109,15 @@ namespace Jint.Native.Array
                     newWritable = false;
                     newLenDesc.Writable = true;
                 }
-                
+
                 var succeeded = base.DefineOwnProperty("length", newLenDesc, throwOnError);
                 if (!succeeded)
                 {
                     return false;
                 }
+
+                _length = TypeConverter.ToUint32(newLenDesc.Value.Value);
+                
                 // in the case of sparse arrays, treat each concrete element instead of
                 // iterating over all indexes
 
@@ -135,6 +139,8 @@ namespace Jint.Native.Array
                                     newLenDesc.Writable = false;
                                 }
                                 base.DefineOwnProperty("length", newLenDesc, false);
+                                _length = TypeConverter.ToUint32(newLenDesc.Value.Value);
+
                                 if (throwOnError)
                                 {
                                     throw new JavaScriptException(_engine.TypeError);
@@ -160,6 +166,8 @@ namespace Jint.Native.Array
                                 newLenDesc.Writable = false;
                             }
                             base.DefineOwnProperty("length", newLenDesc, false);
+                            _length = TypeConverter.ToUint32(newLenDesc.Value.Value);
+
                             if (throwOnError)
                             {
                                 throw new JavaScriptException(_engine.TypeError);
@@ -198,7 +206,7 @@ namespace Jint.Native.Array
                 }
                 if (index >= oldLen)
                 {
-                    oldLenDesc.Value = index + 1;
+                    oldLenDesc.Value = _length = index + 1;
                     base.DefineOwnProperty("length", oldLenDesc, false);
                 }
                 return true;
@@ -232,7 +240,7 @@ namespace Jint.Native.Array
             uint index;
             if (IsArrayIndex(propertyName, out index))
             {
-                if(index >= _length)
+                if(index >= System.Math.Min(_length, _array.Length))
                 {
                     return PropertyDescriptor.Undefined;
                 }
@@ -245,7 +253,7 @@ namespace Jint.Native.Array
 
         private void ExpandArray()
         {
-            System.Array.Resize<PropertyDescriptor>(ref _array, _array.Length + 10);
+            System.Array.Resize(ref _array, _array.Length + 10);
         }
 
         protected override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
@@ -266,6 +274,7 @@ namespace Jint.Native.Array
                 {
                     _length = TypeConverter.ToUint32(desc.Value.Value);
                 }
+
                 base.SetOwnProperty(propertyName, desc);
             }            
         }
