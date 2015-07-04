@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Timers;
 using Jint.Native;
 
 namespace Jint.Tests.Runtime.Domain
@@ -93,6 +94,16 @@ namespace Jint.Tests.Runtime.Domain
         public string Call16(params JsValue[] values)
         {
             return String.Join(",", values);
+        }
+
+        public void Call17(out string x)
+        {
+            x = "out string";
+        }
+
+        public void Call18(int interval, out System.Timers.Timer x)
+        {
+            x = new Timer() { Interval = interval };
         }
     }
 }

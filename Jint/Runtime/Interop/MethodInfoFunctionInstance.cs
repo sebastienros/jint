@@ -84,7 +84,26 @@ namespace Jint.Runtime.Interop
                 }
 
                 // todo: cache method info
-                return JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters.ToArray()));
+                
+                try
+                {
+                    var res = method.Invoke(thisObject.ToObject(), parameters);
+                    for (int index = 0; index < method.GetParameters().Length; index++)
+                    {
+                        ParameterInfo param = method.GetParameters()[index];
+                        if (param.IsOut)
+                        {
+                            arguments[index].Assign(JsValue.FromObject(Engine, parameters[index]));
+                            arguments[index].SetOutParam(true);
+                        }
+                    }
+
+                    return JsValue.FromObject(Engine, res);
+                }
+                catch (Exception exception)
+                {
+                    throw new JavaScriptException(Engine.TypeError, string.Format("Exception thrown during execution iterop method {0} - {1}", method.Name, exception.Message));
+                }
             }
 
             throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");

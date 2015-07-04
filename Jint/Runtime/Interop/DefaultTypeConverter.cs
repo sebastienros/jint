@@ -170,7 +170,27 @@ namespace Jint.Runtime.Interop
                 return result;
             }
 
-            return System.Convert.ChangeType(value, type, formatProvider);
+            object convertedValue = null;
+            if (type.IsByRef)
+            {
+                if (type.GetElementType().IsEnum)
+                {
+                    var integer = System.Convert.ChangeType(value, typeof(int), formatProvider);
+                    if (integer == null)
+                    {
+                        throw new ArgumentOutOfRangeException();
+                    }
+
+                    return Enum.ToObject(type.GetElementType(), integer);
+                }
+
+                convertedValue = System.Convert.ChangeType(value, type.GetElementType(), formatProvider);
+            }
+            else
+            {
+                convertedValue = System.Convert.ChangeType(value, type, formatProvider);
+            }
+            return convertedValue;
         }
 
         public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)

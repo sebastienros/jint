@@ -1224,6 +1224,42 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldCallMethodWithOutArg1()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+		        var str = null;
+		        a.Call17(str);
+		        assert('out string' == str);
+		    ");
+        }
+
+        [Fact]
+        public void ShouldCallMethodWithOutArg2()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+		        var str = 'empty string';
+		        a.Call17(str);
+		        assert('out string' == str);
+		    ");
+        }
+
+        [Fact]
+        public void ShouldCallMethodWithOutArg3()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+		        var obj = null;
+		        a.Call18(1234, obj);
+		        assert(1234 == obj.Interval);
+		    ");
+        }
+
+        [Fact]
         public void ShouldImportNamespaceNestedType()
         {
           RunTest(@"

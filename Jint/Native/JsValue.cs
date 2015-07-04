@@ -21,10 +21,10 @@ namespace Jint.Native
     [DebuggerTypeProxy(typeof(JsValueDebugView))]
     public struct JsValue : IEquatable<JsValue>
     {
-        public readonly static JsValue Undefined = new JsValue(Types.Undefined);
-        public readonly static JsValue Null = new JsValue(Types.Null);
-        public readonly static JsValue False = new JsValue(false);
-        public readonly static JsValue True = new JsValue(true);
+        public static JsValue Undefined = new JsValue(Types.Undefined);
+        public static JsValue Null = new JsValue(Types.Null);
+        public static JsValue False = new JsValue(false);
+        public static JsValue True = new JsValue(true);
 
         public JsValue(bool value)
         {
@@ -34,6 +34,7 @@ namespace Jint.Native
             _type = Types.Boolean;
 
             _bool = value; //Set value last because of 'FieldOffset' constraints
+            _isOutParam = false;
         }
 
         public JsValue(double value)
@@ -44,6 +45,7 @@ namespace Jint.Native
             _type = Types.Number;
 
             _double = value;
+            _isOutParam = false;
         }
 
         public JsValue(string value)
@@ -54,6 +56,7 @@ namespace Jint.Native
             _type = Types.String;
 
             _string = value;
+            _isOutParam = false;
         }
 
         public JsValue(ObjectInstance value)
@@ -64,6 +67,7 @@ namespace Jint.Native
             _type = Types.Object;
 
             _object = value;
+            _isOutParam = false;
         }
 
         private JsValue(Types type)
@@ -73,17 +77,21 @@ namespace Jint.Native
             _object = null;
             _string = null;
             _type = type;
+            _isOutParam = false;
         }
 
-        private readonly bool _bool;
+        
+        private bool _bool;
 
-        private readonly double _double;
+        private double _double;
 
-        private readonly ObjectInstance _object;
+        private ObjectInstance _object;
 
-        private readonly string _string;
+        private string _string;
 
-        private readonly Types _type;
+        private Types _type;
+
+        private bool _isOutParam;
 
         [Pure]
         public bool IsPrimitive()
@@ -669,6 +677,69 @@ namespace Jint.Native
                 hashCode = (hashCode * 397) ^ (int)_type;
                 return hashCode;
             }
+        }
+
+        internal void Assign(JsValue v)
+        {
+            if (v.IsString())
+            {
+                ResetFields();
+                _string = v.AsString();
+                _type = Types.String;
+            }
+            if (v.IsNumber())
+            {
+                ResetFields();
+                _double = v.AsNumber();
+                _type = Types.Number;
+            }
+            if (v.IsBoolean())
+            {
+                ResetFields();
+                _bool = v.AsBoolean();
+                _type = Types.Boolean;
+            }
+            if (v.IsObject())
+            {
+                ResetFields();
+                _object = v.AsObject();
+                _type = Types.Object;
+            }
+            if (v.IsArray())
+            {
+                ResetFields();
+                _object = v.AsArray();
+                _type = Types.Object;
+            }
+            if (v.IsNull())
+            {
+                ResetFields();
+                _type = Types.Null;
+            }
+            if (v.IsUndefined())
+            {
+                ResetFields();
+                _type = Types.Undefined;
+            }
+        }
+
+        private void ResetFields()
+        {
+            _bool = false;
+            _double = 0;
+            _string = null;
+            _object = null;
+            _type = Types.None;
+        }
+
+        public bool IsOutParam()
+        {
+            return _isOutParam;
+        }
+
+        public void SetOutParam(bool b)
+        {
+            _isOutParam = b;
         }
     }
 }
