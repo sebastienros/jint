@@ -10,7 +10,7 @@ namespace Jint.Native.Array
     {
         private readonly Engine _engine;
         private PropertyDescriptor[] _array = new PropertyDescriptor[10];
-        private uint _length;
+        private PropertyDescriptor _length;
 
         public ArrayInstance(Engine engine) : base(engine)
         {
@@ -87,8 +87,7 @@ namespace Jint.Native.Array
                 newLenDesc.Value = newLen;
                 if (newLen >= oldLen)
                 {
-                    _length = TypeConverter.ToUint32(newLenDesc.Value.Value); 
-                    return base.DefineOwnProperty("length", newLenDesc, throwOnError);
+                    return base.DefineOwnProperty("length", _length = newLenDesc, throwOnError);
                 }
                 if (!oldLenDesc.Writable.Value)
                 {
@@ -110,14 +109,12 @@ namespace Jint.Native.Array
                     newLenDesc.Writable = true;
                 }
 
-                var succeeded = base.DefineOwnProperty("length", newLenDesc, throwOnError);
+                var succeeded = base.DefineOwnProperty("length", _length = newLenDesc, throwOnError);
                 if (!succeeded)
                 {
                     return false;
                 }
 
-                _length = TypeConverter.ToUint32(newLenDesc.Value.Value);
-                
                 // in the case of sparse arrays, treat each concrete element instead of
                 // iterating over all indexes
 
@@ -138,8 +135,7 @@ namespace Jint.Native.Array
                                 {
                                     newLenDesc.Writable = false;
                                 }
-                                base.DefineOwnProperty("length", newLenDesc, false);
-                                _length = TypeConverter.ToUint32(newLenDesc.Value.Value);
+                                base.DefineOwnProperty("length", _length = newLenDesc, false);
 
                                 if (throwOnError)
                                 {
@@ -165,8 +161,7 @@ namespace Jint.Native.Array
                             {
                                 newLenDesc.Writable = false;
                             }
-                            base.DefineOwnProperty("length", newLenDesc, false);
-                            _length = TypeConverter.ToUint32(newLenDesc.Value.Value);
+                            base.DefineOwnProperty("length", _length = newLenDesc, false);
 
                             if (throwOnError)
                             {
@@ -206,8 +201,8 @@ namespace Jint.Native.Array
                 }
                 if (index >= oldLen)
                 {
-                    oldLenDesc.Value = _length = index + 1;
-                    base.DefineOwnProperty("length", oldLenDesc, false);
+                    oldLenDesc.Value = index + 1;
+                    base.DefineOwnProperty("length", _length = oldLenDesc, false);
                 }
                 return true;
             }
@@ -215,9 +210,14 @@ namespace Jint.Native.Array
             return base.DefineOwnProperty(propertyName, desc, throwOnError);
         }
 
+        private uint GetLength()
+        {
+            return TypeConverter.ToUint32(_length.Value.Value);
+        }
+
         public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {
-            for(int i=0; i<_length; i++)
+            for(int i=0; i<GetLength(); i++)
             {
                 var value = i < _array.Length 
                     ? _array[i] 
@@ -240,7 +240,7 @@ namespace Jint.Native.Array
             uint index;
             if (IsArrayIndex(propertyName, out index))
             {
-                if(index >= System.Math.Min(_length, _array.Length))
+                if(index >= System.Math.Min(GetLength(), _array.Length))
                 {
                     return PropertyDescriptor.Undefined;
                 }
@@ -272,7 +272,7 @@ namespace Jint.Native.Array
             {
                 if(propertyName == "length")
                 {
-                    _length = TypeConverter.ToUint32(desc.Value.Value);
+                    _length = desc;
                 }
 
                 base.SetOwnProperty(propertyName, desc);
@@ -284,7 +284,7 @@ namespace Jint.Native.Array
             uint index;
             if (IsArrayIndex(p, out index))
             {
-                return index < _length 
+                return index < GetLength() 
                     && _array[index] != null;
             }
 
