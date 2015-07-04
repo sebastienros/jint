@@ -251,9 +251,9 @@ namespace Jint.Native.Array
             return base.GetOwnProperty(propertyName);
         }
 
-        private void ExpandArray()
+        private void ExpandArray(int newSize = 0)
         {
-            System.Array.Resize(ref _array, _array.Length + 10);
+            System.Array.Resize(ref _array, System.Math.Max(newSize, _array.Length + 10));
         }
 
         protected override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
@@ -263,7 +263,7 @@ namespace Jint.Native.Array
             {
                 if (index >= _array.Length)
                 {
-                    ExpandArray();
+                    ExpandArray((int)index+1);
                 }
 
                 _array[index] = desc;
