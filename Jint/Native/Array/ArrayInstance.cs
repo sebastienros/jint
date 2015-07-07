@@ -9,7 +9,7 @@ namespace Jint.Native.Array
     public class ArrayInstance : ObjectInstance
     {
         private readonly Engine _engine;
-        private PropertyDescriptor[] _array = new PropertyDescriptor[10];
+        private IDictionary<uint, PropertyDescriptor> _array = new MruPropertyCache2<uint, PropertyDescriptor>();
         private PropertyDescriptor _length;
 
         public ArrayInstance(Engine engine) : base(engine)
@@ -217,16 +217,9 @@ namespace Jint.Native.Array
 
         public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {
-            for(int i=0; i<GetLength(); i++)
+            foreach(var entry in _array)
             {
-                var value = i < _array.Length 
-                    ? _array[i] 
-                    : PropertyDescriptor.Undefined;
-
-                if (value != null)
-                {
-                    yield return new KeyValuePair<string, PropertyDescriptor>(i.ToString(), value);
-                }
+                yield return new KeyValuePair<string, PropertyDescriptor>(entry.Key.ToString(), entry.Value);
             }
 
             foreach(var entry in base.GetOwnProperties())
@@ -240,20 +233,18 @@ namespace Jint.Native.Array
             uint index;
             if (IsArrayIndex(propertyName, out index))
             {
-                if(index >= System.Math.Min(GetLength(), _array.Length))
+                PropertyDescriptor result;
+                if (_array.TryGetValue(index, out result))
+                {
+                    return result;
+                }
+                else
                 {
                     return PropertyDescriptor.Undefined;
-                }
-
-                return _array[index] ?? PropertyDescriptor.Undefined;
+                } 
             }
 
             return base.GetOwnProperty(propertyName);
-        }
-
-        private void ExpandArray(int newSize = 0)
-        {
-            System.Array.Resize(ref _array, System.Math.Max(newSize, _array.Length + 10));
         }
 
         protected override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
@@ -261,11 +252,6 @@ namespace Jint.Native.Array
             uint index;
             if (IsArrayIndex(propertyName, out index))
             {
-                if (index >= _array.Length)
-                {
-                    ExpandArray((int)index+1);
-                }
-
                 _array[index] = desc;
             }
             else
@@ -284,8 +270,7 @@ namespace Jint.Native.Array
             uint index;
             if (IsArrayIndex(p, out index))
             {
-                return index < GetLength() 
-                    && _array[index] != null;
+                return index < GetLength() && _array.ContainsKey(index);
             }
 
             return base.HasOwnProperty(p);
@@ -296,7 +281,7 @@ namespace Jint.Native.Array
             uint index;
             if(IsArrayIndex(p, out index))
             {
-                _array[index] = null;
+                _array.Remove(index);
             }
 
             base.RemoveOwnProperty(p);
