@@ -871,7 +871,7 @@ namespace Jint.Runtime
                 if (identifier != null && arguments[index].IsOutParam())
                 {
                     var id = identifier.Name;
-                    var hasKey = _engine.Global.Properties.ContainsKey(id);
+                    var hasKey = _engine.Global.HasOwnProperty(id);
                     if (hasKey)
                     {
                         if (arguments[index].IsBoolean())
