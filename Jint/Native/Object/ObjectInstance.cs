@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using System;
 
 namespace Jint.Native.Object
 {
@@ -14,7 +15,7 @@ namespace Jint.Native.Object
 
         public Engine Engine { get; set; }
 
-        public IDictionary<string, PropertyDescriptor> Properties { get; private set; }
+        protected IDictionary<string, PropertyDescriptor> Properties { get; private set; }
 
         /// <summary>
         /// The prototype of this object.
@@ -34,6 +35,21 @@ namespace Jint.Native.Object
         public virtual string Class
         {
             get { return "Object"; }
+        }
+
+        public virtual IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
+        {
+            return Properties;
+        }
+
+        public virtual bool HasOwnProperty(string p)
+        {
+            return Properties.ContainsKey(p);
+        }
+
+        public virtual void RemoveOwnProperty(string p)
+        {
+            Properties.Remove(p);
         }
 
         /// <summary>
@@ -100,6 +116,11 @@ namespace Jint.Native.Object
             }
             
             return PropertyDescriptor.Undefined;
+        }
+
+        protected virtual void SetOwnProperty(string propertyName, PropertyDescriptor desc)
+        {
+            Properties[propertyName] = desc;
         }
 
         /// <summary>
@@ -262,7 +283,7 @@ namespace Jint.Native.Object
 
             if (desc.Configurable.HasValue && desc.Configurable.Value)
             {
-                Properties.Remove(propertyName);
+                RemoveOwnProperty(propertyName);
                 return true;
             }
             else
@@ -369,23 +390,23 @@ namespace Jint.Native.Object
                 {
                     if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
                     {
-                        Properties[propertyName] = new PropertyDescriptor(desc)
+                        SetOwnProperty(propertyName, new PropertyDescriptor(desc)
                         {
                             Value = desc.Value.HasValue ? desc.Value : JsValue.Undefined,
                             Writable = desc.Writable.HasValue ? desc.Writable.Value : false,
                             Enumerable = desc.Enumerable.HasValue ? desc.Enumerable.Value : false,
                             Configurable = desc.Configurable.HasValue ? desc.Configurable.Value : false
-                        };
+                        });
                     }
                     else
                     {
-                        Properties[propertyName] = new PropertyDescriptor(desc)
+                        SetOwnProperty(propertyName, new PropertyDescriptor(desc)
                         {
                             Get = desc.Get,
                             Set = desc.Set,
                             Enumerable = desc.Enumerable.HasValue ? desc.Enumerable : false,
                             Configurable = desc.Configurable.HasValue ? desc.Configurable : false,
-                        };
+                        });
                     }
                 }
 
@@ -457,21 +478,21 @@ namespace Jint.Native.Object
 
                     if (current.IsDataDescriptor())
                     {
-                        Properties[propertyName] = current = new PropertyDescriptor(
+                        SetOwnProperty(propertyName, current = new PropertyDescriptor(
                             get: Undefined.Instance,
                             set: Undefined.Instance,
                             enumerable: current.Enumerable,
                             configurable: current.Configurable
-                            );
+                            ));
                     }
                     else
                     {
-                        Properties[propertyName] = current = new PropertyDescriptor(
+                        SetOwnProperty(propertyName, current = new PropertyDescriptor(
                             value: Undefined.Instance, 
                             writable: null,
                             enumerable: current.Enumerable,
                             configurable: current.Configurable
-                            );
+                            ));
                     }
                 }
                 else if (current.IsDataDescriptor() && desc.IsDataDescriptor())
@@ -564,7 +585,7 @@ namespace Jint.Native.Object
         /// <param name="enumerable"></param>
         public void FastAddProperty(string name, JsValue value, bool writable, bool enumerable, bool configurable)
         {
-            Properties.Add(name, new PropertyDescriptor(value, writable, enumerable, configurable));
+            SetOwnProperty(name, new PropertyDescriptor(value, writable, enumerable, configurable));
         }
 
         /// <summary>
@@ -574,7 +595,7 @@ namespace Jint.Native.Object
         /// <param name="value"></param>
         public void FastSetProperty(string name, PropertyDescriptor value)
         {
-            Properties[name] = value;
+            SetOwnProperty(name, value);
         }
 
         public override string ToString()
