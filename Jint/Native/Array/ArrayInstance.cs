@@ -120,14 +120,14 @@ namespace Jint.Native.Array
 
                 if (_array.Count < oldLen - newLen)
                 {
-                    var keys = Properties.Keys.ToArray();
+                    var keys = _array.Keys.ToArray();
                     foreach (var key in keys)
                     {
                         uint keyIndex;
                         // is it the index of the array
                         if (IsArrayIndex(key, out keyIndex) && keyIndex >= newLen && keyIndex < oldLen)
                         {
-                            var deleteSucceeded = Delete(key, false);
+                            var deleteSucceeded = Delete(key.ToString(), false);
                             if (!deleteSucceeded)
                             {
                                 newLenDesc.Value = new JsValue(keyIndex + 1);
