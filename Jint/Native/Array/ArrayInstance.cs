@@ -306,7 +306,7 @@ namespace Jint.Native.Array
                 return uint.MaxValue;
             }
 
-            uint result = (uint)d;
+            ulong result = (uint)d;
 
             for (int i = 1; i < p.Length; i++)
             {
@@ -317,15 +317,15 @@ namespace Jint.Native.Array
                     return uint.MaxValue;
                 }
 
-                if (result >= uint.MaxValue)
+                ulong temp = result * 10 + (uint)d;
+                
+                if (temp >= uint.MaxValue)
                 {
-                        return uint.MaxValue;
+                    return uint.MaxValue;
                 }
-
-                result = result * 10 + (uint)d;
             }
 
-            return result;
+            return (uint)result;
         }
     }
 }
