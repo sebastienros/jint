@@ -118,7 +118,7 @@ namespace Jint.Native.Array
                 // in the case of sparse arrays, treat each concrete element instead of
                 // iterating over all indexes
 
-                if (Properties.Count < oldLen - newLen)
+                if (_array.Count < oldLen - newLen)
                 {
                     var keys = Properties.Keys.ToArray();
                     foreach (var key in keys)
