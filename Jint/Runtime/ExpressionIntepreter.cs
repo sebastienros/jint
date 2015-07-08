@@ -963,7 +963,6 @@ namespace Jint.Runtime
                 }
                 n++;
             }
-            
             return a;
         }
 
