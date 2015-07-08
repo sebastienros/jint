@@ -317,9 +317,9 @@ namespace Jint.Native.Array
                     return uint.MaxValue;
                 }
 
-                ulong temp = result * 10 + (uint)d;
+                result = result * 10 + (uint)d;
                 
-                if (temp >= uint.MaxValue)
+                if (result >= uint.MaxValue)
                 {
                     return uint.MaxValue;
                 }
