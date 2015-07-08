@@ -524,7 +524,7 @@ namespace Jint.Native
                             IDictionary<string, object> o = new ExpandoObject();
 #endif
 
-                            foreach (var p in _object.Properties)
+                            foreach (var p in _object.GetOwnProperties())
                             {
                                 if (!p.Value.Enumerable.HasValue || p.Value.Enumerable.Value == false)
                                 {
