@@ -361,10 +361,15 @@ namespace Jint.Native.Array
 
         private JsValue Splice(JsValue thisObj, JsValue[] arguments)
         {
+            var o = TypeConverter.ToObject(Engine, thisObj);
+            if(o is ArrayInstance)
+            {
+                return Splice((ArrayInstance)o, arguments);
+            }
+
             var start = arguments.At(0);
             var deleteCount = arguments.At(1);
 
-            var o = TypeConverter.ToObject(Engine, thisObj);
             var a = Engine.Array.Construct(Arguments.Empty);
             var lenVal = o.Get("length");
             var len = TypeConverter.ToUint32(lenVal);
@@ -444,31 +449,144 @@ namespace Jint.Native.Array
             return a;
         }
 
+        private JsValue Splice(ArrayInstance o, JsValue[] arguments)
+        {
+            var start = arguments.At(0);
+            var deleteCount = arguments.At(1);
+            
+            var a = Engine.Array.Construct(Arguments.Empty);
+            var lenVal = o.Get("length");
+            var len = TypeConverter.ToUint32(lenVal);
+            var relativeStart = TypeConverter.ToInteger(start);
+
+            uint actualStart;
+            if (relativeStart < 0)
+            {
+                actualStart = (uint)System.Math.Max(len + relativeStart, 0);
+            }
+            else
+            {
+                actualStart = (uint)System.Math.Min(relativeStart, len);
+            }
+
+            uint actualDeleteCount = (uint)System.Math.Min(System.Math.Max(TypeConverter.ToInteger(deleteCount), 0), len - actualStart);
+            for (uint k = 0; k < actualDeleteCount; k++)
+            {
+                var from = actualStart + k;
+                var fromPresent = o.Array.ContainsKey(from);
+                if (fromPresent)
+                {
+                    var fromValue = o.Array[from].Value;
+                    a.DefineOwnProperty(k.ToString(), new PropertyDescriptor(fromValue, true, true, true), false);
+                }
+            }
+
+            var items = arguments.Skip(2).ToArray();
+            if (items.Length < actualDeleteCount)
+            {
+                for (uint k = actualStart; k < len - actualDeleteCount; k++)
+                {
+                    var from = k + actualDeleteCount;
+                    var to = k + (uint)items.Length;
+                    var fromPresent = o.Array.ContainsKey(from);
+                    if (fromPresent)
+                    {
+                        var fromValue = o.Array[from];
+                        o.Array[to] = fromValue;
+                    }
+                    else
+                    {
+                        o.Array.Remove(to);
+                    }
+                }
+                for (var k = len; k > len - actualDeleteCount + items.Length; k--)
+                {
+                    o.Array.Remove(k - 1);
+                }
+            }
+            else if (items.Length > actualDeleteCount)
+            {
+                for (uint k = len - actualDeleteCount; k > actualStart; k--)
+                {
+                    var from = k + actualDeleteCount - 1;
+                    var to = k + (uint)items.Length - 1;
+                    var fromPresent = o.Array.ContainsKey(from);
+                    if (fromPresent)
+                    {
+                        var fromValue = o.Array[from];
+                        o.Array[to] = fromValue;
+                    }
+                    else
+                    {
+                        o.Array.Remove(to);
+                    }
+                }
+            }
+
+            for (uint k = 0; k < items.Length; k++)
+            {
+                var e = items[k];
+                o.Put((k + actualStart).ToString(), e, true);
+            }
+
+            o.Put("length", len - actualDeleteCount + items.Length, true);
+            return a;
+        }
+
         private JsValue Unshift(JsValue thisObj, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(Engine, thisObj);
             var lenVal = o.Get("length");
             var len = TypeConverter.ToUint32(lenVal);
             var argCount = (uint)arguments.Length;
-            for (var k = len; k > 0; k--)
+
+            // fast path for arrays
+            if (o is ArrayInstance)
             {
-                var from = (k - 1).ToString();
-                var to = (k + argCount - 1).ToString();
-                var fromPresent = o.HasProperty(from);
-                if (fromPresent)
+                var a = o as ArrayInstance;
+
+                for (var k = len; k > 0; k--)
                 {
-                    var fromValue = o.Get(from);
-                    o.Put(to, fromValue, true);
+                    var from = k - 1;
+                    var to = k + argCount - 1;
+                    var fromPresent = a.Array.ContainsKey(from);
+                    if (fromPresent)
+                    {
+                        a.Array[to] = a.Array[from];
+                    }
+                    else
+                    {
+                        a.Array.Remove(to);
+                    }
                 }
-                else
+                for (var j = 0; j < argCount; j++)
                 {
-                    o.Delete(to, true);
+                    a.Put(j.ToString(), arguments[j], true);
                 }
             }
-            for (var j = 0; j < argCount; j++)
+            else
             {
-                o.Put(j.ToString(), arguments[j], true);
+                for (var k = len; k > 0; k--)
+                {
+                    var from = (k - 1).ToString();
+                    var to = (k + argCount - 1).ToString();
+                    var fromPresent = o.HasProperty(from);
+                    if (fromPresent)
+                    {
+                        var fromValue = o.Get(from);
+                        o.Put(to, fromValue, true);
+                    }
+                    else
+                    {
+                        o.Delete(to, true);
+                    }
+                }
+                for (var j = 0; j < argCount; j++)
+                {
+                    o.Put(j.ToString(), arguments[j], true);
+                }
             }
+
             o.Put("length", len + argCount, true);
             return len + argCount;
         }
@@ -883,6 +1001,12 @@ namespace Jint.Native.Array
         public JsValue Push(JsValue thisObject, JsValue[] arguments)
         {
             ObjectInstance o = TypeConverter.ToObject(Engine, thisObject);
+
+            if(o is ArrayInstance)
+            {
+                return Push((ArrayInstance)o, arguments);
+            }
+
             var lenVal = TypeConverter.ToNumber(o.Get("length"));
             
             // cast to double as we need to prevent an overflow
@@ -895,6 +1019,21 @@ namespace Jint.Native.Array
 
             o.Put("length", n, true);
             
+            return n;
+        }
+
+        public JsValue Push(ArrayInstance o, JsValue[] arguments)
+        {
+            uint n = TypeConverter.ToUint32(o.Get("length"));
+
+            foreach (JsValue e in arguments)
+            {
+                o.Array[n] = new PropertyDescriptor(e, true, true, true);
+                n++;
+            }
+
+            o.Put("length", n, true);
+
             return n;
         }
 

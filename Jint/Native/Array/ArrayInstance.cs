@@ -9,7 +9,7 @@ namespace Jint.Native.Array
     public class ArrayInstance : ObjectInstance
     {
         private readonly Engine _engine;
-        private IDictionary<uint, PropertyDescriptor> _array = new MruPropertyCache2<uint, PropertyDescriptor>();
+        public IDictionary<uint, PropertyDescriptor> Array = new MruPropertyCache2<uint, PropertyDescriptor>();
         private PropertyDescriptor _length;
 
         public ArrayInstance(Engine engine) : base(engine)
@@ -118,9 +118,9 @@ namespace Jint.Native.Array
                 // in the case of sparse arrays, treat each concrete element instead of
                 // iterating over all indexes
 
-                if (_array.Count < oldLen - newLen)
+                if (Array.Count < oldLen - newLen)
                 {
-                    var keys = _array.Keys.ToArray();
+                    var keys = Array.Keys.ToArray();
                     foreach (var key in keys)
                     {
                         uint keyIndex;
@@ -217,7 +217,7 @@ namespace Jint.Native.Array
 
         public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {
-            foreach(var entry in _array)
+            foreach(var entry in Array)
             {
                 yield return new KeyValuePair<string, PropertyDescriptor>(entry.Key.ToString(), entry.Value);
             }
@@ -234,7 +234,7 @@ namespace Jint.Native.Array
             if (IsArrayIndex(propertyName, out index))
             {
                 PropertyDescriptor result;
-                if (_array.TryGetValue(index, out result))
+                if (Array.TryGetValue(index, out result))
                 {
                     return result;
                 }
@@ -252,7 +252,7 @@ namespace Jint.Native.Array
             uint index;
             if (IsArrayIndex(propertyName, out index))
             {
-                _array[index] = desc;
+                Array[index] = desc;
             }
             else
             {
@@ -270,7 +270,7 @@ namespace Jint.Native.Array
             uint index;
             if (IsArrayIndex(p, out index))
             {
-                return index < GetLength() && _array.ContainsKey(index);
+                return index < GetLength() && Array.ContainsKey(index);
             }
 
             return base.HasOwnProperty(p);
@@ -281,7 +281,7 @@ namespace Jint.Native.Array
             uint index;
             if(IsArrayIndex(p, out index))
             {
-                _array.Remove(index);
+                Array.Remove(index);
             }
 
             base.RemoveOwnProperty(p);

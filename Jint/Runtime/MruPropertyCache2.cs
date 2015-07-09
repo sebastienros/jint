@@ -136,7 +136,14 @@ namespace Jint.Runtime
                 return true;
             }
 
-            return _dictionary.TryGetValue(key, out value);
+            if(_dictionary.ContainsKey(key))
+            {
+                value = _dictionary[key];
+                return true;
+            }
+
+            value = null;
+            return false;
         }
 
         IEnumerator IEnumerable.GetEnumerator() {
