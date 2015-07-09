@@ -103,7 +103,13 @@ namespace Jint.Tests.Runtime.Domain
 
         public void Call18(int interval, out System.Timers.Timer x)
         {
-            x = new Timer() { Interval = interval };
+          x = new Timer() { Interval = interval };
+        }
+
+        public void Call19(out object[] ary, int interval, out System.Timers.Timer x)
+        {
+          ary = new object[] {"Ford", "Chevy", "Chrysler"};
+          x = new Timer() { Interval = interval };
         }
     }
 }

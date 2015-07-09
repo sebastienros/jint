@@ -21,10 +21,10 @@ namespace Jint.Native
     [DebuggerTypeProxy(typeof(JsValueDebugView))]
     public struct JsValue : IEquatable<JsValue>
     {
-        public static JsValue Undefined = new JsValue(Types.Undefined);
-        public static JsValue Null = new JsValue(Types.Null);
-        public static JsValue False = new JsValue(false);
-        public static JsValue True = new JsValue(true);
+        public readonly static JsValue Undefined = new JsValue(Types.Undefined);
+        public readonly static JsValue Null = new JsValue(Types.Null);
+        public readonly static JsValue False = new JsValue(false);
+        public readonly static JsValue True = new JsValue(true);
 
         public JsValue(bool value)
         {
@@ -80,17 +80,16 @@ namespace Jint.Native
             _isOutParam = false;
         }
 
+        private readonly bool _bool;
+
+        private readonly double _double;
+
+        private readonly ObjectInstance _object;
+
+        private readonly string _string;
+
+        private readonly Types _type;
         
-        private bool _bool;
-
-        private double _double;
-
-        private ObjectInstance _object;
-
-        private string _string;
-
-        private Types _type;
-
         private bool _isOutParam;
 
         [Pure]
@@ -679,67 +678,10 @@ namespace Jint.Native
             }
         }
 
-        internal void Assign(JsValue v)
+        internal bool IsOutParam
         {
-            if (v.IsString())
-            {
-                ResetFields();
-                _string = v.AsString();
-                _type = Types.String;
-            }
-            if (v.IsNumber())
-            {
-                ResetFields();
-                _double = v.AsNumber();
-                _type = Types.Number;
-            }
-            if (v.IsBoolean())
-            {
-                ResetFields();
-                _bool = v.AsBoolean();
-                _type = Types.Boolean;
-            }
-            if (v.IsObject())
-            {
-                ResetFields();
-                _object = v.AsObject();
-                _type = Types.Object;
-            }
-            if (v.IsArray())
-            {
-                ResetFields();
-                _object = v.AsArray();
-                _type = Types.Object;
-            }
-            if (v.IsNull())
-            {
-                ResetFields();
-                _type = Types.Null;
-            }
-            if (v.IsUndefined())
-            {
-                ResetFields();
-                _type = Types.Undefined;
-            }
-        }
-
-        private void ResetFields()
-        {
-            _bool = false;
-            _double = 0;
-            _string = null;
-            _object = null;
-            _type = Types.None;
-        }
-
-        public bool IsOutParam()
-        {
-            return _isOutParam;
-        }
-
-        public void SetOutParam(bool b)
-        {
-            _isOutParam = b;
+            get { return _isOutParam; }
+            set { _isOutParam = value; }
         }
     }
 }

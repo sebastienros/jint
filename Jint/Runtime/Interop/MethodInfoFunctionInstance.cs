@@ -7,6 +7,7 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
+using Jint.Parser.Ast;
 
 namespace Jint.Runtime.Interop
 {
@@ -85,16 +86,18 @@ namespace Jint.Runtime.Interop
 
                 // todo: cache method info
                 
+
                 try
                 {
                     var res = method.Invoke(thisObject.ToObject(), parameters);
+                    
+                    // Assign out parameters to arguments
                     for (int index = 0; index < method.GetParameters().Length; index++)
                     {
-                        ParameterInfo param = method.GetParameters()[index];
-                        if (param.IsOut)
+                        if (method.GetParameters()[index].IsOut)
                         {
-                            arguments[index].Assign(JsValue.FromObject(Engine, parameters[index]));
-                            arguments[index].SetOutParam(true);
+                            arguments[index] = (JsValue.FromObject(Engine, parameters[index]));
+                            arguments[index].IsOutParam = true;
                         }
                     }
 
@@ -102,7 +105,7 @@ namespace Jint.Runtime.Interop
                 }
                 catch (Exception exception)
                 {
-                    throw new JavaScriptException(Engine.TypeError, string.Format("Exception thrown during execution iterop method {0} - {1}", method.Name, exception.Message));
+                    throw new JavaScriptException(Engine.TypeError, string.Format("Exception thrown during execution of iterop method {0} - {1}", method.Name, exception.Message));
                 }
             }
 
@@ -118,7 +121,7 @@ namespace Jint.Runtime.Interop
             {
                 var parameters = methodInfo.GetParameters();
                 if (!parameters.Any(p => Attribute.IsDefined(p, typeof(ParamArrayAttribute))))
-                    continue;
+                      continue;
 
                 var nonParamsArgumentsCount = parameters.Length - 1;
                 if (jsArguments.Length < nonParamsArgumentsCount)

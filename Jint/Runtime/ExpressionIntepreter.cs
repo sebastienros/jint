@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Jint.Native;
 using Jint.Native.Function;
@@ -798,7 +799,7 @@ namespace Jint.Runtime
 
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
             var arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
-            var limit = arguments.Length;
+
             var func = _engine.GetValue(callee);
             
             var r = callee as Reference;
@@ -863,48 +864,22 @@ namespace Jint.Runtime
                 _engine.DebugHandler.PopDebugCallStack();
             }
 
+            // assign function out arguments to bindings
             for (int index = 0;
-              index < limit;
+              index < arguments.Length;
               index++)
             {
                 var identifier = callExpression.Arguments.ToArray()[index] as Identifier;
-                if (identifier != null && arguments[index].IsOutParam())
+                if (identifier != null && arguments[index].IsOutParam)
                 {
                     var id = identifier.Name;
-                    var hasKey = _engine.Global.HasOwnProperty(id);
+                    var hasKey = _engine.ExecutionContext.VariableEnvironment.Record.HasBinding(id);
                     if (hasKey)
                     {
-                        if (arguments[index].IsBoolean())
-                        {
-                            _engine.SetValue(id, arguments[index].AsBoolean());
-                        }
-                        if (arguments[index].IsNumber())
-                        {
-                            _engine.SetValue(id, arguments[index].AsNumber());
-                        }
-                        if (arguments[index].IsString())
-                        {
-                            _engine.SetValue(id, arguments[index].AsString());
-                        }
-                        if (arguments[index].IsObject())
-                        {
-                            _engine.SetValue(id, arguments[index].AsObject());
-                        }
-                        if (arguments[index].IsArray())
-                        {
-                            _engine.SetValue(id, arguments[index].AsArray());
-                        }
+                        _engine.ExecutionContext.VariableEnvironment.Record.SetMutableBinding(id, arguments[index],
+                            _engine.Options.IsStrict());
                     }
-                    else
-                    {
-                        hasKey = _engine.ExecutionContext.VariableEnvironment.Record.HasBinding(id);
-                        if (hasKey)
-                        {
-                            JsValue bindingValue = _engine.ExecutionContext.VariableEnvironment.Record.GetBindingValue(id,
-                              _engine.Options.IsStrict());
-                            bindingValue.Assign(arguments[index]);
-                        }
-                    }
+                    arguments[index].IsOutParam = false;
                 }
             }
 

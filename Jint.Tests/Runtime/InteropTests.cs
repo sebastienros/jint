@@ -1236,6 +1236,23 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldCallMethodWithOutArgInFun()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+                function fn()
+                {
+		            var str = 'in string';
+		            a.Call17(str);
+                    log(str);
+		            assert('out string' == str);
+                }
+                fn();
+		    ");
+        }
+
+        [Fact]
         public void ShouldCallMethodWithOutArg2()
         {
             _engine.SetValue("a", new A());
@@ -1250,12 +1267,27 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldCallMethodWithOutArg3()
         {
-            _engine.SetValue("a", new A());
+          _engine.SetValue("a", new A());
 
-            RunTest(@"
+          RunTest(@"
 		        var obj = null;
 		        a.Call18(1234, obj);
 		        assert(1234 == obj.Interval);
+		    ");
+        }
+        [Fact]
+        public void ShouldCallMethodWithOutArg4()
+        {
+          _engine.SetValue("a", new A());
+
+          RunTest(@"
+		        var obj = null;
+		        var ary = ['Saab', 'Volvo', 'BMW'];
+		        a.Call19(ary, 1234, obj);
+		        assert(1234 == obj.Interval);
+		        assert(ary[0] == 'Ford');
+		        assert(ary[1] == 'Chevy');
+		        assert(ary[2] == 'Chrysler');
 		    ");
         }
 
