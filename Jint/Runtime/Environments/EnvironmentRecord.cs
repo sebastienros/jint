@@ -56,6 +56,10 @@ namespace Jint.Runtime.Environments
         /// <returns>The value to use as <c>this</c>.</returns>
         public abstract JsValue ImplicitThisValue();
 
-
+        /// <summary>
+        /// Returns an array of all the defined binding names
+        /// </summary>
+        /// <returns>The array of all defined bindings</returns>
+        public abstract string[] GetAllBindingNames();
     }
 }

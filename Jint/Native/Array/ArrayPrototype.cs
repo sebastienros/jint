@@ -518,8 +518,16 @@ namespace Jint.Native.Array
 
                     if (compareFn != null)
                     {
-                        var s = (int) TypeConverter.ToUint32(compareFn.Call(Undefined.Instance, new[] {x, y}));
-                        return s;
+                        var s = TypeConverter.ToNumber(compareFn.Call(Undefined.Instance, new[] {x, y}));
+                        if (s < 0)
+                        {
+                            return -1;
+                        }
+                        if (s > 0)
+                        {
+                            return 1;
+                        }
+                        return 0;
                     }
 
                     var xString = TypeConverter.ToString(x);

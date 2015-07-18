@@ -45,6 +45,23 @@ namespace Jint.Runtime.Interop
                     {
                         parameters[i] = arguments[i];
                     }
+                    else if (parameterType == typeof(JsValue[]) && arguments[i].IsArray())
+                    {
+                        // Handle specific case of F(params JsValue[])
+
+                        var arrayInstance = arguments[i].AsArray();
+                        var len = TypeConverter.ToInt32(arrayInstance.Get("length"));
+                        var result = new JsValue[len];
+                        for (var k = 0; k < len; k++)
+                        {
+                            var pk = k.ToString();
+                            result[k] = arrayInstance.HasProperty(pk)
+                                ? arrayInstance.Get(pk)
+                                : JsValue.Undefined;
+                        }
+
+                        parameters[i] = result;
+                    }
                     else
                     {
                         if (!converter.TryConvert(arguments[i].ToObject(), parameterType, CultureInfo.InvariantCulture, out parameters[i]))
@@ -73,6 +90,9 @@ namespace Jint.Runtime.Interop
             throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
         }
 
+        /// <summary>
+        /// Reduces a flat list of parameters to a params array
+        /// </summary>
         private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, IEnumerable<MethodInfo> methodInfos)
         {
             foreach (var methodInfo in methodInfos)
@@ -91,8 +111,10 @@ namespace Jint.Runtime.Interop
                 if (argsToTransform.Count == 1 && argsToTransform.FirstOrDefault().IsArray())
                     continue;
 
-                var arrayInstance = ArrayConstructor.CreateArrayConstructor(Engine).Construct(argsToTransform.ToArray());
-                newArgumentsCollection.Add(new JsValue(arrayInstance));
+                var jsArray = Engine.Array.Construct(Arguments.Empty);
+                Engine.Array.PrototypeObject.Push(jsArray, argsToTransform.ToArray());
+
+                newArgumentsCollection.Add(new JsValue(jsArray));
                 return newArgumentsCollection.ToArray();
             }
 

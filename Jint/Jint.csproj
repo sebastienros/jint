@@ -148,7 +148,7 @@
     <Compile Include="Parser\Ast\WhileStatement.cs" />
     <Compile Include="Parser\Ast\WithStatement.cs" />
     <Compile Include="Parser\Comment.cs" />
-    <Compile Include="Parser\JavaScriptParser.cs" />
+    <Compile Include="Parser\JavascriptParser.cs" />
     <Compile Include="Parser\Loc.cs" />
     <Compile Include="Parser\Messages.cs" />
     <Compile Include="Parser\ParserException.cs" />
@@ -163,6 +163,10 @@
     <Compile Include="Runtime\CallStack\CallStackElementComparer.cs" />
     <Compile Include="Runtime\CallStack\CallStackElement.cs" />
     <Compile Include="Runtime\Completion.cs" />
+    <Compile Include="Runtime\Debugger\BreakPoint.cs" />
+    <Compile Include="Runtime\Debugger\DebugHandler.cs" />
+    <Compile Include="Runtime\Debugger\DebugInformation.cs" />
+    <Compile Include="Runtime\Debugger\StepMode.cs" />
     <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\Specialized\FieldInfoDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\Specialized\IndexDescriptor.cs" />
@@ -189,6 +193,8 @@
     <Compile Include="Runtime\Interop\TypeReference.cs" />
     <Compile Include="Runtime\Interop\TypeReferencePrototype.cs" />
     <Compile Include="Runtime\JavaScriptException.cs" />
+    <Compile Include="Runtime\MruPropertyCache2.cs" />
+    <Compile Include="Runtime\MruPropertyCache.cs" />
     <Compile Include="Runtime\RecursionDepthOverflowException.cs" />
     <Compile Include="Runtime\References\Reference.cs" />
     <Compile Include="Runtime\StatementInterpreter.cs" />

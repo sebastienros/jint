@@ -317,7 +317,7 @@ namespace Jint.Native.Global
         /// </summary>
         public static JsValue IsNaN(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments[0]);
+            var x = TypeConverter.ToNumber(arguments.At(0));
             return double.IsNaN(x);
         }
 
@@ -331,7 +331,7 @@ namespace Jint.Native.Global
                 return false;
             }
 
-            var n = TypeConverter.ToNumber(arguments[0]);
+            var n = TypeConverter.ToNumber(arguments.At(0));
             if (double.IsNaN(n) || double.IsInfinity(n))
             {
                 return false;

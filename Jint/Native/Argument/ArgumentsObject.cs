@@ -107,6 +107,45 @@ namespace Jint.Native.Argument
             return base.GetOwnProperty(propertyName);
         }
 
+        /// Implementation from ObjectInstance official specs as the one 
+        /// in ObjectInstance is optimized for the general case and wouldn't work 
+        /// for arrays
+        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        {
+            if (!CanPut(propertyName))
+            {
+                if (throwOnError)
+                {
+                    throw new JavaScriptException(Engine.TypeError);
+                }
+
+                return;
+            }
+
+            var ownDesc = GetOwnProperty(propertyName);
+
+            if (ownDesc.IsDataDescriptor())
+            {
+                var valueDesc = new PropertyDescriptor(value: value, writable: null, enumerable: null, configurable: null);
+                DefineOwnProperty(propertyName, valueDesc, throwOnError);
+                return;
+            }
+
+            // property is an accessor or inherited
+            var desc = GetProperty(propertyName);
+
+            if (desc.IsAccessorDescriptor())
+            {
+                var setter = desc.Set.Value.TryCast<ICallable>();
+                setter.Call(new JsValue(this), new[] { value });
+            }
+            else
+            {
+                var newDesc = new PropertyDescriptor(value, true, true, true);
+                DefineOwnProperty(propertyName, newDesc, throwOnError);
+            }
+        }
+
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             if (!Strict && ParameterMap != null)

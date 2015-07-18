@@ -157,6 +157,19 @@ namespace Jint.Runtime.Interop
 
             }
 
+            if (type.IsArray)
+            {
+                var source = value as object[];
+                if (source == null)
+                    throw new ArgumentException(String.Format("Value of object[] type is expected, but actual type is {0}.", value.GetType()));
+
+                var targetElementType = type.GetElementType();
+                var itemsConverted = source.Select(o => Convert(o, targetElementType, formatProvider)).ToArray();
+                var result = Array.CreateInstance(targetElementType, source.Length);
+                itemsConverted.CopyTo(result, 0);
+                return result;
+            }
+
             return System.Convert.ChangeType(value, type, formatProvider);
         }
 
@@ -165,21 +178,24 @@ namespace Jint.Runtime.Interop
             bool canConvert;
             var key = value == null ? String.Format("Null->{0}", type) : String.Format("{0}->{1}", value.GetType(), type);
 
-            lock (_lockObject)
+            if (!_knownConversions.TryGetValue(key, out canConvert))
             {
-                if (!_knownConversions.TryGetValue(key, out canConvert))
+                lock (_lockObject)
                 {
-                    try
+                    if (!_knownConversions.TryGetValue(key, out canConvert))
                     {
-                        converted = Convert(value, type, formatProvider);
-                        _knownConversions.Add(key, true);
-                        return true;
-                    }
-                    catch
-                    {
-                        converted = null;
-                        _knownConversions.Add(key, false);
-                        return false;
+                        try
+                        {
+                            converted = Convert(value, type, formatProvider);
+                            _knownConversions.Add(key, true);
+                            return true;
+                        }
+                        catch
+                        {
+                            converted = null;
+                            _knownConversions.Add(key, false);
+                            return false;
+                        }
                     }
                 }
             }
