@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Jint.Native;
 using Jint.Parser.Ast;
 using Jint.Runtime.Environments;
@@ -10,11 +11,13 @@ namespace Jint.Runtime
 {
     public class StatementInterpreter
     {
+        private readonly CancellationToken _cancellationToken;
         private readonly Engine _engine;
 
-        public StatementInterpreter(Engine engine)
+        public StatementInterpreter(Engine engine, CancellationToken cancellationToken)
         {
             _engine = engine;
+            _cancellationToken = cancellationToken;
         }
 
         private Completion ExecuteStatement(Statement statement)
@@ -78,6 +81,8 @@ namespace Jint.Runtime
 
             do
             {
+                _cancellationToken.ThrowIfCancellationRequested();
+
                 var stmt = ExecuteStatement(doWhileStatement.Body);
                 if (stmt.Value.HasValue)
                 {
@@ -113,6 +118,8 @@ namespace Jint.Runtime
             JsValue v = Undefined.Instance; 
             while (true)
             {
+                _cancellationToken.ThrowIfCancellationRequested();
+
                 var exprRef = _engine.EvaluateExpression(whileStatement.Test);
 
                 if (!TypeConverter.ToBoolean(_engine.GetValue(exprRef)))
@@ -165,6 +172,8 @@ namespace Jint.Runtime
             JsValue v = Undefined.Instance;
             while (true)
             {
+                _cancellationToken.ThrowIfCancellationRequested();
+
                 if (forStatement.Test != null)
                 {
                     var testExprRef = _engine.EvaluateExpression(forStatement.Test);
@@ -416,6 +425,8 @@ namespace Jint.Runtime
             {
                 foreach (var statement in statementList)
                 {
+                    _cancellationToken.ThrowIfCancellationRequested();
+
                     s = statement;
                     c = ExecuteStatement(statement);
                     if (c.Type != Completion.Normal)

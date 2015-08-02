@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using Jint.Native;
 using Jint.Runtime.Interop;
 
@@ -22,6 +23,7 @@ namespace Jint
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>(); 
+        private CancellationToken _cancellationToken = System.Threading.CancellationToken.None;
 
         /// <summary>
         /// When called, doesn't initialize the global scope.
@@ -123,6 +125,12 @@ namespace Jint
             return this;
         }
 
+        public Options CancellationToken(CancellationToken cancellationToken)
+        {
+            _cancellationToken = cancellationToken;
+            return this;
+        }
+
         internal bool GetDiscardGlobal()
         {
             return _discardGlobal;
@@ -181,6 +189,11 @@ namespace Jint
         internal TimeZoneInfo GetLocalTimeZone()
         {
             return _localTimeZone;
+        }
+
+        internal CancellationToken GetCancellationToken()
+        {
+            return _cancellationToken;
         }
     }
 }

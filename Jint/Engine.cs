@@ -126,7 +126,7 @@ namespace Jint
             Eval = new EvalFunctionInstance(this, new string[0], LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
 
-            _statements = new StatementInterpreter(this);
+            _statements = new StatementInterpreter(this, Options.GetCancellationToken());
             _expressions = new ExpressionInterpreter(this);
 
             if (Options.IsClrAllowed())
