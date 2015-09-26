@@ -1495,5 +1495,18 @@ namespace Jint.Tests.Runtime
                 assert(target[key] == 3);
             ");
         }
+
+        [Fact]
+        public void ObjectShouldBeExtensible()
+        {
+            RunTest(@"
+                try {
+                    Object.defineProperty(Object.defineProperty, 'foo', { value: 1 });
+                }
+                catch(e) {
+                    assert(false);
+                }
+            ");
+        }
     }
 }

@@ -17,6 +17,7 @@ namespace Jint.Runtime.Interop
             _func = func;
             Prototype = engine.Function.PrototypeObject;
             FastAddProperty("length", length, false, false, false);
+            Extensible = true;
         }
 
         public ClrFunctionInstance(Engine engine, Func<JsValue, JsValue[], JsValue> func)
