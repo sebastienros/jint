@@ -41,9 +41,8 @@ namespace Jint.Runtime
 
         public JsValue EvaluateAssignmentExpression(AssignmentExpression assignmentExpression)
         {
-            JsValue rval = _engine.GetValue(EvaluateExpression(assignmentExpression.Right));
-
             var lref = EvaluateExpression(assignmentExpression.Left) as Reference;
+            JsValue rval = _engine.GetValue(EvaluateExpression(assignmentExpression.Right));
 
             if (lref == null)
             {

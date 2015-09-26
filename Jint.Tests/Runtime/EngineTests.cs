@@ -9,7 +9,6 @@ using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
-using Xunit.Extensions;
 using System.Net;
 
 namespace Jint.Tests.Runtime
@@ -1479,6 +1478,22 @@ namespace Jint.Tests.Runtime
             engine.Step -= EngineStep;
 
             Assert.Equal(5, countBreak);
+        }
+
+        [Fact]
+        public void ShouldEvaluateVariableAssignmentFromLeftToRight()
+        {
+            RunTest(@"
+                var keys = ['a']
+                  , source = { a: 3}
+                  , target = {}
+                  , key
+                  , i = 0;
+                target[key = keys[i++]] = source[key];
+                assert(i == 1);
+                assert(key == 'a');
+                assert(target[key] == 3);
+            ");
         }
     }
 }
