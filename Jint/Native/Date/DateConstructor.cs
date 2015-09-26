@@ -97,7 +97,7 @@ namespace Jint.Native.Date
 
         private JsValue Now(JsValue thisObj, JsValue[] arguments)
         {
-            return (DateTime.UtcNow - Epoch).TotalMilliseconds;
+            return System.Math.Floor((DateTime.UtcNow - Epoch).TotalMilliseconds);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
