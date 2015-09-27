@@ -1508,5 +1508,19 @@ namespace Jint.Tests.Runtime
                 }
             ");
         }
+
+        [Fact]
+        public void ArrayIndexShouldBeConvertedToUint32()
+        {
+            // This is missing from ECMA tests suite
+            // http://www.ecma-international.org/ecma-262/5.1/#sec-15.4
+
+            RunTest(@"
+                var a = [ 'foo' ];
+                assert(a[0] === 'foo');
+                assert(a['0'] === 'foo');
+                assert(a['00'] === undefined);
+            ");
+        }
     }
 }
