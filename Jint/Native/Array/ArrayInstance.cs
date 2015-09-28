@@ -306,6 +306,16 @@ namespace Jint.Native.Array
                 return uint.MaxValue;
             }
 
+            if(d == 0 && p.Length > 1)
+            {
+                // If p is a number that start with '0' and is not '0' then
+                // its ToString representation can't be the same a p. This is 
+                // not a valid array index. '01' !== ToString(ToUInt32('01'))
+                // http://www.ecma-international.org/ecma-262/5.1/#sec-15.4
+
+                return uint.MaxValue; 
+            }
+
             ulong result = (uint)d;
 
             for (int i = 1; i < p.Length; i++)
