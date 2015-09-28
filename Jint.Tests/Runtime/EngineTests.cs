@@ -1522,5 +1522,18 @@ namespace Jint.Tests.Runtime
                 assert(a['00'] === undefined);
             ");
         }
+
+        [Fact]
+        public void DatePrototypeFunctionWorkOnDateOnly()
+        {
+            RunTest(@"
+                try {
+                    var myObj = Object.create(Date.prototype);
+                    myObj.toDateString();
+                } catch (e) {
+                    assert(e instanceof TypeError);
+                }
+            ");
+        }
     }
 }
