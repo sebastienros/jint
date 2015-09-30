@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Xunit;
@@ -22,14 +23,36 @@ function run(){
         return false;
     } 
     catch(e) {
-        return true;
+        return e;
     }
 }
 ");
 
             var result = engine.Invoke("run");
 
-            Assert.Equal(result.AsBoolean(), true);
+            Assert.IsAssignableFrom<ArgumentOutOfRangeException>(result.ToObject());
+        }
+
+        [Fact]
+        public void UncaughtClrExceptionsIsThrown()
+        {
+            var engine = new Engine();
+            engine.SetValue("error", new Action(() => { throw new ArgumentOutOfRangeException("x"); }));
+
+            engine.Execute(@"
+function run(){
+   error();
+}
+");
+            try
+            {
+                engine.Invoke("run");
+                Assert.False(true);
+            }
+            catch (Exception e)
+            {
+                Assert.IsAssignableFrom<ArgumentOutOfRangeException>(e);                
+            }            
         }
     }
 }

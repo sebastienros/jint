@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Jint.Native.Object;
 using Jint.Parser;
 using Jint.Runtime;
@@ -94,6 +95,16 @@ namespace Jint.Native.Function
 
                     if (result.Type == Completion.Throw)
                     {
+                        if (result.Value.HasValue && result.Value.Value.IsObject())
+                        {
+                            var e = result.Value.Value.ToObject() as Exception;
+                            if (e != null)
+                            {
+                                e.Rethrow();
+                                throw new InvalidOperationException("Clr is not working");
+                           }
+                        }
+
                         JavaScriptException ex = new JavaScriptException(result.GetValueOrDefault());
                         ex.Location = result.Location;
                         throw ex;
