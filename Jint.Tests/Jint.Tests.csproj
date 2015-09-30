@@ -59,6 +59,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CatchingClrExceptionsTest.cs" />
     <Compile Include="Parser\JavascriptParserTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Runtime\Converters\NegateBoolConverter.cs" />
