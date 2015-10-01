@@ -194,6 +194,7 @@
     <Compile Include="Runtime\Interop\TypeReference.cs" />
     <Compile Include="Runtime\Interop\TypeReferencePrototype.cs" />
     <Compile Include="Runtime\JavaScriptException.cs" />
+    <Compile Include="Runtime\JintException.cs" />
     <Compile Include="Runtime\MruPropertyCache2.cs" />
     <Compile Include="Runtime\MruPropertyCache.cs" />
     <Compile Include="Runtime\RecursionDepthOverflowException.cs" />

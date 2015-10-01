@@ -23,18 +23,10 @@ namespace Jint.Runtime
             {
                 return _engine.ExecuteStatement(statement);
             }
-            catch(JavaScriptException)
+            catch(JintException)
             {
                 throw;
-            }
-            catch (RecursionDepthOverflowException)
-            {
-                throw;
-            }
-            catch (StatementsCountOverflowException)
-            {
-                throw;
-            }
+            }           
             catch (TimeoutException)
             {
                 throw;
