@@ -15,14 +15,18 @@ namespace Jint.Runtime
 
         public Completion(string type, JsValue? value, string identifier)
         {
-            Type = type;
-            Value = value;
-            Identifier = identifier;
+            _type = type;
+            _value = value;
+            _identifier = identifier;
         }
 
-        public string Type { get; private set; }
-        public JsValue? Value { get; private set; }
-        public string Identifier { get; private set; }
+        private string _type;
+        private JsValue? _value;
+        private string _identifier;
+
+        public string Type { get { return _type; } }
+        public JsValue? Value { get { return _value; } }
+        public string Identifier { get { return _identifier; } }
 
         public JsValue GetValueOrDefault()
         {

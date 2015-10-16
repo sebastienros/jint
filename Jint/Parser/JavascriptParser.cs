@@ -1433,7 +1433,7 @@ namespace Jint.Parser
                            };
         }
 
-        public BlockStatement CreateBlockStatement(IEnumerable<Statement> body)
+        public BlockStatement CreateBlockStatement(IList<Statement> body)
         {
             return new BlockStatement
                 {
@@ -1684,7 +1684,7 @@ namespace Jint.Parser
                 };
         }
 
-        public Program CreateProgram(ICollection<Statement> body, bool strict)
+        public Program CreateProgram(IList<Statement> body, bool strict)
         {
             return new Program
                 {
@@ -1725,7 +1725,7 @@ namespace Jint.Parser
                 };
         }
 
-        public SwitchCase CreateSwitchCase(Expression test, IEnumerable<Statement> consequent)
+        public SwitchCase CreateSwitchCase(Expression test, IList<Statement> consequent)
         {
             return new SwitchCase
                 {
@@ -2779,7 +2779,7 @@ namespace Jint.Parser
 
         // 12.1 Block
 
-        private IEnumerable<Statement> ParseStatementList()
+        private IList<Statement> ParseStatementList()
         {
             var list = new List<Statement>();
 
@@ -2805,7 +2805,7 @@ namespace Jint.Parser
             MarkStart();
             Expect("{");
 
-            IEnumerable<Statement> block = ParseStatementList();
+            IList<Statement> block = ParseStatementList();
 
             Expect("}");
 
@@ -3819,7 +3819,7 @@ namespace Jint.Parser
             return null;
         }
 
-        private ICollection<Statement> ParseSourceElements()
+        private IList<Statement> ParseSourceElements()
         {
             var sourceElements = new List<Statement>();
             Token firstRestricted = Token.Empty;
@@ -3877,7 +3877,7 @@ namespace Jint.Parser
             
             MarkStart();
             Peek();
-            ICollection<Statement> body = ParseSourceElements();
+            IList<Statement> body = ParseSourceElements();
             return MarkEnd(CreateProgram(body, _strict));
         }
 

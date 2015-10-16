@@ -28,19 +28,14 @@ namespace Jint.Native
 
         public JsValue(bool value)
         {
-            _double = double.NaN;
+            _double = value ? 1.0 : 0.0;
             _object = null;
-            _string = null;
             _type = Types.Boolean;
-
-            _bool = value; //Set value last because of 'FieldOffset' constraints
         }
 
         public JsValue(double value)
         {
-            _bool = false;
             _object = null;
-            _string = null;
             _type = Types.Number;
 
             _double = value;
@@ -48,19 +43,14 @@ namespace Jint.Native
 
         public JsValue(string value)
         {
-            _bool = false;
             _double = double.NaN;
-            _object = null;
+            _object = value;
             _type = Types.String;
-
-            _string = value;
         }
 
         public JsValue(ObjectInstance value)
         {
-            _bool = false;
             _double = double.NaN;
-            _string = null;
             _type = Types.Object;
 
             _object = value;
@@ -68,20 +58,14 @@ namespace Jint.Native
 
         private JsValue(Types type)
         {
-            _bool = false;
             _double = double.NaN;
             _object = null;
-            _string = null;
             _type = type;
         }
 
-        private readonly bool _bool;
-
         private readonly double _double;
 
-        private readonly ObjectInstance _object;
-
-        private readonly string _string;
+        private readonly object _object;
 
         private readonly Types _type;
 
@@ -153,7 +137,7 @@ namespace Jint.Native
                 throw new ArgumentException("The value is not an object");
             }
 
-            return _object;
+            return _object as ObjectInstance;
         }
 
         [Pure]
@@ -225,7 +209,7 @@ namespace Jint.Native
                 throw new ArgumentException("The value is not a boolean");
             }
 
-            return _bool;
+            return _double != 0;
         }
 
         [Pure]
@@ -236,12 +220,12 @@ namespace Jint.Native
                 throw new ArgumentException("The value is not a string");
             }
 
-            if (_string == null)
+            if (_object == null)
             {
                 throw new ArgumentException("The value is not defined");
             }
 
-            return _string;
+            return _object as string;
         }
 
         [Pure]
@@ -271,11 +255,9 @@ namespace Jint.Native
                 case Types.Null:
                     return true;
                 case Types.Boolean:
-                    return _bool == other._bool;
-                case Types.String:
-                    return _string == other._string;
                 case Types.Number:
                     return _double == other._double;
+                case Types.String:
                 case Types.Object:
                     return _object == other._object;
                 default:
@@ -416,10 +398,9 @@ namespace Jint.Native
                 case Types.Undefined:
                 case Types.Null:
                     return null;
-                case Types.Boolean:
-                    return _bool;
                 case Types.String:
-                    return _string;
+                    return _object;
+                case Types.Boolean:
                 case Types.Number:
                     return _double;
                 case Types.Object:
@@ -429,7 +410,7 @@ namespace Jint.Native
                         return wrapper.Target;
                     }
 
-                    switch (_object.Class)
+                    switch ((_object as ObjectInstance).Class)
                     {
                         case "Array":
                             var arrayInstance = _object as ArrayInstance;
@@ -516,14 +497,14 @@ namespace Jint.Native
                             IDictionary<string, object> o = new ExpandoObject();
 #endif
 
-                            foreach (var p in _object.GetOwnProperties())
+                            foreach (var p in (_object as ObjectInstance).GetOwnProperties())
                             {
                                 if (!p.Value.Enumerable.HasValue || p.Value.Enumerable.Value == false)
                                 {
                                     continue;
                                 }
 
-                                o.Add(p.Key, _object.Get(p.Key).ToObject());
+                                o.Add(p.Key, (_object as ObjectInstance).Get(p.Key).ToObject());
                             }
 
                             return o;
@@ -575,11 +556,10 @@ namespace Jint.Native
                 case Types.Null:
                     return "null";
                 case Types.Boolean:
-                    return _bool.ToString();
-                case Types.String:
-                    return _string;
+                    return _double != 0 ? bool.TrueString : bool.FalseString;
                 case Types.Number:
                     return _double.ToString();
+                case Types.String:
                 case Types.Object:
                     return _object.ToString();
                 default:
@@ -662,10 +642,9 @@ namespace Jint.Native
         {
             unchecked
             {
-                var hashCode = _bool.GetHashCode();
+                var hashCode = 0;
                 hashCode = (hashCode * 397) ^ _double.GetHashCode();
                 hashCode = (hashCode * 397) ^ (_object != null ? _object.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ (_string != null ? _string.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ (int)_type;
                 return hashCode;
             }
