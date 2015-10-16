@@ -401,6 +401,7 @@ namespace Jint.Native
                 case Types.String:
                     return _object;
                 case Types.Boolean:
+                    return _double != 0;
                 case Types.Number:
                     return _double;
                 case Types.Object:
