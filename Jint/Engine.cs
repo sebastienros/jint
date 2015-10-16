@@ -343,64 +343,64 @@ namespace Jint
             switch (statement.Type)
             {
                 case SyntaxNodes.BlockStatement:
-                    return _statements.ExecuteBlockStatement(statement.As<BlockStatement>());
+                    return _statements.ExecuteBlockStatement(statement as BlockStatement);
                     
                 case SyntaxNodes.BreakStatement:
-                    return _statements.ExecuteBreakStatement(statement.As<BreakStatement>());
+                    return _statements.ExecuteBreakStatement(statement as BreakStatement);
                     
                 case SyntaxNodes.ContinueStatement:
-                    return _statements.ExecuteContinueStatement(statement.As<ContinueStatement>());
+                    return _statements.ExecuteContinueStatement(statement as ContinueStatement);
                     
                 case SyntaxNodes.DoWhileStatement:
-                    return _statements.ExecuteDoWhileStatement(statement.As<DoWhileStatement>());
+                    return _statements.ExecuteDoWhileStatement(statement as DoWhileStatement);
                     
                 case SyntaxNodes.DebuggerStatement:
-                    return _statements.ExecuteDebuggerStatement(statement.As<DebuggerStatement>());
+                    return _statements.ExecuteDebuggerStatement(statement as DebuggerStatement);
                     
                 case SyntaxNodes.EmptyStatement:
-                    return _statements.ExecuteEmptyStatement(statement.As<EmptyStatement>());
+                    return _statements.ExecuteEmptyStatement(statement as EmptyStatement);
                     
                 case SyntaxNodes.ExpressionStatement:
-                    return _statements.ExecuteExpressionStatement(statement.As<ExpressionStatement>());
+                    return _statements.ExecuteExpressionStatement(statement as ExpressionStatement);
 
                 case SyntaxNodes.ForStatement:
-                    return _statements.ExecuteForStatement(statement.As<ForStatement>());
+                    return _statements.ExecuteForStatement(statement as ForStatement);
                     
                 case SyntaxNodes.ForInStatement:
-                    return _statements.ExecuteForInStatement(statement.As<ForInStatement>());
+                    return _statements.ExecuteForInStatement(statement as ForInStatement);
 
                 case SyntaxNodes.FunctionDeclaration:
                     return new Completion(Completion.Normal, null, null);
                     
                 case SyntaxNodes.IfStatement:
-                    return _statements.ExecuteIfStatement(statement.As<IfStatement>());
+                    return _statements.ExecuteIfStatement(statement as IfStatement);
                     
                 case SyntaxNodes.LabeledStatement:
-                    return _statements.ExecuteLabelledStatement(statement.As<LabelledStatement>());
+                    return _statements.ExecuteLabelledStatement(statement as LabelledStatement);
 
                 case SyntaxNodes.ReturnStatement:
-                    return _statements.ExecuteReturnStatement(statement.As<ReturnStatement>());
+                    return _statements.ExecuteReturnStatement(statement as ReturnStatement);
                     
                 case SyntaxNodes.SwitchStatement:
-                    return _statements.ExecuteSwitchStatement(statement.As<SwitchStatement>());
+                    return _statements.ExecuteSwitchStatement(statement as SwitchStatement);
                     
                 case SyntaxNodes.ThrowStatement:
-                    return _statements.ExecuteThrowStatement(statement.As<ThrowStatement>());
+                    return _statements.ExecuteThrowStatement(statement as ThrowStatement);
 
                 case SyntaxNodes.TryStatement:
-                    return _statements.ExecuteTryStatement(statement.As<TryStatement>());
+                    return _statements.ExecuteTryStatement(statement as TryStatement);
                     
                 case SyntaxNodes.VariableDeclaration:
-                    return _statements.ExecuteVariableDeclaration(statement.As<VariableDeclaration>());
+                    return _statements.ExecuteVariableDeclaration(statement as VariableDeclaration);
                     
                 case SyntaxNodes.WhileStatement:
-                    return _statements.ExecuteWhileStatement(statement.As<WhileStatement>());
+                    return _statements.ExecuteWhileStatement(statement as WhileStatement);
                     
                 case SyntaxNodes.WithStatement:
-                    return _statements.ExecuteWithStatement(statement.As<WithStatement>());
+                    return _statements.ExecuteWithStatement(statement as WithStatement);
 
                 case SyntaxNodes.Program:
-                    return _statements.ExecuteProgram(statement.As<Program>());
+                    return _statements.ExecuteProgram(statement as Program);
                     
                 default:
                     throw new ArgumentOutOfRangeException();

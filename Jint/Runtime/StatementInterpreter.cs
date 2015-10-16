@@ -406,7 +406,7 @@ namespace Jint.Runtime
             return new Completion(Completion.Normal, v, null);
         }
 
-        public Completion ExecuteStatementList(IEnumerable<Statement> statementList)
+        public Completion ExecuteStatementList(IList<Statement> statementList)
         {
             var c = new Completion(Completion.Normal, null, null);
             Completion sl = c;
@@ -414,10 +414,10 @@ namespace Jint.Runtime
 
             try
             {
-                foreach (var statement in statementList)
+                for (var i = 0; i < statementList.Count; i++)
                 {
-                    s = statement;
-                    c = ExecuteStatement(statement);
+                    s = statementList[i];
+                    c = ExecuteStatement(s);
                     if (c.Type != Completion.Normal)
                     {
                         return new Completion(c.Type, c.Value.HasValue ? c.Value : sl.Value, c.Identifier)
@@ -429,10 +429,11 @@ namespace Jint.Runtime
                     sl = c;
                 }
             }
-            catch(JavaScriptException v)
+            catch (JavaScriptException v)
             {
                 c = new Completion(Completion.Throw, v.Error, null);
-                c.Location = s.Location;
+                if (s != null)
+                    c.Location = s.Location;
                 return c;
             }
 
