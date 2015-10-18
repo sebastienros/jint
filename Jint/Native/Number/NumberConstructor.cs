@@ -1,8 +1,6 @@
-﻿using Jint.Native.Array;
-using Jint.Native.Function;
+﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Number
 {
@@ -71,7 +69,5 @@ namespace Jint.Native.Number
 
             return instance;
         }
-
-
     }
 }
