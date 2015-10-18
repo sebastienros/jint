@@ -979,7 +979,10 @@ namespace Jint.Tests.Runtime
             Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
 
             var epochToLocalString = engine.Execute("var d = new Date(0); d.toString();").GetCompletionValue().AsString();
-            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT", epochToLocalString);
+            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+00:11", epochToLocalString);
+
+            var epochToUTCString = engine.Execute("var d = new Date(0); d.toUTCString();").GetCompletionValue().AsString();
+            Assert.Equal("Thu Jan 01 1970 00:00:00 GMT", epochToUTCString);
         }
 
         [Theory]
@@ -1533,6 +1536,67 @@ namespace Jint.Tests.Runtime
                 } catch (e) {
                     assert(e instanceof TypeError);
                 }
+            ");
+        }
+
+        [Fact]
+        public void DateToStringMethodsShouldUseCurrentTimeZoneAndCulture()
+        {
+            // Forcing to PDT and FR for tests
+            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var FR = CultureInfo.GetCultureInfo("fr-FR");
+
+            var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                ;
+
+            engine.Execute(@"
+                    var d = new Date(1433160000000);
+
+                    equal('Mon Jun 01 2015 05:00:00 GMT-07:00', d.toString());
+                    equal('Mon Jun 01 2015', d.toDateString());
+                    equal('05:00:00 GMT-07:00', d.toTimeString());
+                    equal('lundi 1 juin 2015 05:00:00', d.toLocaleString());
+                    equal('lundi 1 juin 2015', d.toLocaleDateString());
+                    equal('05:00:00', d.toLocaleTimeString());
+            ");
+        }
+
+        [Fact]
+        public void DateShouldParseToString()
+        {
+            // Forcing to PDT and FR for tests
+            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var FR = CultureInfo.GetCultureInfo("fr-FR");
+
+            new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .Execute(@"
+                    var d = new Date(1433160000000);
+                    equal(Date.parse(d.toString()), d.valueOf());
+                    equal(Date.parse(d.toLocaleString()), d.valueOf());
+            ");
+        }
+
+        [Fact]
+        public void LocaleNumberShouldUseLocalCulture()
+        {
+            // Forcing to PDT and FR for tests
+            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var FR = CultureInfo.GetCultureInfo("fr-FR");
+
+            new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .Execute(@"
+                    var d = new Number(-1.23);
+                    equal('-1.23', d.toString());
+                    equal('-1,23', d.toLocaleString());
             ");
         }
     }

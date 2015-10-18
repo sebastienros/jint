@@ -102,27 +102,27 @@ namespace Jint.Native.Date
 
         private JsValue ToDateString(JsValue thisObj, JsValue[] arguments)
         {
-            return EnsureDateInstance(thisObj).ToDateTime().ToString("D", CultureInfo.InvariantCulture);
+            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("ddd MMM dd yyyy", CultureInfo.InvariantCulture);
         }
 
         private JsValue ToTimeString(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToString("T", CultureInfo.InvariantCulture);
+            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("HH:mm:ss 'GMT'K", CultureInfo.InvariantCulture);
         }
 
         private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
         {
-            return EnsureDateInstance(thisObj).ToDateTime().ToString("F");
+            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("F", Engine.Options.GetCulture());
         }
 
         private JsValue ToLocaleDateString(JsValue thisObj, JsValue[] arguments)
         {
-            return thisObj.TryCast<DateInstance>().ToDateTime().ToString("D");
+            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("D", Engine.Options.GetCulture());
         }
 
         private JsValue ToLocaleTimeString(JsValue thisObj, JsValue[] arguments)
         {
-            return EnsureDateInstance(thisObj).ToDateTime().ToString("T");
+            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("T", Engine.Options.GetCulture());
         }
 
         private JsValue GetTime(JsValue thisObj, JsValue[] arguments)
@@ -525,7 +525,7 @@ namespace Jint.Native.Date
             {
                 throw new JavaScriptException(Engine.TypeError);
             } )
-            .ToDateTime().ToUniversalTime().ToString("r");
+            .ToDateTime().ToUniversalTime().ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'");
         }
 
         private JsValue ToISOString(JsValue thisObj, JsValue[] arguments)
@@ -876,14 +876,15 @@ namespace Jint.Native.Date
             return Engine.Options.GetLocalTimeZone().IsDaylightSavingTime(dateTime) ? MsPerHour : 0;
         }
 
-        public DateTime ToLocalTime(DateTime t)
+        public DateTimeOffset ToLocalTime(DateTime t)
         {
             if (t.Kind == DateTimeKind.Unspecified)
             {
                 return t;
             }
 
-            return TimeZoneInfo.ConvertTime(t, Engine.Options.GetLocalTimeZone());
+            var offset = Engine.Options.GetLocalTimeZone().BaseUtcOffset;
+            return new DateTimeOffset(t.Ticks + offset.Ticks, offset);
         }
 
         public double LocalTime(double t)
