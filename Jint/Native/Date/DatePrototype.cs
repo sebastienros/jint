@@ -525,7 +525,7 @@ namespace Jint.Native.Date
             {
                 throw new JavaScriptException(Engine.TypeError);
             } )
-            .ToDateTime().ToUniversalTime().ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'");
+            .ToDateTime().ToUniversalTime().ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'", CultureInfo.InvariantCulture);
         }
 
         private JsValue ToISOString(JsValue thisObj, JsValue[] arguments)
