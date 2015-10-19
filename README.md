@@ -109,6 +109,27 @@ Generic types are also supported. Here is how to declare, instantiate and use a 
     jint> list.Count; // 2
 ```
 
+## Internationalization
+
+You can enforce what Time Zone or Culture the engine should use when locale JavaScript methods are used if you don't want to use the computer's default values.
+
+This example forces the Time Zone to Pacific Standard Time.
+```c#
+    var PST = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+    var engine = new Engine(cfg => cfg.LocalTimeZone(PST));
+    
+    engine.Execute("new Date().toString()"); // Wed Dec 31 1969 16:00:00 GMT-08:00
+```
+
+This example is using French as the default culture.
+```c#
+    var FR = CultureInfo.GetCultureInfo("fr-FR");
+    var engine = new Engine(cfg => cfg.Culture(FR));
+    
+    engine.Execute("new Number(1.23).toString()"); // 1.23
+    engine.Execute("new Number(1.23).toLocaleString()"); // 1,23
+```
+
 ## Implemented features:
 
 - ECMAScript 5.1 test suite (http://test262.ecmascript.org/) 
