@@ -348,8 +348,9 @@ namespace Jint.Runtime
 
         public static IEnumerable<MethodBase> FindBestMatch(Engine engine, MethodBase[] methods, JsValue[] arguments)
         {
+            // Find all methods that have the same number of non-default parameters or less.
             methods = methods
-                .Where(m => m.GetParameters().Count() == arguments.Length)
+                .Where(m => m.GetParameters().Count(p => p.DefaultValue != null && p.DefaultValue.GetType().Name == "DBNull") <= arguments.Length)
                 .ToArray();
 
             if (methods.Length == 1 && !methods[0].GetParameters().Any())

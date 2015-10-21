@@ -34,12 +34,13 @@ namespace Jint.Runtime.Interop
 
             foreach (var method in methods)
             {
-                var parameters = new object[arguments.Length];
+                var parameterInfos = method.GetParameters();
+                var parameters = new object[parameterInfos.Length];
                 var argumentsMatch = true;
 
                 for (var i = 0; i < arguments.Length; i++)
                 {
-                    var parameterType = method.GetParameters()[i].ParameterType;
+                    var parameterType = parameterInfos[i].ParameterType;
 
                     if (parameterType == typeof(JsValue))
                     {
@@ -75,6 +76,16 @@ namespace Jint.Runtime.Interop
                         {
                             parameters[i] = lambdaExpression.Compile();
                         }
+                    }
+                }
+
+                // If there are additional parameters that have default values, 
+                // then fill in the default values into the parameters array.
+                if (parameterInfos.Length > arguments.Length)
+                {
+                    for (var i = arguments.Length; i < parameterInfos.Length; i++)
+                    {
+                        parameters[i] = parameterInfos[i].DefaultValue;
                     }
                 }
 
