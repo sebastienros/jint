@@ -192,7 +192,7 @@ namespace Jint.Tests.Runtime
                 assert(p.Age === 0);
                 p.SetOptionalValues('Mickey Mouse', 100);
                 assert(p.Name === 'Mickey Mouse');
-                assert(p.Age === 123);
+                assert(p.Age === 100);
             ");
         }
 
