@@ -15,6 +15,12 @@ namespace Jint.Tests.Runtime.Domain
         {
             return Name;
         }
+
+        public void SetValues(int? age = null, string name = null)
+        {
+            if (age.HasValue) { Age = age.Value; }
+            if (name != null) { Name = name; }
+        }
     }
 
 }

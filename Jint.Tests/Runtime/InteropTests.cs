@@ -126,6 +126,26 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void CanInvokeObjectMethodsWithOptionalArguments()
+        {
+            var p = new Person();
+
+            _engine.SetValue("p", p);
+
+            RunTest(@"
+                p.SetValues();
+                assert(p.Age === 0);
+                assert(p.Name === null);
+                p.SetValues(123);
+                assert(p.Age === 123);
+                assert(p.Name === null);
+                p.SetValues(456, 'Minnie Mouse');
+                assert(p.Age === 456);
+                assert(p.Name === 'Minnie Mouse');
+            ");
+        }
+
+        [Fact]
         public void CanSetObjectProperties()
         {
             var p = new Person
