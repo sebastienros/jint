@@ -6,6 +6,7 @@ using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
 using Shapes;
 using Xunit;
+using System.Reflection;
 
 namespace Jint.Tests.Runtime
 {
@@ -15,7 +16,7 @@ namespace Jint.Tests.Runtime
 
         public InteropTests()
         {
-            _engine = new Engine(cfg => cfg.AllowClr(typeof(Shape).Assembly))
+            _engine = new Engine(cfg => cfg.AllowClr(typeof(Shape).GetTypeInfo().Assembly))
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
                 ;

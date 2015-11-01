@@ -98,7 +98,7 @@ namespace Jint.Runtime.Interop
             foreach (var methodInfo in methodInfos)
             {
                 var parameters = methodInfo.GetParameters();
-                if (!parameters.Any(p => Attribute.IsDefined(p, typeof(ParamArrayAttribute))))
+                if (!parameters.Any(p => p.GetCustomAttribute<ParamArrayAttribute>() != null))
                     continue;
 
                 var nonParamsArgumentsCount = parameters.Length - 1;

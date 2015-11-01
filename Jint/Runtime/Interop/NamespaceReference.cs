@@ -100,16 +100,17 @@ namespace Jint.Runtime.Interop
                 return TypeReference.CreateTypeReference(Engine, type);
             }
 
+            // TODO: DNX
             // search in loaded assemblies
-            foreach (var assembly in new[] { Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly() }.Distinct())
-            {
-                type = assembly.GetType(path);
-                if (type != null)
-                {
-                    Engine.TypeCache.Add(path, type);
-                    return TypeReference.CreateTypeReference(Engine, type);
-                }
-            }
+            //foreach (var assembly in { Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly() }.Distinct())
+            //{
+            //    type = assembly.GetType(path);
+            //    if (type != null)
+            //    {
+            //        Engine.TypeCache.Add(path, type);
+            //        return TypeReference.CreateTypeReference(Engine, type);
+            //    }
+            //}
 
             // search in lookup assemblies
             foreach (var assembly in Engine.Options.GetLookupAssemblies())

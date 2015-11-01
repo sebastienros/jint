@@ -140,7 +140,7 @@ namespace Jint.Runtime.Interop
         {
             // todo: cache members locally
 
-            if (Type.IsEnum)
+            if (Type.GetTypeInfo().IsEnum)
             {
                 Array enumValues = Enum.GetValues(Type);
                 Array enumNames = Enum.GetNames(Type);
