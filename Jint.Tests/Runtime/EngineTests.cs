@@ -912,9 +912,14 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeCultureInvariant()
         {
+#if DNX451
             // decimals in french are separated by commas
-            CultureInfo.CurrentCulture = new CultureInfo("fr-FR");
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("fr-FR");
+#endif
 
+#if DNXCORE50 
+            CultureInfo.CurrentCulture = new CultureInfo("fr-FR");
+#endif
             var engine = new Engine();
 
             var result = engine.Execute("1.2 + 2.1").GetCompletionValue().AsNumber();
@@ -970,29 +975,31 @@ namespace Jint.Tests.Runtime
             Assert.Equal(0, result);
         }
 
-        [Fact(Skip = "TODO: DNX Timezone")]
+#if DNX451
+        [Fact]
         public void ShouldUseLocalTimeZoneOverride()
         {
-            //const string customName = "Custom Time";
-            //var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName, customName, customName, null, false);
+            const string customName = "Custom Time";
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName, customName, customName, null, false);
 
-            //var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
+            var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
-            //var epochGetLocalMinutes = engine.Execute("var d = new Date(0); d.getMinutes();").GetCompletionValue().AsNumber();
-            //Assert.Equal(11, epochGetLocalMinutes);
+            var epochGetLocalMinutes = engine.Execute("var d = new Date(0); d.getMinutes();").GetCompletionValue().AsNumber();
+            Assert.Equal(11, epochGetLocalMinutes);
 
-            //var localEpochGetUtcMinutes = engine.Execute("var d = new Date(1970,0,1); d.getUTCMinutes();").GetCompletionValue().AsNumber();
-            //Assert.Equal(-11, localEpochGetUtcMinutes);
+            var localEpochGetUtcMinutes = engine.Execute("var d = new Date(1970,0,1); d.getUTCMinutes();").GetCompletionValue().AsNumber();
+            Assert.Equal(-11, localEpochGetUtcMinutes);
 
-            //var parseLocalEpoch = engine.Execute("Date.parse('January 1, 1970');").GetCompletionValue().AsNumber();
-            //Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
+            var parseLocalEpoch = engine.Execute("Date.parse('January 1, 1970');").GetCompletionValue().AsNumber();
+            Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
 
-            //var epochToLocalString = engine.Execute("var d = new Date(0); d.toString();").GetCompletionValue().AsString();
-            //Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+00:11", epochToLocalString);
+            var epochToLocalString = engine.Execute("var d = new Date(0); d.toString();").GetCompletionValue().AsString();
+            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+00:11", epochToLocalString);
 
-            //var epochToUTCString = engine.Execute("var d = new Date(0); d.toUTCString();").GetCompletionValue().AsString();
-            //Assert.Equal("Thu Jan 01 1970 00:00:00 GMT", epochToUTCString);
+            var epochToUTCString = engine.Execute("var d = new Date(0); d.toUTCString();").GetCompletionValue().AsString();
+            Assert.Equal("Thu Jan 01 1970 00:00:00 GMT", epochToUTCString);
         }
+#endif
 
         [Theory]
         [InlineData("1970")]

@@ -2,6 +2,7 @@
   "locked": false,
   "version": 2,
   "targets": {
+    "DNX,Version=v4.5.1": {},
     "DNXCore,Version=v5.0": {
       "System.Collections/4.0.10": {
         "type": "package",
@@ -327,6 +328,8 @@
         }
       }
     },
+    "DNX,Version=v4.5.1/win7-x86": {},
+    "DNX,Version=v4.5.1/win7-x64": {},
     "DNXCore,Version=v5.0/win7-x86": {
       "System.Collections/4.0.10": {
         "type": "package",
@@ -1877,15 +1880,15 @@
     }
   },
   "projectFileDependencyGroups": {
-    "": [
+    "": [],
+    "DNX,Version=v4.5.1": [],
+    "DNXCore,Version=v5.0": [
       "System.Diagnostics.Contracts >= 4.0.1-beta-23409",
       "System.Dynamic.Runtime >= 4.0.11-beta-23409",
       "System.Linq >= 4.0.1-beta-23409",
       "System.Linq.Expressions >= 4.0.11-beta-23409",
       "System.Reflection.TypeExtensions >= 4.0.1-beta-23409",
-      "System.Text.RegularExpressions >= 4.0.11-beta-23409"
-    ],
-    "DNXCore,Version=v5.0": [
+      "System.Text.RegularExpressions >= 4.0.11-beta-23409",
       "System.Reflection.Extensions >= 4.0.0"
     ]
   }
