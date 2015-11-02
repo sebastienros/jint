@@ -912,9 +912,14 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeCultureInvariant()
         {
+#if DNX451
             // decimals in french are separated by commas
-            CultureInfo.CurrentCulture = new CultureInfo("fr-FR");
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("fr-FR");
+#endif
 
+#if DNXCORE50 
+            CultureInfo.CurrentCulture = new CultureInfo("fr-FR");
+#endif
             var engine = new Engine();
 
             var result = engine.Execute("1.2 + 2.1").GetCompletionValue().AsNumber();

@@ -1,17 +1,22 @@
 {
-  "version": "2.7.2-*",
+  "version": "2.7.1-dnx",
   "dependencies": {
     "System.Diagnostics.Contracts": "4.0.0",
     "System.Dynamic.Runtime": "4.0.0",
-    "System.Reflection.TypeExtensions": "4.0.0",
     "System.Text.RegularExpressions": "4.0.0",
     "System.Collections": "4.0.0",
     "System.Runtime.Extensions": "4.0.0",
     "System.Linq": "4.0.0",
     "System.Reflection.Extensions": "4.0.0",
-    "System.Threading":"4.0.0"
+    "System.Threading": "4.0.0"
   },
   "frameworks": {
-    "dnxcore50": { }
+    "dnx451": { },
+    "dnxcore50": {
+      "dependencies": {
+        "System.Reflection.TypeExtensions": "4.0.0"
+      }
+    }
   }
 }
+  

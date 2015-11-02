@@ -1,15 +1,20 @@
 {
-	"version": "1.0.0-*",
+  "version": "1.0.0-*",
   "dependencies": {
     "xunit.runner.dnx": "2.1.0-*",
     "xunit": "2.1.0-*",
-    "Jint": "2.7.2-*",
-    "System.Collections.NonGeneric": "4.0.0" 
+    "Jint": "2.7.1-dnx-*",
+    "System.Net.Http": "4.0.0-*"
   },
   "commands": {
-      "test": "xunit.runner.dnx"
-    },
+    "test": "xunit.runner.dnx"
+  },
   "frameworks": {
-    "dnxcore50": { }
+    "dnx451": { },
+    "dnxcore50": {
+      "dependencies": {
+        "System.Collections.NonGeneric": "4.0.0" 
+      }
+    }
   }
 }
