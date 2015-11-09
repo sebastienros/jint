@@ -82,7 +82,7 @@ Then you have access to the `System` namespace as a global value. Here is how it
     jint> file.WriteLine('Hello World !');
     jint> file.Dispose();
 ```
-And even create shortcuts to commong .NET methods
+And even create shortcuts to common .NET methods
 ```javascript
     jint> var log = System.Console.WriteLine;
     jint> log('Hello World !');
