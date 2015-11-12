@@ -38,7 +38,7 @@ namespace Jint.Native.Object
             {
                 return false;
             }
-            return desc.Enumerable.HasValue && desc.Enumerable.Value.AsBoolean();
+            return desc.Enumerable.HasValue && desc.Enumerable.Value;
         }
 
         private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)

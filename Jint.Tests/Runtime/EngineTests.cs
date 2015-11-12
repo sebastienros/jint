@@ -7,8 +7,8 @@ using Jint.Native.Number;
 using Jint.Parser;
 using Jint.Parser.Ast;
 using Jint.Runtime;
+using Jint.Runtime.Debugger;
 using Xunit;
-using Xunit.Extensions;
 using System.Net;
 
 namespace Jint.Tests.Runtime
@@ -16,6 +16,8 @@ namespace Jint.Tests.Runtime
     public class EngineTests : IDisposable
     {
         private readonly Engine _engine;
+        private int countBreak = 0;
+        private StepMode stepMode;
 
         public EngineTests()
         {
@@ -88,6 +90,17 @@ namespace Jint.Tests.Runtime
         [InlineData(2d, "9 >> 2")]
         [InlineData(4d, "19 >>> 2")]
         public void ShouldInterpretBinaryExpression(object expected, string source)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
+
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData(-59d, "~58")]
+        [InlineData(58d, "~~58")]
+        public void ShouldInterpretUnaryExpression(object expected, string source)
         {
             var engine = new Engine();
             var result = engine.Execute(source).GetCompletionValue().ToObject();
@@ -966,7 +979,10 @@ namespace Jint.Tests.Runtime
             Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
 
             var epochToLocalString = engine.Execute("var d = new Date(0); d.toString();").GetCompletionValue().AsString();
-            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT", epochToLocalString);
+            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+00:11", epochToLocalString);
+
+            var epochToUTCString = engine.Execute("var d = new Date(0); d.toUTCString();").GetCompletionValue().AsString();
+            Assert.Equal("Thu Jan 01 1970 00:00:00 GMT", epochToUTCString);
         }
 
         [Theory]
@@ -1182,6 +1198,406 @@ namespace Jint.Tests.Runtime
                 .GetCompletionValue().ToObject();
 
             Assert.Equal(value, result);
+        }
+
+
+
+        [Fact]
+        public void ShouldSortArrayWhenCompareFunctionReturnsFloatingPointNumber()
+        {
+            RunTest(@"
+                var nums = [1, 1.1, 1.2, 2, 2, 2.1, 2.2];
+                nums.sort(function(a,b){return b-a;});
+                assert(nums[0] === 2.2);
+                assert(nums[1] === 2.1);
+                assert(nums[2] === 2);
+                assert(nums[3] === 2);
+                assert(nums[4] === 1.2);
+                assert(nums[5] === 1.1);
+                assert(nums[6] === 1);
+            ");
+        }
+
+        [Fact]
+        public void ShouldBreakWhenBreakpointIsReached()
+        {
+            countBreak = 0;
+            stepMode = StepMode.None;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Break += EngineStep;
+
+            engine.BreakPoints.Add(new BreakPoint(1, 1));
+
+            engine.Execute(@"var local = true;
+                if (local === true)
+                {}");
+
+            engine.Break -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        [Fact]
+        public void ShouldExecuteStepByStep()
+        {
+            countBreak = 0;
+            stepMode = StepMode.Into;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Step += EngineStep;
+            
+            engine.Execute(@"var local = true;
+                var creatingSomeOtherLine = 0;
+                var lastOneIPromise = true");
+
+            engine.Step -= EngineStep;
+
+            Assert.Equal(3, countBreak);
+        }
+
+        [Fact]
+        public void ShouldNotBreakTwiceIfSteppingOverBreakpoint()
+        {
+            countBreak = 0;
+            stepMode = StepMode.Into;
+
+            var engine = new Engine(options => options.DebugMode());
+            engine.BreakPoints.Add(new BreakPoint(1, 1));
+            engine.Step += EngineStep;
+            engine.Break += EngineStep;
+
+            engine.Execute(@"var local = true;");
+
+            engine.Step -= EngineStep;
+            engine.Break -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+        
+        private StepMode EngineStep(object sender, DebugInformation debugInfo)
+        {
+            Assert.NotNull(sender);
+            Assert.IsType(typeof(Engine), sender);
+            Assert.NotNull(debugInfo);
+
+            countBreak++;
+            return stepMode;
+        }
+
+        [Fact]
+        public void ShouldShowProperDebugInformation()
+        {
+            countBreak = 0;
+            stepMode = StepMode.None;
+
+            var engine = new Engine(options => options.DebugMode());
+            engine.BreakPoints.Add(new BreakPoint(5, 0));
+            engine.Break += EngineStepVerifyDebugInfo;
+
+            engine.Execute(@"var global = true;
+                            function func1()
+                            {
+                                var local = false;
+;
+                            }
+                            func1();");
+
+            engine.Break -= EngineStepVerifyDebugInfo;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        private StepMode EngineStepVerifyDebugInfo(object sender, DebugInformation debugInfo)
+        {
+            Assert.NotNull(sender);
+            Assert.IsType(typeof(Engine), sender);
+            Assert.NotNull(debugInfo);
+
+            Assert.NotNull(debugInfo.CallStack);
+            Assert.NotNull(debugInfo.CurrentStatement);
+            Assert.NotNull(debugInfo.Locals);
+
+            Assert.Equal(1, debugInfo.CallStack.Count);
+            Assert.Equal("func1()", debugInfo.CallStack.Peek());
+            Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal) && kvp.Value.AsBoolean() == true);
+            Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
+            Assert.Contains(debugInfo.Locals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
+            Assert.DoesNotContain(debugInfo.Locals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal));
+            
+            countBreak++;
+            return stepMode;
+        }
+
+        [Fact]
+        public void ShouldBreakWhenConditionIsMatched()
+        {
+            countBreak = 0;
+            stepMode = StepMode.None;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Break += EngineStep;
+
+            engine.BreakPoints.Add(new BreakPoint(5, 16, "condition === true"));
+            engine.BreakPoints.Add(new BreakPoint(6, 16, "condition === false"));
+
+            engine.Execute(@"var local = true;
+                var condition = true;
+                if (local === true)
+                {
+                ;
+                ;
+                }");
+
+            engine.Break -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        [Fact]
+        public void ShouldNotStepInSameLevelStatementsWhenStepOut()
+        {
+            countBreak = 0;
+            stepMode = StepMode.Out;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Step += EngineStep;
+
+            engine.Execute(@"function func() // first step - then stepping out
+                {
+                    ; // shall not step
+                    ; // not even here
+                }
+                func(); // shall not step                 
+                ; // shall not step ");
+
+            engine.Step -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        [Fact]
+        public void ShouldNotStepInIfRequiredToStepOut()
+        {
+            countBreak = 0;
+            
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.Step += EngineStepOutWhenInsideFunction;
+
+            engine.Execute(@"function func() // first step
+                {
+                    ; // third step - now stepping out
+                    ; // it should not step here
+                }
+                func(); // second step                 
+                ; // fourth step ");
+
+            engine.Step -= EngineStepOutWhenInsideFunction;
+
+            Assert.Equal(4, countBreak);
+        }
+
+        private StepMode EngineStepOutWhenInsideFunction(object sender, DebugInformation debugInfo)
+        {
+            Assert.NotNull(sender);
+            Assert.IsType(typeof(Engine), sender);
+            Assert.NotNull(debugInfo);
+
+            countBreak++;
+            if (debugInfo.CallStack.Count > 0)
+                return StepMode.Out;
+            
+            return StepMode.Into;
+        }
+
+        [Fact]
+        public void ShouldBreakWhenStatementIsMultiLine()
+        {
+            countBreak = 0;
+            stepMode = StepMode.None;
+
+            var engine = new Engine(options => options.DebugMode());
+            engine.BreakPoints.Add(new BreakPoint(4, 33));
+            engine.Break += EngineStep;
+
+            engine.Execute(@"var global = true;
+                            function func1()
+                            {
+                                var local = 
+                                    false;
+                            }
+                            func1();");
+
+            engine.Break -= EngineStep;
+
+            Assert.Equal(1, countBreak);
+        }
+
+        [Fact]
+        public void ShouldNotStepInsideIfRequiredToStepOver()
+        {
+            countBreak = 0;
+            
+            var engine = new Engine(options => options.DebugMode());
+
+            stepMode = StepMode.Over;
+            engine.Step += EngineStep;
+
+            engine.Execute(@"function func() // first step
+                {
+                    ; // third step - it shall not step here
+                    ; // it shall not step here
+                }
+                func(); // second step                 
+                ; // third step ");
+
+            engine.Step -= EngineStep;
+
+            Assert.Equal(3, countBreak);
+        }
+
+        [Fact]
+        public void ShouldStepAllStatementsWithoutInvocationsIfStepOver()
+        {
+            countBreak = 0;
+
+            var engine = new Engine(options => options.DebugMode());
+
+            stepMode = StepMode.Over;
+            engine.Step += EngineStep;
+
+            engine.Execute(@"var step1 = 1; // first step
+                var step2 = 2; // second step                 
+                if (step1 !== step2) // third step
+                { // fourth step
+                    ; // fifth step
+                }");
+
+            engine.Step -= EngineStep;
+
+            Assert.Equal(5, countBreak);
+        }
+
+        [Fact]
+        public void ShouldEvaluateVariableAssignmentFromLeftToRight()
+        {
+            RunTest(@"
+                var keys = ['a']
+                  , source = { a: 3}
+                  , target = {}
+                  , key
+                  , i = 0;
+                target[key = keys[i++]] = source[key];
+                assert(i == 1);
+                assert(key == 'a');
+                assert(target[key] == 3);
+            ");
+        }
+
+        [Fact]
+        public void ObjectShouldBeExtensible()
+        {
+            RunTest(@"
+                try {
+                    Object.defineProperty(Object.defineProperty, 'foo', { value: 1 });
+                }
+                catch(e) {
+                    assert(false);
+                }
+            ");
+        }
+
+        [Fact]
+        public void ArrayIndexShouldBeConvertedToUint32()
+        {
+            // This is missing from ECMA tests suite
+            // http://www.ecma-international.org/ecma-262/5.1/#sec-15.4
+
+            RunTest(@"
+                var a = [ 'foo' ];
+                assert(a[0] === 'foo');
+                assert(a['0'] === 'foo');
+                assert(a['00'] === undefined);
+            ");
+        }
+
+        [Fact]
+        public void DatePrototypeFunctionWorkOnDateOnly()
+        {
+            RunTest(@"
+                try {
+                    var myObj = Object.create(Date.prototype);
+                    myObj.toDateString();
+                } catch (e) {
+                    assert(e instanceof TypeError);
+                }
+            ");
+        }
+
+        [Fact]
+        public void DateToStringMethodsShouldUseCurrentTimeZoneAndCulture()
+        {
+            // Forcing to PDT and FR for tests
+            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var FR = CultureInfo.GetCultureInfo("fr-FR");
+
+            var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                ;
+
+            engine.Execute(@"
+                    var d = new Date(1433160000000);
+
+                    equal('Mon Jun 01 2015 05:00:00 GMT-07:00', d.toString());
+                    equal('Mon Jun 01 2015', d.toDateString());
+                    equal('05:00:00 GMT-07:00', d.toTimeString());
+                    equal('lundi 1 juin 2015 05:00:00', d.toLocaleString());
+                    equal('lundi 1 juin 2015', d.toLocaleDateString());
+                    equal('05:00:00', d.toLocaleTimeString());
+            ");
+        }
+
+        [Fact]
+        public void DateShouldParseToString()
+        {
+            // Forcing to PDT and FR for tests
+            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var FR = CultureInfo.GetCultureInfo("fr-FR");
+
+            new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .Execute(@"
+                    var d = new Date(1433160000000);
+                    equal(Date.parse(d.toString()), d.valueOf());
+                    equal(Date.parse(d.toLocaleString()), d.valueOf());
+            ");
+        }
+
+        [Fact]
+        public void LocaleNumberShouldUseLocalCulture()
+        {
+            // Forcing to PDT and FR for tests
+            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var FR = CultureInfo.GetCultureInfo("fr-FR");
+
+            new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .Execute(@"
+                    var d = new Number(-1.23);
+                    equal('-1.23', d.toString());
+                    equal('-1,23', d.toLocaleString());
+            ");
         }
     }
 }
