@@ -74,6 +74,56 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void DelegateWithNullableParameterCanBePassedAnUndefined()
+        {
+            _engine.SetValue("isnull", new Func<double?, bool>(x => x == null));
+
+            RunTest(@"
+                assert(isnull(undefined) === true);
+            ");
+        }
+
+        [Fact]
+        public void DelegateWithObjectParameterCanBePassedAnUndefined()
+        {
+            _engine.SetValue("isnull", new Func<object, bool>(x => x == null));
+
+            RunTest(@"
+                assert(isnull(undefined) === true);
+            ");
+        }
+
+        [Fact]
+        public void DelegateWithNullableParameterCanBeExcluded()
+        {
+            _engine.SetValue("isnull", new Func<double?, bool>(x => x == null));
+
+            RunTest(@"
+                assert(isnull() === true);
+            ");
+        }
+
+        [Fact]
+        public void DelegateWithObjectParameterCanBeExcluded()
+        {
+            _engine.SetValue("isnull", new Func<object, bool>(x => x == null));
+
+            RunTest(@"
+                assert(isnull() === true);
+            ");
+        }
+
+        [Fact]
+        public void ExtraParametersAreIgnored()
+        {
+            _engine.SetValue("passNumber", new Func<int, int>(x => x));
+
+            RunTest(@"
+                assert(passNumber(123,'test',{},[],null) === 123);
+            ");
+        }
+
         private delegate string callParams(params object[] values);
         private delegate string callArgumentAndParams(string firstParam, params object[] values);
 
@@ -92,6 +142,7 @@ namespace Jint.Tests.Runtime
                 assert(callArgumentAndParams('a','1','2','3') === 'a:1,2,3');
                 assert(callArgumentAndParams('a','1') === 'a:1');
                 assert(callArgumentAndParams('a') === 'a:');
+                assert(callArgumentAndParams() === ':');
             ");
         }
 
@@ -122,6 +173,21 @@ namespace Jint.Tests.Runtime
 
             RunTest(@"
                 assert(p.ToString() === 'Mickey Mouse');
+            ");
+        }
+
+        [Fact]
+        public void CanInvokeObjectMethodsWithPascalCase()
+        {
+            var p = new Person
+            {
+                Name = "Mickey Mouse"
+            };
+
+            _engine.SetValue("p", p);
+
+            RunTest(@"
+                assert(p.toString() === 'Mickey Mouse');
             ");
         }
 
@@ -206,6 +272,37 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal("Mickey Mouse", dictionary[1]);
             Assert.Equal("Donald Duck", dictionary[2]);
+        }
+
+        [Fact]
+        public void CanUseGenericMethods()
+        {
+            var dictionary = new Dictionary<int, string>();
+            dictionary.Add(1, "Mickey Mouse");
+
+
+            _engine.SetValue("dictionary", dictionary);
+
+            RunTest(@"
+                dictionary.Add(2, 'Goofy');
+                assert(dictionary[2] === 'Goofy');
+            ");
+
+            Assert.Equal("Mickey Mouse", dictionary[1]);
+            Assert.Equal("Goofy", dictionary[2]);
+        }
+
+        [Fact]
+        public void CanUseMultiGenericTypes()
+        {
+            
+            RunTest(@"
+                var type = System.Collections.Generic.Dictionary(System.Int32, System.String);
+                var dictionary = new type();
+                dictionary.Add(1, 'Mickey Mouse');
+                dictionary.Add(2, 'Goofy');
+                assert(dictionary[2] === 'Goofy');
+            ");
         }
 
         [Fact]
@@ -1071,6 +1168,20 @@ namespace Jint.Tests.Runtime
                 assert(call13wrapper('1','2','3') === '1,2,3');
 
                 assert(a.Call13('1','2','3') === a.Call13(['1','2','3']));
+            ");
+        }
+
+        [Fact]
+        public void ShouldCallInstanceMethodWithJsValueParams()
+        {
+            _engine.SetValue("a", new A());
+
+            RunTest(@"
+                assert(a.Call16('1','2','3') === '1,2,3');
+                assert(a.Call16('1') === '1');
+                assert(a.Call16(1) === '1');
+                assert(a.Call16() === '');
+                assert(a.Call16('1','2','3') === a.Call16(['1','2','3']));
             ");
         }
 
