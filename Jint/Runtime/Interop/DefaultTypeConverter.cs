@@ -72,7 +72,21 @@ namespace Jint.Runtime.Interop
                         {
                             @params[i] = Expression.Parameter(genericArguments[i], genericArguments[i].Name + i);
                         }
-                        var @vars = Expression.NewArrayInit(typeof(JsValue), @params.Select(p => Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, typeof(Engine)), p)));
+                        var tmpVars = new Expression[@params.Length];
+                        for (var i = 0; i < @params.Count(); i++)
+                        {
+                            var param = @params[i];
+                            if (param.Type.IsValueType)
+                            {
+                                var boxing = Expression.Convert(param, typeof(object));
+                                tmpVars[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, typeof(Engine)), boxing);
+                            }
+                            else
+                            {
+                                tmpVars[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, typeof(Engine)), param);
+                            }
+                        }
+                        var @vars = Expression.NewArrayInit(typeof(JsValue), tmpVars);
 
                         var callExpresion = Expression.Block(Expression.Call(
                                                 Expression.Call(Expression.Constant(function.Target),
