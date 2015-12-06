@@ -69,8 +69,7 @@ namespace Jint.Native.Object
 
             if (desc.IsDataDescriptor())
             {
-                var val = desc.Value;
-                return val.HasValue ? val.Value : Undefined.Instance;
+                return desc.Value.HasValue ? desc.Value.Value : Undefined.Instance;
             }
 
             var getter = desc.Get.HasValue ? desc.Get.Value : Undefined.Instance;
