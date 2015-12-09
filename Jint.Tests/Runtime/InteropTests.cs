@@ -327,13 +327,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void CanUseIndexOnList()
         {
-#if DNX451
             var arrayList = new System.Collections.ArrayList(2);
-#endif
 
-#if DNXCORE50 
-            var arrayList = new List<object>(2);
-#endif
             arrayList.Add("Mickey Mouse");
             arrayList.Add("Goofy");
 
