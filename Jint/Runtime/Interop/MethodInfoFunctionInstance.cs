@@ -34,6 +34,16 @@ namespace Jint.Runtime.Interop
 
             foreach (var method in methods)
             {
+                if (method.IsGenericMethodDefinition)
+                {
+                    Type[] typeArguments = new Type[arguments.Length];
+                    for (int i = 0; i < arguments.Length; i++)
+                    {
+                        typeArguments[i] = arguments[i].ToObject() as Type;
+                    }
+                    var genericMethod = (method as MethodInfo).MakeGenericMethod(typeArguments);
+                    return JsValue.FromObject(Engine, genericMethod);
+                }
                 var parameters = new object[arguments.Length];
                 var argumentsMatch = true;
 
@@ -84,7 +94,7 @@ namespace Jint.Runtime.Interop
                 }
 
                 // todo: cache method info
-                return JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters.ToArray()));
+                return JsValue.FromObject(Engine, method.Invoke(method.IsStatic ? null : thisObject.ToObject(), parameters.ToArray()));
             }
 
             throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
