@@ -9,7 +9,6 @@ using Jint.Native.RegExp;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
-using Jint.Parser;
 
 namespace Jint.Native.String
 {
@@ -72,6 +71,15 @@ namespace Jint.Native.String
             return s.PrimitiveValue;
         }
 
+        // http://msdn.microsoft.com/en-us/library/system.char.iswhitespace(v=vs.110).aspx
+        // http://en.wikipedia.org/wiki/Byte_order_mark
+        const char BOM_CHAR = '\uFEFF';
+
+        private static bool IsWhiteSpaceEx(char c)
+        {
+            return char.IsWhiteSpace(c) || c == BOM_CHAR;
+        }
+
         private static string TrimEndEx(string s)
         {
             if (s.Length == 0)
@@ -80,7 +88,7 @@ namespace Jint.Native.String
             var i = s.Length - 1;
             while (i >= 0)
             {
-                if (JavaScriptParser.IsWhiteSpace(s[i]))
+                if (IsWhiteSpaceEx(s[i]))
                     i--;
                 else
                     break;
@@ -99,7 +107,7 @@ namespace Jint.Native.String
             var i = 0;
             while (i < s.Length)
             {
-                if (JavaScriptParser.IsWhiteSpace(s[i]))
+                if (IsWhiteSpaceEx(s[i]))
                     i++;
                 else
                     break;

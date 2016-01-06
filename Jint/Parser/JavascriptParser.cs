@@ -92,7 +92,7 @@ namespace Jint.Parser
 
         // 7.2 White Space
 
-        public static bool IsWhiteSpace(char ch)
+        private static bool IsWhiteSpace(char ch)
         {
             return (ch == 32) || // space
                    (ch == 9) || // tab
