@@ -60,7 +60,7 @@ namespace Jint.Native.Number
 
             if (m < 0)
             {
-                return "-" + ToNumberString(-m);
+                return "-" + ToLocaleString(-m, arguments);
             }
 
             if (double.IsPositiveInfinity(m) || m >= double.MaxValue)

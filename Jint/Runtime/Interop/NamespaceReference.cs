@@ -56,7 +56,7 @@ namespace Jint.Runtime.Interop
                     throw new JavaScriptException(Engine.TypeError, "Invalid generic type parameter");
                 }
 
-                genericTypes[i] = arguments.At(0).As<TypeReference>().Type;
+                genericTypes[i] = arguments.At(i).As<TypeReference>().Type;
             }
 
             var typeReference = GetPath(_path + "`" + arguments.Length.ToString(CultureInfo.InvariantCulture)).As<TypeReference>();

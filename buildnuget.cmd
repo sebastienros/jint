@@ -1,1 +1,1 @@
-nuget pack jint\Jint.csproj -Properties Configuration=Release 
+.nuget\nuget pack jint\Jint.csproj -Properties Configuration=Release 

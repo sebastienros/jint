@@ -275,6 +275,37 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void CanUseGenericMethods()
+        {
+            var dictionary = new Dictionary<int, string>();
+            dictionary.Add(1, "Mickey Mouse");
+
+
+            _engine.SetValue("dictionary", dictionary);
+
+            RunTest(@"
+                dictionary.Add(2, 'Goofy');
+                assert(dictionary[2] === 'Goofy');
+            ");
+
+            Assert.Equal("Mickey Mouse", dictionary[1]);
+            Assert.Equal("Goofy", dictionary[2]);
+        }
+
+        [Fact]
+        public void CanUseMultiGenericTypes()
+        {
+            
+            RunTest(@"
+                var type = System.Collections.Generic.Dictionary(System.Int32, System.String);
+                var dictionary = new type();
+                dictionary.Add(1, 'Mickey Mouse');
+                dictionary.Add(2, 'Goofy');
+                assert(dictionary[2] === 'Goofy');
+            ");
+        }
+
+        [Fact]
         public void CanUseIndexOnCollection()
         {
             var collection = new System.Collections.ObjectModel.Collection<string>();

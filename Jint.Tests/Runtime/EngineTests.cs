@@ -9,7 +9,6 @@ using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
-using Xunit.Extensions;
 using System.Net;
 
 namespace Jint.Tests.Runtime
@@ -952,6 +951,17 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void LocalDateTimeShouldNotLoseTimezone()
+        {
+            var date = new DateTime(2016, 1, 1, 13, 0, 0, DateTimeKind.Local);
+            var engine = new Engine().SetValue("localDate", date);
+            engine.Execute(@"localDate");
+            var actual = engine.GetCompletionValue().AsDate().ToDateTime();
+            Assert.Equal(date.ToUniversalTime(), actual.ToUniversalTime());
+            Assert.Equal(date.ToLocalTime(), actual.ToLocalTime());
+        }
+
+        [Fact]
         public void UtcShouldUseUtc()
         {
             const string customName = "Custom Time";
@@ -980,7 +990,10 @@ namespace Jint.Tests.Runtime
             Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
 
             var epochToLocalString = engine.Execute("var d = new Date(0); d.toString();").GetCompletionValue().AsString();
-            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT", epochToLocalString);
+            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+00:11", epochToLocalString);
+
+            var epochToUTCString = engine.Execute("var d = new Date(0); d.toUTCString();").GetCompletionValue().AsString();
+            Assert.Equal("Thu Jan 01 1970 00:00:00 GMT", epochToUTCString);
         }
 
         [Theory]
@@ -1479,6 +1492,123 @@ namespace Jint.Tests.Runtime
             engine.Step -= EngineStep;
 
             Assert.Equal(5, countBreak);
+        }
+
+        [Fact]
+        public void ShouldEvaluateVariableAssignmentFromLeftToRight()
+        {
+            RunTest(@"
+                var keys = ['a']
+                  , source = { a: 3}
+                  , target = {}
+                  , key
+                  , i = 0;
+                target[key = keys[i++]] = source[key];
+                assert(i == 1);
+                assert(key == 'a');
+                assert(target[key] == 3);
+            ");
+        }
+
+        [Fact]
+        public void ObjectShouldBeExtensible()
+        {
+            RunTest(@"
+                try {
+                    Object.defineProperty(Object.defineProperty, 'foo', { value: 1 });
+                }
+                catch(e) {
+                    assert(false);
+                }
+            ");
+        }
+
+        [Fact]
+        public void ArrayIndexShouldBeConvertedToUint32()
+        {
+            // This is missing from ECMA tests suite
+            // http://www.ecma-international.org/ecma-262/5.1/#sec-15.4
+
+            RunTest(@"
+                var a = [ 'foo' ];
+                assert(a[0] === 'foo');
+                assert(a['0'] === 'foo');
+                assert(a['00'] === undefined);
+            ");
+        }
+
+        [Fact]
+        public void DatePrototypeFunctionWorkOnDateOnly()
+        {
+            RunTest(@"
+                try {
+                    var myObj = Object.create(Date.prototype);
+                    myObj.toDateString();
+                } catch (e) {
+                    assert(e instanceof TypeError);
+                }
+            ");
+        }
+
+        [Fact]
+        public void DateToStringMethodsShouldUseCurrentTimeZoneAndCulture()
+        {
+            // Forcing to PDT and FR for tests
+            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var FR = CultureInfo.GetCultureInfo("fr-FR");
+
+            var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                ;
+
+            engine.Execute(@"
+                    var d = new Date(1433160000000);
+
+                    equal('Mon Jun 01 2015 05:00:00 GMT-07:00', d.toString());
+                    equal('Mon Jun 01 2015', d.toDateString());
+                    equal('05:00:00 GMT-07:00', d.toTimeString());
+                    equal('lundi 1 juin 2015 05:00:00', d.toLocaleString());
+                    equal('lundi 1 juin 2015', d.toLocaleDateString());
+                    equal('05:00:00', d.toLocaleTimeString());
+            ");
+        }
+
+        [Fact]
+        public void DateShouldParseToString()
+        {
+            // Forcing to PDT and FR for tests
+            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var FR = CultureInfo.GetCultureInfo("fr-FR");
+
+            new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .Execute(@"
+                    var d = new Date(1433160000000);
+                    equal(Date.parse(d.toString()), d.valueOf());
+                    equal(Date.parse(d.toLocaleString()), d.valueOf());
+            ");
+        }
+
+        [Fact]
+        public void LocaleNumberShouldUseLocalCulture()
+        {
+            // Forcing to PDT and FR for tests
+            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var FR = CultureInfo.GetCultureInfo("fr-FR");
+
+            new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .Execute(@"
+                    var d = new Number(-1.23);
+                    equal('-1.23', d.toString());
+                    equal('-1,23', d.toLocaleString());
+            ");
         }
     }
 }
