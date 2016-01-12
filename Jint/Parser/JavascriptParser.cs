@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Jint.Native.String;
 using Jint.Parser.Ast;
 
 namespace Jint.Parser
@@ -888,7 +889,7 @@ namespace Jint.Parser
             }
             catch (OverflowException)
             {
-                n = number.Trim().StartsWith("-") ? double.NegativeInfinity : double.PositiveInfinity;
+                n = StringPrototype.TrimEx(number).StartsWith("-") ? double.NegativeInfinity : double.PositiveInfinity;
             }
             catch (Exception)
             {

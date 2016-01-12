@@ -85,7 +85,7 @@ namespace Jint.Native.String
                 c == MONGOLIAN_VOWEL_SEPARATOR;
         }
 
-        private static string TrimEndEx(string s)
+        public static string TrimEndEx(string s)
         {
             if (s.Length == 0)
                 return string.Empty;
@@ -104,7 +104,7 @@ namespace Jint.Native.String
                 return string.Empty;
         }
 
-        private static string TrimStartEx(string s)
+        public static string TrimStartEx(string s)
         {
             if (s.Length == 0)
                 return string.Empty;
@@ -123,7 +123,7 @@ namespace Jint.Native.String
                 return s.Substring(i);
         }
 
-        private static string TrimEx(string s)
+        public static string TrimEx(string s)
         {
             return TrimEndEx(TrimStartEx(s));
         } 
