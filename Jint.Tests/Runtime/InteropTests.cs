@@ -1374,7 +1374,7 @@ namespace Jint.Tests.Runtime
             _engine.SetValue("a", new A());
             // Action<int>
             RunTest(@"
-                assert(a.Call18(function(value){ assert(value === 18); }));
+                a.Call18(function(value){ assert(value === 18); });
             ");
         }
 
