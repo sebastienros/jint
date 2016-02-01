@@ -1358,5 +1358,25 @@ namespace Jint.Tests.Runtime
             Assert.Equal(Nested.ClassWithStaticFields.Readonly, "Readonly");
         }
 
+        [Fact]
+        public void ShouldExecuteFunctionWithValueTypeParameterCorrectly()
+        {
+            _engine.SetValue("a", new A());
+            // Func<int, int>
+            RunTest(@"
+                assert(a.Call17(function(value){ return value; }) === 17);
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteActionWithValueTypeParameterCorrectly()
+        {
+            _engine.SetValue("a", new A());
+            // Action<int>
+            RunTest(@"
+                a.Call18(function(value){ assert(value === 18); });
+            ");
+        }
+
     }
 }
