@@ -194,10 +194,13 @@ namespace Jint.Runtime
 
         public JsValue EvaluateBinaryExpression(BinaryExpression expression)
         {
-            JsValue left = _engine.GetValue(EvaluateExpression(expression.Left));
-            JsValue right = _engine.GetValue(EvaluateExpression(expression.Right));
-            JsValue value;
+            var leftExpression = EvaluateExpression(expression.Left);
+            JsValue left = _engine.GetValue(leftExpression);
 
+            var rightExpression = EvaluateExpression(expression.Right);
+            JsValue right = _engine.GetValue(rightExpression);
+
+            JsValue value;
               
             switch (expression.Operator)
             {

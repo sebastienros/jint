@@ -48,7 +48,7 @@ namespace Jint.Runtime.References
         public bool IsPropertyReference()
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
-            return (_baseValue.IsObject() && _baseValue.TryCast<EnvironmentRecord>() == null) || HasPrimitiveBase();
+            return (_baseValue.IsObject() && !_baseValue.Is<EnvironmentRecord>()) || HasPrimitiveBase();
         }
     }
 }
