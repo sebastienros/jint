@@ -791,7 +791,7 @@ namespace Jint.Runtime
         {
             var callee = EvaluateExpression(callExpression.Callee);
 
-            if (_engine.Options.IsDebugMode())
+            if (_engine.Options._IsDebugMode)
             {
                 _engine.DebugHandler.AddToDebugCallStack(callExpression);
             }
@@ -805,14 +805,13 @@ namespace Jint.Runtime
             
             var r = callee as Reference;
 
-            var isRecursionHandled = _engine.Options.GetMaxRecursionDepth() >= 0;
-            if (isRecursionHandled)
+            if (_engine.Options._MaxRecursionDepth >= 0)
             {
                 var stackItem = new CallStackElement(callExpression, func, r != null ? r.GetReferencedName() : "anonymous function");
 
                 var recursionDepth = _engine.CallStack.Push(stackItem);
 
-                if (recursionDepth > _engine.Options.GetMaxRecursionDepth())
+                if (recursionDepth > _engine.Options._MaxRecursionDepth)
                 {
                     _engine.CallStack.Pop();
                     throw new RecursionDepthOverflowException(_engine.CallStack, stackItem.ToString());
@@ -860,12 +859,12 @@ namespace Jint.Runtime
             
             var result = callable.Call(thisObject, arguments);
 
-            if (_engine.Options.IsDebugMode())
+            if (_engine.Options._IsDebugMode)
             {
                 _engine.DebugHandler.PopDebugCallStack();
             }
 
-            if (isRecursionHandled)
+            if (_engine.Options._MaxRecursionDepth >= 0)
             {
                 _engine.CallStack.Pop();
             }

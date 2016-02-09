@@ -85,7 +85,7 @@ namespace Jint.Native.Date
                     "THHK"
                 }, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
                 {
-                    if (!DateTime.TryParse(date, Engine.Options.GetCulture(), DateTimeStyles.AdjustToUniversal, out result))
+                    if (!DateTime.TryParse(date, Engine.Options._Culture, DateTimeStyles.AdjustToUniversal, out result))
                     {
                         if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
                         {

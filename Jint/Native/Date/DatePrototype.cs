@@ -112,17 +112,17 @@ namespace Jint.Native.Date
 
         private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
         {
-            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("F", Engine.Options.GetCulture());
+            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("F", Engine.Options._Culture);
         }
 
         private JsValue ToLocaleDateString(JsValue thisObj, JsValue[] arguments)
         {
-            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("D", Engine.Options.GetCulture());
+            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("D", Engine.Options._Culture);
         }
 
         private JsValue ToLocaleTimeString(JsValue thisObj, JsValue[] arguments)
         {
-            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("T", Engine.Options.GetCulture());
+            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("T", Engine.Options._Culture);
         }
 
         private JsValue GetTime(JsValue thisObj, JsValue[] arguments)
@@ -846,7 +846,7 @@ namespace Jint.Native.Date
         {
             get
             {
-                return Engine.Options.GetLocalTimeZone().BaseUtcOffset.TotalMilliseconds;
+                return Engine.Options._LocalTimeZone.BaseUtcOffset.TotalMilliseconds;
             }
         }
 
@@ -873,7 +873,7 @@ namespace Jint.Native.Date
 
             var dateTime = new DateTime((int)year, 1, 1).AddMilliseconds(timeInYear);
 
-            return Engine.Options.GetLocalTimeZone().IsDaylightSavingTime(dateTime) ? MsPerHour : 0;
+            return Engine.Options._LocalTimeZone.IsDaylightSavingTime(dateTime) ? MsPerHour : 0;
         }
 
         public DateTimeOffset ToLocalTime(DateTime t)
@@ -883,7 +883,7 @@ namespace Jint.Native.Date
                 return t;
             }
 
-            var offset = Engine.Options.GetLocalTimeZone().BaseUtcOffset;
+            var offset = Engine.Options._LocalTimeZone.BaseUtcOffset;
             return new DateTimeOffset(t.Ticks + offset.Ticks, offset);
         }
 
