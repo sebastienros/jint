@@ -954,6 +954,17 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void CanConvertEnumsToString()
+        {
+            var engine1 = new Engine(o => o.AddObjectConverter(new EnumsToStringConverter()))
+                .SetValue("assert", new Action<bool>(Assert.True));
+            engine1.SetValue("p", new { Comparison = StringComparison.CurrentCulture });
+            engine1.Execute("assert(p.Comparison === 'CurrentCulture');");
+            engine1.Execute("var result = p.Comparison;");
+            Assert.Equal("CurrentCulture", (string)engine1.GetValue("result").ToObject());
+        }
+
+        [Fact]
         public void CanUserIncrementOperator()
         {
             var p = new Person
