@@ -625,12 +625,19 @@ namespace Jint.Runtime
 
         public JsValue EvaluateLiteral(Literal literal)
         {
-            if (literal.Type == SyntaxNodes.RegularExpressionLiteral)
+            if(literal.Cached)
             {
-                return _engine.RegExp.Construct(literal.Raw);
+                return literal.CachedValue;
             }
 
-            return JsValue.FromObject(_engine, literal.Value);
+            literal.Cached = true;
+
+            if (literal.Type == SyntaxNodes.RegularExpressionLiteral)
+            {
+                return literal.CachedValue = _engine.RegExp.Construct(literal.Raw);
+            }
+            
+            return literal.CachedValue = JsValue.FromObject(_engine, literal.Value);
         }
 
         public JsValue EvaluateObjectExpression(ObjectExpression objectExpression)
@@ -799,7 +806,32 @@ namespace Jint.Runtime
             JsValue thisObject;
 
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
-            var arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
+
+
+            JsValue[] arguments;
+
+            if (callExpression.Cached)
+            {
+                arguments = callExpression.CachedArguments;
+            }
+            else
+            {
+                arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
+
+                if (callExpression.CanBeCached)
+                {
+                    // The arguments array can be cached if they are all literals
+                    if (callExpression.Arguments.All(x => x is Literal))
+                    {
+                        callExpression.Cached = true;
+                        callExpression.CachedArguments = arguments;
+                    }
+                    else
+                    {
+                        callExpression.CanBeCached = false;
+                    }
+                }
+            }
 
             var func = _engine.GetValue(callee);
             

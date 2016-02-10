@@ -1452,7 +1452,7 @@ namespace Jint.Parser
                 };
         }
 
-        public CallExpression CreateCallExpression(Expression callee, IEnumerable<Expression> args)
+        public CallExpression CreateCallExpression(Expression callee, IList<Expression> args)
         {
             return new CallExpression
                 {
@@ -2328,7 +2328,7 @@ namespace Jint.Parser
 
         // 11.2 Left-Hand-Side Expressions
 
-        private IEnumerable<Expression> ParseArguments()
+        private IList<Expression> ParseArguments()
         {
             var args = new List<Expression>();
 
@@ -2406,7 +2406,7 @@ namespace Jint.Parser
             {
                 if (Match("("))
                 {
-                    IEnumerable<Expression> args = ParseArguments();
+                    IList<Expression> args = ParseArguments();
                     expr = CreateCallExpression(expr, args);
                 }
                 else if (Match("["))
