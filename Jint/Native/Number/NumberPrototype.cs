@@ -281,12 +281,6 @@ namespace Jint.Native.Number
                 return "-" + ToNumberString(-m);
             }
 
-            var l = (long)m;
-            if(l == m)
-            {
-                return l.ToString(CultureInfo.InvariantCulture);
-            }
-
             // V8 FastDtoa can't convert all numbers, so try it first but
             // fall back to old DToA in case it fails
             var result = FastDtoa.NumberToString(m);
