@@ -25,7 +25,7 @@ namespace Jint.Native.Argument
         private Action<ArgumentsInstance> _initializer;
         private bool _initialized;
 
-        private void EnsureInitialized()
+        protected override void EnsureInitialized()
         {
             if(_initialized)
             {
@@ -42,10 +42,7 @@ namespace Jint.Native.Argument
             var obj = new ArgumentsInstance(engine, self => 
             {                
                 var len = args.Length;
-                self.Prototype = engine.Object.PrototypeObject;
-                self.Extensible = true;
                 self.FastAddProperty("length", len, true, false, true);
-                self.Strict = strict;
                 var map = engine.Object.Construct(Arguments.Empty);
                 var mappedNamed = new List<string>();
                 var indx = 0;
@@ -88,6 +85,13 @@ namespace Jint.Native.Argument
                     self.DefineOwnProperty("callee", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
                 }
             });
+
+            // These properties are pre-initialized as their don't trigger
+            // the EnsureInitialized() event and are cheap
+            obj.Prototype = engine.Object.PrototypeObject;
+            obj.Extensible = true;
+            obj.Strict = strict;
+            
 
             return obj;
         }
