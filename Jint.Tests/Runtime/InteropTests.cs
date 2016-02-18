@@ -818,13 +818,22 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldConstructWithParameters()
+        public void ShouldConstructReferenceTypeWithParameters()
         {
             RunTest(@"
                 var Shapes = importNamespace('Shapes');
                 var circle = new Shapes.Circle(1);
                 assert(circle.Radius === 1);
                 assert(circle.Perimeter() === Math.PI);
+            ");
+        }
+
+        [Fact]
+        public void ShouldConstructValueTypeWithoutParameters()
+        {
+            RunTest(@"
+                var guid = new System.Guid();
+                assert('00000000-0000-0000-0000-000000000000' === guid.ToString());
             ");
         }
 
