@@ -3201,7 +3201,7 @@ namespace Jint.Parser
 
             ExpectKeyword("return");
 
-            if (!_state.InFunctionBody)
+            if (!_state.InFunctionBody && ((_extra.Flags & ParserOptionFlags.SuppressIllegalReturn) != ParserOptionFlags.SuppressIllegalReturn))
             {
                 ThrowErrorTolerant(Token.Empty, Messages.IllegalReturn);
             }
@@ -3948,6 +3948,8 @@ namespace Jint.Parser
                 {
                     _extra.Errors = new List<ParserException>();
                 }
+
+                _extra.Flags = options.Flags;
             }
 
             try
@@ -3968,6 +3970,8 @@ namespace Jint.Parser
                 {
                     program.Errors = _extra.Errors;
                 }
+
+                program.Flags = _extra.Flags;
             }
             finally
             {
@@ -4017,6 +4021,8 @@ namespace Jint.Parser
             public List<Comment> Comments;
             public List<Token> Tokens;
             public List<ParserException> Errors;
+
+            public ParserOptionFlags Flags;
         }
 
         private class LocationMarker
