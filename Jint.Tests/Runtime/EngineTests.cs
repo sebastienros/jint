@@ -1610,5 +1610,15 @@ namespace Jint.Tests.Runtime
                     equal('-1,23', d.toLocaleString());
             ");
         }
+
+        [Fact]
+        public void DateCtorShouldAcceptDate()
+        {
+            RunTest(@"
+                var a = new Date();
+                var b = new Date(a);
+                assert(String(a) === String(b));
+            ");
+        }
     }
 }
