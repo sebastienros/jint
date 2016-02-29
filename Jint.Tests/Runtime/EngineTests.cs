@@ -1638,5 +1638,15 @@ namespace Jint.Tests.Runtime
                 assert(String(a) === String(b));
             ");
         }
+
+        [Fact]
+        public void RegExpResultIsMutable()
+        {
+            RunTest(@"
+                var match = /quick\s(brown).+?(jumps)/ig.exec('The Quick Brown Fox Jumps Over The Lazy Dog');
+                var result = match.shift();
+                assert(result === 'Quick Brown Fox Jumps');
+            ");
+        }
     }
 }
