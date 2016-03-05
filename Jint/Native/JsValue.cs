@@ -492,6 +492,7 @@ namespace Jint.Native
 
                             break;
 
+                        case "Arguments":
                         case "Object":
 #if __IOS__
                                 IDictionary<string, object> o = new Dictionary<string, object>(); 
