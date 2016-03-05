@@ -60,7 +60,7 @@ namespace Jint.Runtime
             var result = ExecuteStatement(labelledStatement.Body);
             if (result.Type == Completion.Break && result.Identifier == labelledStatement.Label.Name)
             {
-                return new Completion(Completion.Normal, result.Value, null);    
+                return new Completion(Completion.Normal, result.Value, null);
             }
 
             return result;
@@ -110,7 +110,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteWhileStatement(WhileStatement whileStatement)
         {
-            JsValue v = Undefined.Instance; 
+            JsValue v = Undefined.Instance;
             while (true)
             {
                 var exprRef = _engine.EvaluateExpression(whileStatement.Test);
@@ -149,7 +149,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteForStatement(ForStatement forStatement)
         {
-            
+
             if (forStatement.Init != null)
             {
                 if (forStatement.Init.Type == SyntaxNodes.VariableDeclaration)
@@ -205,8 +205,8 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteForInStatement(ForInStatement forInStatement)
         {
-            Identifier identifier = forInStatement.Left.Type == SyntaxNodes.VariableDeclaration 
-                                        ? forInStatement.Left.As<VariableDeclaration>().Declarations.First().Id 
+            Identifier identifier = forInStatement.Left.Type == SyntaxNodes.VariableDeclaration
+                                        ? forInStatement.Left.As<VariableDeclaration>().Declarations.First().Id
                                         : forInStatement.Left.As<Identifier>();
 
             var varRef = _engine.EvaluateExpression(identifier) as Reference;
@@ -220,7 +220,7 @@ namespace Jint.Runtime
 
             var obj = TypeConverter.ToObject(_engine, experValue);
             JsValue v = Null.Instance;
-            
+
             // keys are constructed using the prototype chain
             var cursor = obj;
             var processedKeys = new HashSet<string>();
@@ -236,8 +236,8 @@ namespace Jint.Runtime
                     }
 
                     processedKeys.Add(p);
-                    
-                    // collection might be modified by inner statement 
+
+                    // collection might be modified by inner statement
                     if (!cursor.HasOwnProperty(p))
                     {
                         continue;
@@ -306,8 +306,8 @@ namespace Jint.Runtime
             {
                 return new Completion(Completion.Return, Undefined.Instance, null);
             }
-            
-            var exprRef = _engine.EvaluateExpression(statement.Argument);    
+
+            var exprRef = _engine.EvaluateExpression(statement.Argument);
             return new Completion(Completion.Return, _engine.GetValue(exprRef), null);
         }
 
@@ -385,7 +385,7 @@ namespace Jint.Runtime
                     {
                         return r;
                     }
-                    
+
                     v = r.Value.HasValue ? r.Value.Value : Undefined.Instance;
                 }
 
@@ -432,7 +432,7 @@ namespace Jint.Runtime
             catch(JavaScriptException v)
             {
                 c = new Completion(Completion.Throw, v.Error, null);
-                c.Location = s.Location;
+                c.Location = v.Location ?? s.Location;
                 return c;
             }
 
@@ -486,7 +486,7 @@ namespace Jint.Runtime
                 {
                     return b;
                 }
-            
+
                 return f;
             }
 

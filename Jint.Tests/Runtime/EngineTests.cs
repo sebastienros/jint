@@ -617,7 +617,7 @@ namespace Jint.Tests.Runtime
                 () => new Engine(cfg => cfg.MaxStatements(100)).Execute("while(true);")
             );
         }
-        
+
         [Fact]
         public void ShouldThrowTimeout()
         {
@@ -1259,7 +1259,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine(options => options.DebugMode());
 
             engine.Step += EngineStep;
-            
+
             engine.Execute(@"var local = true;
                 var creatingSomeOtherLine = 0;
                 var lastOneIPromise = true");
@@ -1287,7 +1287,7 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(1, countBreak);
         }
-        
+
         private StepMode EngineStep(object sender, DebugInformation debugInfo)
         {
             Assert.NotNull(sender);
@@ -1337,7 +1337,7 @@ namespace Jint.Tests.Runtime
             Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
             Assert.Contains(debugInfo.Locals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
             Assert.DoesNotContain(debugInfo.Locals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal));
-            
+
             countBreak++;
             return stepMode;
         }
@@ -1395,7 +1395,7 @@ namespace Jint.Tests.Runtime
         public void ShouldNotStepInIfRequiredToStepOut()
         {
             countBreak = 0;
-            
+
             var engine = new Engine(options => options.DebugMode());
 
             engine.Step += EngineStepOutWhenInsideFunction;
@@ -1422,7 +1422,7 @@ namespace Jint.Tests.Runtime
             countBreak++;
             if (debugInfo.CallStack.Count > 0)
                 return StepMode.Out;
-            
+
             return StepMode.Into;
         }
 
@@ -1453,7 +1453,7 @@ namespace Jint.Tests.Runtime
         public void ShouldNotStepInsideIfRequiredToStepOver()
         {
             countBreak = 0;
-            
+
             var engine = new Engine(options => options.DebugMode());
 
             stepMode = StepMode.Over;
@@ -1637,6 +1637,25 @@ namespace Jint.Tests.Runtime
                 var b = new Date(a);
                 assert(String(a) === String(b));
             ");
+        }
+
+        [Fact]
+        public void ExceptionShouldHaveLocationOfInnerFunction()
+        {
+            try
+            {
+                new Engine()
+                    .Execute(@"
+                    function test(s) {
+                        o.boom();
+                    }
+                    test('arg');
+                ");
+            }
+            catch (JavaScriptException ex)
+            {
+                Assert.Equal(3, ex.LineNumber);
+            }
         }
     }
 }
