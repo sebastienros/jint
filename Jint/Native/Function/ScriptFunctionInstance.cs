@@ -96,6 +96,7 @@ namespace Jint.Native.Function
                     {
                         JavaScriptException ex = new JavaScriptException(result.GetValueOrDefault());
                         ex.Location = result.Location;
+                        ex.DebugInfo = result.DebugInfo;
                         throw ex;
                     }
 

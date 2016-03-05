@@ -45,6 +45,7 @@ namespace Jint.Runtime
         }
 
         public Jint.Parser.Location Location { get; set; }
+        public Debugger.DebugInformation DebugInfo { get; set; }
 
         public int LineNumber { get { return null == Location ? 0 : Location.Start.Line; } }
 

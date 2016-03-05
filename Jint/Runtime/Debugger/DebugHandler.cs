@@ -146,7 +146,7 @@ namespace Jint.Runtime.Debugger
             return true;
         }
 
-        private DebugInformation CreateDebugInformation(Statement statement)
+        internal DebugInformation CreateDebugInformation(Statement statement)
         {
             var info = new DebugInformation { CurrentStatement = statement, CallStack = _debugCallStack };
 

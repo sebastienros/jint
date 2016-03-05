@@ -30,5 +30,6 @@ namespace Jint.Runtime
         }
 
         public Jint.Parser.Location Location { get; set; }
+        public Jint.Runtime.Debugger.DebugInformation DebugInfo { get; set; }
     }
 }

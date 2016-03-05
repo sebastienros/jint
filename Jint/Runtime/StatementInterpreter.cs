@@ -422,7 +422,8 @@ namespace Jint.Runtime
                     {
                         return new Completion(c.Type, c.Value.HasValue ? c.Value : sl.Value, c.Identifier)
                         {
-                            Location = c.Location
+                            Location = c.Location,
+                            DebugInfo = _engine.Options._IsDebugMode ? _engine.DebugHandler.CreateDebugInformation(statement) : null
                         };
                     }
 
@@ -433,6 +434,10 @@ namespace Jint.Runtime
             {
                 c = new Completion(Completion.Throw, v.Error, null);
                 c.Location = s.Location;
+                if (_engine.Options._IsDebugMode)
+                {
+                    c.DebugInfo = v.DebugInfo ?? _engine.DebugHandler.CreateDebugInformation(s);
+                }
                 return c;
             }
 

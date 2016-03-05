@@ -297,7 +297,8 @@ namespace Jint
                 {
                     throw new JavaScriptException(result.GetValueOrDefault())
                     {
-                        Location = result.Location
+                        Location = result.Location,
+                        DebugInfo = result.DebugInfo
                     };
                 }
 
