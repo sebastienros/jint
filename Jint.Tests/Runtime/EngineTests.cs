@@ -1648,5 +1648,33 @@ namespace Jint.Tests.Runtime
                 assert(result === 'Quick Brown Fox Jumps');
             ");
         }
+
+        [Fact]
+        public void RegExpSupportsMultiline()
+        {
+            RunTest(@"
+                var rheaders = /^(.*?):[ \t]*([^\r\n]*)$/mg;
+                var headersString = 'X-AspNetMvc-Version: 4.0\r\nX-Powered-By: ASP.NET\r\n\r\n';
+                match = rheaders.exec(headersString);
+                assert('X-AspNetMvc-Version' === match[1]);
+                assert('4.0' === match[2]);
+            ");
+
+            RunTest(@"
+                var rheaders = /^(.*?):[ \t]*(.*?)$/mg;
+                var headersString = 'X-AspNetMvc-Version: 4.0\r\nX-Powered-By: ASP.NET\r\n\r\n';
+                match = rheaders.exec(headersString);
+                assert('X-AspNetMvc-Version' === match[1]);
+                assert('4.0' === match[2]);
+            ");
+
+            RunTest(@"
+                var rheaders = /^(.*?):[ \t]*([^\r\n]*)$/mg;
+                var headersString = 'X-AspNetMvc-Version: 4.0\nX-Powered-By: ASP.NET\n\n';
+                match = rheaders.exec(headersString);
+                assert('X-AspNetMvc-Version' === match[1]);
+                assert('4.0' === match[2]);
+            ");
+        }
     }
 }
