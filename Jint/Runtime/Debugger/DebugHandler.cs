@@ -173,7 +173,7 @@ namespace Jint.Runtime.Debugger
         private static Dictionary<string, JsValue> GetGlobalVariables(LexicalEnvironment lex)
         {
             Dictionary<string, JsValue> globals = new Dictionary<string, JsValue>();
-            LexicalEnvironment tempLex = lex;
+            LexicalEnvironment tempLex = lex.Outer ?? lex;
 
             while (tempLex != null && tempLex.Record != null)
             {

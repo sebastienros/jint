@@ -1334,7 +1334,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(1, debugInfo.CallStack.Count);
             Assert.Equal("func1()", debugInfo.CallStack.Peek());
             Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal) && kvp.Value.AsBoolean() == true);
-            Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
+            Assert.DoesNotContain(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal));
             Assert.Contains(debugInfo.Locals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
             Assert.DoesNotContain(debugInfo.Locals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal));
             
