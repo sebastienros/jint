@@ -31,10 +31,9 @@ namespace Jint.Tests.Runtime
         {
         }
 
-
-        private void RunTest(string source)
+        private void RunTest(string source, ParserOptions options = null)
         {
-            _engine.Execute(source);
+            _engine.Execute(source, options);
         }
 
         [Theory]
@@ -1637,6 +1636,19 @@ namespace Jint.Tests.Runtime
                 var b = new Date(a);
                 assert(String(a) === String(b));
             ");
+        }
+
+        [Fact]
+        public void ShouldDisallowNonEmptyReturnWithoutFunctionBody()
+        {
+            Assert.Throws<ParserException>(() => RunTest(@"return 'hello';"));
+        }
+
+        [Fact]
+        public void ShouldAllowNonEmptyReturnWithoutFunctionBody()
+        {
+            RunTest(@"return 'hello';", new ParserOptions { Flags = ParserOptionFlags.SuppressIllegalReturn });
+            Assert.Equal("hello", _engine.GetCompletionValue().ToObject());
         }
     }
 }
