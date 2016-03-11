@@ -112,7 +112,7 @@ namespace Jint.Runtime.Interop
             }
 
             // search in lookup assemblies
-            foreach (var assembly in Engine.Options.GetLookupAssemblies())
+            foreach (var assembly in Engine.Options._LookupAssemblies)
             {
                 type = assembly.GetType(path);
                 if (type != null)
