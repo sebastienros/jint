@@ -14,6 +14,7 @@ namespace Jint.Runtime.Debugger
         private StepMode _stepMode;
         private int _callBackStepOverDepth;
         private readonly Engine _engine;
+        private bool _callPending;
 
         public DebugHandler(Engine engine)
         {
@@ -28,13 +29,10 @@ namespace Jint.Runtime.Debugger
             {
                 _debugCallStack.Pop();
             }
-            if (_stepMode == StepMode.Out && _debugCallStack.Count < _callBackStepOverDepth)
-            {
-                _callBackStepOverDepth = _debugCallStack.Count;
-                _stepMode = StepMode.Into;
-            }
-            else if (_stepMode == StepMode.Over && _debugCallStack.Count == _callBackStepOverDepth)
-            {
+            if (
+                (_stepMode == StepMode.Out && _debugCallStack.Count < _callBackStepOverDepth) ||
+                (_stepMode == StepMode.Over && (_callPending || _debugCallStack.Count == _callBackStepOverDepth))
+            ) {
                 _callBackStepOverDepth = _debugCallStack.Count;
                 _stepMode = StepMode.Into;
             }
@@ -42,6 +40,12 @@ namespace Jint.Runtime.Debugger
 
         internal void AddToDebugCallStack(CallExpression callExpression)
         {
+            if (_callPending)
+            {
+                _callPending = false;
+                _callBackStepOverDepth = _debugCallStack.Count;
+            }
+
             var identifier = callExpression.Callee as Identifier;
             if (identifier != null)
             {
@@ -89,6 +93,11 @@ namespace Jint.Runtime.Debugger
                 }
             }
 
+            if (_callPending)
+            {
+                _stepMode = StepMode.Into;
+            }
+
             if (breakpointFound == false && _stepMode == StepMode.Into)
             {
                 DebugInformation info = CreateDebugInformation(statement);
@@ -105,20 +114,17 @@ namespace Jint.Runtime.Debugger
             }
             else if (old == StepMode.Into && _stepMode == StepMode.Over)
             {
-                var expressionStatement = statement as ExpressionStatement;
-                if (expressionStatement != null && expressionStatement.Expression is CallExpression)
-                {
-                    _callBackStepOverDepth = _debugCallStack.Count;
-                }
-                else
-                {
-                    _stepMode = StepMode.Into;
-                }
+                _callPending = true;
             }
         }
 
         private bool BpTest(Statement statement, BreakPoint breakpoint)
         {
+            if (statement.Location.Source != breakpoint.Source)
+            {
+                return false;
+            }
+
             bool afterStart, beforeEnd;
 
             afterStart = (breakpoint.Line == statement.Location.Start.Line &&
