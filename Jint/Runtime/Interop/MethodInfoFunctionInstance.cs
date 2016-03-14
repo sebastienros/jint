@@ -98,6 +98,16 @@ namespace Jint.Runtime.Interop
             foreach (var methodInfo in methodInfos)
             {
                 var parameters = methodInfo.GetParameters();
+                if (parameters.Any(p => Attribute.IsDefined(p, typeof(ParamArrayAttribute))))
+                    continue;
+
+                if (parameters.Length == jsArguments.Length)
+                    return jsArguments;
+            }
+
+            foreach (var methodInfo in methodInfos)
+            {
+                var parameters = methodInfo.GetParameters();
                 if (!parameters.Any(p => Attribute.IsDefined(p, typeof(ParamArrayAttribute))))
                     continue;
 
