@@ -54,6 +54,7 @@ namespace Jint.Parser
         private Token _lookahead;
         private string _source;
 
+        private Engine _engine;
         private State _state;
         private bool _strict;
 
@@ -61,12 +62,13 @@ namespace Jint.Parser
         private readonly Stack<IFunctionScope> _functionScopes = new Stack<IFunctionScope>();
 
 
-        public JavaScriptParser()
+        public JavaScriptParser(Engine engine)
         {
-            
+            _engine = engine;
         }
 
-        public JavaScriptParser(bool strict)
+        public JavaScriptParser(Engine engine, bool strict)
+            : this(engine)
         {
             _strict = strict;
         }
@@ -3924,16 +3926,13 @@ namespace Jint.Parser
             {
                 Range = new int[0],
                 Loc = 0,
-
+                Source = new Script(options?.Source, code)
             };
+
+            _engine.InvokeSourceLoaded(_extra.Source);
 
             if (options != null)
             {
-                if (!String.IsNullOrEmpty(options.Source))
-                {
-                    _extra.Source = options.Source;
-                }
-
                 if (options.Tokens)
                 {
                     _extra.Tokens = new List<Token>();
@@ -4000,8 +3999,10 @@ namespace Jint.Parser
             {
                 Range = new int[0],
                 Loc = 0,
-
+                Source = new Script(null, functionExpression)
             };
+
+            _engine.InvokeSourceLoaded(_extra.Source);
 
             _strict = false;
             Peek();
@@ -4012,7 +4013,7 @@ namespace Jint.Parser
         {
             public int? Loc;
             public int[] Range;
-            public string Source;
+            public Script Source;
 
             public List<Comment> Comments;
             public List<Token> Tokens;

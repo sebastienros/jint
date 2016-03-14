@@ -175,6 +175,7 @@ namespace Jint
         public delegate StepMode BreakDelegate(object sender, DebugInformation e);
         public event DebugStepDelegate Step;
         public event BreakDelegate Break;
+        public event SourceLoadedEventHandler SourceLoaded;
         internal DebugHandler DebugHandler { get; private set; }
         public List<BreakPoint> BreakPoints { get; private set; }
 
@@ -195,6 +196,15 @@ namespace Jint
             }
             return null;
         }
+
+        internal void InvokeSourceLoaded(Script script)
+        {
+            if (SourceLoaded != null)
+            {
+                SourceLoaded(this, new SourceLoadedEventArgs(script));
+            }
+        }
+
         #endregion
 
         public ExecutionContext EnterExecutionContext(LexicalEnvironment lexicalEnvironment, LexicalEnvironment variableEnvironment, JsValue thisBinding)
@@ -271,13 +281,13 @@ namespace Jint
 
         public Engine Execute(string source)
         {
-            var parser = new JavaScriptParser();
+            var parser = new JavaScriptParser(this);
             return Execute(parser.Parse(source));
         }
 
         public Engine Execute(string source, ParserOptions parserOptions)
         {
-            var parser = new JavaScriptParser();
+            var parser = new JavaScriptParser(this);
             return Execute(parser.Parse(source, parserOptions));
         }
 

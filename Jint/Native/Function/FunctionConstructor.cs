@@ -82,7 +82,7 @@ namespace Jint.Native.Function
             }
             
             var parameters = this.ParseArgumentNames(p);
-            var parser = new JavaScriptParser();
+            var parser = new JavaScriptParser(Engine);
             FunctionExpression function;
             try
             {

@@ -4,6 +4,6 @@
     {
         public Position Start;
         public Position End;
-        public string Source;
+        public Script Source;
     }
 }

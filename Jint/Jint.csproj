@@ -155,6 +155,7 @@
     <Compile Include="Parser\ParserExtensions.cs" />
     <Compile Include="Parser\ParserOptions.cs" />
     <Compile Include="Parser\Position.cs" />
+    <Compile Include="Parser\Script.cs" />
     <Compile Include="Parser\State.cs" />
     <Compile Include="Parser\Token.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -200,6 +201,7 @@
     <Compile Include="Runtime\StatementInterpreter.cs" />
     <Compile Include="Runtime\StatementsCountOverflowException.cs" />
     <Compile Include="Runtime\TypeConverter.cs" />
+    <Compile Include="SourceLoadedEventArgs.cs" />
     <Compile Include="StrictModeScope.cs" />
   </ItemGroup>
   <ItemGroup>

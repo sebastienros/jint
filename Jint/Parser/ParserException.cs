@@ -8,7 +8,7 @@ namespace Jint.Parser
         public string Description;
         public int Index;
         public int LineNumber;
-        public string Source;
+        public Script Source;
 
         public ParserException(string message) : base(message)
         {

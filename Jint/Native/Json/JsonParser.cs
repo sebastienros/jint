@@ -837,16 +837,13 @@ namespace Jint.Native.Json
                 {
                     Range = new int[0], 
                     Loc = 0,
-
+                    Source = new Script(options?.Source, code)
                 };
+
+            _engine.InvokeSourceLoaded(_extra.Source);
 
             if (options != null)
             {
-                if (!System.String.IsNullOrEmpty(options.Source))
-                {
-                    _extra.Source = options.Source;
-                }
-
                 if (options.Tokens)
                 {
                     _extra.Tokens = new List<Token>();
@@ -879,7 +876,7 @@ namespace Jint.Native.Json
         {
             public int? Loc;
             public int[] Range;
-            public string Source;
+            public Script Source;
 
             public List<Token> Tokens;
         }
