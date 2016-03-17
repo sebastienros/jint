@@ -543,10 +543,10 @@ namespace Jint.Native.Date
             double m = MinFromTime(t);
             double s = SecFromTime(t);
             double ms = MsFromTime(t);
-            if (h < 0) { h = HoursPerDay + h; }
-            if (m < 0) { m = MinutesPerHour + m; }
-            if (s < 0) { s = SecondsPerMinute + s; }
-            if (ms < 0) { ms = MsPerSecond + ms; }
+            if (h < 0) { h += HoursPerDay; }
+            if (m < 0) { m += MinutesPerHour; }
+            if (s < 0) { s += SecondsPerMinute; }
+            if (ms < 0) { ms += MsPerSecond; }
             return string.Format("{0:0000}-{1:00}-{2:00}T{3:00}:{4:00}:{5:00}.{6:000}Z",
                 YearFromTime(t),
                 MonthFromTime(t)+1,

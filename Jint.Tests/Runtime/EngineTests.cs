@@ -940,7 +940,7 @@ namespace Jint.Tests.Runtime
                 Assert.Equal("jQuery.js", e.Source);
             }
         }
-
+#region DateParsingAndStrings
         [Fact]
         public void ParseShouldReturnNumber()
         {
@@ -1048,14 +1048,56 @@ namespace Jint.Tests.Runtime
         public void ShouldParseAsLocalTime(string date)
         {
             const string customName = "Custom Time";
-            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName, customName, customName, null, false);
+            const int timespanMinutes = 11;
+            const int msPriorMidnight = -timespanMinutes * 60 * 1000;
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, timespanMinutes, 0), customName, customName, customName, null, false);
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)).SetValue("d", date);
 
             var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
 
-            Assert.Equal(-11 * 60 * 1000, result);
+            Assert.Equal(msPriorMidnight, result);
         }
 
+        public static System.Collections.Generic.IEnumerable<object[]> TestDates
+        {
+            get
+            {
+                yield return new object[] { new DateTime(2000, 1, 1) };
+                yield return new object[] { new DateTime(2000, 1, 1, 0, 15, 15, 15) };
+                yield return new object[] { new DateTime(2000, 6, 1, 0, 15, 15, 15) };
+                yield return new object[] { new DateTime(1900, 1, 1) };
+                yield return new object[] { new DateTime(1900, 1, 1, 0, 15, 15, 15) };
+                yield return new object[] { new DateTime(1900, 6, 1, 0, 15, 15, 15) };
+            }
+        }
+
+        [Theory, MemberData("TestDates")]
+        public void TestDateToISOStringFormat(DateTime testDate)
+        {
+            const string customName = "Custom Time";
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(+13, 0, 0), customName, customName, customName, null, false);
+
+            var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
+            var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
+            engine.Execute(
+                string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
+            Assert.Equal(testDateTimeOffset.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"), engine.Execute("d.toISOString();").GetCompletionValue().ToString());
+        }
+
+        [Theory, MemberData("TestDates")]
+        public void TestDateToStringFormat(DateTime testDate)
+        {
+            const string customName = "Custom Time";
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(+13, 0, 0), customName, customName, customName, null, false);
+
+            var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
+            var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
+            engine.Execute(
+                string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
+            Assert.Equal(testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz"), engine.Execute("d.toString();").GetCompletionValue().ToString());
+        }
+        
+#endregion //DateParsingAndStrings
         [Fact]
         public void EmptyStringShouldMatchRegex()
         {
