@@ -901,7 +901,8 @@ namespace Jint.Native.Date
 
         public static double HourFromTime(double t)
         {
-            return System.Math.Floor(t / MsPerHour) % HoursPerDay;
+            double hour = System.Math.Floor(t / MsPerHour) % HoursPerDay;
+            return (hour>=0)?hour:(24-hour);
         }
 
         public static double MinFromTime(double t)
