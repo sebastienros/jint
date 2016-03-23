@@ -1576,6 +1576,24 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void DateShouldHonorTimezoneDaylightSavingRules()
+        {
+            var EST = TimeZoneInfo.FindSystemTimeZoneById("US Eastern Standard Time");
+            var engine = new Engine(options => options.LocalTimeZone(EST))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                ;
+
+            engine.Execute(@"
+                    var d = new Date(2016, 8, 1);
+
+                    equal('Thu Sep 01 2016 00:00:00 GMT-04:00', d.toString());
+                    equal('Thu Sep 01 2016', d.toDateString());
+            ");
+        }
+
+        [Fact]
         public void DateShouldParseToString()
         {
             // Forcing to PDT and FR for tests
@@ -1608,6 +1626,54 @@ namespace Jint.Tests.Runtime
                     var d = new Number(-1.23);
                     equal('-1.23', d.toString());
                     equal('-1,23', d.toLocaleString());
+            ");
+        }
+
+        [Fact]
+        public void DateCtorShouldAcceptDate()
+        {
+            RunTest(@"
+                var a = new Date();
+                var b = new Date(a);
+                assert(String(a) === String(b));
+            ");
+        }
+
+        [Fact]
+        public void RegExpResultIsMutable()
+        {
+            RunTest(@"
+                var match = /quick\s(brown).+?(jumps)/ig.exec('The Quick Brown Fox Jumps Over The Lazy Dog');
+                var result = match.shift();
+                assert(result === 'Quick Brown Fox Jumps');
+            ");
+        }
+
+        [Fact]
+        public void RegExpSupportsMultiline()
+        {
+            RunTest(@"
+                var rheaders = /^(.*?):[ \t]*([^\r\n]*)$/mg;
+                var headersString = 'X-AspNetMvc-Version: 4.0\r\nX-Powered-By: ASP.NET\r\n\r\n';
+                match = rheaders.exec(headersString);
+                assert('X-AspNetMvc-Version' === match[1]);
+                assert('4.0' === match[2]);
+            ");
+
+            RunTest(@"
+                var rheaders = /^(.*?):[ \t]*(.*?)$/mg;
+                var headersString = 'X-AspNetMvc-Version: 4.0\r\nX-Powered-By: ASP.NET\r\n\r\n';
+                match = rheaders.exec(headersString);
+                assert('X-AspNetMvc-Version' === match[1]);
+                assert('4.0' === match[2]);
+            ");
+
+            RunTest(@"
+                var rheaders = /^(.*?):[ \t]*([^\r\n]*)$/mg;
+                var headersString = 'X-AspNetMvc-Version: 4.0\nX-Powered-By: ASP.NET\n\n';
+                match = rheaders.exec(headersString);
+                assert('X-AspNetMvc-Version' === match[1]);
+                assert('4.0' === match[2]);
             ");
         }
     }

@@ -73,7 +73,7 @@ namespace Jint.Native.Number
                 return "-Infinity";
             }
 
-            return m.ToString("n", Engine.Options.GetCulture());
+            return m.ToString("n", Engine.Options._Culture);
         }
 
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)

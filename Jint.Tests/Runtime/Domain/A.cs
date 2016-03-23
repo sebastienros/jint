@@ -94,5 +94,15 @@ namespace Jint.Tests.Runtime.Domain
         {
             return String.Join(",", values);
         }
+
+        public int Call17(Func<int, int> callback)
+        {
+            return callback(17);
+        }
+
+        public void Call18(Action<int> callback)
+        {
+            callback(18);
+        }
     }
 }

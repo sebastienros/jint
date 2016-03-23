@@ -284,7 +284,7 @@ namespace Jint.Native
                 return Null;
             }
 
-            foreach (var converter in engine.Options.GetObjectConverters())
+            foreach (var converter in engine.Options._ObjectConverters)
             {
                 JsValue result;
                 if (converter.TryConvert(value, out result))

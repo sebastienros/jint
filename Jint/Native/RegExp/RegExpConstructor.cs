@@ -138,7 +138,29 @@ namespace Jint.Native.RegExp
             var options = ParseOptions(r, flags);
             try
             {
-                r.Value = new Regex(pattern, options);
+                if((RegexOptions.Multiline & options) == RegexOptions.Multiline)
+                {
+                    // Replace all non-escaped $ occurences by \r?$
+                    // c.f. http://programmaticallyspeaking.com/regular-expression-multiline-mode-whats-a-newline.html
+
+                    int index = 0;
+                    var newPattern = pattern;
+                    while((index = newPattern.IndexOf("$", index)) != -1)
+                    {
+                        if(index > 0 && newPattern[index - 1] != '\\')
+                        {
+                            newPattern = newPattern.Substring(0, index) + @"\r?" + newPattern.Substring(index);
+                            index += 4;
+                        }
+                    }
+
+                    r.Value = new Regex(newPattern, options);
+                }
+                else
+                {
+                    r.Value = new Regex(pattern, options);
+                }
+                
             }
             catch (Exception e)
             {

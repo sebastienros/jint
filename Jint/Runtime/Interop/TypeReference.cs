@@ -44,6 +44,14 @@ namespace Jint.Runtime.Interop
 
         public ObjectInstance Construct(JsValue[] arguments)
         {
+            if (arguments.Length == 0 && Type.IsValueType)
+            {
+                var instance = Activator.CreateInstance(Type);
+                var result = TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, instance));
+
+                return result;
+            }
+
             var constructors = Type.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
             
             var methods = TypeConverter.FindBestMatch(Engine, constructors, arguments).ToList();
@@ -71,7 +79,8 @@ namespace Jint.Runtime.Interop
                     }
 
                     var constructor = (ConstructorInfo)method;
-                    var result = TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, constructor.Invoke(parameters.ToArray())));
+                    var instance = constructor.Invoke(parameters.ToArray());
+                    var result = TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, instance));
 
                     // todo: cache method info
 
