@@ -27,5 +27,17 @@ namespace Jint.Parser.Ast
                     throw new ArgumentOutOfRangeException("Invalid binary operator: " + op);
             }
         }
+
+        public static string GetLogicalOperatorAsString(LogicalOperator op)
+        {
+            switch (op)
+            {
+                case LogicalOperator.LogicalAnd:
+                    return "&&";
+                case LogicalOperator.LogicalOr:
+                    return "||";
+            }
+            return null;
+        }
     }
 }

@@ -1,9 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Jint.Native.Object;
+using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using Jint.Walker;
 
 namespace Jint.Native.Function
 {
@@ -80,7 +83,39 @@ namespace Jint.Native.Function
             {
                 throw new JavaScriptException(Engine.TypeError, "Function object expected.");       
             }
+            if (func is ClrFunctionInstance)
+            {
+              var clrFunc = func as ClrFunctionInstance;
+              var lengthProp = clrFunc.GetProperty("length");
+              int numArgs=0;
+              string argsStr = "";
+              if (lengthProp != null)
+              {
+                if (lengthProp.Value != null && lengthProp.Value.Value.IsNumber())
+                  numArgs = Convert.ToInt32(lengthProp.Value.Value.AsNumber());
+                for (int i = 0; i < numArgs; i++)
+                {
+                  argsStr += "arg" + i + ((i < numArgs-1) ? ", " : "");
+                }
+              }
 
+              var methodInfo = clrFunc.GetMethodInfo();
+
+              return System.String.Format("function {0}({1}) {{ [NativeCode] }}", clrFunc.JsFunName, argsStr);
+            }
+
+            var sFunInst = func as ScriptFunctionInstance;
+            if (sFunInst != null)
+            {
+              if (sFunInst.FunctionDeclaration is FunctionExpression)
+              {
+                return (JintWalker.GetExprAsString(sFunInst.FunctionDeclaration as FunctionExpression));
+              }
+              if (sFunInst.FunctionDeclaration is FunctionDeclaration)
+              {
+                return (JintWalker.GetStatementAsString(sFunInst.FunctionDeclaration as FunctionDeclaration, true));
+              }
+            }
             return System.String.Format("function() {{ ... }}");
         }
 

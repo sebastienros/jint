@@ -1,10 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Jint.Parser
 {
     public static class ParserExtensions
     {
+        public static string RemoveWhitespace(this string input)
+        {
+          return new string(input.ToCharArray()
+              .Where(c => !Char.IsWhiteSpace(c))
+              .ToArray());
+        }
+
         public static string Slice(this string source, int start, int end)
         {
             return source.Substring(start, Math.Min(source.Length, end) - start);

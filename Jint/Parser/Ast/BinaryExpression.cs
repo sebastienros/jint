@@ -84,5 +84,56 @@ namespace Jint.Parser.Ast
                     throw new ArgumentOutOfRangeException("Invalid binary operator: " + op);
             }
         }
+
+        public static string GetBinaryOperatorAsString(BinaryOperator op)
+        {
+            switch (op)
+            {
+                case BinaryOperator.Plus:
+                    return "+";
+                case BinaryOperator.Minus:
+                    return "-";
+                case BinaryOperator.Times:
+                    return "*";
+                case BinaryOperator.Divide:
+                    return "/";
+                case BinaryOperator.Modulo:
+                    return "%";
+                case BinaryOperator.Equal:
+                    return "==";
+                case BinaryOperator.NotEqual:
+                    return "!=";
+                case BinaryOperator.Greater:
+                    return ">";
+                case BinaryOperator.GreaterOrEqual:
+                    return ">=";
+                case BinaryOperator.Less:
+                    return "<";
+                case BinaryOperator.LessOrEqual:
+                    return "<=";
+                case BinaryOperator.StrictlyEqual:
+                    return "===";
+                case BinaryOperator.StricltyNotEqual:
+                    return "!==";
+                case BinaryOperator.BitwiseAnd:
+                    return "&";
+                case BinaryOperator.BitwiseOr:
+                    return "|";
+                case BinaryOperator.BitwiseXOr:
+                    return "^";
+                case BinaryOperator.LeftShift:
+                    return "<<";
+                case BinaryOperator.RightShift:
+                    return ">>";
+                case BinaryOperator.UnsignedRightShift:
+                    return ">>>";
+                case BinaryOperator.InstanceOf:
+                    return "instanceof";
+                case BinaryOperator.In:
+                    return "in";
+
+            }
+            return null;
+        }
     }
 }
