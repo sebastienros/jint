@@ -201,6 +201,9 @@
     <Compile Include="Runtime\StatementsCountOverflowException.cs" />
     <Compile Include="Runtime\TypeConverter.cs" />
     <Compile Include="StrictModeScope.cs" />
+    <Compile Include="Walker\ExpressionWalker.cs" />
+    <Compile Include="Walker\JintWalker.cs" />
+    <Compile Include="Walker\StatementWalker.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Jint.nuspec" />

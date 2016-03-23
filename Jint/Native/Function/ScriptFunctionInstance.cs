@@ -14,6 +14,11 @@ namespace Jint.Native.Function
     {
         private readonly IFunctionDeclaration _functionDeclaration;
 
+        public IFunctionDeclaration FunctionDeclaration
+        {
+            get { return _functionDeclaration; }
+        }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
         /// </summary>

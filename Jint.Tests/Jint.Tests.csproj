@@ -77,6 +77,7 @@
     <Compile Include="Runtime\SamplesTests.cs" />
     <Compile Include="Runtime\InteropTests.cs" />
     <Compile Include="Runtime\EngineTests.cs" />
+    <Compile Include="WalkerTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Parser\Scripts\jQuery.js" />

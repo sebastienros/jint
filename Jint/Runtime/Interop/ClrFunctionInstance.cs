@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 using Jint.Native;
 using Jint.Native.Function;
 
@@ -25,6 +26,8 @@ namespace Jint.Runtime.Interop
         {
         }
 
+      public string JsFunName { get; set; }
+
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             try
@@ -37,5 +40,12 @@ namespace Jint.Runtime.Interop
                 throw new JavaScriptException(Engine.TypeError);
             }
         }
+
+      public MethodInfo GetMethodInfo()
+      {
+        if (_func != null) 
+          return _func.Method;
+        return null;
+      }
     }
 }

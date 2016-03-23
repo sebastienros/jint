@@ -49,5 +49,31 @@ namespace Jint.Parser.Ast
 
             }
         }
+
+        public static string GetUnaryOperatorAsString(UnaryOperator op)
+        {
+            switch (op)
+            {
+                case UnaryOperator.Plus:
+                    return "+";
+                case UnaryOperator.Minus:
+                    return "-";
+                case UnaryOperator.Increment:
+                    return "++";
+                case UnaryOperator.Decrement:
+                    return "--";
+                case UnaryOperator.BitwiseNot:
+                    return "~";
+                case UnaryOperator.LogicalNot:
+                    return "!";
+                case UnaryOperator.Delete:
+                    return "delete";
+                case UnaryOperator.Void:
+                    return "void";
+                case UnaryOperator.TypeOf:
+                    return "typeof";
+            }
+            return null;
+        }
     }
 }

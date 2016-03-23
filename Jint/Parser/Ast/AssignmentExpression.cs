@@ -57,5 +57,38 @@ namespace Jint.Parser.Ast
                     throw new ArgumentOutOfRangeException("Invalid assignment operator: " + op);
             }
         }
+
+        public static string GetAssignOperatorAsString(AssignmentOperator op)
+        {
+            switch (op)
+            {
+                case AssignmentOperator.Assign:
+                    return "=";
+                case AssignmentOperator.PlusAssign:
+                    return "+=";
+                case AssignmentOperator.MinusAssign:
+                    return "-=";
+                case AssignmentOperator.TimesAssign:
+                    return "*=";
+                case AssignmentOperator.DivideAssign:
+                    return "/=";
+                case AssignmentOperator.ModuloAssign:
+                    return "%=";
+                case AssignmentOperator.BitwiseAndAssign:
+                    return "&=";
+                case AssignmentOperator.BitwiseOrAssign:
+                    return "|=";
+                case AssignmentOperator.BitwiseXOrAssign:
+                    return "^=";
+                case AssignmentOperator.LeftShiftAssign:
+                    return "<<=";
+                case AssignmentOperator.RightShiftAssign:
+                    return ">>=";
+                case AssignmentOperator.UnsignedRightShiftAssign:
+                    return ">>>=";
+
+            }
+            return null;
+        }
     }
 }
