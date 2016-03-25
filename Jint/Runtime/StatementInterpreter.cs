@@ -420,7 +420,10 @@ namespace Jint.Runtime
                     c = ExecuteStatement(statement);
                     if (c.Type != Completion.Normal)
                     {
-                        return new Completion(c.Type, c.Value.HasValue ? c.Value : sl.Value, c.Identifier);
+                        return new Completion(c.Type, c.Value.HasValue ? c.Value : sl.Value, c.Identifier)
+                        {
+                            Location = c.Location
+                        };
                     }
 
                     sl = c;
@@ -530,7 +533,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteDebuggerStatement(DebuggerStatement debuggerStatement)
         {
-            if (_engine.Options.IsDebuggerStatementAllowed())
+            if (_engine.Options._IsDebuggerStatementAllowed)
             {
                 if (!System.Diagnostics.Debugger.IsAttached)
                 {

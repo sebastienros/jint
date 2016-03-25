@@ -9,10 +9,10 @@ using System.Reflection;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Sebastien Ros")]
 [assembly: AssemblyProduct("Jint")]
-[assembly: AssemblyCopyright("Copyright © Sébastien Ros 2013")]
+[assembly: AssemblyCopyright("Copyright © Sébastien Ros")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 [assembly: NeutralResourcesLanguage("en")]
 
-[assembly: AssemblyVersion("2.5.0")]
-[assembly: AssemblyFileVersion("2.5.0")]
+[assembly: AssemblyVersion("2.8.0")]
+[assembly: AssemblyFileVersion("2.8.0")]
