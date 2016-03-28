@@ -533,7 +533,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteDebuggerStatement(DebuggerStatement debuggerStatement)
         {
-            if (_engine.Options.IsDebuggerStatementAllowed())
+            if (_engine.Options._IsDebuggerStatementAllowed)
             {
                 if (!System.Diagnostics.Debugger.IsAttached)
                 {

@@ -19,7 +19,7 @@ namespace Jint.Native.Date
         {
             var obj = new DatePrototype(engine)
             {
-                Prototype = engine.Object.PrototypeObject, 
+                Prototype = engine.Object.PrototypeObject,
                 Extensible = true,
                 PrimitiveValue = double.NaN
             };
@@ -112,17 +112,17 @@ namespace Jint.Native.Date
 
         private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
         {
-            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("F", Engine.Options.GetCulture());
+            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("F", Engine.Options._Culture);
         }
 
         private JsValue ToLocaleDateString(JsValue thisObj, JsValue[] arguments)
         {
-            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("D", Engine.Options.GetCulture());
+            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("D", Engine.Options._Culture);
         }
 
         private JsValue ToLocaleTimeString(JsValue thisObj, JsValue[] arguments)
         {
-            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("T", Engine.Options.GetCulture());
+            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("T", Engine.Options._Culture);
         }
 
         private JsValue GetTime(JsValue thisObj, JsValue[] arguments)
@@ -360,7 +360,7 @@ namespace Jint.Native.Date
         {
             var t = LocalTime(EnsureDateInstance(thisObj).PrimitiveValue);
             var s = TypeConverter.ToNumber(arguments.At(0));
-            var milli = arguments.Length <= 1 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(1)); 
+            var milli = arguments.Length <= 1 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), MinFromTime(t), s, milli));
             var u = TimeClip(Utc(date));
             thisObj.As<DateInstance>().PrimitiveValue = u;
@@ -540,7 +540,7 @@ namespace Jint.Native.Date
                 throw new JavaScriptException(Engine.RangeError);
             }
 
-            return string.Format("{0:0000}-{1:00}-{2:00}T{3:00}:{4:00}:{5:00}.{6:000}Z", 
+            return string.Format("{0:0000}-{1:00}-{2:00}T{3:00}:{4:00}:{5:00}.{6:000}Z",
                 YearFromTime(t),
                 MonthFromTime(t)+1,
                 DateFromTime(t),
@@ -625,9 +625,9 @@ namespace Jint.Native.Date
         /// </summary>
         public static double DayFromYear(double y)
         {
-            return 365*(y - 1970) 
-                + System.Math.Floor((y - 1969)/4) 
-                - System.Math.Floor((y - 1901)/100) 
+            return 365*(y - 1970)
+                + System.Math.Floor((y - 1969)/4)
+                - System.Math.Floor((y - 1901)/100)
                 + System.Math.Floor((y - 1601)/400);
         }
 
@@ -661,7 +661,7 @@ namespace Jint.Native.Date
                 {
                     lower = current;
                 }
-                else 
+                else
                 {
                     upper = current;
                 }
@@ -680,12 +680,12 @@ namespace Jint.Native.Date
             if (daysInYear.Equals(365))
             {
                 return 0;
-            }            
+            }
 
             if (daysInYear.Equals(366))
             {
                 return 1;
-            }            
+            }
 
             throw new ArgumentException();
         }
@@ -846,7 +846,7 @@ namespace Jint.Native.Date
         {
             get
             {
-                return Engine.Options.GetLocalTimeZone().BaseUtcOffset.TotalMilliseconds;
+                return Engine.Options._LocalTimeZone.BaseUtcOffset.TotalMilliseconds;
             }
         }
 
@@ -873,18 +873,20 @@ namespace Jint.Native.Date
 
             var dateTime = new DateTime((int)year, 1, 1).AddMilliseconds(timeInYear);
 
-            return Engine.Options.GetLocalTimeZone().IsDaylightSavingTime(dateTime) ? MsPerHour : 0;
+            return Engine.Options._LocalTimeZone.IsDaylightSavingTime(dateTime) ? MsPerHour : 0;
         }
 
         public DateTimeOffset ToLocalTime(DateTime t)
         {
-            if (t.Kind == DateTimeKind.Unspecified)
+            switch (t.Kind)
             {
-                return t;
+                case DateTimeKind.Local:
+                    return new DateTimeOffset(TimeZoneInfo.ConvertTime(t.ToUniversalTime(), Engine.Options._LocalTimeZone), Engine.Options._LocalTimeZone.GetUtcOffset(t));
+                case DateTimeKind.Utc:
+                    return new DateTimeOffset(TimeZoneInfo.ConvertTime(t, Engine.Options._LocalTimeZone), Engine.Options._LocalTimeZone.GetUtcOffset(t));
+                default:
+                    return t;
             }
-
-            var offset = Engine.Options.GetLocalTimeZone().BaseUtcOffset;
-            return new DateTimeOffset(t.Ticks + offset.Ticks, offset);
         }
 
         public double LocalTime(double t)
@@ -949,7 +951,7 @@ namespace Jint.Native.Date
 
             switch ((long) month)
             {
-                case 0: 
+                case 0:
                 case 2:
                 case 4:
                 case 6:
@@ -965,7 +967,7 @@ namespace Jint.Native.Date
                 case 1:
                     return 28 + leap;
                 default:
-                    throw new ArgumentOutOfRangeException("month"); 
+                    throw new ArgumentOutOfRangeException("month");
 
             }
         }
@@ -1020,7 +1022,7 @@ namespace Jint.Native.Date
             {
                 t += DaysInMonth(m, InLeapYear(t)) * MsPerDay;
             }
-            
+
             return Day(t) + date - 1;
         }
 

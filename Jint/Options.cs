@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using Jint.Native;
 using Jint.Runtime.Interop;
 
 namespace Jint
@@ -123,64 +122,28 @@ namespace Jint
             return this;
         }
 
-        internal bool GetDiscardGlobal()
-        {
-            return _discardGlobal;
-        }
+        internal bool _IsGlobalDiscarded => _discardGlobal;
 
-        internal bool IsStrict()
-        {
-            return _strict;
-        }
+        internal bool _IsStrict => _strict;
 
-        internal bool IsDebuggerStatementAllowed()
-        {
-            return _allowDebuggerStatement;
-        }
+        internal bool _IsDebuggerStatementAllowed => _allowDebuggerStatement;
 
-        internal bool IsDebugMode()
-        {
-            return _debugMode;
-        }
+        internal bool _IsDebugMode => _debugMode;
 
-        internal bool IsClrAllowed()
-        {
-            return _allowClr;
-        }
+        internal bool _IsClrAllowed => _allowClr;
         
-        internal IList<Assembly> GetLookupAssemblies()
-        {
-            return _lookupAssemblies;
-        }
+        internal IList<Assembly> _LookupAssemblies => _lookupAssemblies;
 
-        internal IEnumerable<IObjectConverter> GetObjectConverters()
-        {
-            return _objectConverters;
-        }
+        internal IEnumerable<IObjectConverter> _ObjectConverters => _objectConverters;
 
-        internal int GetMaxStatements()
-        {
-            return _maxStatements;
-        }
+        internal int _MaxStatements => _maxStatements;
 
-        internal int GetMaxRecursionDepth()
-        {
-            return _maxRecursionDepth;
-        }
+        internal int _MaxRecursionDepth => _maxRecursionDepth;
 
-        internal TimeSpan GetTimeoutInterval()
-        {
-            return _timeoutInterval;
-        }
+        internal TimeSpan _TimeoutInterval => _timeoutInterval;
 
-        internal CultureInfo GetCulture()
-        {
-            return _culture;
-        }
+        internal CultureInfo _Culture => _culture;
 
-        internal TimeZoneInfo GetLocalTimeZone()
-        {
-            return _localTimeZone;
-        }
+        internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
     }
 }

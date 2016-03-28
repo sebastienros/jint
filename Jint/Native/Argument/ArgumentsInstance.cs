@@ -14,62 +14,84 @@ namespace Jint.Native.Argument
     /// </summary>
     public class ArgumentsInstance : ObjectInstance
     {
-        public ArgumentsInstance(Engine engine) : base(engine)
+        private ArgumentsInstance(Engine engine, Action<ArgumentsInstance> initializer) : base(engine)
         {
-            // todo: complete implementation
+            _initializer = initializer;
+            _initialized = false;
         }
 
         public bool Strict { get; set; }
 
+        private Action<ArgumentsInstance> _initializer;
+        private bool _initialized;
+
+        protected override void EnsureInitialized()
+        {
+            if(_initialized)
+            {
+                return;
+            }
+
+            _initialized = true;
+
+            _initializer(this);
+        }
+
         public static ArgumentsInstance CreateArgumentsObject(Engine engine, FunctionInstance func, string[] names, JsValue[] args, EnvironmentRecord env, bool strict)
         {
-            var len = args.Length;
-            var obj = new ArgumentsInstance(engine);
+            var obj = new ArgumentsInstance(engine, self => 
+            {                
+                var len = args.Length;
+                self.FastAddProperty("length", len, true, false, true);
+                var map = engine.Object.Construct(Arguments.Empty);
+                var mappedNamed = new List<string>();
+                var indx = 0;
+                while (indx <= len - 1)
+                {
+                    var indxStr = TypeConverter.ToString(indx);
+                    var val = args[indx];
+                    self.FastAddProperty(indxStr, val, true, true, true);
+                    if (indx < names.Length)
+                    {
+                        var name = names[indx];
+                        if (!strict && !mappedNamed.Contains(name))
+                        {
+                            mappedNamed.Add(name);
+                            Func<JsValue, JsValue> g = n => env.GetBindingValue(name, false);
+                            var p = new Action<JsValue, JsValue>((n, o) => env.SetMutableBinding(name, o, true));
+
+                            map.DefineOwnProperty(indxStr, new ClrAccessDescriptor(engine, g, p) { Configurable = true }, false);
+                        }
+                    }
+                    indx++;
+                }
+
+                // step 12
+                if (mappedNamed.Count > 0)
+                {
+                    self.ParameterMap = map;
+                }
+
+                // step 13
+                if (!strict)
+                {
+                    self.FastAddProperty("callee", func, true, false, true);
+                }
+                // step 14
+                else
+                {
+                    var thrower = engine.Function.ThrowTypeError;
+                    self.DefineOwnProperty("caller", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
+                    self.DefineOwnProperty("callee", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
+                }
+            });
+
+            // These properties are pre-initialized as their don't trigger
+            // the EnsureInitialized() event and are cheap
             obj.Prototype = engine.Object.PrototypeObject;
             obj.Extensible = true;
-            obj.FastAddProperty("length", len, true, false, true);
             obj.Strict = strict;
-            var map = engine.Object.Construct(Arguments.Empty);
-            var mappedNamed = new List<string>();
-            var indx = 0;
-            while (indx <= len - 1)
-            {
-                var indxStr = TypeConverter.ToString(indx);
-                var val = args[indx];
-                obj.FastAddProperty(indxStr, val, true, true, true);
-                if (indx < names.Length)
-                {
-                    var name = names[indx];
-                    if (!strict && !mappedNamed.Contains(name))
-                    {
-                        mappedNamed.Add(name);
-                        Func<JsValue, JsValue> g = n => env.GetBindingValue(name, false);
-                        var p = new Action<JsValue, JsValue>((n, o) => env.SetMutableBinding(name, o, true));
-
-                        map.DefineOwnProperty(indxStr, new ClrAccessDescriptor(engine, g, p) { Configurable = true }, false);
-                    }
-                }
-                indx++;
-            }
-
-            // step 12
-            if (mappedNamed.Count > 0)
-            {
-                obj.ParameterMap = map;
-            }
-
-            // step 13
-            if (!strict)
-            {
-                obj.FastAddProperty("callee",func, true, false, true);
-            }
-            // step 14
-            else
-            {
-                var thrower = engine.Function.ThrowTypeError;
-                obj.DefineOwnProperty("caller", new PropertyDescriptor(get: thrower, set: thrower, enumerable:false, configurable:false), false);
-                obj.DefineOwnProperty("callee", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
-            }
+            
 
             return obj;
         }
@@ -87,6 +109,8 @@ namespace Jint.Native.Argument
 
         public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
+            EnsureInitialized();
+
             if (!Strict && ParameterMap != null)
             {
                 var desc = base.GetOwnProperty(propertyName);
@@ -112,6 +136,8 @@ namespace Jint.Native.Argument
         /// for arrays
         public override void Put(string propertyName, JsValue value, bool throwOnError)
         {
+            EnsureInitialized();
+
             if (!CanPut(propertyName))
             {
                 if (throwOnError)
@@ -148,6 +174,8 @@ namespace Jint.Native.Argument
 
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
+            EnsureInitialized();
+
             if (!Strict && ParameterMap != null)
             {
                 var map = ParameterMap;
@@ -188,6 +216,8 @@ namespace Jint.Native.Argument
 
         public override bool Delete(string propertyName, bool throwOnError)
         {
+            EnsureInitialized();
+
             if (!Strict && ParameterMap != null)
             {
                 var map = ParameterMap;
