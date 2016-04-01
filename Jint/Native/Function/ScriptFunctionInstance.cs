@@ -79,7 +79,8 @@ namespace Jint.Native.Function
 
                 var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, Scope);
 
-                Engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
+                var envName = _functionDeclaration.Id != null ? _functionDeclaration.Id.Name : "<anonymous>";
+                Engine.EnterExecutionContext(localEnv, localEnv, thisBinding, envName);
 
                 try
                 {

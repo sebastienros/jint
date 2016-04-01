@@ -27,7 +27,7 @@ using Jint.Runtime.References;
 namespace Jint
 {
     using Jint.Runtime.CallStack;
-
+    using System.Text;
     public class Engine
     {
         private readonly ExpressionInterpreter _expressions;
@@ -37,7 +37,7 @@ namespace Jint
         private int _statementsCount;
         private long _timeoutTicks;
         private SyntaxNode _lastSyntaxNode = null;
-        
+
         public ITypeConverter ClrTypeConverter;
 
         // cache of types used when resolving CLR type names
@@ -112,9 +112,9 @@ namespace Jint
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, false);
-            
+
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
-            EnterExecutionContext(GlobalEnvironment, GlobalEnvironment, Global);
+            EnterExecutionContext(GlobalEnvironment, GlobalEnvironment, Global, "<global>");
 
             Options = new Options();
 
@@ -165,6 +165,10 @@ namespace Jint
         public ErrorConstructor RangeError { get; private set; }
         public ErrorConstructor ReferenceError { get; private set; }
         public ErrorConstructor UriError { get; private set; }
+        /// <summary>
+        /// Whether stack traces should be created for any Javascript errors encountered during execution
+        /// </summary>
+        public bool ShouldCreateStackTrace { get; set; }
 
         public ExecutionContext ExecutionContext { get { return _executionContexts.Peek(); } }
 
@@ -197,9 +201,9 @@ namespace Jint
         }
         #endregion
 
-        public ExecutionContext EnterExecutionContext(LexicalEnvironment lexicalEnvironment, LexicalEnvironment variableEnvironment, JsValue thisBinding)
+        public ExecutionContext EnterExecutionContext(LexicalEnvironment lexicalEnvironment, LexicalEnvironment variableEnvironment, JsValue thisBinding, String contextName)
         {
-            var executionContext = new ExecutionContext
+            var executionContext = new ExecutionContext(this, contextName)
                 {
                     LexicalEnvironment = lexicalEnvironment,
                     VariableEnvironment = variableEnvironment,
@@ -245,6 +249,40 @@ namespace Jint
         public void LeaveExecutionContext()
         {
             _executionContexts.Pop();
+        }
+
+        public void AppendStack(StringBuilder builder)
+        {
+            if (_lastSyntaxNode != null)
+            {
+                AppendLocation(builder, _lastSyntaxNode.Location, _executionContexts.Peek().Name);
+            }
+            var stackEnumerator = _executionContexts.GetEnumerator();
+            var stopAfter = _executionContexts.Count;
+            stackEnumerator.MoveNext();
+            while ((--stopAfter) > 0)
+            {
+                var location = stackEnumerator.Current != null ? stackEnumerator.Current.Location : null;
+                stackEnumerator.MoveNext();
+                var name = stackEnumerator.Current != null ? stackEnumerator.Current.Name : "native frame";
+                AppendLocation(builder, location, name);
+            }
+        }
+
+        private static void AppendLocation(StringBuilder builder, Parser.Location location, String name)
+        {
+            if (location != null)
+            {
+                builder
+                    .Append("\tat ").Append(name ?? "").Append(" (")
+                    .Append(location.Source ?? "unknown").Append(':')
+                    .Append(location.Start.Line).Append(':')
+                    .Append(location.Start.Column)
+                    .Append(")\n");
+            } else
+            {
+                builder.Append("\tat ").Append(name ?? "").Append(" (unknown location)\n");
+            }
         }
 
         /// <summary>
