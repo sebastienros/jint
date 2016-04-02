@@ -360,6 +360,69 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
+        /// Alters the prototype of the object. Although this is an ES6 spec item,
+        /// it is crucial for object inheritance patterns and supported by all major ES5
+        /// engines (in some form or other) other than IE<10.
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-object.setprototypeof
+        /// </summary>
+        /// <param name="prototype"></param>
+        public JsValue SetPrototypeOf(JsValue prototype)
+        {
+            // 1. Assert: Either Type(V) is Object or Type(V) is Null.
+            if (!prototype.IsNull())
+            {
+                TypeConverter.CheckObjectCoercible(Engine, prototype);
+            }
+            // 2. Let extensible be the value of the [[Extensible]] internal slot of O.
+            // 3. Let current be the value of the [[Prototype]] internal slot of O.
+            var current = this.Prototype;
+            // 4. If SameValue(V, current), return true.
+            if (prototype.Equals(current))
+            {
+                return JsValue.True;
+            }
+            // 5. If extensible is false, return false.
+            if (!Extensible)
+            {
+                return JsValue.False;
+            }
+            // 6. Let p be V.
+            var p = prototype;
+            // 7. Let done be false.
+            var done = false;
+            // 8. Repeat while done is false,
+            while (!done)
+            {
+                // a. If p is null, let done be true.
+                if (p.IsNull())
+                {
+                    done = true;
+                } else if (p.Equals(this))
+                {
+                    // b. Else, if SameValue(p, O) is true, return false.
+                    return false;
+                } else
+                {
+                    // c. Else,
+                    //    i. If the[[GetPrototypeOf]] internal method of p is not
+                    //       the ordinary object internal method defined in 9.1.1, let done be true.
+                    if (!(p is ObjectInstance)) {
+                        // I don't think this is possible in Jint right now because
+                        // we don't have proxies/modules, but implementing the logic anyways
+                        done = true;
+                    } else {
+                        //   ii. Else, let p be the value of p’s[[Prototype]] internal slot.
+                        p = p.AsObject().Prototype;
+                    }
+                }
+            }
+            // 9. Set the value of the[[Prototype]] internal slot of O to V.
+            this.Prototype = prototype.IsNull() ? null : p.AsObject();
+            // 10. Return true.
+            return JsValue.True;
+        }
+
+        /// <summary>
         /// Creates or alters the named own property to 
         /// have the state described by a Property 
         /// Descriptor. The flag controls failure handling.

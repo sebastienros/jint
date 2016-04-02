@@ -26,6 +26,7 @@ namespace Jint.Native.Object
             FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf), true, false, true);
             FastAddProperty("hasOwnProperty", new ClrFunctionInstance(Engine, HasOwnProperty, 1), true, false, true);
             FastAddProperty("isPrototypeOf", new ClrFunctionInstance(Engine, IsPrototypeOf, 1), true, false, true);
+            FastAddProperty("setPrototypeOf", new ClrFunctionInstance(Engine, SetPrototypeOf, 1), true, false, true);
             FastAddProperty("propertyIsEnumerable", new ClrFunctionInstance(Engine, PropertyIsEnumerable, 1), true, false, true);
         }
 
@@ -45,6 +46,49 @@ namespace Jint.Native.Object
         {
             var o = TypeConverter.ToObject(Engine, thisObject);
             return o;
+        }
+
+        /// <summary>
+        /// Although this is an ES6 spec item, it is crucial for object inheritance
+        /// in modern JS and supported by all major engines other than IE<10.
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-object.setprototypeof
+        /// </summary>
+        private JsValue SetPrototypeOf(JsValue thisObject, JsValue[] args)
+        {
+            JsValue O = JsValue.Undefined;
+            JsValue proto = JsValue.Undefined;
+            if (args.Length > 0)
+            {
+                O = args[0];
+            }
+            if (args.Length > 1)
+            {
+                proto = args[1];
+            }
+            // When the setPrototypeOf function is called with arguments O and proto, the following steps are taken:
+            // 1 Let O be RequireObjectCoercible(O).
+            // 2 ReturnIfAbrupt(O).
+            TypeConverter.CheckObjectCoercible(Engine, O);
+            // 3 If Type(proto) is neither Object nor Null, throw a TypeError exception.
+            if (!proto.IsNull())
+            {
+                TypeConverter.CheckObjectCoercible(Engine, proto);
+            }
+            // 4 If Type(O) is not Object, return O.
+            if (!O.IsObject())
+            {
+                return O;
+            }
+            // 5 Let status be O.[[SetPrototypeOf]](proto).
+            // 6 ReturnIfAbrupt(status).
+            var status = O.AsObject().SetPrototypeOf(proto);
+            if (!status.AsBoolean())
+            {
+                // 7 If status is false, throw a TypeError exception.
+                throw new JavaScriptException(Engine.TypeError);
+            }
+            // 8 Return O.
+            return O;
         }
 
         private JsValue IsPrototypeOf(JsValue thisObject, JsValue[] arguments)

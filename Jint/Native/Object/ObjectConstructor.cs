@@ -73,7 +73,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.2.1
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-ordinary-object-internal-methods-and-internal-slots-setprototypeof-v
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns></returns>
