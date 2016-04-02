@@ -72,7 +72,7 @@
     <Compile Include="Native\Error\ErrorPrototype.cs" />
     <Compile Include="Native\Error\ErrorConstructor.cs" />
     <Compile Include="Native\Error\ErrorInstance.cs" />
-    <Compile Include="Native\Argument\ArgumentsObject.cs" />
+    <Compile Include="Native\Argument\ArgumentsInstance.cs" />
     <Compile Include="Native\Function\FunctionPrototype.cs" />
     <Compile Include="Native\Function\ThrowTypeError.cs" />
     <Compile Include="Native\Function\EvalFunctionInstance.cs" />
