@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -106,6 +106,27 @@ namespace Jint.Tests.Runtime
             var result = engine.Execute(source).GetCompletionValue().ToObject();
 
             Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData(-59, "~58")]
+        [InlineData(58, "~~58")]
+        public void ShouldInterpretUnaryExpressionToInt(object expected, string source)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue();
+
+            Assert.Equal(expected, TypeConverter.ToInt32(result));
+        }
+
+        [Theory]
+        [InlineData(58U, "~~58")]
+        public void ShouldInterpretUnaryExpressionToUInt(object expected, string source)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue();
+
+            Assert.Equal(expected, TypeConverter.ToUint32(result));
         }
 
         [Fact]
@@ -510,6 +531,37 @@ namespace Jint.Tests.Runtime
 
                 assert(f1() === 'obj');
             ");
+        }
+
+        [Fact]
+        public void ErrorHasCorrectStack()
+        {
+            RunTest(@"try { throw new Error(); } catch (x) { assert(!x.stack); }");
+
+            var engine = new Engine()
+                .SetValue("assert", new Action<bool>(Assert.True));
+            engine.ShouldCreateStackTrace = true;
+            engine.Execute(@"try { throw new Error(); } catch (x) { assert(x.stack != null); }");
+
+            _engine.ShouldCreateStackTrace = true;
+            RunTest(@"function a() {
+b();
+}
+
+function b() {
+c();
+}
+
+function c() {
+throw new Error('foo');
+}
+
+try {
+a();
+} catch (x) {
+    log(x.stack);
+  assert(x.stack === 'Error: foo\n	at c (unknown:10:10)\n	at b (unknown:6:0)\n	at a (unknown:2:0)\n	at <global> (unknown:14:0)\n');
+}");
         }
 
         [Fact]
@@ -948,6 +1000,17 @@ namespace Jint.Tests.Runtime
 
             var result = engine.Execute("Date.parse('1970-01-01');").GetCompletionValue().AsNumber();
             Assert.Equal(0, result);
+        }
+
+        [Fact]
+        public void LocalDateTimeShouldNotLoseTimezone()
+        {
+            var date = new DateTime(2016, 1, 1, 13, 0, 0, DateTimeKind.Local);
+            var engine = new Engine().SetValue("localDate", date);
+            engine.Execute(@"localDate");
+            var actual = engine.GetCompletionValue().AsDate().ToDateTime();
+            Assert.Equal(date.ToUniversalTime(), actual.ToUniversalTime());
+            Assert.Equal(date.ToLocalTime(), actual.ToLocalTime());
         }
 
         [Fact]
@@ -1565,6 +1628,24 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void DateShouldHonorTimezoneDaylightSavingRules()
+        {
+            var EST = TimeZoneInfo.FindSystemTimeZoneById("US Eastern Standard Time");
+            var engine = new Engine(options => options.LocalTimeZone(EST))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                ;
+
+            engine.Execute(@"
+                    var d = new Date(2016, 8, 1);
+
+                    equal('Thu Sep 01 2016 00:00:00 GMT-04:00', d.toString());
+                    equal('Thu Sep 01 2016', d.toDateString());
+            ");
+        }
+
+        [Fact]
         public void DateShouldParseToString()
         {
             // Forcing to PDT and FR for tests
@@ -1597,6 +1678,54 @@ namespace Jint.Tests.Runtime
                     var d = new Number(-1.23);
                     equal('-1.23', d.toString());
                     equal('-1,23', d.toLocaleString());
+            ");
+        }
+
+        [Fact]
+        public void DateCtorShouldAcceptDate()
+        {
+            RunTest(@"
+                var a = new Date();
+                var b = new Date(a);
+                assert(String(a) === String(b));
+            ");
+        }
+
+        [Fact]
+        public void RegExpResultIsMutable()
+        {
+            RunTest(@"
+                var match = /quick\s(brown).+?(jumps)/ig.exec('The Quick Brown Fox Jumps Over The Lazy Dog');
+                var result = match.shift();
+                assert(result === 'Quick Brown Fox Jumps');
+            ");
+        }
+
+        [Fact]
+        public void RegExpSupportsMultiline()
+        {
+            RunTest(@"
+                var rheaders = /^(.*?):[ \t]*([^\r\n]*)$/mg;
+                var headersString = 'X-AspNetMvc-Version: 4.0\r\nX-Powered-By: ASP.NET\r\n\r\n';
+                match = rheaders.exec(headersString);
+                assert('X-AspNetMvc-Version' === match[1]);
+                assert('4.0' === match[2]);
+            ");
+
+            RunTest(@"
+                var rheaders = /^(.*?):[ \t]*(.*?)$/mg;
+                var headersString = 'X-AspNetMvc-Version: 4.0\r\nX-Powered-By: ASP.NET\r\n\r\n';
+                match = rheaders.exec(headersString);
+                assert('X-AspNetMvc-Version' === match[1]);
+                assert('4.0' === match[2]);
+            ");
+
+            RunTest(@"
+                var rheaders = /^(.*?):[ \t]*([^\r\n]*)$/mg;
+                var headersString = 'X-AspNetMvc-Version: 4.0\nX-Powered-By: ASP.NET\n\n';
+                match = rheaders.exec(headersString);
+                assert('X-AspNetMvc-Version' === match[1]);
+                assert('4.0' === match[2]);
             ");
         }
     }

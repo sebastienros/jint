@@ -6,6 +6,7 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.String;
 
 namespace Jint.Runtime
 {
@@ -134,7 +135,7 @@ namespace Jint.Runtime
 
             if (o.IsString())
             {
-                var s = o.AsString().Trim();
+                var s = StringPrototype.TrimEx(o.AsString());
 
                 if (String.IsNullOrEmpty(s))
                 {

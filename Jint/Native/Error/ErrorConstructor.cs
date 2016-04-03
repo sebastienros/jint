@@ -65,6 +65,11 @@ namespace Jint.Native.Error
                 Engine.AppendStack(builder);
                 instance.Put("stack", builder.ToString(), false);
             }
+            else if (arguments.At(0) != Undefined.Instance)
+            {
+                var message = TypeConverter.ToString(arguments.At(0));
+                instance.Put("message", message, false);
+            }
 
             return instance;
         }

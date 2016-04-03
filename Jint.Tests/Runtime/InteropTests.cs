@@ -818,13 +818,22 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldConstructWithParameters()
+        public void ShouldConstructReferenceTypeWithParameters()
         {
             RunTest(@"
                 var Shapes = importNamespace('Shapes');
                 var circle = new Shapes.Circle(1);
                 assert(circle.Radius === 1);
                 assert(circle.Perimeter() === Math.PI);
+            ");
+        }
+
+        [Fact]
+        public void ShouldConstructValueTypeWithoutParameters()
+        {
+            RunTest(@"
+                var guid = new System.Guid();
+                assert('00000000-0000-0000-0000-000000000000' === guid.ToString());
             ");
         }
 
@@ -951,6 +960,17 @@ namespace Jint.Tests.Runtime
             engine2.Execute("var result = p.Test;");
             Assert.False((bool)engine2.GetValue("result").ToObject());
 
+        }
+
+        [Fact]
+        public void CanConvertEnumsToString()
+        {
+            var engine1 = new Engine(o => o.AddObjectConverter(new EnumsToStringConverter()))
+                .SetValue("assert", new Action<bool>(Assert.True));
+            engine1.SetValue("p", new { Comparison = StringComparison.CurrentCulture });
+            engine1.Execute("assert(p.Comparison === 'CurrentCulture');");
+            engine1.Execute("var result = p.Comparison;");
+            Assert.Equal("CurrentCulture", (string)engine1.GetValue("result").ToObject());
         }
 
         [Fact]
@@ -1356,6 +1376,26 @@ namespace Jint.Tests.Runtime
             ");
 
             Assert.Equal(Nested.ClassWithStaticFields.Readonly, "Readonly");
+        }
+
+        [Fact]
+        public void ShouldExecuteFunctionWithValueTypeParameterCorrectly()
+        {
+            _engine.SetValue("a", new A());
+            // Func<int, int>
+            RunTest(@"
+                assert(a.Call17(function(value){ return value; }) === 17);
+            ");
+        }
+
+        [Fact]
+        public void ShouldExecuteActionWithValueTypeParameterCorrectly()
+        {
+            _engine.SetValue("a", new A());
+            // Action<int>
+            RunTest(@"
+                a.Call18(function(value){ assert(value === 18); });
+            ");
         }
 
     }
