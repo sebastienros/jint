@@ -414,7 +414,7 @@ namespace Jint.Native.Object
                     // c. Else,
                     //    i. If the[[GetPrototypeOf]] internal method of p is not
                     //       the ordinary object internal method defined in 9.1.1, let done be true.
-                    if (!(p is ObjectInstance)) {
+                    if (!p.IsObject()) {
                         // I don't think this is possible in Jint right now because
                         // we don't have proxies/modules, but implementing the logic anyways
                         done = true;
