@@ -71,7 +71,6 @@ namespace Jint.Native.Error
                 instance.Put("message", message, false);
             }
 
-
             return instance;
         }
 
