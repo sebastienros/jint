@@ -534,6 +534,37 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ErrorHasCorrectStack()
+        {
+            RunTest(@"try { throw new Error(); } catch (x) { assert(!x.stack); }");
+
+            var engine = new Engine()
+                .SetValue("assert", new Action<bool>(Assert.True));
+            engine.ShouldCreateStackTrace = true;
+            engine.Execute(@"try { throw new Error(); } catch (x) { assert(x.stack != null); }");
+
+            _engine.ShouldCreateStackTrace = true;
+            RunTest(@"function a() {
+b();
+}
+
+function b() {
+c();
+}
+
+function c() {
+throw new Error('foo');
+}
+
+try {
+a();
+} catch (x) {
+    log(x.stack);
+  assert(x.stack === 'Error: foo\n	at c (unknown:10:10)\n	at b (unknown:6:0)\n	at a (unknown:2:0)\n	at <global> (unknown:14:0)\n');
+}");
+        }
+
+        [Fact]
         public void TryCatchBlockStatement()
         {
             RunTest(@"
