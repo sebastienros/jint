@@ -420,12 +420,19 @@ namespace Jint.Native.Object
                         done = true;
                     } else {
                         //   ii. Else, let p be the value of p’s[[Prototype]] internal slot.
-                        p = p.AsObject().Prototype;
+                        var protoChild = p.AsObject().Prototype;
+                        if (protoChild != null)
+                        {
+                            p = protoChild;
+                        } else
+                        {
+                            p = JsValue.Null;
+                        }
                     }
                 }
             }
             // 9. Set the value of the[[Prototype]] internal slot of O to V.
-            this.Prototype = prototype.IsNull() ? null : p.AsObject();
+            this.Prototype = prototype.IsNull() ? null : prototype.AsObject();
             // 10. Return true.
             return JsValue.True;
         }
