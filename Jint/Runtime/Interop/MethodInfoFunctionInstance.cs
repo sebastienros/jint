@@ -7,6 +7,7 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
+using Jint.Parser.Ast;
 
 namespace Jint.Runtime.Interop
 {

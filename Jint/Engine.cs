@@ -269,6 +269,12 @@ namespace Jint
             CallStack.Clear();
         }
 
+        public static Program Compile(string source, ParserOptions options)
+        {
+            var parser = new JavaScriptParser();
+            return parser.Parse(source, options);
+        }
+
         public Engine Execute(string source)
         {
             var parser = new JavaScriptParser();

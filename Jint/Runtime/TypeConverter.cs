@@ -7,6 +7,8 @@ using Jint.Native;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
+using Jint.Parser.Ast;
+using Jint.Runtime.References;
 
 namespace Jint.Runtime
 {
