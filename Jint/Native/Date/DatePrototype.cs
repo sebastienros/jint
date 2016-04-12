@@ -539,15 +539,22 @@ namespace Jint.Native.Date
             {
                 throw new JavaScriptException(Engine.RangeError);
             }
-
+            double h = HourFromTime(t);
+            double m = MinFromTime(t);
+            double s = SecFromTime(t);
+            double ms = MsFromTime(t);
+            if (h < 0) { h += HoursPerDay; }
+            if (m < 0) { m += MinutesPerHour; }
+            if (s < 0) { s += SecondsPerMinute; }
+            if (ms < 0) { ms += MsPerSecond; }
             return string.Format("{0:0000}-{1:00}-{2:00}T{3:00}:{4:00}:{5:00}.{6:000}Z",
                 YearFromTime(t),
                 MonthFromTime(t)+1,
                 DateFromTime(t),
-                HourFromTime(t),
-                MinFromTime(t),
-                SecFromTime(t),
-                MsFromTime(t));
+                h,
+                m,
+                s,
+                ms);
         }
 
         private JsValue ToJSON(JsValue thisObj, JsValue[] arguments)
@@ -568,13 +575,13 @@ namespace Jint.Native.Date
             return toIso.TryCast<ICallable>().Call(o, Arguments.Empty);
         }
 
-        public static double HoursPerDay = 24;
-        public static double MinutesPerHour = 60;
-        public static double SecondsPerMinute = 60;
-        public static double MsPerSecond = 1000;
-        public static double MsPerMinute = 60000;
-        public static double MsPerHour = 3600000;
-        public static double MsPerDay = 86400000;
+        public const double HoursPerDay = 24;
+        public const double MinutesPerHour = 60;
+        public const double SecondsPerMinute = 60;
+        public const double MsPerSecond = 1000;
+        public const double MsPerMinute = 60000;
+        public const double MsPerHour = 3600000;
+        public const double MsPerDay = 86400000;
 
         /// <summary>
         /// 15.9.1.2
