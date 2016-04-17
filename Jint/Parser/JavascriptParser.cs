@@ -62,6 +62,11 @@ namespace Jint.Parser
         private readonly Stack<IFunctionScope> _functionScopes = new Stack<IFunctionScope>();
 
 
+        public JavaScriptParser()
+            : this(null)
+        {
+        }
+
         public JavaScriptParser(Engine engine)
         {
             _engine = engine;
@@ -3929,7 +3934,8 @@ namespace Jint.Parser
                 Source = new Script(options?.Source, code)
             };
 
-            _engine.InvokeSourceLoaded(_extra.Source);
+            if (_engine != null)
+                _engine.InvokeSourceLoaded(_extra.Source);
 
             if (options != null)
             {
@@ -4002,7 +4008,8 @@ namespace Jint.Parser
                 Source = new Script(null, functionExpression)
             };
 
-            _engine.InvokeSourceLoaded(_extra.Source);
+            if (_engine != null)
+                _engine.InvokeSourceLoaded(_extra.Source);
 
             _strict = false;
             Peek();

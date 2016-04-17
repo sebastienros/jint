@@ -937,7 +937,7 @@ namespace Jint.Tests.Runtime
             {
                 Assert.Equal(1, e.LineNumber);
                 Assert.Equal(9, e.Column);
-                Assert.Equal("jQuery.js", e.Source);
+                Assert.Equal("jQuery.js", e.Source.Source);
             }
         }
 
@@ -1239,7 +1239,10 @@ namespace Jint.Tests.Runtime
 
             engine.Break += EngineStep;
 
-            engine.BreakPoints.Add(new BreakPoint(1, 1));
+            engine.SourceLoaded += (s, e) =>
+            {
+                engine.BreakPoints.Add(new BreakPoint(e.Source, 1, 1));
+            };
 
             engine.Execute(@"var local = true;
                 if (local === true)
@@ -1276,7 +1279,12 @@ namespace Jint.Tests.Runtime
             stepMode = StepMode.Into;
 
             var engine = new Engine(options => options.DebugMode());
-            engine.BreakPoints.Add(new BreakPoint(1, 1));
+
+            engine.SourceLoaded += (s, e) =>
+            {
+                engine.BreakPoints.Add(new BreakPoint(e.Source, 1, 1));
+            };
+
             engine.Step += EngineStep;
             engine.Break += EngineStep;
 
@@ -1305,8 +1313,12 @@ namespace Jint.Tests.Runtime
             stepMode = StepMode.None;
 
             var engine = new Engine(options => options.DebugMode());
-            engine.BreakPoints.Add(new BreakPoint(5, 0));
             engine.Break += EngineStepVerifyDebugInfo;
+
+            engine.SourceLoaded += (s, e) =>
+            {
+                engine.BreakPoints.Add(new BreakPoint(e.Source, 5, 0));
+            };
 
             engine.Execute(@"var global = true;
                             function func1()
@@ -1352,8 +1364,18 @@ namespace Jint.Tests.Runtime
 
             engine.Break += EngineStep;
 
-            engine.BreakPoints.Add(new BreakPoint(5, 16, "condition === true"));
-            engine.BreakPoints.Add(new BreakPoint(6, 16, "condition === false"));
+            bool loaded = false;
+
+            engine.SourceLoaded += (s, e) =>
+            {
+                if (loaded)
+                    return;
+
+                loaded = true;
+
+                engine.BreakPoints.Add(new BreakPoint(e.Source, 5, 16, "condition === true"));
+                engine.BreakPoints.Add(new BreakPoint(e.Source, 6, 16, "condition === false"));
+            };
 
             engine.Execute(@"var local = true;
                 var condition = true;
@@ -1433,7 +1455,12 @@ namespace Jint.Tests.Runtime
             stepMode = StepMode.None;
 
             var engine = new Engine(options => options.DebugMode());
-            engine.BreakPoints.Add(new BreakPoint(4, 33));
+
+            engine.SourceLoaded += (s, e) =>
+            {
+                engine.BreakPoints.Add(new BreakPoint(e.Source, 4, 33));
+            };
+
             engine.Break += EngineStep;
 
             engine.Execute(@"var global = true;
