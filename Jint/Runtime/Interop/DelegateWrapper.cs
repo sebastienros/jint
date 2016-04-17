@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using Jint.Native;
 using Jint.Native.Function;
 
@@ -91,7 +92,14 @@ namespace Jint.Runtime.Interop
                 parameters[paramsArgumentIndex] = paramsParameter;
             }
 
-            return JsValue.FromObject(Engine, _d.DynamicInvoke(parameters));
+            try
+            {
+                return JsValue.FromObject(Engine, _d.DynamicInvoke(parameters));
+            }
+            catch (TargetInvocationException ex)
+            {
+                throw ex.InnerException;
+            }
         }
     }
 }
