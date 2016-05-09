@@ -876,7 +876,56 @@ namespace Jint.Tests.Runtime
             ");
         }
 
-        [Fact]
+		[Fact]
+		public void JsonParserShouldUseToString()
+		{
+			RunTest(@"
+                var a = JSON.parse(null); // Equivalent to JSON.parse('null')
+                assert(a === null);
+            ");
+
+			RunTest(@"
+                var a = JSON.parse(true); // Equivalent to JSON.parse('true')
+                assert(a === true);
+            ");
+
+			RunTest(@"
+                var a = JSON.parse(false); // Equivalent to JSON.parse('false')
+                assert(a === false);
+            ");
+
+			RunTest(@"
+                try {
+                    JSON.parse(undefined); // Equivalent to JSON.parse('undefined')
+                    assert(false);
+                }
+                catch(ex) {
+                    assert(ex instanceof SyntaxError);
+                }
+			");
+
+			RunTest(@"
+                try {
+                    JSON.parse({}); // Equivalent to JSON.parse('[object Object]')
+                    assert(false);
+                }
+                catch(ex) {
+                    assert(ex instanceof SyntaxError);
+                }
+			");
+
+			RunTest(@"
+                try {
+                    JSON.parse(function() { }); // Equivalent to JSON.parse('function () {}')
+                    assert(false);
+                }
+                catch(ex) {
+                    assert(ex instanceof SyntaxError);
+                }
+			");
+		}
+
+		[Fact]
         public void JsonParserShouldDetectInvalidNegativeNumberSyntax()
         {
             RunTest(@"
