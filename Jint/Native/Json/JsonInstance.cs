@@ -1,4 +1,5 @@
 ﻿using Jint.Native.Object;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Json
@@ -39,7 +40,7 @@ namespace Jint.Native.Json
         {
             var parser = new JsonParser(_engine);
 
-            return parser.Parse(arguments[0].AsString());
+            return parser.Parse(TypeConverter.ToString(arguments[0]));
         }
 
         public JsValue Stringify(JsValue thisObject, JsValue[] arguments)
