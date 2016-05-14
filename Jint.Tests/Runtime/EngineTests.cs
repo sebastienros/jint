@@ -1094,7 +1094,7 @@ namespace Jint.Tests.Runtime
             var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
             engine.Execute(
                 string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
-            Assert.Equal(testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz"), engine.Execute("d.toString();").GetCompletionValue().ToString());
+            Assert.Equal(testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz", new CultureInfo("en-US")), engine.Execute("d.toString();").GetCompletionValue().ToString());
         }
         
 #endregion //DateParsingAndStrings
