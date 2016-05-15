@@ -1,6 +1,7 @@
 ﻿using System;
 using Jint.Native;
 using Jint.Native.Error;
+using Jint.Runtime.Debugger;
 
 namespace Jint.Runtime
 {
@@ -21,6 +22,12 @@ namespace Jint.Runtime
 
         public JavaScriptException(JsValue error)
             : base(GetErrorMessage(error))
+        {
+            _errorObject = error;
+        }
+
+        public JavaScriptException(JsValue error, Exception innerException)
+            : base(GetErrorMessage(error), innerException)
         {
             _errorObject = error;
         }
@@ -49,5 +56,7 @@ namespace Jint.Runtime
         public int LineNumber { get { return null == Location ? 0 : Location.Start.Line; } }
 
         public int Column { get { return null == Location ? 0 : Location.Start.Column; } }
+
+        public DebugInformation DebugInformation { get; set; }
     }
 }

@@ -797,10 +797,11 @@ namespace Jint.Runtime
         public JsValue EvaluateCallExpression(CallExpression callExpression)
         {
             var callee = EvaluateExpression(callExpression.Callee);
+            bool shouldDebugPop = false;
 
             if (_engine.Options._IsDebugMode)
             {
-                _engine.DebugHandler.AddToDebugCallStack(callExpression);
+                shouldDebugPop = _engine.DebugHandler.AddToDebugCallStack(callExpression, callee);
             }
 
             JsValue thisObject;
@@ -891,7 +892,7 @@ namespace Jint.Runtime
             
             var result = callable.Call(thisObject, arguments);
 
-            if (_engine.Options._IsDebugMode)
+            if (shouldDebugPop)
             {
                 _engine.DebugHandler.PopDebugCallStack();
             }

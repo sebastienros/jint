@@ -305,9 +305,10 @@ namespace Jint
                 var result = _statements.ExecuteProgram(program);
                 if (result.Type == Completion.Throw)
                 {
-                    throw new JavaScriptException(result.GetValueOrDefault())
+                    throw new JavaScriptException(result.GetValueOrDefault(), result.Exception)
                     {
-                        Location = result.Location
+                        Location = result.Location,
+                        DebugInformation = result.DebugInformation
                     };
                 }
 

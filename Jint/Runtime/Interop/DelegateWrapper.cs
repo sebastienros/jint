@@ -96,7 +96,7 @@ namespace Jint.Runtime.Interop
             {
                 return JsValue.FromObject(Engine, _d.DynamicInvoke(parameters));
             }
-            catch (TargetInvocationException ex)
+            catch (TargetInvocationException ex) when (ex.InnerException != null)
             {
                 throw ex.InnerException;
             }

@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Parser.Ast;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
@@ -38,7 +40,7 @@ namespace Jint.Runtime.Debugger
             }
         }
 
-        internal void AddToDebugCallStack(CallExpression callExpression)
+        internal bool AddToDebugCallStack(CallExpression callExpression, object callee)
         {
             if (_callPending)
             {
@@ -47,28 +49,51 @@ namespace Jint.Runtime.Debugger
             }
 
             var identifier = callExpression.Callee as Identifier;
-            if (identifier != null)
+            if (identifier == null)
             {
-                var stack = identifier.Name + "(";
-                var paramStrings = new List<string>();
-
-                foreach (var argument in callExpression.Arguments)
-                {
-                    if (argument != null)
-                    {
-                        var argIdentifier = argument as Identifier;
-                        paramStrings.Add(argIdentifier != null ? argIdentifier.Name : "null");
-                    }
-                    else
-                    {
-                        paramStrings.Add("null");
-                    }
-                }
-
-                stack += string.Join(", ", paramStrings);
-                stack += ")";
-                _debugCallStack.Push(stack);
+                var functionExpression = callExpression.Callee as FunctionExpression;
+                if (functionExpression != null)
+                    identifier = functionExpression.Id;
             }
+
+            if (identifier == null)
+                return false;
+
+            var stack = new StringBuilder()
+                .Append(identifier.Name)
+                .Append('(');
+
+            bool hadOne = false;
+
+            // Try to resolve the function to get the formal parameters.
+
+            FunctionInstance func;
+
+            try
+            {
+                func = _engine.GetValue(callee).TryCast<FunctionInstance>();
+            }
+            catch
+            {
+                func = null;
+            }
+
+            if (func != null)
+            {
+                foreach (var parameter in func.FormalParameters)
+                {
+                    if (hadOne)
+                        stack.Append(", ");
+                    else
+                        hadOne = true;
+
+                    stack.Append(parameter);
+                }
+            }
+
+            _debugCallStack.Push(stack.Append(')').ToString());
+
+            return true;
         }
 
         internal void OnStep(Statement statement)
@@ -152,8 +177,11 @@ namespace Jint.Runtime.Debugger
             return true;
         }
 
-        private DebugInformation CreateDebugInformation(Statement statement)
+        public DebugInformation CreateDebugInformation(Statement statement)
         {
+            if (!_engine.Options._IsDebugMode)
+                return null;
+
             var info = new DebugInformation { CurrentStatement = statement, CallStack = _debugCallStack };
 
             if (_engine.ExecutionContext != null && _engine.ExecutionContext.LexicalEnvironment != null)

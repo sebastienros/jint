@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+﻿using System;
+using Jint.Native;
 
 namespace Jint.Runtime
 {
@@ -14,15 +15,22 @@ namespace Jint.Runtime
         public static string Throw = "throw";
 
         public Completion(string type, JsValue? value, string identifier)
+            : this(type, value, identifier, null)
+        {
+        }
+
+        public Completion(string type, JsValue? value, string identifier, Exception exception)
         {
             Type = type;
             Value = value;
             Identifier = identifier;
+            Exception = exception;
         }
 
         public string Type { get; private set; }
         public JsValue? Value { get; private set; }
         public string Identifier { get; private set; }
+        public Exception Exception { get; private set; }
 
         public JsValue GetValueOrDefault()
         {
@@ -30,5 +38,7 @@ namespace Jint.Runtime
         }
 
         public Jint.Parser.Location Location { get; set; }
+
+        public Jint.Runtime.Debugger.DebugInformation DebugInformation { get; set; }
     }
 }

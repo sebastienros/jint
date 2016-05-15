@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Jint.Native;
+using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
@@ -331,8 +332,15 @@ namespace Jint.Runtime
             }
             catch (JavaScriptException e)
             {
-                c = new Completion(Completion.Throw, e.Error, null);
+                c = new Completion(Completion.Throw, e.Error, null, e.InnerException);
+                c.Location = e.Location ?? withStatement.Location;
+                c.DebugInformation = e.DebugInformation ?? _engine.DebugHandler.CreateDebugInformation(withStatement);
+            }
+            catch (Exception e)
+            {
+                c = new Completion(Completion.Throw, e.Message, null, e);
                 c.Location = withStatement.Location;
+                c.DebugInformation = _engine.DebugHandler.CreateDebugInformation(withStatement);
             }
             finally
             {
@@ -422,17 +430,26 @@ namespace Jint.Runtime
                     {
                         return new Completion(c.Type, c.Value.HasValue ? c.Value : sl.Value, c.Identifier)
                         {
-                            Location = c.Location
+                            Location = c.Location,
+                            DebugInformation = c.DebugInformation
                         };
                     }
 
                     sl = c;
                 }
             }
-            catch(JavaScriptException v)
+            catch (JavaScriptException v)
             {
-                c = new Completion(Completion.Throw, v.Error, null);
+                c = new Completion(Completion.Throw, v.Error, null, v.InnerException);
+                c.Location = v.Location ?? s.Location;
+                c.DebugInformation = v.DebugInformation ?? _engine.DebugHandler.CreateDebugInformation(s);
+                return c;
+            }
+            catch (Exception e)
+            {
+                c = new Completion(Completion.Throw, e.Message, null, e);
                 c.Location = s.Location;
+                c.DebugInformation = _engine.DebugHandler.CreateDebugInformation(s);
                 return c;
             }
 
@@ -449,6 +466,7 @@ namespace Jint.Runtime
             var exprRef = _engine.EvaluateExpression(throwStatement.Argument);
             Completion c = new Completion(Completion.Throw, _engine.GetValue(exprRef), null);
             c.Location = throwStatement.Location;
+            c.DebugInformation = _engine.DebugHandler.CreateDebugInformation(throwStatement);
             return c;
         }
 
