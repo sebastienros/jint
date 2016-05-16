@@ -40,7 +40,7 @@ namespace Jint.Runtime.Debugger
             }
         }
 
-        internal bool AddToDebugCallStack(CallExpression callExpression, object callee)
+        internal void AddToDebugCallStack(CallExpression callExpression, object callee)
         {
             if (_callPending)
             {
@@ -48,19 +48,24 @@ namespace Jint.Runtime.Debugger
                 _callBackStepOverDepth = _debugCallStack.Count;
             }
 
-            var identifier = callExpression.Callee as Identifier;
+            string identifier = (callExpression.Callee as Identifier)?.Name;
             if (identifier == null)
             {
                 var functionExpression = callExpression.Callee as FunctionExpression;
                 if (functionExpression != null)
-                    identifier = functionExpression.Id;
+                    identifier = functionExpression.Id?.Name ?? "(anonymous function)";
             }
-
             if (identifier == null)
-                return false;
+            {
+                var memberExpression = callExpression.Callee as MemberExpression;
+                if (memberExpression != null)
+                    identifier = (memberExpression.Property as Identifier)?.Name ?? "(anonymous function)";
+            }
+            if (identifier == null)
+                identifier = "(anonymous function)";
 
             var stack = new StringBuilder()
-                .Append(identifier.Name)
+                .Append(identifier)
                 .Append('(');
 
             bool hadOne = false;
@@ -78,7 +83,7 @@ namespace Jint.Runtime.Debugger
                 func = null;
             }
 
-            if (func != null)
+            if (func != null && func.FormalParameters != null)
             {
                 foreach (var parameter in func.FormalParameters)
                 {
@@ -92,8 +97,6 @@ namespace Jint.Runtime.Debugger
             }
 
             _debugCallStack.Push(stack.Append(')').ToString());
-
-            return true;
         }
 
         internal void OnStep(Statement statement)
