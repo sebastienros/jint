@@ -94,10 +94,15 @@ namespace Jint.Native.Json
             // defining the gap
             if (space.IsNumber())
             {
-                if (space.AsNumber() > 0) {
-                    _gap = new System.String(' ', (int)System.Math.Min(10, space.AsNumber()));
+                if (space.IsLong() && space.AsLong() > 0)
+                {
+                    _gap = new System.String(' ', (int)System.Math.Min(10, space.AsLong()));
                 }
-                else 
+                else if (space.AsDouble() > 0)
+                {
+                    _gap = new System.String(' ', (int)System.Math.Min(10, space.AsDouble()));
+                }
+                else
                 {
                     _gap = string.Empty;
                 }

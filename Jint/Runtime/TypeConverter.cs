@@ -69,7 +69,13 @@ namespace Jint.Runtime
 
             if (o.IsNumber())
             {
-                var n = o.AsNumber();
+                if (o.IsLong())
+                {
+                    var l = o.AsLong();
+                    return l.Equals(0) == false;
+                }
+
+                var n = o.AsDouble();
                 if (n.Equals(0) || double.IsNaN(n))
                 {
                     return false;
@@ -106,9 +112,12 @@ namespace Jint.Runtime
             // check number first as this is what is usually expected
             if (o.IsNumber())
             {
-                return o.AsNumber();
-            } 
-            
+                if (o.IsLong())
+                    return o.AsLong();
+
+                return o.AsDouble();
+            }
+
             if (o.IsObject())
             {
                 var p = o.AsObject() as IPrimitiveInstance;
@@ -282,7 +291,10 @@ namespace Jint.Runtime
 
             if (o.IsNumber())
             {
-                return NumberPrototype.ToNumberString(o.AsNumber());
+                if (o.IsLong())
+                    return NumberPrototype.ToNumberString(o.AsLong());
+
+                return NumberPrototype.ToNumberString(o.AsDouble());
             }
 
             return ToString(ToPrimitive(o, Types.String));
@@ -312,7 +324,10 @@ namespace Jint.Runtime
 
             if (value.IsNumber())
             {
-                return engine.Number.Construct(value.AsNumber());
+                if (value.IsLong())
+                    return engine.Number.Construct(value.AsLong());
+
+                return engine.Number.Construct(value.AsDouble());
             }
 
             if (value.IsString())

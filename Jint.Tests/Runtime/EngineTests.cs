@@ -56,7 +56,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Theory]
-        [InlineData(42d, "42")]
+        [InlineData(42L, "42")]
         [InlineData("Hello", "'Hello'")]
         public void ShouldInterpretLiterals(object expected, string source)
         {
@@ -79,16 +79,27 @@ namespace Jint.Tests.Runtime
         }
 
         [Theory]
-        [InlineData(4d, "1 + 3")]
-        [InlineData(-2d, "1 - 3")]
-        [InlineData(3d, "1 * 3")]
-        [InlineData(2d, "6 / 3")]
-        [InlineData(9d, "15 & 9")]
-        [InlineData(15d, "15 | 9")]
-        [InlineData(6d, "15 ^ 9")]
-        [InlineData(36d, "9 << 2")]
-        [InlineData(2d, "9 >> 2")]
-        [InlineData(4d, "19 >>> 2")]
+        [InlineData(4L, "1 + 3")]
+        [InlineData(4d, "1.0 + 3")]
+        [InlineData(4d, "1.0 + 3")]
+        [InlineData(4d, "1 + 3.0")]
+        [InlineData(4d, "1.0 + 3.0")]
+        [InlineData(-2L, "1 - 3")]
+        [InlineData(-2d, "1.0 - 3")]
+        [InlineData(-2d, "1 - 3.0")]
+        [InlineData(-2d, "1.0 - 3.0")]
+        [InlineData(3L, "1 * 3")]
+        [InlineData(3d, "1.0 * 3")]
+        [InlineData(3d, "1 * 3.0")]
+        [InlineData(3d, "1.0 * 3.0")]
+        [InlineData(2L, "6 / 3")]
+        [InlineData(1.5d, "6 / 4")]
+        [InlineData(9L, "15 & 9")]
+        [InlineData(15L, "15 | 9")]
+        [InlineData(6L, "15 ^ 9")]
+        [InlineData(36L, "9 << 2")]
+        [InlineData(2L, "9 >> 2")]
+        [InlineData(4L, "19 >>> 2")]
         public void ShouldInterpretBinaryExpression(object expected, string source)
         {
             var engine = new Engine();
@@ -98,8 +109,12 @@ namespace Jint.Tests.Runtime
         }
 
         [Theory]
-        [InlineData(-59d, "~58")]
-        [InlineData(58d, "~~58")]
+        [InlineData(-59L, "~58")]
+        [InlineData(58L, "~~58.0")]
+        [InlineData(58L, "+58")]
+        [InlineData(58d, "+58.0")]
+        [InlineData(-58L, "-58")]
+        [InlineData(-58d, "-58.0")]
         public void ShouldInterpretUnaryExpression(object expected, string source)
         {
             var engine = new Engine();
@@ -835,7 +850,7 @@ namespace Jint.Tests.Runtime
 
             var add = _engine.GetValue("add");
 
-            Assert.Equal(3, add.Invoke(1, 2));
+            Assert.Equal(3L, add.Invoke(1, 2).AsLong());
         }
 
 
@@ -957,10 +972,10 @@ namespace Jint.Tests.Runtime
 
             var engine = new Engine();
 
-            var result = engine.Execute("1.2 + 2.1").GetCompletionValue().AsNumber();
+            var result = engine.Execute("1.2 + 2.1").GetCompletionValue().AsDouble();
             Assert.Equal(3.3d, result);
 
-            result = engine.Execute("JSON.parse('{\"x\" : 3.3}').x").GetCompletionValue().AsNumber();
+            result = engine.Execute("JSON.parse('{\"x\" : 3.3}').x").GetCompletionValue().AsDouble();
             Assert.Equal(3.3d, result);
         }
 
@@ -989,13 +1004,13 @@ namespace Jint.Tests.Runtime
                 Assert.Equal("jQuery.js", e.Source);
             }
         }
-#region DateParsingAndStrings
+        #region DateParsingAndStrings
         [Fact]
         public void ParseShouldReturnNumber()
         {
             var engine = new Engine();
 
-            var result = engine.Execute("Date.parse('1970-01-01');").GetCompletionValue().AsNumber();
+            var result = engine.Execute("Date.parse('1970-01-01');").GetCompletionValue().AsDouble();
             Assert.Equal(0, result);
         }
 
@@ -1017,7 +1032,7 @@ namespace Jint.Tests.Runtime
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(7, 11, 0), customName, customName, customName, null, false);
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
-            var result = engine.Execute("Date.UTC(1970,0,1)").GetCompletionValue().AsNumber();
+            var result = engine.Execute("Date.UTC(1970,0,1)").GetCompletionValue().AsDouble();
             Assert.Equal(0, result);
         }
 
@@ -1029,13 +1044,13 @@ namespace Jint.Tests.Runtime
 
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
-            var epochGetLocalMinutes = engine.Execute("var d = new Date(0); d.getMinutes();").GetCompletionValue().AsNumber();
+            var epochGetLocalMinutes = engine.Execute("var d = new Date(0); d.getMinutes();").GetCompletionValue().AsDouble();
             Assert.Equal(11, epochGetLocalMinutes);
 
-            var localEpochGetUtcMinutes = engine.Execute("var d = new Date(1970,0,1); d.getUTCMinutes();").GetCompletionValue().AsNumber();
+            var localEpochGetUtcMinutes = engine.Execute("var d = new Date(1970,0,1); d.getUTCMinutes();").GetCompletionValue().AsDouble();
             Assert.Equal(-11, localEpochGetUtcMinutes);
 
-            var parseLocalEpoch = engine.Execute("Date.parse('January 1, 1970');").GetCompletionValue().AsNumber();
+            var parseLocalEpoch = engine.Execute("Date.parse('January 1, 1970');").GetCompletionValue().AsDouble();
             Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
 
             var epochToLocalString = engine.Execute("var d = new Date(0); d.toString();").GetCompletionValue().AsString();
@@ -1072,7 +1087,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
             engine.SetValue("d", date);
-            var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
+            var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsDouble();
 
             Assert.Equal(0, result);
         }
@@ -1102,7 +1117,7 @@ namespace Jint.Tests.Runtime
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, timespanMinutes, 0), customName, customName, customName, null, false);
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)).SetValue("d", date);
 
-            var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
+            var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsDouble();
 
             Assert.Equal(msPriorMidnight, result);
         }
@@ -1145,8 +1160,8 @@ namespace Jint.Tests.Runtime
                 string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
             Assert.Equal(testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz"), engine.Execute("d.toString();").GetCompletionValue().ToString());
         }
-        
-#endregion //DateParsingAndStrings
+
+        #endregion //DateParsingAndStrings
         [Fact]
         public void EmptyStringShouldMatchRegex()
         {
@@ -1350,7 +1365,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine(options => options.DebugMode());
 
             engine.Step += EngineStep;
-            
+
             engine.Execute(@"var local = true;
                 var creatingSomeOtherLine = 0;
                 var lastOneIPromise = true");

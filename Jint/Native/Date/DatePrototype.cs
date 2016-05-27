@@ -561,7 +561,7 @@ namespace Jint.Native.Date
         {
             var o = TypeConverter.ToObject(Engine, thisObj);
             var tv = TypeConverter.ToPrimitive(o, Types.Number);
-            if (tv.IsNumber() && double.IsInfinity(tv.AsNumber()))
+            if (tv.IsNumber() && double.IsInfinity(tv.AsDouble()))
             {
                 return JsValue.Null;
             }

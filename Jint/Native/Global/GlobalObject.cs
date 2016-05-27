@@ -114,7 +114,7 @@ namespace Jint.Native.Global
 
             try
             {
-                return sign * Parse(s, radix).AsNumber();
+                return sign * Parse(s, radix).AsDouble();
             }
             catch
             {

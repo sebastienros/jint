@@ -88,7 +88,7 @@ namespace Jint.Native.RegExp
             Match r = null;
             if (i < 0 || i > length)
             {
-                R.Put("lastIndex", (double) 0, true);
+                R.Put("lastIndex", (long)0, true);
                 return Null.Instance;
             }
 
@@ -96,21 +96,21 @@ namespace Jint.Native.RegExp
 
             if (!r.Success)
             {
-                R.Put("lastIndex", (double) 0, true);
+                R.Put("lastIndex", (long)0, true);
                 return Null.Instance;
             }
 
             var e = r.Index + r.Length;
-            
+
             if (global)
             {
-                R.Put("lastIndex", (double) e, true);
+                R.Put("lastIndex", (long)e, true);
             }
             var n = r.Groups.Count;
             var matchIndex = r.Index;
 
             var a = InitReturnValueArray(Engine.Array.Construct(Arguments.Empty), s, n, matchIndex);
-            
+
             for (var k = 0; k < n; k++)
             {
                 var group = r.Groups[k];

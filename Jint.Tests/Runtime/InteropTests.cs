@@ -565,9 +565,9 @@ namespace Jint.Tests.Runtime
 
             Assert.True(parts.GetType().IsArray);
             Assert.Equal(3, ((object[])parts).Length);
-            Assert.Equal(2d, ((object[])parts)[0]);
-            Assert.Equal(4d, ((object[])parts)[1]);
-            Assert.Equal(6d, ((object[])parts)[2]);
+            Assert.Equal(2L, ((object[])parts)[0]);
+            Assert.Equal(4L, ((object[])parts)[1]);
+            Assert.Equal(6L, ((object[])parts)[2]);
         }
 
         [Fact]
@@ -581,9 +581,9 @@ namespace Jint.Tests.Runtime
 
             Assert.True(parts.GetType().IsArray);
             Assert.Equal(3, ((object[])parts).Length);
-            Assert.Equal(2d, ((object[])parts)[0]);
-            Assert.Equal(4d, ((object[])parts)[1]);
-            Assert.Equal(6d, ((object[])parts)[2]);
+            Assert.Equal(2L, ((object[])parts)[0]);
+            Assert.Equal(4L, ((object[])parts)[1]);
+            Assert.Equal(6L, ((object[])parts)[2]);
         }
 
         [Fact]
@@ -651,7 +651,7 @@ namespace Jint.Tests.Runtime
 
             var dic = (IDictionary<string, object>)result.ToObject();
 
-            Assert.Equal(1d, dic["a"]);
+            Assert.Equal(1L, dic["a"]);
             Assert.Equal("foo", dic["b"]);
 
         }
@@ -702,7 +702,7 @@ namespace Jint.Tests.Runtime
         public void ShouldExecuteFunctionCallBackAsPredicate()
         {
             _engine.SetValue("a", new A());
-            
+
             // Func<>
             RunTest(@"
                 assert(a.Call8(function(){ return 'foo'; }) === 'foo');
@@ -785,7 +785,7 @@ namespace Jint.Tests.Runtime
                 collection.Add('test');
             ");
 
-            var eventAction = _engine.GetValue("eventAction").AsNumber();
+            var eventAction = _engine.GetValue("eventAction").AsLong();
             Assert.True(eventAction == 0);
             Assert.True(collection.Count == 1);
         }
@@ -844,7 +844,7 @@ namespace Jint.Tests.Runtime
                 function add(x, y) { return x + y; }
             ");
 
-            Assert.Equal(3, _engine.Invoke("add", 1, 2));
+            Assert.Equal(3L, _engine.Invoke("add", 1, 2).AsLong());
         }
 
         [Fact]

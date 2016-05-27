@@ -178,7 +178,7 @@ namespace Jint.Native.Array
                 if (kpresent)
                 {
                     var kvalue = o.Get(pk);
-                    var selected = callable.Call(thisArg, new [] { kvalue, k, o });
+                    var selected = callable.Call(thisArg, new[] { kvalue, k, o });
                     if (TypeConverter.ToBoolean(selected))
                     {
                         a.DefineOwnProperty(to.ToString(), new PropertyDescriptor(kvalue, true, true, true), false);
@@ -694,7 +694,7 @@ namespace Jint.Native.Array
                 separator = ",";
             }
             var sep = TypeConverter.ToString(separator);
-            
+
             // as per the spec, this has to be called after ToString(separator)
             if (len == 0)
             {
@@ -883,10 +883,25 @@ namespace Jint.Native.Array
         public JsValue Push(JsValue thisObject, JsValue[] arguments)
         {
             ObjectInstance o = TypeConverter.ToObject(Engine, thisObject);
-            var lenVal = TypeConverter.ToNumber(o.Get("length"));
-            
+            var jsValue = o.Get("length");
+            if (jsValue.IsLong())
+            {
+                // cast to long as we need to prevent an overflow
+                long longN = TypeConverter.ToUint32(jsValue);
+                foreach (JsValue e in arguments)
+                {
+                    o.Put(TypeConverter.ToString(longN), e, true);
+                    longN++;
+                }
+
+                o.Put("length", longN, true);
+
+                return longN;
+            }
+
+            var lenVal = TypeConverter.ToNumber(jsValue);
             // cast to double as we need to prevent an overflow
-            double n = TypeConverter.ToUint32(lenVal);
+            var n = TypeConverter.ToUint32(lenVal);
             foreach (JsValue e in arguments)
             {
                 o.Put(TypeConverter.ToString(n), e, true);
@@ -894,7 +909,7 @@ namespace Jint.Native.Array
             }
 
             o.Put("length", n, true);
-            
+
             return n;
         }
 

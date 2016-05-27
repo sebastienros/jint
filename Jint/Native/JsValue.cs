@@ -26,6 +26,7 @@ namespace Jint.Native
 
         public JsValue(bool value)
         {
+            _long = null;
             _double = value ? 1.0 : 0.0;
             _object = null;
             _type = Types.Boolean;
@@ -36,11 +37,22 @@ namespace Jint.Native
             _object = null;
             _type = Types.Number;
 
+            _long = null;
             _double = value;
+        }
+
+        public JsValue(long value)
+        {
+            _object = null;
+            _type = Types.Number;
+
+            _long = value;
+            _double = double.NaN;
         }
 
         public JsValue(string value)
         {
+            _long = null;
             _double = double.NaN;
             _object = value;
             _type = Types.String;
@@ -48,6 +60,7 @@ namespace Jint.Native
 
         public JsValue(ObjectInstance value)
         {
+            _long = null;
             _double = double.NaN;
             _type = Types.Object;
 
@@ -56,10 +69,13 @@ namespace Jint.Native
 
         private JsValue(Types type)
         {
+            _long = null;
             _double = double.NaN;
             _object = null;
             _type = type;
         }
+
+        private readonly long? _long;
 
         private readonly double _double;
 
@@ -113,6 +129,12 @@ namespace Jint.Native
         public bool IsNumber()
         {
             return _type == Types.Number;
+        }
+
+        [Pure]
+        public bool IsLong()
+        {
+            return _long != null;
         }
 
         [Pure]
@@ -210,7 +232,7 @@ namespace Jint.Native
                 throw new ArgumentException("The value is not a boolean");
             }
 
-            return _double != 0;
+            return _double != 0 || (_long != null && _long != 0);
         }
 
         [Pure]
@@ -230,14 +252,25 @@ namespace Jint.Native
         }
 
         [Pure]
-        public double AsNumber()
+        public double AsDouble()
         {
             if (_type != Types.Number)
             {
-                throw new ArgumentException("The value is not a number");
+                throw new ArgumentException("The value is not a double");
             }
 
             return _double;
+        }
+
+        [Pure]
+        public long AsLong()
+        {
+            if (_type != Types.Number || _long.HasValue == false)
+            {
+                throw new ArgumentException("The value is not a long");
+            }
+
+            return _long.Value;
         }
 
         public bool Equals(JsValue other)
@@ -257,7 +290,7 @@ namespace Jint.Native
                     return true;
                 case Types.Boolean:
                 case Types.Number:
-                    return _double == other._double;
+                    return _long == other._long && _double == other._double;
                 case Types.String:
                 case Types.Object:
                     return _object == other._object;
@@ -404,6 +437,9 @@ namespace Jint.Native
                 case Types.Boolean:
                     return _double != 0;
                 case Types.Number:
+                    if (_long != null)
+                        return _long;
+
                     return _double;
                 case Types.Object:
                     var wrapper = _object as IObjectWrapper;
@@ -478,7 +514,11 @@ namespace Jint.Native
                             var numberInstance = _object as NumberInstance;
                             if (numberInstance != null)
                             {
-                                return numberInstance.PrimitiveValue.AsNumber();
+                                var number = numberInstance.PrimitiveValue;
+                                if (number.IsLong())
+                                    return number.AsLong();
+
+                                return number.AsDouble();
                             }
 
                             break;
@@ -561,7 +601,8 @@ namespace Jint.Native
                 case Types.Boolean:
                     return _double != 0 ? bool.TrueString : bool.FalseString;
                 case Types.Number:
-                    return _double.ToString();
+                    return _long != null ? _long.ToString() : _double.ToString();
+
                 case Types.String:
                 case Types.Object:
                     return _object.ToString();
@@ -578,6 +619,11 @@ namespace Jint.Native
         public static bool operator !=(JsValue a, JsValue b)
         {
             return !a.Equals(b);
+        }
+
+        static public implicit operator JsValue(long value)
+        {
+            return new JsValue(value);
         }
 
         static public implicit operator JsValue(double value)
@@ -624,7 +670,7 @@ namespace Jint.Native
                         Value = value.AsString() + " (string)";
                         break;
                     case Types.Number:
-                        Value = value.AsNumber() + " (number)";
+                        Value = value._long != null ? value.AsLong().ToString() : value.AsDouble() + " (number)";
                         break;
                     case Types.Object:
                         Value = value.AsObject().GetType().Name;
@@ -647,6 +693,10 @@ namespace Jint.Native
             {
                 var hashCode = 0;
                 hashCode = (hashCode * 397) ^ _double.GetHashCode();
+                if (_long != null)
+                {
+                    hashCode = (hashCode * 397) ^ _long.GetHashCode();
+                }
                 hashCode = (hashCode * 397) ^ (_object != null ? _object.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ (int)_type;
                 return hashCode;

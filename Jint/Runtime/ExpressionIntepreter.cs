@@ -72,6 +72,10 @@ namespace Jint.Runtime
                     {
                         lval = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
                     }
+                    else if (lprim.IsLong() && rprim.IsLong())
+                    {
+                        lval = lprim.AsLong() + rprim.AsLong();
+                    }
                     else
                     {
                         lval = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
@@ -79,13 +83,24 @@ namespace Jint.Runtime
                     break;
 
                 case AssignmentOperator.MinusAssign:
-                    lval = TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval);
+                    if (lval.IsLong() && rval.IsLong())
+                    {
+                        lval = lval.AsLong() - rval.AsLong();
+                    }
+                    else
+                    {
+                        lval = TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval);
+                    }
                     break;
 
                 case AssignmentOperator.TimesAssign:
                     if (lval == Undefined.Instance || rval == Undefined.Instance)
                     {
                         lval = Undefined.Instance;
+                    }
+                    else if (lval.IsLong() && rval.IsLong())
+                    {
+                        lval = lval.AsLong() * rval.AsLong();
                     }
                     else
                     {
@@ -101,6 +116,10 @@ namespace Jint.Runtime
                     if (lval == Undefined.Instance || rval == Undefined.Instance)
                     {
                         lval = Undefined.Instance;
+                    }
+                    else if (lval.IsLong() && rval.IsLong())
+                    {
+                        lval = lval.AsLong() % rval.AsLong();
                     }
                     else
                     {
@@ -147,6 +166,13 @@ namespace Jint.Runtime
             if (lval == Undefined.Instance || rval == Undefined.Instance)
             {
                 return Undefined.Instance;
+            }
+            else if (lval.IsLong() && rval.IsLong())
+            {
+                var lN = lval.AsLong();
+                var rN = rval.AsLong();
+                var isResultLong = lN % rN == 0;
+                return isResultLong ? new JsValue(lN / rN) : lN / ((double)rN);
             }
             else
             {
@@ -211,6 +237,10 @@ namespace Jint.Runtime
                     {
                         value = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
                     }
+                    else if (lprim.IsLong() && rprim.IsLong())
+                    {
+                        value = lprim.AsLong() + rprim.AsLong();
+                    }
                     else
                     {
                         value = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
@@ -218,13 +248,24 @@ namespace Jint.Runtime
                     break;
                 
                 case BinaryOperator.Minus:
-                    value = TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right);
+                    if (left.IsLong() && right.IsLong())
+                    {
+                        value = left.AsLong() - right.AsLong();
+                    }
+                    else
+                    {
+                        value = TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right);
+                    }
                     break;
                 
                 case BinaryOperator.Times:
                     if (left == Undefined.Instance || right == Undefined.Instance)
                     {
                         value = Undefined.Instance;
+                    }
+                    else if (left.IsLong() && right.IsLong())
+                    {
+                        value = left.AsLong() * right.AsLong();
                     }
                     else
                     {
@@ -240,6 +281,10 @@ namespace Jint.Runtime
                     if (left == Undefined.Instance || right == Undefined.Instance)
                     {
                         value = Undefined.Instance;
+                    }
+                    else if (left.IsLong() && right.IsLong())
+                    {
+                        value = left.AsLong() % right.AsLong();
                     }
                     else
                     {
@@ -834,7 +879,7 @@ namespace Jint.Runtime
             }
 
             var func = _engine.GetValue(callee);
-            
+
             var r = callee as Reference;
 
             if (_engine.Options._MaxRecursionDepth >= 0)
@@ -918,37 +963,45 @@ namespace Jint.Runtime
         public JsValue EvaluateUpdateExpression(UpdateExpression updateExpression)
         {
             var value = _engine.EvaluateExpression(updateExpression.Argument);
-            Reference r;
+            var r = value as Reference;
+            if (r != null
+                && r.IsStrict()
+                && (r.GetBase().TryCast<EnvironmentRecord>() != null)
+                && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
+            {
+                throw new JavaScriptException(_engine.SyntaxError);
+            }
+            var jsValue = _engine.GetValue(value);
 
             switch (updateExpression.Operator)
             {
                 case UnaryOperator.Increment:
-                    r = value as Reference;
-                    if (r != null
-                        && r.IsStrict()
-                        && (r.GetBase().TryCast<EnvironmentRecord>() != null)
-                        && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
+                    if (jsValue.IsLong())
                     {
-                        throw new JavaScriptException(_engine.SyntaxError);
+                        var oldLongValue = jsValue.AsLong();
+                        var newLongValue = oldLongValue + 1;
+                        _engine.PutValue(r, newLongValue);
+
+                        return updateExpression.Prefix ? newLongValue : oldLongValue;
                     }
 
-                    var oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
+                    var oldValue = TypeConverter.ToNumber(jsValue);
                     var newValue = oldValue + 1;
                     _engine.PutValue(r, newValue);
 
                     return updateExpression.Prefix ? newValue : oldValue;
 
                 case UnaryOperator.Decrement:
-                    r = value as Reference;
-                    if (r != null
-                        && r.IsStrict()
-                        && (r.GetBase().TryCast<EnvironmentRecord>() != null)
-                        && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
+                    if (jsValue.IsLong())
                     {
-                        throw new JavaScriptException(_engine.SyntaxError);
+                        var oldLongValue = jsValue.AsLong();
+                        var newLongValue = oldLongValue - 1;
+                        _engine.PutValue(r, newLongValue);
+
+                        return updateExpression.Prefix ? newLongValue : oldLongValue;
                     }
 
-                    oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
+                    oldValue = TypeConverter.ToNumber(jsValue);
                     newValue = oldValue - 1;
                     _engine.PutValue(r, newValue);
 
@@ -996,7 +1049,7 @@ namespace Jint.Runtime
                 }
                 n++;
             }
-            
+
             return a;
         }
 
@@ -1008,12 +1061,20 @@ namespace Jint.Runtime
             switch (unaryExpression.Operator)
             {
                 case UnaryOperator.Plus:
-                    return TypeConverter.ToNumber(_engine.GetValue(value));
-                    
+                    var jsValue1 = _engine.GetValue(value);
+                    if (jsValue1.IsLong())
+                        return jsValue1.AsLong();
+
+                    return TypeConverter.ToNumber(jsValue1);
+
                 case UnaryOperator.Minus:
-                    var n = TypeConverter.ToNumber(_engine.GetValue(value));
-                    return double.IsNaN(n) ? double.NaN : n*-1;
-                
+                    var jsValue2 = _engine.GetValue(value);
+                    if (jsValue2.IsLong())
+                        return jsValue2.AsLong() * -1;
+
+                    var n = TypeConverter.ToNumber(jsValue2);
+                    return double.IsNaN(n) ? double.NaN : n * -1;
+
                 case UnaryOperator.BitwiseNot:
                     return ~TypeConverter.ToInt32(_engine.GetValue(value));
                 
@@ -1048,7 +1109,6 @@ namespace Jint.Runtime
                     return bindings.DeleteBinding(r.GetReferencedName());
                 
                 case UnaryOperator.Void:
-                    _engine.GetValue(value);
                     return Undefined.Instance;
 
                 case UnaryOperator.TypeOf:

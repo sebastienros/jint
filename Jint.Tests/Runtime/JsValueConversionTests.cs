@@ -3,11 +3,6 @@ using Jint.Native.Array;
 using Jint.Native.Date;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -93,7 +88,24 @@ namespace Jint.Tests.Runtime
             Assert.Equal(false, value.IsDate());
             Assert.Equal(false, value.IsNull());
             Assert.Equal(true, value.IsNumber());
-            Assert.Equal(2, value.AsNumber());
+            Assert.Equal(2L, value.AsLong());
+            Assert.Equal(false, value.IsObject());
+            Assert.Equal(true, value.IsPrimitive());
+            Assert.Equal(false, value.IsRegExp());
+            Assert.Equal(false, value.IsString());
+            Assert.Equal(false, value.IsUndefined());
+        }
+
+        [Fact]
+        public void ShouldBeADouble()
+        {
+            var value = new JsValue(2.0);
+            Assert.Equal(false, value.IsBoolean());
+            Assert.Equal(false, value.IsArray());
+            Assert.Equal(false, value.IsDate());
+            Assert.Equal(false, value.IsNull());
+            Assert.Equal(true, value.IsNumber());
+            Assert.Equal(2, value.AsDouble());
             Assert.Equal(false, value.IsObject());
             Assert.Equal(true, value.IsPrimitive());
             Assert.Equal(false, value.IsRegExp());

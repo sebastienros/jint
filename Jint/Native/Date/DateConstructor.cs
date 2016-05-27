@@ -130,7 +130,11 @@ namespace Jint.Native.Date
                 var v = TypeConverter.ToPrimitive(arguments[0]);
                 if (v.IsString())
                 {
-                    return Construct(Parse(Undefined.Instance, Arguments.From(v)).AsNumber());
+                    var jsValue = Parse(Undefined.Instance, Arguments.From(v));
+                    if (jsValue.IsLong())
+                        return Construct(jsValue.AsLong());
+
+                    return Construct(jsValue.AsDouble());
                 }
 
                 return Construct(TypeConverter.ToNumber(v));

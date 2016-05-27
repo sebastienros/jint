@@ -106,7 +106,7 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var len = argArrayObj.Get("length").AsNumber();
+            var len = argArrayObj.Get("length").AsLong();
             uint n = TypeConverter.ToUint32(len);
             var argList = new List<JsValue>();
             for (int index = 0; index < n; index++)

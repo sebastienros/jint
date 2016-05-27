@@ -6,7 +6,6 @@ using System.Reflection;
 using Jint.Parser;
 using Jint.Parser.Ast;
 using Xunit;
-using Xunit.Extensions;
 
 namespace Jint.Tests.Parser
 {
@@ -83,16 +82,52 @@ namespace Jint.Tests.Parser
             Assert.NotNull(body);
             Assert.Equal(1, body.Count());
             Assert.Equal(SyntaxNodes.Literal, body.First().As<ExpressionStatement>().Expression.Type);
-            Assert.Equal(42d, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
+            Assert.Equal(42, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
             Assert.Equal("42", body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw);
         }
 
         [Fact]
-        public void ShouldParseBinaryExpression()
+        public void ShouldParseBinaryExpressionInt()
         {
             BinaryExpression binary;
 
             var program = _parser.Parse("(1 + 2 ) * 3");
+            var body = program.Body;
+
+            Assert.NotNull(body);
+            Assert.Equal(1, body.Count());
+            Assert.NotNull(binary = body.First().As<ExpressionStatement>().Expression.As<BinaryExpression>());
+            Assert.Equal(3, binary.Right.As<Literal>().Value);
+            Assert.Equal(BinaryOperator.Times, binary.Operator);
+            Assert.Equal(1, binary.Left.As<BinaryExpression>().Left.As<Literal>().Value);
+            Assert.Equal(2, binary.Left.As<BinaryExpression>().Right.As<Literal>().Value);
+            Assert.Equal(BinaryOperator.Plus, binary.Left.As<BinaryExpression>().Operator);
+        }
+
+        [Fact]
+        public void ShouldParseBinaryExpressionLong()
+        {
+            BinaryExpression binary;
+
+            var program = _parser.Parse("(1111111111111111 + 2222222222222222 ) * 3333333333333333");
+            var body = program.Body;
+
+            Assert.NotNull(body);
+            Assert.Equal(1, body.Count());
+            Assert.NotNull(binary = body.First().As<ExpressionStatement>().Expression.As<BinaryExpression>());
+            Assert.Equal(3333333333333333L, binary.Right.As<Literal>().Value);
+            Assert.Equal(BinaryOperator.Times, binary.Operator);
+            Assert.Equal(1111111111111111L, binary.Left.As<BinaryExpression>().Left.As<Literal>().Value);
+            Assert.Equal(2222222222222222L, binary.Left.As<BinaryExpression>().Right.As<Literal>().Value);
+            Assert.Equal(BinaryOperator.Plus, binary.Left.As<BinaryExpression>().Operator);
+        }
+
+        [Fact]
+        public void ShouldParseBinaryExpressionDouble()
+        {
+            BinaryExpression binary;
+
+            var program = _parser.Parse("(1.0 + 2.0 ) * 3.0");
             var body = program.Body;
 
             Assert.NotNull(body);

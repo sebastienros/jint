@@ -873,27 +873,40 @@ namespace Jint.Parser
                 ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
             }
 
-            double n;
-            try
+            object n;
+            int intResult;
+            long longResult;
+            if (int.TryParse(number, out intResult))
             {
-                n = Double.Parse(number, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
+                n = intResult;
+            }
+            else if (long.TryParse(number, out longResult))
+            {
+                n = longResult;
+            }
+            else
+            {
+                try
+                {
+                    n = Double.Parse(number, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
 
-                if (n > double.MaxValue)
-                {
-                    n = double.PositiveInfinity;
+                    if ((double)n > double.MaxValue)
+                    {
+                        n = double.PositiveInfinity;
+                    }
+                    else if ((double)n < -double.MaxValue)
+                    {
+                        n = double.NegativeInfinity;
+                    }
                 }
-                else if (n < -double.MaxValue)
+                catch (OverflowException)
                 {
-                    n = double.NegativeInfinity;
+                    n = StringPrototype.TrimEx(number).StartsWith("-") ? double.NegativeInfinity : double.PositiveInfinity;
                 }
-            }
-            catch (OverflowException)
-            {
-                n = StringPrototype.TrimEx(number).StartsWith("-") ? double.NegativeInfinity : double.PositiveInfinity;
-            }
-            catch (Exception)
-            {
-                n = double.NaN;
+                catch (Exception)
+                {
+                    n = double.NaN;
+                }
             }
 
             return new Token
