@@ -36,6 +36,14 @@ namespace Jint.Runtime.Interop
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
+            catch (JavaScriptException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new JavaScriptException(ex.Message, ex);
+            }
         }
     }
 }
