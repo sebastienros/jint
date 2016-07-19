@@ -6,19 +6,18 @@ using Jint.Native;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class IndexDescriptor : PropertyDescriptor
+    public sealed class IndexDescriptor : PropertyDescriptor, ISharedDescriptor
     {
         private readonly Engine _engine;
         private readonly object _key;
-        private readonly object _item;
+        private object _item;
         private readonly PropertyInfo _indexer;
         private readonly MethodInfo _containsKey;
 
-        public IndexDescriptor(Engine engine, Type targetType, string key, object item)
+        public IndexDescriptor(Engine engine, Type targetType, string key)
         {
             _engine = engine;
-            _item = item;
-
+            
             // get all instance indexers with exactly 1 argument
             var indexers = targetType
                 .GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
@@ -52,12 +51,7 @@ namespace Jint.Runtime.Descriptors.Specialized
         }
 
 
-        public IndexDescriptor(Engine engine, string key, object item)
-            : this(engine, item.GetType(), key, item)
-        {
-        }
-
-        public override JsValue? Value
+        public override JsValue Value
         {
             get
             {
@@ -96,9 +90,14 @@ namespace Jint.Runtime.Descriptors.Specialized
                     throw new InvalidOperationException("Indexer has no public setter.");
                 }
 
-                object[] parameters = { _key, value.HasValue ? value.Value.ToObject() : null };
+                object[] parameters = { _key, value != null ? value.ToObject() : null };
                 setter.Invoke(_item, parameters);
             }
+        }
+
+        public void SetTarget(object target)
+        {
+            _item = target;
         }
     }
 }

@@ -72,6 +72,11 @@ namespace Jint
             return this;
         }
 
+		internal bool HasObjectConverters
+		{
+			get { return _objectConverters.Count > 0; }
+		}
+
         /// <summary>
         /// Allows scripts to call CLR types directly like <example>System.IO.File</example>
         /// </summary>

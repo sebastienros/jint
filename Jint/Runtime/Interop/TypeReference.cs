@@ -54,7 +54,7 @@ namespace Jint.Runtime.Interop
 
             var constructors = Type.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
             
-            var methods = TypeConverter.FindBestMatch(Engine, constructors, arguments).ToList();
+            var methods = TypeConverter.FindBestMatch(Engine, new MethodGroup(constructors), arguments).ToList();
 
             foreach (var method in methods)
             {
@@ -63,7 +63,7 @@ namespace Jint.Runtime.Interop
                 {
                     for (var i = 0; i < arguments.Length; i++)
                     {
-                        var parameterType =  method.GetParameters()[i].ParameterType;
+                        var parameterType =  method.Parameters[i].ParameterType;
 
                         if (parameterType == typeof(JsValue))
                         {
@@ -78,7 +78,7 @@ namespace Jint.Runtime.Interop
                         }
                     }
 
-                    var constructor = (ConstructorInfo)method;
+                    var constructor = (ConstructorInfo)method.Method.UnderlyingMethod;
                     var instance = constructor.Invoke(parameters.ToArray());
                     var result = TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, instance));
 
@@ -167,13 +167,13 @@ namespace Jint.Runtime.Interop
             var propertyInfo = Type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Static);
             if (propertyInfo != null)
             {
-                return new PropertyInfoDescriptor(Engine, propertyInfo, Type);
+                return new PropertyInfoDescriptor(Engine, new PropertyProxy(propertyInfo, propertyInfo.GetGetMethod(), propertyInfo.GetSetMethod()), Type);
             }
 
             var fieldInfo = Type.GetField(propertyName, BindingFlags.Public | BindingFlags.Static);
             if (fieldInfo != null)
             {
-                return new FieldInfoDescriptor(Engine, fieldInfo, Type);
+                return new FieldInfoDescriptor(Engine, new FieldProxy(fieldInfo), Type);
             }
 
             var methodInfo = Type
@@ -186,7 +186,7 @@ namespace Jint.Runtime.Interop
                 return PropertyDescriptor.Undefined;
             }
 
-            return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methodInfo), false, false, false);
+            return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, new MethodGroup(methodInfo)), false, false, false);
         }
 
         public object Target

@@ -726,12 +726,12 @@ namespace Jint.Runtime
 
                     if (previous.IsAccessorDescriptor() && propDesc.IsAccessorDescriptor())
                     {
-                        if (propDesc.Set.HasValue && previous.Set.HasValue)
+                        if (propDesc.Set != null && previous.Set != null)
                         {
                             throw new JavaScriptException(_engine.SyntaxError);
                         }
 
-                        if (propDesc.Get.HasValue && previous.Get.HasValue)
+                        if (propDesc.Get != null && previous.Get != null)
                         {
                             throw new JavaScriptException(_engine.SyntaxError);
                         }
@@ -754,11 +754,11 @@ namespace Jint.Runtime
             var baseReference = EvaluateExpression(memberExpression.Object);
             var baseValue = _engine.GetValue(baseReference);
             Expression expression = memberExpression.Property;
-
             
-            if (!memberExpression.Computed) // index accessor ?
+            if (!memberExpression.Computed && expression.Type != SyntaxNodes.Literal) // index accessor ?
             {
-                expression = new Literal { Type = SyntaxNodes.Literal, Value = memberExpression.Property.As<Identifier>().Name };
+                // If indexer is a constant expression, rewrite the AST with literal which value can be cached and reused.
+                memberExpression.Property = expression = new Literal { Type = SyntaxNodes.Literal, Value = memberExpression.Property.As<Identifier>().Name };
             }
 
             var propertyNameReference = EvaluateExpression(expression);
@@ -806,8 +806,7 @@ namespace Jint.Runtime
             JsValue thisObject;
 
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
-
-
+            
             JsValue[] arguments;
 
             if (callExpression.Cached)
@@ -816,7 +815,12 @@ namespace Jint.Runtime
             }
             else
             {
-                arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
+                // Avoid LINQ memory and performance penalty.
+                arguments = new JsValue[callExpression.Arguments.Count];
+                for (int argumentIndex = 0, argumentCount = arguments.Length; argumentIndex < argumentCount; ++argumentIndex)
+                {
+                    arguments[argumentIndex] = _engine.GetValue(EvaluateExpression(callExpression.Arguments[argumentIndex]));
+                }
 
                 if (callExpression.CanBeCached)
                 {

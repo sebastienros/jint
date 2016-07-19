@@ -79,9 +79,9 @@ namespace Jint.Runtime
             do
             {
                 var stmt = ExecuteStatement(doWhileStatement.Body);
-                if (stmt.Value.HasValue)
+                if (stmt.Value != null)
                 {
-                    v = stmt.Value.Value;
+                    v = stmt.Value;
                 }
                 if (stmt.Type != Completion.Continue || stmt.Identifier != doWhileStatement.LabelSet)
                 {
@@ -122,9 +122,9 @@ namespace Jint.Runtime
 
                 var stmt = ExecuteStatement(whileStatement.Body);
 
-                if (stmt.Value.HasValue)
+                if (stmt.Value != null)
                 {
-                    v = stmt.Value.Value;
+                    v = stmt.Value;
                 }
 
                 if (stmt.Type != Completion.Continue || stmt.Identifier != whileStatement.LabelSet)
@@ -175,9 +175,9 @@ namespace Jint.Runtime
                 }
 
                 var stmt = ExecuteStatement(forStatement.Body);
-                if (stmt.Value.HasValue)
+				if (stmt.Value != null)
                 {
-                    v = stmt.Value.Value;
+					v = stmt.Value;
                 }
                 if (stmt.Type == Completion.Break && (stmt.Identifier == null || stmt.Identifier == forStatement.LabelSet))
                 {
@@ -252,9 +252,9 @@ namespace Jint.Runtime
                     _engine.PutValue(varRef, p);
 
                     var stmt = ExecuteStatement(forInStatement.Body);
-                    if (stmt.Value.HasValue)
+                    if (stmt.Value != null)
                     {
-                        v = stmt.Value.Value;
+                        v = stmt.Value;
                     }
                     if (stmt.Type == Completion.Break)
                     {
@@ -386,7 +386,7 @@ namespace Jint.Runtime
                         return r;
                     }
                     
-                    v = r.Value.HasValue ? r.Value.Value : Undefined.Instance;
+                    v = r.Value != null ? r.Value : Undefined.Instance;
                 }
 
             }
@@ -400,7 +400,7 @@ namespace Jint.Runtime
                     return r;
                 }
 
-                v = r.Value.HasValue ? r.Value.Value : Undefined.Instance;
+                v = r.Value != null ? r.Value : Undefined.Instance;
             }
 
             return new Completion(Completion.Normal, v, null);
@@ -420,7 +420,7 @@ namespace Jint.Runtime
                     c = ExecuteStatement(statement);
                     if (c.Type != Completion.Normal)
                     {
-                        return new Completion(c.Type, c.Value.HasValue ? c.Value : sl.Value, c.Identifier)
+                        return new Completion(c.Type, c.Value != null ? c.Value : sl.Value, c.Identifier)
                         {
                             Location = c.Location
                         };

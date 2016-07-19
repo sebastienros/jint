@@ -162,7 +162,7 @@ namespace Jint.Native.Argument
 
             if (desc.IsAccessorDescriptor())
             {
-                var setter = desc.Set.Value.TryCast<ICallable>();
+                var setter = desc.Set.TryCast<ICallable>();
                 setter.Call(new JsValue(this), new[] { value });
             }
             else
@@ -196,9 +196,9 @@ namespace Jint.Native.Argument
                     }
                     else
                     {
-                        if (desc.Value.HasValue && desc.Value.Value != Undefined.Instance)
+                        if (desc.Value != null && desc.Value != Undefined.Instance)
                         {
-                            map.Put(propertyName, desc.Value.Value, throwOnError);
+                            map.Put(propertyName, desc.Value, throwOnError);
                         }
 
                         if (desc.Writable.HasValue && desc.Writable.Value == false)

@@ -73,10 +73,10 @@ namespace Jint.Native.Object
             if (desc.IsDataDescriptor())
             {
                 var val = desc.Value;
-                return val.HasValue ? val.Value : Undefined.Instance;
+                return val != null ? val : Undefined.Instance;
             }
 
-            var getter = desc.Get.HasValue ? desc.Get.Value : Undefined.Instance;
+            var getter = desc.Get != null ? desc.Get : Undefined.Instance;
 
             if (getter.IsUndefined())
             {
@@ -190,7 +190,7 @@ namespace Jint.Native.Object
 
             if (desc.IsAccessorDescriptor())
             {
-                var setter = desc.Set.Value.TryCast<ICallable>();
+                var setter = desc.Set.TryCast<ICallable>();
                 setter.Call(new JsValue(this), new [] {value});
             }
             else
@@ -216,7 +216,7 @@ namespace Jint.Native.Object
             {
                 if (desc.IsAccessorDescriptor())
                 {
-                    if (!desc.Set.HasValue || desc.Set.Value.IsUndefined())
+                    if (desc.Set == null || desc.Set.IsUndefined())
                     {
                         return false;
                     }
@@ -241,7 +241,7 @@ namespace Jint.Native.Object
 
             if (inherited.IsAccessorDescriptor())
             {
-                if (!inherited.Set.HasValue || inherited.Set.Value.IsUndefined())
+                if (inherited.Set == null || inherited.Set.IsUndefined())
                 {
                     return false;
                 }
@@ -401,7 +401,7 @@ namespace Jint.Native.Object
                     {
                         SetOwnProperty(propertyName, new PropertyDescriptor(desc)
                         {
-                            Value = desc.Value.HasValue ? desc.Value : JsValue.Undefined,
+                            Value = desc.Value != null ? desc.Value : JsValue.Undefined,
                             Writable = desc.Writable.HasValue ? desc.Writable.Value : false,
                             Enumerable = desc.Enumerable.HasValue ? desc.Enumerable.Value : false,
                             Configurable = desc.Configurable.HasValue ? desc.Configurable.Value : false
@@ -426,9 +426,9 @@ namespace Jint.Native.Object
             if (!current.Configurable.HasValue && 
                 !current.Enumerable.HasValue &&
                 !current.Writable.HasValue &&
-                !current.Get.HasValue &&
-                !current.Set.HasValue &&
-                !current.Value.HasValue)
+                current.Get == null &&
+                current.Set == null &&
+                current.Value == null)
             {
 
                 return true;
@@ -440,9 +440,9 @@ namespace Jint.Native.Object
                 current.Writable == desc.Writable &&
                 current.Enumerable == desc.Enumerable &&
 
-                ((!current.Get.HasValue && !desc.Get.HasValue) || (current.Get.HasValue && desc.Get.HasValue && ExpressionInterpreter.SameValue(current.Get.Value, desc.Get.Value))) &&
-                ((!current.Set.HasValue && !desc.Set.HasValue) || (current.Set.HasValue && desc.Set.HasValue && ExpressionInterpreter.SameValue(current.Set.Value, desc.Set.Value))) &&
-                ((!current.Value.HasValue && !desc.Value.HasValue) || (current.Value.HasValue && desc.Value.HasValue && ExpressionInterpreter.StrictlyEqual(current.Value.Value, desc.Value.Value)))
+                ((current.Get == null && desc.Get == null) || (current.Get != null && desc.Get != null && ExpressionInterpreter.SameValue(current.Get, desc.Get))) &&
+                ((current.Set == null && desc.Set == null) || (current.Set != null && desc.Set != null && ExpressionInterpreter.SameValue(current.Set, desc.Set))) &&
+                ((current.Value == null && desc.Value == null) || (current.Value != null && desc.Value != null && ExpressionInterpreter.StrictlyEqual(current.Value, desc.Value)))
             ) {
                 return true;
             }
@@ -520,7 +520,7 @@ namespace Jint.Native.Object
 
                         if (!current.Writable.Value)
                         {
-                            if (desc.Value.HasValue && !ExpressionInterpreter.SameValue(desc.Value.Value, current.Value.Value))
+                            if (desc.Value != null && !ExpressionInterpreter.SameValue(desc.Value, current.Value))
                             {
                                 if (throwOnError)
                                 {
@@ -536,9 +536,9 @@ namespace Jint.Native.Object
                 {
                     if (!current.Configurable.HasValue || !current.Configurable.Value)
                     {
-                        if ((desc.Set.HasValue && !ExpressionInterpreter.SameValue(desc.Set.Value, current.Set.HasValue ? current.Set.Value : Undefined.Instance))
+                        if ((desc.Set != null && !ExpressionInterpreter.SameValue(desc.Set, current.Set != null ? current.Set : Undefined.Instance))
                             ||
-                            (desc.Get.HasValue && !ExpressionInterpreter.SameValue(desc.Get.Value, current.Get.HasValue ? current.Get.Value : Undefined.Instance)))
+                            (desc.Get != null && !ExpressionInterpreter.SameValue(desc.Get, current.Get != null ? current.Get : Undefined.Instance)))
                         {
                             if (throwOnError)
                             {
@@ -551,7 +551,7 @@ namespace Jint.Native.Object
                 }
             }
 
-            if (desc.Value.HasValue)
+            if (desc.Value != null)
             {
                 current.Value = desc.Value;
             }
@@ -571,12 +571,12 @@ namespace Jint.Native.Object
                 current.Configurable = desc.Configurable;
             }
 
-            if (desc.Get.HasValue)
+            if (desc.Get != null)
             {
                 current.Get = desc.Get;
             }
 
-            if (desc.Set.HasValue)
+            if (desc.Set != null)
             {
                 current.Set = desc.Set;
             }

@@ -12,26 +12,26 @@ namespace Jint.Runtime.Interop
 {
     public sealed class MethodInfoFunctionInstance : FunctionInstance
     {
-        private readonly MethodInfo[] _methods;
-
-        public MethodInfoFunctionInstance(Engine engine, MethodInfo[] methods)
-            : base(engine, null, null, false)
-        {
-            _methods = methods;
-            Prototype = engine.Function.PrototypeObject;
-        }
+        private readonly MethodGroup _methods;
+		
+		public MethodInfoFunctionInstance(Engine engine, MethodGroup methods)
+			: base(engine, null, null, false)
+		{
+			_methods = methods;
+			Prototype = engine.Function.PrototypeObject;
+		}
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             return Invoke(_methods, thisObject, arguments);
         }
 
-        public JsValue Invoke(MethodInfo[] methodInfos, JsValue thisObject, JsValue[] jsArguments)
+        public JsValue Invoke(MethodGroup methodInfos, JsValue thisObject, JsValue[] jsArguments)
         {
             var arguments = ProcessParamsArrays(jsArguments, methodInfos);
-            var methods = TypeConverter.FindBestMatch(Engine, methodInfos, arguments).ToList();
-            var converter = Engine.ClrTypeConverter;
+			var converter = Engine.ClrTypeConverter;
 
+			var methods = TypeConverter.FindBestMatch(Engine, methodInfos, arguments);
             foreach (var method in methods)
             {
                 var parameters = new object[arguments.Length];
@@ -39,7 +39,7 @@ namespace Jint.Runtime.Interop
 
                 for (var i = 0; i < arguments.Length; i++)
                 {
-                    var parameterType = method.GetParameters()[i].ParameterType;
+                    var parameterType = method.Parameters[i].ParameterType;
 
                     if (parameterType == typeof(JsValue))
                     {
@@ -83,8 +83,7 @@ namespace Jint.Runtime.Interop
                     continue;
                 }
 
-                // todo: cache method info
-                return JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters.ToArray()));
+                return method.Method.Invoke(Engine, thisObject.ToObject(), parameters);
             }
 
             throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
@@ -93,9 +92,14 @@ namespace Jint.Runtime.Interop
         /// <summary>
         /// Reduces a flat list of parameters to a params array
         /// </summary>
-        private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, IEnumerable<MethodInfo> methodInfos)
+        private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, MethodGroup methodInfos)
         {
-            foreach (var methodInfo in methodInfos)
+			if (!methodInfos.HasVariableParameters)
+			{
+				return jsArguments;
+			}
+
+            foreach (var methodInfo in methodInfos.Methods)
             {
                 var parameters = methodInfo.GetParameters();
                 if (!parameters.Any(p => Attribute.IsDefined(p, typeof(ParamArrayAttribute))))

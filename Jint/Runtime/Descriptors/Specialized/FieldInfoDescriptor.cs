@@ -1,36 +1,38 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Globalization;
 using System.Reflection;
 using Jint.Native;
+using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class FieldInfoDescriptor : PropertyDescriptor
+    public sealed class FieldInfoDescriptor : PropertyDescriptor, ISharedDescriptor
     {
         private readonly Engine _engine;
-        private readonly FieldInfo _fieldInfo;
-        private readonly object _item;
+        private readonly FieldProxy _fieldProxy;
+        private object _item;
 
-        public FieldInfoDescriptor(Engine engine, FieldInfo fieldInfo, object item)
+        public FieldInfoDescriptor(Engine engine, FieldProxy fieldProxy, object item = null)
         {
             _engine = engine;
-            _fieldInfo = fieldInfo;
+            _fieldProxy = fieldProxy;
             _item = item;
 
-            Writable = !fieldInfo.Attributes.HasFlag(FieldAttributes.InitOnly); // don't write to fields marked as readonly
+            Writable = _fieldProxy.CanWrite;
         }
 
-        public override JsValue? Value
+        public override JsValue Value
         {
             get
             {
-                return JsValue.FromObject(_engine, _fieldInfo.GetValue(_item));
+                return _fieldProxy.GetValue(_engine, _item);
             }
 
             set
             {
-                var currentValue = value.GetValueOrDefault();
+                var currentValue = value;
                 object obj;
-                if (_fieldInfo.FieldType == typeof (JsValue))
+                if (_fieldProxy.FieldType == typeof (JsValue))
                 {
                     obj = currentValue;
                 }
@@ -38,14 +40,19 @@ namespace Jint.Runtime.Descriptors.Specialized
                 {
                     // attempt to convert the JsValue to the target type
                     obj = currentValue.ToObject();
-                    if (obj.GetType() != _fieldInfo.FieldType)
+                    if (obj.GetType() != _fieldProxy.FieldType)
                     {
-                        obj = _engine.ClrTypeConverter.Convert(obj, _fieldInfo.FieldType, CultureInfo.InvariantCulture);
+                        obj = _engine.ClrTypeConverter.Convert(obj, _fieldProxy.FieldType, CultureInfo.InvariantCulture);
                     }
                 }
                 
-                _fieldInfo.SetValue(_item, obj);
+                _fieldProxy.SetValue(_engine, _item, obj);
             }
+        }
+
+        public void SetTarget(object target)
+        {
+            _item = target;
         }
     }
 }

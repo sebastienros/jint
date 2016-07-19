@@ -42,6 +42,30 @@ namespace Jint
 
         // cache of types used when resolving CLR type names
         internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
+		// cache of learned type conversions.
+		internal Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new Dictionary<Type, Func<Engine, object, JsValue>>()
+		{
+			{ typeof(bool), (Engine engine, object v) => new JsValue((bool)v) },
+			{ typeof(byte), (Engine engine, object v) => new JsValue((byte)v) },
+			{ typeof(char), (Engine engine, object v) => new JsValue((char)v) },
+			{ typeof(DateTime), (Engine engine, object v) => engine.Date.Construct((DateTime)v) },
+			{ typeof(DateTimeOffset), (Engine engine, object v) => engine.Date.Construct((DateTimeOffset)v) },
+			{ typeof(decimal), (Engine engine, object v) => new JsValue((double)(decimal)v) },
+			{ typeof(double), (Engine engine, object v) => new JsValue((double)v) },
+			{ typeof(Int16), (Engine engine, object v) => new JsValue((Int16)v) },
+			{ typeof(Int32), (Engine engine, object v) => new JsValue((Int32)v) },
+			{ typeof(Int64), (Engine engine, object v) => new JsValue((Int64)v) },
+			{ typeof(SByte), (Engine engine, object v) => new JsValue((SByte)v) },
+			{ typeof(Single), (Engine engine, object v) => new JsValue((Single)v) },
+			{ typeof(string), (Engine engine, object v) => new JsValue((string)v) },
+			{ typeof(UInt16), (Engine engine, object v) => new JsValue((UInt16)v) },
+			{ typeof(UInt32), (Engine engine, object v) => new JsValue((UInt32)v) },
+			{ typeof(UInt64), (Engine engine, object v) => new JsValue((UInt64)v) },
+			{ typeof(JsValue), (Engine engine, object v) => (JsValue)v },			
+			{ typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct(((System.Text.RegularExpressions.Regex)v).ToString().Trim('/')) }
+		};
+		// cache of CLR type descriptors indexed by type object instance.
+		internal Dictionary<Type, TypeInteropDescriptor> TypeInteropCache = new Dictionary<Type, TypeInteropDescriptor>();
 
         internal JintCallStack CallStack = new JintCallStack();
 
@@ -515,10 +539,10 @@ namespace Jint
                     
                     if (desc.IsDataDescriptor())
                     {
-                        return desc.Value.Value;
+                        return desc.Value;
                     }
 
-                    var getter = desc.Get.Value;
+                    var getter = desc.Get;
                     if (getter == Undefined.Instance)
                     {
                         return Undefined.Instance;
@@ -559,7 +583,7 @@ namespace Jint
             }
             else if (reference.IsPropertyReference())
             {
-                var baseValue = reference.GetBase();
+				var baseValue = reference.GetBase();
                 if (!reference.HasPrimitiveBase())
                 {
                     baseValue.AsObject().Put(reference.GetReferencedName(), value, reference.IsStrict());
@@ -571,7 +595,7 @@ namespace Jint
             }
             else
             {
-                var baseValue = reference.GetBase();
+				var baseValue = reference.GetBase();
                 var record = baseValue.As<EnvironmentRecord>();
 
                 if (record == null)
@@ -619,7 +643,7 @@ namespace Jint
 
             if (desc.IsAccessorDescriptor())
             {
-                var setter = (ICallable)desc.Set.Value.AsObject();
+                var setter = (ICallable)desc.Set.AsObject();
                 setter.Call(b, new[] { value });
             }
             else
@@ -795,5 +819,15 @@ namespace Jint
                 }
             }
         }
+
+		internal TypeInteropDescriptor GetTypeInteropDescriptor(Type type)
+		{
+			TypeInteropDescriptor cached;
+			if (!TypeInteropCache.TryGetValue(type, out cached))
+			{
+				TypeInteropCache[type] = (cached = new TypeInteropDescriptor(type));
+			}
+			return cached;
+		}
     }
 }

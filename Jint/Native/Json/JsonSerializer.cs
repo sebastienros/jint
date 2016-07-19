@@ -50,7 +50,7 @@ namespace Jint.Native.Json
 
                     foreach (var property in replacerObj.GetOwnProperties().Select(x => x.Value))
                     {
-                        JsValue v = _engine.GetValue(property);
+                        JsValue v = _engine.GetValue((JsValue)(object)property);
                         string item = null;
                         if (v.IsString())
                         {

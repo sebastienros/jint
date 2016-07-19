@@ -7,6 +7,7 @@ using Jint.Native;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
+using Jint.Runtime.Interop;
 
 namespace Jint.Runtime
 {
@@ -18,7 +19,7 @@ namespace Jint.Runtime
         Boolean,
         String,
         Number,
-        Object
+        Object		
     }
 
     public class TypeConverter
@@ -347,26 +348,23 @@ namespace Jint.Runtime
             }
         }
 
-        public static IEnumerable<MethodBase> FindBestMatch(Engine engine, MethodBase[] methods, JsValue[] arguments)
+        public static IEnumerable<MethodGroupMethodInfo> FindBestMatch(Engine engine, MethodGroup methodGroup, JsValue[] arguments)
         {
-            methods = methods
-                .Where(m => m.GetParameters().Count() == arguments.Length)
-                .ToArray();
+			var methods = methodGroup.WithParameterCount(arguments.Length);			
 
-            if (methods.Length == 1 && !methods[0].GetParameters().Any())
+            if (methods.Length == 1 && methods[0].Parameters.Length == 0)
             {
                 yield return methods[0];
                 yield break;
             }
 
-            var objectArguments = arguments.Select(x => x.ToObject()).ToArray();
             foreach (var method in methods)
             {
                 var perfectMatch = true;
-                var parameters = method.GetParameters();
+				var parameters = method.Parameters;
                 for (var i = 0; i < arguments.Length; i++)
                 {
-                    var arg = objectArguments[i];
+					var arg = arguments[i].ToObject();
                     var paramType = parameters[i].ParameterType;
                     
                     if (arg == null)
@@ -393,7 +391,7 @@ namespace Jint.Runtime
 
             foreach (var method in methods)
             {
-                yield return method;
+				yield return method;
             }
         }
 

@@ -1,36 +1,38 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Globalization;
 using System.Reflection;
 using Jint.Native;
+using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class PropertyInfoDescriptor : PropertyDescriptor
+    public sealed class PropertyInfoDescriptor : PropertyDescriptor, ISharedDescriptor
     {
         private readonly Engine _engine;
-        private readonly PropertyInfo _propertyInfo;
-        private readonly object _item;
+        private readonly PropertyProxy _propertyProxy;
+        private object _item;
 
-        public PropertyInfoDescriptor(Engine engine, PropertyInfo propertyInfo, object item)
+        public PropertyInfoDescriptor(Engine engine, PropertyProxy propertyProxy, object item = null)
         {
             _engine = engine;
-            _propertyInfo = propertyInfo;
+            _propertyProxy = propertyProxy;
             _item = item;
 
-            Writable = propertyInfo.CanWrite;
+            Writable = propertyProxy.CanWrite;
         }
 
-        public override JsValue? Value
+        public override JsValue Value
         {
             get
             {
-                return JsValue.FromObject(_engine, _propertyInfo.GetValue(_item, null));
+                return _propertyProxy.GetValue(_engine, _item);
             }
 
             set
             {
-                var currentValue = value.GetValueOrDefault();
+                var currentValue = value;
                 object obj;
-                if (_propertyInfo.PropertyType == typeof (JsValue))
+                if (_propertyProxy.PropertyType == typeof (JsValue))
                 {
                     obj = currentValue;
                 }
@@ -38,14 +40,19 @@ namespace Jint.Runtime.Descriptors.Specialized
                 {
                     // attempt to convert the JsValue to the target type
                     obj = currentValue.ToObject();
-                    if (obj != null && obj.GetType() != _propertyInfo.PropertyType)
+                    if (obj != null && obj.GetType() != _propertyProxy.PropertyType)
                     {
-                        obj = _engine.ClrTypeConverter.Convert(obj, _propertyInfo.PropertyType, CultureInfo.InvariantCulture);
+                        obj = _engine.ClrTypeConverter.Convert(obj, _propertyProxy.PropertyType, CultureInfo.InvariantCulture);
                     }
                 }
                 
-                _propertyInfo.SetValue(_item, obj, null);
+                _propertyProxy.SetValue(_engine, _item, obj);
             }
+        }
+
+        public void SetTarget(object target)
+        {
+            _item = target;
         }
     }
 }
