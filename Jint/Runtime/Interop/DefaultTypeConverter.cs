@@ -184,6 +184,9 @@ namespace Jint.Runtime.Interop
                 return result;
             }
 
+            if (type.IsGenericType && type.GetGenericTypeDefinition()==typeof(Nullable<>))
+                type = Nullable.GetUnderlyingType(type);
+
             return System.Convert.ChangeType(value, type, formatProvider);
         }
 

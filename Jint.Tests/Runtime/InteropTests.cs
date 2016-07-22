@@ -554,6 +554,30 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        private class TestClass
+        {
+            public int? NullableInt { get; set; }
+            public DateTime? NullableDate { get; set; }
+            public bool? NullableBool { get; set; }
+        }
+
+        [Fact]
+        public void CanSetNullablePropertiesOnPocos()
+        {
+            var instance = new TestClass();
+            _engine.SetValue("instance", instance);
+
+            RunTest(@"
+                instance.NullableInt = 2;
+                instance.NullableDate = new Date();
+                instance.NullableBool = true;
+
+                assert(instance.NullableInt===2);
+                assert(instance.NullableDate!=null);
+                assert(instance.NullableBool===true);
+            ");
+        }
+
         [Fact]
         public void ShouldConvertArrayToArrayInstance()
         {
