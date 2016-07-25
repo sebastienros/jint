@@ -630,14 +630,17 @@ namespace Jint.Runtime
                 return literal.CachedValue;
             }
 
-            literal.Cached = true;
-
             if (literal.Type == SyntaxNodes.RegularExpressionLiteral)
             {
-                return literal.CachedValue = _engine.RegExp.Construct(literal.Raw);
+                literal.CachedValue = _engine.RegExp.Construct(literal.Raw);
             }
-            
-            return literal.CachedValue = JsValue.FromObject(_engine, literal.Value);
+            else
+            {
+                literal.CachedValue = JsValue.FromObject(_engine, literal.Value);
+            }
+
+            literal.Cached = true;
+            return literal.CachedValue;
         }
 
         public JsValue EvaluateObjectExpression(ObjectExpression objectExpression)
@@ -823,8 +826,8 @@ namespace Jint.Runtime
                     // The arguments array can be cached if they are all literals
                     if (callExpression.Arguments.All(x => x is Literal))
                     {
-                        callExpression.Cached = true;
                         callExpression.CachedArguments = arguments;
+                        callExpression.Cached = true;
                     }
                     else
                     {
