@@ -596,7 +596,14 @@ namespace Jint.Native.Date
         /// </summary>
         public static double TimeWithinDay(double t)
         {
-            return t % MsPerDay;
+            if (t < 0)
+            {
+                return ((t % MsPerDay) + MsPerDay);
+            }
+            else
+            {
+                return (t % MsPerDay);
+            }
         }
 
         /// <summary>
@@ -656,25 +663,40 @@ namespace Jint.Native.Date
                 return Double.NaN;
             }
 
-            double upper = double.MaxValue;
-            double lower = double.MinValue;
-            while (upper > lower + 1)
+            var sign = (t < 0) ? -1 : 1;
+            var year = (sign < 0) ? 1969 : 1970;
+            for (var timeToTimeZero = t; ;)
             {
-                var current = System.Math.Floor((upper + lower) / 2);
+                //  Subtract the current year's time from the time that's left.
+                var timeInYear = DaysInYear(year) * MsPerDay;
+                timeToTimeZero -= sign * timeInYear;
 
-                var tfy = TimeFromYear(current);
-
-                if (tfy <= t)
+                //  If there's less than the current year's worth of time left, then break.
+                if (sign < 0)
                 {
-                    lower = current;
+                    if (sign * timeToTimeZero <= 0)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        year += sign;
+                    }
                 }
                 else
                 {
-                    upper = current;
+                    if (sign * timeToTimeZero < 0)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        year += sign;
+                    }
                 }
             }
 
-            return lower;
+            return year;
         }
 
         /// <summary>

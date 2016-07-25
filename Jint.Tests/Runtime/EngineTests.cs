@@ -167,7 +167,7 @@ namespace Jint.Tests.Runtime
                 function Body(mass){
                    this.mass = mass;
                 }
-                
+
                 var john = new Body(36);
                 assert(john.mass == 36);
             ");
@@ -375,7 +375,7 @@ namespace Jint.Tests.Runtime
                 assert(void 0 === undefined);
                 var x = '1';
                 assert(void x === undefined);
-                x = 'x'; 
+                x = 'x';
                 assert (isNaN(void x) === true);
                 x = new String('-1');
                 assert (void x === undefined);
@@ -407,7 +407,7 @@ namespace Jint.Tests.Runtime
         public void NaNIsNan()
         {
             RunTest(@"
-                var x = NaN; 
+                var x = NaN;
                 assert(isNaN(NaN));
                 assert(isNaN(Math.abs(x)));
             ");
@@ -434,7 +434,7 @@ namespace Jint.Tests.Runtime
                     return x;
                   };
                   return f2();
-  
+
                   var x = 1;
                 }
 
@@ -459,7 +459,7 @@ namespace Jint.Tests.Runtime
                 for(var z in this) {
                     str += z;
                 }
-                
+
                 assert(str == 'xystrz');
             ");
         }
@@ -531,7 +531,7 @@ namespace Jint.Tests.Runtime
                     assert(x == 1);
                     z = 1;
                 }
-                
+
                 assert(x == 1);
                 assert(y == 1);
                 assert(z == 1);
@@ -617,7 +617,7 @@ namespace Jint.Tests.Runtime
                 () => new Engine(cfg => cfg.MaxStatements(100)).Execute("while(true);")
             );
         }
-        
+
         [Fact]
         public void ShouldThrowTimeout()
         {
@@ -671,7 +671,7 @@ namespace Jint.Tests.Runtime
             var funcRoot = function() {
                 funcA();
             };
- 
+
             var funcA = function() {
                 funcB();
             };
@@ -704,7 +704,7 @@ namespace Jint.Tests.Runtime
             var funcRoot = function() {
                 funcA();
             };
- 
+
             var funcA = function() {
                 funcB();
             };
@@ -1145,7 +1145,7 @@ namespace Jint.Tests.Runtime
                 string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
             Assert.Equal(testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz"), engine.Execute("d.toString();").GetCompletionValue().ToString());
         }
-        
+
 #endregion //DateParsingAndStrings
         [Fact]
         public void EmptyStringShouldMatchRegex()
@@ -1238,7 +1238,7 @@ namespace Jint.Tests.Runtime
                     result = e instanceof RangeError;
                 }
 
-                assert(result);                
+                assert(result);
             ");
         }
 
@@ -1350,7 +1350,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine(options => options.DebugMode());
 
             engine.Step += EngineStep;
-            
+
             engine.Execute(@"var local = true;
                 var creatingSomeOtherLine = 0;
                 var lastOneIPromise = true");
@@ -1378,7 +1378,7 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(1, countBreak);
         }
-        
+
         private StepMode EngineStep(object sender, DebugInformation debugInfo)
         {
             Assert.NotNull(sender);
@@ -1428,7 +1428,7 @@ namespace Jint.Tests.Runtime
             Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
             Assert.Contains(debugInfo.Locals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
             Assert.DoesNotContain(debugInfo.Locals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal));
-            
+
             countBreak++;
             return stepMode;
         }
@@ -1474,7 +1474,7 @@ namespace Jint.Tests.Runtime
                     ; // shall not step
                     ; // not even here
                 }
-                func(); // shall not step                 
+                func(); // shall not step
                 ; // shall not step ");
 
             engine.Step -= EngineStep;
@@ -1486,7 +1486,7 @@ namespace Jint.Tests.Runtime
         public void ShouldNotStepInIfRequiredToStepOut()
         {
             countBreak = 0;
-            
+
             var engine = new Engine(options => options.DebugMode());
 
             engine.Step += EngineStepOutWhenInsideFunction;
@@ -1496,7 +1496,7 @@ namespace Jint.Tests.Runtime
                     ; // third step - now stepping out
                     ; // it should not step here
                 }
-                func(); // second step                 
+                func(); // second step
                 ; // fourth step ");
 
             engine.Step -= EngineStepOutWhenInsideFunction;
@@ -1513,7 +1513,7 @@ namespace Jint.Tests.Runtime
             countBreak++;
             if (debugInfo.CallStack.Count > 0)
                 return StepMode.Out;
-            
+
             return StepMode.Into;
         }
 
@@ -1530,7 +1530,7 @@ namespace Jint.Tests.Runtime
             engine.Execute(@"var global = true;
                             function func1()
                             {
-                                var local = 
+                                var local =
                                     false;
                             }
                             func1();");
@@ -1544,7 +1544,7 @@ namespace Jint.Tests.Runtime
         public void ShouldNotStepInsideIfRequiredToStepOver()
         {
             countBreak = 0;
-            
+
             var engine = new Engine(options => options.DebugMode());
 
             stepMode = StepMode.Over;
@@ -1555,7 +1555,7 @@ namespace Jint.Tests.Runtime
                     ; // third step - it shall not step here
                     ; // it shall not step here
                 }
-                func(); // second step                 
+                func(); // second step
                 ; // third step ");
 
             engine.Step -= EngineStep;
@@ -1574,7 +1574,7 @@ namespace Jint.Tests.Runtime
             engine.Step += EngineStep;
 
             engine.Execute(@"var step1 = 1; // first step
-                var step2 = 2; // second step                 
+                var step2 = 2; // second step
                 if (step1 !== step2) // third step
                 { // fourth step
                     ; // fifth step
@@ -1767,5 +1767,17 @@ namespace Jint.Tests.Runtime
                 assert('4.0' === match[2]);
             ");
         }
+
+        [Fact]
+        public void ShouldSetYearBefore1970()
+        {
+
+            RunTest(@"
+                var d = new Date('1969-01-01T08:17:00');
+                d.setYear(2015);
+                equal('2015-01-01T08:17:00.000Z', d.toISOString());
+            ");
+        }
+
     }
 }

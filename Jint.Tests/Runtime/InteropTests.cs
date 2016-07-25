@@ -18,6 +18,7 @@ namespace Jint.Tests.Runtime
             _engine = new Engine(cfg => cfg.AllowClr(typeof(Shape).Assembly))
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
                 ;
         }
 
@@ -295,7 +296,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void CanUseMultiGenericTypes()
         {
-            
+
             RunTest(@"
                 var type = System.Collections.Generic.Dictionary(System.Int32, System.String);
                 var dictionary = new type();
@@ -615,7 +616,7 @@ namespace Jint.Tests.Runtime
         {
             var result = _engine.Execute("'foo@bar.com'.split('@');");
             var parts = result.GetCompletionValue().ToObject();
-            
+
             Assert.True(parts.GetType().IsArray);
             Assert.Equal(2, ((object[])parts).Length);
             Assert.Equal("foo", ((object[])parts)[0]);
@@ -726,7 +727,7 @@ namespace Jint.Tests.Runtime
         public void ShouldExecuteFunctionCallBackAsPredicate()
         {
             _engine.SetValue("a", new A());
-            
+
             // Func<>
             RunTest(@"
                 assert(a.Call8(function(){ return 'foo'; }) === 'foo');
@@ -822,10 +823,10 @@ namespace Jint.Tests.Runtime
                 var sw = System.IO.File.CreateText(filename);
                 sw.Write('Hello World');
                 sw.Dispose();
-                
+
                 var content = System.IO.File.ReadAllText(filename);
                 System.Console.WriteLine(content);
-                
+
                 assert(content === 'Hello World');
             ");
         }
@@ -1074,7 +1075,7 @@ namespace Jint.Tests.Runtime
             RunTest(@"
                 var domain = importNamespace('Jint.Tests.Runtime.Domain');
                 var colors = domain.Colors;
-                
+
                 s.Color = colors.Blue;
                 assert(s.Color === colors.Blue);
             ");
@@ -1422,5 +1423,16 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void ShouldConvertToJsValue()
+        {
+            RunTest(@"
+                var now = System.DateTime.Now;
+                assert(new String(now) == now.toString());
+
+                var zero = System.Int32.MaxValue;
+                assert(new String(zero) == zero.toString());
+            ");
+        }
     }
 }
