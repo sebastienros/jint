@@ -24,6 +24,7 @@ namespace Jint.Tests.Runtime
             _engine = new Engine()
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
                 ;
         }
 
