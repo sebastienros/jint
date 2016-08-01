@@ -1,6 +1,7 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using System.Text;
 
 namespace Jint.Native.Error
 {
@@ -46,14 +47,33 @@ namespace Jint.Native.Error
             instance.Prototype = PrototypeObject;
             instance.Extensible = true;
 
-            if (arguments.At(0) != Undefined.Instance)
+            if (Engine.ShouldCreateStackTrace)
             {
-                instance.Put("message", TypeConverter.ToString(arguments.At(0)), false);
+                StringBuilder builder = new StringBuilder();
+                builder.Append(this._name);
+
+                if (arguments.At(0) != Undefined.Instance)
+                {
+                    var message = TypeConverter.ToString(arguments.At(0));
+                    builder.Append(": ").Append(message).Append('\n');
+                    instance.Put("message", message, false);
+                }
+                else
+                {
+                    builder.AppendLine();
+                }
+                Engine.AppendStack(builder);
+                instance.Put("stack", builder.ToString(), false);
+            }
+            else if (arguments.At(0) != Undefined.Instance)
+            {
+                var message = TypeConverter.ToString(arguments.At(0));
+                instance.Put("message", message, false);
             }
 
             return instance;
         }
 
-        public ErrorPrototype PrototypeObject { get; private set; }
+        public ErrorPrototype PrototypeObject { get; private set; }        
     }
 }

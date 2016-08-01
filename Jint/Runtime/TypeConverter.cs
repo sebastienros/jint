@@ -221,7 +221,17 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static int ToInt32(JsValue o)
         {
-            return (int)(uint)ToNumber(o);
+            double num = ToNumber(o);
+            if (double.IsNaN(num) || double.IsNegativeInfinity(num) || double.IsPositiveInfinity(num) || num == 0)
+            {
+                return 0;
+            }
+            long posIntWithMod = ((long)num) % 0x100000000;
+            if (posIntWithMod >= 0x100000000 - 1)
+            {
+                return (int)(posIntWithMod - 0x100000000);
+            }
+            return (int)posIntWithMod;
         }
 
         /// <summary>
@@ -231,7 +241,12 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static uint ToUint32(JsValue o)
         {
-            return (uint)ToNumber(o);
+            double num = ToNumber(o);
+            if (double.IsNaN(num) || double.IsNegativeInfinity(num) || double.IsPositiveInfinity(num) || num == 0)
+            {
+                return 0;
+            }
+            return (uint) (((long)num)%0x100000000);
         }
 
         /// <summary>
