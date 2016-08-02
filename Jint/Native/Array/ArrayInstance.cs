@@ -25,8 +25,8 @@ namespace Jint.Native.Array
             }
         }
 
-        /// Implementation from ObjectInstance official specs as the one 
-        /// in ObjectInstance is optimized for the general case and wouldn't work 
+        /// Implementation from ObjectInstance official specs as the one
+        /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
         public override void Put(string propertyName, JsValue value, bool throwOnError)
         {
@@ -54,7 +54,7 @@ namespace Jint.Native.Array
 
             if (desc.IsAccessorDescriptor())
             {
-                var setter = desc.Set.Value.TryCast<ICallable>();
+                var setter = desc.Set.TryCast<ICallable>();
                 setter.Call(new JsValue(this), new[] { value });
             }
             else
@@ -67,19 +67,19 @@ namespace Jint.Native.Array
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             var oldLenDesc = GetOwnProperty("length");
-            var oldLen = (uint)TypeConverter.ToNumber(oldLenDesc.Value.Value);
+            var oldLen = (uint)TypeConverter.ToNumber(oldLenDesc.Value);
             uint index;
 
             if (propertyName == "length")
             {
-                if (!desc.Value.HasValue)
+                if (desc.Value == null)
                 {
                     return base.DefineOwnProperty("length", desc, throwOnError);
                 }
 
                 var newLenDesc = new PropertyDescriptor(desc);
-                uint newLen = TypeConverter.ToUint32(desc.Value.Value);
-                if (newLen != TypeConverter.ToNumber(desc.Value.Value))
+                uint newLen = TypeConverter.ToUint32(desc.Value);
+                if (newLen != TypeConverter.ToNumber(desc.Value))
                 {
                     throw new JavaScriptException(_engine.RangeError);
                 }
@@ -212,7 +212,7 @@ namespace Jint.Native.Array
 
         private uint GetLength()
         {
-            return TypeConverter.ToUint32(_length.Value.Value);
+            return TypeConverter.ToUint32(_length.Value);
         }
 
         public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
@@ -241,7 +241,7 @@ namespace Jint.Native.Array
                 else
                 {
                     return PropertyDescriptor.Undefined;
-                } 
+                }
             }
 
             return base.GetOwnProperty(propertyName);
@@ -262,7 +262,7 @@ namespace Jint.Native.Array
                 }
 
                 base.SetOwnProperty(propertyName, desc);
-            }            
+            }
         }
 
         public override bool HasOwnProperty(string p)
@@ -309,11 +309,11 @@ namespace Jint.Native.Array
             if(d == 0 && p.Length > 1)
             {
                 // If p is a number that start with '0' and is not '0' then
-                // its ToString representation can't be the same a p. This is 
+                // its ToString representation can't be the same a p. This is
                 // not a valid array index. '01' !== ToString(ToUInt32('01'))
                 // http://www.ecma-international.org/ecma-262/5.1/#sec-15.4
 
-                return uint.MaxValue; 
+                return uint.MaxValue;
             }
 
             ulong result = (uint)d;
@@ -328,7 +328,7 @@ namespace Jint.Native.Array
                 }
 
                 result = result * 10 + (uint)d;
-                
+
                 if (result >= uint.MaxValue)
                 {
                     return uint.MaxValue;

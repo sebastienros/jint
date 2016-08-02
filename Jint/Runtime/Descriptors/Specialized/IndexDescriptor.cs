@@ -57,7 +57,7 @@ namespace Jint.Runtime.Descriptors.Specialized
         {
         }
 
-        public override JsValue? Value
+        public override JsValue Value
         {
             get
             {
@@ -77,7 +77,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                         return JsValue.Undefined;
                     }
                 }
-                
+
                 try
                 {
                     return JsValue.FromObject(_engine, getter.Invoke(_item, parameters));
@@ -96,7 +96,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                     throw new InvalidOperationException("Indexer has no public setter.");
                 }
 
-                object[] parameters = { _key, value.HasValue ? value.Value.ToObject() : null };
+                object[] parameters = { _key, value != null ? value.ToObject() : null };
                 setter.Invoke(_item, parameters);
             }
         }
