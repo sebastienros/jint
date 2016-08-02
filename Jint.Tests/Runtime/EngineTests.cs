@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -107,6 +107,27 @@ namespace Jint.Tests.Runtime
             var result = engine.Execute(source).GetCompletionValue().ToObject();
 
             Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData(-59, "~58")]
+        [InlineData(58, "~~58")]
+        public void ShouldInterpretUnaryExpressionToInt(object expected, string source)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue();
+
+            Assert.Equal(expected, TypeConverter.ToInt32(result));
+        }
+
+        [Theory]
+        [InlineData(58U, "~~58")]
+        public void ShouldInterpretUnaryExpressionToUInt(object expected, string source)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue();
+
+            Assert.Equal(expected, TypeConverter.ToUint32(result));
         }
 
         [Fact]
@@ -511,6 +532,37 @@ namespace Jint.Tests.Runtime
 
                 assert(f1() === 'obj');
             ");
+        }
+
+        [Fact]
+        public void ErrorHasCorrectStack()
+        {
+            RunTest(@"try { throw new Error(); } catch (x) { assert(!x.stack); }");
+
+            var engine = new Engine()
+                .SetValue("assert", new Action<bool>(Assert.True));
+            engine.ShouldCreateStackTrace = true;
+            engine.Execute(@"try { throw new Error(); } catch (x) { assert(x.stack != null); }");
+
+            _engine.ShouldCreateStackTrace = true;
+            RunTest(@"function a() {
+b();
+}
+
+function b() {
+c();
+}
+
+function c() {
+throw new Error('foo');
+}
+
+try {
+a();
+} catch (x) {
+    log(x.stack);
+  assert(x.stack === 'Error: foo\n	at c (unknown:10:10)\n	at b (unknown:6:0)\n	at a (unknown:2:0)\n	at <global> (unknown:14:0)\n');
+}");
         }
 
         [Fact]
