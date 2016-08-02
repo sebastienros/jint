@@ -303,83 +303,43 @@ namespace Jint.Native
                 }
             }
 
-            var typeCode = System.Type.GetTypeCode(value.GetType());
-            switch (typeCode)
-            {
-                case TypeCode.Boolean:
-                    return new JsValue((bool)value);
-                case TypeCode.Byte:
-                    return new JsValue((byte)value);
-                case TypeCode.Char:
-                    return new JsValue(value.ToString());
-                case TypeCode.DateTime:
-                    return engine.Date.Construct((DateTime)value);
-                case TypeCode.Decimal:
-                    return new JsValue((double)(decimal)value);
-                case TypeCode.Double:
-                    return new JsValue((double)value);
-                case TypeCode.Int16:
-                    return new JsValue((Int16)value);
-                case TypeCode.Int32:
-                    return new JsValue((Int32)value);
-                case TypeCode.Int64:
-                    return new JsValue((Int64)value);
-                case TypeCode.SByte:
-                    return new JsValue((SByte)value);
-                case TypeCode.Single:
-                    return new JsValue((Single)value);
-                case TypeCode.String:
-                    return new JsValue((string)value);
-                case TypeCode.UInt16:
-                    return new JsValue((UInt16)value);
-                case TypeCode.UInt32:
-                    return new JsValue((UInt32)value);
-                case TypeCode.UInt64:
-                    return new JsValue((UInt64)value);
-                case TypeCode.Object:
-                    break;
-                case TypeCode.Empty:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+            var valueType = value.GetType();
 
-            if (value is DateTimeOffset)
+            var typeMappers = Engine.TypeMappers;
+
+            Func<Engine, object, JsValue> typeMapper;
+            if (typeMappers.TryGetValue(valueType, out typeMapper))
             {
-                return engine.Date.Construct((DateTimeOffset)value);
+                return typeMapper(engine, value);
             }
 
             // if an ObjectInstance is passed directly, use it as is
             var instance = value as ObjectInstance;
             if (instance != null)
             {
+                // Learn conversion.
+                typeMappers.Add(valueType, (Engine e, object v) => new JsValue((ObjectInstance)v));
                 return new JsValue(instance);
             }
 
-            // if a JsValue is passed directly, use it as is
-            if (value is JsValue)
+            var a = value as System.Array;
+            if (a != null)
             {
-                return (JsValue)value;
-            }
-
-            var array = value as System.Array;
-            if (array != null)
-            {
-                var jsArray = engine.Array.Construct(Arguments.Empty);
-                foreach (var item in array)
+                Func<Engine, object, JsValue> convert = (Engine e, object v) =>
                 {
-                    var jsItem = FromObject(engine, item);
-                    engine.Array.PrototypeObject.Push(jsArray, Arguments.From(jsItem));
-                }
+                    var array = (System.Array)v;
 
-                return jsArray;
-            }
+                    var jsArray = engine.Array.Construct(Arguments.Empty);
+                    foreach (var item in array)
+                    {
+                        var jsItem = JsValue.FromObject(engine, item);
+                        engine.Array.PrototypeObject.Push(jsArray, Arguments.From(jsItem));
+                    }
 
-            var regex = value as System.Text.RegularExpressions.Regex;
-            if (regex != null)
-            {
-                var jsRegex = engine.RegExp.Construct(regex.ToString().Trim('/'));
-                return jsRegex;
+                    return jsArray;
+                };
+                typeMappers.Add(valueType, convert);
+                return convert(engine, a);
             }
 
             var d = value as Delegate;
