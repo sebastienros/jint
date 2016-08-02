@@ -227,7 +227,7 @@ namespace Jint.Runtime
 
             while (cursor != null)
             {
-                var keys = cursor.Properties.Keys.ToArray();
+                var keys = cursor.GetOwnProperties().Select(x => x.Key).ToArray();
                 foreach (var p in keys)
                 {
                     if (processedKeys.Contains(p))
@@ -238,13 +238,13 @@ namespace Jint.Runtime
                     processedKeys.Add(p);
                     
                     // collection might be modified by inner statement 
-                    if (!cursor.Properties.ContainsKey(p))
+                    if (!cursor.HasOwnProperty(p))
                     {
                         continue;
                     }
 
-                    var value = cursor.Properties[p];
-                    if (!value.Enumerable.HasValue || !value.Enumerable.Value.AsBoolean())
+                    var value = cursor.GetOwnProperty(p);
+                    if (!value.Enumerable.HasValue || !value.Enumerable.Value)
                     {
                         continue;
                     }
@@ -420,7 +420,10 @@ namespace Jint.Runtime
                     c = ExecuteStatement(statement);
                     if (c.Type != Completion.Normal)
                     {
-                        return new Completion(c.Type, c.Value.HasValue ? c.Value : sl.Value, c.Identifier);
+                        return new Completion(c.Type, c.Value.HasValue ? c.Value : sl.Value, c.Identifier)
+                        {
+                            Location = c.Location
+                        };
                     }
 
                     sl = c;
@@ -530,7 +533,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteDebuggerStatement(DebuggerStatement debuggerStatement)
         {
-            if (_engine.Options.IsDebuggerStatementAllowed())
+            if (_engine.Options._IsDebuggerStatementAllowed)
             {
                 if (!System.Diagnostics.Debugger.IsAttached)
                 {

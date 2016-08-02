@@ -48,7 +48,7 @@ namespace Jint.Native.Json
                         _propertyList = new List<string>();
                     }
 
-                    foreach (var property in replacerObj.Properties.Values)
+                    foreach (var property in replacerObj.GetOwnProperties().Select(x => x.Value))
                     {
                         JsValue v = _engine.GetValue(property);
                         string item = null;
@@ -316,7 +316,7 @@ namespace Jint.Native.Json
             var stepback = _indent;
             _indent += _gap;
             
-            var k = _propertyList ?? value.Properties
+            var k = _propertyList ?? value.GetOwnProperties()
                 .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value == true)
                 .Select(x => x.Key)
                 .ToList();

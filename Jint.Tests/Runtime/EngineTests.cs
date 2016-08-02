@@ -9,7 +9,6 @@ using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
-using Xunit.Extensions;
 using System.Net;
 
 namespace Jint.Tests.Runtime
@@ -25,6 +24,7 @@ namespace Jint.Tests.Runtime
             _engine = new Engine()
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
                 ;
         }
 
@@ -168,7 +168,7 @@ namespace Jint.Tests.Runtime
                 function Body(mass){
                    this.mass = mass;
                 }
-                
+
                 var john = new Body(36);
                 assert(john.mass == 36);
             ");
@@ -376,7 +376,7 @@ namespace Jint.Tests.Runtime
                 assert(void 0 === undefined);
                 var x = '1';
                 assert(void x === undefined);
-                x = 'x'; 
+                x = 'x';
                 assert (isNaN(void x) === true);
                 x = new String('-1');
                 assert (void x === undefined);
@@ -408,7 +408,7 @@ namespace Jint.Tests.Runtime
         public void NaNIsNan()
         {
             RunTest(@"
-                var x = NaN; 
+                var x = NaN;
                 assert(isNaN(NaN));
                 assert(isNaN(Math.abs(x)));
             ");
@@ -435,7 +435,7 @@ namespace Jint.Tests.Runtime
                     return x;
                   };
                   return f2();
-  
+
                   var x = 1;
                 }
 
@@ -460,7 +460,7 @@ namespace Jint.Tests.Runtime
                 for(var z in this) {
                     str += z;
                 }
-                
+
                 assert(str == 'xystrz');
             ");
         }
@@ -532,7 +532,7 @@ namespace Jint.Tests.Runtime
                     assert(x == 1);
                     z = 1;
                 }
-                
+
                 assert(x == 1);
                 assert(y == 1);
                 assert(z == 1);
@@ -618,7 +618,7 @@ namespace Jint.Tests.Runtime
                 () => new Engine(cfg => cfg.MaxStatements(100)).Execute("while(true);")
             );
         }
-        
+
         [Fact]
         public void ShouldThrowTimeout()
         {
@@ -672,7 +672,7 @@ namespace Jint.Tests.Runtime
             var funcRoot = function() {
                 funcA();
             };
- 
+
             var funcA = function() {
                 funcB();
             };
@@ -705,7 +705,7 @@ namespace Jint.Tests.Runtime
             var funcRoot = function() {
                 funcA();
             };
- 
+
             var funcA = function() {
                 funcB();
             };
@@ -877,7 +877,56 @@ namespace Jint.Tests.Runtime
             ");
         }
 
-        [Fact]
+		[Fact]
+		public void JsonParserShouldUseToString()
+		{
+			RunTest(@"
+                var a = JSON.parse(null); // Equivalent to JSON.parse('null')
+                assert(a === null);
+            ");
+
+			RunTest(@"
+                var a = JSON.parse(true); // Equivalent to JSON.parse('true')
+                assert(a === true);
+            ");
+
+			RunTest(@"
+                var a = JSON.parse(false); // Equivalent to JSON.parse('false')
+                assert(a === false);
+            ");
+
+			RunTest(@"
+                try {
+                    JSON.parse(undefined); // Equivalent to JSON.parse('undefined')
+                    assert(false);
+                }
+                catch(ex) {
+                    assert(ex instanceof SyntaxError);
+                }
+			");
+
+			RunTest(@"
+                try {
+                    JSON.parse({}); // Equivalent to JSON.parse('[object Object]')
+                    assert(false);
+                }
+                catch(ex) {
+                    assert(ex instanceof SyntaxError);
+                }
+			");
+
+			RunTest(@"
+                try {
+                    JSON.parse(function() { }); // Equivalent to JSON.parse('function () {}')
+                    assert(false);
+                }
+                catch(ex) {
+                    assert(ex instanceof SyntaxError);
+                }
+			");
+		}
+
+		[Fact]
         public void JsonParserShouldDetectInvalidNegativeNumberSyntax()
         {
             RunTest(@"
@@ -941,7 +990,7 @@ namespace Jint.Tests.Runtime
                 Assert.Equal("jQuery.js", e.Source);
             }
         }
-
+#region DateParsingAndStrings
         [Fact]
         public void ParseShouldReturnNumber()
         {
@@ -949,6 +998,17 @@ namespace Jint.Tests.Runtime
 
             var result = engine.Execute("Date.parse('1970-01-01');").GetCompletionValue().AsNumber();
             Assert.Equal(0, result);
+        }
+
+        [Fact]
+        public void LocalDateTimeShouldNotLoseTimezone()
+        {
+            var date = new DateTime(2016, 1, 1, 13, 0, 0, DateTimeKind.Local);
+            var engine = new Engine().SetValue("localDate", date);
+            engine.Execute(@"localDate");
+            var actual = engine.GetCompletionValue().AsDate().ToDateTime();
+            Assert.Equal(date.ToUniversalTime(), actual.ToUniversalTime());
+            Assert.Equal(date.ToLocalTime(), actual.ToLocalTime());
         }
 
         [Fact]
@@ -980,7 +1040,10 @@ namespace Jint.Tests.Runtime
             Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
 
             var epochToLocalString = engine.Execute("var d = new Date(0); d.toString();").GetCompletionValue().AsString();
-            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT", epochToLocalString);
+            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+00:11", epochToLocalString);
+
+            var epochToUTCString = engine.Execute("var d = new Date(0); d.toUTCString();").GetCompletionValue().AsString();
+            Assert.Equal("Thu Jan 01 1970 00:00:00 GMT", epochToUTCString);
         }
 
         [Theory]
@@ -1035,14 +1098,56 @@ namespace Jint.Tests.Runtime
         public void ShouldParseAsLocalTime(string date)
         {
             const string customName = "Custom Time";
-            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName, customName, customName, null, false);
+            const int timespanMinutes = 11;
+            const int msPriorMidnight = -timespanMinutes * 60 * 1000;
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, timespanMinutes, 0), customName, customName, customName, null, false);
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)).SetValue("d", date);
 
             var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
 
-            Assert.Equal(-11 * 60 * 1000, result);
+            Assert.Equal(msPriorMidnight, result);
         }
 
+        public static System.Collections.Generic.IEnumerable<object[]> TestDates
+        {
+            get
+            {
+                yield return new object[] { new DateTime(2000, 1, 1) };
+                yield return new object[] { new DateTime(2000, 1, 1, 0, 15, 15, 15) };
+                yield return new object[] { new DateTime(2000, 6, 1, 0, 15, 15, 15) };
+                yield return new object[] { new DateTime(1900, 1, 1) };
+                yield return new object[] { new DateTime(1900, 1, 1, 0, 15, 15, 15) };
+                yield return new object[] { new DateTime(1900, 6, 1, 0, 15, 15, 15) };
+            }
+        }
+
+        [Theory, MemberData("TestDates")]
+        public void TestDateToISOStringFormat(DateTime testDate)
+        {
+            const string customName = "Custom Time";
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(+13, 0, 0), customName, customName, customName, null, false);
+
+            var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
+            var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
+            engine.Execute(
+                string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
+            Assert.Equal(testDateTimeOffset.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"), engine.Execute("d.toISOString();").GetCompletionValue().ToString());
+        }
+
+        [Theory, MemberData("TestDates")]
+        public void TestDateToStringFormat(DateTime testDate)
+        {
+            const string customName = "Custom Time";
+            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(+13, 0, 0), customName, customName, customName, null, false);
+
+            var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
+            var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
+            engine.Execute(
+                string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
+            Assert.Equal(testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz"), engine.Execute("d.toString();").GetCompletionValue().ToString());
+        }
+
+#endregion //DateParsingAndStrings
         [Fact]
         public void EmptyStringShouldMatchRegex()
         {
@@ -1134,7 +1239,7 @@ namespace Jint.Tests.Runtime
                     result = e instanceof RangeError;
                 }
 
-                assert(result);                
+                assert(result);
             ");
         }
 
@@ -1246,7 +1351,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine(options => options.DebugMode());
 
             engine.Step += EngineStep;
-            
+
             engine.Execute(@"var local = true;
                 var creatingSomeOtherLine = 0;
                 var lastOneIPromise = true");
@@ -1274,7 +1379,7 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(1, countBreak);
         }
-        
+
         private StepMode EngineStep(object sender, DebugInformation debugInfo)
         {
             Assert.NotNull(sender);
@@ -1324,7 +1429,7 @@ namespace Jint.Tests.Runtime
             Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
             Assert.Contains(debugInfo.Locals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
             Assert.DoesNotContain(debugInfo.Locals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal));
-            
+
             countBreak++;
             return stepMode;
         }
@@ -1370,7 +1475,7 @@ namespace Jint.Tests.Runtime
                     ; // shall not step
                     ; // not even here
                 }
-                func(); // shall not step                 
+                func(); // shall not step
                 ; // shall not step ");
 
             engine.Step -= EngineStep;
@@ -1382,7 +1487,7 @@ namespace Jint.Tests.Runtime
         public void ShouldNotStepInIfRequiredToStepOut()
         {
             countBreak = 0;
-            
+
             var engine = new Engine(options => options.DebugMode());
 
             engine.Step += EngineStepOutWhenInsideFunction;
@@ -1392,7 +1497,7 @@ namespace Jint.Tests.Runtime
                     ; // third step - now stepping out
                     ; // it should not step here
                 }
-                func(); // second step                 
+                func(); // second step
                 ; // fourth step ");
 
             engine.Step -= EngineStepOutWhenInsideFunction;
@@ -1409,7 +1514,7 @@ namespace Jint.Tests.Runtime
             countBreak++;
             if (debugInfo.CallStack.Count > 0)
                 return StepMode.Out;
-            
+
             return StepMode.Into;
         }
 
@@ -1426,7 +1531,7 @@ namespace Jint.Tests.Runtime
             engine.Execute(@"var global = true;
                             function func1()
                             {
-                                var local = 
+                                var local =
                                     false;
                             }
                             func1();");
@@ -1440,7 +1545,7 @@ namespace Jint.Tests.Runtime
         public void ShouldNotStepInsideIfRequiredToStepOver()
         {
             countBreak = 0;
-            
+
             var engine = new Engine(options => options.DebugMode());
 
             stepMode = StepMode.Over;
@@ -1451,7 +1556,7 @@ namespace Jint.Tests.Runtime
                     ; // third step - it shall not step here
                     ; // it shall not step here
                 }
-                func(); // second step                 
+                func(); // second step
                 ; // third step ");
 
             engine.Step -= EngineStep;
@@ -1470,7 +1575,7 @@ namespace Jint.Tests.Runtime
             engine.Step += EngineStep;
 
             engine.Execute(@"var step1 = 1; // first step
-                var step2 = 2; // second step                 
+                var step2 = 2; // second step
                 if (step1 !== step2) // third step
                 { // fourth step
                     ; // fifth step
@@ -1480,5 +1585,200 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(5, countBreak);
         }
+
+        [Fact]
+        public void ShouldEvaluateVariableAssignmentFromLeftToRight()
+        {
+            RunTest(@"
+                var keys = ['a']
+                  , source = { a: 3}
+                  , target = {}
+                  , key
+                  , i = 0;
+                target[key = keys[i++]] = source[key];
+                assert(i == 1);
+                assert(key == 'a');
+                assert(target[key] == 3);
+            ");
+        }
+
+        [Fact]
+        public void ObjectShouldBeExtensible()
+        {
+            RunTest(@"
+                try {
+                    Object.defineProperty(Object.defineProperty, 'foo', { value: 1 });
+                }
+                catch(e) {
+                    assert(false);
+                }
+            ");
+        }
+
+        [Fact]
+        public void ArrayIndexShouldBeConvertedToUint32()
+        {
+            // This is missing from ECMA tests suite
+            // http://www.ecma-international.org/ecma-262/5.1/#sec-15.4
+
+            RunTest(@"
+                var a = [ 'foo' ];
+                assert(a[0] === 'foo');
+                assert(a['0'] === 'foo');
+                assert(a['00'] === undefined);
+            ");
+        }
+
+        [Fact]
+        public void DatePrototypeFunctionWorkOnDateOnly()
+        {
+            RunTest(@"
+                try {
+                    var myObj = Object.create(Date.prototype);
+                    myObj.toDateString();
+                } catch (e) {
+                    assert(e instanceof TypeError);
+                }
+            ");
+        }
+
+        [Fact]
+        public void DateToStringMethodsShouldUseCurrentTimeZoneAndCulture()
+        {
+            // Forcing to PDT and FR for tests
+            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var FR = CultureInfo.GetCultureInfo("fr-FR");
+
+            var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                ;
+
+            engine.Execute(@"
+                    var d = new Date(1433160000000);
+
+                    equal('Mon Jun 01 2015 05:00:00 GMT-07:00', d.toString());
+                    equal('Mon Jun 01 2015', d.toDateString());
+                    equal('05:00:00 GMT-07:00', d.toTimeString());
+                    equal('lundi 1 juin 2015 05:00:00', d.toLocaleString());
+                    equal('lundi 1 juin 2015', d.toLocaleDateString());
+                    equal('05:00:00', d.toLocaleTimeString());
+            ");
+        }
+
+        [Fact]
+        public void DateShouldHonorTimezoneDaylightSavingRules()
+        {
+            var EST = TimeZoneInfo.FindSystemTimeZoneById("US Eastern Standard Time");
+            var engine = new Engine(options => options.LocalTimeZone(EST))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                ;
+
+            engine.Execute(@"
+                    var d = new Date(2016, 8, 1);
+
+                    equal('Thu Sep 01 2016 00:00:00 GMT-04:00', d.toString());
+                    equal('Thu Sep 01 2016', d.toDateString());
+            ");
+        }
+
+        [Fact]
+        public void DateShouldParseToString()
+        {
+            // Forcing to PDT and FR for tests
+            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var FR = CultureInfo.GetCultureInfo("fr-FR");
+
+            new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .Execute(@"
+                    var d = new Date(1433160000000);
+                    equal(Date.parse(d.toString()), d.valueOf());
+                    equal(Date.parse(d.toLocaleString()), d.valueOf());
+            ");
+        }
+
+        [Fact]
+        public void LocaleNumberShouldUseLocalCulture()
+        {
+            // Forcing to PDT and FR for tests
+            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var FR = CultureInfo.GetCultureInfo("fr-FR");
+
+            new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                .Execute(@"
+                    var d = new Number(-1.23);
+                    equal('-1.23', d.toString());
+                    equal('-1,23', d.toLocaleString());
+            ");
+        }
+
+        [Fact]
+        public void DateCtorShouldAcceptDate()
+        {
+            RunTest(@"
+                var a = new Date();
+                var b = new Date(a);
+                assert(String(a) === String(b));
+            ");
+        }
+
+        [Fact]
+        public void RegExpResultIsMutable()
+        {
+            RunTest(@"
+                var match = /quick\s(brown).+?(jumps)/ig.exec('The Quick Brown Fox Jumps Over The Lazy Dog');
+                var result = match.shift();
+                assert(result === 'Quick Brown Fox Jumps');
+            ");
+        }
+
+        [Fact]
+        public void RegExpSupportsMultiline()
+        {
+            RunTest(@"
+                var rheaders = /^(.*?):[ \t]*([^\r\n]*)$/mg;
+                var headersString = 'X-AspNetMvc-Version: 4.0\r\nX-Powered-By: ASP.NET\r\n\r\n';
+                match = rheaders.exec(headersString);
+                assert('X-AspNetMvc-Version' === match[1]);
+                assert('4.0' === match[2]);
+            ");
+
+            RunTest(@"
+                var rheaders = /^(.*?):[ \t]*(.*?)$/mg;
+                var headersString = 'X-AspNetMvc-Version: 4.0\r\nX-Powered-By: ASP.NET\r\n\r\n';
+                match = rheaders.exec(headersString);
+                assert('X-AspNetMvc-Version' === match[1]);
+                assert('4.0' === match[2]);
+            ");
+
+            RunTest(@"
+                var rheaders = /^(.*?):[ \t]*([^\r\n]*)$/mg;
+                var headersString = 'X-AspNetMvc-Version: 4.0\nX-Powered-By: ASP.NET\n\n';
+                match = rheaders.exec(headersString);
+                assert('X-AspNetMvc-Version' === match[1]);
+                assert('4.0' === match[2]);
+            ");
+        }
+
+        [Fact]
+        public void ShouldSetYearBefore1970()
+        {
+
+            RunTest(@"
+                var d = new Date('1969-01-01T08:17:00');
+                d.setYear(2015);
+                equal('2015-01-01T08:17:00.000Z', d.toISOString());
+            ");
+        }
+
     }
 }

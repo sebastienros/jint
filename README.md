@@ -2,13 +2,19 @@
 
 # Jint
 
-Jint is a __Javascript interpreter__ for .NET which provides full __ECMA 5.1__ compliance and can run on __any .NET plaftform__. Because it doesn't generate any .NET bytecode nor use the DLR it runs relatively small scripts faster. It's available as a PCL on Nuget at https://www.nuget.org/packages/Jint.
+Jint is a __Javascript interpreter__ for .NET which provides full __ECMA 5.1__ compliance and can run on __any .NET platform__. Because it doesn't generate any .NET bytecode nor use the DLR it runs relatively small scripts faster. It's available as a PCL on Nuget at https://www.nuget.org/packages/Jint.
 
 # Features
 
 - Full support for ECMAScript 5.1 - http://www.ecma-international.org/ecma-262/5.1/
 - .NET Portable Class Library - http://msdn.microsoft.com/en-us/library/gg597391(v=vs.110).aspx
 - .NET Interoperability 
+
+# Discussion
+
+[![Join the chat at https://gitter.im/sebastienros/jint](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/sebastienros/jint)
+
+Or post your questions with the `jint` tag on [stackoverflow](http://stackoverflow.com/questions/tagged/jint).
 
 # Examples
 
@@ -76,7 +82,7 @@ Then you have access to the `System` namespace as a global value. Here is how it
     jint> file.WriteLine('Hello World !');
     jint> file.Dispose();
 ```
-And even create shortcuts to commong .NET methods
+And even create shortcuts to common .NET methods
 ```javascript
     jint> var log = System.Console.WriteLine;
     jint> log('Hello World !');
@@ -101,6 +107,27 @@ Generic types are also supported. Here is how to declare, instantiate and use a 
     jint> list.Add('foo');
     jint> list.Add(1); // automatically converted to String
     jint> list.Count; // 2
+```
+
+## Internationalization
+
+You can enforce what Time Zone or Culture the engine should use when locale JavaScript methods are used if you don't want to use the computer's default values.
+
+This example forces the Time Zone to Pacific Standard Time.
+```c#
+    var PST = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+    var engine = new Engine(cfg => cfg.LocalTimeZone(PST));
+    
+    engine.Execute("new Date().toString()"); // Wed Dec 31 1969 16:00:00 GMT-08:00
+```
+
+This example is using French as the default culture.
+```c#
+    var FR = CultureInfo.GetCultureInfo("fr-FR");
+    var engine = new Engine(cfg => cfg.Culture(FR));
+    
+    engine.Execute("new Number(1.23).toString()"); // 1.23
+    engine.Execute("new Number(1.23).toLocaleString()"); // 1,23
 ```
 
 ## Implemented features:

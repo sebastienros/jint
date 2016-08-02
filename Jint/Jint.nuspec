@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
     <id>Jint</id>
-    <version>2.5.0</version>
+    <version>2.9.1</version>
     <owners>Sebastien Ros</owners>
     <authors>Sebastien Ros</authors>
     <description>Javascript Interpreter for .NET</description>
@@ -10,10 +10,7 @@
     <projectUrl>http://github.com/sebastienros/jint</projectUrl>
     <licenseUrl>https://raw.githubusercontent.com/sebastienros/jint/master/LICENSE.txt</licenseUrl>
     <releaseNotes>
-      Automatic support of camelCase mapping for .NET members.
-      Support for nested types.
-      Support for params JsValue[].
-      Bug fixes.
+Fixes bugs for: Regular expressions, Dates, JSON parse, cached literals race condition.
     </releaseNotes>
     <tags>javascript interpreter jint</tags>
   </metadata>
