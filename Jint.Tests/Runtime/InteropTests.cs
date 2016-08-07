@@ -1434,5 +1434,27 @@ namespace Jint.Tests.Runtime
                 assert(new String(zero) == zero.toString());
             ");
         }
+
+        [Fact]
+        public void ShouldCatchClrExceptions()
+        {
+            string exceptionMessage = "myExceptionMessage";
+            _engine.SetValue("throwMyException", new Action(() => { throw new Exception(exceptionMessage); }));
+                        
+            RunTest(@"
+                function throwException(){
+                try {
+                    throwMyException();
+                    return '';
+                } 
+                catch(e) {
+                    return e.message;
+                }
+            }
+            ");
+            var result = _engine.Invoke("throwException");
+            Assert.Equal(result.AsString(), exceptionMessage);
+        }
+
     }
 }
