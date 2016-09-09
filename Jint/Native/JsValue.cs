@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Dynamic;
+using System.Linq;
+using Jint.Extensions;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -12,6 +14,7 @@ using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.String;
+using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
@@ -294,7 +297,8 @@ namespace Jint.Native
                 }
             }
 
-            var typeCode = System.Type.GetTypeCode(value.GetType());
+            var valueType = value.GetType();
+            var typeCode = System.Type.GetTypeCode(valueType);
             switch (typeCode)
             {
                 case TypeCode.Boolean:
@@ -353,8 +357,8 @@ namespace Jint.Native
                 return (JsValue)value;
             }
 
-            var array = value as IEnumerable;
-            if (array != null)
+            var array = value as ICollection;
+            if (array != null && !valueType.GetGenericTypeImplementations(typeof(IDictionary<,>)).Any())
             {
                 var jsArray = engine.Array.Construct(Arguments.Empty);
                 foreach (var item in array)
@@ -379,7 +383,7 @@ namespace Jint.Native
                 return new DelegateWrapper(engine, d);
             }
 
-            if (value.GetType().IsEnum)
+            if (valueType.IsEnum)
             {
                 return new JsValue((Int32)value);
             }
