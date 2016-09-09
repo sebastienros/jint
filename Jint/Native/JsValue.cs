@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
@@ -352,7 +353,7 @@ namespace Jint.Native
                 return (JsValue)value;
             }
 
-            var array = value as System.Array;
+            var array = value as IEnumerable;
             if (array != null)
             {
                 var jsArray = engine.Array.Construct(Arguments.Empty);
