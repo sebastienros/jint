@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using System.Linq.Expressions;
 using Jint.Native;
 using Jint.Native.Function;
 
@@ -47,6 +48,12 @@ namespace Jint.Runtime.Interop
                         jsArguments[i].ToObject(),
                         parameterType,
                         CultureInfo.InvariantCulture);
+
+                    if (typeof(Delegate).IsAssignableFrom(parameterType) &&
+                        parameters[i] is LambdaExpression)
+                    {
+                        parameters[i] = ((LambdaExpression) parameters[i]).Compile();
+                    }
                 }
             }
 
@@ -86,6 +93,12 @@ namespace Jint.Runtime.Interop
                             jsArguments[i].ToObject(),
                             paramsParameterType,
                             CultureInfo.InvariantCulture);
+
+                        if (typeof(Delegate).IsAssignableFrom(paramsParameterType) &&
+                            parameters[i] is LambdaExpression)
+                        {
+                            parameters[i] = ((LambdaExpression) parameters[i]).Compile();
+                        }
                     }                    
                 }
                 parameters[paramsArgumentIndex] = paramsParameter;
