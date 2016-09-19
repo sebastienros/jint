@@ -49,12 +49,12 @@ namespace Jint.Runtime.Interop
                         parameterType,
                         CultureInfo.InvariantCulture);
 
-					if ( typeof( Delegate ).IsAssignableFrom( parameterType ) &&
-						parameters[ i ] is LambdaExpression )
-					{
-						parameters[ i ] = ( (LambdaExpression) parameters[ i ] ).Compile();
-					}
-				}
+                    if (typeof(Delegate).IsAssignableFrom(parameterType) &&
+                        parameters[i] is LambdaExpression)
+                    {
+                        parameters[i] = ((LambdaExpression) parameters[i]).Compile();
+                    }
+                }
             }
 
             // assign null to parameters not provided
@@ -94,12 +94,12 @@ namespace Jint.Runtime.Interop
                             paramsParameterType,
                             CultureInfo.InvariantCulture);
 
-						if ( typeof( Delegate ).IsAssignableFrom( paramsParameterType ) &&
-						parameters[ i ] is LambdaExpression )
-						{
-							parameters[ i ] = ( (LambdaExpression) parameters[ i ] ).Compile();
-						}
-					}                    
+                        if (typeof(Delegate).IsAssignableFrom(paramsParameterType) &&
+                            parameters[i] is LambdaExpression)
+                        {
+                            parameters[i] = ((LambdaExpression) parameters[i]).Compile();
+                        }
+                    }                    
                 }
                 parameters[paramsArgumentIndex] = paramsParameter;
             }
