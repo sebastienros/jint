@@ -1227,7 +1227,7 @@ namespace Jint.Parser
             char ch = _source.CharCodeAt(_index);
 
             // Very common: ( and ) and ;
-            if (ch == 40 || ch == 41 || ch == 58)
+            if (ch == 40 || ch == 41 || ch == 59)
             {
                 return ScanPunctuator();
             }
