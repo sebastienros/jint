@@ -18,6 +18,7 @@ using Jint.Native.String;
 using Jint.Parser;
 using Jint.Parser.Ast;
 using Jint.Runtime;
+using Jint.Runtime.CallStack;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -26,8 +27,6 @@ using Jint.Runtime.References;
 
 namespace Jint
 {
-    using Jint.Runtime.CallStack;
-
     public class Engine
     {
         private readonly ExpressionInterpreter _expressions;
@@ -42,6 +41,28 @@ namespace Jint
 
         // cache of types used when resolving CLR type names
         internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
+
+        internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new Dictionary<Type, Func<Engine, object, JsValue>>()
+        {
+            { typeof(bool), (Engine engine, object v) => new JsValue((bool)v) },
+            { typeof(byte), (Engine engine, object v) => new JsValue((byte)v) },
+            { typeof(char), (Engine engine, object v) => new JsValue((char)v) },
+            { typeof(DateTime), (Engine engine, object v) => engine.Date.Construct((DateTime)v) },
+            { typeof(DateTimeOffset), (Engine engine, object v) => engine.Date.Construct((DateTimeOffset)v) },
+            { typeof(decimal), (Engine engine, object v) => new JsValue((double)(decimal)v) },
+            { typeof(double), (Engine engine, object v) => new JsValue((double)v) },
+            { typeof(Int16), (Engine engine, object v) => new JsValue((Int16)v) },
+            { typeof(Int32), (Engine engine, object v) => new JsValue((Int32)v) },
+            { typeof(Int64), (Engine engine, object v) => new JsValue((Int64)v) },
+            { typeof(SByte), (Engine engine, object v) => new JsValue((SByte)v) },
+            { typeof(Single), (Engine engine, object v) => new JsValue((Single)v) },
+            { typeof(string), (Engine engine, object v) => new JsValue((string)v) },
+            { typeof(UInt16), (Engine engine, object v) => new JsValue((UInt16)v) },
+            { typeof(UInt32), (Engine engine, object v) => new JsValue((UInt32)v) },
+            { typeof(UInt64), (Engine engine, object v) => new JsValue((UInt64)v) },
+            { typeof(JsValue), (Engine engine, object v) => (JsValue)v },
+            { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct(((System.Text.RegularExpressions.Regex)v).ToString().Trim('/')) }
+        };
 
         internal JintCallStack CallStack = new JintCallStack();
 
