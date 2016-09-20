@@ -17,6 +17,7 @@ namespace Jint.Runtime.Interop
         public DelegateWrapper(Engine engine, Delegate d) : base(engine, null, null, false)
         {
             _d = d;
+            Prototype = engine.Function.PrototypeObject;
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
