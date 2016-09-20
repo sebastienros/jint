@@ -39,8 +39,8 @@ namespace Jint.Native.Argument
 
         public static ArgumentsInstance CreateArgumentsObject(Engine engine, FunctionInstance func, string[] names, JsValue[] args, EnvironmentRecord env, bool strict)
         {
-            var obj = new ArgumentsInstance(engine, self => 
-            {                
+            var obj = new ArgumentsInstance(engine, self =>
+            {
                 var len = args.Length;
                 self.FastAddProperty("length", len, true, false, true);
                 var map = engine.Object.Construct(Arguments.Empty);
@@ -91,7 +91,7 @@ namespace Jint.Native.Argument
             obj.Prototype = engine.Object.PrototypeObject;
             obj.Extensible = true;
             obj.Strict = strict;
-            
+
 
             return obj;
         }
@@ -131,8 +131,8 @@ namespace Jint.Native.Argument
             return base.GetOwnProperty(propertyName);
         }
 
-        /// Implementation from ObjectInstance official specs as the one 
-        /// in ObjectInstance is optimized for the general case and wouldn't work 
+        /// Implementation from ObjectInstance official specs as the one
+        /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
         public override void Put(string propertyName, JsValue value, bool throwOnError)
         {
@@ -162,7 +162,7 @@ namespace Jint.Native.Argument
 
             if (desc.IsAccessorDescriptor())
             {
-                var setter = desc.Set.Value.TryCast<ICallable>();
+                var setter = desc.Set.TryCast<ICallable>();
                 setter.Call(new JsValue(this), new[] { value });
             }
             else
@@ -196,9 +196,9 @@ namespace Jint.Native.Argument
                     }
                     else
                     {
-                        if (desc.Value.HasValue && desc.Value.Value != Undefined.Instance)
+                        if (desc.Value != null && desc.Value != Undefined.Instance)
                         {
-                            map.Put(propertyName, desc.Value.Value, throwOnError);
+                            map.Put(propertyName, desc.Value, throwOnError);
                         }
 
                         if (desc.Writable.HasValue && desc.Writable.Value == false)
@@ -235,4 +235,3 @@ namespace Jint.Native.Argument
         }
     }
 }
- 

@@ -92,7 +92,7 @@ namespace Jint.Tests.Runtime.Domain
         }
         public string Call16(params JsValue[] values)
         {
-            return String.Join(",", values);
+            return String.Join(",", (System.Collections.Generic.IEnumerable<JsValue>)values);
         }
 
         public int Call17(Func<int, int> callback)

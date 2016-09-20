@@ -19,7 +19,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             Writable = propertyInfo.CanWrite;
         }
 
-        public override JsValue? Value
+        public override JsValue Value
         {
             get
             {
@@ -28,7 +28,7 @@ namespace Jint.Runtime.Descriptors.Specialized
 
             set
             {
-                var currentValue = value.GetValueOrDefault();
+                var currentValue = value;
                 object obj;
                 if (_propertyInfo.PropertyType == typeof (JsValue))
                 {
@@ -43,7 +43,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                         obj = _engine.ClrTypeConverter.Convert(obj, _propertyInfo.PropertyType, CultureInfo.InvariantCulture);
                     }
                 }
-                
+
                 _propertyInfo.SetValue(_item, obj, null);
             }
         }

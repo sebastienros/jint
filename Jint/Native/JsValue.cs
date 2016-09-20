@@ -17,7 +17,7 @@ using Jint.Runtime.Interop;
 namespace Jint.Native
 {
     [DebuggerTypeProxy(typeof(JsValueDebugView))]
-    public struct JsValue : IEquatable<JsValue>
+    public class JsValue : IEquatable<JsValue>
     {
         public readonly static JsValue Undefined = new JsValue(Types.Undefined);
         public readonly static JsValue Null = new JsValue(Types.Null);
@@ -242,6 +242,16 @@ namespace Jint.Native
 
         public bool Equals(JsValue other)
         {
+            if (other == null)
+            {
+                return false;
+            }
+
+            if(ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
             if (_type != other._type)
             {
                 return false;
@@ -495,7 +505,7 @@ namespace Jint.Native
                         case "Arguments":
                         case "Object":
 #if __IOS__
-                                IDictionary<string, object> o = new Dictionary<string, object>(); 
+                                IDictionary<string, object> o = new Dictionary<string, object>();
 #else
                             IDictionary<string, object> o = new ExpandoObject();
 #endif
@@ -572,11 +582,31 @@ namespace Jint.Native
 
         public static bool operator ==(JsValue a, JsValue b)
         {
+            if ((object)a == null)
+            {
+                if ((object)b == null)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
             return a.Equals(b);
         }
 
         public static bool operator !=(JsValue a, JsValue b)
         {
+            if ((object)a == null)
+            {
+                if ((object)b == null)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
             return !a.Equals(b);
         }
 
