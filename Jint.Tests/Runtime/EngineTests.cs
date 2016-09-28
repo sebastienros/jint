@@ -877,25 +877,25 @@ namespace Jint.Tests.Runtime
             ");
         }
 
-		[Fact]
-		public void JsonParserShouldUseToString()
-		{
-			RunTest(@"
+        [Fact]
+        public void JsonParserShouldUseToString()
+        {
+            RunTest(@"
                 var a = JSON.parse(null); // Equivalent to JSON.parse('null')
                 assert(a === null);
             ");
 
-			RunTest(@"
+            RunTest(@"
                 var a = JSON.parse(true); // Equivalent to JSON.parse('true')
                 assert(a === true);
             ");
 
-			RunTest(@"
+            RunTest(@"
                 var a = JSON.parse(false); // Equivalent to JSON.parse('false')
                 assert(a === false);
             ");
 
-			RunTest(@"
+            RunTest(@"
                 try {
                     JSON.parse(undefined); // Equivalent to JSON.parse('undefined')
                     assert(false);
@@ -903,9 +903,9 @@ namespace Jint.Tests.Runtime
                 catch(ex) {
                     assert(ex instanceof SyntaxError);
                 }
-			");
+            ");
 
-			RunTest(@"
+            RunTest(@"
                 try {
                     JSON.parse({}); // Equivalent to JSON.parse('[object Object]')
                     assert(false);
@@ -913,9 +913,9 @@ namespace Jint.Tests.Runtime
                 catch(ex) {
                     assert(ex instanceof SyntaxError);
                 }
-			");
+            ");
 
-			RunTest(@"
+            RunTest(@"
                 try {
                     JSON.parse(function() { }); // Equivalent to JSON.parse('function () {}')
                     assert(false);
@@ -923,10 +923,10 @@ namespace Jint.Tests.Runtime
                 catch(ex) {
                     assert(ex instanceof SyntaxError);
                 }
-			");
-		}
+            ");
+        }
 
-		[Fact]
+        [Fact]
         public void JsonParserShouldDetectInvalidNegativeNumberSyntax()
         {
             RunTest(@"
