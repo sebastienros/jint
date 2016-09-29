@@ -852,6 +852,32 @@ namespace Jint.Tests.Runtime
             Assert.Throws<ArgumentException>(() => x.Invoke(1, 2));
         }
 
+        [Fact]
+        public void ShouldInvokeAFunctionValueThatBelongsToAnObject()
+        {
+            RunTest(@"
+                var obj = { foo: 5, getFoo: function (bar) { return 'foo is ' + this.foo + ', bar is ' + bar; } };
+            ");
+
+            var obj = _engine.GetValue("obj").AsObject();
+            var getFoo = obj.Get("getFoo");
+
+            Assert.Equal("foo is 5, bar is 7", _engine.Invoke(getFoo, obj, new object[] { 7 }).AsString());
+        }
+
+        [Fact]
+        public void ShouldNotInvokeNonFunctionValueThatBelongsToAnObject()
+        {
+            RunTest(@"
+                var obj = { foo: 2 };
+            ");
+
+            var obj = _engine.GetValue("obj").AsObject();
+            var foo = obj.Get("foo");
+
+            Assert.Throws<ArgumentException>(() => _engine.Invoke(foo, obj, new object[] { }));
+        }
+
         [Theory]
         [InlineData("0", 0, 16)]
         [InlineData("1", 1, 16)]

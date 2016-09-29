@@ -672,6 +672,30 @@ namespace Jint
         public JsValue Invoke(string propertyName, object thisObj, object[] arguments)
         {
             var value = GetValue(propertyName);
+
+            return Invoke(value, thisObj, arguments);
+        }
+
+        /// <summary>
+        /// Invoke the current value as function.
+        /// </summary>
+        /// <param name="value">The function to call.</param>
+        /// <param name="arguments">The arguments of the function call.</param>
+        /// <returns>The value returned by the function call.</returns>
+        public JsValue Invoke(JsValue value, params object[] arguments)
+        {
+            return Invoke(value, null, arguments);
+        }
+
+        /// <summary>
+        /// Invoke the current value as function.
+        /// </summary>
+        /// <param name="value">The function to call.</param>
+        /// <param name="thisObj">The this value inside the function call.</param>
+        /// <param name="arguments">The arguments of the function call.</param>
+        /// <returns>The value returned by the function call.</returns>
+        public JsValue Invoke(JsValue value, object thisObj, object[] arguments)
+        {
             var callable = value.TryCast<ICallable>();
 
             if (callable == null)
