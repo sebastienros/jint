@@ -852,6 +852,32 @@ namespace Jint.Tests.Runtime
             Assert.Throws<ArgumentException>(() => x.Invoke(1, 2));
         }
 
+        [Fact]
+        public void ShouldInvokeAFunctionValueThatBelongsToAnObject()
+        {
+            RunTest(@"
+                var obj = { foo: 5, getFoo: function (bar) { return 'foo is ' + this.foo + ', bar is ' + bar; } };
+            ");
+
+            var obj = _engine.GetValue("obj").AsObject();
+            var getFoo = obj.Get("getFoo");
+
+            Assert.Equal("foo is 5, bar is 7", _engine.Invoke(getFoo, obj, new object[] { 7 }).AsString());
+        }
+
+        [Fact]
+        public void ShouldNotInvokeNonFunctionValueThatBelongsToAnObject()
+        {
+            RunTest(@"
+                var obj = { foo: 2 };
+            ");
+
+            var obj = _engine.GetValue("obj").AsObject();
+            var foo = obj.Get("foo");
+
+            Assert.Throws<ArgumentException>(() => _engine.Invoke(foo, obj, new object[] { }));
+        }
+
         [Theory]
         [InlineData("0", 0, 16)]
         [InlineData("1", 1, 16)]
@@ -877,25 +903,25 @@ namespace Jint.Tests.Runtime
             ");
         }
 
-		[Fact]
-		public void JsonParserShouldUseToString()
-		{
-			RunTest(@"
+        [Fact]
+        public void JsonParserShouldUseToString()
+        {
+            RunTest(@"
                 var a = JSON.parse(null); // Equivalent to JSON.parse('null')
                 assert(a === null);
             ");
 
-			RunTest(@"
+            RunTest(@"
                 var a = JSON.parse(true); // Equivalent to JSON.parse('true')
                 assert(a === true);
             ");
 
-			RunTest(@"
+            RunTest(@"
                 var a = JSON.parse(false); // Equivalent to JSON.parse('false')
                 assert(a === false);
             ");
 
-			RunTest(@"
+            RunTest(@"
                 try {
                     JSON.parse(undefined); // Equivalent to JSON.parse('undefined')
                     assert(false);
@@ -903,9 +929,9 @@ namespace Jint.Tests.Runtime
                 catch(ex) {
                     assert(ex instanceof SyntaxError);
                 }
-			");
+            ");
 
-			RunTest(@"
+            RunTest(@"
                 try {
                     JSON.parse({}); // Equivalent to JSON.parse('[object Object]')
                     assert(false);
@@ -913,9 +939,9 @@ namespace Jint.Tests.Runtime
                 catch(ex) {
                     assert(ex instanceof SyntaxError);
                 }
-			");
+            ");
 
-			RunTest(@"
+            RunTest(@"
                 try {
                     JSON.parse(function() { }); // Equivalent to JSON.parse('function () {}')
                     assert(false);
@@ -923,10 +949,10 @@ namespace Jint.Tests.Runtime
                 catch(ex) {
                     assert(ex instanceof SyntaxError);
                 }
-			");
-		}
+            ");
+        }
 
-		[Fact]
+        [Fact]
         public void JsonParserShouldDetectInvalidNegativeNumberSyntax()
         {
             RunTest(@"
