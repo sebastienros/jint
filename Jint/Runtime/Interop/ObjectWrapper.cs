@@ -6,7 +6,7 @@ using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using System.Collections;
-using Jint.Extensions;
+using Jint.Reflection;
 
 namespace Jint.Runtime.Interop
 {
@@ -61,9 +61,7 @@ namespace Jint.Runtime.Interop
             var type = Target.GetType();
 
             // look for a property
-            var property = type.GetAllStaticProperties()
-                .Where(p => EqualsIgnoreCasing(p.Name, propertyName))
-                .FirstOrDefault();
+            var property = type.GetPublicProperty(propertyName);
             if (property != null)
             {
                 var descriptor = new PropertyInfoDescriptor(Engine, property, Target);
@@ -84,7 +82,7 @@ namespace Jint.Runtime.Interop
             }
 
             // if no properties were found then look for a method 
-            var methods = type.GetRuntimeMethods().Where(m => m.IsPublic && EqualsIgnoreCasing(m.Name, propertyName))
+            var methods = type.GetPublicMethods(propertyName)
                 .ToArray();
 
             if (methods.Any())

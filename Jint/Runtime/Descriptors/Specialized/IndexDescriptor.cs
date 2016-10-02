@@ -2,8 +2,8 @@
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using Jint.Extensions;
 using Jint.Native;
+using Jint.Reflection;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {

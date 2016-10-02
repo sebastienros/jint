@@ -663,7 +663,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal("foo", value);
         }
 
-        [Fact]
+        [Fact(Skip = "No dynamic in NetStandard 1.0")]
         public void ShouldConvertObjectInstanceToExpando()
         {
             _engine.Execute("var o = {a: 1, b: 'foo'}");

@@ -4,10 +4,10 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
+using Jint.Reflection;
 
 namespace Jint.Runtime.Interop
 {

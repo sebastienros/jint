@@ -2,9 +2,9 @@ using System;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Reflection;
 
 namespace Jint.Runtime.Interop
 {

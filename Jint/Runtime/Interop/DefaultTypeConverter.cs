@@ -5,7 +5,7 @@ using System.Linq.Expressions;
 using Jint.Native;
 using System.Collections.Generic;
 using System.Reflection;
-using Jint.Extensions;
+using Jint.Reflection;
 
 namespace Jint.Runtime.Interop
 {
@@ -66,7 +66,7 @@ namespace Jint.Runtime.Interop
                     // create the requested Delegate
                     if (genericType.Name.StartsWith("Action"))
                     {
-                        var genericArguments = type.GetTypeInfo().GetGenericTypeDefinition().GenericTypeArguments;
+                        var genericArguments = type.GenericTypeArguments;
 
                         var @params = new ParameterExpression[genericArguments.Count()];
                         for (var i = 0; i < @params.Count(); i++)
@@ -100,7 +100,7 @@ namespace Jint.Runtime.Interop
                     }
                     else if (genericType.Name.StartsWith("Func"))
                     {
-                        var genericArguments = type.GetGenericTypeDefinition().GenericTypeArguments;
+                        var genericArguments = type.GenericTypeArguments;
                         var returnType = genericArguments.Last();
 
                         var @params = new ParameterExpression[genericArguments.Count() - 1];

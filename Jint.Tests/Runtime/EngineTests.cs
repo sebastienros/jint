@@ -26,6 +26,9 @@ namespace Jint.Tests.Runtime
                 .SetValue("assert", new Action<bool>(Assert.True))
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
                 ;
+
+            //Necessary for running date formatting tests on machines with non English regional settings
+            Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
         }
 
         void IDisposable.Dispose()
