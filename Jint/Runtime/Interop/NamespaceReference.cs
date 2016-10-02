@@ -171,7 +171,7 @@ namespace Jint.Runtime.Interop
 
         private static void AddNestedTypesRecursively(List<Type> types, Type type)
         {
-          IEnumerable<Type> nestedTypes = type.GetTypeInfo().DeclaredNestedTypes.Where(x => x.IsPublic).Select(x => x.AsType());
+          IEnumerable<Type> nestedTypes = type.GetTypeInfo().DeclaredNestedTypes.Where(x => x.IsNestedPublic).Select(x => x.AsType());
           foreach (Type nestedType in nestedTypes)
           {
             types.Add(nestedType);
