@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Dynamic;
+using System.Reflection;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -279,6 +279,8 @@ namespace Jint.Native
         /// <returns></returns>
         public static JsValue FromObject(Engine engine, object value)
         {
+            JsValue result;
+
             if (value == null)
             {
                 return Null;
@@ -286,53 +288,35 @@ namespace Jint.Native
 
             foreach (var converter in engine.Options._ObjectConverters)
             {
-                JsValue result;
+
                 if (converter.TryConvert(value, out result))
                 {
                     return result;
                 }
             }
 
-            var typeCode = System.Type.GetTypeCode(value.GetType());
-            switch (typeCode)
+            Dictionary<Type, Func<object, JsValue>> jsValueConverters = new Dictionary<Type, Func<object, JsValue>>()
             {
-                case TypeCode.Boolean:
-                    return new JsValue((bool)value);
-                case TypeCode.Byte:
-                    return new JsValue((byte)value);
-                case TypeCode.Char:
-                    return new JsValue(value.ToString());
-                case TypeCode.DateTime:
-                    return engine.Date.Construct((DateTime)value);
-                case TypeCode.Decimal:
-                    return new JsValue((double)(decimal)value);
-                case TypeCode.Double:
-                    return new JsValue((double)value);
-                case TypeCode.Int16:
-                    return new JsValue((Int16)value);
-                case TypeCode.Int32:
-                    return new JsValue((Int32)value);
-                case TypeCode.Int64:
-                    return new JsValue((Int64)value);
-                case TypeCode.SByte:
-                    return new JsValue((SByte)value);
-                case TypeCode.Single:
-                    return new JsValue((Single)value);
-                case TypeCode.String:
-                    return new JsValue((string)value);
-                case TypeCode.UInt16:
-                    return new JsValue((UInt16)value);
-                case TypeCode.UInt32:
-                    return new JsValue((UInt32)value);
-                case TypeCode.UInt64:
-                    return new JsValue((UInt64)value);
-                case TypeCode.Object:
-                    break;
-                case TypeCode.Empty:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+                {typeof (bool), v => new JsValue((bool) v)},
+                {typeof (byte), v => new JsValue((byte) v)},
+                {typeof (Char), v => new JsValue(v.ToString())},
+                {typeof (DateTime), v => engine.Date.Construct((DateTime) v)},
+                {typeof (Decimal), v => new JsValue((double) (decimal) v)},
+                {typeof (Double), v => new JsValue((Double) v)},
+                {typeof (Int16), v => new JsValue((Int16) v)},
+                {typeof (Int32), v => new JsValue((Int32) v)},
+                {typeof (Int64), v => new JsValue((Int64) v)},
+                {typeof (SByte), v => new JsValue((SByte) v)},
+                {typeof (Single), v => new JsValue((Single) v)},
+                {typeof (string), v => new JsValue((string) v)},
+                {typeof (UInt16), v => new JsValue((UInt16) v)},
+                {typeof (UInt32), v => new JsValue((UInt32) v)},
+                {typeof (UInt64), v => new JsValue((UInt64) v)},
+            };
+
+
+            if (jsValueConverters.ContainsKey(value.GetType()))
+                return jsValueConverters[value.GetType()](value);
 
             if (value is DateTimeOffset)
             {
@@ -378,7 +362,7 @@ namespace Jint.Native
                 return new DelegateWrapper(engine, d);
             }
 
-            if (value.GetType().IsEnum)
+            if (value.GetType().GetTypeInfo().IsEnum)
             {
                 return new JsValue((Int32)value);
             }
@@ -494,11 +478,8 @@ namespace Jint.Native
 
                         case "Arguments":
                         case "Object":
-#if __IOS__
-                                IDictionary<string, object> o = new Dictionary<string, object>(); 
-#else
-                            IDictionary<string, object> o = new ExpandoObject();
-#endif
+                            //No expando objects available so we fall back to Dictionary                                
+                            IDictionary<string, object> o = new Dictionary<string, object>(); 
 
                             foreach (var p in (_object as ObjectInstance).GetOwnProperties())
                             {

@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Jint.Extensions;
 using Jint.Native;
 
 namespace Jint.Runtime.Descriptors.Specialized
@@ -20,26 +21,26 @@ namespace Jint.Runtime.Descriptors.Specialized
             _item = item;
 
             // get all instance indexers with exactly 1 argument
-            var indexers = targetType
-                .GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            //no binding flags or any indicator that properties are static in netstandard 1.0
+            var indexers =
+                targetType.GetAllNonStaticProperties();
 
             // try to find first indexer having either public getter or setter with matching argument type
             foreach (var indexer in indexers)
             {
                 if (indexer.GetIndexParameters().Length != 1) continue;
-                if (indexer.GetGetMethod() != null || indexer.GetSetMethod() != null)
-                {
+               
                     var paramType = indexer.GetIndexParameters()[0].ParameterType;
 
                     if (_engine.ClrTypeConverter.TryConvert(key, paramType, CultureInfo.InvariantCulture, out _key))
                     {
                         _indexer = indexer;
                         // get contains key method to avoid index exception being thrown in dictionaries
-                        _containsKey = targetType.GetMethod("ContainsKey", new Type[] { paramType });
+                        _containsKey = targetType.GetRuntimeMethod("ContainsKey", new Type[] { paramType });
                         break;
 
                     }
-                }
+                
             }
 
             // throw if no indexer found
@@ -61,7 +62,7 @@ namespace Jint.Runtime.Descriptors.Specialized
         {
             get
             {
-                var getter = _indexer.GetGetMethod();
+                var getter = _indexer.GetMethod;
 
                 if (getter == null)
                 {
@@ -90,7 +91,7 @@ namespace Jint.Runtime.Descriptors.Specialized
 
             set
             {
-                var setter = _indexer.GetSetMethod();
+                var setter = _indexer.SetMethod;
                 if (setter == null)
                 {
                     throw new InvalidOperationException("Indexer has no public setter.");

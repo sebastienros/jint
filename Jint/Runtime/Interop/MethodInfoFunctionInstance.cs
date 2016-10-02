@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
@@ -98,7 +99,7 @@ namespace Jint.Runtime.Interop
             foreach (var methodInfo in methodInfos)
             {
                 var parameters = methodInfo.GetParameters();
-                if (!parameters.Any(p => Attribute.IsDefined(p, typeof(ParamArrayAttribute))))
+                if (!parameters.Any(p => p.HasAttribute<ParamArrayAttribute>()))
                     continue;
 
                 var nonParamsArgumentsCount = parameters.Length - 1;

@@ -101,7 +101,8 @@ namespace Jint.Runtime.Interop
             }
 
             // search in loaded assemblies
-            foreach (var assembly in new[] { Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly() }.Distinct())
+            // in NetStandard there is no Assembly.CallingAssembly equivalent
+            foreach (var assembly in new[] {  typeof(NamespaceReference).GetTypeInfo().Assembly }.Distinct())
             {
                 type = assembly.GetType(path);
                 if (type != null)
@@ -150,12 +151,12 @@ namespace Jint.Runtime.Interop
 
         private static Type GetType(Assembly assembly, string typeName)
         {
-            Type[] types = assembly.GetTypes();
-            foreach (Type t in types)
+            IEnumerable<TypeInfo> types = assembly.DefinedTypes;
+            foreach (TypeInfo t in types)
             {
                 if (t.FullName.Replace("+", ".") == typeName.Replace("+", "."))
                 {
-                    return t;
+                    return t.AsType();
                 }
             }
             return null;
@@ -170,7 +171,7 @@ namespace Jint.Runtime.Interop
 
         private static void AddNestedTypesRecursively(List<Type> types, Type type)
         {
-          Type[] nestedTypes = type.GetNestedTypes(BindingFlags.Public);
+          IEnumerable<Type> nestedTypes = type.GetTypeInfo().DeclaredNestedTypes.Where(x => x.IsPublic).Select(x => x.AsType());
           foreach (Type nestedType in nestedTypes)
           {
             types.Add(nestedType);

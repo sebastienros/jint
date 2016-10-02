@@ -399,7 +399,7 @@ namespace Jint.Runtime
 
         public static bool TypeIsNullable(Type type)
         {
-            return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
+            return !type.GetTypeInfo().IsValueType || Nullable.GetUnderlyingType(type) != null;
         }
     }
 }

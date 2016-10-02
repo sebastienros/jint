@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -44,7 +45,7 @@ namespace Jint.Runtime.Interop
 
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            if (arguments.Length == 0 && Type.IsValueType)
+            if (arguments.Length == 0 && Type.GetTypeInfo().IsValueType)
             {
                 var instance = Activator.CreateInstance(Type);
                 var result = TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, instance));
@@ -52,7 +53,7 @@ namespace Jint.Runtime.Interop
                 return result;
             }
 
-            var constructors = Type.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
+            var constructors = Type.GetTypeInfo().DeclaredConstructors.Where(c => !c.IsStatic && c.IsPublic).ToArray();
             
             var methods = TypeConverter.FindBestMatch(Engine, constructors, arguments).ToList();
 
@@ -149,7 +150,7 @@ namespace Jint.Runtime.Interop
         {
             // todo: cache members locally
 
-            if (Type.IsEnum)
+            if (Type.GetTypeInfo().IsEnum)
             {
                 Array enumValues = Enum.GetValues(Type);
                 Array enumNames = Enum.GetNames(Type);
@@ -164,21 +165,20 @@ namespace Jint.Runtime.Interop
                 return PropertyDescriptor.Undefined;
             }
 
-            var propertyInfo = Type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Static);
+            var propertyInfo = Type.GetPublicStaticProperties().FirstOrDefault(x => x.Name == propertyName);
             if (propertyInfo != null)
             {
                 return new PropertyInfoDescriptor(Engine, propertyInfo, Type);
             }
 
-            var fieldInfo = Type.GetField(propertyName, BindingFlags.Public | BindingFlags.Static);
+            var fieldInfo =Type.GetRuntimeFields().FirstOrDefault(f => f.IsPublic && f.IsStatic && f.Name == propertyName);
             if (fieldInfo != null)
             {
                 return new FieldInfoDescriptor(Engine, fieldInfo, Type);
             }
 
-            var methodInfo = Type
-                .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(mi => mi.Name == propertyName)
+            var methodInfo = Type.GetRuntimeMethods()
+                .Where(mi => mi.Name == propertyName && mi.IsPublic && mi.IsStatic)
                 .ToArray();
 
             if (methodInfo.Length == 0)
