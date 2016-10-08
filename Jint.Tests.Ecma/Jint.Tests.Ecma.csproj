@@ -468,12 +468,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Jint\Jint.csproj">
-      <Project>{a2707cfd-e37d-4b88-8fc2-238d4c1dfd01}</Project>
-      <Name>Jint</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="TestCases\ch06\6.1.js" />
     <Content Include="TestCases\ch07\7.2\S7.2_A1.1_T1.js" />
     <Content Include="TestCases\ch07\7.2\S7.2_A1.1_T2.js" />
@@ -12047,6 +12041,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Jint\Jint.xproj">
+      <Project>{4b6f353a-5d01-407d-9dc8-96d1fd4f7052}</Project>
+      <Name>Jint</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />

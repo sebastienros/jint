@@ -1,0 +1,70 @@
+{
+  "version": "2.9.1",
+  "title": "Jint",
+  "description": "Javascript interpreter for .NET which provides full ECMA 5.1 compliance.",
+  "language": "en-US",
+  "authors": [ "Sebastien Ros" ],
+  "packOptions": {
+    "projectUrl": "https://github.com/sebastienros/jint",
+    "tags": [ "javascript, interpreter" ],
+    "licenseUrl": "https://raw.githubusercontent.com/sebastienros/jint/master/LICENSE.txt",
+    "repository": {
+      "type": "git",
+      "url": "git://github.com/sebastienros/jint"
+    }
+  },
+  "frameworks": {
+    "net45": {
+      "dependencies": {
+        "System.Diagnostics.Contracts": "4.0.0"
+      }
+    },
+    ".NETPortable,Version=v4.0,Profile=Profile328": {
+     "buildOptions": {
+       "define": [
+         "PORTABLE"
+       ]
+     },
+     "frameworkAssemblies": {
+       "mscorlib": "",
+       "System": "",
+       "System.Core": "",
+       "System.Runtime.Serialization": "",
+       "System.Xml": ""
+     }
+    },
+    "netstandard1.3": {
+      "buildOptions": {
+        "define": [
+          "NETSTANDARD1_3"
+        ]
+      },
+      "dependencies": {
+        "Microsoft.CSharp": "4.0.1",
+        "System.Collections": "4.0.11",
+        "System.Diagnostics.Contracts": "4.0.1",
+        "System.Diagnostics.Debug": "4.0.11",
+        "System.Dynamic.Runtime": "4.0.11",
+        "System.Globalization": "4.0.11",
+        "System.IO": "4.1.0",
+        "System.Linq": "4.1.0",
+        "System.Linq.Expressions": "4.1.0",
+        "System.ObjectModel": "4.0.12",
+        "System.Reflection": "4.1.0",
+        "System.Reflection.Extensions": "4.0.1",
+        "System.Reflection.TypeExtensions": "4.1.0",
+        "System.Resources.ResourceManager": "4.0.1",
+        "System.Runtime": "4.1.0",
+        "System.Runtime.Extensions": "4.1.0",
+        "System.Runtime.Serialization.Primitives": "4.1.1",
+        "System.Text.Encoding": "4.0.11",
+        "System.Text.Encoding.Extensions": "4.0.11",
+        "System.Text.RegularExpressions": "4.1.0",
+        "System.Threading": "4.0.11",
+        "System.Threading.Tasks": "4.0.11",
+        "System.Xml.ReaderWriter": "4.0.11",
+        "System.Xml.XDocument": "4.0.11"
+      }
+    }
+  }
+}

@@ -154,3 +154,5 @@ $RECYCLE.BIN/
 .DS_Store
 Jint.sln.ide/*
 /Jint.sln.GhostDoc.xml
+.vs
+project.lock.json

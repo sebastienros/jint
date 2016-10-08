@@ -75,12 +75,11 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Jint\Jint.csproj">
-      <Project>{678738da-f723-4920-b9e5-cad667104bda}</Project>
+    <ProjectReference Include="..\Jint\Jint.xproj">
+      <Project>{4b6f353a-5d01-407d-9dc8-96d1fd4f7052}</Project>
       <Name>Jint</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

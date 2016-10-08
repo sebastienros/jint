@@ -14,11 +14,11 @@ namespace Jint.Benchmark
             if(o.Blah != 'bar42.0001') throw TypeError;
 
             function fib(n){
-                if(n<2) { 
-                    return n; 
+                if(n<2) {
+                    return n;
                 }
-    
-                return fib(n-1) + fib(n-2);  
+
+                return fib(n-1) + fib(n-2);
             }
 
             if(fib(3) != 2) throw TypeError;

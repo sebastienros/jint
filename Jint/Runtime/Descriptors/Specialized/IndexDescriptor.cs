@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Globalization;
-using System.Linq;
 using System.Reflection;
 using Jint.Native;
 
@@ -20,8 +19,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             _item = item;
 
             // get all instance indexers with exactly 1 argument
-            var indexers = targetType
-                .GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            var indexers = targetType.GetProperties();
 
             // try to find first indexer having either public getter or setter with matching argument type
             foreach (var indexer in indexers)

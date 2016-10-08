@@ -21,7 +21,7 @@ namespace Jint.Native.Array
         {
             var obj = new ArrayPrototype(engine)
                 {
-                    Extensible = true, 
+                    Extensible = true,
                     Prototype = engine.Object.PrototypeObject
                 };
 
@@ -387,11 +387,11 @@ namespace Jint.Native.Array
                 var fromPresent = o.HasProperty(from);
                 if (fromPresent)
                 {
-                    var fromValue = o.Get(from); 
+                    var fromValue = o.Get(from);
                     a.DefineOwnProperty(k.ToString(), new PropertyDescriptor(fromValue, true, true, true), false);
                 }
             }
-            
+
             var items = arguments.Skip(2).ToArray();
             if (items.Length < actualDeleteCount)
             {
@@ -477,7 +477,7 @@ namespace Jint.Native.Array
         {
             if (!thisObj.IsObject())
             {
-                throw new JavaScriptException(Engine.TypeError, "Array.prorotype.sort can only be applied on objects");  
+                throw new JavaScriptException(Engine.TypeError, "Array.prorotype.sort can only be applied on objects");
             }
 
             var obj = thisObj.AsObject();
@@ -538,7 +538,7 @@ namespace Jint.Native.Array
                 };
 
             var array = Enumerable.Range(0, lenVal).Select(i => obj.Get(i.ToString())).ToArray();
-            
+
             // don't eat inner exceptions
             try
             {
@@ -650,7 +650,7 @@ namespace Jint.Native.Array
             var o = TypeConverter.ToObject(Engine, thisObj);
             var lenVal = o.Get("length");
             var len = TypeConverter.ToUint32(lenVal);
-            var middle = (uint)System.Math.Floor(len/2);
+            var middle = (uint)System.Math.Floor(len/2.0);
             uint lower = 0;
             while (lower != middle)
             {
@@ -694,7 +694,7 @@ namespace Jint.Native.Array
                 separator = ",";
             }
             var sep = TypeConverter.ToString(separator);
-            
+
             // as per the spec, this has to be called after ToString(separator)
             if (len == 0)
             {
@@ -803,7 +803,7 @@ namespace Jint.Native.Array
             // this is not in the specs, but is necessary in case the last element of the last
             // array doesn't exist, and thus the length would not be incremented
             a.DefineOwnProperty("length", new PropertyDescriptor(n, null, null, null), false);
-            
+
             return a;
         }
 
@@ -884,7 +884,7 @@ namespace Jint.Native.Array
         {
             ObjectInstance o = TypeConverter.ToObject(Engine, thisObject);
             var lenVal = TypeConverter.ToNumber(o.Get("length"));
-            
+
             // cast to double as we need to prevent an overflow
             double n = TypeConverter.ToUint32(lenVal);
             foreach (JsValue e in arguments)
@@ -894,7 +894,7 @@ namespace Jint.Native.Array
             }
 
             o.Put("length", n, true);
-            
+
             return n;
         }
 

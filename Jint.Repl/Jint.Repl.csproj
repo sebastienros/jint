@@ -48,8 +48,8 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Jint\Jint.csproj">
-      <Project>{678738DA-F723-4920-B9E5-CAD667104BDA}</Project>
+    <ProjectReference Include="..\Jint\Jint.xproj">
+      <Project>{4b6f353a-5d01-407d-9dc8-96d1fd4f7052}</Project>
       <Name>Jint</Name>
     </ProjectReference>
   </ItemGroup>
