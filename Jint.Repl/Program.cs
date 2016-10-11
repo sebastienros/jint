@@ -66,7 +66,7 @@ namespace Jint.Repl
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine(e.Message);
                 }
-                
+
             }
         }
     }

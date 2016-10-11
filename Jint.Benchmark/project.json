@@ -1,0 +1,15 @@
+﻿{
+  "version": "1.0.0-*",
+  "buildOptions": {
+    "emitEntryPoint": true
+  },
+
+  "frameworks": {
+    "net45": {
+      "dependencies": {
+        "Jint": "*",
+        "Jurassic2": "2.2.1"
+      }
+    }
+  }
+}
