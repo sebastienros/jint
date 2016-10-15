@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
+using System.IO;
+using System.Reflection;
 using Jint.Runtime;
 using Xunit;
-using Xunit.Extensions;
 
 namespace Jint.Tests.CommonScripts
 {
@@ -29,214 +27,54 @@ namespace Jint.Tests.CommonScripts
             return engine;
         }
 
-        [Theory]
-        [InlineData("3d-cube", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/3d-cube.js")]
-        public void ThreeDCube(string name, string url)
+        [Theory(DisplayName = "Sunspider")]
+        [InlineData("3d-cube", "3d-cube.js")]
+        [InlineData("3d-morph", "3d-morph.js")]
+        [InlineData("3d-raytrace", "3d-raytrace.js")]
+        [InlineData("access-binary-trees", "access-binary-trees.js")]
+        [InlineData("access-fannkuch", "access-fannkuch.js")]
+        [InlineData("access-nbody", "access-nbody.js")]
+        [InlineData("access-nsieve", "access-nsieve.js")]
+        [InlineData("bitops-3bit-bits-in-byte", "bitops-3bit-bits-in-byte.js")]
+        [InlineData("bitops-bits-in-byte", "bitops-bits-in-byte.js")]
+        [InlineData("bitops-bitwise-and", "bitops-bitwise-and.js")]
+        [InlineData("bitops-nsieve-bits", "bitops-nsieve-bits.js")]
+        [InlineData("controlflow-recursive", "controlflow-recursive.js")]
+        [InlineData("crypto-aes", "crypto-aes.js")]
+        [InlineData("crypto-md5", "crypto-md5.js")]
+        [InlineData("crypto-sha1", "crypto-sha1.js")]
+        [InlineData("date-format-tofte", "date-format-tofte.js")]
+        [InlineData("date-format-xparb", "date-format-xparb.js")]
+        [InlineData("math-cordic", "math-cordic.js")]
+        [InlineData("math-partial-sums", "math-partial-sums.js")]
+        [InlineData("math-spectral-norm", "math-spectral-norm.js")]
+        [InlineData("regexp-dna", "regexp-dna.js")]
+        [InlineData("string-base64", "string-base64.js")]
+        [InlineData("string-fasta", "string-fasta.js")]
+        [InlineData("string-tagcloud", "string-tagcloud.js")]
+        [InlineData("string-unpack-code", "string-unpack-code.js")]
+        [InlineData("string-validate-input", "string-validate-input.js")]
+        public void RunScript(string name, string url)
         {
-            var content = new WebClient().DownloadString(url);
+            var content = GetEmbeddedFile(url);
             RunTest(content);
         }
 
-        [Theory]
-        [InlineData("3d-morph", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/3d-morph.js")]
-        public void ThreeDMorph(string name, string url)
+        private string GetEmbeddedFile(string filename)
         {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
+            const string prefix = "Jint.Tests.CommonScripts.Scripts.";
 
-        [Theory]
-        [InlineData("3d-raytrace", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/3d-raytrace.js")]
-        public void ThreeDRaytrace(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
+            var assembly = typeof(SunSpiderTests).GetTypeInfo().Assembly;
+            var scriptPath = prefix + filename;
 
-        [Theory]
-        [InlineData("access-binary-trees", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/access-binary-trees.js")]
-        public void AccessBinaryTrees(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("access-fannkuch", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/access-fannkuch.js")]
-        public void AccessFannkych(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("access-nbody", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/access-nbody.js")]
-        public void AccessNBody(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("access-nsieve", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/access-nsieve.js")]
-        public void AccessNSieve(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [InlineData("bitops-3bit-bits-in-byte", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/bitops-3bit-bits-in-byte.js")]
-        public void Bitops3BitBitsInByte(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("bitops-bits-in-byte", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/bitops-bits-in-byte.js")]
-        public void BitopsBitsInByte(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("bitops-bitwise-and", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/bitops-bitwise-and.js")]
-        public void BitopsBitwiseAnd(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("bitops-nsieve-bits", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/bitops-nsieve-bits.js")]
-        public void BitopsNSieveBits(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("controlflow-recursive", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/controlflow-recursive.js")]
-        public void ControlFlowRecursive(string name, string url)
-        {
-            var t = new Thread(() =>
+            using (var stream = assembly.GetManifestResourceStream(scriptPath))
             {
-                var content = new WebClient().DownloadString(url);
-                RunTest(content);    
-            }, 1000000000);
-            
-            t.Start();
-            t.Join();
+                using (var sr = new StreamReader(stream))
+                {
+                    return sr.ReadToEnd();
+                }
+            }
         }
 
-        [Theory]
-        [InlineData("crypto-aes", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/crypto-aes.js")]
-        public void CryptoAES(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("crypto-md5", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/crypto-md5.js")]
-        public void CryptoMD5(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [InlineData("crypto-sha1", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/crypto-sha1.js")]
-        public void CryptoSha1(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("date-format-tofte", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/date-format-tofte.js")]
-        public void DateFormatTofte(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("date-format-xparb", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/date-format-xparb.js")]
-        public void DateFormatXParb(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [InlineData("math-cordic", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/math-cordic.js")]
-        public void MathCordic(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("math-partial-sums", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/math-partial-sums.js")]
-        public void MathPartialSums(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("math-spectral-norm", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/math-spectral-norm.js")]
-        public void MathSpectralNorm(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("regexp-dna", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/regexp-dna.js")]
-        public void RegexpDna(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("string-base64", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/string-base64.js")]
-        public void StringBase64(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [InlineData("string-fasta", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/string-fasta.js")]
-        public void StringFasta(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("string-tagcloud", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/string-tagcloud.js")]
-        public void StringTagCloud(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("string-unpack-code", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/string-unpack-code.js")]
-        public void StringUnpackCode(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
-
-        [Theory]
-        [InlineData("string-validate-input", "https://raw.githubusercontent.com/WebKit/webkit/master/PerformanceTests/SunSpider/tests/sunspider-1.0.2/string-validate-input.js")]
-        public void StringValidateInput(string name, string url)
-        {
-            var content = new WebClient().DownloadString(url);
-            RunTest(content);
-        }
     }
 }

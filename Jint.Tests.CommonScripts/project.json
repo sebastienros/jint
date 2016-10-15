@@ -1,13 +1,21 @@
 ﻿{
   "version": "1.0.0-*",
-
+  "testRunner": "xunit",
   "dependencies": {
-    "NETStandard.Library": "1.6.0"
+    "Jint": "*",
+    "xunit": "2.2.0-*",
+    "dotnet-test-xunit": "2.2.0-preview2-build1029"
   },
-
+  "buildOptions": { "embed": [ "Scripts/*.*" ] },
   "frameworks": {
-    "netstandard1.6": {
-      "imports": "dnxcore50"
-    }
+    "netcoreapp1.0": {
+      "dependencies": {
+        "Microsoft.NETCore.App": {
+          "version": "1.0.0",
+          "type": "platform"
+        }
+      }
+    },
+    "net451": {}
   }
 }
