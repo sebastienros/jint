@@ -38,22 +38,20 @@ namespace Jint.Tests.Runtime
             _engine.Execute(source);
         }
 
-        [Theory]
-        [InlineData("Scratch.js")]
-        public void ShouldInterpretScriptFile(string file)
+        private string GetEmbeddedFile(string filename)
         {
             const string prefix = "Jint.Tests.Runtime.Scripts.";
 
-            var assembly = Assembly.GetExecutingAssembly();
-            var scriptPath = prefix + file;
+            var assembly = typeof(EngineTests).GetTypeInfo().Assembly;
+            var scriptPath = prefix + filename;
 
             using (var stream = assembly.GetManifestResourceStream(scriptPath))
-                if (stream != null)
-                    using (var sr = new StreamReader(stream))
-                    {
-                        var source = sr.ReadToEnd();
-                        RunTest(source);
-                    }
+            {
+                using (var sr = new StreamReader(stream))
+                {
+                    return sr.ReadToEnd();
+                }
+            }
         }
 
         [Theory]
@@ -977,11 +975,10 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        [ReplaceCulture("fr-FR")]
         public void ShouldBeCultureInvariant()
         {
             // decimals in french are separated by commas
-            Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
-
             var engine = new Engine();
 
             var result = engine.Execute("1.2 + 2.1").GetCompletionValue().AsNumber();
@@ -1040,19 +1037,27 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void UtcShouldUseUtc()
         {
-            const string customName = "Custom Time";
-            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(7, 11, 0), customName, customName, customName, null, false);
+            var customTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central Europe Standard Time");
+
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
             var result = engine.Execute("Date.UTC(1970,0,1)").GetCompletionValue().AsNumber();
             Assert.Equal(0, result);
         }
 
+#if NET451
         [Fact]
+#else
+        [Fact(Skip = "CreateCustomTimeZone not available on netstandard")]
+#endif
         public void ShouldUseLocalTimeZoneOverride()
         {
+#if NET451
             const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName, customName, customName, null, false);
+#else
+        var customTimeZone = TimeZoneInfo.Utc;
+#endif
 
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
@@ -1094,8 +1099,12 @@ namespace Jint.Tests.Runtime
         [InlineData("1970-01-01T00:00:00.000-00:00")]
         public void ShouldParseAsUtc(string date)
         {
+#if NET451
             const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(7, 11, 0), customName, customName, customName, null, false);
+#else
+            var customTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Tonga Standard Time");
+#endif
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
             engine.SetValue("d", date);
@@ -1104,7 +1113,11 @@ namespace Jint.Tests.Runtime
             Assert.Equal(0, result);
         }
 
+#if NET451
         [Theory]
+#else
+        [Theory(Skip = "CreateCustomTimeZone not available on netstandard")]
+#endif
         [InlineData("1970/01")]
         [InlineData("1970/01/01")]
         [InlineData("1970/01/01T00:00")]
@@ -1123,10 +1136,14 @@ namespace Jint.Tests.Runtime
         [InlineData("1970-01-01T00:00:00.000+00:11")]
         public void ShouldParseAsLocalTime(string date)
         {
-            const string customName = "Custom Time";
             const int timespanMinutes = 11;
             const int msPriorMidnight = -timespanMinutes * 60 * 1000;
+#if NET451
+            const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, timespanMinutes, 0), customName, customName, customName, null, false);
+#else
+    var customTimeZone = TimeZoneInfo.Utc;
+#endif
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)).SetValue("d", date);
 
             var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
@@ -1150,8 +1167,7 @@ namespace Jint.Tests.Runtime
         [Theory, MemberData("TestDates")]
         public void TestDateToISOStringFormat(DateTime testDate)
         {
-            const string customName = "Custom Time";
-            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(+13, 0, 0), customName, customName, customName, null, false);
+            var customTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Tonga Standard Time");
 
             var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
             var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
@@ -1163,17 +1179,22 @@ namespace Jint.Tests.Runtime
         [Theory, MemberData("TestDates")]
         public void TestDateToStringFormat(DateTime testDate)
         {
-            const string customName = "Custom Time";
-            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(+13, 0, 0), customName, customName, customName, null, false);
+            var customTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Tonga Standard Time");
 
             var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
             var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
             engine.Execute(
                 string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
-            Assert.Equal(testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz"), engine.Execute("d.toString();").GetCompletionValue().ToString());
+
+            var expected = testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz");
+            var actual = engine.Execute("d.toString();").GetCompletionValue().ToString();
+
+            Assert.Equal(expected, actual);
         }
 
-#endregion //DateParsingAndStrings
+#endregion
+
+        //DateParsingAndStrings
         [Fact]
         public void EmptyStringShouldMatchRegex()
         {
@@ -1186,8 +1207,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldExecuteHandlebars()
         {
-            var url = "http://cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0/handlebars.js";
-            var content = new WebClient().DownloadString(url);
+            var content = GetEmbeddedFile("handlebars.js");
 
             RunTest(content);
 
@@ -1672,8 +1692,9 @@ namespace Jint.Tests.Runtime
         public void DateToStringMethodsShouldUseCurrentTimeZoneAndCulture()
         {
             // Forcing to PDT and FR for tests
-            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
-            var FR = CultureInfo.GetCultureInfo("fr-FR");
+            // var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var PDT = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            var FR = new CultureInfo("fr-FR");
 
             var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
                 .SetValue("log", new Action<object>(Console.WriteLine))
@@ -1715,8 +1736,9 @@ namespace Jint.Tests.Runtime
         public void DateShouldParseToString()
         {
             // Forcing to PDT and FR for tests
-            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
-            var FR = CultureInfo.GetCultureInfo("fr-FR");
+            // var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var PDT = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            var FR = new CultureInfo("fr-FR");
 
             new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
                 .SetValue("log", new Action<object>(Console.WriteLine))
@@ -1733,8 +1755,9 @@ namespace Jint.Tests.Runtime
         public void LocaleNumberShouldUseLocalCulture()
         {
             // Forcing to PDT and FR for tests
-            var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
-            var FR = CultureInfo.GetCultureInfo("fr-FR");
+            // var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
+            var PDT = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            var FR = new CultureInfo("fr-FR");
 
             new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
                 .SetValue("log", new Action<object>(Console.WriteLine))

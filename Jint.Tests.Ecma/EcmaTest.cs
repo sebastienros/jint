@@ -14,11 +14,14 @@ namespace Jint.Tests.Ecma
 
         public EcmaTest()
         {
-            var assemblyPath = new Uri(Assembly.GetExecutingAssembly().CodeBase).LocalPath;
+            var assemblyPath = new Uri(typeof(EcmaTest).GetTypeInfo().Assembly.CodeBase).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
 
-            BasePath = assemblyDirectory.Parent.Parent.FullName;
-
+#if NET451
+            BasePath = assemblyDirectory.Parent.Parent.Parent.Parent.FullName;
+#else
+            BasePath = assemblyDirectory.Parent.Parent.Parent.FullName;
+#endif
         }
 
         protected void RunTestCode(string code, bool negative)
@@ -46,7 +49,7 @@ namespace Jint.Tests.Ecma
                 {
                     // exception is expected
                 }
-                
+
             }
             else
             {
@@ -74,11 +77,11 @@ namespace Jint.Tests.Ecma
             {
                 throw new ArgumentException("Could not find source file: " + fullName);
             }
-            
+
             string code = File.ReadAllText(fullName);
 
             RunTestCode(code, negative);
-            
+
         }
     }
 

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Tests.Runtime.Converters;
@@ -15,7 +17,7 @@ namespace Jint.Tests.Runtime
 
         public InteropTests()
         {
-            _engine = new Engine(cfg => cfg.AllowClr(typeof(Shape).Assembly))
+            _engine = new Engine(cfg => cfg.AllowClr(typeof(Shape).GetTypeInfo().Assembly))
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
@@ -327,19 +329,19 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void CanUseIndexOnList()
         {
-            var arrayList = new System.Collections.ArrayList(2);
-            arrayList.Add("Mickey Mouse");
-            arrayList.Add("Goofy");
+            var list = new List<object>(2);
+            list.Add("Mickey Mouse");
+            list.Add("Goofy");
 
-            _engine.SetValue("dictionary", arrayList);
+            _engine.SetValue("list", list);
 
             RunTest(@"
-                dictionary[1] = 'Donald Duck';
-                assert(dictionary[1] === 'Donald Duck');
+                list[1] = 'Donald Duck';
+                assert(list[1] === 'Donald Duck');
             ");
 
-            Assert.Equal("Mickey Mouse", arrayList[0]);
-            Assert.Equal("Donald Duck", arrayList[1]);
+            Assert.Equal("Mickey Mouse", list[0]);
+            Assert.Equal("Donald Duck", list[1]);
         }
 
         [Fact]
