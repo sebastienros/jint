@@ -1,1 +1,1 @@
-.nuget\nuget pack jint\Jint.csproj -Properties Configuration=Release 
+dotnet pack jint\project.json -c Release -o artifacts

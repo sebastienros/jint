@@ -1,5 +1,5 @@
 {
-  "version": "2.9.1",
+  "version": "2.10",
   "title": "Jint",
   "description": "Javascript interpreter for .NET which provides full ECMA 5.1 compliance.",
   "language": "en-US",
