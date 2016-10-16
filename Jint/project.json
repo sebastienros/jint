@@ -1,8 +1,9 @@
 {
-  "version": "2.10",
+  "version": "2.10.1",
   "title": "Jint",
   "description": "Javascript interpreter for .NET which provides full ECMA 5.1 compliance.",
   "language": "en-US",
+  "copyright": "Sebastien Ros",
   "authors": [ "Sebastien Ros" ],
   "packOptions": {
     "projectUrl": "https://github.com/sebastienros/jint",
@@ -11,7 +12,8 @@
     "repository": {
       "type": "git",
       "url": "git://github.com/sebastienros/jint"
-    }
+    },
+    "releaseNotes": "Signed assembly."
   },
   "buildOptions": {
     "keyFile": "Jint.snk"
@@ -27,12 +29,12 @@
         "define": [
           "PORTABLE"
         ]
-     },
-     "frameworkAssemblies": {
-       "mscorlib": "",
-       "System": "",
-       "System.Core": ""
-     }
+      },
+      "frameworkAssemblies": {
+        "mscorlib": "",
+        "System": "",
+        "System.Core": ""
+      }
     },
     "netstandard1.3": {
       "dependencies": {
