@@ -1,4 +1,4 @@
-[![Build status](http://teamcity.codebetter.com/app/rest/builds/buildType:(id:Jint_Master)/statusIcon)](http://teamcity.codebetter.com/project.html?projectId=Jint&tab=projectOverview)
+[![NuGet](https://img.shields.io/nuget/v/Jint.svg)](https://www.nuget.org/packages/Jint)
 
 # Jint
 
