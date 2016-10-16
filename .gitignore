@@ -156,3 +156,4 @@ Jint.sln.ide/*
 /Jint.sln.GhostDoc.xml
 .vs
 project.lock.json
+.build
