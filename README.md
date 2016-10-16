@@ -1,4 +1,5 @@
 [![NuGet](https://img.shields.io/nuget/v/Jint.svg)](https://www.nuget.org/packages/Jint)
+[![Join the chat at https://gitter.im/sebastienros/jint](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/sebastienros/jint)
 
 # Jint
 
@@ -12,9 +13,7 @@ Jint is a __Javascript interpreter__ for .NET which provides full __ECMA 5.1__ c
 
 # Discussion
 
-[![Join the chat at https://gitter.im/sebastienros/jint](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/sebastienros/jint)
-
-Or post your questions with the `jint` tag on [stackoverflow](http://stackoverflow.com/questions/tagged/jint).
+Join the chat on [Gitter](https://gitter.im/sebastienros/jint) or post your questions with the `jint` tag on [stackoverflow](http://stackoverflow.com/questions/tagged/jint).
 
 # Examples
 
