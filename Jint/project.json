@@ -1,5 +1,5 @@
 {
-  "version": "2.10.1",
+  "version": "2.10.2",
   "title": "Jint",
   "description": "Javascript interpreter for .NET which provides full ECMA 5.1 compliance.",
   "language": "en-US",
@@ -13,7 +13,7 @@
       "type": "git",
       "url": "git://github.com/sebastienros/jint"
     },
-    "releaseNotes": "Signed assembly."
+    "releaseNotes": "Fix package dependencies for .NET 4.5."
   },
   "buildOptions": {
     "keyFile": "Jint.snk"
