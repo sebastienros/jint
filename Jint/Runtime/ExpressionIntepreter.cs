@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Linq;
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Number;
-using Jint.Parser.Ast;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
@@ -41,7 +41,7 @@ namespace Jint.Runtime
 
         public JsValue EvaluateAssignmentExpression(AssignmentExpression assignmentExpression)
         {
-            var lref = EvaluateExpression(assignmentExpression.Left) as Reference;
+            var lref = EvaluateExpression(assignmentExpression.Left.As<Expression>()) as Reference;
             JsValue rval = _engine.GetValue(EvaluateExpression(assignmentExpression.Right));
 
             if (lref == null)
@@ -346,28 +346,28 @@ namespace Jint.Runtime
             return value;
         }
 
-        public JsValue EvaluateLogicalExpression(LogicalExpression logicalExpression)
+        public JsValue EvaluateLogicalExpression(BinaryExpression binaryExpression)
         {
-            var left = _engine.GetValue(EvaluateExpression(logicalExpression.Left));
+            var left = _engine.GetValue(EvaluateExpression(binaryExpression.Left));
 
-            switch (logicalExpression.Operator)
+            switch (binaryExpression.Operator)
             {
 
-                case LogicalOperator.LogicalAnd:
+                case BinaryOperator.LogicalAnd:
                     if (!TypeConverter.ToBoolean(left))
                     {
                         return left;
                     }
 
-                    return _engine.GetValue(EvaluateExpression(logicalExpression.Right));
+                    return _engine.GetValue(EvaluateExpression(binaryExpression.Right));
 
-                case LogicalOperator.LogicalOr:
+                case BinaryOperator.LogicalOr:
                     if (TypeConverter.ToBoolean(left))
                     {
                         return left;
                     }
 
-                    return _engine.GetValue(EvaluateExpression(logicalExpression.Right));
+                    return _engine.GetValue(EvaluateExpression(binaryExpression.Right));
 
                 default:
                     throw new NotImplementedException();
@@ -625,22 +625,26 @@ namespace Jint.Runtime
 
         public JsValue EvaluateLiteral(Literal literal)
         {
-            if(literal.Cached)
-            {
-                return literal.CachedValue;
-            }
+            // TODO: Esprima
 
-            if (literal.Type == SyntaxNodes.RegularExpressionLiteral)
-            {
-                literal.CachedValue = _engine.RegExp.Construct(literal.Raw);
-            }
-            else
-            {
-                literal.CachedValue = JsValue.FromObject(_engine, literal.Value);
-            }
+            //if(literal.Cached)
+            //{
+            //    return literal.CachedValue;
+            //}
 
-            literal.Cached = true;
-            return literal.CachedValue;
+            //if (literal.Type == Nodes.RegularExpressionLiteral)
+            //{
+            //    literal.CachedValue = _engine.RegExp.Construct(literal.Raw);
+            //}
+            //else
+            //{
+            //    literal.CachedValue = JsValue.FromObject(_engine, literal.Value);
+            //}
+
+            //literal.Cached = true;
+            // return literal.CachedValue;
+
+            return JsValue.FromObject(_engine, literal.Value);
         }
 
         public JsValue EvaluateObjectExpression(ObjectExpression objectExpression)
@@ -657,13 +661,13 @@ namespace Jint.Runtime
                 switch (property.Kind)
                 {
                     case PropertyKind.Data:
-                        var exprValue = _engine.EvaluateExpression(property.Value);
+                        var exprValue = _engine.EvaluateExpression(property.Value.As<Expression>());
                         var propValue = _engine.GetValue(exprValue);
                         propDesc = new PropertyDescriptor(propValue, true, true, true);
                         break;
 
                     case PropertyKind.Get:
-                        var getter = property.Value as FunctionExpression;
+                        var getter = property.Value as IFunction;
 
                         if (getter == null)
                         {
@@ -671,11 +675,11 @@ namespace Jint.Runtime
                         }
 
                         ScriptFunctionInstance get;
-                        using (new StrictModeScope(getter.Strict))
+                        using (new StrictModeScope(getter.IsStrict()))
                         {
                             get = new ScriptFunctionInstance(
                                 _engine,
-                                getter,
+                                getter.As<FunctionDeclaration>(),
                                 _engine.ExecutionContext.LexicalEnvironment,
                                 StrictModeScope.IsStrictModeCode
                             );
@@ -685,7 +689,7 @@ namespace Jint.Runtime
                         break;
 
                     case PropertyKind.Set:
-                        var setter = property.Value as FunctionExpression;
+                        var setter = property.Value as IFunction;
 
                         if (setter == null)
                         {
@@ -693,12 +697,12 @@ namespace Jint.Runtime
                         }
 
                         ScriptFunctionInstance set;
-                        using (new StrictModeScope(setter.Strict))
+                        using (new StrictModeScope(setter.IsStrict()))
                         {
 
                             set = new ScriptFunctionInstance(
                                 _engine,
-                                setter,
+                                setter.As<FunctionDeclaration>(),
                                 _engine.ExecutionContext.LexicalEnvironment,
                                 StrictModeScope.IsStrictModeCode
                                 );
@@ -761,7 +765,8 @@ namespace Jint.Runtime
 
             if (!memberExpression.Computed) // index accessor ?
             {
-                expression = new Literal { Type = SyntaxNodes.Literal, Value = memberExpression.Property.As<Identifier>().Name };
+                var name = memberExpression.Property.As<Identifier>().Name;
+                expression = new Literal(name, name);
             }
 
             var propertyNameReference = EvaluateExpression(expression);
@@ -772,7 +777,7 @@ namespace Jint.Runtime
             return new Reference(baseValue, propertyNameString, StrictModeScope.IsStrictModeCode);
         }
 
-        public JsValue EvaluateFunctionExpression(FunctionExpression functionExpression)
+        public JsValue EvaluateFunctionExpression(IFunction functionExpression)
         {
             var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
             var envRec = (DeclarativeEnvironmentRecord)funcEnv.Record;
@@ -786,7 +791,7 @@ namespace Jint.Runtime
                 _engine,
                 functionExpression,
                 funcEnv,
-                functionExpression.Strict
+                functionExpression.IsStrict()
                 );
 
             if (functionExpression.Id != null && !String.IsNullOrEmpty(functionExpression.Id.Name))
@@ -813,28 +818,29 @@ namespace Jint.Runtime
 
             JsValue[] arguments;
 
-            if (callExpression.Cached)
-            {
-                arguments = callExpression.CachedArguments;
-            }
-            else
-            {
-                arguments = callExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
+            // TODO: Esprima
+            //if (callExpression.Cached)
+            //{
+            //    arguments = callExpression.CachedArguments;
+            //}
+            //else
+            //{
+                arguments = callExpression.Arguments.Select(x => EvaluateExpression(x.As<Expression>())).Select(_engine.GetValue).ToArray();
 
-                if (callExpression.CanBeCached)
-                {
-                    // The arguments array can be cached if they are all literals
-                    if (callExpression.Arguments.All(x => x is Literal))
-                    {
-                        callExpression.CachedArguments = arguments;
-                        callExpression.Cached = true;
-                    }
-                    else
-                    {
-                        callExpression.CanBeCached = false;
-                    }
-                }
-            }
+            //    if (callExpression.CanBeCached)
+            //    {
+            //        // The arguments array can be cached if they are all literals
+            //        if (callExpression.Arguments.All(x => x is Literal))
+            //        {
+            //            callExpression.CachedArguments = arguments;
+            //            callExpression.Cached = true;
+            //        }
+            //        else
+            //        {
+            //            callExpression.CanBeCached = false;
+            //        }
+            //    }
+            //}
 
             var func = _engine.GetValue(callee);
 
@@ -969,7 +975,7 @@ namespace Jint.Runtime
 
         public JsValue EvaluateNewExpression(NewExpression newExpression)
         {
-            var arguments = newExpression.Arguments.Select(EvaluateExpression).Select(_engine.GetValue).ToArray();
+            var arguments = newExpression.Arguments.Select(x => EvaluateExpression(x.As<Expression>())).Select(_engine.GetValue).ToArray();
 
             // todo: optimize by defining a common abstract class or interface
             var callee = _engine.GetValue(EvaluateExpression(newExpression.Callee)).TryCast<IConstructor>();
@@ -993,7 +999,7 @@ namespace Jint.Runtime
             {
                 if (expr != null)
                 {
-                    var value = _engine.GetValue(EvaluateExpression(expr));
+                    var value = _engine.GetValue(EvaluateExpression(expr.As<Expression>()));
                     a.DefineOwnProperty(n.ToString(),
                         new PropertyDescriptor(value, true, true, true), false);
                 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using Esprima;
 using Jint.Native;
 using Jint.Native.Error;
 
@@ -25,7 +26,7 @@ namespace Jint.Runtime
             _errorObject = error;
         }
 
-        private static string GetErrorMessage(JsValue error) 
+        private static string GetErrorMessage(JsValue error)
         {
             if (error.IsObject())
             {
@@ -34,7 +35,7 @@ namespace Jint.Runtime
                 return message;
             }
             else
-                return string.Empty;            
+                return string.Empty;
         }
 
         public JsValue Error { get { return _errorObject; } }
@@ -44,7 +45,7 @@ namespace Jint.Runtime
             return _errorObject.ToString();
         }
 
-        public Jint.Parser.Location Location { get; set; }
+        public Location Location { get; set; }
 
         public int LineNumber { get { return null == Location ? 0 : Location.Start.Line; } }
 

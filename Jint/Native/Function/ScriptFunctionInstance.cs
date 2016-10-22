@@ -1,6 +1,6 @@
 ﻿using System.Linq;
+using Esprima.Ast;
 using Jint.Native.Object;
-using Jint.Parser;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -8,11 +8,11 @@ using Jint.Runtime.Environments;
 namespace Jint.Native.Function
 {
     /// <summary>
-    /// 
+    ///
     /// </summary>
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        private readonly IFunctionDeclaration _functionDeclaration;
+        private readonly IFunction _functionDeclaration;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
@@ -21,8 +21,8 @@ namespace Jint.Native.Function
         /// <param name="functionDeclaration"></param>
         /// <param name="scope"></param>
         /// <param name="strict"></param>
-        public ScriptFunctionInstance(Engine engine, IFunctionDeclaration functionDeclaration, LexicalEnvironment scope, bool strict)
-            : base(engine, functionDeclaration.Parameters.Select(x => x.Name).ToArray(), scope, strict)
+        public ScriptFunctionInstance(Engine engine, IFunction functionDeclaration, LexicalEnvironment scope, bool strict)
+            : base(engine, functionDeclaration.Params.Select(x => x.As<Identifier>().Name).ToArray(), scope, strict)
         {
             _functionDeclaration = functionDeclaration;
 
@@ -85,8 +85,8 @@ namespace Jint.Native.Function
                 {
                     Engine.DeclarationBindingInstantiation(
                         DeclarationBindingType.FunctionCode,
-                        _functionDeclaration.FunctionDeclarations, 
-                        _functionDeclaration.VariableDeclarations, 
+                        _functionDeclaration.Body.Body.OfType<FunctionDeclaration>(),
+                        _functionDeclaration.Body.Body.OfType<VariableDeclaration>(),
                         this,
                         arguments);
 
@@ -130,7 +130,7 @@ namespace Jint.Native.Function
             {
                 return result;
             }
-            
+
             return obj;
         }
 

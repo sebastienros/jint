@@ -3,7 +3,6 @@
   "buildOptions": {
     "emitEntryPoint": true
   },
-
   "frameworks": {
     "net45": {
       "dependencies": {

@@ -3,17 +3,14 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using Jint.Parser;
-using Jint.Parser.Ast;
+using Esprima;
+using Esprima.Ast;
 using Xunit;
-using Xunit.Extensions;
 
 namespace Jint.Tests.Parser
 {
     public class JavascriptParserTests
     {
-        private readonly JavaScriptParser _parser = new JavaScriptParser();
-
         private string GetEmbeddedFile(string filename)
         {
             const string prefix = "Jint.Tests.Parser.Scripts.";
@@ -30,45 +27,26 @@ namespace Jint.Tests.Parser
             }
         }
 
-        [Theory]
-        [InlineData("jQuery.js", "1.9.1")]
-        [InlineData("underscore.js", "1.5.2")]
-        [InlineData("backbone.js", "1.1.0")]
-        [InlineData("mootools.js", "1.4.5")]
-        [InlineData("angular.js", "1.2.5")]
-        [InlineData("JSXTransformer.js", "0.10.0")]
-        [InlineData("handlebars.js", "2.0.0")]
-        public void ShouldParseScriptFile(string file, string version)
-        {
-
-            var parser = new JavaScriptParser();
-            var source = GetEmbeddedFile(file);
-            var sw = new Stopwatch();
-            var program = parser.Parse(source);
-            Console.WriteLine("Parsed {0} {1} ({3} KB) in {2} ms", file, version, sw.ElapsedMilliseconds, (int)source.Length/1024);
-            Assert.NotNull(program);
-        }
-
         [Fact]
         public void ShouldParseThis()
         {
-            var program = _parser.Parse("this");
+            var program = new JavaScriptParser("this").ParseProgram();
             var body = program.Body;
 
             Assert.NotNull(body);
             Assert.Equal(1, body.Count());
-            Assert.Equal(SyntaxNodes.ThisExpression, body.First().As<ExpressionStatement>().Expression.Type);
+            Assert.Equal(Nodes.ThisExpression, body.First().As<ExpressionStatement>().Expression.Type);
         }
 
         [Fact]
         public void ShouldParseNull()
         {
-            var program = _parser.Parse("null");
+            var program = new JavaScriptParser("null").ParseProgram();
             var body = program.Body;
 
             Assert.NotNull(body);
             Assert.Equal(1, body.Count());
-            Assert.Equal(SyntaxNodes.Literal, body.First().As<ExpressionStatement>().Expression.Type);
+            Assert.Equal(Nodes.Literal, body.First().As<ExpressionStatement>().Expression.Type);
             Assert.Equal(null, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
             Assert.Equal("null", body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw);
         }
@@ -76,16 +54,16 @@ namespace Jint.Tests.Parser
         [Fact]
         public void ShouldParseNumeric()
         {
-            var program = _parser.Parse(
+            var program = new JavaScriptParser(
                 @"
                 42
-            ");
+            ").ParseProgram();
             var body = program.Body;
 
             Assert.NotNull(body);
             Assert.Equal(1, body.Count());
-            Assert.Equal(SyntaxNodes.Literal, body.First().As<ExpressionStatement>().Expression.Type);
-            Assert.Equal(42d, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
+            Assert.Equal(Nodes.Literal, body.First().As<ExpressionStatement>().Expression.Type);
+            Assert.Equal(42L, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
             Assert.Equal("42", body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw);
         }
 
@@ -94,16 +72,16 @@ namespace Jint.Tests.Parser
         {
             BinaryExpression binary;
 
-            var program = _parser.Parse("(1 + 2 ) * 3");
+            var program = new JavaScriptParser("(1 + 2 ) * 3").ParseProgram();
             var body = program.Body;
 
             Assert.NotNull(body);
             Assert.Equal(1, body.Count());
             Assert.NotNull(binary = body.First().As<ExpressionStatement>().Expression.As<BinaryExpression>());
-            Assert.Equal(3d, binary.Right.As<Literal>().Value);
+            Assert.Equal(3L, binary.Right.As<Literal>().Value);
             Assert.Equal(BinaryOperator.Times, binary.Operator);
-            Assert.Equal(1d, binary.Left.As<BinaryExpression>().Left.As<Literal>().Value);
-            Assert.Equal(2d, binary.Left.As<BinaryExpression>().Right.As<Literal>().Value);
+            Assert.Equal(1L, binary.Left.As<BinaryExpression>().Left.As<Literal>().Value);
+            Assert.Equal(2L, binary.Left.As<BinaryExpression>().Right.As<Literal>().Value);
             Assert.Equal(BinaryOperator.Plus, binary.Left.As<BinaryExpression>().Operator);
         }
 
@@ -129,7 +107,7 @@ namespace Jint.Tests.Parser
         {
             Literal literal;
 
-            var program = _parser.Parse(source);
+            var program = new JavaScriptParser(source).ParseProgram();
             var body = program.Body;
 
             Assert.NotNull(body);
@@ -149,7 +127,7 @@ namespace Jint.Tests.Parser
         {
             Literal literal;
 
-            var program = _parser.Parse(source);
+            var program = new JavaScriptParser(source).ParseProgram();
             var body = program.Body;
 
             Assert.NotNull(body);
@@ -193,7 +171,7 @@ namespace Jint.Tests.Parser
 
         public void ShouldInsertSemicolons(string source)
         {
-            var program = _parser.Parse(source);
+            var program = new JavaScriptParser(source).ParseProgram();
             var body = program.Body;
 
             Assert.NotNull(body);
@@ -206,7 +184,7 @@ namespace Jint.Tests.Parser
 \
 '
 ";
-            var program = _parser.Parse(source);
+            var program = new JavaScriptParser(source, new ParserOptions { Loc = true }).ParseProgram();
             var expr = program.Body.First().As<ExpressionStatement>().Expression;
             Assert.Equal(1, expr.Location.Start.Line);
             Assert.Equal(0, expr.Location.Start.Column);

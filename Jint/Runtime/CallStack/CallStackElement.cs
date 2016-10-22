@@ -1,7 +1,7 @@
 ﻿namespace Jint.Runtime
 {
+    using Esprima.Ast;
     using Jint.Native;
-    using Jint.Parser.Ast;
 
     public class CallStackElement
     {
