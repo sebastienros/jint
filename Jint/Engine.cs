@@ -15,8 +15,8 @@ using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.String;
-using Jint.Parser;
-using Jint.Parser.Ast;
+using Esprima;
+using Esprima.Ast;
 using Jint.Runtime;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Debugger;
@@ -35,7 +35,7 @@ namespace Jint
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
         private long _timeoutTicks;
-        private SyntaxNode _lastSyntaxNode = null;
+        private INode _lastSyntaxNode = null;
 
         public ITypeConverter ClrTypeConverter;
 
@@ -292,14 +292,13 @@ namespace Jint
 
         public Engine Execute(string source)
         {
-            var parser = new JavaScriptParser();
-            return Execute(parser.Parse(source));
+            return Execute(source, new ParserOptions());
         }
 
         public Engine Execute(string source, ParserOptions parserOptions)
         {
-            var parser = new JavaScriptParser();
-            return Execute(parser.Parse(source, parserOptions));
+            var parser = new JavaScriptParser(source, parserOptions);
+            return Execute(parser.ParseProgram());
         }
 
         public Engine Execute(Program program)
@@ -309,9 +308,9 @@ namespace Jint
             ResetLastStatement();
             ResetCallStack();
 
-            using (new StrictModeScope(Options._IsStrict || program.Strict))
+            using (new StrictModeScope(Options._IsStrict || program.IsStrict()))
             {
-                DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.FunctionDeclarations, program.VariableDeclarations, null, null);
+                DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.Body.OfType<FunctionDeclaration>(), program.Body.OfType<VariableDeclaration>(), null, null);
 
                 var result = _statements.ExecuteProgram(program);
                 if (result.Type == Completion.Throw)
@@ -361,64 +360,64 @@ namespace Jint
 
             switch (statement.Type)
             {
-                case SyntaxNodes.BlockStatement:
+                case Nodes.BlockStatement:
                     return _statements.ExecuteBlockStatement(statement.As<BlockStatement>());
 
-                case SyntaxNodes.BreakStatement:
+                case Nodes.BreakStatement:
                     return _statements.ExecuteBreakStatement(statement.As<BreakStatement>());
 
-                case SyntaxNodes.ContinueStatement:
+                case Nodes.ContinueStatement:
                     return _statements.ExecuteContinueStatement(statement.As<ContinueStatement>());
 
-                case SyntaxNodes.DoWhileStatement:
+                case Nodes.DoWhileStatement:
                     return _statements.ExecuteDoWhileStatement(statement.As<DoWhileStatement>());
 
-                case SyntaxNodes.DebuggerStatement:
+                case Nodes.DebuggerStatement:
                     return _statements.ExecuteDebuggerStatement(statement.As<DebuggerStatement>());
 
-                case SyntaxNodes.EmptyStatement:
+                case Nodes.EmptyStatement:
                     return _statements.ExecuteEmptyStatement(statement.As<EmptyStatement>());
 
-                case SyntaxNodes.ExpressionStatement:
+                case Nodes.ExpressionStatement:
                     return _statements.ExecuteExpressionStatement(statement.As<ExpressionStatement>());
 
-                case SyntaxNodes.ForStatement:
+                case Nodes.ForStatement:
                     return _statements.ExecuteForStatement(statement.As<ForStatement>());
 
-                case SyntaxNodes.ForInStatement:
+                case Nodes.ForInStatement:
                     return _statements.ExecuteForInStatement(statement.As<ForInStatement>());
 
-                case SyntaxNodes.FunctionDeclaration:
+                case Nodes.FunctionDeclaration:
                     return new Completion(Completion.Normal, null, null);
 
-                case SyntaxNodes.IfStatement:
+                case Nodes.IfStatement:
                     return _statements.ExecuteIfStatement(statement.As<IfStatement>());
 
-                case SyntaxNodes.LabeledStatement:
-                    return _statements.ExecuteLabelledStatement(statement.As<LabelledStatement>());
+                case Nodes.LabeledStatement:
+                    return _statements.ExecuteLabeledStatement(statement.As<LabeledStatement>());
 
-                case SyntaxNodes.ReturnStatement:
+                case Nodes.ReturnStatement:
                     return _statements.ExecuteReturnStatement(statement.As<ReturnStatement>());
 
-                case SyntaxNodes.SwitchStatement:
+                case Nodes.SwitchStatement:
                     return _statements.ExecuteSwitchStatement(statement.As<SwitchStatement>());
 
-                case SyntaxNodes.ThrowStatement:
+                case Nodes.ThrowStatement:
                     return _statements.ExecuteThrowStatement(statement.As<ThrowStatement>());
 
-                case SyntaxNodes.TryStatement:
+                case Nodes.TryStatement:
                     return _statements.ExecuteTryStatement(statement.As<TryStatement>());
 
-                case SyntaxNodes.VariableDeclaration:
+                case Nodes.VariableDeclaration:
                     return _statements.ExecuteVariableDeclaration(statement.As<VariableDeclaration>());
 
-                case SyntaxNodes.WhileStatement:
+                case Nodes.WhileStatement:
                     return _statements.ExecuteWhileStatement(statement.As<WhileStatement>());
 
-                case SyntaxNodes.WithStatement:
+                case Nodes.WithStatement:
                     return _statements.ExecuteWithStatement(statement.As<WithStatement>());
 
-                case SyntaxNodes.Program:
+                case Nodes.Program:
                     return _statements.ExecuteProgram(statement.As<Program>());
 
                 default:
@@ -432,55 +431,55 @@ namespace Jint
 
             switch (expression.Type)
             {
-                case SyntaxNodes.AssignmentExpression:
+                case Nodes.AssignmentExpression:
                     return _expressions.EvaluateAssignmentExpression(expression.As<AssignmentExpression>());
 
-                case SyntaxNodes.ArrayExpression:
+                case Nodes.ArrayExpression:
                     return _expressions.EvaluateArrayExpression(expression.As<ArrayExpression>());
 
-                case SyntaxNodes.BinaryExpression:
+                case Nodes.BinaryExpression:
                     return _expressions.EvaluateBinaryExpression(expression.As<BinaryExpression>());
 
-                case SyntaxNodes.CallExpression:
+                case Nodes.CallExpression:
                     return _expressions.EvaluateCallExpression(expression.As<CallExpression>());
 
-                case SyntaxNodes.ConditionalExpression:
+                case Nodes.ConditionalExpression:
                     return _expressions.EvaluateConditionalExpression(expression.As<ConditionalExpression>());
 
-                case SyntaxNodes.FunctionExpression:
-                    return _expressions.EvaluateFunctionExpression(expression.As<FunctionExpression>());
+                case Nodes.FunctionExpression:
+                    return _expressions.EvaluateFunctionExpression(expression.As<IFunction>());
 
-                case SyntaxNodes.Identifier:
+                case Nodes.Identifier:
                     return _expressions.EvaluateIdentifier(expression.As<Identifier>());
 
-                case SyntaxNodes.Literal:
+                case Nodes.Literal:
                     return _expressions.EvaluateLiteral(expression.As<Literal>());
 
-                case SyntaxNodes.RegularExpressionLiteral:
+                case Nodes.RegularExpressionLiteral:
                     return _expressions.EvaluateLiteral(expression.As<Literal>());
 
-                case SyntaxNodes.LogicalExpression:
-                    return _expressions.EvaluateLogicalExpression(expression.As<LogicalExpression>());
+                case Nodes.LogicalExpression:
+                    return _expressions.EvaluateLogicalExpression(expression.As<BinaryExpression>());
 
-                case SyntaxNodes.MemberExpression:
+                case Nodes.MemberExpression:
                     return _expressions.EvaluateMemberExpression(expression.As<MemberExpression>());
 
-                case SyntaxNodes.NewExpression:
+                case Nodes.NewExpression:
                     return _expressions.EvaluateNewExpression(expression.As<NewExpression>());
 
-                case SyntaxNodes.ObjectExpression:
+                case Nodes.ObjectExpression:
                     return _expressions.EvaluateObjectExpression(expression.As<ObjectExpression>());
 
-                case SyntaxNodes.SequenceExpression:
+                case Nodes.SequenceExpression:
                     return _expressions.EvaluateSequenceExpression(expression.As<SequenceExpression>());
 
-                case SyntaxNodes.ThisExpression:
+                case Nodes.ThisExpression:
                     return _expressions.EvaluateThisExpression(expression.As<ThisExpression>());
 
-                case SyntaxNodes.UpdateExpression:
+                case Nodes.UpdateExpression:
                     return _expressions.EvaluateUpdateExpression(expression.As<UpdateExpression>());
 
-                case SyntaxNodes.UnaryExpression:
+                case Nodes.UnaryExpression:
                     return _expressions.EvaluateUnaryExpression(expression.As<UnaryExpression>());
 
                 default:
@@ -725,9 +724,9 @@ namespace Jint
         }
 
         /// <summary>
-        /// Gets the last evaluated <see cref="SyntaxNode"/>.
+        /// Gets the last evaluated <see cref="INode"/>.
         /// </summary>
-        public SyntaxNode GetLastSyntaxNode()
+        public INode GetLastSyntaxNode()
         {
             return _lastSyntaxNode;
         }
@@ -750,7 +749,7 @@ namespace Jint
         }
 
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
-        public void DeclarationBindingInstantiation(DeclarationBindingType declarationBindingType, IList<FunctionDeclaration> functionDeclarations, IList<VariableDeclaration> variableDeclarations, FunctionInstance functionInstance, JsValue[] arguments)
+        public void DeclarationBindingInstantiation(DeclarationBindingType declarationBindingType, IEnumerable<FunctionDeclaration> functionDeclarations, IEnumerable<VariableDeclaration> variableDeclarations, FunctionInstance functionInstance, JsValue[] arguments)
         {
             var env = ExecutionContext.VariableEnvironment.Record;
             bool configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
@@ -840,7 +839,7 @@ namespace Jint
             // process all variable declarations in the current parser scope
             foreach (var d in variableDeclarations.SelectMany(x => x.Declarations))
             {
-                var dn = d.Id.Name;
+                var dn = d.Id.As<Identifier>().Name;
                 var varAlreadyDeclared = env.HasBinding(dn);
                 if (!varAlreadyDeclared)
                 {

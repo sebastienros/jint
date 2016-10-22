@@ -2,14 +2,12 @@
 using System.Globalization;
 using System.IO;
 using System.Reflection;
-using System.Threading;
+using Esprima;
+using Esprima.Ast;
 using Jint.Native.Number;
-using Jint.Parser;
-using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
-using System.Net;
 
 namespace Jint.Tests.Runtime
 {
@@ -1005,7 +1003,7 @@ namespace Jint.Tests.Runtime
             engine.Execute("1.2");
 
             var result = engine.GetLastSyntaxNode();
-            Assert.Equal(SyntaxNodes.Literal, result.Type);
+            Assert.Equal(Nodes.Literal, result.Type);
         }
 
         [Fact]

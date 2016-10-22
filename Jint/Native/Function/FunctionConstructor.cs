@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Esprima;
+using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Native.String;
-using Jint.Parser;
-using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
 
@@ -23,10 +23,10 @@ namespace Jint.Native.Function
 
             // The initial value of Function.prototype is the standard built-in Function prototype object
             obj.PrototypeObject = FunctionPrototype.CreatePrototypeObject(engine);
-            
-            // The value of the [[Prototype]] internal property of the Function constructor is the standard built-in Function prototype object 
+
+            // The value of the [[Prototype]] internal property of the Function constructor is the standard built-in Function prototype object
             obj.Prototype = obj.PrototypeObject;
-            
+
             obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
 
             obj.FastAddProperty("length", 1, false, false, false);
@@ -80,14 +80,14 @@ namespace Jint.Native.Function
 
                 body = TypeConverter.ToString(arguments[argCount-1]);
             }
-            
+
             var parameters = this.ParseArgumentNames(p);
-            var parser = new JavaScriptParser();
-            FunctionExpression function;
+            IFunction function;
             try
             {
                 var functionExpression = "function(" + p + ") { " + body + "}";
-                function = parser.ParseFunctionExpression(functionExpression); 
+                var parser = new JavaScriptParser(body);
+                function = parser.ParseProgram().Body.First().As<IFunction>();
             }
             catch (ParserException)
             {
@@ -97,28 +97,17 @@ namespace Jint.Native.Function
             // todo: check if there is not a way to use the FunctionExpression directly instead of creating a FunctionDeclaration
             var functionObject = new ScriptFunctionInstance(
                 Engine,
-                new FunctionDeclaration
-                    {
-                        Type = SyntaxNodes.FunctionDeclaration,
-                        Body = new BlockStatement
-                            {
-                                Type = SyntaxNodes.BlockStatement,
-                                Body = new [] { function.Body }
-                            },
-                        Parameters = parameters.Select(x => new Identifier
-                            {
-                                Type = SyntaxNodes.Identifier,
-                                Name = x
-                            }).ToArray(),
-                        FunctionDeclarations = function.FunctionDeclarations,
-                        VariableDeclarations = function.VariableDeclarations
-                    },  
+                new FunctionDeclaration(
+                    new Identifier(Guid.NewGuid().ToString("n")),
+                    parameters.Select(x => new Identifier(x)).ToArray(),
+                    function.Body,
+                    false),
                 LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment),
-                function.Strict
+                function.IsStrict()
                 ) { Extensible = true };
 
             return functionObject;
-            
+
         }
 
         /// <summary>
@@ -132,7 +121,7 @@ namespace Jint.Native.Function
                 Engine,
                 functionDeclaration,
                 LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment),
-                functionDeclaration.Strict
+                functionDeclaration.IsStrict()
                 ) { Extensible = true };
 
             return functionObject;

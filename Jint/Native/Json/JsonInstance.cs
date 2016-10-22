@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using Esprima;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
@@ -38,15 +39,16 @@ namespace Jint.Native.Json
 
         public JsValue Parse(JsValue thisObject, JsValue[] arguments)
         {
-            var parser = new JsonParser(_engine);
+            var parser = new JavaScriptParser(TypeConverter.ToString(arguments[0]));
+            // TODO: Esprima, convert object to JsonInstance
 
-            return parser.Parse(TypeConverter.ToString(arguments[0]));
+            return JsValue.Undefined;
         }
 
         public JsValue Stringify(JsValue thisObject, JsValue[] arguments)
         {
-            JsValue 
-                value = Undefined.Instance, 
+            JsValue
+                value = Undefined.Instance,
                 replacer = Undefined.Instance,
                 space = Undefined.Instance;
 

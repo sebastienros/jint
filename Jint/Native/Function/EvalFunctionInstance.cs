@@ -1,4 +1,6 @@
-﻿using Jint.Parser;
+﻿using System.Linq;
+using Esprima;
+using Esprima.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
 
@@ -31,9 +33,9 @@ namespace Jint.Native.Function
 
             try
             {
-                var parser = new JavaScriptParser(StrictModeScope.IsStrictModeCode);
-                var program = parser.Parse(code);
-                using (new StrictModeScope(program.Strict))
+                var parser = new JavaScriptParser(code /* TODO: Esprima, StrictModeScope.IsStrictModeCode*/);
+                var program = parser.ParseProgram();
+                using (new StrictModeScope(program.IsStrict()))
                 {
                     using (new EvalCodeScope())
                     {
@@ -52,8 +54,8 @@ namespace Jint.Native.Function
                                 Engine.EnterExecutionContext(strictVarEnv, strictVarEnv, Engine.ExecutionContext.ThisBinding);
                             }
 
-                            Engine.DeclarationBindingInstantiation(DeclarationBindingType.EvalCode, program.FunctionDeclarations, program.VariableDeclarations, this, arguments);
-                            
+                            Engine.DeclarationBindingInstantiation(DeclarationBindingType.EvalCode, program.Body.OfType<FunctionDeclaration>(), program.Body.OfType<VariableDeclaration>(), this, arguments);
+
                             var result = _engine.ExecuteStatement(program);
 
                             if (result.Type == Completion.Throw)
