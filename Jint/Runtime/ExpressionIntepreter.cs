@@ -648,6 +648,7 @@ namespace Jint.Runtime
 
                 switch (property.Kind)
                 {
+                    case PropertyKind.Init:
                     case PropertyKind.Data:
                         var exprValue = _engine.EvaluateExpression(property.Value);
                         var propValue = _engine.GetValue(exprValue);
