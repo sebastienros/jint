@@ -1002,7 +1002,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
             try
             {
-                engine.Execute("1.2+ new", new ParserOptions { Source = "jQuery.js" });
+                engine.Execute("1.2+ new", new ParserOptions(source: "jQuery.js"));
             }
             catch (ParserException e)
             {
