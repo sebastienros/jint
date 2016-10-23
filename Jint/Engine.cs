@@ -61,7 +61,7 @@ namespace Jint
             { typeof(UInt32), (Engine engine, object v) => new JsValue((UInt32)v) },
             { typeof(UInt64), (Engine engine, object v) => new JsValue((UInt64)v) },
             { typeof(JsValue), (Engine engine, object v) => (JsValue)v },
-            { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct(((System.Text.RegularExpressions.Regex)v).ToString().Trim('/')) }
+            { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v) }
         };
 
         internal JintCallStack CallStack = new JintCallStack();
@@ -297,6 +297,11 @@ namespace Jint
 
         public Engine Execute(string source, ParserOptions parserOptions)
         {
+            if (Options._IsDebugMode)
+            {
+                parserOptions.Loc = true;
+            }
+
             var parser = new JavaScriptParser(source, parserOptions);
             return Execute(parser.ParseProgram());
         }
