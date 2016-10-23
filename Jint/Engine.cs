@@ -315,7 +315,7 @@ namespace Jint
 
             using (new StrictModeScope(Options._IsStrict || program.IsStrict()))
             {
-                DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.Body.OfType<FunctionDeclaration>(), program.Body.OfType<VariableDeclaration>(), null, null);
+                DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.HoistingScope.FunctionDeclarations, program.HoistingScope.VariableDeclarations, null, null);
 
                 var result = _statements.ExecuteProgram(program);
                 if (result.Type == Completion.Throw)

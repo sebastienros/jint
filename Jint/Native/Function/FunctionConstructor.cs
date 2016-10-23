@@ -94,14 +94,9 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.SyntaxError);
             }
 
-            // todo: check if there is not a way to use the FunctionExpression directly instead of creating a FunctionDeclaration
             var functionObject = new ScriptFunctionInstance(
                 Engine,
-                new FunctionDeclaration(
-                    new Identifier(Guid.NewGuid().ToString("n")),
-                    parameters.Select(x => new Identifier(x)).ToArray(),
-                    function.Body,
-                    false),
+                function,
                 LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment),
                 function.IsStrict()
                 ) { Extensible = true };

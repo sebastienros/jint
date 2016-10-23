@@ -54,7 +54,7 @@ namespace Jint.Native.Function
                                 Engine.EnterExecutionContext(strictVarEnv, strictVarEnv, Engine.ExecutionContext.ThisBinding);
                             }
 
-                            Engine.DeclarationBindingInstantiation(DeclarationBindingType.EvalCode, program.Body.OfType<FunctionDeclaration>(), program.Body.OfType<VariableDeclaration>(), this, arguments);
+                            Engine.DeclarationBindingInstantiation(DeclarationBindingType.EvalCode, program.HoistingScope.FunctionDeclarations, program.HoistingScope.VariableDeclarations, this, arguments);
 
                             var result = _engine.ExecuteStatement(program);
 

@@ -85,8 +85,8 @@ namespace Jint.Native.Function
                 {
                     Engine.DeclarationBindingInstantiation(
                         DeclarationBindingType.FunctionCode,
-                        _functionDeclaration.Body.Body.OfType<FunctionDeclaration>(),
-                        _functionDeclaration.Body.Body.OfType<VariableDeclaration>(),
+                        _functionDeclaration.HoistingScope.FunctionDeclarations,
+                        _functionDeclaration.HoistingScope.VariableDeclarations,
                         this,
                         arguments);
 

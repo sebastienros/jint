@@ -34,6 +34,6 @@
     }
   },
   "dependencies": {
-    "Esprima": "1.0.0-alpha-002"
+    "Esprima": "1.0.0-alpha-*"
   }
 }
