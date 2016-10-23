@@ -40,9 +40,9 @@ namespace Jint.Native.Json
         public JsValue Parse(JsValue thisObject, JsValue[] arguments)
         {
             var parser = new JavaScriptParser(TypeConverter.ToString(arguments[0]));
-            // TODO: Esprima, convert object to JsonInstance
 
-            return JsValue.Undefined;
+            var o = parser.ParseJson();
+            return Engine.GetValue(Engine.EvaluateExpression(o));
         }
 
         public JsValue Stringify(JsValue thisObject, JsValue[] arguments)
