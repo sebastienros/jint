@@ -33,7 +33,7 @@ namespace Jint.Native.Function
 
             try
             {
-                var parser = new JavaScriptParser(code /* TODO: Esprima, StrictModeScope.IsStrictModeCode*/);
+                var parser = new JavaScriptParser(code, new ParserOptions { AdaptRegexp = true, Tolerant = false, Strict = StrictModeScope.IsStrictModeCode });
                 var program = parser.ParseProgram();
                 using (new StrictModeScope(program.IsStrict()))
                 {

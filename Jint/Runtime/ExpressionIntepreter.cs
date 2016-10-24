@@ -680,7 +680,7 @@ namespace Jint.Runtime
                         {
                             get = new ScriptFunctionInstance(
                                 _engine,
-                                getter.As<FunctionDeclaration>(),
+                                getter,
                                 _engine.ExecutionContext.LexicalEnvironment,
                                 StrictModeScope.IsStrictModeCode
                             );
@@ -703,7 +703,7 @@ namespace Jint.Runtime
 
                             set = new ScriptFunctionInstance(
                                 _engine,
-                                setter.As<FunctionDeclaration>(),
+                                setter,
                                 _engine.ExecutionContext.LexicalEnvironment,
                                 StrictModeScope.IsStrictModeCode
                                 );

@@ -303,6 +303,7 @@ namespace Jint
             }
 
             parserOptions.AdaptRegexp = true;
+            parserOptions.Tolerant = false;
 
             var parser = new JavaScriptParser(source, parserOptions);
             return Execute(parser.ParseProgram());
