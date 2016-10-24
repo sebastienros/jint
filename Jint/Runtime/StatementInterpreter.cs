@@ -358,7 +358,7 @@ namespace Jint.Runtime
         {
             var exprRef = _engine.EvaluateExpression(switchStatement.Discriminant);
             var r = ExecuteSwitchBlock(switchStatement.Cases, _engine.GetValue(exprRef));
-            if (r.Type == Completion.Break && r.Identifier == switchStatement.LabelSet.Name)
+            if (r.Type == Completion.Break && r.Identifier == switchStatement.LabelSet?.Name)
             {
                 return new Completion(Completion.Normal, r.Value, null);
             }
