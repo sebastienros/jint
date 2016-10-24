@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Jint.Runtime;
 using Xunit;
@@ -70,8 +72,12 @@ namespace Jint.Tests.Ecma
             }
         }
 
-        protected void RunTest(string sourceFilename, bool negative)
+        [Theory]
+        [MemberData(nameof(SourceFiles), "TestCases")]
+        protected void RunTest(string sourceFilename)
         {
+            var negative = Path.GetFileNameWithoutExtension(sourceFilename).EndsWith("gs");
+
             var fullName = Path.Combine(BasePath, sourceFilename);
             if (!File.Exists(fullName))
             {
@@ -82,6 +88,21 @@ namespace Jint.Tests.Ecma
 
             RunTestCode(code, negative);
 
+        }
+
+        public static IEnumerable<object[]> SourceFiles(string relativePath)
+        {
+            var assemblyPath = new Uri(typeof(EcmaTest).GetTypeInfo().Assembly.CodeBase).LocalPath;
+            var assemblyDirectory = new FileInfo(assemblyPath).Directory;
+
+            var root = assemblyDirectory.Parent.Parent.Parent.FullName;
+            var fixturesPath = Path.Combine(root, relativePath);
+
+            var files = Directory.GetFiles(fixturesPath, "*.js", SearchOption.AllDirectories);
+
+            return files
+                .Select(x => new object[] { x })
+                .ToList();
         }
     }
 
@@ -108,6 +129,7 @@ namespace Jint.Tests.Ecma
                 runTestCase(testcase);
             ", true);
         }
+
 
     }
 }
