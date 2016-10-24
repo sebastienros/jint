@@ -127,10 +127,10 @@ namespace Jint.Native.RegExp
             r.Prototype = PrototypeObject;
             r.Extensible = true;
 
-            var scanner = new Scanner(regExp);
+            var scanner = new Scanner(regExp, new ParserOptions { AdaptRegexp = true });
             var body = (string)scanner.ScanRegExpBody().Value;
             var flags = (string)scanner.ScanRegExpFlags().Value;
-            r.Value = scanner.TestRegExp(body, flags, true);
+            r.Value = scanner.TestRegExp(body, flags);
 
             r.Flags = flags;
             r.Source = System.String.IsNullOrEmpty(body) ? "(?:)" : body;

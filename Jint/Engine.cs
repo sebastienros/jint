@@ -302,6 +302,8 @@ namespace Jint
                 parserOptions.Loc = true;
             }
 
+            parserOptions.AdaptRegexp = true;
+
             var parser = new JavaScriptParser(source, parserOptions);
             return Execute(parser.ParseProgram());
         }
