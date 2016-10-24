@@ -39,10 +39,8 @@ namespace Jint.Native.Json
 
         public JsValue Parse(JsValue thisObject, JsValue[] arguments)
         {
-            var parser = new JavaScriptParser(TypeConverter.ToString(arguments[0]));
-
-            var o = parser.ParseJson();
-            return Engine.GetValue(Engine.EvaluateExpression(o));
+            var parser = new JsonParser(_engine);
+            return parser.Parse(TypeConverter.ToString(arguments[0]));
         }
 
         public JsValue Stringify(JsValue thisObject, JsValue[] arguments)
