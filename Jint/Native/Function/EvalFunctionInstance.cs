@@ -33,9 +33,9 @@ namespace Jint.Native.Function
 
             try
             {
-                var parser = new JavaScriptParser(code, new ParserOptions { AdaptRegexp = true, Tolerant = false, Strict = StrictModeScope.IsStrictModeCode });
-                var program = parser.ParseProgram();
-                using (new StrictModeScope(program.IsStrict()))
+                var parser = new JavaScriptParser(code, new ParserOptions { AdaptRegexp = true, Tolerant = false });
+                var program = parser.ParseProgram(true);
+                using (new StrictModeScope(program.Strict))
                 {
                     using (new EvalCodeScope())
                     {
