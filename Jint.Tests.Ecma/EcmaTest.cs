@@ -76,8 +76,6 @@ namespace Jint.Tests.Ecma
         [MemberData(nameof(SourceFiles), "TestCases")]
         protected void RunTest(string sourceFilename)
         {
-            var negative = Path.GetFileNameWithoutExtension(sourceFilename).EndsWith("gs");
-
             var fullName = Path.Combine(BasePath, sourceFilename);
             if (!File.Exists(fullName))
             {
@@ -85,6 +83,7 @@ namespace Jint.Tests.Ecma
             }
 
             string code = File.ReadAllText(fullName);
+            var negative = code.Contains("@negative");
 
             RunTestCode(code, negative);
 
