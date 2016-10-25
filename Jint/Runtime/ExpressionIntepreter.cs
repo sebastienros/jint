@@ -676,7 +676,7 @@ namespace Jint.Runtime
                         }
 
                         ScriptFunctionInstance get;
-                        using (new StrictModeScope(getter.IsStrict()))
+                        using (new StrictModeScope(getter.Strict))
                         {
                             get = new ScriptFunctionInstance(
                                 _engine,
@@ -698,7 +698,7 @@ namespace Jint.Runtime
                         }
 
                         ScriptFunctionInstance set;
-                        using (new StrictModeScope(setter.IsStrict()))
+                        using (new StrictModeScope(setter.Strict))
                         {
 
                             set = new ScriptFunctionInstance(
@@ -792,7 +792,7 @@ namespace Jint.Runtime
                 _engine,
                 functionExpression,
                 funcEnv,
-                functionExpression.IsStrict()
+                functionExpression.Strict
                 );
 
             if (functionExpression.Id != null && !String.IsNullOrEmpty(functionExpression.Id.Name))

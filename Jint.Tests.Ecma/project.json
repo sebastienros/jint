@@ -6,6 +6,7 @@
     "xunit": "2.2.0-*",
     "dotnet-test-xunit": "2.2.0-preview2-build1029"
   },
+  "buildOptions": {"compile": {"exclude": "TestCases"}},
   "frameworks": {
     "netcoreapp1.0": {
       "dependencies": {
@@ -16,7 +17,7 @@
       }
     },
     "net451": {
-      "buildOptions": { }
+      "buildOptions": {}
     }
   }
 }
