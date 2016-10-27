@@ -1827,5 +1827,15 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void ShouldUseReplaceMarkers()
+        {
+            RunTest(@"
+                var re = /a/g;
+                var str = 'abab';
+                var newstr = str.replace(re, '$\'x');
+                equal('babxbbxb', newstr);
+            ");
+        }
     }
 }

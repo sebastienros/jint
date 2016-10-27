@@ -625,16 +625,15 @@ namespace Jint.Runtime
 
         public JsValue EvaluateLiteral(Literal literal)
         {
-            // TODO: Esprima
-
-            //if(literal.Cached)
+            // TODO: Esprima; Cached value is a JsValue
+            //if (literal.Cached)
             //{
             //    return literal.CachedValue;
             //}
 
             //if (literal.Type == Nodes.RegularExpressionLiteral)
             //{
-            //    literal.CachedValue = _engine.RegExp.Construct(literal.Raw);
+            //    literal.CachedValue = _engine.RegExp.Construct(literal.RegexValue, literal.Regex.Flags);
             //}
             //else
             //{
@@ -642,9 +641,17 @@ namespace Jint.Runtime
             //}
 
             //literal.Cached = true;
-            // return literal.CachedValue;
+            //return literal.CachedValue;
 
-            return JsValue.FromObject(_engine, literal.Value);
+            if (literal.RegexValue != null) //(literal.Type == Nodes.RegularExpressionLiteral)
+            {
+                return _engine.RegExp.Construct(literal.RegexValue, literal.Regex.Flags);
+            }
+            else
+            {
+                return JsValue.FromObject(_engine, literal.Value);
+            }
+
         }
 
         public JsValue EvaluateObjectExpression(ObjectExpression objectExpression)
