@@ -111,6 +111,7 @@ namespace Jint.Native.RegExp
 
             r.Flags = f;
             r.Source = s;
+            AssignFlags(r, f);
 
             r.FastAddProperty("global", r.Global, false, false, false);
             r.FastAddProperty("ignoreCase", r.IgnoreCase, false, false, false);
@@ -133,6 +134,7 @@ namespace Jint.Native.RegExp
             r.Value = scanner.TestRegExp(body, flags);
 
             r.Flags = flags;
+            AssignFlags(r, flags);
             r.Source = System.String.IsNullOrEmpty(body) ? "(?:)" : body;
 
             r.FastAddProperty("global", r.Global, false, false, false);
@@ -144,25 +146,15 @@ namespace Jint.Native.RegExp
             return r;
         }
 
-        public RegExpInstance Construct(Regex regExp)
+        public RegExpInstance Construct(Regex regExp, string flags)
         {
             var r = new RegExpInstance(Engine);
             r.Prototype = PrototypeObject;
             r.Extensible = true;
 
-            string flags = "";
-
-            if (regExp.Options.HasFlag(RegexOptions.Multiline))
-            {
-                flags += "m";
-            }
-
-            if (regExp.Options.HasFlag(RegexOptions.IgnoreCase))
-            {
-                flags += "i";
-            }
-
             r.Flags = flags;
+            AssignFlags(r, flags);
+
             r.Source = regExp.ToString();
             r.Value = regExp;
 
@@ -173,6 +165,25 @@ namespace Jint.Native.RegExp
             r.FastAddProperty("lastIndex", 0, true, false, false);
 
             return r;
+        }
+
+        private void AssignFlags(RegExpInstance r, string flags)
+        {
+            for(var i=0; i < flags.Length; i++)
+            {
+                switch (flags[i])
+                {
+                    case 'i':
+                        r.IgnoreCase = true;
+                        break;
+                    case 'm':
+                        r.Multiline = true;
+                        break;
+                    case 'g':
+                        r.Global = true;
+                        break;
+                }
+            }
         }
 
         public RegExpPrototype PrototypeObject { get; private set; }

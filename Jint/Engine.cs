@@ -61,7 +61,7 @@ namespace Jint
             { typeof(UInt32), (Engine engine, object v) => new JsValue((UInt32)v) },
             { typeof(UInt64), (Engine engine, object v) => new JsValue((UInt64)v) },
             { typeof(JsValue), (Engine engine, object v) => (JsValue)v },
-            { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v) }
+            { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "") }
         };
 
         internal JintCallStack CallStack = new JintCallStack();
@@ -461,9 +461,6 @@ namespace Jint
                     return _expressions.EvaluateIdentifier(expression.As<Identifier>());
 
                 case Nodes.Literal:
-                    return _expressions.EvaluateLiteral(expression.As<Literal>());
-
-                case Nodes.RegularExpressionLiteral:
                     return _expressions.EvaluateLiteral(expression.As<Literal>());
 
                 case Nodes.LogicalExpression:
