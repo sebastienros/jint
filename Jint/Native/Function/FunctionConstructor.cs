@@ -86,7 +86,7 @@ namespace Jint.Native.Function
             try
             {
                 var functionExpression = "function f(" + p + ") { " + body + "}";
-                var parser = new JavaScriptParser(functionExpression);
+                var parser = new JavaScriptParser(functionExpression, new ParserOptions { AdaptRegexp = true, Tolerant = false });
                 function = parser.ParseProgram().Body.First().As<IFunction>();
             }
             catch (ParserException)
