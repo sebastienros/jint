@@ -1,10 +1,11 @@
-﻿{
+{
   "version": "1.0.0-*",
   "testRunner": "xunit",
   "dependencies": {
     "Jint": "*",
     "xunit": "2.2.0-*",
-    "dotnet-test-xunit": "2.2.0-preview2-build1029"
+    "dotnet-test-xunit": "2.2.0-preview2-build1029",
+    "Newtonsoft.Json": "9.0.1"
   },
   "buildOptions": {"compile": {"exclude": "TestCases"}},
   "frameworks": {
