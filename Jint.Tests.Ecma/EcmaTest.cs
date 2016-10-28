@@ -75,7 +75,8 @@ namespace Jint.Tests.Ecma
         }
 
         [Theory(DisplayName = "Ecma")]
-        [MemberData(nameof(SourceFiles), @"TestCases/alltests.json")]
+        [MemberData(nameof(SourceFiles), false)]
+        [MemberData(nameof(SourceFiles), true, Skip = "Skipped")]
         protected void RunTest(string test)
         {
             var fullName = Path.Combine(BasePath, test);
@@ -91,14 +92,14 @@ namespace Jint.Tests.Ecma
 
         }
 
-        public static IEnumerable<object[]> SourceFiles(string relativePath)
+        public static IEnumerable<object[]> SourceFiles(bool skipped)
         {
             var assemblyPath = new Uri(typeof(EcmaTest).GetTypeInfo().Assembly.CodeBase).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
 
             var root = assemblyDirectory.Parent.Parent.Parent.FullName;
 
-            var fixturesPath = Path.Combine(root, relativePath);
+            var fixturesPath = Path.Combine(root, @"TestCases\alltests.json");
 
             try
             {
@@ -107,9 +108,9 @@ namespace Jint.Tests.Ecma
                 var results = new List<object[]>();
                 foreach(JObject entry in doc)
                 {
-                    if (!entry["skip"].Value<bool>())
+                    if (skipped == entry["skip"].Value<bool>())
                     {
-                        results.Add(new object[] { Path.Combine(fixturesPath, entry["source"].ToString()) });
+                        results.Add(new object[] { Path.Combine(root, "TestCases", entry["source"].ToString()) });
                     }
                 }
 
