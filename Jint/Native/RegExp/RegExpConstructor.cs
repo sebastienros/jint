@@ -90,10 +90,9 @@ namespace Jint.Native.RegExp
             r.Prototype = PrototypeObject;
             r.Extensible = true;
 
-            var options = new Scanner("").ParseRegexOptions(f);
-
             try
             {
+                var options = new Scanner("").ParseRegexOptions(f);
                 r.Value = new Regex(p, options);
             }
             catch (Exception e)
