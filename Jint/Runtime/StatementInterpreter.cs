@@ -85,9 +85,9 @@ namespace Jint.Runtime
                 {
                     v = stmt.Value;
                 }
-                if (stmt.Type != Completion.Continue || stmt.Identifier != doWhileStatement.LabelSet.Name)
+                if (stmt.Type != Completion.Continue || stmt.Identifier != doWhileStatement?.LabelSet?.Name)
                 {
-                    if (stmt.Type == Completion.Break && (stmt.Identifier == null || stmt.Identifier == doWhileStatement.LabelSet.Name))
+                    if (stmt.Type == Completion.Break && (stmt.Identifier == null || stmt.Identifier == doWhileStatement?.LabelSet?.Name))
                     {
                         return new Completion(Completion.Normal, v, null);
                     }
@@ -129,9 +129,9 @@ namespace Jint.Runtime
                     v = stmt.Value;
                 }
 
-                if (stmt.Type != Completion.Continue || stmt.Identifier != whileStatement.LabelSet.Name)
+                if (stmt.Type != Completion.Continue || stmt.Identifier != whileStatement?.LabelSet?.Name)
                 {
-                    if (stmt.Type == Completion.Break && (stmt.Identifier == null || stmt.Identifier == whileStatement.LabelSet.Name))
+                    if (stmt.Type == Completion.Break && (stmt.Identifier == null || stmt.Identifier == whileStatement?.LabelSet?.Name))
                     {
                         return new Completion(Completion.Normal, v, null);
                     }
@@ -181,11 +181,11 @@ namespace Jint.Runtime
                 {
                     v = stmt.Value;
                 }
-                if (stmt.Type == Completion.Break && (stmt.Identifier == null || stmt.Identifier == forStatement.LabelSet.Name))
+                if (stmt.Type == Completion.Break && (stmt.Identifier == null || stmt.Identifier == forStatement?.LabelSet?.Name))
                 {
                     return new Completion(Completion.Normal, v, null);
                 }
-                if (stmt.Type != Completion.Continue || ((stmt.Identifier != null) && stmt.Identifier != forStatement.LabelSet.Name))
+                if (stmt.Type != Completion.Continue || ((stmt.Identifier != null) && stmt.Identifier != forStatement?.LabelSet?.Name))
                 {
                     if (stmt.Type != Completion.Normal)
                     {
