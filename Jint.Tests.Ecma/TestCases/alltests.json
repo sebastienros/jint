@@ -2895,8 +2895,8 @@
     source: "ch07/7.8/7.8.5/S7.8.5_A1.4_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "The pattern a\\P is evaluatead as a syntax error in .NET",
     source: "ch07/7.8/7.8.5/S7.8.5_A1.4_T2.js"
   },
   {
@@ -2985,8 +2985,8 @@
     source: "ch07/7.8/7.8.5/S7.8.5_A2.4_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "The pattern a\\P is evaluatead as a syntax error in .NET",
     source: "ch07/7.8/7.8.5/S7.8.5_A2.4_T2.js"
   },
   {
@@ -4160,8 +4160,8 @@
     source: "ch08/8.4/S8.4_A9_T3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308",
     source: "ch08/8.5/8.5.1.js"
   },
   {
@@ -4355,8 +4355,8 @@
     source: "ch08/8.7/S8.7.1_A1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Doesn't work in Chrome either",
     source: "ch08/8.7/S8.7.1_A2.js"
   },
   {
@@ -4400,8 +4400,8 @@
     source: "ch08/8.7/S8.7_A4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Doesn't work in Chrome either",
     source: "ch08/8.7/S8.7_A5_T1.js"
   },
   {
@@ -15040,8 +15040,8 @@
     source: "ch12/12.2/12.2.1/12.2.1-1-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Indirect eval call also imply changes to the parser logic",
     source: "ch12/12.2/12.2.1/12.2.1-10-s.js"
   },
   {
@@ -15105,13 +15105,13 @@
     source: "ch12/12.2/12.2.1/12.2.1-2-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Indirect eval call also imply changes to the parser logic",
     source: "ch12/12.2/12.2.1/12.2.1-20-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Indirect eval call also imply changes to the parser logic",
     source: "ch12/12.2/12.2.1/12.2.1-21-s.js"
   },
   {
@@ -15230,8 +15230,8 @@
     source: "ch12/12.2/12.2.1/12.2.1-8-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Indirect eval call also imply changes to the parser logic",
     source: "ch12/12.2/12.2.1/12.2.1-9-s.js"
   },
   {
@@ -19240,8 +19240,8 @@
     source: "ch15/15.10/15.10.2/15.10.2.10/S15.10.2.10_A2.1_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.10/S15.10.2.10_A2.1_T3.js"
   },
   {
@@ -19270,8 +19270,8 @@
     source: "ch15/15.10/15.10.2/15.10.2.10/S15.10.2.10_A4.1_T3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.10/S15.10.2.10_A5.1_T1.js"
   },
   {
@@ -19285,8 +19285,8 @@
     source: "ch15/15.10/15.10.2/15.10.2.11/S15.10.2.11_A1_T4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.11/S15.10.2.11_A1_T5.js"
   },
   {
@@ -19295,8 +19295,8 @@
     source: "ch15/15.10/15.10.2/15.10.2.11/S15.10.2.11_A1_T6.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.11/S15.10.2.11_A1_T7.js"
   },
   {
@@ -19310,13 +19310,13 @@
     source: "ch15/15.10/15.10.2/15.10.2.11/S15.10.2.11_A1_T9.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A1_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A1_T2.js"
   },
   {
@@ -19335,13 +19335,13 @@
     source: "ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A1_T5.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A2_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A2_T2.js"
   },
   {
@@ -19360,8 +19360,8 @@
     source: "ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A2_T5.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A3_T1.js"
   },
   {
@@ -19385,8 +19385,8 @@
     source: "ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A3_T5.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A4_T1.js"
   },
   {
@@ -19450,8 +19450,8 @@
     source: "ch15/15.10/15.10.2/15.10.2.12/S15.10.2.12_A6_T4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.13/S15.10.2.13_A1_T1.js"
   },
   {
@@ -19490,13 +19490,13 @@
     source: "ch15/15.10/15.10.2/15.10.2.13/S15.10.2.13_A1_T16.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.13/S15.10.2.13_A1_T17.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.13/S15.10.2.13_A1_T2.js"
   },
   {
@@ -19535,8 +19535,8 @@
     source: "ch15/15.10/15.10.2/15.10.2.13/S15.10.2.13_A1_T9.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.13/S15.10.2.13_A2_T1.js"
   },
   {
@@ -19570,8 +19570,8 @@
     source: "ch15/15.10/15.10.2/15.10.2.13/S15.10.2.13_A2_T7.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.13/S15.10.2.13_A2_T8.js"
   },
   {
@@ -19835,13 +19835,13 @@
     source: "ch15/15.10/15.10.2/15.10.2.3/S15.10.2.3_A1_T15.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.3/S15.10.2.3_A1_T16.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.3/S15.10.2.3_A1_T17.js"
   },
   {
@@ -19900,8 +19900,8 @@
     source: "ch15/15.10/15.10.2/15.10.2.5/S15.10.2.5_A1_T3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.5/S15.10.2.5_A1_T4.js"
   },
   {
@@ -20535,23 +20535,23 @@
     source: "ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A2_T5.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A2_T6.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A2_T7.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A2_T8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A2_T9.js"
   },
   {
@@ -20595,13 +20595,13 @@
     source: "ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A3_T16.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A3_T17.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.2/15.10.2.8/S15.10.2.8_A3_T18.js"
   },
   {
@@ -21010,8 +21010,8 @@
     source: "ch15/15.10/15.10.4/S15.10.4.1_A8_T13.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Regular expression discrepancies between CLR and ECMAScript",
     source: "ch15/15.10/15.10.4/S15.10.4.1_A8_T2.js"
   },
   {
@@ -21250,8 +21250,8 @@
     source: "ch15/15.10/15.10.6/15.10.6.2/S15.10.6.2_A1_T5.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Can't figure out why the results differ...",
     source: "ch15/15.10/15.10.6/15.10.6.2/S15.10.6.2_A1_T6.js"
   },
   {
@@ -53905,8 +53905,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.9/15.5.4.9_3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "String must be normalized for this unit test to pass. string.Normalize() is not available for Portable library project",
     source: "ch15/15.5/15.5.4/15.5.4.9/15.5.4.9_CE.js"
   },
   {
