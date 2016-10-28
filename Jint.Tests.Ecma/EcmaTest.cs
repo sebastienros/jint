@@ -72,8 +72,83 @@ namespace Jint.Tests.Ecma
             }
         }
 
-        [Theory]
-        [MemberData(nameof(SourceFiles), "TestCases")]
+        [Theory(DisplayName = "Ecma")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch06\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.2\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.3\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.4\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.6\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.7\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.8\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.9\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.1\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.2\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.3\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.4\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.5\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.6\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.7\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.8\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.12\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.1\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.2\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.3\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.4\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.5\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.6\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.7\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.8\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.9\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch10\10.1\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch10\10.2\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch10\10.4\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch10\10.5\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch10\10.6\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.1\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.2\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.3\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.4\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.5\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.6\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.7\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.8\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.9\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.10\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.11\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.12\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.13\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.14\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.1\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.2\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.3\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.4\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.5\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.6\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.7\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.8\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.9\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.10\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.11\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.12\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.13\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.14\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch13\13.0\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch13\13.1\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch13\13.2\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch14\14.0\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch14\14.1\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.1\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.2\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.3\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.4\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.5\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.6\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.7\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.8\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.9\")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.10")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.11")]
+        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.12")]
         protected void RunTest(string sourceFilename)
         {
             var fullName = Path.Combine(BasePath, sourceFilename);
@@ -95,40 +170,21 @@ namespace Jint.Tests.Ecma
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
 
             var root = assemblyDirectory.Parent.Parent.Parent.FullName;
+
             var fixturesPath = Path.Combine(root, relativePath);
 
-            var files = Directory.GetFiles(fixturesPath, "*.js", SearchOption.AllDirectories);
+            try
+            {
+                var files = Directory.GetFiles(fixturesPath, "*.js", SearchOption.AllDirectories);
 
-            return files
-                .Select(x => new object[] { x })
-                .ToList();
+                return files
+                    .Select(x => new object[] { x })
+                    .ToList();
+            }
+            catch
+            {
+                return Enumerable.Empty<object[]>();
+            }
         }
-    }
-
-    public class EcmaTestTests : EcmaTest
-    {
-        [Fact]
-        public void EcmaTestPassSucceededTestCase()
-        {
-            RunTestCode(@"
-                function testcase() {
-                        return true;
-                    }
-                runTestCase(testcase);
-            ", false);
-        }
-
-        [Fact]
-        public void EcmaTestPassNegativeTestCase()
-        {
-            RunTestCode(@"
-                function testcase() {
-                        return false;
-                    }
-                runTestCase(testcase);
-            ", true);
-        }
-
-
     }
 }
