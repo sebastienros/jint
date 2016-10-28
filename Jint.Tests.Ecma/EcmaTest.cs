@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Jint.Runtime;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace Jint.Tests.Ecma
@@ -73,85 +75,10 @@ namespace Jint.Tests.Ecma
         }
 
         [Theory(DisplayName = "Ecma")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch06\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.2\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.3\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.4\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.6\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.7\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.8\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch07\7.9\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.1\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.2\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.3\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.4\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.5\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.6\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.7\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.8\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch08\8.12\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.1\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.2\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.3\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.4\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.5\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.6\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.7\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.8\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch09\9.9\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch10\10.1\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch10\10.2\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch10\10.4\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch10\10.5\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch10\10.6\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.1\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.2\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.3\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.4\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.5\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.6\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.7\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.8\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.9\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.10\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.11\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.12\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.13\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch11\11.14\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.1\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.2\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.3\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.4\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.5\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.6\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.7\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.8\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.9\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.10\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.11\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.12\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.13\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch12\12.14\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch13\13.0\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch13\13.1\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch13\13.2\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch14\14.0\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch14\14.1\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.1\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.2\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.3\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.4\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.5\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.6\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.7\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.8\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.9\")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.10")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.11")]
-        [MemberData(nameof(SourceFiles), @"TestCases\ch15\15.12")]
-        protected void RunTest(string sourceFilename)
+        [MemberData(nameof(SourceFiles), @"TestCases/alltests.json")]
+        protected void RunTest(string test)
         {
-            var fullName = Path.Combine(BasePath, sourceFilename);
+            var fullName = Path.Combine(BasePath, test);
             if (!File.Exists(fullName))
             {
                 throw new ArgumentException("Could not find source file: " + fullName);
@@ -175,15 +102,23 @@ namespace Jint.Tests.Ecma
 
             try
             {
-                var files = Directory.GetFiles(fixturesPath, "*.js", SearchOption.AllDirectories);
+                var content = File.ReadAllText(fixturesPath);
+                var doc = JArray.Parse(content);
+                var results = new List<object[]>();
+                foreach(JObject entry in doc)
+                {
+                    if (!entry["skip"].Value<bool>())
+                    {
+                        results.Add(new object[] { Path.Combine(fixturesPath, entry["source"].ToString()) });
+                    }
+                }
 
-                return files
-                    .Select(x => new object[] { x })
-                    .ToList();
+                return results;
             }
             catch
             {
-                return Enumerable.Empty<object[]>();
+                throw;
+                //return Enumerable.Empty<object[]>();
             }
         }
     }
