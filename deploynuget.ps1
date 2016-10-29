@@ -1,11 +1,11 @@
-$projectjson = ".\jint\project.json"
+$projectjson = ".\jint"
 
-if(![System.IO.Directory]::Exists("./.nuget")){
+if(![System.IO.Directory]::Exists(".nuget")){
   New-Item ".nuget" -type directory
   Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile "./.nuget/nuget.exe"
 }
 
-if([System.IO.Directory]::Exists("./artifacts")){
+if([System.IO.Directory]::Exists("artifacts")){
   Remove-Item .\artifacts -Force -Recurse
 }
 
