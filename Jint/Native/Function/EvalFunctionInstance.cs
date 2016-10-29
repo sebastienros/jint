@@ -1,6 +1,4 @@
-﻿using System.Linq;
-using Esprima;
-using Esprima.Ast;
+﻿using Esprima;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
 
@@ -83,8 +81,13 @@ namespace Jint.Native.Function
                     }
                 }
             }
-            catch (ParserException)
+            catch (ParserException e)
             {
+                if (e.Description == Messages.InvalidLHSInAssignment)
+                {
+                    throw new JavaScriptException(Engine.ReferenceError);
+                }
+
                 throw new JavaScriptException(Engine.SyntaxError);
             }
         }
