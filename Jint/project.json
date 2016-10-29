@@ -1,5 +1,5 @@
 {
-  "version": "2.10.2",
+  "version": "3.0.0-beta-001",
   "title": "Jint",
   "description": "Javascript interpreter for .NET which provides full ECMA 5.1 compliance.",
   "language": "en-US",
@@ -34,6 +34,6 @@
     }
   },
   "dependencies": {
-    "Esprima": "1.0.0-alpha-*"
+    "Esprima": "1.0.0-beta-*"
   }
 }
