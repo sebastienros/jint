@@ -15,8 +15,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Tests.Ecma", "Jint.Tes
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Tests.CommonScripts", "Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj", "{B815F239-6409-4BA7-9461-18317AA2DBED}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "Esprima", "..\Esprima.NET\src\Esprima\Esprima.xproj", "{C9C93BFD-D276-4537-8724-4268520BF3C6}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -47,10 +45,6 @@ Global
 		{B815F239-6409-4BA7-9461-18317AA2DBED}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B815F239-6409-4BA7-9461-18317AA2DBED}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B815F239-6409-4BA7-9461-18317AA2DBED}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C9C93BFD-D276-4537-8724-4268520BF3C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C9C93BFD-D276-4537-8724-4268520BF3C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C9C93BFD-D276-4537-8724-4268520BF3C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C9C93BFD-D276-4537-8724-4268520BF3C6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
