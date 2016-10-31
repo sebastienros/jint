@@ -1829,5 +1829,23 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void ExceptionShouldHaveLocationOfInnerFunction()
+        {
+            try
+            {
+                new Engine()
+                    .Execute(@"
+                    function test(s) {
+                        o.boom();
+                    }
+                    test('arg');
+                ");
+            }
+            catch (JavaScriptException ex)
+            {
+                Assert.Equal(3, ex.LineNumber);
+            }
+        }
     }
 }
