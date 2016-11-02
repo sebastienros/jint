@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Dynamic;
-using System.Reflection;
 using System.Threading;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
@@ -56,6 +55,14 @@ namespace Jint.Native
             _object = value;
         }
 
+        public JsValue(Completion value)
+        {
+            _double = double.NaN;
+            _type = Types.Completion;
+
+            _object = value;
+        }
+
         private JsValue(Types type)
         {
             _double = double.NaN;
@@ -63,11 +70,11 @@ namespace Jint.Native
             _type = type;
         }
 
-        private readonly double _double;
+        protected double _double;
 
-        private readonly object _object;
+        protected object _object;
 
-        private readonly Types _type;
+        protected Types _type;
 
         [Pure]
         public bool IsPrimitive()
@@ -130,6 +137,18 @@ namespace Jint.Native
         }
 
         [Pure]
+        public bool IsCompletion()
+        {
+            return _type == Types.Completion;
+        }
+
+        [Pure]
+        public bool IsSymbol()
+        {
+            return _type == Types.Symbol;
+        }
+
+        [Pure]
         public ObjectInstance AsObject()
         {
             if (_type != Types.Object)
@@ -138,6 +157,17 @@ namespace Jint.Native
             }
 
             return _object as ObjectInstance;
+        }
+
+        [Pure]
+        public TInstance AsInstance<TInstance>() where TInstance : class
+        {
+            if (_type != Types.Object)
+            {
+                throw new ArgumentException("The value is not an object");
+            }
+
+            return _object as TInstance;
         }
 
         [Pure]
@@ -171,6 +201,17 @@ namespace Jint.Native
             }
 
             return _object as RegExpInstance;
+        }
+
+        [Pure]
+        public Completion AsCompletion()
+        {
+            if (_type != Types.Completion)
+            {
+                throw new ArgumentException("The value is not a completion record");
+            }
+
+            return (Completion)_object;
         }
 
         [Pure]
@@ -228,7 +269,23 @@ namespace Jint.Native
                 throw new ArgumentException("The value is not defined");
             }
 
-            return _object as string;
+            return (string)_object;
+        }
+
+        [Pure]
+        public string AsSymbol()
+        {
+            if (_type != Types.Symbol)
+            {
+                throw new ArgumentException("The value is not a symbol");
+            }
+
+            if (_object == null)
+            {
+                throw new ArgumentException("The value is not defined");
+            }
+
+            return (string)_object;
         }
 
         [Pure]
@@ -465,7 +522,7 @@ namespace Jint.Native
                             var numberInstance = _object as NumberInstance;
                             if (numberInstance != null)
                             {
-                                return numberInstance.PrimitiveValue.AsNumber();
+                                return numberInstance.NumberData.AsNumber();
                             }
 
                             break;
@@ -533,6 +590,24 @@ namespace Jint.Native
             }
 
             return callable.Call(thisObj, arguments);
+        }
+
+        public static bool ReturnOnAbruptCompletion(ref JsValue argument)
+        {
+            if (argument.IsCompletion())
+            {
+                return false;
+            }
+
+            var completion = argument.AsCompletion();
+            if (completion.IsAbrupt())
+            {
+                return true;
+            }
+
+            argument = completion.Value;
+
+            return false;
         }
 
         public override string ToString()
@@ -658,6 +733,17 @@ namespace Jint.Native
                 hashCode = (hashCode * 397) ^ (int)_type;
                 return hashCode;
             }
+        }
+    }
+
+    /// <summary>
+    /// The _object value of a <see cref="JsSymbol"/> is the [[Description]] internal slot.
+    /// </summary>
+    public class JsSymbol : JsValue
+    {
+        public JsSymbol(string description) : base(description)
+        {
+            _type = Types.Symbol;
         }
     }
 }

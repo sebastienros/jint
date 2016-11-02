@@ -2,11 +2,14 @@
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using System;
+using System.Collections.Specialized;
 
 namespace Jint.Native.Object
 {
     public class ObjectInstance
     {
+        private Dictionary<string, PropertyDescriptor> _intrinsicProperties;
+
         public ObjectInstance(Engine engine)
         {
             Engine = engine;
@@ -16,6 +19,40 @@ namespace Jint.Native.Object
         public Engine Engine { get; set; }
 
         protected IDictionary<string, PropertyDescriptor> Properties { get; private set; }
+
+        protected bool TryGetIntrinsicValue(JsSymbol symbol, out JsValue value)
+        {
+            PropertyDescriptor descriptor;
+
+            if (_intrinsicProperties != null && _intrinsicProperties.TryGetValue(symbol.AsSymbol(), out descriptor))
+            {
+                value = descriptor.Value;
+                return true;
+            }
+
+            if (Prototype == null)
+            {
+                value = JsValue.Undefined;
+                return false;
+            }
+
+            return Prototype.TryGetIntrinsicValue(symbol, out value);
+        }
+
+        public void SetIntrinsicValue(string name, JsValue value, bool writable, bool enumerable, bool configurable)
+        {
+            SetOwnProperty(name, new PropertyDescriptor(value, writable, enumerable, configurable));
+        }
+
+        protected void SetIntrinsicValue(JsSymbol symbol, JsValue value, bool writable, bool enumerable, bool configurable)
+        {
+            if (_intrinsicProperties == null)
+            {
+                _intrinsicProperties = new Dictionary<string, PropertyDescriptor>();
+            }
+
+            _intrinsicProperties[symbol.AsSymbol()] = new PropertyDescriptor(value, writable, enumerable, configurable);
+        }
 
         /// <summary>
         /// The prototype of this object.

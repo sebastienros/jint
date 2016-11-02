@@ -21,7 +21,7 @@ namespace Jint.Native.Number
         {
             var obj = new NumberPrototype(engine);
             obj.Prototype = engine.Object.PrototypeObject;
-            obj.PrimitiveValue = 0;
+            obj.NumberData = 0;
             obj.Extensible = true;
 
             obj.FastAddProperty("constructor", numberConstructor, true, false, true);
@@ -84,7 +84,7 @@ namespace Jint.Native.Number
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            return number.PrimitiveValue;
+            return number.NumberData;
         }
 
         private const double Ten21 = 1e21;

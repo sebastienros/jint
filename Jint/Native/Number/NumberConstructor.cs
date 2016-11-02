@@ -64,7 +64,7 @@ namespace Jint.Native.Number
         {
             var instance = new NumberInstance(Engine);
             instance.Prototype = PrototypeObject;
-            instance.PrimitiveValue = value;
+            instance.NumberData = value;
             instance.Extensible = true;
 
             return instance;
