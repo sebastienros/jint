@@ -30,6 +30,11 @@ namespace Jint.Runtime
             return Value != null ? Value : Undefined.Instance;
         }
 
+        public bool IsAbrupt()
+        {
+            return Type != Normal;
+        }
+
         public Location Location { get; set; }
     }
 }

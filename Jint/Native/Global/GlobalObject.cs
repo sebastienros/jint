@@ -30,6 +30,7 @@ namespace Jint.Native.Global
             // Global object properties
             FastAddProperty("Object", Engine.Object, true, false, true);
             FastAddProperty("Function", Engine.Function, true, false, true);
+            FastAddProperty("Symbol", Engine.Symbol, true, false, true);
             FastAddProperty("Array", Engine.Array, true, false, true);
             FastAddProperty("String", Engine.String, true, false, true);
             FastAddProperty("RegExp", Engine.RegExp, true, false, true);
@@ -449,7 +450,7 @@ namespace Jint.Native.Global
                     }
                     else if (v <= 0xD7FF)
                     {
-                        // xxxxyyyy yyzzzzzz -> 1110xxxx; 10yyyyyy; 10zzzzzz	
+                        // xxxxyyyy yyzzzzzz -> 1110xxxx; 10yyyyyy; 10zzzzzz
                         octets = new[]
                         {
                             (byte)(0xE0 | (v >> 12)),
@@ -582,7 +583,7 @@ namespace Jint.Native.Global
 
                             B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
 
-                            // B & 11000000 != 10000000 
+                            // B & 11000000 != 10000000
                             if ((B & 0xC0) != 0x80)
                             {
                                 throw new JavaScriptException(Engine.UriError);

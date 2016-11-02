@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Esprima;
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Argument;
 using Jint.Native.Array;
@@ -15,8 +17,7 @@ using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.String;
-using Esprima;
-using Esprima.Ast;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Debugger;
@@ -79,6 +80,7 @@ namespace Jint
             Object = ObjectConstructor.CreateObjectConstructor(this);
             Function = FunctionConstructor.CreateFunctionConstructor(this);
 
+            Symbol = SymbolConstructor.CreateSymbolConstructor(this);
             Array = ArrayConstructor.CreateArrayConstructor(this);
             String = StringConstructor.CreateStringConstructor(this);
             RegExp = RegExpConstructor.CreateRegExpConstructor(this);
@@ -96,6 +98,8 @@ namespace Jint
             TypeError = ErrorConstructor.CreateErrorConstructor(this, "TypeError");
             UriError = ErrorConstructor.CreateErrorConstructor(this, "URIError");
 
+            GlobalSymbolRegistry = new GlobalSymbolRegistry();
+
             // Because the properties might need some of the built-in object
             // their configuration is delayed to a later step
 
@@ -103,6 +107,9 @@ namespace Jint
 
             Object.Configure();
             Object.PrototypeObject.Configure();
+
+            Symbol.Configure();
+            Symbol.PrototypeObject.Configure();
 
             Function.Configure();
             Function.PrototypeObject.Configure();
@@ -177,6 +184,7 @@ namespace Jint
         public DateConstructor Date { get; private set; }
         public MathInstance Math { get; private set; }
         public JsonInstance Json { get; private set; }
+        public SymbolConstructor Symbol { get; private set; }
         public EvalFunctionInstance Eval { get; private set; }
 
         public ErrorConstructor Error { get; private set; }
@@ -188,6 +196,8 @@ namespace Jint
         public ErrorConstructor UriError { get; private set; }
 
         public ExecutionContext ExecutionContext { get { return _executionContexts.Peek(); } }
+
+        public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
 
         internal Options Options { get; private set; }
 
