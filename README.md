@@ -12,7 +12,7 @@ Jint is a __Javascript interpreter__ for .NET which provides full __ECMA 5.1__ c
 - .NET Portable Class Library - http://msdn.microsoft.com/en-us/library/gg597391(v=vs.110).aspx
 - .NET Interoperability 
 
-- ECMAScript 6.0 currently being implemeted, see https://github.com/sebastienros/jint/issues/343
+> ECMAScript 6.0 currently being implemeted, see https://github.com/sebastienros/jint/issues/343
 
 # Discussion
 
