@@ -12,6 +12,8 @@ Jint is a __Javascript interpreter__ for .NET which provides full __ECMA 5.1__ c
 - .NET Portable Class Library - http://msdn.microsoft.com/en-us/library/gg597391(v=vs.110).aspx
 - .NET Interoperability 
 
+- ECMAScript 6.0 currently being implemeted, see https://github.com/sebastienros/jint/issues/343
+
 # Discussion
 
 Join the chat on [Gitter](https://gitter.im/sebastienros/jint) or post your questions with the `jint` tag on [stackoverflow](http://stackoverflow.com/questions/tagged/jint).
@@ -151,6 +153,5 @@ This example is using French as the default culture.
   - Regex -> RegExp
   - Function -> Delegate
 
-Continuous Integration kindly provided by  
-[![](http://www.jetbrains.com/img/banners/Codebetter300x250.png)](http://www.jetbrains.com/teamcity)
+Continuous Integration kindly provided by  [AppVeyor](https://www.appveyor.com)
 
