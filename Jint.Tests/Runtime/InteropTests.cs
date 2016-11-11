@@ -230,6 +230,21 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void CanGetOverloadedIndexUsingStringKey()
+        {
+            var dataRow = new DataRow();
+
+            _engine.SetValue("dataRow", dataRow);
+
+            RunTest(@"
+                assert(dataRow[0] === 'Column Data');
+                assert(dataRow[1] === null);
+                assert(dataRow['MrColumn'] === 'Column Data');
+                assert(dataRow['Noone'] === null);
+            ");
+        }
+
+        [Fact]
         public void CanSetIndexUsingStringKey()
         {
             var dictionary = new Dictionary<string, Person>();
