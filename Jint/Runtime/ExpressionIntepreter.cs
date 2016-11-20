@@ -797,13 +797,13 @@ namespace Jint.Runtime
             return closure;
         }
 
-        public JsValue EvaluateCallExpression(CallExpression callExpression)
+        public JsValue EvaluateCallExpression(CallExpression callExpression, Statement statement)
         {
             var callee = EvaluateExpression(callExpression.Callee);
 
             if (_engine.Options._IsDebugMode)
             {
-                _engine.DebugHandler.AddToDebugCallStack(callExpression);
+                _engine.DebugHandler.AddToDebugCallStack(callExpression,statement);
             }
 
             JsValue thisObject;

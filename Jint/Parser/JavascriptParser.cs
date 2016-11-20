@@ -217,8 +217,9 @@ namespace Jint.Parser
                         {
                             Line = _lineNumber,
                             Column = _index - _lineStart - offset
-                    }
-                };
+                    },
+                Source = _source
+            };
 
             while (_index < _length)
             {
@@ -272,8 +273,9 @@ namespace Jint.Parser
                             {
                                 Line = _lineNumber,
                                 Column = _index - _lineStart - 2
-                            }
-                    };
+                            },
+                    Source = _source
+                };
             }
 
             while (_index < _length)
@@ -1167,8 +1169,9 @@ namespace Jint.Parser
                         {
                             Line = _lineNumber,
                             Column = _index - _lineStart
-                        }
-                };
+                        },
+                Source = _source
+            };
 
             Token regex = ScanRegExp();
             loc.End = new Position
@@ -1271,8 +1274,9 @@ namespace Jint.Parser
                         {
                             Line = _lineNumber,
                             Column = _index - _lineStart
-                        }
-                };
+                        },
+                Source = _source
+            };
 
             Token token = Advance();
             _location.End = new Position
@@ -1357,8 +1361,9 @@ namespace Jint.Parser
                             {
                                 Line = _lineNumber,
                                 Column = _index - _lineStart
-                            }
-                    };
+                            },
+                    Source = _source
+                };
                 PostProcess(node);
             }
             return node;
@@ -3891,7 +3896,7 @@ namespace Jint.Parser
 
             SkipComment();
 
-            return new LocationMarker(_index, _lineNumber, _lineStart);
+            return new LocationMarker(_index, _lineNumber, _lineStart,_source);
         }
 
         public Program Parse(string code)
@@ -4022,10 +4027,12 @@ namespace Jint.Parser
         private class LocationMarker
         {
             private readonly int[] _marker;
+            private string _source;
 
-            public LocationMarker(int index, int lineNumber, int lineStart)
+            public LocationMarker(int index, int lineNumber, int lineStart, string source)
             {
                 _marker = new[] {index, lineNumber, index - lineStart, 0, 0, 0};
+                _source = source;
             }
 
             public void End(int index, int lineNumber, int lineStart)
@@ -4054,8 +4061,9 @@ namespace Jint.Parser
                                 {
                                     Line = _marker[4],
                                     Column = _marker[5]
-                                }
-                        };
+                                },
+                        Source = _source
+                    };
                 }
 
                 node = postProcess(node);

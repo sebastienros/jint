@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Jint.Native;
 using Jint.Runtime.Interop;
 
 namespace Jint
@@ -11,7 +12,7 @@ namespace Jint
     {
         private bool _discardGlobal;
         private bool _strict;
-        private bool _allowDebuggerStatement;
+        private bool _debuggerStatementBreaksIntoNetDebugger;
         private bool _debugMode;
         private bool _allowClr;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
@@ -42,15 +43,16 @@ namespace Jint
         }
 
         /// <summary>
-        /// Allow the <code>debugger</code> statement to be called in a script.
+        /// If enabled, <code>debugger</code> statement breaks into the .Net debugger.
+        /// If disabled, it is forwarded to the Break event of the engine
         /// </summary>
         /// <remarks>
         /// Because the <code>debugger</code> statement can start the 
         /// Visual Studio debugger, is it disabled by default
         /// </remarks>
-        public Options AllowDebuggerStatement(bool allowDebuggerStatement = true)
+        public Options DebuggerStatementBreaksIntoNetDebugger(bool debuggerStatementBreaksIntoNetDebugger = true)
         {
-            _allowDebuggerStatement = allowDebuggerStatement;
+            _debuggerStatementBreaksIntoNetDebugger = debuggerStatementBreaksIntoNetDebugger;
             return this;
         }
 
@@ -126,7 +128,7 @@ namespace Jint
 
         internal bool _IsStrict => _strict;
 
-        internal bool _IsDebuggerStatementAllowed => _allowDebuggerStatement;
+        internal bool _DebuggerStatementBreaksIntoNetDebugger => _debuggerStatementBreaksIntoNetDebugger;
 
         internal bool _IsDebugMode => _debugMode;
 

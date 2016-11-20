@@ -158,6 +158,7 @@
     <Compile Include="Parser\State.cs" />
     <Compile Include="Parser\Token.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ReflectionExtensions.cs" />
     <Compile Include="Runtime\Arguments.cs" />
     <Compile Include="Runtime\CallStack\JintCallStack.cs" />
     <Compile Include="Runtime\CallStack\CallStackElementComparer.cs" />
@@ -166,6 +167,9 @@
     <Compile Include="Runtime\Debugger\BreakPoint.cs" />
     <Compile Include="Runtime\Debugger\DebugHandler.cs" />
     <Compile Include="Runtime\Debugger\DebugInformation.cs" />
+    <Compile Include="Runtime\Debugger\ExecutionContextInformation.cs" />
+    <Compile Include="Runtime\Debugger\SourceInformation.cs" />
+    <Compile Include="Runtime\Debugger\StackFrame.cs" />
     <Compile Include="Runtime\Debugger\StepMode.cs" />
     <Compile Include="Runtime\Descriptors\PropertyDescriptor.cs" />
     <Compile Include="Runtime\Descriptors\Specialized\FieldInfoDescriptor.cs" />

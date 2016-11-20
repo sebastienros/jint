@@ -1,21 +1,27 @@
-﻿namespace Jint.Runtime.Debugger
+﻿using Jint.Parser.Ast;
+
+namespace Jint.Runtime.Debugger
 {
     public class BreakPoint
     {
-        public int Line { get; set; }
-        public int Char { get; set; }
-        public string Condition { get; set; }
+        public int Line { get; }
+        public int Char { get; }
+        public string Condition { get; }
+        public Statement Statement { get; }
 
-        public BreakPoint(int line, int character)
+        public BreakPoint(int line, int character, string condition=null)
         {
             Line = line;
             Char = character;
+            Condition = condition;
         }
 
-        public BreakPoint(int line, int character, string condition)
-            : this(line, character)
+        public BreakPoint(Statement statement, string condition = null)
         {
-            Condition = condition;
+            this.Statement = statement;
+            this.Line = statement.Location.Start.Line;
+            this.Char = statement.Location.Start.Column;
+            this.Condition = condition;
         }
     }
 }

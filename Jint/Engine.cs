@@ -194,9 +194,31 @@ namespace Jint
         #region Debugger
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
         public delegate StepMode BreakDelegate(object sender, DebugInformation e);
+        public delegate StepMode ExceptionThrownDelegate(object sender, DebugInformation e);
+        public delegate void ParseDelegate(object sender, SourceInformation e);
         public event DebugStepDelegate Step;
         public event BreakDelegate Break;
+        public event ExceptionThrownDelegate ExceptionThrown;
+        public event ParseDelegate Parse;
         internal DebugHandler DebugHandler { get; private set; }
+
+        private class TemporaryDebugDisabler : IDisposable
+        {
+            private readonly Action restore;
+
+            public TemporaryDebugDisabler(Options options)
+            {
+                bool WasDebugging = options._IsDebugMode;
+                this.restore = () => options.DebugMode(WasDebugging);
+                options.DebugMode(false);
+            }
+
+            public void Dispose()
+            {
+                this.restore();
+            }
+        }
+
         public List<BreakPoint> BreakPoints { get; private set; }
 
         internal StepMode? InvokeStepEvent(DebugInformation info)
@@ -215,6 +237,24 @@ namespace Jint
                 return Break(this, info);
             }
             return null;
+        }
+        internal void InvokeParseEvent(SourceInformation info)
+        {
+            if (Parse != null)
+            {
+                Parse(this, info);
+            }
+        }
+        internal StepMode? InvokeExceptionThrownEvent(DebugInformation info)
+        {
+            if (ExceptionThrown != null)
+            {
+                return ExceptionThrown(this, info);
+            }
+            else
+            {
+                return null;
+            }
         }
         #endregion
 
@@ -290,42 +330,97 @@ namespace Jint
             CallStack.Clear();
         }
 
-        public Engine Execute(string source)
+        public Engine Execute(string source, string name = null)
         {
-            var parser = new JavaScriptParser();
-            return Execute(parser.Parse(source));
+            return this.ExecuteInternal(source, name, true);
         }
 
-        public Engine Execute(string source, ParserOptions parserOptions)
+        public Engine ExecuteWithoutDebugging(string source)
+        {
+            return this.ExecuteInternal(source, null, false);
+        }
+
+        private Engine ExecuteInternal(string source, string name, bool debug )
         {
             var parser = new JavaScriptParser();
-            return Execute(parser.Parse(source, parserOptions));
+            Program Program = parser.Parse(source);
+            using (this.TemporarilyDisableDebugging(debug))
+            {
+                if (debug)
+                {
+                    this.InvokeParseEvent(new SourceInformation(name, source, Program.Body.ToArray()));
+                }
+                return this.ExecuteInternal(Program, debug);
+            }
+        }
+
+        private IDisposable TemporarilyDisableDebugging(bool debug)
+        {
+            if (!debug)
+            {
+                return new TemporaryDebugDisabler(this.Options);
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public Engine Execute(string source, ParserOptions parserOptions, string name = null)
+        {
+            var parser = new JavaScriptParser();
+            Program Program = parser.Parse(source, parserOptions);
+
+            this.InvokeParseEvent(new SourceInformation(name, source, Program.Body.ToArray()));
+            return ExecuteInternal(Program, true);
         }
 
         public Engine Execute(Program program)
+        {
+            return this.ExecuteInternal(program, true);
+        }
+
+        private Engine ExecuteInternal(Program program, bool debug)
         {
             ResetStatementsCount();
             ResetTimeoutTicks();
             ResetLastStatement();
             ResetCallStack();
-
-            using (new StrictModeScope(Options._IsStrict || program.Strict))
+            using (TemporarilyDisableDebugging(debug))
             {
-                DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.FunctionDeclarations, program.VariableDeclarations, null, null);
-
-                var result = _statements.ExecuteProgram(program);
-                if (result.Type == Completion.Throw)
+                if (debug)
                 {
-                    throw new JavaScriptException(result.GetValueOrDefault())
-                    {
-                        Location = result.Location
-                    };
+                    this.DebugHandler.SetCurrentProgram(program);
                 }
 
-                _completionValue = result.GetValueOrDefault();
-            }
+                try
+                {
+                    using (new StrictModeScope(Options._IsStrict || program.Strict))
+                    {
+                        DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.FunctionDeclarations, program.VariableDeclarations, null, null);
 
-            return this;
+                        var result = _statements.ExecuteProgram(program);
+                        if (result.Type == Completion.Throw)
+                        {
+                            throw new JavaScriptException(result.GetValueOrDefault())
+                            {
+                                Location = result.Location
+                            };
+                        }
+
+                        _completionValue = result.GetValueOrDefault();
+                    }
+
+                    return this;
+                }
+                finally
+                {
+                    if (debug)
+                    {
+                        this.DebugHandler.SetCurrentProgram(null);
+                    }
+                }
+            }
         }
 
         private void ResetLastStatement()
@@ -428,7 +523,7 @@ namespace Jint
             }
         }
 
-        public object EvaluateExpression(Expression expression)
+        public object EvaluateExpression(Expression expression, Statement statement = null)
         {
             _lastSyntaxNode = expression;
 
@@ -444,7 +539,7 @@ namespace Jint
                     return _expressions.EvaluateBinaryExpression(expression.As<BinaryExpression>());
 
                 case SyntaxNodes.CallExpression:
-                    return _expressions.EvaluateCallExpression(expression.As<CallExpression>());
+                    return _expressions.EvaluateCallExpression(expression.As<CallExpression>(),statement);
 
                 case SyntaxNodes.ConditionalExpression:
                     return _expressions.EvaluateConditionalExpression(expression.As<ConditionalExpression>());
