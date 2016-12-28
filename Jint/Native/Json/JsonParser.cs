@@ -290,7 +290,7 @@ namespace Jint.Native.Json
 
         private Token ScanStringLiteral()
         {
-            string str = "";
+            var sb = new System.Text.StringBuilder();
 
             char quote = _source.CharCodeAt(_index);
 
@@ -321,13 +321,13 @@ namespace Jint.Native.Json
                         switch (ch)
                         {
                             case 'n':
-                                str += '\n';
+                                sb.Append('\n');
                                 break;
                             case 'r':
-                                str += '\r';
+                                sb.Append('\r');
                                 break;
                             case 't':
-                                str += '\t';
+                                sb.Append('\t');
                                 break;
                             case 'u':
                             case 'x':
@@ -335,22 +335,22 @@ namespace Jint.Native.Json
                                 char unescaped = ScanHexEscape(ch);
                                 if (unescaped > 0)
                                 {
-                                    str += unescaped.ToString();
+                                    sb.Append(unescaped.ToString());
                                 }
                                 else
                                 {
                                     _index = restore;
-                                    str += ch.ToString();
+                                    sb.Append(ch.ToString());
                                 }
                                 break;
                             case 'b':
-                                str += "\b";
+                                sb.Append("\b");
                                 break;
                             case 'f':
-                                str += "\f";
+                                sb.Append("\f");
                                 break;
                             case 'v':
-                                str += "\x0B";
+                                sb.Append("\x0B");
                                 break;
 
                             default:
@@ -371,11 +371,11 @@ namespace Jint.Native.Json
                                             code = code * 8 + "01234567".IndexOf(_source.CharCodeAt(_index++));
                                         }
                                     }
-                                    str += ((char)code).ToString();
+                                    sb.Append(((char)code).ToString());
                                 }
                                 else
                                 {
-                                    str += ch.ToString();
+                                    sb.Append(ch.ToString());
                                 }
                                 break;
                         }
@@ -395,7 +395,7 @@ namespace Jint.Native.Json
                 }
                 else
                 {
-                    str += ch.ToString();
+                    sb.Append(ch.ToString());
                 }
             }
 
@@ -407,7 +407,7 @@ namespace Jint.Native.Json
             return new Token
                 {
                     Type = Tokens.String,
-                    Value = str,
+                    Value = sb.ToString(),
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
                     Range = new[] {start, _index}
