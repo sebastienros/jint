@@ -102,6 +102,14 @@ and then to assign local namespaces the same way `System` does it for you, use `
     jint> var bar = new Foo.Bar();
     jint> log(bar.ToString());
 ```    
+adding a specific CLR type reference can be done like this
+```csharp
+engine.SetValue("TheType", TypeReference.CreateTypeReference(engine, typeof(TheType)))
+```
+and used this way
+```javascript
+    jint> var o = new TheType();
+```
 Generic types are also supported. Here is how to declare, instantiate and use a `List<string>`:
 ```javascript
     jint> var ListOfString = System.Collections.Generic.List(System.String);
