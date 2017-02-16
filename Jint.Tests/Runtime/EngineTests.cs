@@ -1863,5 +1863,22 @@ namespace Jint.Tests.Runtime
 				}
             ");
 		}
-    }
+
+        [Fact]
+        public void ShouldCompareInnerValueOfClrInstances()
+        {
+            var engine = new Engine();
+
+            // Create two separate Guid with identical inner values.
+            var guid1 = Guid.NewGuid();
+            var guid2 = new Guid(guid1.ToString());
+
+            engine.SetValue("guid1", guid1);
+            engine.SetValue("guid2", guid2);
+
+			var result = engine.Execute("guid1 == guid2").GetCompletionValue().AsBoolean();
+
+			Assert.True(result);
+        }
+	}
 }
