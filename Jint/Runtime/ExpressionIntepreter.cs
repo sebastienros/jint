@@ -414,6 +414,15 @@ namespace Jint.Runtime
                     return x.AsBoolean() == y.AsBoolean();
                 }
 
+                if (typex == Types.Object)
+                {
+                    var xObject = x.AsObject();
+                    var yObject = x.AsObject();
+
+                    // How do I check if these are CLR instances? And if so, how do I consistently get the "inner value"?
+                    return xObject == yObject;
+                }
+
                 return x == y;
             }
 
