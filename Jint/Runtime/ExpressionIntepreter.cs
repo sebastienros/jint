@@ -632,7 +632,15 @@ namespace Jint.Runtime
 
             if (literal.Type == SyntaxNodes.RegularExpressionLiteral)
             {
-                literal.CachedValue = _engine.RegExp.Construct(literal.Raw);
+				var regexp = _engine.RegExp.Construct(literal.Raw);
+
+				if (regexp.Global)
+				{
+					// A Global regexp literal can't be cached or its state would evolve
+					return regexp;
+				}
+
+				literal.CachedValue = regexp;
             }
             else
             {

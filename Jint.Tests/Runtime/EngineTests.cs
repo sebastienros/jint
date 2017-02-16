@@ -1847,5 +1847,21 @@ namespace Jint.Tests.Runtime
                 Assert.Equal(3, ex.LineNumber);
             }
         }
+
+		[Fact]
+		public void GlobalRegexLiteralShouldNotKeepState()
+		{
+			RunTest(@"
+				var url = 'https://www.example.com';
+
+				assert(isAbsolutePath(url));
+				assert(isAbsolutePath(url));
+				assert(isAbsolutePath(url));
+
+				function isAbsolutePath(path) {
+					return /\.+/g.test(path);
+				}
+            ");
+		}
     }
 }
