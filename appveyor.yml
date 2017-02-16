@@ -7,7 +7,7 @@ install:
 build_script:
   - dotnet build .\Jint\project.json --configuration Release
 test_script:
-  - dotnet test .\Jint.Tests\project.json --configuration Release
-  - dotnet test .\Jint.Tests.CommonScripts\project.json --configuration Release
-  - dotnet test .\Jint.Tests.Ecma\project.json --configuration Release
+  - dotnet test .\Jint.Tests\project.json --configuration Release -f netcoreapp1.0
+  - dotnet test .\Jint.Tests.CommonScripts\project.json --configuration Release -f netcoreapp1.0
+  - dotnet test .\Jint.Tests.Ecma\project.json --configuration Release -f netcoreapp1.0
 deploy: off
