@@ -5,14 +5,13 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
-using System.Collections;
 
 namespace Jint.Runtime.Interop
 {
-    /// <summary>
-    /// Wraps a CLR instance
-    /// </summary>
-    public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper
+	/// <summary>
+	/// Wraps a CLR instance
+	/// </summary>
+	public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper
     {
         public Object Target { get; set; }
 
