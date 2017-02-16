@@ -1863,5 +1863,22 @@ namespace Jint.Tests.Runtime
 				}
             ");
 		}
+
+        [Fact]
+        public void ShouldCompareInnerValueOfClrInstances()
+        {
+            var engine = new Engine();
+
+            // Create two separate Guid with identical inner values.
+            var guid1 = new Guid("f541f5bf-0fad-44fa-952d-a35c3282f9ef");
+            var guid2 = new Guid("f541f5bf-0fad-44fa-952d-a35c3282f9ef");
+
+            engine.SetValue("guid1", guid1);
+            engine.SetValue("guid2", guid1);
+
+            var result = engine.Execute("guid1 == guid2").GetCompletionValue();
+
+            Assert.True(result.AsBoolean());
+        }
     }
 }
