@@ -295,7 +295,7 @@ namespace Jint.Native.Number
             // 123.4 s=1234, k=4, n=3
             // 1234000 s = 1234, k=4, n=7
             string s = null;
-            var rFormat = m.ToString("r");
+            var rFormat = m.ToString("r", CultureInfo.InvariantCulture);
             if (rFormat.IndexOf("e", StringComparison.OrdinalIgnoreCase) == -1)
             {
                 s = rFormat.Replace(".", "").TrimStart('0').TrimEnd('0');
