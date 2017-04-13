@@ -464,6 +464,16 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ForInStatementEnumeratesKeys()
+        {
+            RunTest(@"
+                for(var i in 'abc');
+				log(i);
+                assert(i === '2');
+            ");
+        }
+
+        [Fact]
         public void WithStatement()
         {
             RunTest(@"
@@ -1013,7 +1023,7 @@ namespace Jint.Tests.Runtime
                 Assert.Equal("jQuery.js", e.Source);
             }
         }
-#region DateParsingAndStrings
+        #region DateParsingAndStrings
         [Fact]
         public void ParseShouldReturnNumber()
         {
@@ -1056,7 +1066,7 @@ namespace Jint.Tests.Runtime
             const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName, customName, customName, null, false);
 #else
-        var customTimeZone = TimeZoneInfo.Utc;
+            var customTimeZone = TimeZoneInfo.Utc;
 #endif
 
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
@@ -1142,7 +1152,7 @@ namespace Jint.Tests.Runtime
             const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, timespanMinutes, 0), customName, customName, customName, null, false);
 #else
-    var customTimeZone = TimeZoneInfo.Utc;
+            var customTimeZone = TimeZoneInfo.Utc;
 #endif
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)).SetValue("d", date);
 
@@ -1192,7 +1202,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(expected, actual);
         }
 
-#endregion
+        #endregion
 
         //DateParsingAndStrings
         [Fact]
@@ -1848,10 +1858,10 @@ namespace Jint.Tests.Runtime
             }
         }
 
-		[Fact]
-		public void GlobalRegexLiteralShouldNotKeepState()
-		{
-			RunTest(@"
+        [Fact]
+        public void GlobalRegexLiteralShouldNotKeepState()
+        {
+            RunTest(@"
 				var url = 'https://www.example.com';
 
 				assert(isAbsolutePath(url));
@@ -1862,7 +1872,7 @@ namespace Jint.Tests.Runtime
 					return /\.+/g.test(path);
 				}
             ");
-		}
+        }
 
         [Fact]
         public void ShouldCompareInnerValueOfClrInstances()
@@ -1876,20 +1886,20 @@ namespace Jint.Tests.Runtime
             engine.SetValue("guid1", guid1);
             engine.SetValue("guid2", guid2);
 
-			var result = engine.Execute("guid1 == guid2").GetCompletionValue().AsBoolean();
+            var result = engine.Execute("guid1 == guid2").GetCompletionValue().AsBoolean();
 
-			Assert.True(result);
+            Assert.True(result);
         }
-	
+
         [Fact]
         public void ShouldStringifyNumWithoutV8DToA()
         {
-	    // 53.6841659 cannot be converted by V8's DToA => "old" DToA code will be used.
-	
+            // 53.6841659 cannot be converted by V8's DToA => "old" DToA code will be used.
+
             var engine = new Engine();
             Native.JsValue val = engine.Execute("JSON.stringify(53.6841659)").GetCompletionValue();
 
             Assert.True(val.AsString() == "53.6841659");
         }
-	}
+    }
 }
