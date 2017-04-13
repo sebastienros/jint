@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Jint.Native;
 using Jint.Parser.Ast;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
@@ -227,9 +228,12 @@ namespace Jint.Runtime
 
             while (cursor != null)
             {
-                var keys = cursor.GetOwnProperties().Select(x => x.Key).ToArray();
-                foreach (var p in keys)
+                var keys = _engine.Object.GetOwnPropertyNames(Undefined.Instance, Arguments.From(cursor)).AsArray();
+
+                for (var i = 0; i < keys.GetLength(); i++)
                 {
+                    var p = keys.GetOwnProperty(i.ToString()).Value.AsString();
+
                     if (processedKeys.Contains(p))
                     {
                         continue;
@@ -238,10 +242,11 @@ namespace Jint.Runtime
                     processedKeys.Add(p);
 
                     // collection might be modified by inner statement
-                    if (!cursor.HasOwnProperty(p))
+                    if (cursor.GetOwnProperty(p) == PropertyDescriptor.Undefined)
                     {
                         continue;
                     }
+
 
                     var value = cursor.GetOwnProperty(p);
                     if (!value.Enumerable.HasValue || !value.Enumerable.Value)
@@ -429,7 +434,7 @@ namespace Jint.Runtime
                     sl = c;
                 }
             }
-            catch(JavaScriptException v)
+            catch (JavaScriptException v)
             {
                 c = new Completion(Completion.Throw, v.Error, null);
                 c.Location = v.Location ?? s.Location;

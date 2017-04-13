@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -39,39 +38,13 @@ namespace Jint.Native.String
                 var l = (long)d;
                 return l >= int.MinValue && l <= int.MaxValue;
             }
-            else
+            else 
                 return false;
-        }
-
-        public override bool HasOwnProperty(string propertyName)
-        {
-            var desc = this.GetOwnProperty(propertyName);
-            if (desc != PropertyDescriptor.Undefined)
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
-        {
-            var str = PrimitiveValue.AsString();
-
-            for (var i = 0; i < str.Length; i++)
-            {
-                yield return new KeyValuePair<string, PropertyDescriptor>(i.ToString(), new PropertyDescriptor(str[i], true, true, false));
-            }
-
-            foreach (var entry in base.GetOwnProperties())
-            {
-                yield return entry;
-            }
         }
 
         public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
-            if (propertyName == "Infinity")
+            if(propertyName == "Infinity")
                 return PropertyDescriptor.Undefined;
 
             var desc = base.GetOwnProperty(propertyName);
@@ -87,7 +60,7 @@ namespace Jint.Native.String
 
             var str = PrimitiveValue;
             var dIndex = TypeConverter.ToInteger(propertyName);
-            if (!IsInt(dIndex))
+            if(!IsInt(dIndex))
                 return PropertyDescriptor.Undefined;
 
             var index = (int)dIndex;
