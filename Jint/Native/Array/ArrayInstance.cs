@@ -210,7 +210,7 @@ namespace Jint.Native.Array
             return base.DefineOwnProperty(propertyName, desc, throwOnError);
         }
 
-        private uint GetLength()
+        public uint GetLength()
         {
             return TypeConverter.ToUint32(_length.Value);
         }
