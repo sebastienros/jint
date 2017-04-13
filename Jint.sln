@@ -1,26 +1,19 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.26406.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{90E4A7EF-8DB1-49D4-89F9-512999531AE8}"
-	ProjectSection(SolutionItems) = preProject
-		.nuget\NuGet.Config = .nuget\NuGet.Config
-		.nuget\NuGet.exe = .nuget\NuGet.exe
-		.nuget\NuGet.targets = .nuget\NuGet.targets
-	EndProjectSection
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint", "Jint\Jint.csproj", "{4B6F353A-5D01-407D-9DC8-96D1FD4F7052}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "Jint", "Jint\Jint.xproj", "{4B6F353A-5D01-407D-9DC8-96D1FD4F7052}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Benchmark", "Jint.Benchmark\Jint.Benchmark.csproj", "{228D9FA5-CBC0-4489-9805-9B4456747647}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "Jint.Benchmark", "Jint.Benchmark\Jint.Benchmark.xproj", "{228D9FA5-CBC0-4489-9805-9B4456747647}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Repl", "Jint.Repl\Jint.Repl.csproj", "{BB3AC010-C2CE-41A5-93C6-763600EF67B3}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "Jint.Repl", "Jint.Repl\Jint.Repl.xproj", "{BB3AC010-C2CE-41A5-93C6-763600EF67B3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Tests", "Jint.Tests\Jint.Tests.csproj", "{9FBCAB58-FE6D-4804-92B8-7CF886113708}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "Jint.Tests", "Jint.Tests\Jint.Tests.xproj", "{9FBCAB58-FE6D-4804-92B8-7CF886113708}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Tests.Ecma", "Jint.Tests.Ecma\Jint.Tests.Ecma.csproj", "{2CC1F6A6-7DCC-4C7C-A619-ACE1A4296446}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "Jint.Tests.Ecma", "Jint.Tests.Ecma\Jint.Tests.Ecma.xproj", "{2CC1F6A6-7DCC-4C7C-A619-ACE1A4296446}"
-EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "Jint.Tests.CommonScripts", "Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.xproj", "{B815F239-6409-4BA7-9461-18317AA2DBED}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Tests.CommonScripts", "Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj", "{B815F239-6409-4BA7-9461-18317AA2DBED}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
