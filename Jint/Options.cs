@@ -20,7 +20,8 @@ namespace Jint
         private TimeSpan _timeoutInterval;
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
-        private List<Assembly> _lookupAssemblies = new List<Assembly>(); 
+        private List<Assembly> _lookupAssemblies = new List<Assembly>();
+        private Predicate<Exception> _clrExceptionsHandler;
 
         /// <summary>
         /// When called, doesn't initialize the global scope.
@@ -83,6 +84,28 @@ namespace Jint
             return this;
         }
 
+        /// <summary>
+        /// Exceptions thrown from CLR code are converted to JavaScript errors and
+        /// can be used in at try/catch statement. By default these exceptions are bubbled
+        /// to the CLR host and interrupt the script execution.
+        /// </summary>
+        public Options CatchClrExceptions()
+        {
+            CatchClrExceptions(_ => true);
+            return this;
+        }
+
+        /// <summary>
+        /// Exceptions that thrown from CLR code are converted to JavaScript errors and
+        /// can be used in at try/catch statement. By default these exceptions are bubbled
+        /// to the CLR host and interrupt the script execution.
+        /// </summary>
+        public Options CatchClrExceptions(Predicate<Exception> handler)
+        {
+            _clrExceptionsHandler = handler;
+            return this;
+        }
+
         public Options MaxStatements(int maxStatements = 0)
         {
             _maxStatements = maxStatements;
@@ -131,7 +154,9 @@ namespace Jint
         internal bool _IsDebugMode => _debugMode;
 
         internal bool _IsClrAllowed => _allowClr;
-        
+
+        internal Predicate<Exception> _ClrExceptionsHandler => _clrExceptionsHandler;
+
         internal IList<Assembly> _LookupAssemblies => _lookupAssemblies;
 
         internal IEnumerable<IObjectConverter> _ObjectConverters => _objectConverters;
