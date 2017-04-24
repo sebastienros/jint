@@ -319,7 +319,7 @@ namespace Jint.Native
             if (instance != null)
             {
                 // Learn conversion.
-                typeMappers.Add(valueType, (Engine e, object v) => new JsValue((ObjectInstance)v));
+                typeMappers.TryAdd(valueType, (Engine e, object v) => new JsValue((ObjectInstance)v));
                 return new JsValue(instance);
             }
 
@@ -339,7 +339,7 @@ namespace Jint.Native
 
                     return jsArray;
                 };
-                typeMappers.Add(valueType, convert);
+                typeMappers.TryAdd(valueType, convert);
                 return convert(engine, a);
             }
 
