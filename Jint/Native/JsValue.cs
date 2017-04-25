@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Dynamic;
 using System.Reflection;
+using System.Threading;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -319,7 +320,11 @@ namespace Jint.Native
             if (instance != null)
             {
                 // Learn conversion.
-                typeMappers.Add(valueType, (Engine e, object v) => new JsValue((ObjectInstance)v));
+                // Learn conversion, racy, worst case we'll try again later
+                Interlocked.CompareExchange(ref Engine.TypeMappers, new Dictionary<Type, Func<Engine, object, JsValue>>(typeMappers)
+                {
+                    [valueType] = (Engine e, object v) => new JsValue((ObjectInstance)v)
+                }, typeMappers);
                 return new JsValue(instance);
             }
 
@@ -339,7 +344,11 @@ namespace Jint.Native
 
                     return jsArray;
                 };
-                typeMappers.Add(valueType, convert);
+                // racy, we don't care, worst case we'll catch up later
+                Interlocked.CompareExchange(ref Engine.TypeMappers, new Dictionary<Type, Func<Engine, object, JsValue>>(typeMappers)
+                {
+                    [valueType] = convert
+                }, typeMappers);
                 return convert(engine, a);
             }
 
