@@ -24,6 +24,21 @@ namespace Jint.Runtime.Interop
 
         public JsValue Invoke(MethodInfo[] methodInfos, JsValue thisObject, JsValue[] jsArguments)
         {
+            /**
+            var arguments = ProcessParamsArrays(jsArguments, methodInfos);
+            var methods = TypeConverter.FindBestMatch(Engine, methodInfos, arguments).ToList();
+
+            // if nothing found until now, try to find an registered extension Method
+            if (methods.Count == 0 &&  methodInfos.Any(m => m.IsExtensionMethod()))
+            {
+                var args = jsArguments.ToList();
+                args.Insert(0, thisObject);
+
+                arguments = ProcessParamsArrays(args.ToArray(), methodInfos);
+                methods = TypeConverter.FindBestMatch(Engine, methodInfos, arguments).ToList();
+            }
+            /**/
+
             JsValue[] ArgumentProvider(MethodInfo method, bool hasParams) =>
                 hasParams
                     ? ProcessParamsArrays(jsArguments, method)

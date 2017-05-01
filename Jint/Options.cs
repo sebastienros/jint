@@ -27,6 +27,7 @@ namespace Jint
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver;
+        private List<Type> _extensionMethodsTypes = new List<Type>();
 
         /// <summary>
         /// When called, doesn't initialize the global scope.
@@ -128,6 +129,13 @@ namespace Jint
             return this;
         }
 
+        public Options AddExtensionMethods(params Type[] types)
+        {
+            _extensionMethodsTypes.AddRange(types);
+            _extensionMethodsTypes = _extensionMethodsTypes.Distinct().ToList();
+            return this;
+        }
+
         public Options MaxStatements(int maxStatements = 0)
         {
             _maxStatements = maxStatements;
@@ -212,5 +220,7 @@ namespace Jint
 
         internal IReferenceResolver  ReferenceResolver => _referenceResolver;
 
+
+        internal IList<Type> _ExtensionMethodsTypes => _extensionMethodsTypes;
     }
 }

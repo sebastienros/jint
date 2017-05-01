@@ -10,6 +10,11 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
+using System.Net;
+using Jint.Tests.Runtime.Domain;
+using Jint.Tests.Runtime.ExtensionMethods;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Jint.Tests.Runtime
 {
@@ -2750,5 +2755,29 @@ function output(x) {
             result = function.Invoke(3, JsValue.Undefined).ToString();
             Assert.Equal("15", result);
         }
+
+        [Fact]
+        public void StringExtension()
+        {
+            var engine = new Engine(o => o.AddExtensionMethods(typeof(StringExtensions)));
+            var val = engine.Execute("\"Testing\".Reverse()").GetCompletionValue().AsString();
+
+            Assert.True(val == "gnitseT");
+        }
+
+        [Fact]
+        public void PersonExtension()
+        {
+            var engine = new Engine(o => o.AddExtensionMethods(typeof(PersonExtensions)));
+            var bruce = new Person();
+            bruce.Name = "Bruce Wayne";
+            bruce.Age = 123;
+            engine.SetValue("bruce", bruce);
+            var val = engine.Execute("bruce.GetBirthYear()").GetCompletionValue();
+
+            var expected = DateTime.Now.Year - bruce.Age;
+            Assert.Equal(val.AsNumber(), expected);
+        }
+
     }
 }
