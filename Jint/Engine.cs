@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Argument;
 using Jint.Native.Array;
@@ -65,6 +68,8 @@ namespace Jint
         };
 
         internal JintCallStack CallStack = new JintCallStack();
+
+        internal Dictionary<Type, List<MethodInfo>> ExtensionMethods = new Dictionary<Type, List<MethodInfo>>();
 
         public Engine() : this(null)
         {
@@ -162,6 +167,39 @@ namespace Jint
             ClrTypeConverter = new DefaultTypeConverter(this);
             BreakPoints = new List<BreakPoint>();
             DebugHandler = new DebugHandler(this);
+
+            if (Options._ExtensionMethodsTypes.Any())
+            {
+                foreach (var extensionMethodType in Options._ExtensionMethodsTypes)
+                {
+                    foreach (var methodInfo in extensionMethodType.GetExtensionMethods())
+                    {
+                        var firstParamType = methodInfo.GetParameters().First().ParameterType;
+
+                        if (firstParamType == typeof(String))
+                        {
+                            String.PrototypeObject.FastAddProperty(methodInfo.Name, new MethodInfoFunctionInstance(this, new MethodInfo[] { methodInfo }), true, false, true);
+                            continue;
+                        }
+
+                        if (firstParamType.IsArray || firstParamType.GetInterfaces().Contains(typeof(IEnumerable)))
+                        {
+                            Array.PrototypeObject.FastAddProperty(methodInfo.Name, new MethodInfoFunctionInstance(this, new MethodInfo[] { methodInfo }), true, false, true);
+                            continue;
+                        }
+
+                            
+                        if (ExtensionMethods.ContainsKey(firstParamType))
+                        {
+                            ExtensionMethods[firstParamType].Add(methodInfo);
+                        }
+                        else
+                        {
+                            ExtensionMethods.Add(firstParamType, new List<MethodInfo>() { methodInfo });
+                        }
+                    }
+                }
+            }
         }
 
         public LexicalEnvironment GlobalEnvironment;

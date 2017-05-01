@@ -138,6 +138,15 @@ namespace Jint.Runtime.Interop
                 return new IndexDescriptor(Engine, explicitIndexers[0].DeclaringType, propertyName, Target);
             }
 
+
+            // if nothing found until now, try to find an registered extension Method
+            if (this.Engine.ExtensionMethods.ContainsKey(type))
+            {
+                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, this.Engine.ExtensionMethods[type].ToArray()), false, true, false);
+                Properties.Add(propertyName, descriptor);
+                return descriptor;
+            }
+
             return PropertyDescriptor.Undefined;
         }
 
