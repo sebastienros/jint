@@ -66,7 +66,7 @@ namespace Jint
         public ITypeConverter ClrTypeConverter;
 
         // cache of types used when resolving CLR type names
-        internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
+        internal static readonly Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
 
         internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new Dictionary<Type, Func<Engine, object, JsValue>>
         {
@@ -264,34 +264,49 @@ namespace Jint
             BreakPoints = new System.Collections.Generic.List<BreakPoint>();
             DebugHandler = new DebugHandler(this);
 
+            BuildExtensionMethodTypeCache();
+            RegisterCachedExtensionMethods();
+        }
+
+        internal Dictionary<Type, List<MethodInfo>> ExtensionMethodTypeCache = new Dictionary<Type, List<MethodInfo>>();
+
+        private void BuildExtensionMethodTypeCache()
+        {
             if (Options._ExtensionMethodsTypes.Any())
             {
                 foreach (var extensionMethodType in Options._ExtensionMethodsTypes)
                 {
-                    foreach (var methodInfo in extensionMethodType.GetExtensionMethods())
+                    List<MethodInfo> extMethodType;
+                    if (!ExtensionMethodTypeCache.TryGetValue(extensionMethodType, out extMethodType))
                     {
-                        var firstParamType = methodInfo.GetParameters().First().ParameterType;
+                        foreach (var methodInfo in extensionMethodType.GetExtensionMethods())
+                        {
+                            var firstParamType = methodInfo.GetParameters().First().ParameterType;
 
-                        if (firstParamType == typeof(String))
+                            if (ExtensionMethodTypeCache.ContainsKey(firstParamType))
+                            {
+                                ExtensionMethodTypeCache[firstParamType].Add(methodInfo);
+                            }
+                            else
+                            {
+                                ExtensionMethodTypeCache.Add(firstParamType, new List<MethodInfo>() { methodInfo });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        private void RegisterCachedExtensionMethods()
+        {
+            if (ExtensionMethodTypeCache.Any())
+            {
+                foreach (var cachedType in ExtensionMethodTypeCache)
+                {
+                    if (cachedType.Key == typeof(String))
+                    {
+                        foreach (var methodInfo in cachedType.Value)
                         {
                             String.PrototypeObject.FastAddProperty(methodInfo.Name, new MethodInfoFunctionInstance(this, new MethodInfo[] { methodInfo }), true, false, true);
-                            continue;
-                        }
-
-                        if (firstParamType.IsArray || firstParamType.GetInterfaces().Contains(typeof(IEnumerable)))
-                        {
-                            Array.PrototypeObject.FastAddProperty(methodInfo.Name, new MethodInfoFunctionInstance(this, new MethodInfo[] { methodInfo }), true, false, true);
-                            continue;
-                        }
-
-                            
-                        if (ExtensionMethods.ContainsKey(firstParamType))
-                        {
-                            ExtensionMethods[firstParamType].Add(methodInfo);
-                        }
-                        else
-                        {
-                            ExtensionMethods.Add(firstParamType, new List<MethodInfo>() { methodInfo });
                         }
                     }
                 }

@@ -41,10 +41,6 @@ namespace Jint
             return methodInfo.IsDefined(typeof(ExtensionAttribute), true);
         }
 
-        internal static bool IsIEnumerable(this Type type)
-        {
-            return type.GetInterfaces().Contains(typeof(IEnumerable));
-        }
     }
 }
 #else
@@ -95,10 +91,6 @@ namespace Jint
             return methodInfo.IsDefined(typeof(ExtensionAttribute), true);
         }
 
-        internal static bool IsIEnumerable(this Type type)
-        {
-            return type.GetInterfaces().Contains(typeof(IEnumerable));
-        }
     }
 }
 #endif
