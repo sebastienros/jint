@@ -1440,25 +1440,82 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldCatchClrExceptions()
+        public void ShouldNotCatchClrExceptions()
+        {
+            Assert.ThrowsAny<NotSupportedException>(() => new Engine()
+                .SetValue("throwMyException", new Action(() => { throw new NotSupportedException(); }))
+                .Execute(@"
+                    function throwException(){
+                        try {
+                            throwMyException();
+                            return;
+                        } 
+                        catch(e) {
+                            return;
+                        }
+                    }
+                ")
+                .Invoke("throwException")
+            );
+        }
+
+        [Fact]
+        public void ShouldCatchAllClrExceptions()
         {
             string exceptionMessage = "myExceptionMessage";
-            _engine.SetValue("throwMyException", new Action(() => { throw new Exception(exceptionMessage); }));
-                        
-            RunTest(@"
-                function throwException(){
-                try {
-                    throwMyException();
-                    return '';
-                } 
-                catch(e) {
-                    return e.message;
-                }
-            }
-            ");
-            var result = _engine.Invoke("throwException");
+
+            var result = new Engine(o => o.CatchClrExceptions())
+                .SetValue("throwMyException", new Action(() => { throw new Exception(exceptionMessage); }))
+                .Execute(@"
+                    function throwException(){
+                        try {
+                            throwMyException();
+                            return '';
+                        } 
+                        catch(e) {
+                            return e.message;
+                        }
+                    }
+                ")
+                .Invoke("throwException");
+
             Assert.Equal(result.AsString(), exceptionMessage);
         }
 
+        [Fact]
+        public void ShouldCatchSomeExceptions()
+        {
+            string exceptionMessage = "myExceptionMessage";
+
+            var engine = new Engine(o => o.CatchClrExceptions(e => e is NotSupportedException))
+                .SetValue("throwMyException1", new Action(() => { throw new NotSupportedException(exceptionMessage); }))
+                .SetValue("throwMyException2", new Action(() => { throw new ArgumentNullException(); }))
+                .Execute(@"
+                    function throwException1(){
+                        try {
+                            throwMyException1();
+                            return '';
+                        } 
+                        catch(e) {
+                            return e.message;
+                        }
+                    }
+
+                    function throwException2(){
+                        try {
+                            throwMyException2();
+                            return '';
+                        } 
+                        catch(e) {
+                            return e.message;
+                        }
+                    }
+                ");
+
+            var result = engine.Invoke("throwException1");
+
+            Assert.Equal(result.AsString(), exceptionMessage);
+            Assert.Throws<ArgumentNullException>(() => engine.Invoke("throwException2"));
+        }
     }
 }

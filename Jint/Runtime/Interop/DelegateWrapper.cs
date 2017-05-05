@@ -100,7 +100,14 @@ namespace Jint.Runtime.Interop
             catch (TargetInvocationException exception)
             {
                 var meaningfulException = exception.InnerException ?? exception;
-                throw new JavaScriptException(Engine.Error, meaningfulException.Message);
+                var handler = Engine.Options._ClrExceptionsHandler;
+
+                if (handler != null && handler(meaningfulException))
+                {
+                    throw new JavaScriptException(Engine.Error, meaningfulException.Message);
+                }
+
+                throw meaningfulException;         
             }
         }
     }
