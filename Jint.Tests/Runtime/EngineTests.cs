@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -105,6 +105,27 @@ namespace Jint.Tests.Runtime
             var result = engine.Execute(source).GetCompletionValue().ToObject();
 
             Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData(-59, "~58")]
+        [InlineData(58, "~~58")]
+        public void ShouldInterpretUnaryExpressionToInt(object expected, string source)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue();
+
+            Assert.Equal(expected, TypeConverter.ToInt32(result));
+        }
+
+        [Theory]
+        [InlineData(58U, "~~58")]
+        public void ShouldInterpretUnaryExpressionToUInt(object expected, string source)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue();
+
+            Assert.Equal(expected, TypeConverter.ToUint32(result));
         }
 
         [Fact]
