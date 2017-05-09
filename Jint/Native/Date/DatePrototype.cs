@@ -930,22 +930,26 @@ namespace Jint.Native.Date
 
         public static double HourFromTime(double t)
         {
-            return System.Math.Floor(t / MsPerHour) % HoursPerDay;
+            double hour = System.Math.Floor(t / MsPerHour) % HoursPerDay;
+            return (hour>=0)?hour:(24-hour);
         }
 
         public static double MinFromTime(double t)
         {
-            return System.Math.Floor(t / MsPerMinute) % MinutesPerHour;
+            double min = System.Math.Floor(t / MsPerMinute) % MinutesPerHour;
+            return (min>=0)?min:(60-min);
         }
 
         public static double SecFromTime(double t)
         {
-            return System.Math.Floor(t / MsPerSecond) % SecondsPerMinute;
+            double sec = System.Math.Floor(t / MsPerSecond) % SecondsPerMinute;
+            return (sec>=0)?sec:(60-sec);
         }
 
         public static double MsFromTime(double t)
         {
-            return t % MsPerSecond;
+            double ms = t % MsPerSecond;
+            return (ms>=0)?ms:(MsPerSecond-ms);
         }
 
         public static double DayFromMonth(double year, double month)
