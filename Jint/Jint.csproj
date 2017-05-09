@@ -106,6 +106,7 @@
     <Compile Include="Parser\Ast\CatchClause.cs" />
     <Compile Include="Parser\Ast\ConditionalExpression.cs" />
     <Compile Include="Parser\Ast\ContinueStatement.cs" />
+    <Compile Include="Parser\Ast\IncompleteSourceElement.cs" />
     <Compile Include="Parser\Ast\RegExpLiteral.cs" />
     <Compile Include="Parser\Ast\LogicalExpression.cs" />
     <Compile Include="Parser\Ast\DebuggerStatement.cs" />
