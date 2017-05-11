@@ -21,7 +21,7 @@ namespace Jint
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
-        private List<Type> _extensionMethodsTypes = new List<Type>();
+        private List<Type> _extensionMethodClasses = new List<Type>();
 
         /// <summary>
         /// When called, doesn't initialize the global scope.
@@ -86,8 +86,8 @@ namespace Jint
 
         public Options AddExtensionMethods(params Type[] types)
         {
-            _extensionMethodsTypes.AddRange(types);
-            _extensionMethodsTypes = _extensionMethodsTypes.Distinct().ToList();
+            _extensionMethodClasses.AddRange(types);
+            _extensionMethodClasses = _extensionMethodClasses.Distinct().ToList();
             return this;
         }
 
@@ -154,6 +154,6 @@ namespace Jint
 
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
 
-        internal IList<Type> _ExtensionMethodsTypes => _extensionMethodsTypes;
+        internal IList<Type> _ExtensionMethodClasses => _extensionMethodClasses;
     }
 }
