@@ -212,9 +212,9 @@ namespace Jint.Runtime.Interop
 
 
             // if nothing found until now, try to find an registered extension Method
-            if (this.Engine.ExtensionMethodTypeCache.ContainsKey(type))
+            if (this.Engine.InstanceExtensionMethodTypeCache.ContainsKey(type))
             {
-                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, this.Engine.ExtensionMethodTypeCache[type].ToArray()), false, true, false);
+                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, this.Engine.InstanceExtensionMethodTypeCache[type].ToArray()), false, true, false);
                 Properties.Add(propertyName, descriptor);
                 return (engine, target) => descriptor;
             }
