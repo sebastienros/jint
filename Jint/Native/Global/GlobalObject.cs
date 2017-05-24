@@ -59,6 +59,7 @@ namespace Jint.Native.Global
             FastAddProperty("decodeURIComponent", new ClrFunctionInstance(Engine, DecodeUriComponent, 1), true, false, true);
             FastAddProperty("encodeURI", new ClrFunctionInstance(Engine, EncodeUri, 1), true, false, true);
             FastAddProperty("encodeURIComponent", new ClrFunctionInstance(Engine, EncodeUriComponent, 1), true, false, true);
+            FastAddProperty("escape", new ClrFunctionInstance(Engine, Escape, 1), true, false, true);
         }
 
         /// <summary>
@@ -598,5 +599,34 @@ namespace Jint.Native.Global
             return R.ToString();
         }
 
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-B.2.2
+        /// </summary>
+        public JsValue Escape(JsValue thisObject, JsValue[] arguments)
+        {
+            const string whiteList = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_ + -./";
+            var uriString = TypeConverter.ToString(arguments.At(0));
+
+            var strLen = uriString.Length;
+            var r = new StringBuilder(strLen);
+            for (var k = 0; k < strLen; k++)
+            {
+                var c = uriString[k];
+                if (whiteList.IndexOf(c) != -1)
+                {
+                    r.Append(c);
+                }
+                else if (c < 256)
+                {
+                    r.Append(string.Format("%{0}", ((int)c).ToString("X2")));
+                }
+                else
+                {
+                    r.Append(string.Format("%u{0}", ((int)c).ToString("X4")));
+                }
+            }
+
+            return r.ToString();
+        }		
     }
 }
