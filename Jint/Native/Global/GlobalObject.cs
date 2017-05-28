@@ -5,6 +5,7 @@ using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
+using System.Globalization;
 
 namespace Jint.Native.Global
 {
@@ -60,6 +61,7 @@ namespace Jint.Native.Global
             FastAddProperty("encodeURI", new ClrFunctionInstance(Engine, EncodeUri, 1), true, false, true);
             FastAddProperty("encodeURIComponent", new ClrFunctionInstance(Engine, EncodeUriComponent, 1), true, false, true);
             FastAddProperty("escape", new ClrFunctionInstance(Engine, Escape, 1), true, false, true);
+            FastAddProperty("unescape", new ClrFunctionInstance(Engine, Unescape, 1), true, false, true);
         }
 
         /// <summary>
@@ -600,7 +602,7 @@ namespace Jint.Native.Global
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-B.2.2
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-B.2.1
         /// </summary>
         public JsValue Escape(JsValue thisObject, JsValue[] arguments)
         {
@@ -627,6 +629,47 @@ namespace Jint.Native.Global
             }
 
             return r.ToString();
-        }		
+        }
+
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-B.2.2
+        /// </summary>
+        public JsValue Unescape(JsValue thisObject, JsValue[] arguments)
+        {
+            var uriString = TypeConverter.ToString(arguments.At(0));
+            var uriStringArray = uriString.ToCharArray();
+
+            var strLen = uriString.Length;
+            var r = new StringBuilder(strLen);
+            for (var k = 0; k < strLen; k++)
+            {
+                var c = uriString[k];
+                if (c == '%')
+                {
+                    if (k < strLen - 6
+                        && uriString[k + 1] == 'u'
+                        && uriStringArray.Skip(k + 2).Take(4).All(IsValidHexaChar))
+                    {
+                        c = (char)int.Parse(
+                            string.Join(string.Empty, uriStringArray.Skip(k + 2).Take(4)),
+                            NumberStyles.AllowHexSpecifier);
+
+                        k += 5;
+                    }
+                    else if (k < strLen - 3
+                        && uriStringArray.Skip(k + 1).Take(2).All(IsValidHexaChar))
+                    {
+                        c = (char)int.Parse(
+                            string.Join(string.Empty, uriStringArray.Skip(k + 1).Take(2)),
+                            NumberStyles.AllowHexSpecifier);
+
+                        k += 2;
+                    }
+                }
+                r.Append(c);
+            }
+
+            return r.ToString();
+        }
     }
 }
