@@ -11,6 +11,7 @@ Jint is a __Javascript interpreter__ for .NET which provides full __ECMA 5.1__ c
 - Full support for ECMAScript 5.1 - http://www.ecma-international.org/ecma-262/5.1/
 - .NET Portable Class Library - http://msdn.microsoft.com/en-us/library/gg597391(v=vs.110).aspx
 - .NET Interoperability 
+- Debugging using Chrome Debugging Protocol
 
 > ECMAScript 6.0 currently being implemeted, see https://github.com/sebastienros/jint/issues/343
 
@@ -161,5 +162,41 @@ This example is using French as the default culture.
   - Regex -> RegExp
   - Function -> Delegate
 
+## Debugging JavaScript code running in Jint
+
+Visual debugging is implemented on top of the engines built-in debug callbacks.
+You can enable it by instanciating the DebugAgentServer and attaching one or more engines to it.
+All engines attached can run scripts under debug mode using an external debugger.
+
+The DebugAgent is implemented in the assembly 'Jint.DebugAgent' which is currently only available on Windows.
+
+As the DebugAgentServer implements the Chrome debugging protocol, you can use a compatible application to debug your
+javascript code, e.g. the Chrome built in dev tools.
+
+Example:
+```c#
+	var Engine = new Jint.Engine(_=>_.DebugMode());
+	DebugAgentServer Server = new DebugAgentServer(DebugAgentServer.Options.WaitForDebuggerOnFirstStatement, Engine);
+	Engine.Execute(@"<your javascript code here>", "<name of your script for display in the debugger>");
+	Server.Dispose();
+```
+
+This code will instanciate an engine in debug mode. The it creates a debug server and attaches the engine to it. 
+Because of the debug agent options, the agent will wait on the first statement for the debugger to connect.
+If you like to use Chrome as debugger, open chrome an connect to the server: 
+```
+	chrome-devtools://devtools/bundled/inspector.html?ws=localhost:9222
+```
+
+Features supported:
+- Breakpoints
+- Step in/out/over
+- Break on exceptions (handled/unhandled)
+- Callstack with local/global scope
+- Watches (only on top stack frame)
+  
+  
+  
+  
 Continuous Integration kindly provided by  [AppVeyor](https://www.appveyor.com)
 

@@ -8,9 +8,29 @@ namespace Jint.Runtime.Debugger
 {
     public class DebugInformation : EventArgs
     {
-        public Stack<String> CallStack { get; set; }
-        public Statement CurrentStatement { get; set; }
-        public Dictionary<string, JsValue> Locals { get; set; }
-        public Dictionary<string, JsValue> Globals { get; set; }
+        public DebugInformation(StackFrame[] callStack, Statement currentStatement, Dictionary<string, JsValue> locals, Dictionary<string, JsValue> globals, BreakPoint breakPoint, Engine engine, Program program, JavaScriptException exception, bool uncaughtException, StepMode stepMode)
+        {
+            CallStack = callStack;
+            CurrentStatement = currentStatement;
+            Locals = locals;
+            Globals = globals;
+            BreakPoint = breakPoint;
+            Engine = engine;
+            Program = program;
+            Exception = exception;
+            UncaughtException = uncaughtException;
+            StepMode = stepMode;
+        }
+
+        public StackFrame[] CallStack { get; }
+        public Statement CurrentStatement { get; }
+        public Dictionary<string, JsValue> Locals { get; }
+        public Dictionary<string, JsValue> Globals { get; }
+        public BreakPoint BreakPoint { get; }
+        public Engine Engine { get; }
+        public Program Program { get; }
+        public JavaScriptException Exception { get; }
+        public bool UncaughtException { get; }
+        public StepMode StepMode { get; }
     }
 }

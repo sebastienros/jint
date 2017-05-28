@@ -10,15 +10,17 @@ namespace Jint.Runtime.Debugger
 {
     internal class DebugHandler
     {
-        private readonly Stack<string> _debugCallStack;
+        private readonly Stack<StackFrame> _debugCallStack;
         private StepMode _stepMode;
         private int _callBackStepOverDepth;
         private readonly Engine _engine;
+        private Program _currentProgram;
+        private int _exceptionCatchBlockCount;
 
         public DebugHandler(Engine engine)
         {
             _engine = engine;
-            _debugCallStack = new Stack<string>();
+            _debugCallStack = new Stack<StackFrame>();
             _stepMode = StepMode.Into;
         }
 
@@ -40,12 +42,13 @@ namespace Jint.Runtime.Debugger
             }
         }
 
-        internal void AddToDebugCallStack(CallExpression callExpression)
+        internal void AddToDebugCallStack(CallExpression callExpression, Statement statement)
         {
+            string stack;
             var identifier = callExpression.Callee as Identifier;
             if (identifier != null)
             {
-                var stack = identifier.Name + "(";
+                stack = identifier.Name + "(";
                 var paramStrings = new List<string>();
 
                 foreach (var argument in callExpression.Arguments)
@@ -63,8 +66,12 @@ namespace Jint.Runtime.Debugger
 
                 stack += string.Join(", ", paramStrings);
                 stack += ")";
-                _debugCallStack.Push(stack);
             }
+            else
+            {
+                stack = "<unknown>";
+            }
+            _debugCallStack.Push(new StackFrame(stack, statement, callExpression, _engine.ExecutionContext));
         }
 
         internal void OnStep(Statement statement)
@@ -75,12 +82,12 @@ namespace Jint.Runtime.Debugger
                 return;
             }
             
-            BreakPoint breakpoint = _engine.BreakPoints.FirstOrDefault(breakPoint => BpTest(statement, breakPoint));
+            BreakPoint breakpoint = _engine.BreakPoints.ToArray().FirstOrDefault(breakPoint => BpTest(statement, breakPoint));
             bool breakpointFound = false;
 
             if (breakpoint != null)
             {
-                DebugInformation info = CreateDebugInformation(statement);
+                DebugInformation info = CreateDebugInformation(statement, breakpoint);
                 var result = _engine.InvokeBreakEvent(info);
                 if (result.HasValue)
                 {
@@ -117,8 +124,39 @@ namespace Jint.Runtime.Debugger
             }
         }
 
+        internal void OnExceptionThrown(Statement statement, JavaScriptException exception)
+        {
+            DebugInformation info = CreateDebugInformation(statement, null,exception, this._exceptionCatchBlockCount==0);
+            _stepMode = _engine.InvokeExceptionThrownEvent(info) ?? StepMode.None;
+        }
+        
+        public void OnCatchableTryBlockEntered()
+        {
+            this._exceptionCatchBlockCount++;
+        }
+
+        public void OnCatchableTryBlockLeft()
+        {
+            this._exceptionCatchBlockCount--;
+        }
+
+        public void BreakOnDebugStatement(Statement statement)
+        {
+            DebugInformation info = CreateDebugInformation(statement);
+            var result = _engine.InvokeBreakEvent(info);
+            if (result.HasValue)
+            {
+                _stepMode = result.Value;
+            }
+        }
+
         private bool BpTest(Statement statement, BreakPoint breakpoint)
         {
+            if (breakpoint.Statement == statement)
+            {
+                return string.IsNullOrEmpty(breakpoint.Condition) || _engine.ExecuteWithoutDebugging(breakpoint.Condition).GetCompletionValue().AsBoolean();
+            }
+
             bool afterStart, beforeEnd;
 
             afterStart = (breakpoint.Line == statement.Location.Start.Line &&
@@ -146,16 +184,25 @@ namespace Jint.Runtime.Debugger
             return true;
         }
 
-        private DebugInformation CreateDebugInformation(Statement statement)
+        private DebugInformation CreateDebugInformation( Statement statement, BreakPoint breakpoint=null, JavaScriptException exception=null, bool uncaughtException=false)
         {
-            var info = new DebugInformation { CurrentStatement = statement, CallStack = _debugCallStack };
-
+            Dictionary<string, JsValue> Locals;
+            Dictionary<string, JsValue> Globals;
             if (_engine.ExecutionContext != null && _engine.ExecutionContext.LexicalEnvironment != null)
             {
                 var lexicalEnvironment = _engine.ExecutionContext.LexicalEnvironment;
-                info.Locals = GetLocalVariables(lexicalEnvironment);
-                info.Globals = GetGlobalVariables(lexicalEnvironment);
+                Locals = GetLocalVariables(lexicalEnvironment);
+                Globals = GetGlobalVariables(lexicalEnvironment);
             }
+            else
+            {
+                Locals = null;
+                Globals = null;
+            }
+
+            var info = new DebugInformation (engine:_engine, program:_currentProgram, stepMode:_stepMode, currentStatement: statement, callStack: _debugCallStack.ToArray(), breakPoint:breakpoint, exception: exception, uncaughtException: uncaughtException, locals:Locals ,globals: Globals );
+
+
 
             return info;
         }
@@ -197,6 +244,11 @@ namespace Jint.Runtime.Debugger
                     }
                 }
             }
+        }
+
+        public void SetCurrentProgram(Program program)
+        {
+            _currentProgram = program;
         }
     }
 }

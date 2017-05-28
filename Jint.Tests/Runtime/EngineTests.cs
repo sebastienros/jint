@@ -26,9 +26,14 @@ namespace Jint.Tests.Runtime
                 .SetValue("assert", new Action<bool>(Assert.True))
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
                 ;
+#if NET451
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("en");
+#else
+            CultureInfo.CurrentCulture = new CultureInfo("en");
+#endif
         }
 
-        void IDisposable.Dispose()
+            void IDisposable.Dispose()
         {
         }
 
@@ -1479,8 +1484,8 @@ namespace Jint.Tests.Runtime
             Assert.NotNull(debugInfo.CurrentStatement);
             Assert.NotNull(debugInfo.Locals);
 
-            Assert.Equal(1, debugInfo.CallStack.Count);
-            Assert.Equal("func1()", debugInfo.CallStack.Peek());
+            Assert.Equal(1, debugInfo.CallStack.Length);
+            Assert.Equal("func1()", debugInfo.CallStack[0]);
             Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal) && kvp.Value.AsBoolean() == true);
             Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
             Assert.Contains(debugInfo.Locals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
@@ -1568,7 +1573,7 @@ namespace Jint.Tests.Runtime
             Assert.NotNull(debugInfo);
 
             countBreak++;
-            if (debugInfo.CallStack.Count > 0)
+            if (debugInfo.CallStack.Length > 0)
                 return StepMode.Out;
 
             return StepMode.Into;

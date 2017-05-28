@@ -490,7 +490,8 @@ namespace Jint.Native.Json
                         {
                             Line = _lineNumber,
                             Column = _index - _lineStart
-                        }
+                        },
+                    Source = _source
                 };
 
             Token token = Advance();
