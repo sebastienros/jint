@@ -22,6 +22,34 @@ namespace Jint
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
         private Predicate<Exception> _clrExceptionsHandler;
+        private CamelCasedProperties _staticMemberCamelCasedProperties = new Runtime.Interop.CamelCasedProperties() {
+            FieldsStringComparer = DefaultStringComparer.Current,
+            MethodsStringComparer = DefaultStringComparer.Current,
+            PropertiesStringComparer = DefaultStringComparer.Current
+        };
+        private CamelCasedProperties _camelCasedProperties = new Runtime.Interop.CamelCasedProperties()
+        {
+            FieldsStringComparer = IgnoreCasingStringComparer.Current,
+            MethodsStringComparer = IgnoreCasingStringComparer.Current,
+            PropertiesStringComparer = IgnoreCasingStringComparer.Current
+        };
+        private IStringComparer _enumNameStringComparer = DefaultStringComparer.Current;
+        public Options EnumNameStringComparer(IStringComparer enumNameStringComparer)
+        {
+            _enumNameStringComparer = enumNameStringComparer;
+            return this;
+        }
+        public Options StaticMemberCamelCasedProperties(CamelCasedProperties staticMemberCamelCasedProperties)
+        {
+            _staticMemberCamelCasedProperties = staticMemberCamelCasedProperties;
+            return this;
+        }
+
+        public Options CamelCasedProperties(CamelCasedProperties camelCasedProperties)
+        {
+            _camelCasedProperties = camelCasedProperties;
+            return this;
+        }
 
         /// <summary>
         /// When called, doesn't initialize the global scope.
@@ -170,5 +198,9 @@ namespace Jint
         internal CultureInfo _Culture => _culture;
 
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
+        internal CamelCasedProperties _StaticMemberCamelCasedProperties => _staticMemberCamelCasedProperties;
+        internal CamelCasedProperties _CamelCasedProperties => _camelCasedProperties;
+        internal IStringComparer _EnumNameStringComparer => _enumNameStringComparer;
+
     }
 }

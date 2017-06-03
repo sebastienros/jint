@@ -57,10 +57,11 @@ namespace Jint.Runtime.Interop
                 return x;
 
             var type = Target.GetType();
-
+            var _CamelCasedProperties = Engine.Options._CamelCasedProperties;
+            var propertiesStringComparer = _CamelCasedProperties.PropertiesStringComparer;
             // look for a property
             var property = type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public)
-                .Where(p => EqualsIgnoreCasing(p.Name, propertyName))
+                .Where(p => propertiesStringComparer.Equals(p.Name, propertyName))
                 .FirstOrDefault();
             if (property != null)
             {
@@ -68,10 +69,10 @@ namespace Jint.Runtime.Interop
                 Properties.Add(propertyName, descriptor);
                 return descriptor;
             }
-
             // look for a field
+            var fieldsStringComparer = _CamelCasedProperties.FieldsStringComparer;
             var field = type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public)
-                .Where(f => EqualsIgnoreCasing(f.Name, propertyName))
+                .Where(f => fieldsStringComparer.Equals(f.Name, propertyName))
                 .FirstOrDefault();
             if (field != null)
             {
@@ -79,10 +80,10 @@ namespace Jint.Runtime.Interop
                 Properties.Add(propertyName, descriptor);
                 return descriptor;
             }
-
             // if no properties were found then look for a method 
+            var methodsStringComparer = _CamelCasedProperties.MethodsStringComparer;
             var methods = type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public)
-                .Where(m => EqualsIgnoreCasing(m.Name, propertyName))
+                .Where(m => methodsStringComparer.Equals(m.Name, propertyName))
                 .ToArray();
 
             if (methods.Any())
@@ -103,7 +104,7 @@ namespace Jint.Runtime.Interop
             // try to find a single explicit property implementation
             var explicitProperties = (from iface in interfaces
                                       from iprop in iface.GetProperties()
-                                      where EqualsIgnoreCasing(iprop.Name, propertyName)
+                                      where propertiesStringComparer.Equals(iprop.Name, propertyName)
                                       select iprop).ToArray();
 
             if (explicitProperties.Length == 1)
@@ -116,7 +117,7 @@ namespace Jint.Runtime.Interop
             // try to find explicit method implementations
             var explicitMethods = (from iface in interfaces
                                    from imethod in iface.GetMethods()
-                                   where EqualsIgnoreCasing(imethod.Name, propertyName)
+                                   where methodsStringComparer.Equals(imethod.Name, propertyName)
                                    select imethod).ToArray();
 
             if (explicitMethods.Length > 0)
@@ -141,21 +142,5 @@ namespace Jint.Runtime.Interop
             return PropertyDescriptor.Undefined;
         }
 
-        private bool EqualsIgnoreCasing(string s1, string s2)
-        {
-            bool equals = false;
-            if (s1.Length == s2.Length)
-            {
-                if (s1.Length > 0 && s2.Length > 0) 
-                {
-                    equals = (s1.ToLower()[0] == s2.ToLower()[0]);
-                }
-                if (s1.Length > 1 && s2.Length > 1) 
-                {
-                    equals = equals && (s1.Substring(1) == s2.Substring(1));
-                }
-            }
-            return equals;
-        }
     }
 }
