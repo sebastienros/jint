@@ -4,7 +4,7 @@ using Jint.Native.Error;
 
 namespace Jint.Runtime
 {
-    public class JavaScriptException : Exception
+    public class JavaScriptException : JintException
     {
         private readonly JsValue _errorObject;
 

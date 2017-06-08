@@ -9,7 +9,7 @@ namespace Jint.Runtime
 {
     using Jint.Runtime.CallStack;
 
-    public class RecursionDepthOverflowException : Exception
+    public class RecursionDepthOverflowException : JintException
     {
         public string CallChain { get; private set; }
 

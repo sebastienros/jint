@@ -20,7 +20,22 @@ namespace Jint.Runtime
 
         private Completion ExecuteStatement(Statement statement)
         {
-            return _engine.ExecuteStatement(statement);
+            try
+            {
+                return _engine.ExecuteStatement(statement);
+            }
+            catch(JintException)
+            {
+                throw;
+            }           
+            catch (TimeoutException)
+            {
+                throw;
+            }
+            catch (Exception e)
+            {                
+                return new Completion(Completion.Throw, JsValue.FromObject(_engine, e.InnerException), null);
+            }
         }
 
         public Completion ExecuteEmptyStatement(EmptyStatement emptyStatement)
