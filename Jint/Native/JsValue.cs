@@ -328,6 +328,13 @@ namespace Jint.Native
                 return new JsValue(instance);
             }
 
+            var type = value as Type;
+            if(type != null)
+            {
+                var typeReference = TypeReference.CreateTypeReference(engine, type);
+                return new JsValue(typeReference);
+            }
+
             var a = value as System.Array;
             if (a != null)
             {
