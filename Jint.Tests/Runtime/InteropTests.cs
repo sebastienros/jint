@@ -279,6 +279,32 @@ namespace Jint.Tests.Runtime
             Assert.Equal("Donald Duck", dictionary[2]);
         }
 
+        private class DoubleIndexedClass
+        {
+            public int this[int index]
+            {
+                get { return index; }
+            }
+
+            public string this[string index]
+            {
+                get { return index; }
+            }
+        }
+
+        [Fact]
+        public void CanGetIndexUsingBothIntAndStringIndex()
+        {
+            var dictionary = new DoubleIndexedClass();
+
+            _engine.SetValue("dictionary", dictionary);
+
+            RunTest(@"
+                assert(dictionary[1] === 1);
+                assert(dictionary['test'] === 'test');
+            ");
+        }
+
         [Fact]
         public void CanUseGenericMethods()
         {
