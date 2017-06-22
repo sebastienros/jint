@@ -222,8 +222,23 @@ namespace Jint.Runtime.Interop
 
             if (canConvert)
             {
-                converted = Convert(value, type, formatProvider);
-                return true;
+                //handle the common string to int conversion that otherwise removes the possibility to have overloaded indexers with both int and string 
+                var isStringValue = value is string;
+                if (isStringValue && type == typeof(Int32))
+                {
+                    Int32 outInt;
+                    var success = Int32.TryParse(value as string, out outInt);
+                    if (success)
+                    {
+                        converted = outInt;
+                        return success;
+                    }
+                }
+                else
+                {
+                    converted = Convert(value, type, formatProvider);
+                    return true;
+                }
             }
 
             converted = null;
