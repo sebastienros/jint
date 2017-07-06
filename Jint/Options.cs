@@ -14,6 +14,7 @@ namespace Jint
         private bool _allowDebuggerStatement;
         private bool _debugMode;
         private bool _allowClr;
+        private bool _clrSetLocalDateTimeKind;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private int _maxStatements;
         private int _maxRecursionDepth = -1; 
@@ -39,6 +40,17 @@ namespace Jint
         public Options Strict(bool strict = true)
         {
             _strict = strict;
+            return this;
+        }
+
+        /// <summary>
+        /// Uses DateTimeKind.Local when updating native value
+        /// </summary>
+        /// <param name="clrSetLocalDateTimeKind"></param>
+        /// <returns></returns>
+        public Options ClrSetLocalDateTimeKind(bool clrSetLocalDateTimeKind = true)
+        {
+            _clrSetLocalDateTimeKind = clrSetLocalDateTimeKind;
             return this;
         }
 
@@ -154,6 +166,8 @@ namespace Jint
         internal bool _IsDebugMode => _debugMode;
 
         internal bool _IsClrAllowed => _allowClr;
+
+        internal bool _ClrSetLocalDateTimeKind => _clrSetLocalDateTimeKind;
 
         internal Predicate<Exception> _ClrExceptionsHandler => _clrExceptionsHandler;
 

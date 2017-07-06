@@ -33,7 +33,15 @@ namespace Jint.Native.Date
             }
             else
             {
-                return DateConstructor.Epoch.AddMilliseconds(PrimitiveValue);
+                DateTime dt = DateConstructor.Epoch.AddMilliseconds(PrimitiveValue);
+
+                if (Engine.Options._ClrSetLocalDateTimeKind)
+                {
+                    var dto = new DateTimeOffset(TimeZoneInfo.ConvertTime(dt, Engine.Options._LocalTimeZone), Engine.Options._LocalTimeZone.GetUtcOffset(dt));
+                    dt = dto.DateTime;
+                }
+
+                return dt;
             }
         }
 

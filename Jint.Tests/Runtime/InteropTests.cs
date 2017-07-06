@@ -1420,6 +1420,47 @@ namespace Jint.Tests.Runtime
             Assert.Equal(Nested.ClassWithStaticFields.Setter, "hello");
         }
 
+        private class DateClass
+        {
+            public DateTime MyDate { get; set; }
+        }
+
+        [Fact]
+        public void ShouldSetLocalDateTime()
+        {
+            var localTimeEngine = new Engine(cfg => cfg
+                    .ClrSetLocalDateTimeKind(true)
+                    .LocalTimeZone(TimeZoneInfo.Local))
+                ;
+            var dt = new DateTime(2017, 1, 1, 0, 0, 0);
+
+            var dc = new DateClass();
+
+            localTimeEngine.SetValue("dc", dc);
+
+            localTimeEngine.Execute(@"dc.MyDate = new Date(2017, 0, 1, 0, 0, 0, 0);");
+
+            Assert.Equal(dt, dc.MyDate);
+        }
+
+        [Fact]
+        public void ShouldSetUtcDateTime()
+        {
+            var localTimeEngine = new Engine(cfg => cfg
+                    .ClrSetLocalDateTimeKind(false)
+                    .LocalTimeZone(TimeZoneInfo.Local))
+                ;
+            var dt = new DateTime(2017, 1, 1, 0, 0, 0);
+
+            var dc = new DateClass();
+
+            localTimeEngine.SetValue("dc", dc);
+
+            localTimeEngine.Execute(@"dc.MyDate = new Date(2017, 0, 1, 0, 0, 0, 0);");
+
+            Assert.Equal(dt.ToUniversalTime(), dc.MyDate);
+        }
+
         [Fact]
         public void CantSetStaticNestedReadonly()
         {
