@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <NeutralLanguage>en-US</NeutralLanguage>
-    <VersionPrefix>2.10.4</VersionPrefix>
     <TargetFrameworks>net40;net45;net451;netstandard1.3</TargetFrameworks>
     <AssemblyOriginatorKeyFile>Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
