@@ -1,13 +1,35 @@
+image: Visual Studio 2017
 init:
   - git config --global core.autocrlf true
-clone_depth: 1
 install:
+  - ps: $env:BuildNumber= $env:APPVEYOR_BUILD_NUMBER
+  - ps: $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = true
+  - ps: $env:NUGET_XMLDOC_MODE = "skip"
+  - ps: $env:DOTNET_CLI_TELEMETRY_OPTOUT = 1
+build_script:
   - dotnet --version
   - dotnet restore
-build_script:
-  - dotnet build .\Jint\project.json --configuration Release
+  - dotnet build -c Release
+  - dotnet pack -c Release
 test_script:
   - dotnet test .\Jint.Tests\project.json --configuration Release -f netcoreapp1.0
   - dotnet test .\Jint.Tests.CommonScripts\project.json --configuration Release -f netcoreapp1.0
   - dotnet test .\Jint.Tests.Ecma\project.json --configuration Release -f netcoreapp1.0
-deploy: off
+artifacts:
+  - path: 'Jint\**\*.nupkg'
+  - provider: NuGet
+    on:
+      branch: dev
+    server: https://www.myget.org/F/jint/api/v2/package
+    api_key:
+      secure: 7PQvuxXn5P39X5QDlDKWbNpOKJKivpqkq7umakIirAZ12CSTAiCwjtJhSBGVboPm
+    skip_symbols: true
+    artifact: /.*\.nupkg/
+  - provider: NuGet
+    on:
+      branch: master
+    server: https://www.nuget.org/api/v2/package
+    api_key:
+      secure: dnqx6Im/Q6ODRS8fNWx8KgGmqv2bw1rQq/6PWgdvkUBGQAmE59tOZN2QzfMuy0NG
+    skip_symbols: true
+    artifact: /.*\.nupkg/  

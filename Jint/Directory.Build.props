@@ -1,0 +1,23 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <PropertyGroup>
+    <PackageId>Jint</PackageId>
+    <AssemblyTitle>Jint</AssemblyTitle>
+    <Description>Javascript interpreter for .NET which provides full ECMA 5.1 compliance.</Description>
+    <Description>Fluid is a template engine based on the Liquid markup, with focus on performance and .NET programming patterns.</Description>
+    <PackageTags>fluid;liquid;template;view engine</PackageTags>
+    <VersionPrefix>2.10.4</VersionPrefix>
+    <PackageId>Jint</PackageId>
+    <PackageTags>javascript, interpreter</PackageTags>
+    <PackageReleaseNotes>Fix package dependencies for .NET 4.5.</PackageReleaseNotes>
+    <PackageProjectUrl>https://github.com/sebastienros/jint</PackageProjectUrl>
+    <PackageLicenseUrl>https://raw.githubusercontent.com/sebastienros/jint/master/LICENSE.txt</PackageLicenseUrl>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>git://github.com/sebastienros/jint</RepositoryUrl>
+    <NetStandardImplicitPackageVersion Condition=" '$(TargetFramework)' == 'netstandard1.3' ">1.6.0</NetStandardImplicitPackageVersion>
+  </PropertyGroup>
+
+  <!-- Called after so that the <VersionSuffix> is built after the local ones -->
+  <Import Project="../Common.props"/>
+
+</Project>

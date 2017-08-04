@@ -1,25 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>Javascript interpreter for .NET which provides full ECMA 5.1 compliance.</Description>
-    <Copyright>Sebastien Ros</Copyright>
-    <AssemblyTitle>Jint</AssemblyTitle>
     <NeutralLanguage>en-US</NeutralLanguage>
     <VersionPrefix>2.10.4</VersionPrefix>
-    <Authors>Sebastien Ros</Authors>
     <TargetFrameworks>net40;net45;net451;netstandard1.3</TargetFrameworks>
-    <AssemblyName>Jint</AssemblyName>
     <AssemblyOriginatorKeyFile>Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
-    <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
-    <PackageId>Jint</PackageId>
-    <PackageTags>javascript, interpreter</PackageTags>
-    <PackageReleaseNotes>Fix package dependencies for .NET 4.5.</PackageReleaseNotes>
-    <PackageProjectUrl>https://github.com/sebastienros/jint</PackageProjectUrl>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/sebastienros/jint/master/LICENSE.txt</PackageLicenseUrl>
-    <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>git://github.com/sebastienros/jint</RepositoryUrl>
-    <NetStandardImplicitPackageVersion Condition=" '$(TargetFramework)' == 'netstandard1.3' ">1.6.0</NetStandardImplicitPackageVersion>
   </PropertyGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net40' OR '$(TargetFramework)' == 'net45' OR '$(TargetFramework)' == 'net451' ">
@@ -33,6 +19,7 @@
     <PackageReference Include="System.Collections.Concurrent" Version="4.3.0" />
     <PackageReference Include="System.Collections.NonGeneric" Version="4.3.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.3.0" />
+    <PackageReference Include="System.Diagnostics.Contracts" Version="4.3.0" />
     <PackageReference Include="System.Dynamic.Runtime" Version="4.3.0" />
     <PackageReference Include="System.Reflection.Emit" Version="4.3.0" />
     <PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.3.0" />
