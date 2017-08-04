@@ -17,6 +17,7 @@ test_script:
   - dotnet test .\Jint.Tests.Ecma\project.json --configuration Release -f netcoreapp1.0
 artifacts:
   - path: 'Jint\**\*.nupkg'
+deploy:  
   - provider: NuGet
     on:
       branch: dev
