@@ -3,7 +3,6 @@
   <PropertyGroup>
     <Copyright>Sebastien Ros</Copyright>
     <Authors>Sebastien Ros</Authors>
-    <VersionSuffix Condition="'$(VersionSuffix)'!='' AND '$(BuildNumber)' != ''">$(VersionSuffix)-$(BuildNumber)</VersionSuffix>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>portable</DebugType>
     <GenerateAssemblyTitleAttribute>false</GenerateAssemblyTitleAttribute>
