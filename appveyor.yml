@@ -12,9 +12,9 @@ build_script:
   - dotnet build -c Release
   - dotnet pack -c Release
 test_script:
-  - dotnet test .\Jint.Tests\project.json --configuration Release -f netcoreapp1.0
-  - dotnet test .\Jint.Tests.CommonScripts\project.json --configuration Release -f netcoreapp1.0
-  - dotnet test .\Jint.Tests.Ecma\project.json --configuration Release -f netcoreapp1.0
+  - dotnet test .\Jint.Tests\Jint.Tests.csproj -c Release -f netcoreapp1.0
+  - dotnet test .\Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj -c Release -f netcoreapp1.0
+  - dotnet test .\Jint.Tests.Ecma\Jint.Tests.Ecma.csproj -c Release -f netcoreapp1.0
 artifacts:
   - path: 'Jint\**\*.nupkg'
 deploy:  
