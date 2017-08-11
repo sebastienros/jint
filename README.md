@@ -1,5 +1,6 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/xh2lsliy6usk60o5?svg=true)](https://ci.appveyor.com/project/SebastienRos/jint)
 [![NuGet](https://img.shields.io/nuget/v/Jint.svg)](https://www.nuget.org/packages/Jint)
+[![MyGet](https://img.shields.io/myget/jint/v/jint.svg)](https://www.myget.org/feed/Packages/jint)
 [![Join the chat at https://gitter.im/sebastienros/jint](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/sebastienros/jint)
 
 # Jint
