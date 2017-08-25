@@ -317,9 +317,7 @@ namespace Jint
                 if (result.Type == Completion.Throw)
                 {
                     throw new JavaScriptException(result.GetValueOrDefault())
-                    {
-                        Location = result.Location
-                    };
+                        .SetCallstack(this, result.Location);
                 }
 
                 _completionValue = result.GetValueOrDefault();

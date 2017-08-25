@@ -1,9 +1,11 @@
-﻿namespace Jint.Runtime.CallStack
+﻿using System.Collections;
+
+namespace Jint.Runtime.CallStack
 {
     using System.Collections.Generic;
     using System.Linq;
 
-    public class JintCallStack
+    public class JintCallStack : IEnumerable<CallStackElement>
     {
         private Stack<CallStackElement> _stack = new Stack<CallStackElement>();
 
@@ -45,9 +47,19 @@
             _statistics.Clear();
         }
 
+        public IEnumerator<CallStackElement> GetEnumerator()
+        {
+            return _stack.GetEnumerator();
+        }
+
         public override string ToString()
         {
             return string.Join("->", _stack.Select(cse => cse.ToString()).Reverse());
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }
