@@ -3,6 +3,7 @@ using System.Linq;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Number;
+using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -851,7 +852,17 @@ namespace Jint.Runtime
 
             if (!func.IsObject())
             {
-                throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Property '{0}' of object is not a function", (callee as Reference).GetReferencedName()));
+                var reference = (Reference) callee;
+
+                if (_engine.Options._ReferenceResolver == null ||
+                    !_engine.Options._ReferenceResolver.TryGetCallable(_engine, reference, out func))
+                {
+                    throw new JavaScriptException(_engine.TypeError,
+                        r == null
+                            ? ""
+                            : string.Format("Property '{0}' of object is not a function",
+                                reference.GetReferencedName()));
+                }
             }
 
             var callable = func.TryCast<ICallable>();

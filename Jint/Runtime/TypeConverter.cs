@@ -347,6 +347,10 @@ namespace Jint.Runtime
             if (o != Undefined.Instance && o != Null.Instance)
                 return;
 
+            if (engine.Options._ReferenceResolver != null && 
+                engine.Options._ReferenceResolver.CheckCoercible(o))
+                return;
+
             var message = string.Empty;
             var reference = baseReference as Reference;
             if (reference != null)
