@@ -22,6 +22,7 @@ namespace Jint
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
         private Predicate<Exception> _clrExceptionsHandler;
+        private IReferenceResolver _referenceResolver;
 
         /// <summary>
         /// When called, doesn't initialize the global scope.
@@ -145,6 +146,12 @@ namespace Jint
             return this;
         }
 
+        public Options SetReferencesResolver(IReferenceResolver resolver)
+        {
+            _referenceResolver = resolver;
+            return this;
+        }
+
         internal bool _IsGlobalDiscarded => _discardGlobal;
 
         internal bool _IsStrict => _strict;
@@ -170,5 +177,8 @@ namespace Jint
         internal CultureInfo _Culture => _culture;
 
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
+
+        internal IReferenceResolver  _ReferenceResolver => _referenceResolver;
+
     }
 }
