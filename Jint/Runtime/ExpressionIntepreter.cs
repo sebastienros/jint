@@ -847,21 +847,17 @@ namespace Jint.Runtime
 
             if (func == Undefined.Instance)
             {
-                throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Object has no method '{0}'", (callee as Reference).GetReferencedName()));
+                throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Object has no method '{0}'", r.GetReferencedName()));
             }
 
             if (!func.IsObject())
             {
-                var reference = (Reference) callee;
 
                 if (_engine.Options._ReferenceResolver == null ||
-                    !_engine.Options._ReferenceResolver.TryGetCallable(_engine, reference, out func))
+                    !_engine.Options._ReferenceResolver.TryGetCallable(_engine, callee, out func))
                 {
                     throw new JavaScriptException(_engine.TypeError,
-                        r == null
-                            ? ""
-                            : string.Format("Property '{0}' of object is not a function",
-                                reference.GetReferencedName()));
+                        r == null ? "" : string.Format("Property '{0}' of object is not a function", r.GetReferencedName()));
                 }
             }
 
