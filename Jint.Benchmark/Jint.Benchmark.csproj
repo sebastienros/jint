@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net45</TargetFramework>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
     <AssemblyName>Jint.Benchmark</AssemblyName>
     <OutputType>Exe</OutputType>
     <PackageId>Jint.Benchmark</PackageId>
@@ -15,11 +15,9 @@
     <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
   </PropertyGroup>
 
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net45' ">
+  <ItemGroup >
     <ProjectReference Include="..\Jint\Jint.csproj" />
     <PackageReference Include="Jurassic2" Version="2.2.1" />
-    <Reference Include="System" />
-    <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
 
 </Project>
