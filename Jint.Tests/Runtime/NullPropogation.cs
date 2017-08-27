@@ -1,6 +1,4 @@
 ﻿using Jint.Native;
-using Jint.Native.Object;
-using Jint.Parser;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Runtime.References;
@@ -113,10 +111,7 @@ this.has_emptyfield_not_null = this.EmptyField !== null;
 
             var wrapperScript = string.Format(@"function ExecutePatchScript(docInner){{ (function(doc){{ {0} }}).apply(docInner); }};", script);
 
-            engine.Execute(wrapperScript, new ParserOptions
-            {
-                Source = "main.js"
-            });
+            engine.Execute(wrapperScript);
 
             engine.Invoke("ExecutePatchScript", jsObject);
 
