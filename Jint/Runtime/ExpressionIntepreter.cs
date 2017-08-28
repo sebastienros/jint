@@ -785,6 +785,13 @@ namespace Jint.Runtime
             return closure;
         }
 
+        public JsValue EvaluateArrowFunctionExpression(ArrowFunctionExpression arrowFunctionExpression)
+        {
+            var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
+
+            return new ArrowFunctionInstance(_engine, _engine.ExecutionContext.ThisBinding, funcEnv, arrowFunctionExpression, StrictModeScope.IsStrictModeCode); ;
+        }
+
         public JsValue EvaluateCallExpression(CallExpression callExpression)
         {
             var callee = EvaluateExpression(callExpression.Callee);
