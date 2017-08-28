@@ -52,7 +52,7 @@ namespace Jint.Runtime.Interop
                 var genericTypeReference = arguments.At(i);
                 if (genericTypeReference == Undefined.Instance || !genericTypeReference.IsObject() || genericTypeReference.AsObject().Class != "TypeReference")
                 {
-                    throw new JavaScriptException(Engine.TypeError, "Invalid generic type parameter");
+                    throw new JavaScriptException(Engine.TypeError, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
                 }
 
                 genericTypes[i] = arguments.At(i).As<TypeReference>().Type;
@@ -65,9 +65,16 @@ namespace Jint.Runtime.Interop
                 return Undefined.Instance;
             }
 
-            var genericType = typeReference.Type.MakeGenericType(genericTypes);
+            try
+            {
+                var genericType = typeReference.Type.MakeGenericType(genericTypes);
 
-            return TypeReference.CreateTypeReference(Engine, genericType);
+                return TypeReference.CreateTypeReference(Engine, genericType);
+            }
+            catch (Exception e)
+            {
+                throw new JavaScriptException(Engine.TypeError, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?",e);
+            }
         }
 
         public override JsValue Get(string propertyName)
@@ -91,20 +98,13 @@ namespace Jint.Runtime.Interop
                 return TypeReference.CreateTypeReference(Engine, type);
             }
 
-            // search for type in mscorlib
-            type = Type.GetType(path);
-            if (type != null)
-            {
-                Engine.TypeCache.Add(path, type);
-                return TypeReference.CreateTypeReference(Engine, type);
-            }
-
+            // in CoreCLR, for example, classes that used to be in 
+            // mscorlib were moved away, and only stubs remained, because
+            // of that, we do the search on the lookup assemblies first,
+            // and only then in mscorlib. Probelm usage: System.IO.File.CreateText
+         
             // search in loaded assemblies
-#if NETSTANDARD1_3
-            var lookupAssemblies = new[] { typeof(NamespaceReference).GetTypeInfo().Assembly };
-#else
             var lookupAssemblies = new[] { Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly() };
-#endif
 
             foreach (var assembly in lookupAssemblies)
             {
@@ -138,6 +138,14 @@ namespace Jint.Runtime.Interop
                       return TypeReference.CreateTypeReference(Engine, nType);
                     }
                   }
+            }
+
+            // search for type in mscorlib
+            type = Type.GetType(path);
+            if (type != null)
+            {
+                Engine.TypeCache.Add(path, type);
+                return TypeReference.CreateTypeReference(Engine, type);
             }
 
             // the new path doesn't represent a known class, thus return a new namespace instance
