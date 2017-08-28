@@ -383,40 +383,7 @@ namespace Jint.Runtime
 
             if (typex == typey)
             {
-                if (typex == Types.Undefined || typex == Types.Null)
-                {
-                    return true;
-                }
-
-                if (typex == Types.Number)
-                {
-                    var nx = TypeConverter.ToNumber(x);
-                    var ny = TypeConverter.ToNumber(y);
-
-                    if (double.IsNaN(nx) || double.IsNaN(ny))
-                    {
-                        return false;
-                    }
-
-                    if (nx.Equals(ny))
-                    {
-                        return true;
-                    }
-
-                    return false;
-                }
-
-                if (typex == Types.String)
-                {
-                    return TypeConverter.ToString(x) == TypeConverter.ToString(y);
-                }
-
-                if (typex == Types.Boolean)
-                {
-                    return x.AsBoolean() == y.AsBoolean();
-                }
-
-                return x == y;
+                return StrictlyEqual(x, y);
             }
 
             if (x == Null.Instance && y == Undefined.Instance)
@@ -787,7 +754,7 @@ namespace Jint.Runtime
 
             var propertyNameReference = EvaluateExpression(expression);
             var propertyNameValue = _engine.GetValue(propertyNameReference);
-            TypeConverter.CheckObjectCoercible(_engine, baseValue);
+            TypeConverter.CheckObjectCoercible(_engine, baseValue, memberExpression, baseReference);
             var propertyNameString = TypeConverter.ToString(propertyNameValue);
 
             return new Reference(baseValue, propertyNameString, StrictModeScope.IsStrictModeCode);
