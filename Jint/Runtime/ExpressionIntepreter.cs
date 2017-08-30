@@ -3,6 +3,7 @@ using System.Linq;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Number;
+using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -757,7 +758,7 @@ namespace Jint.Runtime
 
             var propertyNameReference = EvaluateExpression(expression);
             var propertyNameValue = _engine.GetValue(propertyNameReference);
-            TypeConverter.CheckObjectCoercible(_engine, baseValue);
+            TypeConverter.CheckObjectCoercible(_engine, baseValue, memberExpression, baseReference);
             var propertyNameString = TypeConverter.ToString(propertyNameValue);
 
             return new Reference(baseValue, propertyNameString, StrictModeScope.IsStrictModeCode);
@@ -846,12 +847,18 @@ namespace Jint.Runtime
 
             if (func == Undefined.Instance)
             {
-                throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Object has no method '{0}'", (callee as Reference).GetReferencedName()));
+                throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Object has no method '{0}'", r.GetReferencedName()));
             }
 
             if (!func.IsObject())
             {
-                throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Property '{0}' of object is not a function", (callee as Reference).GetReferencedName()));
+
+                if (_engine.Options._ReferenceResolver == null ||
+                    !_engine.Options._ReferenceResolver.TryGetCallable(_engine, callee, out func))
+                {
+                    throw new JavaScriptException(_engine.TypeError,
+                        r == null ? "" : string.Format("Property '{0}' of object is not a function", r.GetReferencedName()));
+                }
             }
 
             var callable = func.TryCast<ICallable>();

@@ -317,9 +317,7 @@ namespace Jint
                 if (result.Type == Completion.Throw)
                 {
                     throw new JavaScriptException(result.GetValueOrDefault())
-                    {
-                        Location = result.Location
-                    };
+                        .SetCallstack(this, result.Location);
                 }
 
                 _completionValue = result.GetValueOrDefault();
@@ -513,6 +511,11 @@ namespace Jint
 
             if (reference.IsUnresolvableReference())
             {
+                if (Options._ReferenceResolver != null &&
+                    Options._ReferenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
+                {
+                    return val;
+                }
                 throw new JavaScriptException(ReferenceError, reference.GetReferencedName() + " is not defined");
             }
 
@@ -520,6 +523,12 @@ namespace Jint
 
             if (reference.IsPropertyReference())
             {
+                if (Options._ReferenceResolver != null &&
+                    Options._ReferenceResolver.TryPropertyReference(this, reference, ref baseValue))
+                {
+                    return baseValue;
+                }
+                
                 if (reference.HasPrimitiveBase() == false)
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
