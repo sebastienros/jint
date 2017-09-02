@@ -7,6 +7,8 @@ using Jint.Native;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
+using Jint.Parser.Ast;
+using Jint.Runtime.References;
 
 namespace Jint.Runtime
 {
@@ -337,6 +339,25 @@ namespace Jint.Runtime
             }
 
             return value.Type;
+        }
+
+        public static void CheckObjectCoercible(Engine engine, JsValue o, MemberExpression expression,
+            object baseReference)
+        {
+            if (o != Undefined.Instance && o != Null.Instance)
+                return;
+
+            if (engine.Options._ReferenceResolver != null && 
+                engine.Options._ReferenceResolver.CheckCoercible(o))
+                return;
+
+            var message = string.Empty;
+            var reference = baseReference as Reference;
+            if (reference != null)
+                message = $"{reference.GetReferencedName()} is {o}";
+
+            throw new JavaScriptException(engine.TypeError, message)
+                .SetCallstack(engine, expression.Location);
         }
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)

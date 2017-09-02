@@ -50,6 +50,7 @@ namespace Jint
             _camelCasedProperties = camelCasedProperties;
             return this;
         }
+        private IReferenceResolver _referenceResolver;
 
         /// <summary>
         /// When called, doesn't initialize the global scope.
@@ -173,6 +174,12 @@ namespace Jint
             return this;
         }
 
+        public Options SetReferencesResolver(IReferenceResolver resolver)
+        {
+            _referenceResolver = resolver;
+            return this;
+        }
+
         internal bool _IsGlobalDiscarded => _discardGlobal;
 
         internal bool _IsStrict => _strict;
@@ -201,6 +208,9 @@ namespace Jint
         internal CamelCasedProperties _StaticMemberCamelCasedProperties => _staticMemberCamelCasedProperties;
         internal CamelCasedProperties _CamelCasedProperties => _camelCasedProperties;
         internal IStringComparer _EnumNameStringComparer => _enumNameStringComparer;
+
+
+        internal IReferenceResolver  _ReferenceResolver => _referenceResolver;
 
     }
 }
