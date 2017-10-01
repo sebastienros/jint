@@ -862,6 +862,16 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldBeInstanceOfTypeReferenceType()
+        {
+            _engine.SetValue("A", typeof(A));
+            RunTest(@"
+                var a = new A();
+                assert(a instanceof A);
+            ");
+        }
+
+        [Fact]
         public void ShouldImportNamespace()
         {
             RunTest(@"
