@@ -8,9 +8,9 @@ using Xunit;
 
 namespace Jint.Tests.Runtime
 {
-    public class NullPropogation
+    public class NullPropagation
     {
-        public class NullPropgationReferenceResolver : IReferenceResolver
+        public class NullPropagationReferenceResolver : IReferenceResolver
         {
             public bool TryUnresolvableReference(Engine engine, Reference reference, out JsValue value)
             {
@@ -38,9 +38,9 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void NullPropagation()
+        public void NullPropagationTest()
         {
-            var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropgationReferenceResolver()));
+            var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
 
             const string Script = @"
 var input = { 
@@ -75,7 +75,7 @@ var output = {
         [Fact]
         public void NullPropagationFromArg()
         {
-            var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropgationReferenceResolver()));
+            var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
 
 
             const string Script = @"
@@ -100,7 +100,7 @@ function test2(arg) {
         [Fact]
         public void NullPropagationShouldNotAffectOperators()
         {
-            var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropgationReferenceResolver()));
+            var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
 
             var jsObject = engine.Object.Construct(Arguments.Empty);
             jsObject.Put("NullField", JsValue.Null, true);
