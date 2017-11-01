@@ -930,7 +930,7 @@ namespace Jint.Native.Date
 
         public static double HourFromTime(double t)
         {
-            return System.Math.Floor(t / MsPerHour) % HoursPerDay;
+            return DateConstructor.Epoch.AddMilliseconds(t).Hour;
         }
 
         public static double MinFromTime(double t)
