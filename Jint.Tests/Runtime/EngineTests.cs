@@ -1839,6 +1839,17 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Theory]
+        [MemberData(nameof(DateTimeTestCases.TestItems), MemberType = typeof(DateTimeTestCases))]
+        public void ShouldGetExpectedHourBeforeOnAndAfter1970(DateTime datetime, int expectedHour)
+        {
+            var engine = new Engine();
+
+            var result = engine.Execute($"new Date({datetime.FormatForJavaScript()}).getHours()").GetCompletionValue();
+            
+            Assert.Equal(expectedHour, result.AsNumber());
+        }
+
         [Fact]
         public void ExceptionShouldHaveLocationOfInnerFunction()
         {
