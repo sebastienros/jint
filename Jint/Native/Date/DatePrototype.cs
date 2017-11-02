@@ -89,10 +89,7 @@ namespace Jint.Native.Date
         /// </summary>
         private DateInstance EnsureDateInstance(JsValue thisObj)
         {
-            return thisObj.TryCast<DateInstance>(value =>
-               {
-                   throw new JavaScriptException(Engine.TypeError, "Invalid Date");
-               });
+            return thisObj.TryCast<DateInstance>(value => throw new JavaScriptException(Engine.TypeError, "Invalid Date"));
         }
 
         public JsValue ToString(JsValue thisObj, JsValue[] arg2)
@@ -530,10 +527,7 @@ namespace Jint.Native.Date
 
         private JsValue ToISOString(JsValue thisObj, JsValue[] arguments)
         {
-            var t = thisObj.TryCast<DateInstance>(x =>
-            {
-                throw new JavaScriptException(Engine.TypeError);
-            }).PrimitiveValue;
+            var t = EnsureDateInstance(thisObj).PrimitiveValue;
 
             if (double.IsInfinity(t) || double.IsNaN(t))
             {
@@ -930,6 +924,11 @@ namespace Jint.Native.Date
 
         public static double HourFromTime(double t)
         {
+            if (t < Min || t > Max)
+            {
+                return 0;
+            }
+
             return DateConstructor.Epoch.AddMilliseconds(t).Hour;
         }
 
