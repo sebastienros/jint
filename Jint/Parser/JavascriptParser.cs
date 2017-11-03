@@ -775,7 +775,17 @@ namespace Jint.Parser
                 var literal = number.ToLowerInvariant();
                 for (var i = literal.Length - 1; i >= 0; i--)
                 {
-                    value += modulo * (literal[i] - '0');
+                    var c = literal[i];
+
+                    if (c <= '9')
+                    {
+                        value += modulo * (c - '0');
+                    }
+                    else
+                    {
+                        value += modulo * (c - 'a' + 10);
+                    }
+                    
                     modulo *= 16;
                 }
             }
