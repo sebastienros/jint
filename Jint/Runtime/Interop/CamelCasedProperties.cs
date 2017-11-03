@@ -7,8 +7,8 @@ namespace Jint.Runtime.Interop
 {
     public class CamelCasedProperties
     {
-        public IStringComparer PropertiesStringComparer { get; set; }
-        public IStringComparer FieldsStringComparer { get; set; }
-        public IStringComparer MethodsStringComparer { get; set; }
+        public IEqualityComparer<string> PropertiesStringComparer { get; set; }
+        public IEqualityComparer<string> FieldsStringComparer { get; set; }
+        public IEqualityComparer<string> MethodsStringComparer { get; set; }
     }
 }

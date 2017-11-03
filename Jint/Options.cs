@@ -23,9 +23,9 @@ namespace Jint
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
         private Predicate<Exception> _clrExceptionsHandler;
         private CamelCasedProperties _staticMemberCamelCasedProperties = new Runtime.Interop.CamelCasedProperties() {
-            FieldsStringComparer = DefaultStringComparer.Current,
-            MethodsStringComparer = DefaultStringComparer.Current,
-            PropertiesStringComparer = DefaultStringComparer.Current
+            FieldsStringComparer = EqualityComparer<string>.Default,
+            MethodsStringComparer = EqualityComparer<string>.Default,
+            PropertiesStringComparer = EqualityComparer<string>.Default
         };
         private CamelCasedProperties _camelCasedProperties = new Runtime.Interop.CamelCasedProperties()
         {
@@ -33,8 +33,8 @@ namespace Jint
             MethodsStringComparer = IgnoreCasingStringComparer.Current,
             PropertiesStringComparer = IgnoreCasingStringComparer.Current
         };
-        private IStringComparer _enumNameStringComparer = DefaultStringComparer.Current;
-        public Options EnumNameStringComparer(IStringComparer enumNameStringComparer)
+        private IEqualityComparer<string> _enumNameStringComparer = EqualityComparer<string>.Default;
+        public Options EnumNameStringComparer(IEqualityComparer<string> enumNameStringComparer)
         {
             _enumNameStringComparer = enumNameStringComparer;
             return this;
@@ -207,7 +207,7 @@ namespace Jint
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
         internal CamelCasedProperties _StaticMemberCamelCasedProperties => _staticMemberCamelCasedProperties;
         internal CamelCasedProperties _CamelCasedProperties => _camelCasedProperties;
-        internal IStringComparer _EnumNameStringComparer => _enumNameStringComparer;
+        internal IEqualityComparer<string> _EnumNameStringComparer => _enumNameStringComparer;
 
 
         internal IReferenceResolver  _ReferenceResolver => _referenceResolver;

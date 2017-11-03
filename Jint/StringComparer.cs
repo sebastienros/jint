@@ -5,13 +5,9 @@ using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interop
 {
-    public interface IStringComparer
+    public class IgnoreCasingStringComparer : IEqualityComparer<string>
     {
-        bool Equals(string clrname, string jsname);
-    }
-    public class IgnoreCasingStringComparer : IStringComparer
-    {
-        public static IStringComparer Current { get; } = new IgnoreCasingStringComparer();
+        public static IEqualityComparer<string> Current { get; } = new IgnoreCasingStringComparer();
         public bool Equals(string clrname, string jsname)
         {
             bool equals = false;
@@ -28,13 +24,27 @@ namespace Jint.Runtime.Interop
             }
             return equals;
         }
-    }
-    public class DefaultStringComparer : IStringComparer
-    {
-        public static IStringComparer Current { get; } = new DefaultStringComparer();
-        public bool Equals(string clrname, string jsname)
+
+        public int GetHashCode(string obj)
         {
-            return clrname.Equals(jsname);
+            if (obj == null)
+            {
+                throw new ArgumentNullException(nameof(obj));
+            }
+            else if (obj.Length == 0)
+            {
+                return obj.GetHashCode();
+            }
+            else if (char.IsUpper(obj[0]))
+            {
+                var array = obj.ToArray();
+                array[0] = char.ToLower(array[0]);
+                return new string(array).GetHashCode();
+            }
+            else
+            {
+                return obj.GetHashCode();
+            }
         }
     }
 }
