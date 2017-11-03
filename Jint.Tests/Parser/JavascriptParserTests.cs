@@ -125,6 +125,7 @@ namespace Jint.Tests.Parser
         [InlineData(02, "02")]
         [InlineData(10, "012")]
         [InlineData(10, "0012")]
+        [InlineData(1.189008226412092e+38, "0x5973772948c653ac1971f1576e03c4d4")]
         public void ShouldParseNumericLiterals(object expected, string source)
         {
             Literal literal;

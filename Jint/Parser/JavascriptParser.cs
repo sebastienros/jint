@@ -759,10 +759,31 @@ namespace Jint.Parser
                 ThrowError(null, Messages.UnexpectedToken, "ILLEGAL");
             }
 
+            double value = 0;
+
+            if (number.Length < 16)
+            {
+                value = Convert.ToUInt64(number, 16);
+            }
+            else if(number.Length > 255)
+            {
+                value = double.PositiveInfinity;
+            }
+            else
+            {
+                double modulo = 1;
+                var literal = number.ToLowerInvariant();
+                for (var i = literal.Length - 1; i >= 0; i--)
+                {
+                    value += modulo * (literal[i] - '0');
+                    modulo *= 16;
+                }
+            }
+            
             return new Token
                 {
                     Type = Tokens.NumericLiteral,
-                    Value = Convert.ToInt64(number, 16),
+                    Value = value,
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
                     Range = new[] {start, _index}
