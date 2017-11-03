@@ -5,8 +5,6 @@
     <TargetFrameworks>net40;net45;net451;netstandard1.3</TargetFrameworks>
     <AssemblyOriginatorKeyFile>Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Version>2.11.24</Version>
   </PropertyGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net40' OR '$(TargetFramework)' == 'net45' OR '$(TargetFramework)' == 'net451' ">
