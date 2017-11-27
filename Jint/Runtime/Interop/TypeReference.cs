@@ -63,7 +63,7 @@ namespace Jint.Runtime.Interop
                 {
                     for (var i = 0; i < arguments.Length; i++)
                     {
-                        var parameterType =  method.GetParameters()[i].ParameterType;
+                        var parameterType = method.GetParameters()[i].ParameterType;
 
                         if (parameterType == typeof(JsValue))
                         {
@@ -94,6 +94,18 @@ namespace Jint.Runtime.Interop
 
             throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
 
+        }
+
+        public override bool HasInstance(JsValue v)
+        {
+            ObjectWrapper wrapper = v.As<ObjectWrapper>();
+
+            if (wrapper == null)
+            {
+                return base.HasInstance(v);
+            }
+
+            return wrapper.Target.GetType() == this.Type;
         }
 
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)

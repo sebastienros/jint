@@ -169,10 +169,11 @@ namespace Jint.Native.Date
                 y += 1900;
             }
 
-            var finalDate = DatePrototype.MakeDate(DatePrototype.MakeDay(y, m, dt),
+            var finalDate = DatePrototype.MakeDate(
+                DatePrototype.MakeDay(y, m, dt),
                 DatePrototype.MakeTime(h, min, s, milli));
 
-            return useUtc ? finalDate : PrototypeObject.Utc(finalDate);
+            return TimeClip(useUtc ? finalDate : PrototypeObject.Utc(finalDate));
         }
 
         public DatePrototype PrototypeObject { get; private set; }

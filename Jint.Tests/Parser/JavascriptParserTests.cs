@@ -56,7 +56,7 @@ namespace Jint.Tests.Parser
             var body = program.Body;
 
             Assert.NotNull(body);
-            Assert.Equal(1, body.Count());
+            Assert.Single(body);
             Assert.Equal(SyntaxNodes.ThisExpression, body.First().As<ExpressionStatement>().Expression.Type);
         }
 
@@ -67,7 +67,7 @@ namespace Jint.Tests.Parser
             var body = program.Body;
 
             Assert.NotNull(body);
-            Assert.Equal(1, body.Count());
+            Assert.Single(body);
             Assert.Equal(SyntaxNodes.Literal, body.First().As<ExpressionStatement>().Expression.Type);
             Assert.Equal(null, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
             Assert.Equal("null", body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw);
@@ -83,7 +83,7 @@ namespace Jint.Tests.Parser
             var body = program.Body;
 
             Assert.NotNull(body);
-            Assert.Equal(1, body.Count());
+            Assert.Single(body);
             Assert.Equal(SyntaxNodes.Literal, body.First().As<ExpressionStatement>().Expression.Type);
             Assert.Equal(42d, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
             Assert.Equal("42", body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw);
@@ -98,7 +98,7 @@ namespace Jint.Tests.Parser
             var body = program.Body;
 
             Assert.NotNull(body);
-            Assert.Equal(1, body.Count());
+            Assert.Single(body);
             Assert.NotNull(binary = body.First().As<ExpressionStatement>().Expression.As<BinaryExpression>());
             Assert.Equal(3d, binary.Right.As<Literal>().Value);
             Assert.Equal(BinaryOperator.Times, binary.Operator);
@@ -125,6 +125,8 @@ namespace Jint.Tests.Parser
         [InlineData(02, "02")]
         [InlineData(10, "012")]
         [InlineData(10, "0012")]
+        [InlineData(1.189008226412092e+38, "0x5973772948c653ac1971f1576e03c4d4")]
+        [InlineData(18446744073709552000d, "0xffffffffffffffff")]
         public void ShouldParseNumericLiterals(object expected, string source)
         {
             Literal literal;
@@ -133,7 +135,7 @@ namespace Jint.Tests.Parser
             var body = program.Body;
 
             Assert.NotNull(body);
-            Assert.Equal(1, body.Count());
+            Assert.Single(body);
             Assert.NotNull(literal = body.First().As<ExpressionStatement>().Expression.As<Literal>());
             Assert.Equal(Convert.ToDouble(expected), Convert.ToDouble(literal.Value));
         }
@@ -153,7 +155,7 @@ namespace Jint.Tests.Parser
             var body = program.Body;
 
             Assert.NotNull(body);
-            Assert.Equal(1, body.Count());
+            Assert.Single(body);
             Assert.NotNull(literal = body.First().As<ExpressionStatement>().Expression.As<Literal>());
             Assert.Equal(expected, literal.Value);
         }

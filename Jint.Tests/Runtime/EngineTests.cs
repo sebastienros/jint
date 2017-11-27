@@ -2,14 +2,12 @@
 using System.Globalization;
 using System.IO;
 using System.Reflection;
-using System.Threading;
 using Jint.Native.Number;
 using Jint.Parser;
 using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
-using System.Net;
 
 namespace Jint.Tests.Runtime
 {
@@ -1479,7 +1477,7 @@ namespace Jint.Tests.Runtime
             Assert.NotNull(debugInfo.CurrentStatement);
             Assert.NotNull(debugInfo.Locals);
 
-            Assert.Equal(1, debugInfo.CallStack.Count);
+            Assert.Single(debugInfo.CallStack);
             Assert.Equal("func1()", debugInfo.CallStack.Peek());
             Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal) && kvp.Value.AsBoolean() == true);
             Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
@@ -1954,7 +1952,6 @@ namespace Jint.Tests.Runtime
         [InlineData("%uE", "unescape('%uE')")]
         [InlineData("%uf", "unescape('%uf')")]
         [InlineData("%uF", "unescape('%uF')")]
-        [InlineData("%u00", "unescape('%u00')")]
         [InlineData("%u01", "unescape('%u01')")]
         [InlineData("%u02", "unescape('%u02')")]
         [InlineData("%u03", "unescape('%u03')")]
@@ -2127,6 +2124,54 @@ namespace Jint.Tests.Runtime
         [InlineData("%0{00", "unescape('%0%7b00')")]
         [InlineData("%0{00", "unescape('%0%7B00')")]
         public void ShouldEvaluateUnescape(object expected, string source)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
+
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("new Date(1969,0,1,19,45,30,500).getHours()", 19)]
+        [InlineData("new Date(1970,0,1,19,45,30,500).getHours()", 19)]
+        [InlineData("new Date(1971,0,1,19,45,30,500).getHours()", 19)]
+        [InlineData("new Date(1969,0,1,19,45,30,500).getMinutes()", 45)]
+        [InlineData("new Date(1970,0,1,19,45,30,500).getMinutes()", 45)]
+        [InlineData("new Date(1971,0,1,19,45,30,500).getMinutes()", 45)]
+        [InlineData("new Date(1969,0,1,19,45,30,500).getSeconds()", 30)]
+        [InlineData("new Date(1970,0,1,19,45,30,500).getSeconds()", 30)]
+        [InlineData("new Date(1971,0,1,19,45,30,500).getSeconds()", 30)]
+        //[InlineData("new Date(1969,0,1,19,45,30,500).getMilliseconds()", 500)]
+        //[InlineData("new Date(1970,0,1,19,45,30,500).getMilliseconds()", 500)]
+        //[InlineData("new Date(1971,0,1,19,45,30,500).getMilliseconds()", 500)]
+        public void ShouldExtractDateParts(string source, double expected)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
+
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("'abc'.padStart(10)", "       abc")]
+        [InlineData("'abc'.padStart(10, \"foo\")", "foofoofabc")]
+        [InlineData("'abc'.padStart(6, \"123456\")", "123abc")]
+        [InlineData("'abc'.padStart(8, \"0\")", "00000abc")]
+        [InlineData("'abc'.padStart(1)", "abc")]
+        public void ShouldPadStart(string source, object expected)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
+
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("'abc'.padEnd(10)", "abc       ")]
+        [InlineData("'abc'.padEnd(10, \"foo\")", "abcfoofoof")]
+        [InlineData("'abc'.padEnd(6, \"123456\")", "abc123")]
+        [InlineData("'abc'.padEnd(1)", "abc")]
+        public void ShouldPadEnd(string source, object expected)
         {
             var engine = new Engine();
             var result = engine.Execute(source).GetCompletionValue().ToObject();
