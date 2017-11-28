@@ -63,7 +63,7 @@ namespace Jint.Tests.Parser
             Assert.NotNull(body);
             Assert.Single(body);
             Assert.Equal(Nodes.Literal, body.First().As<ExpressionStatement>().Expression.Type);
-            Assert.Equal(42L, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
+            Assert.Equal(42d, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
             Assert.Equal("42", body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw);
         }
 
@@ -78,10 +78,10 @@ namespace Jint.Tests.Parser
             Assert.NotNull(body);
             Assert.Single(body);
             Assert.NotNull(binary = body.First().As<ExpressionStatement>().Expression.As<BinaryExpression>());
-            Assert.Equal(3L, binary.Right.As<Literal>().Value);
+            Assert.Equal(3d, binary.Right.As<Literal>().Value);
             Assert.Equal(BinaryOperator.Times, binary.Operator);
-            Assert.Equal(1L, binary.Left.As<BinaryExpression>().Left.As<Literal>().Value);
-            Assert.Equal(2L, binary.Left.As<BinaryExpression>().Right.As<Literal>().Value);
+            Assert.Equal(1d, binary.Left.As<BinaryExpression>().Left.As<Literal>().Value);
+            Assert.Equal(2d, binary.Left.As<BinaryExpression>().Right.As<Literal>().Value);
             Assert.Equal(BinaryOperator.Plus, binary.Left.As<BinaryExpression>().Operator);
         }
 

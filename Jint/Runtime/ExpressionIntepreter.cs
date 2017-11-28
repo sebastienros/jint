@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
@@ -609,41 +610,27 @@ namespace Jint.Runtime
 
         public JsValue EvaluateLiteral(Literal literal)
         {
-            // TODO: Esprima; Cached value is a JsValue
-            //if (literal.Cached)
-            //{
-            //    return literal.CachedValue;
-            //}
-
-            //if (literal.Type == Nodes.RegularExpressionLiteral)
-            //{
-            //    literal.CachedValue = _engine.RegExp.Construct(literal.RegexValue, literal.Regex.Flags);
-            //}
-            //else
-            //{
-            //    literal.CachedValue = JsValue.FromObject(_engine, literal.Value);
-            //}
-
-            //literal.Cached = true;
-            //return literal.CachedValue;
+            if (literal.Cached)
+            {
+                switch (literal.TokenType)
+                {
+                    case TokenType.BooleanLiteral:
+                        return new JsValue(literal.BooleanValue);
+                    case TokenType.NullLiteral:
+                        return JsValue.Null;
+                    case TokenType.NumericLiteral:
+                        return new JsValue(literal.NumericValue);
+                    case TokenType.StringLiteral:
+                        return new JsValue(literal.StringValue);
+                }
+            }
 
             if (literal.RegexValue != null) //(literal.Type == Nodes.RegularExpressionLiteral)
             {
-                var regexp = _engine.RegExp.Construct(literal.RegexValue, literal.Regex.Flags);
-
-                if (regexp.Global)
-                {
-                    // A Global regexp literal can't be cached or its state would evolve
-                    return regexp;
-                }
-
-                literal.CachedValue = regexp;
-            }
-            else
-            {
-                return JsValue.FromObject(_engine, literal.Value);
+                return _engine.RegExp.Construct(literal.RegexValue, literal.Regex.Flags);
             }
 
+            return JsValue.FromObject(_engine, literal.Value);
         }
 
         public JsValue EvaluateObjectExpression(ObjectExpression objectExpression)
@@ -818,29 +805,28 @@ namespace Jint.Runtime
 
             JsValue[] arguments;
 
-            // TODO: Esprima
-            //if (callExpression.Cached)
-            //{
-            //    arguments = callExpression.CachedArguments;
-            //}
-            //else
-            //{
+            if (callExpression.Cached)
+            {
+                arguments = (JsValue[]) callExpression.CachedArguments;
+            }
+            else
+            {
                 arguments = callExpression.Arguments.Select(x => EvaluateExpression(x.As<Expression>())).Select(_engine.GetValue).ToArray();
 
-            //    if (callExpression.CanBeCached)
-            //    {
-            //        // The arguments array can be cached if they are all literals
-            //        if (callExpression.Arguments.All(x => x is Literal))
-            //        {
-            //            callExpression.CachedArguments = arguments;
-            //            callExpression.Cached = true;
-            //        }
-            //        else
-            //        {
-            //            callExpression.CanBeCached = false;
-            //        }
-            //    }
-            //}
+                if (callExpression.CanBeCached)
+                {
+                    // The arguments array can be cached if they are all literals
+                    if (callExpression.Arguments.All(x => x is Literal))
+                    {
+                        callExpression.CachedArguments = arguments;
+                        callExpression.Cached = true;
+                    }
+                    else
+                    {
+                        callExpression.CanBeCached = false;
+                    }
+                }
+            }
 
             var func = _engine.GetValue(callee);
 

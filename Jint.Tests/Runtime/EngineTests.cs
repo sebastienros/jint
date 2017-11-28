@@ -1053,19 +1053,11 @@ namespace Jint.Tests.Runtime
             Assert.Equal(0, result);
         }
 
-#if NET451
         [Fact]
-#else
-        [Fact(Skip = "CreateCustomTimeZone not available on netstandard")]
-#endif
         public void ShouldUseLocalTimeZoneOverride()
         {
-#if NET451
             const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName, customName, customName, null, false);
-#else
-            var customTimeZone = TimeZoneInfo.Utc;
-#endif
 
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
@@ -1073,7 +1065,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(11, epochGetLocalMinutes);
 
             var localEpochGetUtcMinutes = engine.Execute("var d = new Date(1970,0,1); d.getUTCMinutes();").GetCompletionValue().AsNumber();
-            Assert.Equal(-11, localEpochGetUtcMinutes);
+            Assert.Equal(49, localEpochGetUtcMinutes);
 
             var parseLocalEpoch = engine.Execute("Date.parse('January 1, 1970');").GetCompletionValue().AsNumber();
             Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
@@ -1121,11 +1113,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(0, result);
         }
 
-#if NET451
         [Theory]
-#else
-        [Theory(Skip = "CreateCustomTimeZone not available on netstandard")]
-#endif
         [InlineData("1970/01")]
         [InlineData("1970/01/01")]
         [InlineData("1970/01/01T00:00")]
@@ -1146,12 +1134,8 @@ namespace Jint.Tests.Runtime
         {
             const int timespanMinutes = 11;
             const int msPriorMidnight = -timespanMinutes * 60 * 1000;
-#if NET451
             const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, timespanMinutes, 0), customName, customName, customName, null, false);
-#else
-            var customTimeZone = TimeZoneInfo.Utc;
-#endif
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)).SetValue("d", date);
 
             var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
@@ -1864,7 +1848,7 @@ namespace Jint.Tests.Runtime
             {
                 Assert.Equal(3, ex.LineNumber);
             }
-        }        }
+        }
 
         [Fact]
         public void GlobalRegexLiteralShouldNotKeepState()
