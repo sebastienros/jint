@@ -76,9 +76,9 @@ namespace Jint.Tests.Ecma
         [Theory(DisplayName = "Ecma")]
         [MemberData(nameof(SourceFiles), false)]
         [MemberData(nameof(SourceFiles), true, Skip = "Skipped")]
-        protected void RunTest(string localPath, SourceFile sourceFile)
+        protected void RunTest(SourceFile sourceFile)
         {
-            var fullName = Path.Combine(BasePath, localPath, sourceFile.Source);
+            var fullName = Path.Combine(BasePath, sourceFile.BasePath, sourceFile.Source);
             if (!File.Exists(fullName))
             {
                 throw new ArgumentException("Could not find source file: " + fullName);
@@ -109,11 +109,11 @@ namespace Jint.Tests.Ecma
 
                 foreach(JObject entry in doc)
                 {
-                    var sourceFile = new SourceFile(entry);
+                    var sourceFile = new SourceFile(entry, path);
                     
                     if (skipped == sourceFile.Skip)
                     {
-                        results.Add(new object [] { path, sourceFile });
+                        results.Add(new object [] { sourceFile });
                     }
                 }
 
@@ -127,16 +127,18 @@ namespace Jint.Tests.Ecma
 
         public class SourceFile
         {
-            public SourceFile(JObject node)
+            public SourceFile(JObject node, string basePath)
             {
                 Skip = node["skip"].Value<bool>();
                 Source = node["source"].ToString();
                 Reason = node["reason"].ToString();
+                BasePath = basePath;
             }
 
             public string Source { get; set; }
             public bool Skip { get; set; }
             public string Reason { get; set; }
+            public string BasePath { get; }
 
             public override string ToString()
             {
