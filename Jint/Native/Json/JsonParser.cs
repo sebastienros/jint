@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Esprima;
+using Esprima.Ast;
 using Jint.Native.Object;
-using Jint.Parser;
-using Jint.Parser.Ast;
 using Jint.Runtime;
 
 namespace Jint.Native.Json
@@ -74,12 +74,12 @@ namespace Jint.Native.Json
         private static bool IsTrueOrFalseChar(char ch)
         {
             return ch == 't'
-                || ch == 'r'
-                || ch == 'u'
-                || ch == 'e'
                 || ch == 'f'
+                || ch == 'r'
                 || ch == 'a'
+                || ch == 'u'
                 || ch == 'l'
+                || ch == 'e'
                 || ch == 's'
                 ;
         }
@@ -161,7 +161,7 @@ namespace Jint.Native.Json
 
             int start = _index;
             string number = "";
-            
+
             // Number start with a -
             if (ch == '-')
             {
@@ -238,12 +238,12 @@ namespace Jint.Native.Json
         {
             int start = _index;
             string s = "";
-            
+
             while (IsTrueOrFalseChar(_source.CharCodeAt(_index)))
             {
                 s += _source.CharCodeAt(_index++).ToString();
             }
-            
+
             if (s == "true" || s == "false")
             {
                 return new Token
@@ -255,7 +255,7 @@ namespace Jint.Native.Json
                     Range = new[] { start, _index }
                 };
             }
-            else 
+            else
             {
                 throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, s));
             }
@@ -265,7 +265,7 @@ namespace Jint.Native.Json
         {
             int start = _index;
             string s = "";
-            
+
             while (IsNullChar(_source.CharCodeAt(_index)))
             {
                 s += _source.CharCodeAt(_index++).ToString();
@@ -311,7 +311,7 @@ namespace Jint.Native.Json
                 {
                     throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character '{0}', position:{1}, string:{2}", ch, _index, _source));
                 }
-                
+
                 if (ch == '\\')
                 {
                     ch = _source.CharCodeAt(_index++);
@@ -403,7 +403,7 @@ namespace Jint.Native.Json
             {
                 throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, _source));
             }
-            
+
             return new Token
                 {
                     Type = Tokens.String,
@@ -439,11 +439,11 @@ namespace Jint.Native.Json
 
             // String literal starts with double quote (#34).
             // Single quote (#39) are not allowed in JSON.
-            if (ch == 34) 
+            if (ch == 34)
             {
                 return ScanStringLiteral();
             }
-            
+
             // Dot (.) char #46 can also start a floating-point number, hence the need
             // to check the next character.
             if (ch == 46)
@@ -555,11 +555,11 @@ namespace Jint.Native.Json
             }
         }
 
-        private T MarkEnd<T>(T node) where T : SyntaxNode
+        private T MarkEnd<T>(T node) where T : INode
         {
             if (_extra.Range != null)
             {
-                node.Range = new[] {_state.MarkerStack.Pop(), _index};
+                node.Range = new int[] {_state.MarkerStack.Pop(), _index};
             }
             if (_extra.Loc.HasValue)
             {
@@ -581,7 +581,7 @@ namespace Jint.Native.Json
             return node;
         }
 
-        public T MarkEndIf<T>(T node) where T : SyntaxNode
+        public T MarkEndIf<T>(T node) where T : INode
         {
             if (node.Range != null || node.Location != null)
             {
@@ -602,12 +602,13 @@ namespace Jint.Native.Json
             return node;
         }
 
-        public SyntaxNode PostProcess(SyntaxNode node)
+        public INode PostProcess(INode node)
         {
-            if (_extra.Source != null)
-            {
-                node.Location.Source = _extra.Source;
-            }
+            //if (_extra.Source != null)
+            //{
+            //    node.Location.Source = _extra.Source;
+            //}
+
             return node;
         }
 
@@ -615,7 +616,7 @@ namespace Jint.Native.Json
         {
             var jsArray = _engine.Array.Construct(Arguments.Empty);
             _engine.Array.PrototypeObject.Push(jsArray, values.ToArray());
-            return jsArray;            
+            return jsArray;
         }
 
         // Throw an exception
@@ -689,7 +690,7 @@ namespace Jint.Native.Json
         {
             return _lookahead.Type == Tokens.Punctuator && value.Equals(_lookahead.Value);
         }
-        
+
         private ObjectInstance ParseJsonArray()
         {
             var elements = new List<JsValue>();
@@ -743,7 +744,7 @@ namespace Jint.Native.Json
                 var value = ParseJsonValue();
 
                 obj.FastAddProperty(name, value, true, true, true);
-                
+
                 if (!Match("}"))
                 {
                     Expect(",");
@@ -756,7 +757,7 @@ namespace Jint.Native.Json
         }
 
         private bool PropertyNameContainsInvalidChar0To31(string s)
-        {    
+        {
             const int max = 31;
 
             for (var i = 0; i < s.Length; i++)
@@ -767,7 +768,7 @@ namespace Jint.Native.Json
             }
             return false;
         }
-        
+
         /// <summary>
         /// Optimization.
         /// By calling Lex().Value for each type, we parse the token twice.
@@ -792,12 +793,12 @@ namespace Jint.Native.Json
                 case Tokens.Number:
                     return new JsValue((double)Lex().Value);
             }
-            
+
             if (Match("["))
             {
                 return ParseJsonArray();
             }
-            
+
             if (Match("{"))
             {
                 return ParseJsonObject();
@@ -806,7 +807,7 @@ namespace Jint.Native.Json
             ThrowUnexpected(Lex());
 
             // can't be reached
-            return Null.Instance; 
+            return Null.Instance;
         }
 
         public JsValue Parse(string code)
@@ -823,30 +824,25 @@ namespace Jint.Native.Json
             _length = _source.Length;
             _lookahead = null;
             _state = new State
-                {
-                    AllowIn = true,
-                    LabelSet = new HashSet<string>(),
-                    InFunctionBody = false,
-                    InIteration = false,
-                    InSwitch = false,
-                    LastCommentStart = -1,
-                    MarkerStack = new Stack<int>()
-                };
+            {
+                AllowIn = true,
+                LabelSet = new HashSet<string>(),
+                InFunctionBody = false,
+                InIteration = false,
+                InSwitch = false,
+                LastCommentStart = -1,
+                MarkerStack = new Stack<int>()
+            };
 
             _extra = new Extra
                 {
-                    Range = new int[0], 
+                    Range = new int[0],
                     Loc = 0,
 
                 };
 
             if (options != null)
             {
-                if (!System.String.IsNullOrEmpty(options.Source))
-                {
-                    _extra.Source = options.Source;
-                }
-
                 if (options.Tokens)
                 {
                     _extra.Tokens = new List<Token>();
@@ -862,7 +858,7 @@ namespace Jint.Native.Json
 
                 Peek();
                 Tokens type = _lookahead.Type;
-                object value = _lookahead.Value;                
+                object value = _lookahead.Value;
                 if(_lookahead.Type != Tokens.EOF)
                 {
                     throw new JavaScriptException(_engine.SyntaxError, string.Format("Unexpected {0} {1}", _lookahead.Type, _lookahead.Value));
@@ -879,7 +875,6 @@ namespace Jint.Native.Json
         {
             public int? Loc;
             public int[] Range;
-            public string Source;
 
             public List<Token> Tokens;
         }
@@ -910,5 +905,16 @@ namespace Jint.Native.Json
             public const string UnexpectedString = "Unexpected string";
             public const string UnexpectedEOS = "Unexpected end of input";
         };
+
+        struct State
+        {
+            public int LastCommentStart;
+            public bool AllowIn;
+            public HashSet<string> LabelSet;
+            public bool InFunctionBody;
+            public bool InIteration;
+            public bool InSwitch;
+            public Stack<int> MarkerStack;
+        }
     }
 }

@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using Esprima.Ast;
 using Jint.Native;
-using Jint.Parser.Ast;
 using Jint.Runtime.Environments;
-using Jint.Runtime.References;
 
 namespace Jint.Runtime.Debugger
 {
@@ -74,7 +72,7 @@ namespace Jint.Runtime.Debugger
             {
                 return;
             }
-            
+
             BreakPoint breakpoint = _engine.BreakPoints.FirstOrDefault(breakPoint => BpTest(statement, breakPoint));
             bool breakpointFound = false;
 

@@ -2,9 +2,9 @@
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using Esprima;
+using Esprima.Ast;
 using Jint.Native.Number;
-using Jint.Parser;
-using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
@@ -1003,7 +1003,7 @@ namespace Jint.Tests.Runtime
             engine.Execute("1.2");
 
             var result = engine.GetLastSyntaxNode();
-            Assert.Equal(SyntaxNodes.Literal, result.Type);
+            Assert.Equal(Nodes.Literal, result.Type);
         }
 
         [Fact]
@@ -1012,7 +1012,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
             try
             {
-                engine.Execute("1.2+ new", new ParserOptions { Source = "jQuery.js" });
+                engine.Execute("1.2+ new", new ParserOptions(source: "jQuery.js"));
             }
             catch (ParserException e)
             {
@@ -1838,6 +1838,16 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldUseReplaceMarkers()
+        {
+            RunTest(@"
+                var re = /a/g;
+                var str = 'abab';
+                var newstr = str.replace(re, '$\'x');
+                equal('babxbbxb', newstr);
+            ");
+        }        [Fact]
+
         public void ExceptionShouldHaveLocationOfInnerFunction()
         {
             try
@@ -1854,7 +1864,7 @@ namespace Jint.Tests.Runtime
             {
                 Assert.Equal(3, ex.LineNumber);
             }
-        }
+        }        }
 
         [Fact]
         public void GlobalRegexLiteralShouldNotKeepState()

@@ -1,7 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Jint.Runtime;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace Jint.Tests.Ecma
@@ -70,44 +74,53 @@ namespace Jint.Tests.Ecma
             }
         }
 
-        protected void RunTest(string sourceFilename, bool negative)
+        [Theory(DisplayName = "Ecma")]
+        [MemberData(nameof(SourceFiles), false)]
+        [MemberData(nameof(SourceFiles), true, Skip = "Skipped")]
+        protected void RunTest(string test)
         {
-            var fullName = Path.Combine(BasePath, sourceFilename);
+            var fullName = Path.Combine(BasePath, test);
             if (!File.Exists(fullName))
             {
                 throw new ArgumentException("Could not find source file: " + fullName);
             }
 
             string code = File.ReadAllText(fullName);
+            var negative = code.Contains("@negative");
 
             RunTestCode(code, negative);
 
         }
-    }
 
-    public class EcmaTestTests : EcmaTest
-    {
-        [Fact]
-        public void EcmaTestPassSucceededTestCase()
+        public static IEnumerable<object[]> SourceFiles(bool skipped)
         {
-            RunTestCode(@"
-                function testcase() {
-                        return true;
-                    }
-                runTestCase(testcase);
-            ", false);
-        }
+            var assemblyPath = new Uri(typeof(EcmaTest).GetTypeInfo().Assembly.CodeBase).LocalPath;
+            var assemblyDirectory = new FileInfo(assemblyPath).Directory;
 
-        [Fact]
-        public void EcmaTestPassNegativeTestCase()
-        {
-            RunTestCode(@"
-                function testcase() {
-                        return false;
-                    }
-                runTestCase(testcase);
-            ", true);
-        }
+            var root = assemblyDirectory.Parent.Parent.Parent.FullName;
 
+            var fixturesPath = Path.Combine(root, @"TestCases\alltests.json");
+
+            try
+            {
+                var content = File.ReadAllText(fixturesPath);
+                var doc = JArray.Parse(content);
+                var results = new List<object[]>();
+                foreach(JObject entry in doc)
+                {
+                    if (skipped == entry["skip"].Value<bool>())
+                    {
+                        results.Add(new object[] { Path.Combine(root, "TestCases", entry["source"].ToString()) });
+                    }
+                }
+
+                return results;
+            }
+            catch
+            {
+                throw;
+                //return Enumerable.Empty<object[]>();
+            }
+        }
     }
 }
