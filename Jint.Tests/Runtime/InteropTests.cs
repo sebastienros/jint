@@ -19,6 +19,7 @@ namespace Jint.Tests.Runtime
         {
             _engine = new Engine(cfg => cfg.AllowClr(
                 typeof(Shape).GetTypeInfo().Assembly,
+                typeof(Console).GetTypeInfo().Assembly,
                 typeof(System.IO.File).GetTypeInfo().Assembly))
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))

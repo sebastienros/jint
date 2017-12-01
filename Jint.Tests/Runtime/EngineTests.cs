@@ -2,14 +2,12 @@
 using System.Globalization;
 using System.IO;
 using System.Reflection;
-using System.Threading;
+using Esprima;
+using Esprima.Ast;
 using Jint.Native.Number;
-using Jint.Parser;
-using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
-using System.Net;
 
 namespace Jint.Tests.Runtime
 {
@@ -1005,7 +1003,7 @@ namespace Jint.Tests.Runtime
             engine.Execute("1.2");
 
             var result = engine.GetLastSyntaxNode();
-            Assert.Equal(SyntaxNodes.Literal, result.Type);
+            Assert.Equal(Nodes.Literal, result.Type);
         }
 
         [Fact]
@@ -1014,7 +1012,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
             try
             {
-                engine.Execute("1.2+ new", new ParserOptions { Source = "jQuery.js" });
+                engine.Execute("1.2+ new", new ParserOptions(source: "jQuery.js"));
             }
             catch (ParserException e)
             {
@@ -1055,19 +1053,11 @@ namespace Jint.Tests.Runtime
             Assert.Equal(0, result);
         }
 
-#if NET451
         [Fact]
-#else
-        [Fact(Skip = "CreateCustomTimeZone not available on netstandard")]
-#endif
         public void ShouldUseLocalTimeZoneOverride()
         {
-#if NET451
             const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName, customName, customName, null, false);
-#else
-            var customTimeZone = TimeZoneInfo.Utc;
-#endif
 
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
@@ -1075,7 +1065,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(11, epochGetLocalMinutes);
 
             var localEpochGetUtcMinutes = engine.Execute("var d = new Date(1970,0,1); d.getUTCMinutes();").GetCompletionValue().AsNumber();
-            Assert.Equal(-11, localEpochGetUtcMinutes);
+            Assert.Equal(49, localEpochGetUtcMinutes);
 
             var parseLocalEpoch = engine.Execute("Date.parse('January 1, 1970');").GetCompletionValue().AsNumber();
             Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
@@ -1123,11 +1113,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(0, result);
         }
 
-#if NET451
         [Theory]
-#else
-        [Theory(Skip = "CreateCustomTimeZone not available on netstandard")]
-#endif
         [InlineData("1970/01")]
         [InlineData("1970/01/01")]
         [InlineData("1970/01/01T00:00")]
@@ -1148,12 +1134,8 @@ namespace Jint.Tests.Runtime
         {
             const int timespanMinutes = 11;
             const int msPriorMidnight = -timespanMinutes * 60 * 1000;
-#if NET451
             const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, timespanMinutes, 0), customName, customName, customName, null, false);
-#else
-            var customTimeZone = TimeZoneInfo.Utc;
-#endif
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)).SetValue("d", date);
 
             var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
@@ -1840,6 +1822,16 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldUseReplaceMarkers()
+        {
+            RunTest(@"
+                var re = /a/g;
+                var str = 'abab';
+                var newstr = str.replace(re, '$\'x');
+                equal('babxbbxb', newstr);
+            ");
+        }        [Fact]
+
         public void ExceptionShouldHaveLocationOfInnerFunction()
         {
             try
@@ -2147,6 +2139,33 @@ namespace Jint.Tests.Runtime
         //[InlineData("new Date(1970,0,1,19,45,30,500).getMilliseconds()", 500)]
         //[InlineData("new Date(1971,0,1,19,45,30,500).getMilliseconds()", 500)]
         public void ShouldExtractDateParts(string source, double expected)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
+
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("'abc'.padStart(10)", "       abc")]
+        [InlineData("'abc'.padStart(10, \"foo\")", "foofoofabc")]
+        [InlineData("'abc'.padStart(6, \"123456\")", "123abc")]
+        [InlineData("'abc'.padStart(8, \"0\")", "00000abc")]
+        [InlineData("'abc'.padStart(1)", "abc")]
+        public void ShouldPadStart(string source, object expected)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
+
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("'abc'.padEnd(10)", "abc       ")]
+        [InlineData("'abc'.padEnd(10, \"foo\")", "abcfoofoof")]
+        [InlineData("'abc'.padEnd(6, \"123456\")", "abc123")]
+        [InlineData("'abc'.padEnd(1)", "abc")]
+        public void ShouldPadEnd(string source, object expected)
         {
             var engine = new Engine();
             var result = engine.Execute(source).GetCompletionValue().ToObject();

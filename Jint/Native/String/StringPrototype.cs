@@ -58,6 +58,8 @@ namespace Jint.Native.String
             FastAddProperty("toUpperCase", new ClrFunctionInstance(Engine, ToUpperCase), true, false, true);
             FastAddProperty("toLocaleUpperCase", new ClrFunctionInstance(Engine, ToLocaleUpperCase), true, false, true);
             FastAddProperty("trim", new ClrFunctionInstance(Engine, Trim), true, false, true);
+            FastAddProperty("padStart", new ClrFunctionInstance(Engine, PadStart), true, false, true);
+            FastAddProperty("padEnd", new ClrFunctionInstance(Engine, PadEnd), true, false, true);
         }
 
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
@@ -741,6 +743,55 @@ namespace Jint.Native.String
             }
 
             return s.PrimitiveValue;
+        }
+
+        /// <summary>
+        /// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/padStart
+        /// </summary>
+        /// <param name="thisObj">The original string object</param>
+        /// <param name="arguments">
+        ///     argument[0] is the target length of the output string
+        ///     argument[1] is the string to pad with
+        /// </param>
+        /// <returns></returns>
+        private JsValue PadStart(JsValue thisObj, JsValue[] arguments)
+        {
+            return Pad(thisObj, arguments, true);
+        }
+
+        /// <summary>
+        /// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/padEnd
+        /// </summary>
+        /// <param name="thisObj">The original string object</param>
+        /// <param name="arguments">
+        ///     argument[0] is the target length of the output string
+        ///     argument[1] is the string to pad with
+        /// </param>
+        /// <returns></returns>
+        private JsValue PadEnd(JsValue thisObj, JsValue[] arguments)
+        {
+            return Pad(thisObj, arguments, false);
+        }
+
+        private JsValue Pad(JsValue thisObj, JsValue[] arguments, bool padStart)
+        {
+            TypeConverter.CheckObjectCoercible(Engine, thisObj);
+            var targetLength = TypeConverter.ToInt32(arguments.At(0));
+            var padString = TypeConverter.ToString(arguments.At(1, new JsValue(" ")));
+
+            var s = TypeConverter.ToString(thisObj);
+            if (s.Length > targetLength)
+            {
+                return s;
+            }
+
+            targetLength = targetLength - s.Length;
+            if (targetLength > padString.Length)
+            {
+                padString = string.Join("", Enumerable.Repeat(padString, (targetLength / padString.Length) + 1));
+            }
+
+            return padStart ? $"{padString.Substring(0, targetLength)}{s}" : $"{s}{padString.Substring(0, targetLength)}";
         }
     }
 }

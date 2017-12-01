@@ -1,4 +1,4 @@
-﻿using Jint.Parser;
+﻿using Esprima;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
 
@@ -31,8 +31,8 @@ namespace Jint.Native.Function
 
             try
             {
-                var parser = new JavaScriptParser(StrictModeScope.IsStrictModeCode);
-                var program = parser.Parse(code);
+                var parser = new JavaScriptParser(code, new ParserOptions { AdaptRegexp = true, Tolerant = false });
+                var program = parser.ParseProgram(StrictModeScope.IsStrictModeCode);
                 using (new StrictModeScope(program.Strict))
                 {
                     using (new EvalCodeScope())
@@ -52,8 +52,8 @@ namespace Jint.Native.Function
                                 Engine.EnterExecutionContext(strictVarEnv, strictVarEnv, Engine.ExecutionContext.ThisBinding);
                             }
 
-                            Engine.DeclarationBindingInstantiation(DeclarationBindingType.EvalCode, program.FunctionDeclarations, program.VariableDeclarations, this, arguments);
-                            
+                            Engine.DeclarationBindingInstantiation(DeclarationBindingType.EvalCode, program.HoistingScope.FunctionDeclarations, program.HoistingScope.VariableDeclarations, this, arguments);
+
                             var result = _engine.ExecuteStatement(program);
 
                             if (result.Type == Completion.Throw)
@@ -81,8 +81,13 @@ namespace Jint.Native.Function
                     }
                 }
             }
-            catch (ParserException)
+            catch (ParserException e)
             {
+                if (e.Description == Messages.InvalidLHSInAssignment)
+                {
+                    throw new JavaScriptException(Engine.ReferenceError);
+                }
+
                 throw new JavaScriptException(Engine.SyntaxError);
             }
         }

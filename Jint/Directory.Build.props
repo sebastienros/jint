@@ -5,7 +5,7 @@
     <AssemblyTitle>Jint</AssemblyTitle>
     <Description>Javascript interpreter for .NET which provides full ECMA 5.1 compliance.</Description>
     <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
-    <VersionPrefix>2.11.$(BuildNumber)</VersionPrefix>
+    <VersionPrefix>3.0.0-beta-$(BuildNumber)</VersionPrefix>
     <VersionSuffix></VersionSuffix>
     <PackageId>Jint</PackageId>
     <PackageTags>javascript, interpreter</PackageTags>

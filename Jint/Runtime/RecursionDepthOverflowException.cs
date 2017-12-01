@@ -1,9 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-
-using Jint.Native;
-using Jint.Parser.Ast;
 
 namespace Jint.Runtime
 {
@@ -23,5 +18,4 @@ namespace Jint.Runtime
             CallChain = currentStack.ToString();
         }
     }
-    
 }

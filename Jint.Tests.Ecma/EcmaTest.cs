@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Jint.Runtime;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace Jint.Tests.Ecma
@@ -9,6 +11,7 @@ namespace Jint.Tests.Ecma
     public class EcmaTest
     {
         private static string _lastError;
+        private static string staSource;
         protected Action<string> Error = s => { _lastError = s; };
         protected string BasePath;
 
@@ -17,11 +20,7 @@ namespace Jint.Tests.Ecma
             var assemblyPath = new Uri(typeof(EcmaTest).GetTypeInfo().Assembly.CodeBase).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
 
-#if NET451
-            BasePath = assemblyDirectory.Parent.Parent.Parent.Parent.FullName;
-#else
             BasePath = assemblyDirectory.Parent.Parent.Parent.FullName;
-#endif
         }
 
         protected void RunTestCode(string code, bool negative)
@@ -33,9 +32,13 @@ namespace Jint.Tests.Ecma
             var engine = new Engine(cfg => cfg.LocalTimeZone(pacificTimeZone));
 
             // loading driver
+            if (staSource == null)
+            {
+                var driverFilename = Path.Combine(BasePath, "TestCases\\sta.js");
+                staSource = File.ReadAllText(driverFilename);
+            }
 
-            var driverFilename = Path.Combine(BasePath, "TestCases\\sta.js");
-            engine.Execute(File.ReadAllText(driverFilename));
+            engine.Execute(staSource);
 
             if (negative)
             {
@@ -70,44 +73,78 @@ namespace Jint.Tests.Ecma
             }
         }
 
-        protected void RunTest(string sourceFilename, bool negative)
+        [Theory(DisplayName = "Ecma")]
+        [MemberData(nameof(SourceFiles), false)]
+        [MemberData(nameof(SourceFiles), true, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
         {
-            var fullName = Path.Combine(BasePath, sourceFilename);
+            var fullName = Path.Combine(BasePath, sourceFile.BasePath, sourceFile.Source);
             if (!File.Exists(fullName))
             {
                 throw new ArgumentException("Could not find source file: " + fullName);
             }
 
             string code = File.ReadAllText(fullName);
+            var negative = code.Contains("@negative");
 
             RunTestCode(code, negative);
 
         }
-    }
 
-    public class EcmaTestTests : EcmaTest
-    {
-        [Fact]
-        public void EcmaTestPassSucceededTestCase()
+        public static IEnumerable<object[]> SourceFiles(bool skipped)
         {
-            RunTestCode(@"
-                function testcase() {
-                        return true;
+            var assemblyPath = new Uri(typeof(EcmaTest).GetTypeInfo().Assembly.CodeBase).LocalPath;
+            var assemblyDirectory = new FileInfo(assemblyPath).Directory;
+
+            var localPath = assemblyDirectory.Parent.Parent.Parent.FullName;
+
+            var fixturesPath = Path.Combine(localPath, @"TestCases\alltests.json");
+
+            try
+            {
+                var content = File.ReadAllText(fixturesPath);
+                var doc = JArray.Parse(content);
+                var results = new List<object[]>();
+                var path = Path.Combine(localPath, "TestCases");
+
+                foreach(JObject entry in doc)
+                {
+                    var sourceFile = new SourceFile(entry, path);
+                    
+                    if (skipped == sourceFile.Skip)
+                    {
+                        results.Add(new object [] { sourceFile });
                     }
-                runTestCase(testcase);
-            ", false);
+                }
+
+                return results;
+            }
+            catch
+            {
+                throw;
+            }
         }
 
-        [Fact]
-        public void EcmaTestPassNegativeTestCase()
+        public class SourceFile
         {
-            RunTestCode(@"
-                function testcase() {
-                        return false;
-                    }
-                runTestCase(testcase);
-            ", true);
-        }
+            public SourceFile(JObject node, string basePath)
+            {
+                Skip = node["skip"].Value<bool>();
+                Source = node["source"].ToString();
+                Reason = node["reason"].ToString();
+                BasePath = basePath;
+            }
 
+            public string Source { get; set; }
+            public bool Skip { get; set; }
+            public string Reason { get; set; }
+            public string BasePath { get; }
+
+            public override string ToString()
+            {
+                return Source;
+            }
+        }
+        
     }
 }
