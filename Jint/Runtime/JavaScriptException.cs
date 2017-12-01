@@ -1,36 +1,37 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
+using Esprima;
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Error;
-using Jint.Parser;
-using Jint.Parser.Ast;
-using Jint.Runtime.CallStack;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime
 {
     public class JavaScriptException : Exception
     {
-        private readonly JsValue _errorObject;
         private string _callStack;
 
         public JavaScriptException(ErrorConstructor errorConstructor) : base("")
         {
-            _errorObject = errorConstructor.Construct(Arguments.Empty);
+            Error = errorConstructor.Construct(Arguments.Empty);
+        }
+
+        public JavaScriptException(ErrorConstructor errorConstructor, string message, Exception innerException)
+             : base(message, innerException)
+        {
+            Error = errorConstructor.Construct(new JsValue[] { message });
         }
 
         public JavaScriptException(ErrorConstructor errorConstructor, string message)
             : base(message)
         {
-            _errorObject = errorConstructor.Construct(new JsValue[] { message });
+            Error = errorConstructor.Construct(new JsValue[] { message });
         }
 
         public JavaScriptException(JsValue error)
             : base(GetErrorMessage(error))
         {
-            _errorObject = error;
+            Error = error;
         }
 
         public JavaScriptException SetCallstack(Engine engine, Location location = null)
@@ -48,7 +49,7 @@ namespace Jint.Runtime
                     if (index != 0)
                         sb.Append(", ");
                     var arg = cse.CallExpression.Arguments[index];
-                    if (arg is IPropertyKeyExpression pke)
+                    if (arg is PropertyKey pke)
                         sb.Append(pke.GetKey());
                     else
                         sb.Append(arg);
@@ -67,7 +68,7 @@ namespace Jint.Runtime
             return this;
         }
 
-        private static string GetErrorMessage(JsValue error) 
+        private static string GetErrorMessage(JsValue error)
         {
             if (error.IsObject())
             {
@@ -81,11 +82,11 @@ namespace Jint.Runtime
             return error.ToString();
         }
 
-        public JsValue Error { get { return _errorObject; } }
+        public JsValue Error { get; }
 
         public override string ToString()
         {
-            return _errorObject.ToString();
+            return Error.ToString();
         }
 
         public string CallStack
@@ -94,11 +95,11 @@ namespace Jint.Runtime
             {
                 if (_callStack != null)
                     return _callStack;
-                if (_errorObject == null)
+                if (Error == null)
                     return null;
-                if (_errorObject.IsObject() == false)
+                if (Error.IsObject() == false)
                     return null;
-                var callstack = _errorObject.AsObject().Get("callstack");
+                var callstack = Error.AsObject().Get("callstack");
                 if (callstack == JsValue.Undefined)
                     return null;
                 return callstack.AsString();
@@ -106,15 +107,15 @@ namespace Jint.Runtime
             set
             {
                 _callStack = value;
-                if (value != null && _errorObject.IsObject())
+                if (value != null && Error.IsObject())
                 {
-                    _errorObject.AsObject()
+                    Error.AsObject()
                         .FastAddProperty("callstack", new JsValue(value), false, false, false);
                 }
             }
         }
 
-        public Jint.Parser.Location Location { get; set; }
+        public Location Location { get; set; }
 
         public int LineNumber { get { return null == Location ? 0 : Location.Start.Line; } }
 

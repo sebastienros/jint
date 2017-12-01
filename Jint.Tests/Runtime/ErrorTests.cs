@@ -1,5 +1,4 @@
-﻿using System;
-using Jint.Parser;
+﻿using Esprima;
 using Jint.Runtime;
 using Xunit;
 
@@ -48,12 +47,9 @@ var b = a.user.name;
 
 var b = function(v) {
 	return a(v);
-}", new ParserOptions
-            {
-                Source = "custom.js"
-            });
+}", new ParserOptions("custom.js") { Loc = true });
 
-            var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", new ParserOptions { Source = "main.js"}));
+            var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", new ParserOptions("main.js") { Loc = true } ));
             Assert.Equal("xxx is undefined", e.Message);
             Assert.Equal(2, e.Location.Start.Line);
             Assert.Equal(8, e.Location.Start.Column);

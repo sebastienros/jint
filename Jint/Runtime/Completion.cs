@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+﻿using Esprima;
+using Jint.Native;
 
 namespace Jint.Runtime
 {
@@ -29,6 +30,6 @@ namespace Jint.Runtime
             return Value != null ? Value : Undefined.Instance;
         }
 
-        public Jint.Parser.Location Location { get; set; }
+        public Location Location { get; set; }
     }
 }

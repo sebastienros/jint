@@ -22,6 +22,34 @@ namespace Jint
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
         private Predicate<Exception> _clrExceptionsHandler;
+        private CamelCasedProperties _staticMemberCamelCasedProperties = new Runtime.Interop.CamelCasedProperties() {
+            FieldsStringComparer = EqualityComparer<string>.Default,
+            MethodsStringComparer = EqualityComparer<string>.Default,
+            PropertiesStringComparer = EqualityComparer<string>.Default
+        };
+        private CamelCasedProperties _camelCasedProperties = new Runtime.Interop.CamelCasedProperties()
+        {
+            FieldsStringComparer = IgnoreCasingStringComparer.Current,
+            MethodsStringComparer = IgnoreCasingStringComparer.Current,
+            PropertiesStringComparer = IgnoreCasingStringComparer.Current
+        };
+        private IEqualityComparer<string> _enumNameStringComparer = EqualityComparer<string>.Default;
+        public Options EnumNameStringComparer(IEqualityComparer<string> enumNameStringComparer)
+        {
+            _enumNameStringComparer = enumNameStringComparer;
+            return this;
+        }
+        public Options StaticMemberCamelCasedProperties(CamelCasedProperties staticMemberCamelCasedProperties)
+        {
+            _staticMemberCamelCasedProperties = staticMemberCamelCasedProperties;
+            return this;
+        }
+
+        public Options CamelCasedProperties(CamelCasedProperties camelCasedProperties)
+        {
+            _camelCasedProperties = camelCasedProperties;
+            return this;
+        }
         private IReferenceResolver _referenceResolver;
 
         /// <summary>
@@ -177,6 +205,10 @@ namespace Jint
         internal CultureInfo _Culture => _culture;
 
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
+        internal CamelCasedProperties _StaticMemberCamelCasedProperties => _staticMemberCamelCasedProperties;
+        internal CamelCasedProperties _CamelCasedProperties => _camelCasedProperties;
+        internal IEqualityComparer<string> _EnumNameStringComparer => _enumNameStringComparer;
+
 
         internal IReferenceResolver  _ReferenceResolver => _referenceResolver;
 
