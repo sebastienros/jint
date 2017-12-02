@@ -139,6 +139,8 @@ namespace Jint.Runtime.Interop
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
+            var enumNameStringComparer = Engine.Options._EnumNameStringComparer;
+
             // todo: cache members locally
             var name = property.ToString();
             if (ReferenceType.IsEnum)
@@ -148,30 +150,40 @@ namespace Jint.Runtime.Interop
 
                 for (int i = 0; i < enumValues.Length; i++)
                 {
-                    if (enumNames.GetValue(i) as string == name)
+                    if (enumNameStringComparer.Equals(enumNames.GetValue(i) as string, name))
                     {
-                        return new PropertyDescriptor((int) enumValues.GetValue(i), PropertyFlag.AllForbidden);
+                        return new PropertyDescriptor((int)enumValues.GetValue(i), PropertyFlag.AllForbidden);
                     }
                 }
                 return PropertyDescriptor.Undefined;
             }
 
-            var propertyInfo = ReferenceType.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
-            if (propertyInfo != null)
+            var _CamelCasedProperties = Engine.Options._StaticMemberCamelCasedProperties;
+
+            var propertiesStringComparer = _CamelCasedProperties.PropertiesStringComparer;
+            foreach (var propertyInfo in ReferenceType.GetProperties(BindingFlags.Public | BindingFlags.Static))
             {
-                return new PropertyInfoDescriptor(Engine, propertyInfo, Type);
+                if (propertiesStringComparer.Equals(propertyInfo.Name, name))
+                {
+                    return new PropertyInfoDescriptor(Engine, propertyInfo, Type);
+                }
             }
 
-            var fieldInfo = ReferenceType.GetField(name, BindingFlags.Public | BindingFlags.Static);
-            if (fieldInfo != null)
+
+            var fieldsStringComparer = _CamelCasedProperties.FieldsStringComparer;
+            foreach (var fieldInfo in ReferenceType.GetFields(BindingFlags.Public | BindingFlags.Static))
             {
-                return new FieldInfoDescriptor(Engine, fieldInfo, Type);
+                if (fieldsStringComparer.Equals(fieldInfo.Name, name))
+                {
+                    return new FieldInfoDescriptor(Engine, fieldInfo, Type);
+                }
             }
 
+            var methodsStringComparer = _CamelCasedProperties.MethodsStringComparer;
             List<MethodInfo> methodInfo = null;
             foreach (var mi in ReferenceType.GetMethods(BindingFlags.Public | BindingFlags.Static))
             {
-                if (mi.Name == name)
+                if (methodsStringComparer.Equals(mi.Name, name))
                 {
                     methodInfo = methodInfo ?? new List<MethodInfo>();
                     methodInfo.Add(mi);

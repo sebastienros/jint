@@ -193,9 +193,14 @@ namespace Jint.Runtime.Interop
             AddProperty(property, descriptor);
             return descriptor;
         }
-        
+
         private Func<Engine, object, PropertyDescriptor> ResolveProperty(Type type, string propertyName)
         {
+            var options = _engine.Options;
+            var _CamelCasedProperties = options._CamelCasedProperties;
+            var propertiesStringComparer = _CamelCasedProperties.PropertiesStringComparer;
+            var methodsStringComparer = _CamelCasedProperties.MethodsStringComparer;
+
             var isNumber = uint.TryParse(propertyName, out _);
 
             // properties and fields cannot be numbers
@@ -205,7 +210,7 @@ namespace Jint.Runtime.Interop
                 PropertyInfo property = null;
                 foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
-                    if (EqualsIgnoreCasing(p.Name, propertyName))
+                    if (propertiesStringComparer.Equals(p.Name, propertyName))
                     {
                         property = p;
                         break;
@@ -218,10 +223,11 @@ namespace Jint.Runtime.Interop
                 }
 
                 // look for a field
+                var fieldsStringComparer = _CamelCasedProperties.FieldsStringComparer;
                 FieldInfo field = null;
                 foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
-                    if (EqualsIgnoreCasing(f.Name, propertyName))
+                    if (fieldsStringComparer.Equals(f.Name, propertyName))
                     {
                         field = f;
                         break;
@@ -232,12 +238,12 @@ namespace Jint.Runtime.Interop
                 {
                     return (engine, target) => new FieldInfoDescriptor(engine, field, target);
                 }
-                
+
                 // if no properties were found then look for a method
                 List<MethodInfo> methods = null;
                 foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
-                    if (EqualsIgnoreCasing(m.Name, propertyName))
+                    if (methodsStringComparer.Equals(m.Name, propertyName))
                     {
                         methods ??= new List<MethodInfo>();
                         methods.Add(m);
@@ -263,7 +269,7 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var iprop in iface.GetProperties())
                 {
-                    if (EqualsIgnoreCasing(iprop.Name, propertyName))
+                    if (propertiesStringComparer.Equals(iprop.Name, propertyName))
                     {
                         list ??= new List<PropertyInfo>();
                         list.Add(iprop);
@@ -282,7 +288,7 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var imethod in iface.GetMethods())
                 {
-                    if (EqualsIgnoreCasing(imethod.Name, propertyName))
+                    if (methodsStringComparer.Equals(imethod.Name, propertyName))
                     {
                         explicitMethods ??= new List<MethodInfo>();
                         explicitMethods.Add(imethod);
@@ -305,23 +311,6 @@ namespace Jint.Runtime.Interop
             }
 
             return (engine, target) => PropertyDescriptor.Undefined;
-        }
-
-        private static bool EqualsIgnoreCasing(string s1, string s2)
-        {
-            bool equals = false;
-            if (s1.Length == s2.Length)
-            {
-                if (s1.Length > 0)
-                {
-                    equals = char.ToLowerInvariant(s1[0]) == char.ToLowerInvariant(s2[0]);
-                }
-                if (equals && s1.Length > 1)
-                {
-                    equals = s1.Substring(1) == s2.Substring(1);
-                }
-            }
-            return equals;
         }
     }
 }
