@@ -2172,5 +2172,16 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(expected, result);
         }
+        [Theory]
+        [InlineData("throw {}", "undefined")]
+        [InlineData("throw {message:null}","null")]
+        [InlineData("throw {message:''}","")]
+        [InlineData("throw {message:2}","2")]
+        public void ShouldAllowNonStringMessage(string source, string expected)
+        {
+            var engine = new Engine();
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(source));
+            Assert.Equal(expected, ex.Message);
+        }
     }
 }
