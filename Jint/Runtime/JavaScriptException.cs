@@ -73,7 +73,7 @@ namespace Jint.Runtime
             if (error.IsObject())
             {
                 var oi = error.AsObject();
-                var message = oi.Get("message").AsString();
+                var message = oi.Get("message").ToString();
                 return message;
             }
             if (error.IsString())
