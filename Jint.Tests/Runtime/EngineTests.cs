@@ -2172,6 +2172,50 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(expected, result);
         }
+
+        /// <summary>
+        /// Tests for startsWith - tests created from MDN and https://github.com/mathiasbynens/String.prototype.startsWith/blob/master/tests/tests.js
+        /// </summary>
+        [Theory]
+        [InlineData("'To be, or not to be, that is the question.'.startsWith('To be')", true)]
+        [InlineData("'To be, or not to be, that is the question.'.startsWith('not to be')", false)]
+        [InlineData("'To be, or not to be, that is the question.'.startsWith()", false)]
+        [InlineData("'To be, or not to be, that is the question.'.startsWith('not to be', 10)", true)]
+        [InlineData("'undefined'.startsWith()", true)]
+        [InlineData("'undefined'.startsWith(undefined)", true)]
+        [InlineData("'undefined'.startsWith(null)", false)]
+        [InlineData("'null'.startsWith()", false)]
+        [InlineData("'null'.startsWith(undefined)", false)]
+        [InlineData("'null'.startsWith(null)", true)]
+        [InlineData("'abc'.startsWith()", false)]
+        [InlineData("'abc'.startsWith('')", true)]
+        [InlineData("'abc'.startsWith('\0')", false)]
+        [InlineData("'abc'.startsWith('a')", true)]
+        [InlineData("'abc'.startsWith('b')", false)]
+        [InlineData("'abc'.startsWith('ab')", true)]
+        [InlineData("'abc'.startsWith('bc')", false)]
+        [InlineData("'abc'.startsWith('abc')", true)]
+        [InlineData("'abc'.startsWith('bcd')", false)]
+        [InlineData("'abc'.startsWith('abcd')", false)]
+        [InlineData("'abc'.startsWith('bcde')", false)]
+        [InlineData("'abc'.startsWith('', 1)", true)]
+        [InlineData("'abc'.startsWith('\0', 1)", false)]
+        [InlineData("'abc'.startsWith('a', 1)", false)]
+        [InlineData("'abc'.startsWith('b', 1)", true)]
+        [InlineData("'abc'.startsWith('ab', 1)", false)]
+        [InlineData("'abc'.startsWith('bc', 1)", true)]
+        [InlineData("'abc'.startsWith('abc', 1)", false)]
+        [InlineData("'abc'.startsWith('bcd', 1)", false)]
+        [InlineData("'abc'.startsWith('abcd', 1)", false)]
+        [InlineData("'abc'.startsWith('bcde', 1)", false)]
+        public void ShouldStartWith(string source, object expected)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
+
+            Assert.Equal(expected, result);
+        }
+
         [Theory]
         [InlineData("throw {}", "undefined")]
         [InlineData("throw {message:null}","null")]

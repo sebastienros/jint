@@ -44,6 +44,7 @@ namespace Jint.Native.String
             FastAddProperty("charCodeAt", new ClrFunctionInstance(Engine, CharCodeAt, 1), true, false, true);
             FastAddProperty("concat", new ClrFunctionInstance(Engine, Concat, 1), true, false, true);
             FastAddProperty("indexOf", new ClrFunctionInstance(Engine, IndexOf, 1), true, false, true);
+            FastAddProperty("startsWith", new ClrFunctionInstance(Engine, StartsWith, 1), true, false, true);
             FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, LastIndexOf, 1), true, false, true);
             FastAddProperty("localeCompare", new ClrFunctionInstance(Engine, LocaleCompare, 1), true, false, true);
             FastAddProperty("match", new ClrFunctionInstance(Engine, Match, 1), true, false, true);
@@ -792,6 +793,54 @@ namespace Jint.Native.String
             }
 
             return padStart ? $"{padString.Substring(0, targetLength)}{s}" : $"{s}{padString.Substring(0, targetLength)}";
+        }
+
+        /// <summary>
+        /// https://www.ecma-international.org/ecma-262/6.0/#sec-string.prototype.startswith
+        /// </summary>
+        /// <param name="thisObj"></param>
+        /// <param name="arguments"></param>
+        /// <returns></returns>
+        private JsValue StartsWith(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(Engine, thisObj);
+
+            var s = TypeConverter.ToString(thisObj);
+
+            var searchString = arguments.At(0);
+            if (searchString == Null.Instance)
+            {
+                searchString = Null.Text;
+            }
+            else
+            {
+                if (searchString.IsRegExp())
+                {
+                    throw new JavaScriptException(Engine.TypeError);
+                }
+            }
+            
+            var searchStr = TypeConverter.ToString(searchString);
+
+            var pos = TypeConverter.ToInt32(arguments.At(1));
+
+            var len = s.Length;
+            var start = System.Math.Min(System.Math.Max(pos, 0), len);
+            var searchLength = searchStr.Length;
+            if (searchLength + start > len)
+            {
+                return false;
+            }
+            
+            for (var i = 0; i < searchLength; i++)
+            {
+                if (s[start + i] != searchStr[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }
