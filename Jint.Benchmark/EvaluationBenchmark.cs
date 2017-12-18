@@ -4,12 +4,9 @@ using Jurassic;
 namespace Jint.Benchmark
 {
     [MemoryDiagnoser]
-    public class EvaluationBenchmark
+    public class EvaluationBenchmark : SingleScriptBenchmark
     {
-        private Engine sharedJint;
-        private ScriptEngine sharedJurassic;
-
-        private const string Script = @"
+        protected override string Script => @"
             var o = {};
             o.Foo = 'bar';
             o.Baz = 42.0001;
@@ -26,39 +23,11 @@ namespace Jint.Benchmark
             }
 
             if(fib(3) != 2) throw TypeError;
+
+            var done = true;
         ";
 
-        [GlobalSetup]
-        public void Setup()
-        {
-            sharedJint = new Engine();
-            sharedJurassic = new ScriptEngine();
-        }
-
-        [Params(10, 20)]
-        public int Iterations { get; set; }
-
-        [Params(true, false)]
-        public bool ReuseEngine { get; set; }
-
-        [Benchmark]
-        public void Jint()
-        {
-            for (var i = 0; i < Iterations; i++)
-            {
-                var jint = ReuseEngine ? sharedJint : new Engine();
-                jint.Execute(Script);
-            }
-        }
-
-        [Benchmark]
-        public void Jurassic()
-        {
-            for (var i = 0; i < Iterations; i++)
-            {
-                var jurassic = ReuseEngine ? sharedJurassic : new ScriptEngine();
-                jurassic.Execute(Script);
-            }
-        }
+        [Params(20)]
+        public override int N { get; set; }
     }
 }
