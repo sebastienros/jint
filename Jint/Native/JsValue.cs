@@ -466,7 +466,7 @@ namespace Jint.Native
                                 var result = new object[len];
                                 for (var k = 0; k < len; k++)
                                 {
-                                    var pk = k.ToString();
+                                    var pk = TypeConverter.ToString(k);
                                     var kpresent = arrayInstance.HasProperty(pk);
                                     if (kpresent)
                                     {

@@ -234,7 +234,7 @@ namespace Jint.Runtime
 
                 for (var i = 0; i < keys.GetLength(); i++)
                 {
-                    var p = keys.GetOwnProperty(i.ToString()).Value.AsString();
+                    var p = keys.GetOwnProperty(TypeConverter.ToString(i)).Value.AsString();
 
                     if (processedKeys.Contains(p))
                     {

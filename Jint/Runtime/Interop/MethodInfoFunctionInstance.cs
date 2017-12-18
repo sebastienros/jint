@@ -54,7 +54,7 @@ namespace Jint.Runtime.Interop
                         var result = new JsValue[len];
                         for (var k = 0; k < len; k++)
                         {
-                            var pk = k.ToString();
+                            var pk = TypeConverter.ToString(k);
                             result[k] = arrayInstance.HasProperty(pk)
                                 ? arrayInstance.Get(pk)
                                 : JsValue.Undefined;

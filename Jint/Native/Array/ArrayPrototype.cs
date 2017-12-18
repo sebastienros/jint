@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -79,7 +78,7 @@ namespace Jint.Native.Array
             var searchElement = arguments.At(0);
             for (; k >= 0; k--)
             {
-                var kString = TypeConverter.ToString(k);
+                var kString = k.ToString();
                 var kPresent = o.HasProperty(kString);
                 if (kPresent)
                 {
@@ -124,7 +123,7 @@ namespace Jint.Native.Array
                 var kPresent = false;
                 while (kPresent == false && k < len)
                 {
-                    var pk = k.ToString();
+                    var pk = TypeConverter.ToString(k);
                     kPresent = o.HasProperty(pk);
                     if (kPresent)
                     {
@@ -140,7 +139,7 @@ namespace Jint.Native.Array
 
             while(k < len)
             {
-                var pk = k.ToString();
+                var pk = TypeConverter.ToString(k);
                 var kPresent = o.HasProperty(pk);
                 if (kPresent)
                 {
@@ -173,7 +172,7 @@ namespace Jint.Native.Array
             var to = 0;
             for (var k = 0; k < len; k++)
             {
-                var pk = k.ToString();
+                var pk = TypeConverter.ToString(k);
                 var kpresent = o.HasProperty(pk);
                 if (kpresent)
                 {
@@ -181,7 +180,7 @@ namespace Jint.Native.Array
                     var selected = callable.Call(thisArg, new [] { kvalue, k, o });
                     if (TypeConverter.ToBoolean(selected))
                     {
-                        a.DefineOwnProperty(to.ToString(), new PropertyDescriptor(kvalue, true, true, true), false);
+                        a.DefineOwnProperty(TypeConverter.ToString(to), new PropertyDescriptor(kvalue, true, true, true), false);
                         to++;
                     }
                 }
@@ -208,7 +207,7 @@ namespace Jint.Native.Array
 
             for (var k = 0; k < len; k++)
             {
-                var pk = k.ToString();
+                var pk = TypeConverter.ToString(k);
                 var kpresent = o.HasProperty(pk);
                 if (kpresent)
                 {
@@ -237,7 +236,7 @@ namespace Jint.Native.Array
 
             for (var k = 0; k < len; k++)
             {
-                var pk = k.ToString();
+                var pk = TypeConverter.ToString(k);
                 var kpresent = o.HasProperty(pk);
                 if (kpresent)
                 {
@@ -265,7 +264,7 @@ namespace Jint.Native.Array
 
             for (var k = 0; k < len; k++)
             {
-                var pk = k.ToString();
+                var pk = TypeConverter.ToString(k);
                 var kpresent = o.HasProperty(pk);
                 if (kpresent)
                 {
@@ -297,7 +296,7 @@ namespace Jint.Native.Array
 
             for (var k = 0; k < len; k++)
             {
-                var pk = k.ToString();
+                var pk = TypeConverter.ToString(k);
                 var kpresent = o.HasProperty(pk);
                 if (kpresent)
                 {
@@ -344,7 +343,7 @@ namespace Jint.Native.Array
             var searchElement = arguments.At(0);
             for (; k < len; k++)
             {
-                var kString = TypeConverter.ToString(k);
+                var kString = k.ToString();
                 var kPresent = o.HasProperty(kString);
                 if (kPresent)
                 {
@@ -383,22 +382,27 @@ namespace Jint.Native.Array
             var actualDeleteCount = System.Math.Min(System.Math.Max(TypeConverter.ToInteger(deleteCount), 0), len - actualStart);
             for (var k = 0; k < actualDeleteCount; k++)
             {
-                var from = (actualStart + k).ToString();
+                var from = TypeConverter.ToString(actualStart + k);
                 var fromPresent = o.HasProperty(from);
                 if (fromPresent)
                 {
                     var fromValue = o.Get(from);
-                    a.DefineOwnProperty(k.ToString(), new PropertyDescriptor(fromValue, true, true, true), false);
+                    a.DefineOwnProperty(TypeConverter.ToString(k), new PropertyDescriptor(fromValue, true, true, true), false);
                 }
             }
 
-            var items = arguments.Skip(2).ToArray();
+            var items = System.Array.Empty<JsValue>();
+            if (arguments.Length > 2)
+            {
+                items = new JsValue[arguments.Length - 2];
+                System.Array.Copy(arguments, 2, items, 0, items.Length);
+            }
             if (items.Length < actualDeleteCount)
             {
                 for (var k = actualStart; k < len - actualDeleteCount; k++)
                 {
-                    var from = (k + actualDeleteCount).ToString();
-                    var to = (k + items.Length).ToString();
+                    var from = TypeConverter.ToString(k + actualDeleteCount);
+                    var to = TypeConverter.ToString(k + items.Length);
                     var fromPresent = o.HasProperty(from);
                     if (fromPresent)
                     {
@@ -412,15 +416,15 @@ namespace Jint.Native.Array
                 }
                 for (var k = len; k > len - actualDeleteCount + items.Length; k-- )
                 {
-                    o.Delete((k - 1).ToString(), true);
+                    o.Delete(TypeConverter.ToString(k - 1), true);
                 }
             }
             else if (items.Length > actualDeleteCount)
             {
                 for (var k = len - actualDeleteCount; k > actualStart; k--)
                 {
-                    var from = (k + actualDeleteCount - 1).ToString();
-                    var to = (k + items.Length - 1).ToString();
+                    var from = TypeConverter.ToString(k + actualDeleteCount - 1);
+                    var to = TypeConverter.ToString(k + items.Length - 1);
                     var fromPresent = o.HasProperty(from);
                     if (fromPresent)
                     {
@@ -437,7 +441,7 @@ namespace Jint.Native.Array
             for(var k = 0; k< items.Length; k++)
             {
                 var e = items[k];
-                o.Put((k+actualStart).ToString(), e, true);
+                o.Put(TypeConverter.ToString(k+actualStart), e, true);
             }
 
             o.Put("length", len - actualDeleteCount + items.Length, true);
@@ -452,8 +456,8 @@ namespace Jint.Native.Array
             var argCount = (uint)arguments.Length;
             for (var k = len; k > 0; k--)
             {
-                var from = (k - 1).ToString();
-                var to = (k + argCount - 1).ToString();
+                var from = TypeConverter.ToString(k - 1);
+                var to = TypeConverter.ToString(k + argCount - 1);
                 var fromPresent = o.HasProperty(from);
                 if (fromPresent)
                 {
@@ -467,7 +471,7 @@ namespace Jint.Native.Array
             }
             for (var j = 0; j < argCount; j++)
             {
-                o.Put(j.ToString(), arguments[j], true);
+                o.Put(TypeConverter.ToString(j), arguments[j], true);
             }
             o.Put("length", len + argCount, true);
             return len + argCount;
@@ -537,7 +541,11 @@ namespace Jint.Native.Array
                     return r;
                 };
 
-            var array = Enumerable.Range(0, lenVal).Select(i => obj.Get(i.ToString())).ToArray();
+            var array = new JsValue[lenVal];
+            for (int i = 0; i < lenVal; ++i)
+            {
+                array[i] = obj.Get(TypeConverter.ToString(i));
+            }
 
             // don't eat inner exceptions
             try
@@ -549,9 +557,9 @@ namespace Jint.Native.Array
                 throw e.InnerException;
             }
 
-            foreach (var i in Enumerable.Range(0, lenVal))
+            for (var i = 0; i < lenVal; ++i)
             {
-                obj.Put(i.ToString(), array[i], false);
+                obj.Put(TypeConverter.ToString(i), array[i], false);
             }
 
             return obj;
@@ -708,7 +716,7 @@ namespace Jint.Native.Array
             for (var k = 1; k < len; k++)
             {
                 var s = r + sep;
-                var element = o.Get(k.ToString());
+                var element = o.Get(TypeConverter.ToString(k));
                 string next = element == Undefined.Instance || element == Null.Instance
                                   ? ""
                                   : TypeConverter.ToString(element);
@@ -746,7 +754,7 @@ namespace Jint.Native.Array
             for (var k = 1; k < len; k++)
             {
                 string s = r + separator;
-                var nextElement = array.Get(k.ToString());
+                var nextElement = array.Get(TypeConverter.ToString(k));
                 if (nextElement == Undefined.Instance || nextElement == Null.Instance)
                 {
                     r = "";
@@ -783,7 +791,7 @@ namespace Jint.Native.Array
                     var len =  TypeConverter.ToUint32(eArray.Get("length"));
                     for (var k = 0; k < len; k++)
                     {
-                        var p = k.ToString();
+                        var p = TypeConverter.ToString(k);
                         var exists = eArray.HasProperty(p);
                         if (exists)
                         {
@@ -852,7 +860,7 @@ namespace Jint.Native.Array
                 var kPresent = false;
                 while (kPresent == false && k >= 0)
                 {
-                    var pk = k.ToString();
+                    var pk = TypeConverter.ToString(k);
                     kPresent = o.HasProperty(pk);
                     if (kPresent)
                     {
@@ -868,7 +876,7 @@ namespace Jint.Native.Array
 
             for (; k >= 0; k--)
             {
-                var pk = k.ToString();
+                var pk = TypeConverter.ToString(k);
                 var kPresent = o.HasProperty(pk);
                 if (kPresent)
                 {

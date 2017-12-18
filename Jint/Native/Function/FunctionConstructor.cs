@@ -167,14 +167,14 @@ namespace Jint.Native.Function
 
             var len = argArrayObj.Get("length");
             var n = TypeConverter.ToUint32(len);
-            var argList = new List<JsValue>();
+            var argList = new JsValue[n];
             for (var index = 0; index < n; index++)
             {
-                var indexName = index.ToString();
+                var indexName = TypeConverter.ToString(index);
                 var nextArg = argArrayObj.Get(indexName);
-                argList.Add(nextArg);
+                argList[index] = nextArg;
             }
-            return func.Call(thisArg, argList.ToArray());
+            return func.Call(thisArg, argList);
         }
     }
 }

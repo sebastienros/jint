@@ -146,7 +146,7 @@ namespace Jint.Native.Json
                     return new Token
                         {
                             Type = Tokens.Punctuator,
-                            Value = code.ToString(),
+                            Value = TypeConverter.ToString(code),
                             LineNumber = _lineNumber,
                             LineStart = _lineStart,
                             Range = new[] {start, _index}

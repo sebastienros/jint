@@ -992,7 +992,7 @@ namespace Jint.Runtime
                 if (expr != null)
                 {
                     var value = _engine.GetValue(EvaluateExpression(expr.As<Expression>()));
-                    a.DefineOwnProperty(n.ToString(),
+                    a.DefineOwnProperty(TypeConverter.ToString(n),
                         new PropertyDescriptor(value, true, true, true), false);
                 }
                 n++;

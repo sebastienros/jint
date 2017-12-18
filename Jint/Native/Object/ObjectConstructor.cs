@@ -62,8 +62,8 @@ namespace Jint.Native.Object
             if (arguments.Length == 0)
             {
                 return Construct(arguments);
-            } 
-            
+            }
+
             if(arguments[0] == Null.Instance || arguments[0] == Undefined.Instance)
             {
                 return Construct(arguments);
@@ -111,7 +111,7 @@ namespace Jint.Native.Object
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
-            
+
             return o.Prototype ?? Null.Instance;
         }
 
@@ -148,14 +148,14 @@ namespace Jint.Native.Object
             {
                 for (var i = 0; i < s.PrimitiveValue.AsString().Length; i++)
                 {
-                    array.DefineOwnProperty(n.ToString(), new PropertyDescriptor(i.ToString(), true, true, true), false);
+                    array.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(TypeConverter.ToString(i), true, true, true), false);
                     n++;
-                }  
+                }
             }
 
             foreach (var p in o.GetOwnProperties())
             {
-                array.DefineOwnProperty(n.ToString(), new PropertyDescriptor(p.Key, true, true, true), false);
+                array.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(p.Key, true, true, true), false);
                 n++;
             }
 
@@ -284,9 +284,9 @@ namespace Jint.Native.Object
                 }
                 o.DefineOwnProperty(p, desc, true);
             }
-            
+
             o.Extensible = false;
-         
+
             return o;
         }
 
@@ -393,8 +393,8 @@ namespace Jint.Native.Object
             {
                 var p = prop.Key;
                 array.DefineOwnProperty(
-                    TypeConverter.ToString(index), 
-                    new PropertyDescriptor(p, true, true, true), 
+                    TypeConverter.ToString(index),
+                    new PropertyDescriptor(p, true, true, true),
                     false);
                 index++;
             }
