@@ -34,7 +34,7 @@ namespace Jint.Native.Number.Dtoa
 {
 
 // Helper functions for doubles.
-    public class DoubleHelper
+    internal class DoubleHelper
     {
 
         private const long KExponentMask = 0x7FF0000000000000L;
@@ -104,13 +104,12 @@ namespace Jint.Native.Number.Dtoa
         // Returns the two boundaries of first argument.
         // The bigger boundary (m_plus) is normalized. The lower boundary has the same
         // exponent as m_plus.
-        internal static void NormalizedBoundaries(long d64, DiyFp mMinus, DiyFp mPlus)
+        internal static (DiyFp, DiyFp) NormalizedBoundaries(long d64)
         {
             DiyFp v = AsDiyFp(d64);
             bool significandIsZero = (v.F == KHiddenBit);
-            mPlus.F = (v.F << 1) + 1;
-            mPlus.E = v.E - 1;
-            mPlus.Normalize();
+            var mPlus = DiyFp.Normalize((v.F << 1) + 1, v.E - 1);
+            DiyFp mMinus;
             if (significandIsZero && v.E != KDenormalExponent)
             {
                 // The boundary is closer. Think of v = 1000e10 and v- = 9999e9.
@@ -119,16 +118,14 @@ namespace Jint.Native.Number.Dtoa
                 // The only exception is for the smallest normal: the largest denormal is
                 // at the same distance as its successor.
                 // Note: denormals have the same exponent as the smallest normals.
-                mMinus.F = (v.F << 2) - 1;
-                mMinus.E = v.E - 2;
+                mMinus = new DiyFp((v.F << 2) - 1, v.E - 2);
             }
             else
             {
-                mMinus.F = (v.F << 1) - 1;
-                mMinus.E = v.E - 1;
+                mMinus = new DiyFp((v.F << 1) - 1, v.E - 1);
             }
-            mMinus.F = mMinus.F << (mMinus.E - mPlus.E);
-            mMinus.E = mPlus.E;
+            mMinus = new DiyFp(mMinus.F << (mMinus.E - mPlus.E), mPlus.E);
+            return (mMinus, mPlus);
         }
 
         private const int KSignificandSize = 52; // Excludes the hidden bit.

@@ -30,15 +30,19 @@
 
 using System;
 using System.Diagnostics;
+using System.Threading;
 
 namespace Jint.Native.Number.Dtoa
 {
-    public class FastDtoa
+    internal class FastDtoa
     {
+        // share buffer to reduce memory usage
+        private static readonly ThreadLocal<FastDtoaBuilder> cachedBuffer = new ThreadLocal<FastDtoaBuilder>(() => new FastDtoaBuilder());
+
 
         // FastDtoa will produce at most kFastDtoaMaximalLength digits.
         public const int KFastDtoaMaximalLength = 17;
-        
+
         // The minimal and maximal target exponent define the range of w's binary
         // exponent, where 'w' is the result of multiplying the input by a cached power
         // of ten.
@@ -167,7 +171,7 @@ namespace Jint.Native.Number.Dtoa
             //   Conceptually we have: rest ~= too_high - buffer
             return (2*unit <= rest) && (rest <= unsafeInterval - 4*unit);
         }
-        
+
         private const int KTen4 = 10000;
         private const int KTen5 = 100000;
         private const int KTen6 = 1000000;
@@ -430,10 +434,8 @@ namespace Jint.Native.Number.Dtoa
             {
                 fractionals *= 5;
                 unit *= 5;
-                unsafeInterval.F = unsafeInterval.F*5;
-                unsafeInterval.E = unsafeInterval.E + 1; // Will be optimized out.
-                one.F = one.F.UnsignedShift(1);
-                one.E = one.E + 1;
+                unsafeInterval = new DiyFp(unsafeInterval.F*5, unsafeInterval.E + 1); // Will be optimized out.
+                one = new DiyFp(one.F.UnsignedShift(1), one.E + 1);
                 // Integer division by one.
                 var digit = (int) ((fractionals.UnsignedShift(-one.E)) & 0xffffffffL);
                 buffer.Append((char) ('0' + digit));
@@ -467,12 +469,13 @@ namespace Jint.Native.Number.Dtoa
             // closest floating-point neighbors. Any number strictly between
             // boundary_minus and boundary_plus will round to v when convert to a double.
             // Grisu3 will never output representations that lie exactly on a boundary.
-            DiyFp boundaryMinus = new DiyFp(), boundaryPlus = new DiyFp();
-            DoubleHelper.NormalizedBoundaries(bits, boundaryMinus, boundaryPlus);
+            (DiyFp boundaryMinus, DiyFp boundaryPlus) = DoubleHelper.NormalizedBoundaries(bits);
             Debug.Assert(boundaryPlus.E == w.E);
-            var tenMk = new DiyFp(); // Cached power of ten: 10^-k
-            int mk = CachedPowers.GetCachedPower(w.E + DiyFp.KSignificandSize,
-                MinimalTargetExponent, MaximalTargetExponent, tenMk);
+
+            var (mk, tenMk) = CachedPowers.GetCachedPower(
+                w.E + DiyFp.KSignificandSize,
+                MinimalTargetExponent, MaximalTargetExponent);
+
             Debug.Assert(MinimalTargetExponent <= w.E + tenMk.E +
                          DiyFp.KSignificandSize &&
                          MaximalTargetExponent >= w.E + tenMk.E +
@@ -517,19 +520,16 @@ namespace Jint.Native.Number.Dtoa
 
         public static string NumberToString(double v)
         {
-            var buffer = new FastDtoaBuilder();
-            return NumberToString(v, buffer) ? buffer.Format() : null;
-        }
-
-        public static bool NumberToString(double v, FastDtoaBuilder buffer)
-        {
-            buffer.Reset();
+            cachedBuffer.Value.Reset();
             if (v < 0)
             {
-                buffer.Append('-');
+                cachedBuffer.Value.Append('-');
                 v = -v;
             }
-            return Dtoa(v, buffer);
+
+            var numberToString = Dtoa(v, cachedBuffer.Value);
+            var toString = numberToString ? cachedBuffer.Value.Format() : null;
+            return toString;
         }
     }
 }
