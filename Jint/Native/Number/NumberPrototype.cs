@@ -201,7 +201,7 @@ namespace Jint.Native.Number
 
             if (radix == 10)
             {
-                return ToNumberString(x);    
+                return ToNumberString(x);
             }
 
             var integer = (long) x;
@@ -229,7 +229,7 @@ namespace Jint.Native.Number
             {
                 var digit = (int)(n % radix);
                 n = n / radix;
-                result.Insert(0, digits[digit].ToString());
+                result.Insert(0, digits[digit]);
             }
 
             return result.ToString();
@@ -253,13 +253,13 @@ namespace Jint.Native.Number
                 var d = (int) c;
                 n = c - d;
 
-                result.Append(digits[d].ToString());
+                result.Append(digits[d]);
             }
 
             return result.ToString();
         }
 
-        public static string ToNumberString(double m) 
+        public static string ToNumberString(double m)
         {
             if (double.IsNaN(m))
             {
@@ -300,7 +300,7 @@ namespace Jint.Native.Number
             {
                 s = rFormat.Replace(".", "").TrimStart('0').TrimEnd('0');
             }
-        
+
             const string format = "0.00000000000000000e0";
             var parts = m.ToString(format, CultureInfo.InvariantCulture).Split('e');
             if (s == null)
@@ -310,7 +310,7 @@ namespace Jint.Native.Number
 
             var n = int.Parse(parts[1]) + 1;
             var k = s.Length;
-            
+
             if (k <= n && n <= 21)
             {
                 return s + new string('0', n - k);

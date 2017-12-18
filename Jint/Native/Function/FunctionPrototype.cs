@@ -44,7 +44,7 @@ namespace Jint.Native.Function
             {
                 throw new JavaScriptException(Engine.TypeError);
             });
-            
+
             var thisArg = arguments.At(0);
             var f = new BindFunctionInstance(Engine) {Extensible = true};
             f.TargetFunction = thisObj;
@@ -56,13 +56,13 @@ namespace Jint.Native.Function
             if (o != null)
             {
                 var l = TypeConverter.ToNumber(o.Get("length")) - (arguments.Length - 1);
-                f.FastAddProperty("length", System.Math.Max(l, 0), false, false, false); 
+                f.FastAddProperty("length", System.Math.Max(l, 0), false, false, false);
             }
             else
             {
-                f.FastAddProperty("length", 0, false, false, false); 
+                f.FastAddProperty("length", 0, false, false, false);
             }
-            
+
 
             var thrower = Engine.Function.ThrowTypeError;
             f.DefineOwnProperty("caller", new PropertyDescriptor(thrower, thrower, false, false), false);
@@ -78,7 +78,7 @@ namespace Jint.Native.Function
 
             if (func == null)
             {
-                throw new JavaScriptException(Engine.TypeError, "Function object expected.");       
+                throw new JavaScriptException(Engine.TypeError, "Function object expected.");
             }
 
             return System.String.Format("function() {{ ... }}");
@@ -108,14 +108,14 @@ namespace Jint.Native.Function
 
             var len = argArrayObj.Get("length").AsNumber();
             uint n = TypeConverter.ToUint32(len);
-            var argList = new List<JsValue>();
+            var argList = new JsValue[n];
             for (int index = 0; index < n; index++)
             {
-                string indexName = index.ToString();
+                string indexName = TypeConverter.ToString(index);
                 var nextArg = argArrayObj.Get(indexName);
-                argList.Add(nextArg);
+                argList[index] = nextArg;
             }
-            return func.Call(thisArg, argList.ToArray());
+            return func.Call(thisArg, argList);
         }
 
         public JsValue CallImpl(JsValue thisObject, JsValue[] arguments)
