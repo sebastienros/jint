@@ -320,19 +320,20 @@ namespace Jint.Native.String
             }
             else
             {
-                var segments = new List<string>();
+                List<string> segments;
                 var sep = TypeConverter.ToString(separator);
 
                 if (sep == string.Empty || (rx != null && rx.Source == regExpForMatchingAllCharactere)) // for s.split(new RegExp)
                 {
+                    segments = new List<string>(s.Length);
                     foreach (var c in s)
                     {
-                        segments.Add(c.ToString());
+                        segments.Add(TypeConverter.ToString(c));
                     }
                 }
                 else
                 {
-                    segments = s.Split(new[] {sep}, StringSplitOptions.None).ToList();
+                    segments = new List<string>(s.Split(new[] {sep}, StringSplitOptions.None));
                 }
 
                 for (int i = 0; i < segments.Count && i < limit; i++)
@@ -731,7 +732,7 @@ namespace Jint.Native.String
             {
                 return "";
             }
-            return s[(int) position].ToString();
+            return TypeConverter.ToString(s[(int) position]);
 
         }
 

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -408,7 +407,7 @@ namespace Jint
                     return _statements.ExecuteForInStatement(statement.As<ForInStatement>());
 
                 case Nodes.FunctionDeclaration:
-                    return new Completion(Completion.Normal, null, null);
+                    return Completion.Empty;
 
                 case Nodes.IfStatement:
                     return _statements.ExecuteIfStatement(statement.As<IfStatement>());
@@ -728,7 +727,12 @@ namespace Jint
                 throw new ArgumentException("Can only invoke functions");
             }
 
-            return callable.Call(JsValue.FromObject(this, thisObj), arguments.Select(x => JsValue.FromObject(this, x)).ToArray());
+            var items = new JsValue[arguments.Length];
+            for (int i = 0; i < arguments.Length; ++i)
+            {
+                items[i] = JsValue.FromObject(this, arguments[i]);
+            }
+            return callable.Call(JsValue.FromObject(this, thisObj), items);
         }
 
         /// <summary>
@@ -766,7 +770,12 @@ namespace Jint
         }
 
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
-        public void DeclarationBindingInstantiation(DeclarationBindingType declarationBindingType, IEnumerable<FunctionDeclaration> functionDeclarations, IEnumerable<VariableDeclaration> variableDeclarations, FunctionInstance functionInstance, JsValue[] arguments)
+        public void DeclarationBindingInstantiation(
+            DeclarationBindingType declarationBindingType,
+            IList<FunctionDeclaration> functionDeclarations,
+            IList<VariableDeclaration> variableDeclarations,
+            FunctionInstance functionInstance,
+            JsValue[] arguments)
         {
             var env = ExecutionContext.VariableEnvironment.Record;
             bool configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
@@ -776,8 +785,9 @@ namespace Jint
             {
                 var argCount = arguments.Length;
                 var n = 0;
-                foreach (var argName in functionInstance.FormalParameters)
+                for (var i = 0; i < functionInstance.FormalParameters.Length; i++)
                 {
+                    var argName = functionInstance.FormalParameters[i];
                     n++;
                     var v = n > argCount ? Undefined.Instance : arguments[n - 1];
                     var argAlreadyDeclared = env.HasBinding(argName);
@@ -790,8 +800,9 @@ namespace Jint
                 }
             }
 
-            foreach (var f in functionDeclarations)
+            for (var i = 0; i < functionDeclarations.Count; i++)
             {
+                var f = functionDeclarations[i];
                 var fn = f.Id.Name;
                 var fo = Function.CreateFunctionObject(f);
                 var funcAlreadyDeclared = env.HasBinding(fn);
@@ -808,12 +819,12 @@ namespace Jint
                         if (existingProp.Configurable.Value)
                         {
                             go.DefineOwnProperty(fn,
-                                                 new PropertyDescriptor(
-                                                     value: Undefined.Instance,
-                                                     writable: true,
-                                                     enumerable: true,
-                                                     configurable: configurableBindings
-                                                     ), true);
+                                new PropertyDescriptor(
+                                    value: Undefined.Instance,
+                                    writable: true,
+                                    enumerable: true,
+                                    configurable: configurableBindings
+                                ), true);
                         }
                         else
                         {
@@ -854,14 +865,19 @@ namespace Jint
             }
 
             // process all variable declarations in the current parser scope
-            foreach (var d in variableDeclarations.SelectMany(x => x.Declarations))
+            for (var i = 0; i < variableDeclarations.Count; i++)
             {
-                var dn = d.Id.As<Identifier>().Name;
-                var varAlreadyDeclared = env.HasBinding(dn);
-                if (!varAlreadyDeclared)
+                var variableDeclaration = variableDeclarations[i];
+                var declarations  = (List<VariableDeclarator>) variableDeclaration.Declarations;
+                foreach (var d in declarations)
                 {
-                    env.CreateMutableBinding(dn, configurableBindings);
-                    env.SetMutableBinding(dn, Undefined.Instance, strict);
+                    var dn = d.Id.As<Identifier>().Name;
+                    var varAlreadyDeclared = env.HasBinding(dn);
+                    if (!varAlreadyDeclared)
+                    {
+                        env.CreateMutableBinding(dn, configurableBindings);
+                        env.SetMutableBinding(dn, Undefined.Instance, strict);
+                    }
                 }
             }
         }

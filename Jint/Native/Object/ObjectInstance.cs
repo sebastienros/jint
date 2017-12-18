@@ -1,8 +1,6 @@
 ﻿using System.Collections.Generic;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using System;
-using System.Collections.Specialized;
 
 namespace Jint.Native.Object
 {

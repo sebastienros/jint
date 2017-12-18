@@ -12,6 +12,8 @@ namespace Jint.Native.Number
     /// </summary>
     public sealed class NumberPrototype : NumberInstance
     {
+        private static readonly char[] _numberSeparators = {'.', 'e'};
+
         private NumberPrototype(Engine engine)
             : base(engine)
         {
@@ -154,7 +156,7 @@ namespace Jint.Native.Number
 
             // Get the number of decimals
             string str = x.ToString("e23", CultureInfo.InvariantCulture);
-            int decimals = str.IndexOfAny(new [] { '.', 'e' });
+            int decimals = str.IndexOfAny(_numberSeparators);
             decimals = decimals == -1 ? str.Length : decimals;
 
             p -= decimals;

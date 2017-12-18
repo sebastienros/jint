@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -22,7 +23,7 @@ namespace Jint.Native.Function
         /// <param name="scope"></param>
         /// <param name="strict"></param>
         public ScriptFunctionInstance(Engine engine, IFunction functionDeclaration, LexicalEnvironment scope, bool strict)
-            : base(engine, functionDeclaration.Params.Select(x => x.As<Identifier>().Name).ToArray(), scope, strict)
+            : base(engine, GetParameterNames(functionDeclaration), scope, strict)
         {
             _functionDeclaration = functionDeclaration;
 
@@ -46,6 +47,20 @@ namespace Jint.Native.Function
                 DefineOwnProperty("caller", new PropertyDescriptor(thrower, thrower, false, false), false);
                 DefineOwnProperty("arguments", new PropertyDescriptor(thrower, thrower, false, false), false);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static string[] GetParameterNames(IFunction functionDeclaration)
+        {
+            var list = (List<INode>) functionDeclaration.Params;
+            var count = list.Count;
+            var names = new string[count];
+            for (var i = 0; i < count; ++i)
+            {
+                names[i] = ((Identifier) list[i]).Name;
+            }
+
+            return names;
         }
 
         /// <summary>

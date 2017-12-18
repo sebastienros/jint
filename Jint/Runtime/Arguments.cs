@@ -1,4 +1,6 @@
-﻿using Jint.Native;
+﻿using System;
+using System.Runtime.CompilerServices;
+using Jint.Native;
 
 namespace Jint.Runtime
 {
@@ -18,14 +20,30 @@ namespace Jint.Runtime
         /// <param name="index">The index of the parameter to return</param>
         /// <param name="undefinedValue">The value to return is the parameter is not provided</param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue At(this JsValue[] args, int index, JsValue undefinedValue)
         {
             return args.Length > index ? args[index] : undefinedValue;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue At(this JsValue[] args, int index)
         {
             return At(args, index, Undefined.Instance);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static JsValue[] Skip(this JsValue[] args, int count)
+        {
+            var newLength = args.Length - count;
+            if (newLength <= 0)
+            {
+                return Array.Empty<JsValue>();
+            }
+
+            var array = new JsValue[newLength];
+            Array.Copy(args, count, array, 0, newLength);
+            return array;
         }
     }
 }

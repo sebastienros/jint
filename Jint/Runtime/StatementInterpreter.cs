@@ -25,7 +25,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteEmptyStatement(EmptyStatement emptyStatement)
         {
-            return new Completion(Completion.Normal, null, null);
+            return Completion.Empty;
         }
 
         public Completion ExecuteExpressionStatement(ExpressionStatement expressionStatement)
@@ -49,7 +49,7 @@ namespace Jint.Runtime
             }
             else
             {
-                return new Completion(Completion.Normal, null, null);
+                return Completion.Empty;
             }
 
             return result;
@@ -217,7 +217,7 @@ namespace Jint.Runtime
             var experValue = _engine.GetValue(exprRef);
             if (experValue == Undefined.Instance || experValue == Null.Instance)
             {
-                return new Completion(Completion.Normal, null, null);
+                return Completion.Empty;
             }
 
 
@@ -415,13 +415,15 @@ namespace Jint.Runtime
 
         public Completion ExecuteStatementList(IEnumerable<StatementListItem> statementList)
         {
-            var c = new Completion(Completion.Normal, null, null);
+            var c = Completion.Empty;
             Completion sl = c;
             Statement s = null;
 
+            var list = (List<StatementListItem>) statementList;
+
             try
             {
-                foreach (var statement in statementList)
+                foreach (var statement in list)
                 {
                     s = statement.As<Statement>();
                     c = ExecuteStatement(s);
@@ -528,7 +530,7 @@ namespace Jint.Runtime
                 }
             }
 
-            return new Completion(Completion.Normal, Undefined.Instance, null);
+            return Completion.EmptyUndefined;
         }
 
         public Completion ExecuteBlockStatement(BlockStatement blockStatement)
@@ -548,7 +550,7 @@ namespace Jint.Runtime
                 System.Diagnostics.Debugger.Break();
             }
 
-            return new Completion(Completion.Normal, null, null);
+            return Completion.Empty;
         }
     }
 }
