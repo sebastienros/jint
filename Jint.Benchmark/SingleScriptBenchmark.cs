@@ -13,7 +13,7 @@ namespace Jint.Benchmark
 
         protected abstract string Script { get; }
 
-        [Params(1)]
+        [Params(10)]
         public virtual int N { get; set; }
 
         [Params(true, false)]
