@@ -37,10 +37,12 @@ namespace Jint.Runtime
             for (var i = 0; i < intToString.Length; ++i)
             {
                 intToString[i] = i.ToString();
-                if (i < charToString.Length)
-                {
-                    charToString[(char) i] = ((char) i).ToString();
-                }
+            }
+
+            for (var i = 0; i < charToString.Length; ++i)
+            {
+                var c = (char) i;
+                charToString[i] = c.ToString();
             }
         }
 
