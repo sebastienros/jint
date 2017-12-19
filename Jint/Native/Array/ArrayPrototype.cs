@@ -59,16 +59,14 @@ namespace Jint.Native.Array
         {
             var o = TypeConverter.ToObject(Engine, thisObj);
             var lenValue = o.Get("length");
-            var len = (long) TypeConverter.ToUint32(lenValue);
+            var len = TypeConverter.ToUint32(lenValue);
             if (len == 0)
             {
                 return -1;
             }
 
-            var n = arguments.Length > 1
-                ? (long) TypeConverter.ToInteger(arguments[1])
-                : len - 1;
-            long k;
+            var n = arguments.Length > 1 ? TypeConverter.ToInteger(arguments[1]) : len - 1;
+            double k;
             if (n >= 0)
             {
                 k = System.Math.Min(n, len - 1); // min

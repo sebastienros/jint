@@ -29,7 +29,9 @@
 // The original revision was 67d1049b0bf9 from the mozilla-central tree.
 
 using System;
+using System.ComponentModel.Design.Serialization;
 using System.Diagnostics;
+using System.Threading;
 
 namespace Jint.Native.Number.Dtoa
 {
@@ -514,20 +516,20 @@ namespace Jint.Native.Number.Dtoa
             return Grisu3(v, buffer);
         }
 
-        // TODO do we have any concurrency promises?
-        private static readonly FastDtoaBuilder buffer = new FastDtoaBuilder();
+        // share buffer to reduce memory usage
+        private static readonly ThreadLocal<FastDtoaBuilder> buffer = new ThreadLocal<FastDtoaBuilder>(() => new FastDtoaBuilder());
 
         public static string NumberToString(double v)
         {
-            buffer.Reset();
+            buffer.Value.Reset();
             if (v < 0)
             {
-                buffer.Append('-');
+                buffer.Value.Append('-');
                 v = -v;
             }
 
-            var numberToString = Dtoa(v, buffer);
-            var toString = numberToString ? buffer.Format() : null;
+            var numberToString = Dtoa(v, buffer.Value);
+            var toString = numberToString ? buffer.Value.Format() : null;
             return toString;
         }
     }

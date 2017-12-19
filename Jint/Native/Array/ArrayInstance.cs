@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -7,6 +8,9 @@ namespace Jint.Native.Array
 {
     public class ArrayInstance : ObjectInstance
     {
+        // cache key container for array iteration for less allocations
+        private static readonly ThreadLocal<List<uint>> keyCache = new ThreadLocal<List<uint>>(() => new List<uint>());
+
         private readonly Engine _engine;
         private readonly Dictionary<uint, PropertyDescriptor> _array = new Dictionary<uint, PropertyDescriptor>();
         private PropertyDescriptor _length;
@@ -113,7 +117,9 @@ namespace Jint.Native.Array
 
                 if (_array.Count < oldLen - newLen)
                 {
-                    var keys = new List<uint>(_array.Keys);
+                    var keys = keyCache.Value;
+                    keys.Clear();
+                    keys.AddRange(_array.Keys);
                     foreach (var key in keys)
                     {
                         uint keyIndex;
