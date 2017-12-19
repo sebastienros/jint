@@ -29,8 +29,20 @@ namespace Jint.Runtime
 
     public class TypeConverter
     {
-        private static readonly string[] intToString = new string[1024*10];
-        private static readonly string[] charToString = new string[1024];
+        private static readonly string[] intToString = new string[1024];
+        private static readonly string[] charToString = new string[256];
+
+        static TypeConverter()
+        {
+            for (var i = 0; i < intToString.Length; ++i)
+            {
+                intToString[i] = i.ToString();
+                if (i < charToString.Length)
+                {
+                    charToString[(char) i] = ((char) i).ToString();
+                }
+            }
+        }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.1
@@ -220,7 +232,7 @@ namespace Jint.Runtime
                 return number;
             }
 
-            return (long)number;
+            return (long) number;
         }
 
         /// <summary>
@@ -258,7 +270,7 @@ namespace Jint.Runtime
         internal static string ToString(long i)
         {
             return i >= 0 && i < intToString.Length
-                ? (intToString[i] = intToString[i] ?? i.ToString())
+                ? intToString[i]
                 : i.ToString();
         }
 
@@ -266,7 +278,7 @@ namespace Jint.Runtime
         internal static string ToString(int i)
         {
             return i >= 0 && i < intToString.Length
-                ? (intToString[i] = intToString[i] ?? i.ToString())
+                ? intToString[i]
                 : i.ToString();
         }
 
@@ -274,7 +286,7 @@ namespace Jint.Runtime
         internal static string ToString(uint i)
         {
             return i >= 0 && i < intToString.Length
-                ? (intToString[i] = intToString[i] ?? i.ToString())
+                ? intToString[i]
                 : i.ToString();
         }
 
@@ -282,7 +294,7 @@ namespace Jint.Runtime
         internal static string ToString(char c)
         {
             return c >= 0 && c < charToString.Length
-                ? (charToString[c] = charToString[c] ?? c.ToString())
+                ? charToString[c]
                 : c.ToString();
         }
 
