@@ -120,13 +120,12 @@ namespace Jint.Native.Array
                     var keys = keyCache.Value;
                     keys.Clear();
                     keys.AddRange(_array.Keys);
-                    foreach (var key in keys)
+                    foreach (var keyIndex in keys)
                     {
-                        uint keyIndex;
                         // is it the index of the array
-                        if (IsArrayIndex(key, out keyIndex) && keyIndex >= newLen && keyIndex < oldLen)
+                        if (keyIndex >= newLen && keyIndex < oldLen)
                         {
-                            var deleteSucceeded = Delete(TypeConverter.ToString(key), false);
+                            var deleteSucceeded = Delete(TypeConverter.ToString(keyIndex), false);
                             if (!deleteSucceeded)
                             {
                                 newLenDesc.Value = new JsValue(keyIndex + 1);
@@ -284,11 +283,6 @@ namespace Jint.Native.Array
             }
 
             base.RemoveOwnProperty(p);
-        }
-
-        public static bool IsArrayIndex(JsValue p, out uint index)
-        {
-            return IsArrayIndex(TypeConverter.ToString(p), out index);
         }
 
         private static bool IsArrayIndex(string p, out uint index)
