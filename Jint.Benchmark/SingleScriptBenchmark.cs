@@ -1,6 +1,4 @@
 ﻿using BenchmarkDotNet.Attributes;
-using Jurassic;
-using NiL.JS.Core;
 
 namespace Jint.Benchmark
 {
@@ -8,8 +6,11 @@ namespace Jint.Benchmark
     public abstract class SingleScriptBenchmark
     {
         private Engine sharedJint;
-        private ScriptEngine sharedJurassic;
-        private Context sharedNilJs;
+
+#if ENGINE_COMPARISON
+        private Jurassic.ScriptEngine sharedJurassic;
+        private NiL.JS.Core.Context sharedNilJs;
+#endif
 
         protected abstract string Script { get; }
 
@@ -23,8 +24,10 @@ namespace Jint.Benchmark
         public void Setup()
         {
             sharedJint = new Engine();
-            sharedJurassic = new ScriptEngine();
-            sharedNilJs = new Context();
+#if ENGINE_COMPARISON
+            sharedJurassic = new Jurassic.ScriptEngine();
+            sharedNilJs = new NiL.JS.Core.Context();
+#endif
         }
 
         [Benchmark]
@@ -41,13 +44,14 @@ namespace Jint.Benchmark
             return done;
         }
 
+#if ENGINE_COMPARISON
         [Benchmark]
         public bool Jurassic()
         {
             bool done = false;
             for (var i = 0; i < N; i++)
             {
-                var jurassicEngine = ReuseEngine ? sharedJurassic : new ScriptEngine();
+                var jurassicEngine = ReuseEngine ? sharedJurassic : new Jurassic.ScriptEngine();
                 jurassicEngine.Execute(Script);
                 done |= jurassicEngine.GetGlobalValue<bool>("done");
             }
@@ -61,12 +65,13 @@ namespace Jint.Benchmark
             bool done = false;
             for (var i = 0; i < N; i++)
             {
-                var nilcontext = ReuseEngine ? sharedNilJs : new Context();
+                var nilcontext = ReuseEngine ? sharedNilJs : new NiL.JS.Core.Context();
                 nilcontext.Eval(Script);
                 done |= (bool) nilcontext.GetVariable("done");
             }
 
             return done;
         }
+#endif
     }
 }
