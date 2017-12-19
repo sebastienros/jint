@@ -1,5 +1,4 @@
 ﻿using BenchmarkDotNet.Attributes;
-using Jurassic;
 
 namespace Jint.Benchmark
 {
