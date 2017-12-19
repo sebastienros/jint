@@ -38,16 +38,10 @@ namespace Jint.Native.Number.Dtoa
 // have the most significant bit of the significand set.
 // Multiplication and Subtraction do not normalize their results.
 // DiyFp are not designed to contain special doubles (NaN and Infinity).
-    internal class DiyFp
+    internal struct DiyFp
     {
         internal const int KSignificandSize = 64;
         private const ulong KUint64MSB = 0x8000000000000000L;
-
-        internal DiyFp()
-        {
-            F = 0;
-            E = 0;
-        }
 
         internal DiyFp(long f, int e)
         {
@@ -55,8 +49,8 @@ namespace Jint.Native.Number.Dtoa
             E = e;
         }
 
-        public long F { get; set; }
-        public int E { get; set; }
+        public long F { get; }
+        public int E { get; }
 
         private static bool Uint64Gte(long a, long b)
         {
@@ -64,66 +58,46 @@ namespace Jint.Native.Number.Dtoa
             return (a == b) || ((a > b) ^ (a < 0) ^ (b < 0));
         }
 
-        // this = this - other.
-        // The exponents of both numbers must be the same and the significand of this
-        // must be bigger than the significand of other.
-        // The result will not be normalized.
-        private void Subtract(DiyFp other)
-        {
-            Debug.Assert(E == other.E);
-            Debug.Assert(Uint64Gte(F, other.F));
-
-            F -= other.F;
-        }
-
         // Returns a - b.
         // The exponents of both numbers must be the same and this must be bigger
         // than other. The result will not be normalized.
         internal static DiyFp Minus(DiyFp a, DiyFp b)
         {
-            DiyFp result = new DiyFp(a.F, a.E);
-            result.Subtract(b);
-            return result;
+            Debug.Assert(a.E == b.E);
+            Debug.Assert(Uint64Gte(a.F, b.F));
+
+            return new DiyFp(a.F - b.F, a.E);
         }
 
         // this = this * other.
-        private void Multiply(DiyFp other)
-        {
-            // Simply "emulates" a 128 bit multiplication.
-            // However: the resulting number only contains 64 bits. The least
-            // significant 64 bits are only used for rounding the most significant 64
-            // bits.
-            const long kM32 = 0xFFFFFFFFL;
-            long a = F.UnsignedShift(32);
-            long b = F & kM32;
-            long c = other.F.UnsignedShift(32);
-            long d = other.F & kM32;
-            long ac = a*c;
-            long bc = b*c;
-            long ad = a*d;
-            long bd = b*d;
-            long tmp = bd.UnsignedShift(32) + (ad & kM32) + (bc & kM32);
-            // By adding 1U << 31 to tmp we round the final result.
-            // Halfway cases will be round up.
-            tmp += 1L << 31;
-            long resultF = ac + ad.UnsignedShift(32) + bc.UnsignedShift(32) + tmp.UnsignedShift(32);
-            E += other.E + 64;
-            F = resultF;
-        }
 
         // returns a * b;
         internal static DiyFp Times(DiyFp a, DiyFp b)
         {
             DiyFp result = new DiyFp(a.F, a.E);
-            result.Multiply(b);
-            return result;
+            // Simply "emulates" a 128 bit multiplication.
+            // However: the resulting number only contains 64 bits. The least
+            // significant 64 bits are only used for rounding the most significant 64
+            // bits.
+            const long kM32 = 0xFFFFFFFFL;
+            long a1 = result.F.UnsignedShift(32);
+            long b1 = result.F & kM32;
+            long c = b.F.UnsignedShift(32);
+            long d = b.F & kM32;
+            long ac = a1*c;
+            long bc = b1*c;
+            long ad = a1*d;
+            long bd = b1*d;
+            long tmp = bd.UnsignedShift(32) + (ad & kM32) + (bc & kM32);
+            // By adding 1U << 31 to tmp we round the final result.
+            // Halfway cases will be round up.
+            tmp += 1L << 31;
+            long resultF = ac + ad.UnsignedShift(32) + bc.UnsignedShift(32) + tmp.UnsignedShift(32);
+            return new DiyFp(resultF, result.E + b.E + 64);
         }
 
-        internal void Normalize()
+        internal static DiyFp Normalize(long f, int e)
         {
-            long f = F;
-            int e = E;
-
             // This method is mainly called for normalizing boundaries. In general
             // boundaries need to be shifted by 10 bits. We thus optimize for this case.
             const long k10MsBits = 0xFFC00000L << 32;
@@ -138,8 +112,7 @@ namespace Jint.Native.Number.Dtoa
                 e--;
             }
 
-            F = f;
-            E = e;
+            return new DiyFp(f, e);
         }
 
         public override string ToString()

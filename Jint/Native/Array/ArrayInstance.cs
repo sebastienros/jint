@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
+using System.Threading;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -8,8 +8,11 @@ namespace Jint.Native.Array
 {
     public class ArrayInstance : ObjectInstance
     {
+        // cache key container for array iteration for less allocations
+        private static readonly ThreadLocal<List<uint>> keyCache = new ThreadLocal<List<uint>>(() => new List<uint>());
+
         private readonly Engine _engine;
-        private IDictionary<uint, PropertyDescriptor> _array = new MruPropertyCache2<uint, PropertyDescriptor>();
+        private readonly Dictionary<uint, PropertyDescriptor> _array = new Dictionary<uint, PropertyDescriptor>();
         private PropertyDescriptor _length;
 
         public ArrayInstance(Engine engine) : base(engine)
@@ -17,13 +20,7 @@ namespace Jint.Native.Array
             _engine = engine;
         }
 
-        public override string Class
-        {
-            get
-            {
-                return "Array";
-            }
-        }
+        public override string Class => "Array";
 
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
@@ -120,14 +117,16 @@ namespace Jint.Native.Array
 
                 if (_array.Count < oldLen - newLen)
                 {
-                    var keys = _array.Keys.ToArray();
+                    var keys = keyCache.Value;
+                    keys.Clear();
+                    keys.AddRange(_array.Keys);
                     foreach (var key in keys)
                     {
                         uint keyIndex;
                         // is it the index of the array
                         if (IsArrayIndex(key, out keyIndex) && keyIndex >= newLen && keyIndex < oldLen)
                         {
-                            var deleteSucceeded = Delete(key.ToString(), false);
+                            var deleteSucceeded = Delete(TypeConverter.ToString(key), false);
                             if (!deleteSucceeded)
                             {
                                 newLenDesc.Value = new JsValue(keyIndex + 1);
@@ -219,7 +218,7 @@ namespace Jint.Native.Array
         {
             foreach(var entry in _array)
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(entry.Key.ToString(), entry.Value);
+                yield return new KeyValuePair<string, PropertyDescriptor>(TypeConverter.ToString(entry.Key), entry.Value);
             }
 
             foreach(var entry in base.GetOwnProperties())
@@ -289,8 +288,12 @@ namespace Jint.Native.Array
 
         public static bool IsArrayIndex(JsValue p, out uint index)
         {
-            index = ParseArrayIndex(TypeConverter.ToString(p));
+            return IsArrayIndex(TypeConverter.ToString(p), out index);
+        }
 
+        private static bool IsArrayIndex(string p, out uint index)
+        {
+            index = ParseArrayIndex(p);
             return index != uint.MaxValue;
 
             // 15.4 - Use an optimized version of the specification

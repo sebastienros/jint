@@ -3,16 +3,13 @@ using System.Collections.Generic;
 
 namespace Jint.Runtime
 {
-    public class MruPropertyCache2<TKey, TValue> : IDictionary<TKey, TValue> 
+    public class MruPropertyCache2<TKey, TValue> : IDictionary<TKey, TValue> where TKey : class
         where TValue:class
     {
-        private IDictionary<TKey, TValue> _dictionary = new Dictionary<TKey, TValue>();
+        private readonly IDictionary<TKey, TValue> _dictionary = new Dictionary<TKey, TValue>();
         private bool _set;
         private TKey _key;
         private TValue _value;
-
-        public MruPropertyCache2() {
-        }
 
         public TValue this[TKey key] {
             get {

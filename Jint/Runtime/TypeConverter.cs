@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Number;
@@ -28,6 +29,8 @@ namespace Jint.Runtime
 
     public class TypeConverter
     {
+        private static readonly string[] intToString = new string[1024*10];
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.1
         /// </summary>
@@ -226,7 +229,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static int ToInt32(JsValue o)
         {
-            return (int)(uint)ToNumber(o);
+            return (int) (uint) ToNumber(o);
         }
 
         /// <summary>
@@ -236,7 +239,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static uint ToUint32(JsValue o)
         {
-            return (uint)ToNumber(o);
+            return (uint) ToNumber(o);
         }
 
         /// <summary>
@@ -246,7 +249,32 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static ushort ToUint16(JsValue o)
         {
-            return (ushort)(uint)ToNumber(o);
+            return (ushort) (uint) ToNumber(o);
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(long i)
+        {
+            return i >= 0 && i < intToString.Length
+                ? (intToString[i] = intToString[i] ?? i.ToString())
+                : i.ToString();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(int i)
+        {
+            return i >= 0 && i < intToString.Length
+                ? (intToString[i] = intToString[i] ?? i.ToString())
+                : i.ToString();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(uint i)
+        {
+            return i >= 0 && i < intToString.Length
+                ? (intToString[i] = intToString[i] ?? i.ToString())
+                : i.ToString();
         }
 
         /// <summary>
@@ -365,7 +393,7 @@ namespace Jint.Runtime
             if (o != Undefined.Instance && o != Null.Instance)
                 return;
 
-            if (engine.Options._ReferenceResolver != null && 
+            if (engine.Options._ReferenceResolver != null &&
                 engine.Options._ReferenceResolver.CheckCoercible(o))
                 return;
 
