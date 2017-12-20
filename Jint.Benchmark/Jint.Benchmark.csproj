@@ -14,6 +14,9 @@
     <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="..\Jint.Tests.CommonScripts\Scripts\**" CopyToOutputDirectory="PreserveNewest" LinkBase="SunSpider" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
     <PackageReference Include="BenchmarkDotNet" Version="0.10.11" />
     <PackageReference Include="Jurassic" Version="3.0.0-alpha2" />
