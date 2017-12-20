@@ -17,9 +17,6 @@ namespace Jint.Benchmark
         [Params(10)]
         public virtual int N { get; set; }
 
-        [Params(true, false)]
-        public bool ReuseEngine { get; set; }
-
         [GlobalSetup]
         public void Setup()
         {
@@ -36,9 +33,8 @@ namespace Jint.Benchmark
             bool done = false;
             for (var i = 0; i < N; i++)
             {
-                var jintEngine = ReuseEngine ? sharedJint : new Engine();
-                jintEngine.Execute(Script);
-                done |= jintEngine.GetValue("done").AsBoolean();
+                sharedJint.Execute(Script);
+                done |= sharedJint.GetValue("done").AsBoolean();
             }
 
             return done;
@@ -51,9 +47,8 @@ namespace Jint.Benchmark
             bool done = false;
             for (var i = 0; i < N; i++)
             {
-                var jurassicEngine = ReuseEngine ? sharedJurassic : new Jurassic.ScriptEngine();
-                jurassicEngine.Execute(Script);
-                done |= jurassicEngine.GetGlobalValue<bool>("done");
+                sharedJurassic.Execute(Script);
+                done |= sharedJurassic.GetGlobalValue<bool>("done");
             }
 
             return done;
@@ -65,9 +60,8 @@ namespace Jint.Benchmark
             bool done = false;
             for (var i = 0; i < N; i++)
             {
-                var nilcontext = ReuseEngine ? sharedNilJs : new NiL.JS.Core.Context();
-                nilcontext.Eval(Script);
-                done |= (bool) nilcontext.GetVariable("done");
+                sharedNilJs.Eval(Script);
+                done |= (bool) sharedNilJs.GetVariable("done");
             }
 
             return done;
