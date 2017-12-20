@@ -79,11 +79,9 @@ namespace Jint.Native.Array
             for (; k >= 0; k--)
             {
                 var kString = k.ToString();
-                var kPresent = o.HasProperty(kString);
-                if (kPresent)
+                if (o.TryGetValue(kString, out var value))
                 {
-                    var elementK = o.Get(kString);
-                    var same = ExpressionInterpreter.StrictlyEqual(elementK, searchElement);
+                    var same = ExpressionInterpreter.StrictlyEqual(value, searchElement);
                     if (same)
                     {
                         return k;
@@ -124,10 +122,9 @@ namespace Jint.Native.Array
                 while (kPresent == false && k < len)
                 {
                     var pk = TypeConverter.ToString(k);
-                    kPresent = o.HasProperty(pk);
-                    if (kPresent)
+                    if (kPresent = o.TryGetValue(pk, out var temp))
                     {
-                        accumulator = o.Get(pk);
+                        accumulator = temp;
                     }
                     k++;
                 }
@@ -140,10 +137,8 @@ namespace Jint.Native.Array
             while(k < len)
             {
                 var pk = TypeConverter.ToString(k);
-                var kPresent = o.HasProperty(pk);
-                if (kPresent)
+                if (o.TryGetValue(pk, out var kvalue))
                 {
-                    var kvalue = o.Get(pk);
                     accumulator = callable.Call(Undefined.Instance, new [] { accumulator, kvalue, k, o });
                 }
                 k++;
@@ -170,14 +165,16 @@ namespace Jint.Native.Array
             var a = (ArrayInstance)Engine.Array.Construct(Arguments.Empty);
 
             var to = 0;
+            var jsValues = new JsValue[3];
             for (var k = 0; k < len; k++)
             {
                 var pk = TypeConverter.ToString(k);
-                var kpresent = o.HasProperty(pk);
-                if (kpresent)
+                if (o.TryGetValue(pk, out var kvalue))
                 {
-                    var kvalue = o.Get(pk);
-                    var selected = callable.Call(thisArg, new [] { kvalue, k, o });
+                    jsValues[0] = kvalue;
+                    jsValues[1] = k;
+                    jsValues[2] = o;
+                    var selected = callable.Call(thisArg, jsValues);
                     if (TypeConverter.ToBoolean(selected))
                     {
                         a.DefineOwnProperty(TypeConverter.ToString(to), new PropertyDescriptor(kvalue, true, true, true), false);
@@ -203,16 +200,17 @@ namespace Jint.Native.Array
                 throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
             });
 
-            var a = Engine.Array.Construct(new JsValue[] {len});
-
+            var a = Engine.Array.Construct(new JsValue[] {len}, len);
+            var jsValues = new JsValue[3];
             for (var k = 0; k < len; k++)
             {
                 var pk = TypeConverter.ToString(k);
-                var kpresent = o.HasProperty(pk);
-                if (kpresent)
+                if (o.TryGetValue(pk, out var kvalue))
                 {
-                    var kvalue = o.Get(pk);
-                    var mappedValue = callable.Call(thisArg, new [] { kvalue, k, o });
+                    jsValues[0] = kvalue;
+                    jsValues[1] = k;
+                    jsValues[2] = o;
+                    var mappedValue = callable.Call(thisArg, jsValues);
                     a.DefineOwnProperty(pk, new PropertyDescriptor(mappedValue, true, true, true), false);
                 }
             }
@@ -234,14 +232,16 @@ namespace Jint.Native.Array
                 throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
             });
 
+            var jsValues = new JsValue[3];
             for (var k = 0; k < len; k++)
             {
                 var pk = TypeConverter.ToString(k);
-                var kpresent = o.HasProperty(pk);
-                if (kpresent)
+                if (o.TryGetValue(pk, out var kvalue))
                 {
-                    var kvalue = o.Get(pk);
-                    callable.Call(thisArg, new [] { kvalue, k, o });
+                    jsValues[0] = kvalue;
+                    jsValues[1] = k;
+                    jsValues[2] = o;
+                    callable.Call(thisArg, jsValues);
                 }
             }
 
@@ -262,14 +262,16 @@ namespace Jint.Native.Array
                 throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
             });
 
+            var jsValues = new JsValue[3];
             for (var k = 0; k < len; k++)
             {
                 var pk = TypeConverter.ToString(k);
-                var kpresent = o.HasProperty(pk);
-                if (kpresent)
+                if (o.TryGetValue(pk, out var kvalue))
                 {
-                    var kvalue = o.Get(pk);
-                    var testResult = callable.Call(thisArg, new [] { kvalue, k, o });
+                    jsValues[0] = kvalue;
+                    jsValues[1] = k;
+                    jsValues[2] = o;
+                    var testResult = callable.Call(thisArg, jsValues);
                     if (TypeConverter.ToBoolean(testResult))
                     {
                         return true;
@@ -294,14 +296,16 @@ namespace Jint.Native.Array
                 throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
             });
 
+            var jsValues = new JsValue[3];
             for (var k = 0; k < len; k++)
             {
                 var pk = TypeConverter.ToString(k);
-                var kpresent = o.HasProperty(pk);
-                if (kpresent)
+                if (o.TryGetValue(pk, out var kvalue))
                 {
-                    var kvalue = o.Get(pk);
-                    var testResult = callable.Call(thisArg, new [] { kvalue, k, o });
+                    jsValues[0] = kvalue;
+                    jsValues[1] = k;
+                    jsValues[2] = o;
+                    var testResult = callable.Call(thisArg, jsValues);
                     if (false == TypeConverter.ToBoolean(testResult))
                     {
                         return JsValue.False;
@@ -344,10 +348,8 @@ namespace Jint.Native.Array
             for (; k < len; k++)
             {
                 var kString = k.ToString();
-                var kPresent = o.HasProperty(kString);
-                if (kPresent)
+                if (o.TryGetValue(kString, out var elementK))
                 {
-                    var elementK = o.Get(kString);
                     var same = ExpressionInterpreter.StrictlyEqual(elementK, searchElement);
                     if (same)
                     {
@@ -383,10 +385,8 @@ namespace Jint.Native.Array
             for (var k = 0; k < actualDeleteCount; k++)
             {
                 var from = TypeConverter.ToString(actualStart + k);
-                var fromPresent = o.HasProperty(from);
-                if (fromPresent)
+                if (o.TryGetValue(from, out var fromValue))
                 {
-                    var fromValue = o.Get(from);
                     a.DefineOwnProperty(TypeConverter.ToString(k), new PropertyDescriptor(fromValue, true, true, true), false);
                 }
             }
@@ -403,10 +403,8 @@ namespace Jint.Native.Array
                 {
                     var from = TypeConverter.ToString(k + actualDeleteCount);
                     var to = TypeConverter.ToString(k + items.Length);
-                    var fromPresent = o.HasProperty(from);
-                    if (fromPresent)
+                    if (o.TryGetValue(from, out var fromValue))
                     {
-                        var fromValue = o.Get(from);
                         o.Put(to, fromValue, true);
                     }
                     else
@@ -425,10 +423,8 @@ namespace Jint.Native.Array
                 {
                     var from = TypeConverter.ToString(k + actualDeleteCount - 1);
                     var to = TypeConverter.ToString(k + items.Length - 1);
-                    var fromPresent = o.HasProperty(from);
-                    if (fromPresent)
+                    if (o.TryGetValue(from, out var fromValue))
                     {
-                        var fromValue = o.Get(from);
                         o.Put(to, fromValue, true);
                     }
                     else
@@ -458,10 +454,8 @@ namespace Jint.Native.Array
             {
                 var from = TypeConverter.ToString(k - 1);
                 var to = TypeConverter.ToString(k + argCount - 1);
-                var fromPresent = o.HasProperty(from);
-                if (fromPresent)
+                if (o.TryGetValue(from, out var fromValue))
                 {
-                    var fromValue = o.Get(from);
                     o.Put(to, fromValue, true);
                 }
                 else
@@ -503,43 +497,45 @@ namespace Jint.Native.Array
                 });
             }
 
-            Comparison<JsValue> comparer = (x, y) =>
+            int Comparer(JsValue x, JsValue y)
+            {
+                if (x == Undefined.Instance && y == Undefined.Instance)
                 {
-                    if (x == Undefined.Instance && y == Undefined.Instance)
-                    {
-                        return 0;
-                    }
+                    return 0;
+                }
 
-                    if (x == Undefined.Instance)
-                    {
-                        return 1;
-                    }
+                if (x == Undefined.Instance)
+                {
+                    return 1;
+                }
 
-                    if (y == Undefined.Instance)
+                if (y == Undefined.Instance)
+                {
+                    return -1;
+                }
+
+                if (compareFn != null)
+                {
+                    var s = TypeConverter.ToNumber(compareFn.Call(Undefined.Instance, new[] {x, y}));
+                    if (s < 0)
                     {
                         return -1;
                     }
 
-                    if (compareFn != null)
+                    if (s > 0)
                     {
-                        var s = TypeConverter.ToNumber(compareFn.Call(Undefined.Instance, new[] {x, y}));
-                        if (s < 0)
-                        {
-                            return -1;
-                        }
-                        if (s > 0)
-                        {
-                            return 1;
-                        }
-                        return 0;
+                        return 1;
                     }
 
-                    var xString = TypeConverter.ToString(x);
-                    var yString = TypeConverter.ToString(y);
+                    return 0;
+                }
 
-                    var r = System.String.CompareOrdinal(xString, yString);
-                    return r;
-                };
+                var xString = TypeConverter.ToString(x);
+                var yString = TypeConverter.ToString(y);
+
+                var r = System.String.CompareOrdinal(xString, yString);
+                return r;
+            }
 
             var array = new JsValue[lenVal];
             for (int i = 0; i < lenVal; ++i)
@@ -550,7 +546,7 @@ namespace Jint.Native.Array
             // don't eat inner exceptions
             try
             {
-                System.Array.Sort(array, comparer);
+                System.Array.Sort(array, Comparer);
             }
             catch (InvalidOperationException e)
             {
@@ -571,7 +567,6 @@ namespace Jint.Native.Array
             var end = arguments.At(1);
 
             var o = TypeConverter.ToObject(Engine, thisObj);
-            var a = Engine.Array.Construct(Arguments.Empty);
             var lenVal = o.Get("length");
             var len = TypeConverter.ToUint32(lenVal);
 
@@ -604,14 +599,13 @@ namespace Jint.Native.Array
                 }
             }
 
+            var a = Engine.Array.Construct(final - k);
             var n = 0;
             for (; k < final; k++)
             {
                 var pk = TypeConverter.ToString(k);
-                var kPresent = o.HasProperty(pk);
-                if (kPresent)
+                if (o.TryGetValue(pk, out var kValue))
                 {
-                    var kValue = o.Get(pk);
                     a.DefineOwnProperty(TypeConverter.ToString(n),
                                         new PropertyDescriptor(kValue, true, true, true), false);
                 }
@@ -636,10 +630,8 @@ namespace Jint.Native.Array
             {
                 var from = TypeConverter.ToString(k);
                 var to = TypeConverter.ToString(k - 1);
-                var fromPresent = o.HasProperty(from);
-                if (fromPresent)
+                if (o.TryGetValue(from, out var fromVal))
                 {
-                    var fromVal = o.Get(from);
                     o.Put(to, fromVal, true);
                 }
                 else
@@ -665,10 +657,8 @@ namespace Jint.Native.Array
                 var upper = len - lower - 1;
                 var upperP = TypeConverter.ToString(upper);
                 var lowerP = TypeConverter.ToString(lower);
-                var lowerValue = o.Get(lowerP);
-                var upperValue = o.Get(upperP);
-                var lowerExists = o.HasProperty(lowerP);
-                var upperExists = o.HasProperty(upperP);
+                var lowerExists = o.TryGetValue(lowerP, out var lowerValue);
+                var upperExists = o.TryGetValue(upperP, out var upperValue);
                 if (lowerExists && upperExists)
                 {
                     o.Put(lowerP, upperValue, true);
@@ -780,7 +770,7 @@ namespace Jint.Native.Array
             var o = TypeConverter.ToObject(Engine, thisObj);
             var a = Engine.Array.Construct(Arguments.Empty);
             var n = 0;
-            var items = new List<JsValue> {o};
+            var items = new List<JsValue>(arguments.Length + 1) {o};
             items.AddRange(arguments);
 
             foreach (var e in items)
@@ -792,10 +782,8 @@ namespace Jint.Native.Array
                     for (var k = 0; k < len; k++)
                     {
                         var p = TypeConverter.ToString(k);
-                        var exists = eArray.HasProperty(p);
-                        if (exists)
+                        if (eArray.TryGetValue(p, out var subElement))
                         {
-                            var subElement = eArray.Get(p);
                             a.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(subElement, true, true, true), false);
                         }
                         n++;
@@ -861,10 +849,10 @@ namespace Jint.Native.Array
                 while (kPresent == false && k >= 0)
                 {
                     var pk = TypeConverter.ToString(k);
-                    kPresent = o.HasProperty(pk);
+                    kPresent = o.TryGetValue(pk, out var temp);
                     if (kPresent)
                     {
-                        accumulator = o.Get(pk);
+                        accumulator = temp;
                     }
                     k--;
                 }
@@ -877,10 +865,8 @@ namespace Jint.Native.Array
             for (; k >= 0; k--)
             {
                 var pk = TypeConverter.ToString(k);
-                var kPresent = o.HasProperty(pk);
-                if (kPresent)
+                if (o.TryGetValue(pk, out var kvalue))
                 {
-                    var kvalue = o.Get(pk);
                     accumulator = callable.Call(Undefined.Instance, new [] { accumulator, kvalue, k, o });
                 }
             }
@@ -895,8 +881,9 @@ namespace Jint.Native.Array
 
             // cast to double as we need to prevent an overflow
             double n = TypeConverter.ToUint32(lenVal);
-            foreach (JsValue e in arguments)
+            for (var i = 0; i < arguments.Length; i++)
             {
+                JsValue e = arguments[i];
                 o.Put(TypeConverter.ToString(n), e, true);
                 n++;
             }

@@ -614,8 +614,9 @@ namespace Jint.Native.Json
 
         public ObjectInstance CreateArrayInstance(IEnumerable<JsValue> values)
         {
-            var jsArray = _engine.Array.Construct(Arguments.Empty);
-            _engine.Array.PrototypeObject.Push(jsArray, values.ToArray());
+            var jsValues = values.ToArray();
+            var jsArray = _engine.Array.Construct(jsValues.Length);
+            _engine.Array.PrototypeObject.Push(jsArray, jsValues);
             return jsArray;
         }
 

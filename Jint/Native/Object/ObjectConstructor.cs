@@ -140,20 +140,23 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var array = Engine.Array.Construct(Arguments.Empty);
             var n = 0;
 
-            var s = o as StringInstance;
-            if (s != null)
+            ObjectInstance array = null;
+            var ownProperties = o.GetOwnProperties().ToList();
+            if (o is StringInstance s)
             {
-                for (var i = 0; i < s.PrimitiveValue.AsString().Length; i++)
+                var length = s.PrimitiveValue.AsString().Length;
+                array = Engine.Array.Construct(ownProperties.Count + length);
+                for (var i = 0; i < length; i++)
                 {
                     array.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(TypeConverter.ToString(i), true, true, true), false);
                     n++;
                 }
             }
 
-            foreach (var p in o.GetOwnProperties())
+            array = array ?? Engine.Array.Construct(ownProperties.Count);
+            foreach (var p in ownProperties)
             {
                 array.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(p.Key, true, true, true), false);
                 n++;
@@ -387,7 +390,7 @@ namespace Jint.Native.Object
                 .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value)
                 .ToArray();
             var n = enumerableProperties.Length;
-            var array = Engine.Array.Construct(new JsValue[] {n});
+            var array = Engine.Array.Construct(new JsValue[] {n}, (uint) n);
             var index = 0;
             foreach (var prop in enumerableProperties)
             {

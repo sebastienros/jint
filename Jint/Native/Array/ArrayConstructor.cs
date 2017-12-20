@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -19,7 +20,7 @@ namespace Jint.Native.Array
             var obj = new ArrayConstructor(engine);
             obj.Extensible = true;
 
-            // The value of the [[Prototype]] internal property of the Array constructor is the Function prototype object 
+            // The value of the [[Prototype]] internal property of the Array constructor is the Function prototype object
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = ArrayPrototype.CreatePrototypeObject(engine, obj);
 
@@ -55,7 +56,26 @@ namespace Jint.Native.Array
 
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            var instance = new ArrayInstance(Engine);
+            return Construct(arguments, 0);
+        }
+
+        public ObjectInstance Construct(int capacity)
+        {
+            if (capacity < 0)
+            {
+                throw new ArgumentException("invalid array length", nameof(capacity));
+            }
+            return Construct(System.Array.Empty<JsValue>(), (uint) capacity);
+        }
+
+        public ObjectInstance Construct(uint capacity)
+        {
+            return Construct(System.Array.Empty<JsValue>(), capacity);
+        }
+
+        public ObjectInstance Construct(JsValue[] arguments, uint capacity)
+        {
+            var instance = new ArrayInstance(Engine, capacity);
             instance.Prototype = PrototypeObject;
             instance.Extensible = true;
 
@@ -66,7 +86,7 @@ namespace Jint.Native.Array
                 {
                     throw new JavaScriptException(Engine.RangeError, "Invalid array length");
                 }
-                
+
                 instance.FastAddProperty("length", length, true, false, false);
             }
             else if (arguments.Length == 1 && arguments.At(0).IsObject() && arguments.At(0).As<ObjectWrapper>() != null )

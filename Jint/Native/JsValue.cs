@@ -478,7 +478,7 @@ namespace Jint.Native
                 {
                     var array = (System.Array)v;
 
-                    var jsArray = engine.Array.Construct(Arguments.Empty);
+                    var jsArray = engine.Array.Construct(a.Length);
                     foreach (var item in array)
                     {
                         var jsItem = JsValue.FromObject(engine, item);

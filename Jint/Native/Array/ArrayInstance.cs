@@ -12,12 +12,13 @@ namespace Jint.Native.Array
         private static readonly ThreadLocal<List<uint>> keyCache = new ThreadLocal<List<uint>>(() => new List<uint>());
 
         private readonly Engine _engine;
-        private readonly Dictionary<uint, PropertyDescriptor> _array = new Dictionary<uint, PropertyDescriptor>();
+        private readonly Dictionary<uint, PropertyDescriptor> _array;
         private PropertyDescriptor _length;
 
-        public ArrayInstance(Engine engine) : base(engine)
+        public ArrayInstance(Engine engine, uint size = 0) : base(engine)
         {
             _engine = engine;
+            _array = new Dictionary<uint, PropertyDescriptor>((int) (size < int.MaxValue ? size : int.MaxValue));
         }
 
         public override string Class => "Array";
