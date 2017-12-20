@@ -6,18 +6,23 @@ namespace Jint.Native.Object
 {
     public class ObjectInstance
     {
+        private const string PropertyNamePrototype = "prototype";
+        private const string PropertyNameConstructor = "constructor";
+
         private JsValue _jsValue;
+
         private Dictionary<string, PropertyDescriptor> _intrinsicProperties;
+        private MruPropertyCache2<string, PropertyDescriptor> _properties;
+
+        private PropertyDescriptor _prototype;
+        private PropertyDescriptor _constructor;
 
         public ObjectInstance(Engine engine)
         {
             Engine = engine;
-            Properties = new MruPropertyCache2<string, PropertyDescriptor>();
         }
 
         public Engine Engine { get; set; }
-
-        protected IDictionary<string, PropertyDescriptor> Properties { get; private set; }
 
         /// <summary>
         /// Caches the constructed JS.
@@ -76,27 +81,104 @@ namespace Jint.Native.Object
         /// A String value indicating a specification defined
         /// classification of objects.
         /// </summary>
-        public virtual string Class
-        {
-            get { return "Object"; }
-        }
+        public virtual string Class => "Object";
 
         public virtual IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {
             EnsureInitialized();
-            return Properties;
+
+            if (_prototype != null)
+            {
+                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNamePrototype, _prototype);
+            }
+            if (_constructor != null)
+            {
+                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameConstructor, _constructor);
+            }
+
+            if (_properties != null)
+            {
+                foreach (var pair in _properties.GetEnumerator())
+                {
+                    yield return pair;
+                }
+            }
         }
 
-        public virtual bool HasOwnProperty(string p)
+        protected void AddProperty(string propertyName, PropertyDescriptor descriptor)
         {
-            EnsureInitialized();
-            return Properties.ContainsKey(p);
+            if (propertyName == PropertyNamePrototype)
+            {
+                _prototype = descriptor;
+                return;
+            }
+            if (propertyName == PropertyNameConstructor)
+            {
+                _constructor = descriptor;
+                return;
+            }
+
+            if (_properties == null)
+            {
+                _properties = new MruPropertyCache2<string, PropertyDescriptor>();
+            }
+
+            _properties.Add(propertyName, descriptor);
         }
 
-        public virtual void RemoveOwnProperty(string p)
+        protected bool TryGetProperty(string propertyName, out PropertyDescriptor descriptor)
+        {
+            if (propertyName == PropertyNamePrototype)
+            {
+                descriptor = _prototype;
+                return _prototype != null;
+            }
+
+            if (propertyName == PropertyNameConstructor)
+            {
+                descriptor = _constructor;
+                return _constructor != null;
+            }
+
+            if (_properties == null)
+            {
+                descriptor = null;
+                return false;
+            }
+
+            return _properties.TryGetValue(propertyName, out descriptor);
+        }
+
+        public virtual bool HasOwnProperty(string propertyName)
         {
             EnsureInitialized();
-            Properties.Remove(p);
+
+            if (propertyName == PropertyNamePrototype)
+            {
+                return _prototype != null;
+            }
+            if (propertyName == PropertyNameConstructor)
+            {
+                return _constructor != null;
+            }
+
+            return _properties?.ContainsKey(propertyName) ?? false;
+        }
+
+        public virtual void RemoveOwnProperty(string propertyName)
+        {
+            EnsureInitialized();
+
+            if (propertyName == PropertyNamePrototype)
+            {
+                _prototype = null;
+            }
+            if (propertyName == PropertyNameConstructor)
+            {
+                _constructor = null;
+            }
+
+            _properties?.Remove(propertyName);
         }
 
         /// <summary>
@@ -144,24 +226,18 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            PropertyDescriptor x;
-            if (Properties.TryGetValue(propertyName, out x))
+            if (propertyName == PropertyNamePrototype)
             {
-                /* Spec implementation
-                PropertyDescriptor d;
-                if (x.IsDataDescriptor())
-                {
-                    d = new PropertyDescriptor(x.As<DataDescriptor>());
-                }
-                else
-                {
-                    d = new PropertyDescriptor(x.As<AccessorDescriptor>());
-                }
+                return _prototype ?? PropertyDescriptor.Undefined;
+            }
+            if (propertyName == PropertyNameConstructor)
+            {
+                return _constructor ?? PropertyDescriptor.Undefined;
+            }
 
-                return d;
-                */
-
-                // optimmized implementation
+            PropertyDescriptor x;
+            if (_properties != null && _properties.TryGetValue(propertyName, out x))
+            {
                 return x;
             }
 
@@ -171,7 +247,24 @@ namespace Jint.Native.Object
         protected virtual void SetOwnProperty(string propertyName, PropertyDescriptor desc)
         {
             EnsureInitialized();
-            Properties[propertyName] = desc;
+
+            if (propertyName == PropertyNamePrototype)
+            {
+                _prototype = desc;
+                return;
+            }
+            if (propertyName == PropertyNameConstructor)
+            {
+                _constructor = desc;
+                return;
+            }
+
+            if (_properties == null)
+            {
+                _properties = new MruPropertyCache2<string, PropertyDescriptor>();
+            }
+
+            _properties[propertyName] = desc;
         }
 
         /// <summary>
