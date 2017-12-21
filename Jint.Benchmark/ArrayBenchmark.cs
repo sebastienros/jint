@@ -1,24 +1,116 @@
 ﻿using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Jobs;
 
 namespace Jint.Benchmark
 {
-    [Config(typeof(Config))]
-    public class ArrayBenchmark : SingleScriptBenchmark
+    [MemoryDiagnoser]
+    public class ArrayBenchmark
     {
-        private class Config : ManualConfig
+        private const string script = @"
+var testArray = [29, 27, 28, 838, 22, 2882, 2, 93, 84, 74, 7, 933, 3754, 3874, 22838, 38464, 3837, 82424, 2927, 2625, 63, 27, 28, 838, 22, 2882, 2, 93, 84, 74, 7, 933, 3754, 3874, 22838, 38464, 3837, 82424, 2927, 2625, 63, 27, 28, 838, 22, 2882, 2, 93, 84, 74, 7, 933, 3754, 3874, 22838, 38464, 3837, 82424, 2927, 2625, 63, 27, 28, 838, 22, 2882, 2, 93, 84, 74, 7, 933, 3754, 3874, 22838, 38464, 3837, 82424, 2927, 2625, 63];
+";
+
+        private Engine engine;
+
+
+        [GlobalSetup]
+        public void Setup()
         {
-            public Config()
+            engine = new Engine();
+            engine.Execute(script);
+        }
+
+        [Params(100)]
+        public int N { get; set; }
+
+        [Benchmark]
+        public void Slice()
+        {
+            for (int i = 0; i < N; ++i)
             {
-                // if Jint array performance gets better we can go towards defaul 16/16
-                Add(Job.ShortRun.WithInvocationCount(4).WithUnrollFactor(4));
+                engine.Execute("testArray.slice();");
             }
         }
 
-        protected override string Script => "var ret=[],tmp,num=100,i=256;for(var j1=0;j1<i*15;j1++){ret=[];ret.length=i}for(var j2=0;j2<i*10;j2++){ret=new Array(i)}ret=[];for(var j3=0;j3<i;j3++){ret.unshift(j3)}ret=[];for(var j4=0;j4<i;j4++){ret.splice(0,0,j4)}var a=ret.slice();for(var j5=0;j5<i;j5++){tmp=a.shift()}var b=ret.slice();for(var j6=0;j6<i;j6++){tmp=b.splice(0,1)}ret=[];for(var j7=0;j7<i*25;j7++){ret.push(j7)}var c=ret.slice();for(var j8=0;j8<i*25;j8++){tmp=c.pop()}var done = true;";
+        [Benchmark]
+        public void Concat()
+        {
+            for (int i = 0; i < N; ++i)
+            {
+                engine.Execute("[].concat(testArray);");
+            }
+        }
 
-        [Params(20)]
-        public override int N { get; set; }
+        [Benchmark]
+        public void Unshift()
+        {
+            for (int i = 0; i < N; ++i)
+            {
+                engine.Execute(@"
+var obj2 = [];
+for (var i = testArray.length; i--;) {
+    obj2.unshift(testArray[i]);
+}
+");
+            }
+        }
+
+        [Benchmark]
+        public void Push()
+        {
+            for (int i = 0; i < N; ++i)
+            {
+                engine.Execute(@"
+var obj2 = [];
+for (var i = 0, l = testArray.length; i < l; i++) {
+  obj2.push(testArray[i]);
+}
+");
+            }
+        }
+
+        [Benchmark]
+        public void Index()
+        {
+            for (int i = 0; i < N; ++i)
+            {
+                engine.Execute(@"
+var obj2 = new Array(testArray.length);
+for (var i = 0, l = testArray.length; i < l; i++) {
+  obj2[i] = testArray[i];
+}
+");
+            }
+        }
+
+        [Benchmark]
+        public void Map()
+        {
+            for (int i = 0; i < N; ++i)
+            {
+                engine.Execute(@"
+var obj2 = testArray.map(function(i) {
+  return i;
+});
+");
+            }
+        }
+
+        [Benchmark]
+        public void Apply()
+        {
+            for (int i = 0; i < N; ++i)
+            {
+                engine.Execute("Array.apply(undefined, testArray);");
+            }
+        }
+
+        [Benchmark]
+        public void JsonStringifyParse()
+        {
+            for (int i = 0; i < N; ++i)
+            {
+                engine.Execute("JSON.parse(JSON.stringify(testArray));");
+            }
+        }
     }
 }
