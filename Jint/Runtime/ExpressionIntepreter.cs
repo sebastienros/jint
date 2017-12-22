@@ -747,19 +747,21 @@ namespace Jint.Runtime
         {
             var baseReference = EvaluateExpression(memberExpression.Object);
             var baseValue = _engine.GetValue(baseReference);
-            Expression expression = memberExpression.Property;
 
-
+            string propertyNameString;
             if (!memberExpression.Computed) // index accessor ?
             {
-                var name = memberExpression.Property.As<Identifier>().Name;
-                expression = new Literal(name, name);
+                // we can take fast path without querying the engine again
+                propertyNameString = memberExpression.Property.As<Identifier>().Name;
+            }
+            else
+            {
+                var propertyNameReference = EvaluateExpression(memberExpression.Property);
+                var propertyNameValue = _engine.GetValue(propertyNameReference);
+                propertyNameString = TypeConverter.ToString(propertyNameValue);
             }
 
-            var propertyNameReference = EvaluateExpression(expression);
-            var propertyNameValue = _engine.GetValue(propertyNameReference);
             TypeConverter.CheckObjectCoercible(_engine, baseValue, memberExpression, baseReference);
-            var propertyNameString = TypeConverter.ToString(propertyNameValue);
 
             return new Reference(baseValue, propertyNameString, StrictModeScope.IsStrictModeCode);
         }
