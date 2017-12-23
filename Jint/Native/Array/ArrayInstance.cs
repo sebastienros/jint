@@ -52,7 +52,7 @@ namespace Jint.Native.Array
             if (desc.IsAccessorDescriptor())
             {
                 var setter = desc.Set.TryCast<ICallable>();
-                setter.Call(new JsValue(this), new[] { value });
+                setter.Call(JsValue, new[] { value });
             }
             else
             {
@@ -128,7 +128,7 @@ namespace Jint.Native.Array
                             var deleteSucceeded = Delete(TypeConverter.ToString(keyIndex), false);
                             if (!deleteSucceeded)
                             {
-                                newLenDesc.Value = new JsValue(keyIndex + 1);
+                                newLenDesc.Value = JsValue.FromInt(keyIndex + 1);
                                 if (!newWritable)
                                 {
                                     newLenDesc.Writable = false;

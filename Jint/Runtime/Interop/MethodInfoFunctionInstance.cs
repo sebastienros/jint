@@ -129,7 +129,7 @@ namespace Jint.Runtime.Interop
                 var jsArray = Engine.Array.Construct(Arguments.Empty);
                 Engine.Array.PrototypeObject.Push(jsArray, argsToTransform.ToArray());
 
-                newArgumentsCollection.Add(new JsValue(jsArray));
+                newArgumentsCollection.Add(jsArray.JsValue);
                 return newArgumentsCollection.ToArray();
             }
 

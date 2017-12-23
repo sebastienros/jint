@@ -163,7 +163,7 @@ namespace Jint.Native.Argument
             if (desc.IsAccessorDescriptor())
             {
                 var setter = desc.Set.TryCast<ICallable>();
-                setter.Call(new JsValue(this), new[] { value });
+                setter.Call(JsValue, new[] { value });
             }
             else
             {

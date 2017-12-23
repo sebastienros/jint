@@ -615,11 +615,12 @@ namespace Jint.Runtime
                 switch (literal.TokenType)
                 {
                     case TokenType.BooleanLiteral:
-                        return new JsValue(literal.BooleanValue);
+                        return literal.BooleanValue ? JsValue.True : JsValue.False;
                     case TokenType.NullLiteral:
                         return JsValue.Null;
                     case TokenType.NumericLiteral:
-                        return new JsValue(literal.NumericValue);
+                        // implicit conversion operator goes through caching
+                        return literal.NumericValue;
                     case TokenType.StringLiteral:
                         return new JsValue(literal.StringValue);
                 }

@@ -30,7 +30,7 @@ namespace Jint.Native.Function
             Extensible = true;
             Prototype = engine.Function.PrototypeObject;
 
-            DefineOwnProperty("length", new PropertyDescriptor(new JsValue(FormalParameters.Length), false, false, false ), false);
+            DefineOwnProperty("length", new PropertyDescriptor(JsValue.FromInt(FormalParameters.Length), false, false, false ), false);
 
             var proto = engine.Object.Construct(Arguments.Empty);
             proto.DefineOwnProperty("constructor", new PropertyDescriptor(this, true, false, true), false);
