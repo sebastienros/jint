@@ -65,20 +65,20 @@ namespace Jint.Native.Array
                 return -1;
             }
 
-            var n = arguments.Length > 1 ? TypeConverter.ToInteger(arguments[1]) : len - 1;
-            double k;
+            var n = arguments.Length > 1 ? (uint) TypeConverter.ToInteger(arguments[1]) : len - 1;
+            uint k;
             if (n >= 0)
             {
                 k = System.Math.Min(n, len - 1); // min
             }
             else
             {
-                k = len - System.Math.Abs(n);
+                k = len - (uint) System.Math.Abs(n);
             }
             var searchElement = arguments.At(0);
             for (; k >= 0; k--)
             {
-                var kString = k.ToString();
+                var kString = TypeConverter.ToString(k);
                 if (o.TryGetValue(kString, out var value))
                 {
                     var same = ExpressionInterpreter.StrictlyEqual(value, searchElement);
@@ -165,7 +165,7 @@ namespace Jint.Native.Array
             var a = (ArrayInstance)Engine.Array.Construct(Arguments.Empty);
 
             var to = 0;
-            var jsValues = new JsValue[3];
+            var jsValues = ArrayExecutionContext.Current.CallArray3;
             for (var k = 0; k < len; k++)
             {
                 var pk = TypeConverter.ToString(k);
@@ -201,7 +201,7 @@ namespace Jint.Native.Array
             });
 
             var a = Engine.Array.Construct(new JsValue[] {len}, len);
-            var jsValues = new JsValue[3];
+            var jsValues = ArrayExecutionContext.Current.CallArray3;
             for (var k = 0; k < len; k++)
             {
                 var pk = TypeConverter.ToString(k);
@@ -232,7 +232,7 @@ namespace Jint.Native.Array
                 throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
             });
 
-            var jsValues = new JsValue[3];
+            var jsValues = ArrayExecutionContext.Current.CallArray3;
             for (var k = 0; k < len; k++)
             {
                 var pk = TypeConverter.ToString(k);
@@ -262,7 +262,7 @@ namespace Jint.Native.Array
                 throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
             });
 
-            var jsValues = new JsValue[3];
+            var jsValues = ArrayExecutionContext.Current.CallArray3;
             for (var k = 0; k < len; k++)
             {
                 var pk = TypeConverter.ToString(k);
@@ -296,7 +296,7 @@ namespace Jint.Native.Array
                 throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
             });
 
-            var jsValues = new JsValue[3];
+            var jsValues = ArrayExecutionContext.Current.CallArray3;
             for (var k = 0; k < len; k++)
             {
                 var pk = TypeConverter.ToString(k);
@@ -326,19 +326,19 @@ namespace Jint.Native.Array
                 return -1;
             }
 
-            var n = arguments.Length > 1 ? TypeConverter.ToInteger(arguments[1]) : 0;
+            var n = arguments.Length > 1 ? (uint) TypeConverter.ToInteger(arguments[1]) : 0;
             if (n >= len)
             {
                 return -1;
             }
-            double k;
+            uint k;
             if (n >= 0)
             {
                 k = n;
             }
             else
             {
-                k = len - System.Math.Abs(n);
+                k = len - (uint) System.Math.Abs(n);
                 if (k < 0)
                 {
                     k = 0;
@@ -347,7 +347,7 @@ namespace Jint.Native.Array
             var searchElement = arguments.At(0);
             for (; k < len; k++)
             {
-                var kString = k.ToString();
+                var kString = TypeConverter.ToString(k);
                 if (o.TryGetValue(kString, out var elementK))
                 {
                     var same = ExpressionInterpreter.StrictlyEqual(elementK, searchElement);

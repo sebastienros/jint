@@ -8,9 +8,6 @@ namespace Jint.Native.Array
 {
     public class ArrayInstance : ObjectInstance
     {
-        // cache key container for array iteration for less allocations
-        private static readonly ThreadLocal<List<uint>> keyCache = new ThreadLocal<List<uint>>(() => new List<uint>());
-
         private readonly Engine _engine;
         private readonly Dictionary<uint, PropertyDescriptor> _array;
         private PropertyDescriptor _length;
@@ -18,7 +15,7 @@ namespace Jint.Native.Array
         public ArrayInstance(Engine engine, uint size = 0) : base(engine)
         {
             _engine = engine;
-            _array = new Dictionary<uint, PropertyDescriptor>((int) (size < int.MaxValue ? size : int.MaxValue));
+            _array = new Dictionary<uint, PropertyDescriptor>((int) (size <= 1024 ? size : 1024));
         }
 
         public override string Class => "Array";
@@ -118,7 +115,7 @@ namespace Jint.Native.Array
 
                 if (_array.Count < oldLen - newLen)
                 {
-                    var keys = keyCache.Value;
+                    var keys = ArrayExecutionContext.Current.KeyCache;
                     keys.Clear();
                     keys.AddRange(_array.Keys);
                     foreach (var keyIndex in keys)
