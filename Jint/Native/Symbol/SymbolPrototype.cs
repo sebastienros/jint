@@ -1,19 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Jint.Native.Array;
-using Jint.Native.Function;
-using Jint.Native.Object;
-using Jint.Native.RegExp;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Symbol
 {
-
-
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.4
     /// </summary>
