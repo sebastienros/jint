@@ -16,7 +16,10 @@ namespace Jint.Native.Array
         }
 
         public List<uint> KeyCache = new List<uint>();
+
+        public JsValue[] CallArray1 = new JsValue[1];
         public JsValue[] CallArray3 = new JsValue[3];
+        public JsValue[] CallArray4 = new JsValue[4];
 
         public static ArrayExecutionContext Current => _executionContext.Value;
     }

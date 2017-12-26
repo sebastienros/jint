@@ -1,13 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <NeutralLanguage>en-US</NeutralLanguage>
     <TargetFramework>netstandard2.0</TargetFramework>
     <AssemblyOriginatorKeyFile>Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
   </PropertyGroup>
-
   <ItemGroup>
-    <PackageReference Include="Esprima" Version="1.0.0-beta-1000" /> 
+    <PackageReference Include="Esprima" Version="1.0.0-beta-1011" />
   </ItemGroup>
 </Project>

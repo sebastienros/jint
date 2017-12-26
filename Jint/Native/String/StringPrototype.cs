@@ -269,12 +269,12 @@ namespace Jint.Native.String
 
                 if (!match.Success) // No match at all return the string in an array
                 {
-                    a.DefineOwnProperty("0", new PropertyDescriptor(s, true, true, true), false);
+                    a.SetIndexValue(0, s, throwOnError: false);
                     return a;
                 }
 
                 int lastIndex = 0;
-                int index = 0;
+                uint index = 0;
                 while (match.Success && index < limit)
                 {
                     if (match.Length == 0 && (match.Index == 0 || match.Index == len || match.Index == lastIndex))
@@ -284,7 +284,7 @@ namespace Jint.Native.String
                     }
 
                     // Add the match results to the array.
-                    a.DefineOwnProperty(TypeConverter.ToString(index++), new PropertyDescriptor(s.Substring(lastIndex, match.Index - lastIndex), true, true, true), false);
+                    a.SetIndexValue(index++, s.Substring(lastIndex, match.Index - lastIndex), throwOnError: false);
 
                     if (index >= limit)
                     {
@@ -301,7 +301,7 @@ namespace Jint.Native.String
                             item = match.Groups[i].Value;
                         }
 
-                        a.DefineOwnProperty(TypeConverter.ToString(index++), new PropertyDescriptor(item, true, true, true ), false);
+                        a.SetIndexValue(index++, item, throwOnError: false);
 
                         if (index >= limit)
                         {
@@ -312,7 +312,7 @@ namespace Jint.Native.String
                     match = match.NextMatch();
                     if (!match.Success) // Add the last part of the split
                     {
-                        a.DefineOwnProperty(TypeConverter.ToString(index++), new PropertyDescriptor(s.Substring(lastIndex), true, true, true), false);
+                        a.SetIndexValue(index++, s.Substring(lastIndex), throwOnError: false);
                     }
                 }
 
@@ -338,7 +338,7 @@ namespace Jint.Native.String
 
                 for (int i = 0; i < segments.Count && i < limit; i++)
                 {
-                    a.DefineOwnProperty(TypeConverter.ToString(i), new PropertyDescriptor(segments[i], true, true, true), false);
+                    a.SetIndexValue((uint) i, segments[i], throwOnError: false);
                 }
 
                 return a;
@@ -578,9 +578,9 @@ namespace Jint.Native.String
             else
             {
                 rx.Put("lastIndex", 0, false);
-                var a = Engine.Array.Construct(Arguments.Empty);
+                var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
                 double previousLastIndex = 0;
-                var n = 0;
+                uint n = 0;
                 var lastMatch = true;
                 while (lastMatch)
                 {
@@ -599,7 +599,7 @@ namespace Jint.Native.String
                         }
 
                         var matchStr = result.Get("0");
-                        a.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(matchStr, true, true, true), false);
+                        a.SetIndexValue(n, matchStr, throwOnError: false);
                         n++;
                     }
                 }

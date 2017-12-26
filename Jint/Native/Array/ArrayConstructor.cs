@@ -37,7 +37,7 @@ namespace Jint.Native.Array
             FastAddProperty("isArray", new ClrFunctionInstance(Engine, IsArray, 1), true, false, true);
         }
 
-        private JsValue IsArray(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsArray(JsValue thisObj, JsValue[] arguments)
         {
             if (arguments.Length == 0)
             {
@@ -59,7 +59,7 @@ namespace Jint.Native.Array
             return Construct(arguments, 0);
         }
 
-        public ObjectInstance Construct(int capacity)
+        public ArrayInstance Construct(int capacity)
         {
             if (capacity < 0)
             {
@@ -68,12 +68,12 @@ namespace Jint.Native.Array
             return Construct(System.Array.Empty<JsValue>(), (uint) capacity);
         }
 
-        public ObjectInstance Construct(uint capacity)
+        public ArrayInstance Construct(uint capacity)
         {
             return Construct(System.Array.Empty<JsValue>(), capacity);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments, uint capacity)
+        public ArrayInstance Construct(JsValue[] arguments, uint capacity)
         {
             var instance = new ArrayInstance(Engine, capacity);
             instance.Prototype = PrototypeObject;
@@ -95,7 +95,7 @@ namespace Jint.Native.Array
 
                 if (enumerable != null)
                 {
-                    var jsArray = Engine.Array.Construct(Arguments.Empty);
+                    var jsArray = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
                     foreach (var item in enumerable)
                     {
                         var jsItem = JsValue.FromObject(Engine, item);

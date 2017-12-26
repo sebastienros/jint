@@ -355,6 +355,9 @@ namespace Jint.Native.Global
             '~', '*', '\'', '(', ')'
         };
 
+        private static readonly char[] UnescapedUriSet = UriReserved.Concat(UriUnescaped).Concat(new[] { '#' }).ToArray();
+        private static readonly char[] ReservedUriSet = UriReserved.Concat(new[] { '#' }).ToArray();
+
         private const string HexaMap = "0123456789ABCDEF";
 
         private static bool IsValidHexaChar(char c)
@@ -373,9 +376,8 @@ namespace Jint.Native.Global
         public JsValue EncodeUri(JsValue thisObject, JsValue[] arguments)
         {
             var uriString = TypeConverter.ToString(arguments.At(0));
-            var unescapedUriSet = UriReserved.Concat(UriUnescaped).Concat(new[] { '#' }).ToArray();
 
-            return Encode(uriString, unescapedUriSet);
+            return Encode(uriString, UnescapedUriSet);
         }
 
 
@@ -498,9 +500,8 @@ namespace Jint.Native.Global
         public JsValue DecodeUri(JsValue thisObject, JsValue[] arguments)
         {
             var uriString = TypeConverter.ToString(arguments.At(0));
-            var reservedUriSet = UriReserved.Concat(new[] { '#' }).ToArray();
 
-            return Decode(uriString, reservedUriSet);
+            return Decode(uriString, ReservedUriSet);
         }
 
         public JsValue DecodeUriComponent(JsValue thisObject, JsValue[] arguments)

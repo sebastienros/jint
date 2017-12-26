@@ -186,5 +186,35 @@ namespace Jint.Runtime.Descriptors
 
             return obj;
         }
+
+        internal bool TryGetValue(ObjectInstance thisArg, out JsValue value)
+        {
+            value = JsValue.Undefined;
+
+            if (this == Undefined)
+            {
+                value = JsValue.Undefined;
+                return false;
+            }
+
+            if (IsDataDescriptor())
+            {
+                var val = Value;
+                if (val != null)
+                {
+                    value = val;
+                    return true;
+                }
+            }
+
+            if (Get != null && !Get.IsUndefined())
+            {
+                // if getter is not undefined it must be ICallable
+                var callable = Get.TryCast<ICallable>();
+                value = callable.Call(thisArg, Arguments.Empty);
+            }
+
+            return true;
+        }
     }
 }

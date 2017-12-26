@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Number;
 using Jint.Runtime.Descriptors;
@@ -610,18 +611,18 @@ namespace Jint.Runtime
 
         public JsValue EvaluateLiteral(Literal literal)
         {
-            switch (literal.TokenType)
-            {
-                case TokenType.BooleanLiteral:
+                switch (literal.TokenType)
+                {
+                    case TokenType.BooleanLiteral:
                     return literal.BooleanValue ? JsValue.True : JsValue.False;
-                case TokenType.NullLiteral:
-                    return JsValue.Null;
-                case TokenType.NumericLiteral:
+                    case TokenType.NullLiteral:
+                        return JsValue.Null;
+                    case TokenType.NumericLiteral:
                     // implicit conversion operator goes through caching
                     return literal.NumericValue;
-                case TokenType.StringLiteral:
-                    return new JsValue(literal.StringValue);
-            }
+                    case TokenType.StringLiteral:
+                        return new JsValue(literal.StringValue);
+                }
 
             if (literal.RegexValue != null) //(literal.Type == Nodes.RegularExpressionLiteral)
             {
@@ -910,7 +911,7 @@ namespace Jint.Runtime
             var result = Undefined.Instance;
             foreach (var expression in sequenceExpression.Expressions)
             {
-                result = _engine.GetValue(_engine.EvaluateExpression(expression));
+                result = _engine.GetValue(_engine.EvaluateExpression(expression.As<Expression>()));
             }
 
             return result;
@@ -985,17 +986,14 @@ namespace Jint.Runtime
 
         public JsValue EvaluateArrayExpression(ArrayExpression arrayExpression)
         {
-            var elements = (List<ArrayExpressionElement>) arrayExpression.Elements;
-            var count = elements.Count;
-            var a = _engine.Array.Construct(new JsValue[] { count });
-            for (var n = 0; n < count; n++)
+            var a = (ArrayInstance) _engine.Array.Construct(new JsValue[] { arrayExpression.Elements.Count });
+            uint n = 0;
+            foreach (var expr in arrayExpression.Elements)
             {
-                var expr = elements[n];
                 if (expr != null)
                 {
                     var value = _engine.GetValue(EvaluateExpression(expr.As<Expression>()));
-                    a.DefineOwnProperty(TypeConverter.ToString(n),
-                        new PropertyDescriptor(value, true, true, true), false);
+                    a.SetIndexValue(n, value, throwOnError: false);
                 }
             }
 
@@ -1099,7 +1097,7 @@ namespace Jint.Runtime
                 var argument = (Expression) expressionArguments[i];
                 arguments[i] = _engine.GetValue(EvaluateExpression(argument));
                 allLiteral &= argument is Literal;
-            }
+    }
 
             return arguments;
         }
