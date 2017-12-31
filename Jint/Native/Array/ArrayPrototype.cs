@@ -373,7 +373,6 @@ namespace Jint.Native.Array
             var deleteCount = arguments.At(1);
 
             var o = ArrayOperations.For(Engine, thisObj);
-            var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
             var len = o.GetLength();
             var relativeStart = TypeConverter.ToInteger(start);
 
@@ -388,6 +387,7 @@ namespace Jint.Native.Array
             }
 
             var actualDeleteCount = (uint) System.Math.Min(System.Math.Max(TypeConverter.ToInteger(deleteCount), 0), len - actualStart);
+            var a = Engine.Array.Construct(actualDeleteCount);
             for (uint k = 0; k < actualDeleteCount; k++)
             {
                 if (o.TryGetValue(actualStart + k, out var fromValue))
@@ -403,6 +403,8 @@ namespace Jint.Native.Array
                 System.Array.Copy(arguments, 2, items, 0, items.Length);
             }
 
+            var length = len - actualDeleteCount + (uint) items.Length;
+            o.EnsureCapacity(length);
             if (items.Length < actualDeleteCount)
             {
                 for (uint k = actualStart; k < len - actualDeleteCount; k++)
@@ -447,7 +449,7 @@ namespace Jint.Native.Array
                 o.Put(k + actualStart, e, true);
             }
 
-            o.SetLength(len - actualDeleteCount + (uint) items.Length);
+            o.SetLength(length);
             return a;
         }
 
@@ -456,6 +458,7 @@ namespace Jint.Native.Array
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLength();
             var argCount = (uint) arguments.Length;
+            o.EnsureCapacity(len + argCount);
             for (var k = len; k > 0; k--)
             {
                 var from = k - 1;
@@ -763,11 +766,19 @@ namespace Jint.Native.Array
         private JsValue Concat(JsValue thisObj, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(Engine, thisObj);
-            var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
             uint n = 0;
             var items = new List<JsValue>(arguments.Length + 1) {o};
             items.AddRange(arguments);
 
+            // try to find best capacity
+            uint capacity = 0;
+            foreach (var e in items)
+            {
+                var eArray = e.TryCast<ArrayInstance>();
+                capacity += eArray?.GetLength() ?? (uint) 1;
+            }
+
+            var a = Engine.Array.Construct(Arguments.Empty, capacity);
             foreach (var e in items)
             {
                 var eArray = e.TryCast<ArrayInstance>();
@@ -871,10 +882,19 @@ namespace Jint.Native.Array
 
             // cast to double as we need to prevent an overflow
             double n = TypeConverter.ToUint32(lenVal);
+            var arrayInstance = o.Target as ArrayInstance;
             for (var i = 0; i < arguments.Length; i++)
             {
                 JsValue e = arguments[i];
-                o.Target.Put(TypeConverter.ToString(n), e, true);
+                if (arrayInstance != null && n >= 0 && n < uint.MaxValue)
+                {
+                    // try to optimize a bit
+                    arrayInstance.SetIndexValue((uint) n, e, true);
+                }
+                else
+                {
+                    o.Target.Put(TypeConverter.ToString(n), e, true);
+                }
                 n++;
             }
 
@@ -916,6 +936,10 @@ namespace Jint.Native.Array
             public abstract uint GetLength();
 
             public abstract void SetLength(uint length);
+
+            public virtual void EnsureCapacity(uint capacity)
+            {
+            }
 
             public abstract JsValue Get(uint index);
 
@@ -1006,6 +1030,11 @@ namespace Jint.Native.Array
                 public override uint GetLength() => _array.GetLength();
 
                 public override void SetLength(uint length) => _array.Put("length", length, true);
+
+                public override void EnsureCapacity(uint capacity)
+                {
+                    _array.EnsureCapacity(capacity);
+                }
 
                 public override bool TryGetValue(uint index, out JsValue value)
                 {

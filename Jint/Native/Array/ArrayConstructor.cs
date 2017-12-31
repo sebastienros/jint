@@ -56,7 +56,17 @@ namespace Jint.Native.Array
 
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            return Construct(arguments, 0);
+            // check if we can figure out good size
+            var capacity = arguments.Length > 0 ? (uint) arguments.Length : 0;
+            if (arguments.Length == 1 && arguments[0].Type == Types.Number)
+            {
+                var number = arguments[0].AsNumber();
+                if (number > 0)
+                {
+                    capacity = (uint) number;
+                }
+            }
+            return Construct(arguments, capacity);
         }
 
         public ArrayInstance Construct(int capacity)

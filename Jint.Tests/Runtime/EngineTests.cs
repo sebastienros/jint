@@ -311,6 +311,28 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void DenseArrayTurnsToSparseArrayWhenSizeGrowsTooMuch()
+        {
+            RunTest(@"
+                var n = 1024*10+2;
+                var o = Array(n);
+                for (var i = 0; i < n; i++) o[i] = i;
+                assert(o[0] == 0);
+                assert(o[n - 1] == n -1);
+            ");
+        }
+
+        [Fact]
+        public void DenseArrayTurnsToSparseArrayWhenSparseIndexed()
+        {
+            RunTest(@"
+                var o = Array();
+                o[100] = 1;
+                assert(o[100] == 1);
+            ");
+        }
+
+        [Fact]
         public void ArrayPopShouldDecrementLength()
         {
             RunTest(@"
@@ -1893,7 +1915,7 @@ namespace Jint.Tests.Runtime
 
             Assert.True(val.AsString() == "53.6841659");
         }
-		
+
         [Theory]
         [InlineData("", "escape('')")]
         [InlineData("%u0100%u0101%u0102", "escape('\u0100\u0101\u0102')")]

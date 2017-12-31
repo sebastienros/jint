@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Number;
 using Jint.Runtime.Descriptors;
@@ -986,7 +985,8 @@ namespace Jint.Runtime
 
         public JsValue EvaluateArrayExpression(ArrayExpression arrayExpression)
         {
-            var a = (ArrayInstance) _engine.Array.Construct(new JsValue[] { arrayExpression.Elements.Count });
+            var count = (uint) arrayExpression.Elements.Count;
+            var a = _engine.Array.Construct(new JsValue[] { count }, count);
             uint n = 0;
             foreach (var expr in arrayExpression.Elements)
             {
