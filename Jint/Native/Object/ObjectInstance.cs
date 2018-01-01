@@ -8,6 +8,7 @@ namespace Jint.Native.Object
     {
         private const string PropertyNamePrototype = "prototype";
         private const string PropertyNameConstructor = "constructor";
+        private const string PropertyNameLength = "length";
 
         private JsValue _jsValue;
 
@@ -16,6 +17,7 @@ namespace Jint.Native.Object
 
         private PropertyDescriptor _prototype;
         private PropertyDescriptor _constructor;
+        private PropertyDescriptor _length;
 
         public ObjectInstance(Engine engine)
         {
@@ -95,6 +97,10 @@ namespace Jint.Native.Object
             {
                 yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameConstructor, _constructor);
             }
+            if (_length != null)
+            {
+                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameLength, _length);
+            }
 
             if (_properties != null)
             {
@@ -117,6 +123,11 @@ namespace Jint.Native.Object
                 _constructor = descriptor;
                 return;
             }
+            if (propertyName == PropertyNameLength)
+            {
+                _length = descriptor;
+                return;
+            }
 
             if (_properties == null)
             {
@@ -133,11 +144,15 @@ namespace Jint.Native.Object
                 descriptor = _prototype;
                 return _prototype != null;
             }
-
             if (propertyName == PropertyNameConstructor)
             {
                 descriptor = _constructor;
                 return _constructor != null;
+            }
+            if (propertyName == PropertyNameLength)
+            {
+                descriptor = _length;
+                return _length != null;
             }
 
             if (_properties == null)
@@ -161,6 +176,10 @@ namespace Jint.Native.Object
             {
                 return _constructor != null;
             }
+            if (propertyName == PropertyNameLength)
+            {
+                return _length != null;
+            }
 
             return _properties?.ContainsKey(propertyName) ?? false;
         }
@@ -176,6 +195,10 @@ namespace Jint.Native.Object
             if (propertyName == PropertyNameConstructor)
             {
                 _constructor = null;
+            }
+            if (propertyName == PropertyNameLength)
+            {
+                _length = null;
             }
 
             _properties?.Remove(propertyName);
@@ -234,6 +257,10 @@ namespace Jint.Native.Object
             {
                 return _constructor ?? PropertyDescriptor.Undefined;
             }
+            if (propertyName == PropertyNameLength)
+            {
+                return _length ?? PropertyDescriptor.Undefined;
+            }
 
             PropertyDescriptor x;
             if (_properties != null && _properties.TryGetValue(propertyName, out x))
@@ -256,6 +283,11 @@ namespace Jint.Native.Object
             if (propertyName == PropertyNameConstructor)
             {
                 _constructor = desc;
+                return;
+            }
+            if (propertyName == PropertyNameLength)
+            {
+                _length = desc;
                 return;
             }
 
@@ -753,5 +785,7 @@ namespace Jint.Native.Object
         {
             return TypeConverter.ToString(this);
         }
+
+        protected uint GetLengthValue() => TypeConverter.ToUint32(_length.Value);
     }
 }
