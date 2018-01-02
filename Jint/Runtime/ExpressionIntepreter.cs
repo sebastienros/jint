@@ -5,7 +5,6 @@ using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Number;
-using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
@@ -610,20 +609,17 @@ namespace Jint.Runtime
 
         public JsValue EvaluateLiteral(Literal literal)
         {
-            if (literal.Cached)
+            switch (literal.TokenType)
             {
-                switch (literal.TokenType)
-                {
-                    case TokenType.BooleanLiteral:
-                        return literal.BooleanValue ? JsValue.True : JsValue.False;
-                    case TokenType.NullLiteral:
-                        return JsValue.Null;
-                    case TokenType.NumericLiteral:
-                        // implicit conversion operator goes through caching
-                        return literal.NumericValue;
-                    case TokenType.StringLiteral:
-                        return new JsValue(literal.StringValue);
-                }
+                case TokenType.BooleanLiteral:
+                    return literal.BooleanValue ? JsValue.True : JsValue.False;
+                case TokenType.NullLiteral:
+                    return JsValue.Null;
+                case TokenType.NumericLiteral:
+                    // implicit conversion operator goes through caching
+                    return literal.NumericValue;
+                case TokenType.StringLiteral:
+                    return new JsValue(literal.StringValue);
             }
 
             if (literal.RegexValue != null) //(literal.Type == Nodes.RegularExpressionLiteral)
