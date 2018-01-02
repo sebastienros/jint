@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFrameworks>netcoreapp2.0</TargetFrameworks>
     <AssemblyName>Jint.Tests.CommonScripts</AssemblyName>
@@ -14,21 +13,18 @@
     <GenerateAssemblyVersionAttribute>false</GenerateAssemblyVersionAttribute>
     <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
   </PropertyGroup>
-
   <ItemGroup>
     <EmbeddedResource Include="Scripts\*.*" Exclude="bin\**;obj\**;**\*.xproj;packages\**;@(EmbeddedResource)" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.3.0" />
     <PackageReference Include="xunit" Version="2.3.1" />
+    <PackageReference Include="xunit.analyzers" Version="0.8.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.3.1" />
-    <PackageReference Include="xunit.analyzers" Version="0.7.0" />
     <PackageReference Include="xunit.runner.console" Version="2.3.1" />
+    <DotNetCliToolReference Include="dotnet-xunit" Version="2.3.1" />
   </ItemGroup>
-
 </Project>

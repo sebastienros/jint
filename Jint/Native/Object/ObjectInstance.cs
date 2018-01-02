@@ -92,7 +92,7 @@ namespace Jint.Native.Object
             if (_prototype != null)
             {
                 yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNamePrototype, _prototype);
-            }
+        }
             if (_constructor != null)
             {
                 yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameConstructor, _constructor);
@@ -103,7 +103,7 @@ namespace Jint.Native.Object
             }
 
             if (_properties != null)
-            {
+        {
                 foreach (var pair in _properties.GetEnumerator())
                 {
                     yield return pair;
@@ -171,7 +171,7 @@ namespace Jint.Native.Object
             if (propertyName == PropertyNamePrototype)
             {
                 return _prototype != null;
-            }
+        }
             if (propertyName == PropertyNameConstructor)
             {
                 return _constructor != null;
@@ -191,7 +191,7 @@ namespace Jint.Native.Object
             if (propertyName == PropertyNamePrototype)
             {
                 _prototype = null;
-            }
+        }
             if (propertyName == PropertyNameConstructor)
             {
                 _constructor = null;
@@ -254,13 +254,13 @@ namespace Jint.Native.Object
                 return _prototype ?? PropertyDescriptor.Undefined;
             }
             if (propertyName == PropertyNameConstructor)
-            {
+                {
                 return _constructor ?? PropertyDescriptor.Undefined;
-            }
+                }
             if (propertyName == PropertyNameLength)
-            {
+                {
                 return _length ?? PropertyDescriptor.Undefined;
-            }
+                }
 
             PropertyDescriptor x;
             if (_properties != null && _properties.TryGetValue(propertyName, out x))
@@ -279,7 +279,7 @@ namespace Jint.Native.Object
             {
                 _prototype = desc;
                 return;
-            }
+        }
             if (propertyName == PropertyNameConstructor)
             {
                 _constructor = desc;
@@ -319,6 +319,45 @@ namespace Jint.Native.Object
             }
 
             return Prototype.GetProperty(propertyName);
+        }
+
+        public bool TryGetValue(string propertyName, out JsValue value)
+        {
+            value = JsValue.Undefined;
+            var desc = GetOwnProperty(propertyName);
+            if (desc != null && desc != PropertyDescriptor.Undefined)
+            {
+                if (desc == PropertyDescriptor.Undefined)
+                {
+                    return false;
+                }
+
+                if (desc.IsDataDescriptor() && desc.Value != null)
+                {
+                    value = desc.Value;
+                    return true;
+                }
+
+                var getter = desc.Get != null ? desc.Get : Undefined.Instance;
+
+                if (getter.IsUndefined())
+                {
+                    value = Undefined.Instance;
+                    return false;
+                }
+
+                // if getter is not undefined it must be ICallable
+                var callable = getter.TryCast<ICallable>();
+                value = callable.Call(this, Arguments.Empty);
+                return true;
+            }
+
+            if(Prototype == null)
+            {
+                return false;
+            }
+
+            return Prototype.TryGetValue(propertyName, out value);
         }
 
         /// <summary>

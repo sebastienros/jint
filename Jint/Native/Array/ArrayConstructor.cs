@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -19,7 +20,7 @@ namespace Jint.Native.Array
             var obj = new ArrayConstructor(engine);
             obj.Extensible = true;
 
-            // The value of the [[Prototype]] internal property of the Array constructor is the Function prototype object 
+            // The value of the [[Prototype]] internal property of the Array constructor is the Function prototype object
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = ArrayPrototype.CreatePrototypeObject(engine, obj);
 
@@ -36,7 +37,7 @@ namespace Jint.Native.Array
             FastAddProperty("isArray", new ClrFunctionInstance(Engine, IsArray, 1), true, false, true);
         }
 
-        private JsValue IsArray(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsArray(JsValue thisObj, JsValue[] arguments)
         {
             if (arguments.Length == 0)
             {
@@ -55,7 +56,36 @@ namespace Jint.Native.Array
 
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            var instance = new ArrayInstance(Engine);
+            // check if we can figure out good size
+            var capacity = arguments.Length > 0 ? (uint) arguments.Length : 0;
+            if (arguments.Length == 1 && arguments[0].Type == Types.Number)
+            {
+                var number = arguments[0].AsNumber();
+                if (number > 0)
+                {
+                    capacity = (uint) number;
+                }
+            }
+            return Construct(arguments, capacity);
+        }
+
+        public ArrayInstance Construct(int capacity)
+        {
+            if (capacity < 0)
+            {
+                throw new ArgumentException("invalid array length", nameof(capacity));
+            }
+            return Construct(System.Array.Empty<JsValue>(), (uint) capacity);
+        }
+
+        public ArrayInstance Construct(uint capacity)
+        {
+            return Construct(System.Array.Empty<JsValue>(), capacity);
+        }
+
+        public ArrayInstance Construct(JsValue[] arguments, uint capacity)
+        {
+            var instance = new ArrayInstance(Engine, capacity);
             instance.Prototype = PrototypeObject;
             instance.Extensible = true;
 
@@ -66,7 +96,7 @@ namespace Jint.Native.Array
                 {
                     throw new JavaScriptException(Engine.RangeError, "Invalid array length");
                 }
-                
+
                 instance.FastAddProperty("length", length, true, false, false);
             }
             else if (arguments.Length == 1 && arguments.At(0).IsObject() && arguments.At(0).As<ObjectWrapper>() != null )
@@ -75,7 +105,7 @@ namespace Jint.Native.Array
 
                 if (enumerable != null)
                 {
-                    var jsArray = Engine.Array.Construct(Arguments.Empty);
+                    var jsArray = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
                     foreach (var item in enumerable)
                     {
                         var jsItem = JsValue.FromObject(Engine, item);

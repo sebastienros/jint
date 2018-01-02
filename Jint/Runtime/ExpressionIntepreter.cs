@@ -910,7 +910,7 @@ namespace Jint.Runtime
             var result = Undefined.Instance;
             foreach (var expression in sequenceExpression.Expressions)
             {
-                result = _engine.GetValue(_engine.EvaluateExpression(expression));
+                result = _engine.GetValue(_engine.EvaluateExpression(expression.As<Expression>()));
             }
 
             return result;
@@ -987,15 +987,14 @@ namespace Jint.Runtime
         {
             var elements = arrayExpression.Elements;
             var count = elements.Count;
-            var a = _engine.Array.Construct(new JsValue[] { count });
+            var a = _engine.Array.Construct(new JsValue[] {count}, (uint) count);
             for (var n = 0; n < count; n++)
             {
                 var expr = elements[n];
                 if (expr != null)
                 {
                     var value = _engine.GetValue(EvaluateExpression(expr.As<Expression>()));
-                    a.DefineOwnProperty(TypeConverter.ToString(n),
-                        new PropertyDescriptor(value, true, true, true), false);
+                    a.SetIndexValue((uint) n, value, throwOnError: false);
                 }
             }
 

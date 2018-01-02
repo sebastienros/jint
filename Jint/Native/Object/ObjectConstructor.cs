@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.String;
 using Jint.Runtime;
@@ -140,22 +141,25 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var array = Engine.Array.Construct(Arguments.Empty);
-            var n = 0;
+            uint n = 0;
 
-            var s = o as StringInstance;
-            if (s != null)
+            ArrayInstance array = null;
+            var ownProperties = o.GetOwnProperties().ToList();
+            if (o is StringInstance s)
             {
-                for (var i = 0; i < s.PrimitiveValue.AsString().Length; i++)
+                var length = s.PrimitiveValue.AsString().Length;
+                array = Engine.Array.Construct(ownProperties.Count + length);
+                for (var i = 0; i < length; i++)
                 {
-                    array.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(TypeConverter.ToString(i), true, true, true), false);
+                    array.SetIndexValue(n, TypeConverter.ToString(i), throwOnError: false);
                     n++;
                 }
             }
 
-            foreach (var p in o.GetOwnProperties())
+            array = array ?? Engine.Array.Construct(ownProperties.Count);
+            foreach (var p in ownProperties)
             {
-                array.DefineOwnProperty(TypeConverter.ToString(n), new PropertyDescriptor(p.Key, true, true, true), false);
+                array.SetIndexValue(n, p.Key, false);
                 n++;
             }
 
@@ -243,7 +247,8 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            foreach (var prop in o.GetOwnProperties())
+            var properties = new List<KeyValuePair<string, PropertyDescriptor>>(o.GetOwnProperties());
+            foreach (var prop in properties)
             {
                 if (prop.Value.Configurable.HasValue && prop.Value.Configurable.Value)
                 {
@@ -267,10 +272,10 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var keys = o.GetOwnProperties().Select(x => x.Key);
-            foreach (var p in keys)
+            var properties = new List<KeyValuePair<string, PropertyDescriptor>>(o.GetOwnProperties());
+            foreach (var p in properties)
             {
-                var desc = o.GetOwnProperty(p);
+                var desc = o.GetOwnProperty(p.Key);
                 if (desc.IsDataDescriptor())
                 {
                     if (desc.Writable.HasValue && desc.Writable.Value)
@@ -282,7 +287,7 @@ namespace Jint.Native.Object
                 {
                     desc.Configurable = false;
                 }
-                o.DefineOwnProperty(p, desc, true);
+                o.DefineOwnProperty(p.Key, desc, true);
             }
 
             o.Extensible = false;
@@ -387,15 +392,12 @@ namespace Jint.Native.Object
                 .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value)
                 .ToArray();
             var n = enumerableProperties.Length;
-            var array = Engine.Array.Construct(new JsValue[] {n});
-            var index = 0;
+            var array = Engine.Array.Construct(new JsValue[] {n}, (uint) n);
+            uint index = 0;
             foreach (var prop in enumerableProperties)
             {
                 var p = prop.Key;
-                array.DefineOwnProperty(
-                    TypeConverter.ToString(index),
-                    new PropertyDescriptor(p, true, true, true),
-                    false);
+                array.SetIndexValue(index, p, throwOnError: false);
                 index++;
             }
             return array;

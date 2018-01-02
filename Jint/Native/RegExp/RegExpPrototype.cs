@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using Jint.Native.Array;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -80,7 +81,7 @@ namespace Jint.Native.RegExp
             if (R.Source == "(?:)")  // Reg Exp is really ""
             {
                 // "aaa".match() => [ '', index: 0, input: 'aaa' ]
-                var aa = InitReturnValueArray(Engine.Array.Construct(Arguments.Empty), s, 1, 0);
+                var aa = InitReturnValueArray((ArrayInstance) Engine.Array.Construct(Arguments.Empty), s, 1, 0);
                 aa.DefineOwnProperty("0", new PropertyDescriptor("", true, true, true), true);
                 return aa;
             }
@@ -109,19 +110,19 @@ namespace Jint.Native.RegExp
             var n = r.Groups.Count;
             var matchIndex = r.Index;
 
-            var a = InitReturnValueArray(Engine.Array.Construct(Arguments.Empty), s, n, matchIndex);
+            var a = InitReturnValueArray((ArrayInstance) Engine.Array.Construct(Arguments.Empty), s, n, matchIndex);
 
-            for (var k = 0; k < n; k++)
+            for (uint k = 0; k < n; k++)
             {
-                var group = r.Groups[k];
+                var group = r.Groups[(int) k];
                 var value = group.Success ? group.Value : Undefined.Instance;
-                a.DefineOwnProperty(TypeConverter.ToString(k), new PropertyDescriptor(value, true, true, true), true);
+                a.SetIndexValue(k, value, throwOnError: true);
             }
 
             return a;
         }
 
-        private static Object.ObjectInstance InitReturnValueArray(Object.ObjectInstance array, string inputValue, int lengthValue, int indexValue)
+        private static ArrayInstance InitReturnValueArray(ArrayInstance array, string inputValue, int lengthValue, int indexValue)
         {
             array.DefineOwnProperty("index", new PropertyDescriptor(indexValue, writable: true, enumerable: true, configurable: true), true);
             array.DefineOwnProperty("input", new PropertyDescriptor(inputValue, writable: true, enumerable: true, configurable: true), true);
