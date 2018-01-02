@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Linq.Expressions;
-using Jint.Native;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
+using Jint.Native;
 
 namespace Jint.Runtime.Interop
 {
@@ -14,9 +13,9 @@ namespace Jint.Runtime.Interop
         private static readonly Dictionary<string, bool> _knownConversions = new Dictionary<string, bool>();
         private static readonly object _lockObject = new object();
 
-        private static MethodInfo convertChangeType = typeof(System.Convert).GetMethod("ChangeType", new Type[] { typeof(object), typeof(Type), typeof(IFormatProvider) });
-        private static MethodInfo jsValueFromObject = typeof(JsValue).GetMethod("FromObject");
-        private static MethodInfo jsValueToObject = typeof(JsValue).GetMethod("ToObject");
+        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new Type[] { typeof(object), typeof(Type), typeof(IFormatProvider) });
+        private static readonly MethodInfo jsValueFromObject = typeof(JsValue).GetMethod("FromObject");
+        private static readonly MethodInfo jsValueToObject = typeof(JsValue).GetMethod("ToObject");
 
         public DefaultTypeConverter(Engine engine)
         {
@@ -67,13 +66,13 @@ namespace Jint.Runtime.Interop
                     {
                         var genericArguments = type.GetGenericArguments();
 
-                        var @params = new ParameterExpression[genericArguments.Count()];
-                        for (var i = 0; i < @params.Count(); i++)
+                        var @params = new ParameterExpression[genericArguments.Length];
+                        for (var i = 0; i < @params.Length; i++)
                         {
                             @params[i] = Expression.Parameter(genericArguments[i], genericArguments[i].Name + i);
                         }
                         var tmpVars = new Expression[@params.Length];
-                        for (var i = 0; i < @params.Count(); i++)
+                        for (var i = 0; i < @params.Length; i++)
                         {
                             var param = @params[i];
                             if (param.Type.IsValueType())
@@ -100,22 +99,21 @@ namespace Jint.Runtime.Interop
                     else if (genericType.Name.StartsWith("Func"))
                     {
                         var genericArguments = type.GetGenericArguments();
-                        var returnType = genericArguments.Last();
+                        var returnType = genericArguments[genericArguments.Length - 1];
 
-                        var @params = new ParameterExpression[genericArguments.Count() - 1];
-                        for (var i = 0; i < @params.Count(); i++)
+                        var @params = new ParameterExpression[genericArguments.Length - 1];
+                        for (var i = 0; i < @params.Length; i++)
                         {
                             @params[i] = Expression.Parameter(genericArguments[i], genericArguments[i].Name + i);
                         }
 
-                        var @vars =
-                            Expression.NewArrayInit(typeof(JsValue),
-                                @params.Select(p =>
-                                {
-                                    var boxingExpression = Expression.Convert(p, typeof(object));
-                                    return Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, typeof(Engine)), boxingExpression);
-                                })
-                            );
+                        var initializers = new MethodCallExpression[@params.Length];
+                        for (int i = 0; i < @params.Length; i++)
+                        {
+                            var boxingExpression = Expression.Convert(@params[i], typeof(object));
+                            initializers[i]= Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, typeof(Engine)), boxingExpression);
+                        }
+                        var @vars = Expression.NewArrayInit(typeof(JsValue), initializers);
 
                         // the final result's type needs to be changed before casting,
                         // for instance when a function returns a number (double) but C# expects an integer
@@ -148,12 +146,19 @@ namespace Jint.Runtime.Interop
                         var method = type.GetMethod("Invoke");
                         var arguments = method.GetParameters();
 
-                        var @params = new ParameterExpression[arguments.Count()];
-                        for (var i = 0; i < @params.Count(); i++)
+                        var @params = new ParameterExpression[arguments.Length];
+                        for (var i = 0; i < @params.Length; i++)
                         {
                             @params[i] = Expression.Parameter(typeof(object), arguments[i].Name);
                         }
-                        var @vars = Expression.NewArrayInit(typeof(JsValue), @params.Select(p => Expression.Call(null, typeof(JsValue).GetMethod("FromObject"), Expression.Constant(_engine, typeof(Engine)), p)));
+
+                        var initializers = new MethodCallExpression[@params.Length];
+                        for (int i = 0; i < @params.Length; i++)
+                        {
+                            initializers[i] = Expression.Call(null, typeof(JsValue).GetMethod("FromObject"), Expression.Constant(_engine, typeof(Engine)), @params[i]);
+                        }
+
+                        var @vars = Expression.NewArrayInit(typeof(JsValue), initializers);
 
                         var callExpression = Expression.Block(
                                                 Expression.Call(
@@ -179,7 +184,11 @@ namespace Jint.Runtime.Interop
                     throw new ArgumentException(String.Format("Value of object[] type is expected, but actual type is {0}.", value.GetType()));
 
                 var targetElementType = type.GetElementType();
-                var itemsConverted = source.Select(o => Convert(o, targetElementType, formatProvider)).ToArray();
+                var itemsConverted = new object[source.Length];
+                for (int i = 0; i < source.Length; i++)
+                {
+                    itemsConverted[i] = Convert(source[i], targetElementType, formatProvider);
+                }
                 var result = Array.CreateInstance(targetElementType, source.Length);
                 itemsConverted.CopyTo(result, 0);
                 return result;

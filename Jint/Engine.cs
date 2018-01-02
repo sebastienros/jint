@@ -444,7 +444,7 @@ namespace Jint
             }
         }
 
-        public object EvaluateExpression(Expression expression)
+        public object EvaluateExpression(INode expression)
         {
             _lastSyntaxNode = expression;
 
@@ -679,7 +679,8 @@ namespace Jint
         /// <summary>
         /// Invoke the current value as function.
         /// </summary>
-        /// <param name="propertyName">The arguments of the function call.</param>
+        /// <param name="propertyName">The name of the function to call.</param>
+        /// <param name="arguments">The arguments of the function call.</param>
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(string propertyName, params object[] arguments)
         {
@@ -868,7 +869,7 @@ namespace Jint
             for (var i = 0; i < variableDeclarations.Count; i++)
             {
                 var variableDeclaration = variableDeclarations[i];
-                var declarations  = (List<VariableDeclarator>) variableDeclaration.Declarations;
+                var declarations  = variableDeclaration.Declarations;
                 foreach (var d in declarations)
                 {
                     var dn = d.Id.As<Identifier>().Name;
