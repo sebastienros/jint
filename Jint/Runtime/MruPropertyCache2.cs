@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace Jint.Runtime
 {
-    public class MruPropertyCache2<TKey, TValue> where TKey : class where TValue : class
+    internal class MruPropertyCache2<TKey, TValue> where TKey : class where TValue : class
     {
         private Dictionary<TKey, TValue> _dictionary;
         private bool _set;

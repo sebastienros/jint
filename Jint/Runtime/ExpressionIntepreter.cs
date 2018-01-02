@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Number;
 using Jint.Runtime.Descriptors;
@@ -611,18 +610,18 @@ namespace Jint.Runtime
 
         public JsValue EvaluateLiteral(Literal literal)
         {
-                switch (literal.TokenType)
-                {
-                    case TokenType.BooleanLiteral:
+            switch (literal.TokenType)
+            {
+                case TokenType.BooleanLiteral:
                     return literal.BooleanValue ? JsValue.True : JsValue.False;
-                    case TokenType.NullLiteral:
-                        return JsValue.Null;
-                    case TokenType.NumericLiteral:
+                case TokenType.NullLiteral:
+                    return JsValue.Null;
+                case TokenType.NumericLiteral:
                     // implicit conversion operator goes through caching
                     return literal.NumericValue;
-                    case TokenType.StringLiteral:
-                        return new JsValue(literal.StringValue);
-                }
+                case TokenType.StringLiteral:
+                    return new JsValue(literal.StringValue);
+            }
 
             if (literal.RegexValue != null) //(literal.Type == Nodes.RegularExpressionLiteral)
             {
@@ -1099,7 +1098,7 @@ namespace Jint.Runtime
                 var argument = (Expression) expressionArguments[i];
                 arguments[i] = _engine.GetValue(EvaluateExpression(argument));
                 allLiteral &= argument is Literal;
-    }
+            }
 
             return arguments;
         }
