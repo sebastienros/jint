@@ -68,7 +68,7 @@ namespace Jint.Runtime.Environments
         {
             if (_provideThis)
             {
-                return new JsValue(_bindingObject);
+                return _bindingObject.JsValue;
             }
 
             return Undefined.Instance;

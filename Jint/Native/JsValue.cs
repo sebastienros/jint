@@ -20,10 +20,39 @@ namespace Jint.Native
     [DebuggerTypeProxy(typeof(JsValueDebugView))]
     public class JsValue : IEquatable<JsValue>
     {
-        public readonly static JsValue Undefined = new JsValue(Types.Undefined);
-        public readonly static JsValue Null = new JsValue(Types.Null);
-        public readonly static JsValue False = new JsValue(false);
-        public readonly static JsValue True = new JsValue(true);
+        // we can cache most common values, doubles are used in indexing too at times so we also cache
+        // integer values converted to doubles
+        private static readonly Dictionary<double, JsValue> _doubleToJsValue = new Dictionary<double, JsValue>();
+        private static readonly JsValue[] _intToJsValue = new JsValue[1024];
+        private static readonly JsValue[] _charToJsValue = new JsValue[256];
+
+        private static readonly JsValue _function = new JsValue("function");
+
+        public static readonly JsValue Undefined = new JsValue(Types.Undefined);
+        public static readonly JsValue Null = new JsValue(Types.Null);
+        public static readonly JsValue False = new JsValue(false);
+        public static readonly JsValue True = new JsValue(true);
+
+        private readonly double _double;
+        private readonly object _object;
+        protected Types _type;
+
+        static JsValue()
+        {
+            for (int i = 0; i < _intToJsValue.Length; i++)
+            {
+                _intToJsValue[i] = new JsValue(i);
+                if (i != 0)
+                {
+                    // zero can be problematic
+                    _doubleToJsValue[i] = new JsValue((double) i);
+                }
+            }
+            for (int i = 0; i < _charToJsValue.Length; i++)
+            {
+                _charToJsValue[i] = new JsValue((char) i);
+            }
+        }
 
         public JsValue(bool value)
         {
@@ -38,6 +67,29 @@ namespace Jint.Native
             _type = Types.Number;
 
             _double = value;
+        }
+
+        public JsValue(int value)
+        {
+            _object = null;
+            _type = Types.Number;
+
+            _double = value;
+        }
+
+        public JsValue(uint value)
+        {
+            _object = null;
+            _type = Types.Number;
+
+            _double = value;
+        }
+
+        public JsValue(char value)
+        {
+            _double = double.NaN;
+            _object = value;
+            _type = Types.String;
         }
 
         public JsValue(string value)
@@ -69,12 +121,6 @@ namespace Jint.Native
             _object = null;
             _type = type;
         }
-
-        protected double _double;
-
-        protected object _object;
-
-        protected Types _type;
 
         [Pure]
         public bool IsPrimitive()
@@ -335,9 +381,42 @@ namespace Jint.Native
             }
         }
 
-        public Types Type
+        public Types Type => _type;
+
+        internal static JsValue FromInt(int value)
         {
-            get { return _type; }
+            if (value >= 0 && value < _intToJsValue.Length)
+            {
+                return _intToJsValue[value];
+            }
+            return new JsValue(value);
+        }
+
+        internal static JsValue FromInt(uint value)
+        {
+            if (value >= 0 && value < _intToJsValue.Length)
+            {
+                return _intToJsValue[value];
+            }
+            return new JsValue(value);
+        }
+
+        internal static JsValue FromInt(ulong value)
+        {
+            if (value >= 0 && value < (ulong) _intToJsValue.Length)
+            {
+                return _intToJsValue[value];
+            }
+            return new JsValue(value);
+        }
+
+        internal static JsValue FromChar(char value)
+        {
+            if (value >= 0 && value < _charToJsValue.Length)
+            {
+                return _charToJsValue[value];
+            }
+            return new JsValue(value);
         }
 
         /// <summary>
@@ -380,16 +459,16 @@ namespace Jint.Native
                 // Learn conversion, racy, worst case we'll try again later
                 Interlocked.CompareExchange(ref Engine.TypeMappers, new Dictionary<Type, Func<Engine, object, JsValue>>(typeMappers)
                 {
-                    [valueType] = (Engine e, object v) => new JsValue((ObjectInstance)v)
+                    [valueType] = (Engine e, object v) => ((ObjectInstance)v).JsValue
                 }, typeMappers);
-                return new JsValue(instance);
+                return instance.JsValue;
             }
 
             var type = value as Type;
             if(type != null)
             {
                 var typeReference = TypeReference.CreateTypeReference(engine, type);
-                return new JsValue(typeReference);
+                return typeReference.JsValue;
             }
 
             var a = value as System.Array;
@@ -424,7 +503,7 @@ namespace Jint.Native
 
             if (value.GetType().IsEnum())
             {
-                return new JsValue((Int32)value);
+                return FromInt((int) value);
             }
 
             // if no known type could be guessed, wrap it as an ObjectInstance
@@ -662,24 +741,39 @@ namespace Jint.Native
             return !a.Equals(b);
         }
 
+        static public implicit operator JsValue(int value)
+        {
+            return FromInt(value);
+        }
+
         static public implicit operator JsValue(double value)
         {
-            return new JsValue(value);
+            if (value < 0 || value >= _doubleToJsValue.Count || !_doubleToJsValue.TryGetValue(value, out var jsValue))
+            {
+                jsValue = new JsValue(value);
+            }
+            return jsValue;
         }
 
         static public implicit operator JsValue(bool value)
         {
-            return new JsValue(value);
+            return value ? True : False;
         }
 
         static public implicit operator JsValue(string value)
         {
+            // some common ones can be cached here
+            if (value == "function")
+            {
+                return _function;
+            }
+
             return new JsValue(value);
         }
 
         static public implicit operator JsValue(ObjectInstance value)
         {
-            return new JsValue(value);
+            return value.JsValue;
         }
 
         internal class JsValueDebugView

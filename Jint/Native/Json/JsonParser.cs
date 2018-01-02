@@ -787,7 +787,7 @@ namespace Jint.Native.Json
                     var v = Lex().Value;
                     return Null.Instance;
                 case Tokens.BooleanLiteral:
-                    return new JsValue((bool)Lex().Value);
+                    return (bool) Lex().Value ? JsValue.True : JsValue.False;
                 case Tokens.String:
                     return new JsValue((string)Lex().Value);
                 case Tokens.Number:

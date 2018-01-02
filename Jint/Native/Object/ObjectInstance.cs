@@ -8,6 +8,7 @@ namespace Jint.Native.Object
 {
     public class ObjectInstance
     {
+        private JsValue _jsValue;
         private Dictionary<string, PropertyDescriptor> _intrinsicProperties;
 
         public ObjectInstance(Engine engine)
@@ -19,6 +20,14 @@ namespace Jint.Native.Object
         public Engine Engine { get; set; }
 
         protected IDictionary<string, PropertyDescriptor> Properties { get; private set; }
+
+        /// <summary>
+        /// Caches the constructed JS.
+        /// </summary>
+        internal JsValue JsValue
+        {
+            get { return _jsValue = _jsValue ?? new JsValue(this); }
+        }
 
         protected bool TryGetIntrinsicValue(JsSymbol symbol, out JsValue value)
         {
@@ -228,7 +237,7 @@ namespace Jint.Native.Object
             if (desc.IsAccessorDescriptor())
             {
                 var setter = desc.Set.TryCast<ICallable>();
-                setter.Call(new JsValue(this), new [] {value});
+                setter.Call(JsValue, new [] {value});
             }
             else
             {
@@ -356,7 +365,7 @@ namespace Jint.Native.Object
                 var toString = Get("toString").TryCast<ICallable>();
                 if (toString != null)
                 {
-                    var str = toString.Call(new JsValue(this), Arguments.Empty);
+                    var str = toString.Call(JsValue, Arguments.Empty);
                     if (str.IsPrimitive())
                     {
                         return str;
@@ -366,7 +375,7 @@ namespace Jint.Native.Object
                 var valueOf = Get("valueOf").TryCast<ICallable>();
                 if (valueOf != null)
                 {
-                    var val = valueOf.Call(new JsValue(this), Arguments.Empty);
+                    var val = valueOf.Call(JsValue, Arguments.Empty);
                     if (val.IsPrimitive())
                     {
                         return val;
@@ -381,7 +390,7 @@ namespace Jint.Native.Object
                 var valueOf = Get("valueOf").TryCast<ICallable>();
                 if (valueOf != null)
                 {
-                    var val = valueOf.Call(new JsValue(this), Arguments.Empty);
+                    var val = valueOf.Call(JsValue, Arguments.Empty);
                     if (val.IsPrimitive())
                     {
                         return val;
@@ -391,7 +400,7 @@ namespace Jint.Native.Object
                 var toString = Get("toString").TryCast<ICallable>();
                 if (toString != null)
                 {
-                    var str = toString.Call(new JsValue(this), Arguments.Empty);
+                    var str = toString.Call(JsValue, Arguments.Empty);
                     if (str.IsPrimitive())
                     {
                         return str;
