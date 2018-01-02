@@ -985,7 +985,7 @@ namespace Jint.Runtime
 
         public JsValue EvaluateArrayExpression(ArrayExpression arrayExpression)
         {
-            var elements = (List<ArrayExpressionElement>) arrayExpression.Elements;
+            var elements = arrayExpression.Elements;
             var count = elements.Count;
             var a = _engine.Array.Construct(new JsValue[] { count });
             for (var n = 0; n < count; n++)

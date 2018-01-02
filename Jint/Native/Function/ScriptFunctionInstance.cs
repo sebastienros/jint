@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -52,7 +51,7 @@ namespace Jint.Native.Function
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static string[] GetParameterNames(IFunction functionDeclaration)
         {
-            var list = (List<INode>) functionDeclaration.Params;
+            var list = functionDeclaration.Params;
             var count = list.Count;
             var names = new string[count];
             for (var i = 0; i < count; ++i)
