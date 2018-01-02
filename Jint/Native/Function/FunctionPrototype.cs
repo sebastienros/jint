@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -49,7 +47,7 @@ namespace Jint.Native.Function
             var f = new BindFunctionInstance(Engine) {Extensible = true};
             f.TargetFunction = thisObj;
             f.BoundThis = thisArg;
-            f.BoundArgs = arguments.Skip(1).ToArray();
+            f.BoundArgs = arguments.Skip(1);
             f.Prototype = Engine.Function.PrototypeObject;
 
             var o = target as FunctionInstance;
@@ -126,7 +124,7 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            return func.Call(arguments.At(0), arguments.Length == 0 ? arguments : arguments.Skip(1).ToArray());
+            return func.Call(arguments.At(0), arguments.Length == 0 ? arguments : arguments.Skip(1));
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

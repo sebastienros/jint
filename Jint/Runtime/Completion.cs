@@ -8,11 +8,14 @@ namespace Jint.Runtime
     /// </summary>
     public class Completion
     {
-        public static string Normal = "normal";
-        public static string Break = "break";
-        public static string Continue = "continue";
-        public static string Return = "return";
-        public static string Throw = "throw";
+        public const string Normal = "normal";
+        public const string Break = "break";
+        public const string Continue = "continue";
+        public const string Return = "return";
+        public const string Throw = "throw";
+
+        public static readonly Completion Empty = new Completion(Normal, null, null);
+        public static readonly Completion EmptyUndefined = new Completion(Normal, Undefined.Instance, null);
 
         public Completion(string type, JsValue value, string identifier)
         {
@@ -21,9 +24,9 @@ namespace Jint.Runtime
             Identifier = identifier;
         }
 
-        public string Type { get; private set; }
-        public JsValue Value { get; private set; }
-        public string Identifier { get; private set; }
+        public string Type { get; }
+        public JsValue Value { get; }
+        public string Identifier { get; }
 
         public JsValue GetValueOrDefault()
         {

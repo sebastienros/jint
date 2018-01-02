@@ -11,7 +11,7 @@ namespace Jint.Runtime.Environments
     public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
         private readonly Engine _engine;
-        private readonly IDictionary<string, Binding> _bindings = new Dictionary<string, Binding>();
+        private readonly Dictionary<string, Binding> _bindings = new Dictionary<string, Binding>();
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
@@ -27,7 +27,7 @@ namespace Jint.Runtime.Environments
         {
             _bindings.Add(name, new Binding
                 {
-                    Value = Undefined.Instance, 
+                    Value = Undefined.Instance,
                     CanBeDeleted =  canBeDeleted,
                     Mutable = true
                 });
@@ -80,7 +80,7 @@ namespace Jint.Runtime.Environments
             }
 
             _bindings.Remove(name);
-            
+
             return true;
         }
 

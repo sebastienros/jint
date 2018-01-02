@@ -160,4 +160,4 @@ project.lock.json
 .build
 
 .idea
-BenchmarkDotNet.Artifacts
+BenchmarkDotNet.Artifacts*

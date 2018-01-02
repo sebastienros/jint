@@ -1,5 +1,6 @@
 ﻿using System;
-using System.Linq;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -810,12 +811,12 @@ namespace Jint.Runtime
             }
             else
             {
-                arguments = callExpression.Arguments.Select(x => EvaluateExpression(x.As<Expression>())).Select(_engine.GetValue).ToArray();
+                arguments = BuildArguments(callExpression.Arguments, out bool allLiteral);
 
                 if (callExpression.CanBeCached)
                 {
                     // The arguments array can be cached if they are all literals
-                    if (callExpression.Arguments.All(x => x is Literal))
+                    if (allLiteral)
                     {
                         callExpression.CachedArguments = arguments;
                         callExpression.Cached = true;
@@ -927,7 +928,7 @@ namespace Jint.Runtime
                     if (r != null
                         && r.IsStrict()
                         && (r.GetBase().TryCast<EnvironmentRecord>() != null)
-                        && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
+                        && ("eval" == r.GetReferencedName() || "arguments" == r.GetReferencedName()))
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
                     }
@@ -943,7 +944,7 @@ namespace Jint.Runtime
                     if (r != null
                         && r.IsStrict()
                         && (r.GetBase().TryCast<EnvironmentRecord>() != null)
-                        && (Array.IndexOf(new[] { "eval", "arguments" }, r.GetReferencedName()) != -1))
+                        && ("eval" == r.GetReferencedName() || "arguments" == r.GetReferencedName()))
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
                     }
@@ -966,7 +967,7 @@ namespace Jint.Runtime
 
         public JsValue EvaluateNewExpression(NewExpression newExpression)
         {
-            var arguments = newExpression.Arguments.Select(x => EvaluateExpression(x.As<Expression>())).Select(_engine.GetValue).ToArray();
+            var arguments = BuildArguments(newExpression.Arguments, out bool _);
 
             // todo: optimize by defining a common abstract class or interface
             var callee = _engine.GetValue(EvaluateExpression(newExpression.Callee)).TryCast<IConstructor>();
@@ -984,17 +985,18 @@ namespace Jint.Runtime
 
         public JsValue EvaluateArrayExpression(ArrayExpression arrayExpression)
         {
-            var a = _engine.Array.Construct(new JsValue[] { arrayExpression.Elements.Count() });
-            var n = 0;
-            foreach (var expr in arrayExpression.Elements)
+            var elements = (List<ArrayExpressionElement>) arrayExpression.Elements;
+            var count = elements.Count;
+            var a = _engine.Array.Construct(new JsValue[] { count });
+            for (var n = 0; n < count; n++)
             {
+                var expr = elements[n];
                 if (expr != null)
                 {
                     var value = _engine.GetValue(EvaluateExpression(expr.As<Expression>()));
                     a.DefineOwnProperty(TypeConverter.ToString(n),
                         new PropertyDescriptor(value, true, true, true), false);
                 }
-                n++;
             }
 
             return a;
@@ -1084,6 +1086,22 @@ namespace Jint.Runtime
                 default:
                     throw new ArgumentException();
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private JsValue[] BuildArguments(List<ArgumentListElement> expressionArguments, out bool allLiteral)
+        {
+            allLiteral = true;
+            var count = expressionArguments.Count;
+            var arguments = new JsValue[count];
+            for (var i = 0; i < count; i++)
+            {
+                var argument = (Expression) expressionArguments[i];
+                arguments[i] = _engine.GetValue(EvaluateExpression(argument));
+                allLiteral &= argument is Literal;
+            }
+
+            return arguments;
         }
     }
 }
