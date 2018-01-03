@@ -158,61 +158,72 @@ namespace Jint.Runtime
 
             if (o.IsString())
             {
-                var s = StringPrototype.TrimEx(o.AsString());
-
-                if (String.IsNullOrEmpty(s))
-                {
-                    return 0;
-                }
-
-                if ("+Infinity".Equals(s) || "Infinity".Equals(s))
-                {
-                    return double.PositiveInfinity;
-                }
-
-                if ("-Infinity".Equals(s))
-                {
-                    return double.NegativeInfinity;
-                }
-
-                // todo: use a common implementation with JavascriptParser
-                try
-                {
-                    if (!s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var start = s[0];
-                        if (start != '+' && start != '-' && start != '.' && !char.IsDigit(start))
-                        {
-                            return double.NaN;
-                        }
-
-                        double n = Double.Parse(s,
-                            NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
-                            NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
-                            NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
-                        if (s.StartsWith("-") && n.Equals(0))
-                        {
-                            return -0.0;
-                        }
-
-                        return n;
-                    }
-
-                    int i = int.Parse(s.Substring(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-
-                    return i;
-                }
-                catch (OverflowException)
-                {
-                    return s.StartsWith("-") ? double.NegativeInfinity : double.PositiveInfinity;
-                }
-                catch
-                {
-                    return double.NaN;
-                }
+                return ToNumber(o.AsString());
             }
 
             return ToNumber(ToPrimitive(o, Types.Number));
+        }
+
+        private static double ToNumber(string input)
+        {
+            // eager checks to save time and trimming
+            if (string.IsNullOrEmpty(input))
+            {
+                return 0;
+            }
+
+            var s = StringPrototype.TrimEx(input);
+
+            if (string.IsNullOrEmpty(s))
+            {
+                return 0;
+            }
+
+            if ("+Infinity".Equals(s) || "Infinity".Equals(s))
+            {
+                return double.PositiveInfinity;
+            }
+
+            if ("-Infinity".Equals(s))
+            {
+                return double.NegativeInfinity;
+            }
+
+            // todo: use a common implementation with JavascriptParser
+            try
+            {
+                if (!s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                {
+                    var start = s[0];
+                    if (start != '+' && start != '-' && start != '.' && !char.IsDigit(start))
+                    {
+                        return double.NaN;
+                    }
+
+                    double n = Double.Parse(s,
+                        NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
+                        NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
+                        NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
+                    if (s.StartsWith("-") && n.Equals(0))
+                    {
+                        return -0.0;
+                    }
+
+                    return n;
+                }
+
+                int i = int.Parse(s.Substring(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+
+                return i;
+            }
+            catch (OverflowException)
+            {
+                return s.StartsWith("-") ? double.NegativeInfinity : double.PositiveInfinity;
+            }
+            catch
+            {
+                return double.NaN;
+            }
         }
 
         /// <summary>
@@ -221,6 +232,23 @@ namespace Jint.Runtime
         /// <param name="o"></param>
         /// <returns></returns>
         public static double ToInteger(JsValue o)
+        {
+            var number = ToNumber(o);
+
+            if (double.IsNaN(number))
+            {
+                return 0;
+            }
+
+            if (number.Equals(0) || double.IsInfinity(number))
+            {
+                return number;
+            }
+
+            return (long) number;
+        }
+
+        internal static double ToInteger(string o)
         {
             var number = ToNumber(o);
 

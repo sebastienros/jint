@@ -620,7 +620,8 @@ namespace Jint.Runtime
                     // implicit conversion operator goes through caching
                     return literal.NumericValue;
                 case TokenType.StringLiteral:
-                    return new JsValue(literal.StringValue);
+                    // implicit conversion operator goes through caching
+                    return literal.StringValue;
             }
 
             if (literal.RegexValue != null) //(literal.Type == Nodes.RegularExpressionLiteral)
