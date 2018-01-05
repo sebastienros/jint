@@ -365,7 +365,7 @@ namespace Jint.Runtime
             return r;
         }
 
-        public Completion ExecuteSwitchBlock(IEnumerable<SwitchCase> switchBlock, JsValue input)
+        public Completion ExecuteSwitchBlock(List<SwitchCase> switchBlock, JsValue input)
         {
             JsValue v = Undefined.Instance;
             SwitchCase defaultCase = null;
@@ -413,17 +413,15 @@ namespace Jint.Runtime
             return new Completion(Completion.Normal, v, null);
         }
 
-        public Completion ExecuteStatementList(IEnumerable<StatementListItem> statementList)
+        public Completion ExecuteStatementList(List<StatementListItem> statementList)
         {
             var c = Completion.Empty;
             Completion sl = c;
             Statement s = null;
 
-            var list = (List<StatementListItem>) statementList;
-
             try
             {
-                foreach (var statement in list)
+                foreach (var statement in statementList)
                 {
                     s = statement.As<Statement>();
                     c = ExecuteStatement(s);

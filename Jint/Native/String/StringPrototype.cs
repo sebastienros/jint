@@ -733,7 +733,7 @@ namespace Jint.Native.String
             {
                 return double.NaN;
             }
-            return s[position];
+            return (double) s[position];
         }
 
         private JsValue CharAt(JsValue thisObj, JsValue[] arguments)

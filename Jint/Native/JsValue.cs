@@ -142,19 +142,19 @@ namespace Jint.Native
         [Pure]
         public bool IsArray()
         {
-            return IsObject() && AsObject() is ArrayInstance;
+            return _type == Types.Object && _object is ArrayInstance;
         }
 
         [Pure]
         public bool IsDate()
         {
-            return IsObject() && AsObject() is DateInstance;
+            return _type == Types.Object && _object is DateInstance;
         }
 
         [Pure]
         public bool IsRegExp()
         {
-            return IsObject() && AsObject() is RegExpInstance;
+            return _type == Types.Object && _object is RegExpInstance;
         }
 
         [Pure]
@@ -285,7 +285,7 @@ namespace Jint.Native
 
         public bool Is<T>()
         {
-            return IsObject() && AsObject() is T;
+            return _type == Types.Object && _object is T;
         }
 
         public T As<T>() where T : ObjectInstance
@@ -732,12 +732,22 @@ namespace Jint.Native
             return !a.Equals(b);
         }
 
-        public static implicit operator JsValue(int value)
+        static public implicit operator JsValue(char value)
+        {
+            return FromChar(value);
+        }
+
+        static public implicit operator JsValue(int value)
         {
             return FromInt(value);
         }
 
-        public static implicit operator JsValue(double value)
+        static public implicit operator JsValue(uint value)
+        {
+            return FromInt(value);
+        }
+
+        static public implicit operator JsValue(double value)
         {
             if (value < 0 || value >= _doubleToJsValue.Count || !_doubleToJsValue.TryGetValue(value, out var jsValue))
             {
