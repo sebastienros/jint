@@ -40,12 +40,13 @@ namespace Jint.Runtime
         {
             get
             {
+                int count = _set ? 1 : 0;
                 if (_dictionary != null)
                 {
-                    return _dictionary.Count;
+                    count += _dictionary.Count;
                 }
 
-                return _set ? 1 : 0;
+                return count;
             }
         }
 
@@ -142,6 +143,31 @@ namespace Jint.Runtime
                 }
                 _dictionary[_key] = _value;
             }
+        }
+
+        public TKey[] GetKeys()
+        {
+            int size = _set ? 1 : 0;
+            if (_dictionary != null)
+            {
+                size += _dictionary.Count;
+            }
+
+            var keys = new TKey[size];
+            int n = 0;
+            if (_set)
+            {
+                keys[n++] = _key;
+            }
+            if (_dictionary != null)
+            {
+                foreach (var key in _dictionary.Keys)
+                {
+                    keys[n++] = key;
+                }
+            }
+
+            return keys;
         }
     }
 }
