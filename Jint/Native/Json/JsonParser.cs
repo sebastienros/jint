@@ -788,9 +788,11 @@ namespace Jint.Native.Json
                     var v = Lex().Value;
                     return Null.Instance;
                 case Tokens.BooleanLiteral:
+                    // implicit conversion operator goes through caching
                     return (bool) Lex().Value ? JsValue.True : JsValue.False;
                 case Tokens.String:
-                    return new JsValue((string)Lex().Value);
+                    // implicit conversion operator goes through caching
+                    return (string) Lex().Value;
                 case Tokens.Number:
                     return new JsValue((double)Lex().Value);
             }

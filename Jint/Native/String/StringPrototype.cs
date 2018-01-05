@@ -1,19 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Runtime.CompilerServices;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.String
 {
-
-
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.4
     /// </summary>
@@ -79,6 +76,7 @@ namespace Jint.Native.String
         const char BOM_CHAR = '\uFEFF';
         const char MONGOLIAN_VOWEL_SEPARATOR = '\u180E';
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsWhiteSpaceEx(char c)
         {
             return
@@ -92,6 +90,9 @@ namespace Jint.Native.String
         {
             if (s.Length == 0)
                 return string.Empty;
+
+            if (!IsWhiteSpaceEx(s[s.Length - 1]))
+                return s;
 
             var i = s.Length - 1;
             while (i >= 0)
@@ -111,6 +112,9 @@ namespace Jint.Native.String
         {
             if (s.Length == 0)
                 return string.Empty;
+
+            if (!IsWhiteSpaceEx(s[0]))
+                return s;
 
             var i = 0;
             while (i < s.Length)
@@ -165,7 +169,7 @@ namespace Jint.Native.String
         private static int ToIntegerSupportInfinity(JsValue numberVal)
         {
             var doubleVal = TypeConverter.ToInteger(numberVal);
-            var intVal = (int) doubleVal;
+            int intVal;
             if (double.IsPositiveInfinity(doubleVal))
                 intVal = int.MaxValue;
             else if (double.IsNegativeInfinity(doubleVal))
@@ -232,13 +236,12 @@ namespace Jint.Native.String
 
             // Coerce into a number, true will become 1
             var l = arguments.At(1);
-            var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
-            var limit = l == Undefined.Instance ? UInt32.MaxValue : TypeConverter.ToUint32(l);
+            var limit = l == Undefined.Instance ? uint.MaxValue : TypeConverter.ToUint32(l);
             var len = s.Length;
 
             if (limit == 0)
             {
-                return a;
+                return Engine.Array.Construct(Arguments.Empty);
             }
 
             if (separator == Null.Instance)
@@ -265,6 +268,7 @@ namespace Jint.Native.String
                 rx.Source != regExpForMatchingAllCharactere // We need pattern to be defined -> for s.split(new RegExp)
                 )
             {
+                var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
                 var match = rx.Value.Match(s, 0);
 
                 if (!match.Success) // No match at all return the string in an array
@@ -320,11 +324,16 @@ namespace Jint.Native.String
             }
             else
             {
-                List<string> segments;
+                var segments = StringExecutionContext.Current.SplitSegmentList;
+                segments.Clear();
                 var sep = TypeConverter.ToString(separator);
 
                 if (sep == string.Empty || (rx != null && rx.Source == regExpForMatchingAllCharactere)) // for s.split(new RegExp)
                 {
+                    if (s.Length > segments.Capacity)
+                    {
+                        segments.Capacity = s.Length;
+                    }
                     segments = new List<string>(s.Length);
                     foreach (var c in s)
                     {
@@ -333,14 +342,16 @@ namespace Jint.Native.String
                 }
                 else
                 {
-                    segments = new List<string>(s.Split(new[] {sep}, StringSplitOptions.None));
+                    var array = StringExecutionContext.Current.SplitArray1;
+                    array[0] = sep;
+                    segments.AddRange(s.Split(array, StringSplitOptions.None));
                 }
 
+                var a = Engine.Array.Construct(Arguments.Empty, (uint) segments.Count);
                 for (int i = 0; i < segments.Count && i < limit; i++)
                 {
                     a.SetIndexValue((uint) i, segments[i], throwOnError: false);
                 }
-
                 return a;
             }
         }
@@ -435,7 +446,8 @@ namespace Jint.Native.String
                     // $`	Inserts the portion of the string that precedes the matched substring.
                     // $'	Inserts the portion of the string that follows the matched substring.
                     // $n or $nn	Where n or nn are decimal digits, inserts the nth parenthesized submatch string, provided the first argument was a RegExp object.
-                    var replacementBuilder = new StringBuilder();
+                    var replacementBuilder = StringExecutionContext.Current.GetStringBuilder(0);
+                    replacementBuilder.Clear();
                     for (int i = 0; i < replaceString.Length; i++)
                     {
                         char c = replaceString[i];
@@ -497,11 +509,11 @@ namespace Jint.Native.String
 
             if (searchValue.IsNull())
             {
-                searchValue = new JsValue(Null.Text);
+                searchValue = Null.Text;
             }
             if (searchValue.IsUndefined())
             {
-                searchValue = new JsValue(Undefined.Text);
+                searchValue = Undefined.Text;
             }
 
             var rx = TypeConverter.ToObject(Engine, searchValue) as RegExpInstance;
@@ -510,18 +522,17 @@ namespace Jint.Native.String
                 // Replace the input string with replaceText, recording the last match found.
                 string result = rx.Value.Replace(thisString, match =>
                 {
-                    var args = new List<JsValue>();
-
+                    var args = new JsValue[match.Groups.Count + 2];
                     for (var k = 0; k < match.Groups.Count; k++)
                     {
                         var group = match.Groups[k];
-                        args.Add(group.Value);
+                        args[k] = @group.Value;
                     }
 
-                    args.Add(match.Index);
-                    args.Add(thisString);
+                    args[match.Groups.Count] = match.Index;
+                    args[match.Groups.Count + 1] = thisString;
 
-                    var v = TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args.ToArray()));
+                    var v = TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args));
                     return v;
                 }, rx.Global == true ? -1 : 1);
 
@@ -543,15 +554,16 @@ namespace Jint.Native.String
                     return thisString;
                 int end = start + substr.Length;
 
-                var args = new List<JsValue>();
-                args.Add(substr);
-                args.Add(start);
-                args.Add(thisString);
+                var args = StringExecutionContext.Current.CallArray3;
+                args[0] = substr;
+                args[1] = start;
+                args[2] = thisString;
 
-                var replaceString = TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args.ToArray()));
+                var replaceString = TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args));
 
                 // Replace only the first match.
-                var result = new StringBuilder(thisString.Length + (substr.Length - substr.Length));
+                var result = StringExecutionContext.Current.GetStringBuilder(thisString.Length + (substr.Length - substr.Length));
+                result.Clear();
                 result.Append(thisString, 0, start);
                 result.Append(replaceString);
                 result.Append(thisString, end, thisString.Length - end);
@@ -699,7 +711,9 @@ namespace Jint.Native.String
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
             var s = TypeConverter.ToString(thisObj);
-            var sb = new StringBuilder(s);
+            var sb = StringExecutionContext.Current.GetStringBuilder(0);
+            sb.Clear();
+            sb.Append(s);
             for (int i = 0; i < arguments.Length; i++)
             {
                 sb.Append(TypeConverter.ToString(arguments[i]));
@@ -779,7 +793,7 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
             var targetLength = TypeConverter.ToInt32(arguments.At(0));
-            var padString = TypeConverter.ToString(arguments.At(1, new JsValue(" ")));
+            var padString = TypeConverter.ToString(arguments.At(1, " "));
 
             var s = TypeConverter.ToString(thisObj);
             if (s.Length > targetLength)

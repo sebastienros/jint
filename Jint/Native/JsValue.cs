@@ -24,9 +24,13 @@ namespace Jint.Native
         // integer values converted to doubles
         private static readonly Dictionary<double, JsValue> _doubleToJsValue = new Dictionary<double, JsValue>();
         private static readonly JsValue[] _intToJsValue = new JsValue[1024];
-        private static readonly JsValue[] _charToJsValue = new JsValue[256];
 
-        private static readonly JsValue _function = new JsValue("function");
+        private const int AsciiMax = 126;
+        private static readonly JsValue[] _charToJsValue = new JsValue[AsciiMax + 1];
+        private static readonly JsValue[] _charToStringJsValue = new JsValue[AsciiMax + 1];
+
+        private static readonly JsValue EmptyString = new JsValue("");
+        private static readonly JsValue NullString = new JsValue("null");
 
         public static readonly JsValue Undefined = new JsValue(Types.Undefined);
         public static readonly JsValue Null = new JsValue(Types.Null);
@@ -48,9 +52,10 @@ namespace Jint.Native
                     _doubleToJsValue[i] = new JsValue((double) i);
                 }
             }
-            for (int i = 0; i < _charToJsValue.Length; i++)
+            for (int i = 0; i <= AsciiMax; i++)
             {
                 _charToJsValue[i] = new JsValue((char) i);
+                _charToStringJsValue[i] = new JsValue(((char) i).ToString());
             }
         }
 
@@ -273,10 +278,7 @@ namespace Jint.Native
                 }
             }
 
-            if (fail != null)
-            {
-                fail(this);
-            }
+            fail?.Invoke(this);
 
             return null;
         }
@@ -412,7 +414,7 @@ namespace Jint.Native
 
         internal static JsValue FromChar(char value)
         {
-            if (value >= 0 && value < _charToJsValue.Length)
+            if (value >= 0 && value <= AsciiMax)
             {
                 return _charToJsValue[value];
             }
@@ -434,8 +436,7 @@ namespace Jint.Native
 
             foreach (var converter in engine.Options._ObjectConverters)
             {
-                JsValue result;
-                if (converter.TryConvert(value, out result))
+                if (converter.TryConvert(value, out var result))
                 {
                     return result;
                 }
@@ -445,15 +446,13 @@ namespace Jint.Native
 
             var typeMappers = Engine.TypeMappers;
 
-            Func<Engine, object, JsValue> typeMapper;
-            if (typeMappers.TryGetValue(valueType, out typeMapper))
+            if (typeMappers.TryGetValue(valueType, out var typeMapper))
             {
                 return typeMapper(engine, value);
             }
 
             // if an ObjectInstance is passed directly, use it as is
-            var instance = value as ObjectInstance;
-            if (instance != null)
+            if (value is ObjectInstance instance)
             {
                 // Learn conversion.
                 // Learn conversion, racy, worst case we'll try again later
@@ -471,32 +470,31 @@ namespace Jint.Native
                 return typeReference.JsValue;
             }
 
-            var a = value as System.Array;
-            if (a != null)
+            if (value is System.Array a)
             {
-                Func<Engine, object, JsValue> convert = (Engine e, object v) =>
+                JsValue Convert(Engine e, object v)
                 {
-                    var array = (System.Array)v;
+                    var array = (System.Array) v;
 
                     var jsArray = engine.Array.Construct(a.Length);
                     foreach (var item in array)
                     {
-                        var jsItem = JsValue.FromObject(engine, item);
+                        var jsItem = FromObject(engine, item);
                         engine.Array.PrototypeObject.Push(jsArray, Arguments.From(jsItem));
                     }
 
                     return jsArray;
-                };
+                }
+
                 // racy, we don't care, worst case we'll catch up later
                 Interlocked.CompareExchange(ref Engine.TypeMappers, new Dictionary<Type, Func<Engine, object, JsValue>>(typeMappers)
                 {
-                    [valueType] = convert
+                    [valueType] = Convert
                 }, typeMappers);
-                return convert(engine, a);
+                return Convert(engine, a);
             }
 
-            var d = value as Delegate;
-            if (d != null)
+            if (value is Delegate d)
             {
                 return new DelegateWrapper(engine, d);
             }
@@ -529,8 +527,7 @@ namespace Jint.Native
                 case Types.Number:
                     return _double;
                 case Types.Object:
-                    var wrapper = _object as IObjectWrapper;
-                    if (wrapper != null)
+                    if (_object is IObjectWrapper wrapper)
                     {
                         return wrapper.Target;
                     }
@@ -538,8 +535,7 @@ namespace Jint.Native
                     switch ((_object as ObjectInstance).Class)
                     {
                         case "Array":
-                            var arrayInstance = _object as ArrayInstance;
-                            if (arrayInstance != null)
+                            if (_object is ArrayInstance arrayInstance)
                             {
                                 var len = TypeConverter.ToInt32(arrayInstance.Get("length"));
                                 var result = new object[len];
@@ -562,8 +558,7 @@ namespace Jint.Native
                             break;
 
                         case "String":
-                            var stringInstance = _object as StringInstance;
-                            if (stringInstance != null)
+                            if (_object is StringInstance stringInstance)
                             {
                                 return stringInstance.PrimitiveValue.AsString();
                             }
@@ -571,8 +566,7 @@ namespace Jint.Native
                             break;
 
                         case "Date":
-                            var dateInstance = _object as DateInstance;
-                            if (dateInstance != null)
+                            if (_object is DateInstance dateInstance)
                             {
                                 return dateInstance.ToDateTime();
                             }
@@ -580,8 +574,7 @@ namespace Jint.Native
                             break;
 
                         case "Boolean":
-                            var booleanInstance = _object as BooleanInstance;
-                            if (booleanInstance != null)
+                            if (_object is BooleanInstance booleanInstance)
                             {
                                 return booleanInstance.PrimitiveValue.AsBoolean();
                             }
@@ -589,8 +582,7 @@ namespace Jint.Native
                             break;
 
                         case "Function":
-                            var function = _object as FunctionInstance;
-                            if (function != null)
+                            if (_object is FunctionInstance function)
                             {
                                 return (Func<JsValue, JsValue[], JsValue>)function.Call;
                             }
@@ -598,8 +590,7 @@ namespace Jint.Native
                             break;
 
                         case "Number":
-                            var numberInstance = _object as NumberInstance;
-                            if (numberInstance != null)
+                            if (_object is NumberInstance numberInstance)
                             {
                                 return numberInstance.NumberData.AsNumber();
                             }
@@ -607,8 +598,7 @@ namespace Jint.Native
                             break;
 
                         case "RegExp":
-                            var regeExpInstance = _object as RegExpInstance;
-                            if (regeExpInstance != null)
+                            if (_object is RegExpInstance regeExpInstance)
                             {
                                 return regeExpInstance.Value;
                             }
@@ -623,14 +613,15 @@ namespace Jint.Native
                             IDictionary<string, object> o = new ExpandoObject();
 #endif
 
-                            foreach (var p in (_object as ObjectInstance).GetOwnProperties())
+                            var objectInstance = (ObjectInstance) _object;
+                            foreach (var p in objectInstance.GetOwnProperties())
                             {
                                 if (!p.Value.Enumerable.HasValue || p.Value.Enumerable.Value == false)
                                 {
                                     continue;
                                 }
 
-                                o.Add(p.Key, (_object as ObjectInstance).Get(p.Key).ToObject());
+                                o.Add(p.Key, objectInstance.Get(p.Key).ToObject());
                             }
 
                             return o;
@@ -741,12 +732,12 @@ namespace Jint.Native
             return !a.Equals(b);
         }
 
-        static public implicit operator JsValue(int value)
+        public static implicit operator JsValue(int value)
         {
             return FromInt(value);
         }
 
-        static public implicit operator JsValue(double value)
+        public static implicit operator JsValue(double value)
         {
             if (value < 0 || value >= _doubleToJsValue.Count || !_doubleToJsValue.TryGetValue(value, out var jsValue))
             {
@@ -755,23 +746,38 @@ namespace Jint.Native
             return jsValue;
         }
 
-        static public implicit operator JsValue(bool value)
+        public static implicit operator JsValue(bool value)
         {
             return value ? True : False;
         }
 
-        static public implicit operator JsValue(string value)
+        public static implicit operator JsValue(string value)
         {
-            // some common ones can be cached here
-            if (value == "function")
+            if (value.Length <= 1)
             {
-                return _function;
+                if (value == "")
+                {
+                    return EmptyString;
+                }
+
+                if (value.Length == 1)
+                {
+                    if (value[0] >= 0 && value[0] <= AsciiMax)
+                    {
+                        return _charToStringJsValue[value[0]];
+                    }
+                }
+
+            }
+            else if (value == Native.Null.Text)
+            {
+                return NullString;
             }
 
             return new JsValue(value);
         }
 
-        static public implicit operator JsValue(ObjectInstance value)
+        public static implicit operator JsValue(ObjectInstance value)
         {
             return value.JsValue;
         }
@@ -814,7 +820,7 @@ namespace Jint.Native
         public override bool Equals(object obj)
         {
             if (ReferenceEquals(null, obj)) return false;
-            return obj is JsValue && Equals((JsValue)obj);
+            return obj is JsValue value && Equals(value);
         }
 
         public override int GetHashCode()

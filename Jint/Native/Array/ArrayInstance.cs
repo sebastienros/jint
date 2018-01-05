@@ -156,7 +156,7 @@ namespace Jint.Native.Array
                                 var deleteSucceeded = Delete(TypeConverter.ToString(keyIndex), false);
                                 if (!deleteSucceeded)
                                 {
-                                    newLenDesc.Value = new JsValue(keyIndex + 1);
+                                    newLenDesc.Value = keyIndex + 1;
                                     if (!newWritable)
                                     {
                                         newLenDesc.Writable = false;
