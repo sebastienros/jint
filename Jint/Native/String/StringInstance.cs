@@ -11,23 +11,11 @@ namespace Jint.Native.String
         {
         }
 
-        public override string Class
-        {
-            get
-            {
-                return "String";
-            }
-        }
+        public override string Class => "String";
 
-        Types IPrimitiveInstance.Type
-        {
-            get { return Types.String; }
-        }
+        Types IPrimitiveInstance.Type => Types.String;
 
-        JsValue IPrimitiveInstance.PrimitiveValue
-        {
-            get { return PrimitiveValue; }
-        }
+        JsValue IPrimitiveInstance.PrimitiveValue => PrimitiveValue;
 
         public JsValue PrimitiveValue { get; set; }
 
@@ -35,17 +23,19 @@ namespace Jint.Native.String
         {
             if (d >= long.MinValue && d <= long.MaxValue)
             {
-                var l = (long)d;
+                var l = (long) d;
                 return l >= int.MinValue && l <= int.MaxValue;
             }
-            else 
-                return false;
+
+            return false;
         }
 
         public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
-            if(propertyName == "Infinity")
+            if (propertyName == "Infinity")
+            {
                 return PropertyDescriptor.Undefined;
+            }
 
             var desc = base.GetOwnProperty(propertyName);
             if (desc != PropertyDescriptor.Undefined)
@@ -53,24 +43,26 @@ namespace Jint.Native.String
                 return desc;
             }
 
-            if (propertyName != System.Math.Abs(TypeConverter.ToInteger(propertyName)).ToString())
+            var integer = TypeConverter.ToInteger(propertyName);
+            if (integer == 0 && propertyName != "0" || propertyName != System.Math.Abs(integer).ToString())
             {
                 return PropertyDescriptor.Undefined;
             }
 
             var str = PrimitiveValue;
-            var dIndex = TypeConverter.ToInteger(propertyName);
-            if(!IsInt(dIndex))
+            var dIndex = integer;
+            if (!IsInt(dIndex))
                 return PropertyDescriptor.Undefined;
 
-            var index = (int)dIndex;
+            var index = (int) dIndex;
             var len = str.AsString().Length;
             if (len <= index || index < 0)
             {
                 return PropertyDescriptor.Undefined;
             }
-            var resultStr = str.AsString()[index].ToString();
-            return new PropertyDescriptor(new JsValue(resultStr), false, true, false);
+
+            var resultStr = TypeConverter.ToString(str.AsString()[index]);
+            return new PropertyDescriptor(resultStr, false, true, false);
         }
     }
 }
