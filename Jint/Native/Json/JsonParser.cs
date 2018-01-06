@@ -794,7 +794,7 @@ namespace Jint.Native.Json
                     // implicit conversion operator goes through caching
                     return (string) Lex().Value;
                 case Tokens.Number:
-                    return new JsValue((double)Lex().Value);
+                    return (double) Lex().Value;
             }
 
             if (Match("["))

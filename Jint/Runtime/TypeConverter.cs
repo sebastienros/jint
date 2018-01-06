@@ -30,7 +30,7 @@ namespace Jint.Runtime
     public class TypeConverter
     {
         // how many decimals to check when determining if double is actually an int
-        private const double tolerance = double.Epsilon * 100;
+        private const double DoubleIsIntegerTolerance = double.Epsilon * 100;
 
         private static readonly string[] intToString = new string[1024];
         private static readonly string[] charToString = new string[256];
@@ -330,7 +330,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(double d)
         {
-            if (d > long.MinValue && d < long.MaxValue  && Math.Abs(d % 1) <= tolerance)
+            if (d > long.MinValue && d < long.MaxValue  && Math.Abs(d % 1) <= DoubleIsIntegerTolerance)
             {
                 // we are dealing with integer that can be cached
                 return ToString((long) d);
