@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Dynamic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
@@ -347,6 +348,7 @@ namespace Jint.Native
             return _double;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(JsValue other)
         {
             if (other == null)
@@ -664,7 +666,7 @@ namespace Jint.Native
 
         public static bool ReturnOnAbruptCompletion(ref JsValue argument)
         {
-            if (argument.IsCompletion())
+            if (!argument.IsCompletion())
             {
                 return false;
             }
@@ -704,13 +706,18 @@ namespace Jint.Native
 
         public static bool operator ==(JsValue a, JsValue b)
         {
-            if ((object)a == null)
+            if ((object) a == null)
             {
-                if ((object)b == null)
+                if ((object) b == null)
                 {
                     return true;
                 }
 
+                return false;
+            }
+
+            if ((object) b == null)
+            {
                 return false;
             }
 
@@ -719,13 +726,18 @@ namespace Jint.Native
 
         public static bool operator !=(JsValue a, JsValue b)
         {
-            if ((object)a == null)
+            if ((object) a == null)
             {
-                if ((object)b == null)
+                if ((object) b == null)
                 {
                     return false;
                 }
 
+                return true;
+            }
+
+            if ((object) b == null)
+            {
                 return true;
             }
 
@@ -821,12 +833,16 @@ namespace Jint.Native
                     case Types.Object:
                         Value = value.AsObject().GetType().Name;
                         break;
+                    case Types.Symbol:
+                        Value = value.AsSymbol() + " (symbol)";
+                        break;
                     default:
                         Value = "Unknown";
                         break;
                 }
             }
         }
+
         public override bool Equals(object obj)
         {
             if (ReferenceEquals(null, obj)) return false;

@@ -11,6 +11,8 @@ namespace Jint.Native.Function
 {
     public sealed class FunctionConstructor : FunctionInstance, IConstructor
     {
+        private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
+
         private FunctionConstructor(Engine engine):base(engine, null, null, false)
         {
         }
@@ -85,7 +87,7 @@ namespace Jint.Native.Function
             try
             {
                 var functionExpression = "function f(" + p + ") { " + body + "}";
-                var parser = new JavaScriptParser(functionExpression, new ParserOptions { AdaptRegexp = true, Tolerant = false });
+                var parser = new JavaScriptParser(functionExpression, ParserOptions);
                 function = parser.ParseProgram().Body.First().As<IFunction>();
             }
             catch (ParserException)

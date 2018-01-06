@@ -29,6 +29,9 @@ namespace Jint.Runtime
 
     public class TypeConverter
     {
+        // how many decimals to check when determining if double is actually an int
+        private const double tolerance = double.Epsilon * 100;
+
         private static readonly string[] intToString = new string[1024];
         private static readonly string[] charToString = new string[256];
 
@@ -80,14 +83,14 @@ namespace Jint.Runtime
                 return true;
             }
 
-            if (o == Undefined.Instance || o == Null.Instance)
-            {
-                return false;
-            }
-
             if (o.IsBoolean())
             {
                 return o.AsBoolean();
+            }
+
+            if (o == Undefined.Instance || o == Null.Instance)
+            {
+                return false;
             }
 
             if (o.IsNumber())
@@ -97,10 +100,8 @@ namespace Jint.Runtime
                 {
                     return false;
                 }
-                else
-                {
-                    return true;
-                }
+
+                return true;
             }
 
             if (o.IsString())
@@ -110,10 +111,8 @@ namespace Jint.Runtime
                 {
                     return false;
                 }
-                else
-                {
-                    return true;
-                }
+
+                return true;
             }
 
             return true;
@@ -328,6 +327,18 @@ namespace Jint.Runtime
                 : c.ToString();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(double d)
+        {
+            if (d > long.MinValue && d < long.MaxValue  && Math.Abs(d % 1) <= tolerance)
+            {
+                // we are dealing with integer that can be cached
+                return ToString((long) d);
+            }
+
+            return NumberPrototype.ToNumberString(d);
+        }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.8
         /// </summary>
@@ -376,7 +387,12 @@ namespace Jint.Runtime
 
             if (o.IsNumber())
             {
-                return NumberPrototype.ToNumberString(o.AsNumber());
+                return ToString(o.AsNumber());
+            }
+
+            if (o.IsSymbol())
+            {
+                return o.AsSymbol();
             }
 
             return ToString(ToPrimitive(o, Types.String));

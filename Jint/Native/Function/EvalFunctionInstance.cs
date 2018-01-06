@@ -6,6 +6,8 @@ namespace Jint.Native.Function
 {
     public class EvalFunctionInstance: FunctionInstance
     {
+        private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
+
         private readonly Engine _engine;
 
         public EvalFunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine, parameters, scope, strict)
@@ -31,7 +33,7 @@ namespace Jint.Native.Function
 
             try
             {
-                var parser = new JavaScriptParser(code, new ParserOptions { AdaptRegexp = true, Tolerant = false });
+                var parser = new JavaScriptParser(code, ParserOptions);
                 var program = parser.ParseProgram(StrictModeScope.IsStrictModeCode);
                 using (new StrictModeScope(program.Strict))
                 {
