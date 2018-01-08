@@ -7,6 +7,7 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Number;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.References;
@@ -641,7 +642,7 @@ namespace Jint.Runtime
             {
                 var propName = property.Key.GetKey();
                 var previous = obj.GetOwnProperty(propName);
-                PropertyDescriptor propDesc;
+                IPropertyDescriptor propDesc;
 
                 switch (property.Kind)
                 {
@@ -649,7 +650,7 @@ namespace Jint.Runtime
                     case PropertyKind.Data:
                         var exprValue = _engine.EvaluateExpression(property.Value.As<Expression>());
                         var propValue = _engine.GetValue(exprValue);
-                        propDesc = new PropertyDescriptor(propValue, true, true, true);
+                        propDesc = new ConfigurableEnumerableWritablePropertyDescriptor(propValue);
                         break;
 
                     case PropertyKind.Get:

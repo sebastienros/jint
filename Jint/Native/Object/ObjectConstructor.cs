@@ -5,6 +5,7 @@ using Jint.Native.Function;
 using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object
@@ -25,8 +26,8 @@ namespace Jint.Native.Object
 
             obj.PrototypeObject = ObjectPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.FastAddProperty("length", 1, false, false, false);
-            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
+            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
 
             return obj;
         }
@@ -247,15 +248,19 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var properties = new List<KeyValuePair<string, PropertyDescriptor>>(o.GetOwnProperties());
+            var properties = new List<KeyValuePair<string, IPropertyDescriptor>>(o.GetOwnProperties());
             foreach (var prop in properties)
             {
-                if (prop.Value.Configurable.HasValue && prop.Value.Configurable.Value)
+                var propertyDescriptor = prop.Value;
+                if (propertyDescriptor.Configurable.HasValue && propertyDescriptor.Configurable.Value)
                 {
-                    prop.Value.Configurable = false;
+                    var mutable = propertyDescriptor as PropertyDescriptor ?? new PropertyDescriptor(propertyDescriptor);
+                    mutable.Configurable = false;
+                    propertyDescriptor = mutable;
+                    FastSetProperty(prop.Key, mutable);
                 }
 
-                o.DefineOwnProperty(prop.Key, prop.Value, true);
+                o.DefineOwnProperty(prop.Key, propertyDescriptor, true);
             }
 
             o.Extensible = false;
@@ -272,7 +277,7 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var properties = new List<KeyValuePair<string, PropertyDescriptor>>(o.GetOwnProperties());
+            var properties = new List<KeyValuePair<string, IPropertyDescriptor>>(o.GetOwnProperties());
             foreach (var p in properties)
             {
                 var desc = o.GetOwnProperty(p.Key);
@@ -280,12 +285,16 @@ namespace Jint.Native.Object
                 {
                     if (desc.Writable.HasValue && desc.Writable.Value)
                     {
-                        desc.Writable = false;
+                        var mutable = desc as PropertyDescriptor ?? new PropertyDescriptor(desc);
+                        mutable.Writable = false;
+                        desc = mutable;
                     }
                 }
                 if (desc.Configurable.HasValue && desc.Configurable.Value)
                 {
-                    desc.Configurable = false;
+                    var mutable = desc as PropertyDescriptor ?? new PropertyDescriptor(desc);
+                    mutable.Configurable = false;
+                    desc = mutable;
                 }
                 o.DefineOwnProperty(p.Key, desc, true);
             }

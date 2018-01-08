@@ -3,6 +3,7 @@ using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 
 namespace Jint.Native.Function
@@ -30,14 +31,14 @@ namespace Jint.Native.Function
             Extensible = true;
             Prototype = engine.Function.PrototypeObject;
 
-            DefineOwnProperty("length", new PropertyDescriptor(JsValue.FromInt(FormalParameters.Length), false, false, false ), false);
+            DefineOwnProperty("length", new AllForbiddenPropertyDescriptor(JsValue.FromInt(FormalParameters.Length)), false);
 
             var proto = engine.Object.Construct(Arguments.Empty);
-            proto.DefineOwnProperty("constructor", new PropertyDescriptor(this, true, false, true), false);
-            DefineOwnProperty("prototype", new PropertyDescriptor(proto, true, false, false ), false);
+            proto.SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(this));
+            SetOwnProperty("prototype", new WritablePropertyDescriptor(proto));
             if (_functionDeclaration.Id != null)
             {
-                DefineOwnProperty("name", new PropertyDescriptor(_functionDeclaration.Id.Name, null, null, null), false);
+                DefineOwnProperty("name", new NullConfigurationPropertyDescriptor(_functionDeclaration.Id.Name), false);
             }
 
             if (strict)
@@ -53,6 +54,12 @@ namespace Jint.Native.Function
         {
             var list = functionDeclaration.Params;
             var count = list.Count;
+
+            if (count == 0)
+            {
+                return System.Array.Empty<string>();
+            }
+
             var names = new string[count];
             for (var i = 0; i < count; ++i)
             {

@@ -6,7 +6,7 @@ namespace Jint.Native.Function
 {
     public class BindFunctionInstance : FunctionInstance, IConstructor
     {
-        public BindFunctionInstance(Engine engine) : base(engine, new string[0], null, false)
+        public BindFunctionInstance(Engine engine) : base(engine, System.Array.Empty<string>(), null, false)
         {
         }
 
@@ -42,7 +42,7 @@ namespace Jint.Native.Function
             {
                 throw new JavaScriptException(Engine.TypeError);
             });
-              
+
             return f.HasInstance(v);
         }
     }

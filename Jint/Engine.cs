@@ -157,7 +157,7 @@ namespace Jint
                 options(Options);
             }
 
-            Eval = new EvalFunctionInstance(this, new string[0], LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
+            Eval = new EvalFunctionInstance(this, System.Array.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
 
             _statements = new StatementInterpreter(this);

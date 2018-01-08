@@ -50,10 +50,9 @@ namespace Jint.Runtime.Interop
             ownDesc.Value = value;
         }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override IPropertyDescriptor GetOwnProperty(string propertyName)
         {
-            PropertyDescriptor x;
-            if (TryGetProperty(propertyName, out x))
+            if (TryGetProperty(propertyName, out var x))
                 return x;
 
             var type = Target.GetType();
@@ -87,7 +86,7 @@ namespace Jint.Runtime.Interop
 
             if (methods.Any())
             {
-                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methods), false, true, false);
+                var descriptor = new EnumerablePropertyDescriptor(new MethodInfoFunctionInstance(Engine, methods));
                 AddProperty(propertyName, descriptor);
                 return descriptor;
             }
@@ -121,7 +120,7 @@ namespace Jint.Runtime.Interop
 
             if (explicitMethods.Length > 0)
             {
-                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, explicitMethods), false, true, false);
+                var descriptor = new EnumerablePropertyDescriptor(new MethodInfoFunctionInstance(Engine, explicitMethods));
                 AddProperty(propertyName, descriptor);
                 return descriptor;
             }

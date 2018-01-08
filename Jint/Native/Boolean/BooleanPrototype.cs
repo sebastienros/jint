@@ -1,4 +1,5 @@
 ﻿using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Boolean
@@ -19,7 +20,7 @@ namespace Jint.Native.Boolean
             obj.PrimitiveValue = false;
             obj.Extensible = true;
 
-            obj.FastAddProperty("constructor", booleanConstructor, true, false, true);
+            obj.SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(booleanConstructor));
 
             return obj;
         }

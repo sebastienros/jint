@@ -1,5 +1,5 @@
 ﻿using Jint.Runtime;
-using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Native.Function
 {
@@ -7,10 +7,10 @@ namespace Jint.Native.Function
     {
         private readonly Engine _engine;
 
-        public ThrowTypeError(Engine engine): base(engine, new string[0], engine.GlobalEnvironment, false)
+        public ThrowTypeError(Engine engine): base(engine, System.Array.Empty<string>(), engine.GlobalEnvironment, false)
         {
             _engine = engine;
-            DefineOwnProperty("length", new PropertyDescriptor(0, false, false, false), false);
+            DefineOwnProperty("length", new AllForbiddenPropertyDescriptor(0), false);
             Extensible = false;
         }
 

@@ -1,5 +1,6 @@
 ﻿using Esprima;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 
 namespace Jint.Native.Function
@@ -14,7 +15,7 @@ namespace Jint.Native.Function
         {
             _engine = engine;
             Prototype = Engine.Function.PrototypeObject;
-            FastAddProperty("length", 1, false, false, false);
+            SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

@@ -1,6 +1,7 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.String
@@ -17,21 +18,21 @@ namespace Jint.Native.String
             var obj = new StringConstructor(engine);
             obj.Extensible = true;
 
-            // The value of the [[Prototype]] internal property of the String constructor is the Function prototype object 
+            // The value of the [[Prototype]] internal property of the String constructor is the Function prototype object
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = StringPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.FastAddProperty("length", 1, false, false, false);
+            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
 
             // The initial value of String.prototype is the String prototype object
-            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
 
             return obj;
         }
 
         public void Configure()
         {
-            FastAddProperty("fromCharCode", new ClrFunctionInstance(Engine, FromCharCode, 1), true, false, true);
+            SetOwnProperty("fromCharCode", new NonEnumerablePropertyDescriptor(new ClrFunctionInstance(Engine, FromCharCode, 1)));
         }
 
         private static JsValue FromCharCode(JsValue thisObj, JsValue[] arguments)
@@ -41,7 +42,7 @@ namespace Jint.Native.String
             {
                 chars[i] = (char)TypeConverter.ToUint16(arguments[i]);
             }
-            
+
             return new System.String(chars);
         }
 
@@ -74,7 +75,7 @@ namespace Jint.Native.String
             instance.PrimitiveValue = value;
             instance.Extensible = true;
 
-            instance.FastAddProperty("length", value.Length, false, false, false);
+            instance.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(value.Length));
 
             return instance;
         }

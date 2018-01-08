@@ -1,6 +1,7 @@
 ﻿using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Native.String
 {
@@ -30,7 +31,7 @@ namespace Jint.Native.String
             return false;
         }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override IPropertyDescriptor GetOwnProperty(string propertyName)
         {
             if (propertyName == "Infinity")
             {
@@ -62,7 +63,7 @@ namespace Jint.Native.String
             }
 
             var resultStr = TypeConverter.ToString(str.AsString()[index]);
-            return new PropertyDescriptor(resultStr, false, true, false);
+            return new EnumerablePropertyDescriptor(resultStr);
         }
     }
 }
