@@ -5,6 +5,7 @@ using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 
 namespace Jint.Native.Function
@@ -28,9 +29,8 @@ namespace Jint.Native.Function
             // The value of the [[Prototype]] internal property of the Function constructor is the standard built-in Function prototype object
             obj.Prototype = obj.PrototypeObject;
 
-            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
-
-            obj.FastAddProperty("length", 1, false, false, false);
+            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
+            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
 
             return obj;
         }
@@ -49,7 +49,12 @@ namespace Jint.Native.Function
 
         private string[] ParseArgumentNames(string parameterDeclaration)
         {
-            string[] values = parameterDeclaration.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            if (string.IsNullOrWhiteSpace(parameterDeclaration))
+            {
+                return System.Array.Empty<string>();
+            }
+
+            string[] values = parameterDeclaration.Split(ArgumentNameSeparator, StringSplitOptions.RemoveEmptyEntries);
 
             var newValues = new string[values.Length];
             for (var i = 0; i < values.Length; i++)
@@ -124,6 +129,7 @@ namespace Jint.Native.Function
         }
 
         private FunctionInstance _throwTypeError;
+        private static readonly char[] ArgumentNameSeparator = new[] { ',' };
 
         public FunctionInstance ThrowTypeError
         {

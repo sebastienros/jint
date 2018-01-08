@@ -1,6 +1,7 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Native.Boolean
 {
@@ -15,14 +16,14 @@ namespace Jint.Native.Boolean
             var obj = new BooleanConstructor(engine);
             obj.Extensible = true;
 
-            // The value of the [[Prototype]] internal property of the Boolean constructor is the Function prototype object 
+            // The value of the [[Prototype]] internal property of the Boolean constructor is the Function prototype object
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = BooleanPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.FastAddProperty("length", 1, false, false, false);
+            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
 
             // The initial value of Boolean.prototype is the Boolean prototype object
-            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
 
             return obj;
         }

@@ -4,6 +4,7 @@ using Esprima;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Native.RegExp
 {
@@ -23,10 +24,10 @@ namespace Jint.Native.RegExp
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = RegExpPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.FastAddProperty("length", 2, false, false, false);
+            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(2));
 
             // The initial value of RegExp.prototype is the RegExp prototype object
-            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
 
             return obj;
         }
@@ -112,11 +113,7 @@ namespace Jint.Native.RegExp
             r.Source = s;
             AssignFlags(r, f);
 
-            r.FastAddProperty("global", r.Global, false, false, false);
-            r.FastAddProperty("ignoreCase", r.IgnoreCase, false, false, false);
-            r.FastAddProperty("multiline", r.Multiline, false, false, false);
-            r.FastAddProperty("source", r.Source, false, false, false);
-            r.FastAddProperty("lastIndex", 0, true, false, false);
+            SetRegexProperties(r);
 
             return r;
         }
@@ -136,11 +133,7 @@ namespace Jint.Native.RegExp
             AssignFlags(r, flags);
             r.Source = System.String.IsNullOrEmpty(body) ? "(?:)" : body;
 
-            r.FastAddProperty("global", r.Global, false, false, false);
-            r.FastAddProperty("ignoreCase", r.IgnoreCase, false, false, false);
-            r.FastAddProperty("multiline", r.Multiline, false, false, false);
-            r.FastAddProperty("source", r.Source, false, false, false);
-            r.FastAddProperty("lastIndex", 0, true, false, false);
+            SetRegexProperties(r);
 
             return r;
         }
@@ -157,13 +150,18 @@ namespace Jint.Native.RegExp
             r.Source = regExp.ToString();
             r.Value = regExp;
 
-            r.FastAddProperty("global", r.Global, false, false, false);
-            r.FastAddProperty("ignoreCase", r.IgnoreCase, false, false, false);
-            r.FastAddProperty("multiline", r.Multiline, false, false, false);
-            r.FastAddProperty("source", r.Source, false, false, false);
-            r.FastAddProperty("lastIndex", 0, true, false, false);
+            SetRegexProperties(r);
 
             return r;
+        }
+
+        private static void SetRegexProperties(RegExpInstance r)
+        {
+            r.SetOwnProperty("global", new AllForbiddenPropertyDescriptor(r.Global));
+            r.SetOwnProperty("ignoreCase", new AllForbiddenPropertyDescriptor(r.IgnoreCase));
+            r.SetOwnProperty("multiline", new AllForbiddenPropertyDescriptor(r.Multiline));
+            r.SetOwnProperty("source", new AllForbiddenPropertyDescriptor(r.Source));
+            r.SetOwnProperty("lastIndex", new WritablePropertyDescriptor(0));
         }
 
         private void AssignFlags(RegExpInstance r, string flags)

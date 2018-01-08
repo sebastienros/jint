@@ -1,5 +1,6 @@
 ﻿using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Symbol
@@ -19,7 +20,7 @@ namespace Jint.Native.Symbol
             var obj = new SymbolPrototype(engine);
             obj.Prototype = engine.Object.PrototypeObject;
             obj.Extensible = true;
-            obj.FastAddProperty("length", 0, false, false, false);
+            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(0));
             obj.FastAddProperty("constructor", symbolConstructor, true, false, true);
 
             return obj;

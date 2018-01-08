@@ -3,6 +3,7 @@ using System.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
@@ -24,17 +25,17 @@ namespace Jint.Native.Array
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = ArrayPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.FastAddProperty("length", 1, false, false, false);
+            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
 
             // The initial value of Array.prototype is the Array prototype object
-            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
 
             return obj;
         }
 
         public void Configure()
         {
-            FastAddProperty("isArray", new ClrFunctionInstance(Engine, IsArray, 1), true, false, true);
+            SetOwnProperty("isArray", new NonEnumerablePropertyDescriptor(new ClrFunctionInstance(Engine, IsArray, 1)));
         }
 
         private static JsValue IsArray(JsValue thisObj, JsValue[] arguments)
@@ -97,13 +98,11 @@ namespace Jint.Native.Array
                     throw new JavaScriptException(Engine.RangeError, "Invalid array length");
                 }
 
-                instance.FastAddProperty("length", length, true, false, false);
+                instance.SetOwnProperty("length", new WritablePropertyDescriptor(length));
             }
             else if (arguments.Length == 1 && arguments.At(0).IsObject() && arguments.At(0).As<ObjectWrapper>() != null )
             {
-                var enumerable = arguments.At(0).As<ObjectWrapper>().Target as IEnumerable;
-
-                if (enumerable != null)
+                if (arguments.At(0).As<ObjectWrapper>().Target is IEnumerable enumerable)
                 {
                     var jsArray = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
                     foreach (var item in enumerable)
@@ -117,8 +116,11 @@ namespace Jint.Native.Array
             }
             else
             {
-                instance.FastAddProperty("length", 0, true, false, false);
-                PrototypeObject.Push(instance, arguments);
+                instance.SetOwnProperty("length", new WritablePropertyDescriptor(0));
+                if (arguments.Length > 0)
+                {
+                    PrototypeObject.Push(instance, arguments);
+                }
             }
 
             return instance;

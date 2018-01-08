@@ -1,6 +1,7 @@
 ﻿using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Function
@@ -22,14 +23,14 @@ namespace Jint.Native.Function
             // The value of the [[Prototype]] internal property of the Function prototype object is the standard built-in Object prototype object
             obj.Prototype = engine.Object.PrototypeObject;
 
-            obj.FastAddProperty("length", 0, false, false, false);
+            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(0));
 
             return obj;
         }
 
         public void Configure()
         {
-            FastAddProperty("constructor", Engine.Function, true, false, true);
+            SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(Engine.Function));
             FastAddProperty("toString", new ClrFunctionInstance(Engine, ToString), true, false, true);
             FastAddProperty("apply", new ClrFunctionInstance(Engine, Apply, 2), true, false, true);
             FastAddProperty("call", new ClrFunctionInstance(Engine, CallImpl, 1), true, false, true);
@@ -54,11 +55,11 @@ namespace Jint.Native.Function
             if (o != null)
             {
                 var l = TypeConverter.ToNumber(o.Get("length")) - (arguments.Length - 1);
-                f.FastAddProperty("length", System.Math.Max(l, 0), false, false, false);
+                f.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(System.Math.Max(l, 0)));
             }
             else
             {
-                f.FastAddProperty("length", 0, false, false, false);
+                f.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(0));
             }
 
 

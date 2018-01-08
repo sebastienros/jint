@@ -2,6 +2,7 @@
 using Jint.Native.Array;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.RegExp
@@ -124,9 +125,9 @@ namespace Jint.Native.RegExp
 
         private static ArrayInstance InitReturnValueArray(ArrayInstance array, string inputValue, int lengthValue, int indexValue)
         {
-            array.DefineOwnProperty("index", new PropertyDescriptor(indexValue, writable: true, enumerable: true, configurable: true), true);
-            array.DefineOwnProperty("input", new PropertyDescriptor(inputValue, writable: true, enumerable: true, configurable: true), true);
-            array.DefineOwnProperty("length", new PropertyDescriptor(value: lengthValue, writable: true, enumerable: false, configurable: false), true);
+            array.SetOwnProperty("index", new ConfigurableEnumerableWritablePropertyDescriptor(indexValue));
+            array.SetOwnProperty("input", new ConfigurableEnumerableWritablePropertyDescriptor(inputValue));
+            array.SetOwnProperty("length", new WritablePropertyDescriptor(lengthValue));
             return array;
         }
     }

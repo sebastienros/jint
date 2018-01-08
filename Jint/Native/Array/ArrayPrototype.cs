@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
@@ -25,7 +26,7 @@ namespace Jint.Native.Array
             };
 
             obj.FastAddProperty("length", 0, true, false, false);
-            obj.FastAddProperty("constructor", arrayConstructor, true, false, true);
+            obj.SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(arrayConstructor));
 
             return obj;
         }
@@ -804,7 +805,7 @@ namespace Jint.Native.Array
 
             // this is not in the specs, but is necessary in case the last element of the last
             // array doesn't exist, and thus the length would not be incremented
-            a.DefineOwnProperty("length", new PropertyDescriptor(n, null, null, null), false);
+            a.DefineOwnProperty("length", new NullConfigurationPropertyDescriptor(n), false);
 
             return a;
         }
