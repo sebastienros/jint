@@ -1236,6 +1236,30 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldExecuteKnockoutWithErrorWhenIntolerant()
+        {
+            var content = GetEmbeddedFile("knockout-3.4.0.js");
+
+            var ex = Assert.Throws<ParserException>(() => _engine.Execute(content, new ParserOptions {Tolerant = false}));
+            Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
+        }
+
+        [Fact]
+        public void ShouldExecuteKnockoutWithoutErrorWhenTolerant()
+        {
+            var content = GetEmbeddedFile("knockout-3.4.0.js");
+            _engine.Execute(content, new ParserOptions {Tolerant = true});
+        }
+
+        [Fact]
+        public void ShouldExecuteLodash()
+        {
+            var content = GetEmbeddedFile("lodash.min.js");
+
+            RunTest(content);
+        }
+
+        [Fact]
         public void DateParseReturnsNaN()
         {
             RunTest(@"
@@ -1852,8 +1876,9 @@ namespace Jint.Tests.Runtime
                 var newstr = str.replace(re, '$\'x');
                 equal('babxbbxb', newstr);
             ");
-        }        [Fact]
+        }
 
+        [Fact]
         public void ExceptionShouldHaveLocationOfInnerFunction()
         {
             try

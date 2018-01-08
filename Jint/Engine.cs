@@ -29,6 +29,13 @@ namespace Jint
 {
     public class Engine
     {
+        private static readonly ParserOptions DefaultParserOptions = new ParserOptions
+        {
+            AdaptRegexp = true,
+            Tolerant = false,
+            Loc = true
+        };
+
         private readonly ExpressionInterpreter _expressions;
         private readonly StatementInterpreter _statements;
         private readonly Stack<ExecutionContext> _executionContexts;
@@ -171,7 +178,6 @@ namespace Jint
         }
 
         public LexicalEnvironment GlobalEnvironment;
-
         public GlobalObject Global { get; private set; }
         public ObjectConstructor Object { get; private set; }
         public FunctionConstructor Function { get; private set; }
@@ -253,7 +259,7 @@ namespace Jint
 
         public Engine SetValue(string name, double value)
         {
-            return SetValue(name, new JsValue(value));
+            return SetValue(name, JsValue.FromDouble(value));
         }
 
         public Engine SetValue(string name, int value)
@@ -306,12 +312,7 @@ namespace Jint
 
         public Engine Execute(string source)
         {
-            return Execute(source, new ParserOptions
-            {
-                AdaptRegexp = true,
-                Tolerant = false,
-                Loc = true
-            });
+            return Execute(source, DefaultParserOptions);
         }
 
         public Engine Execute(string source, ParserOptions parserOptions)

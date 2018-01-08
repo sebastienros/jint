@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Dynamic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
@@ -20,10 +21,16 @@ namespace Jint.Native
     [DebuggerTypeProxy(typeof(JsValueDebugView))]
     public class JsValue : IEquatable<JsValue>
     {
+        // how many decimals to check when determining if double is actually an int
+        private const double DoubleIsIntegerTolerance = double.Epsilon * 100;
+
+        private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
+
         // we can cache most common values, doubles are used in indexing too at times so we also cache
         // integer values converted to doubles
-        private static readonly Dictionary<double, JsValue> _doubleToJsValue = new Dictionary<double, JsValue>();
-        private static readonly JsValue[] _intToJsValue = new JsValue[1024];
+        private const int NumbersMax = 1024 * 10;
+        private static readonly JsValue[] _doubleToJsValue = new JsValue[NumbersMax];
+        private static readonly JsValue[] _intToJsValue = new JsValue[NumbersMax];
 
         private const int AsciiMax = 126;
         private static readonly JsValue[] _charToJsValue = new JsValue[AsciiMax + 1];
@@ -37,21 +44,24 @@ namespace Jint.Native
         public static readonly JsValue False = new JsValue(false);
         public static readonly JsValue True = new JsValue(true);
 
+        private static readonly JsValue DoubleNaN = new JsValue(double.NaN);
+        private static readonly JsValue DoubleNegativeOne = new JsValue((double) -1);
+        private static readonly JsValue DoublePositiveInfinity= new JsValue(double.PositiveInfinity);
+        private static readonly JsValue DoubleNegativeInfinity = new JsValue(double.NegativeInfinity);
+        private static readonly JsValue IntegerNegativeOne = new JsValue(-1);
+
         private readonly double _double;
         private readonly object _object;
         protected Types _type;
 
         static JsValue()
         {
-            for (int i = 0; i < _intToJsValue.Length; i++)
+            for (int i = 0; i < NumbersMax; i++)
             {
                 _intToJsValue[i] = new JsValue(i);
-                if (i != 0)
-                {
-                    // zero can be problematic
-                    _doubleToJsValue[i] = new JsValue((double) i);
-                }
+                _doubleToJsValue[i] = new JsValue((double) i);
             }
+
             for (int i = 0; i <= AsciiMax; i++)
             {
                 _charToJsValue[i] = new JsValue((char) i);
@@ -347,6 +357,7 @@ namespace Jint.Native
             return _double;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(JsValue other)
         {
             if (other == null)
@@ -385,11 +396,44 @@ namespace Jint.Native
 
         public Types Type => _type;
 
+        internal static JsValue FromDouble(double value)
+        {
+            // we can cache positive double zero, but not negative, -0 == 0 in C# but in JS it's a different story
+            if ((value == 0 && BitConverter.DoubleToInt64Bits(value) != NegativeZeroBits || value >= 1)
+                && value < _doubleToJsValue.Length
+                && System.Math.Abs(value % 1) <= DoubleIsIntegerTolerance)
+            {
+                return _doubleToJsValue[(int) value];
+            }
+            if (value == -1)
+            {
+                return DoubleNegativeOne;
+            }
+            if (value == double.NegativeInfinity)
+            {
+                return DoubleNegativeInfinity;
+            }
+            if (value == double.PositiveInfinity)
+            {
+                return DoublePositiveInfinity;
+            }
+            if (double.IsNaN(value))
+            {
+                return DoubleNaN;
+            }
+
+            return new JsValue(value);
+        }
+
         internal static JsValue FromInt(int value)
         {
             if (value >= 0 && value < _intToJsValue.Length)
             {
                 return _intToJsValue[value];
+            }
+            if (value == -1)
+            {
+                return IntegerNegativeOne;
             }
             return new JsValue(value);
         }
@@ -664,7 +708,7 @@ namespace Jint.Native
 
         public static bool ReturnOnAbruptCompletion(ref JsValue argument)
         {
-            if (argument.IsCompletion())
+            if (!argument.IsCompletion())
             {
                 return false;
             }
@@ -704,13 +748,18 @@ namespace Jint.Native
 
         public static bool operator ==(JsValue a, JsValue b)
         {
-            if ((object)a == null)
+            if ((object) a == null)
             {
-                if ((object)b == null)
+                if ((object) b == null)
                 {
                     return true;
                 }
 
+                return false;
+            }
+
+            if ((object) b == null)
+            {
                 return false;
             }
 
@@ -719,13 +768,18 @@ namespace Jint.Native
 
         public static bool operator !=(JsValue a, JsValue b)
         {
-            if ((object)a == null)
+            if ((object) a == null)
             {
-                if ((object)b == null)
+                if ((object) b == null)
                 {
                     return false;
                 }
 
+                return true;
+            }
+
+            if ((object) b == null)
+            {
                 return true;
             }
 
@@ -749,11 +803,7 @@ namespace Jint.Native
 
         static public implicit operator JsValue(double value)
         {
-            if (value < 0 || value >= _doubleToJsValue.Count || !_doubleToJsValue.TryGetValue(value, out var jsValue))
-            {
-                jsValue = new JsValue(value);
-            }
-            return jsValue;
+            return FromDouble(value);
         }
 
         public static implicit operator JsValue(bool value)
@@ -821,12 +871,16 @@ namespace Jint.Native
                     case Types.Object:
                         Value = value.AsObject().GetType().Name;
                         break;
+                    case Types.Symbol:
+                        Value = value.AsSymbol() + " (symbol)";
+                        break;
                     default:
                         Value = "Unknown";
                         break;
                 }
             }
         }
+
         public override bool Equals(object obj)
         {
             if (ReferenceEquals(null, obj)) return false;
