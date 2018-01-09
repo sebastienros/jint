@@ -300,12 +300,12 @@ namespace Jint.Native.Array
                     var testResult = callable.Call(thisArg, jsValues);
                     if (false == TypeConverter.ToBoolean(testResult))
                     {
-                        return JsValue.False;
+                        return JsBoolean.False;
                     }
                 }
             }
 
-            return JsValue.True;
+            return JsBoolean.True;
         }
 
         private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)

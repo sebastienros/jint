@@ -619,7 +619,7 @@ namespace Jint.Runtime
             switch (literal.TokenType)
             {
                 case TokenType.BooleanLiteral:
-                    return literal.BooleanValue ? JsValue.True : JsValue.False;
+                    return literal.BooleanValue ? JsBoolean.True : JsBoolean.False;
                 case TokenType.NullLiteral:
                     return JsValue.Null;
                 case TokenType.NumericLiteral:

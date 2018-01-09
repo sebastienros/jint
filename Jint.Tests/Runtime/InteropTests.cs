@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
@@ -411,7 +410,7 @@ namespace Jint.Tests.Runtime
         {
             var o = new
             {
-                x = new JsValue(1),
+                x = new JsNumber(1),
                 y = new JsString("string"),
             };
 

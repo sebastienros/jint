@@ -137,7 +137,7 @@ namespace Jint.Runtime.Interop
                     newArgumentsCollection[j] = jsArguments[j];
                 }
 
-                newArgumentsCollection[nonParamsArgumentsCount] = new JsValue(jsArray);
+                newArgumentsCollection[nonParamsArgumentsCount] = new JsObject(jsArray);
                 return newArgumentsCollection;
             }
 

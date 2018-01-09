@@ -2,16 +2,11 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
-using System.Dynamic;
 using System.Threading;
 using Jint.Native.Array;
-using Jint.Native.Boolean;
 using Jint.Native.Date;
-using Jint.Native.Function;
-using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
-using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
@@ -20,119 +15,13 @@ namespace Jint.Native
     [DebuggerTypeProxy(typeof(JsValueDebugView))]
     public class JsValue : IEquatable<JsValue>
     {
-        // how many decimals to check when determining if double is actually an int
-        private const double DoubleIsIntegerTolerance = double.Epsilon * 100;
-
-        private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
-
-        // we can cache most common values, doubles are used in indexing too at times so we also cache
-        // integer values converted to doubles
-        private const int NumbersMax = 1024 * 10;
-        private static readonly JsValue[] _doubleToJsValue = new JsValue[NumbersMax];
-        private static readonly JsValue[] _intToJsValue = new JsValue[NumbersMax];
-
-        private const int AsciiMax = 126;
-        private static readonly JsValue[] _charToJsValue = new JsValue[AsciiMax + 1];
-        private static readonly JsValue[] _charToStringJsValue = new JsValue[AsciiMax + 1];
-
-        private static readonly JsValue EmptyString = new JsString("");
-        private static readonly JsValue NullString = new JsString("null");
-
         public static readonly JsValue Undefined = new JsValue(Types.Undefined);
         public static readonly JsValue Null = new JsValue(Types.Null);
-        public static readonly JsValue False = new JsValue(false);
-        public static readonly JsValue True = new JsValue(true);
 
-        private static readonly JsValue DoubleNaN = new JsValue(double.NaN);
-        private static readonly JsValue DoubleNegativeOne = new JsValue((double) -1);
-        private static readonly JsValue DoublePositiveInfinity= new JsValue(double.PositiveInfinity);
-        private static readonly JsValue DoubleNegativeInfinity = new JsValue(double.NegativeInfinity);
-        private static readonly JsValue IntegerNegativeOne = new JsValue(-1);
+        private readonly Types _type;
 
-        private readonly double _double;
-        protected object _object;
-        protected Types _type;
-
-        static JsValue()
+        protected JsValue(Types type)
         {
-            for (int i = 0; i < NumbersMax; i++)
-            {
-                _intToJsValue[i] = new JsValue(i);
-                _doubleToJsValue[i] = new JsValue((double) i);
-            }
-
-            for (int i = 0; i <= AsciiMax; i++)
-            {
-                _charToJsValue[i] = new JsValue((char) i);
-                _charToStringJsValue[i] = new JsString(((char) i).ToString());
-            }
-        }
-
-        public JsValue(bool value)
-        {
-            _double = value ? 1.0 : 0.0;
-            _object = null;
-            _type = Types.Boolean;
-        }
-
-        public JsValue(double value)
-        {
-            _object = null;
-            _type = Types.Number;
-
-            _double = value;
-        }
-
-        public JsValue(int value)
-        {
-            _object = null;
-            _type = Types.Number;
-
-            _double = value;
-        }
-
-        public JsValue(uint value)
-        {
-            _object = null;
-            _type = Types.Number;
-
-            _double = value;
-        }
-
-        public JsValue(char value)
-        {
-            _double = double.NaN;
-            _object = value;
-            _type = Types.String;
-        }
-
-        protected JsValue(string value)
-        {
-            _double = double.NaN;
-            _object = value;
-            _type = Types.String;
-        }
-
-        public JsValue(ObjectInstance value)
-        {
-            _double = double.NaN;
-            _type = Types.Object;
-
-            _object = value;
-        }
-
-        public JsValue(Completion value)
-        {
-            _double = double.NaN;
-            _type = Types.Completion;
-
-            _object = value;
-        }
-
-        private JsValue(Types type)
-        {
-            _double = double.NaN;
-            _object = null;
             _type = type;
         }
 
@@ -149,21 +38,21 @@ namespace Jint.Native
         }
 
         [Pure]
-        public bool IsArray()
+        public virtual bool IsArray()
         {
-            return _type == Types.Object && _object is ArrayInstance;
+            return false;
         }
 
         [Pure]
-        public bool IsDate()
+        public virtual bool IsDate()
         {
-            return _type == Types.Object && _object is DateInstance;
+            return false;
         }
 
         [Pure]
-        public bool IsRegExp()
+        public virtual bool IsRegExp()
         {
-            return _type == Types.Object && _object is RegExpInstance;
+            return false;
         }
 
         [Pure]
@@ -209,69 +98,45 @@ namespace Jint.Native
         }
 
         [Pure]
-        public ObjectInstance AsObject()
+        public virtual ObjectInstance AsObject()
         {
-            if (_type != Types.Object)
-            {
-                throw new ArgumentException("The value is not an object");
-            }
-
-            return _object as ObjectInstance;
+            throw new ArgumentException("The value is not an object");
         }
 
         [Pure]
-        public TInstance AsInstance<TInstance>() where TInstance : class
+        public virtual TInstance AsInstance<TInstance>() where TInstance : class
         {
-            if (_type != Types.Object)
-            {
-                throw new ArgumentException("The value is not an object");
-            }
-
-            return _object as TInstance;
+            throw new ArgumentException("The value is not an object");
         }
 
         [Pure]
-        public ArrayInstance AsArray()
+        public virtual ArrayInstance AsArray()
         {
-            if (!IsArray())
-            {
-                throw new ArgumentException("The value is not an array");
-            }
-
-            return _object as ArrayInstance;
+            throw new ArgumentException("The value is not an array");
         }
 
         [Pure]
-        public DateInstance AsDate()
+        public virtual DateInstance AsDate()
         {
-            if (!IsDate())
-            {
-                throw new ArgumentException("The value is not a date");
-            }
-
-            return _object as DateInstance;
+            throw new ArgumentException("The value is not a date");
         }
 
         [Pure]
-        public RegExpInstance AsRegExp()
+        public virtual RegExpInstance AsRegExp()
         {
-            if (!IsRegExp())
-            {
-                throw new ArgumentException("The value is not a date");
-            }
-
-            return _object as RegExpInstance;
+            throw new ArgumentException("The value is not a date");
         }
 
         [Pure]
-        public Completion AsCompletion()
+        public virtual Completion AsCompletion()
         {
             if (_type != Types.Completion)
             {
                 throw new ArgumentException("The value is not a completion record");
             }
 
-            return (Completion)_object;
+            // TODO not implemented
+            return null;
         }
 
         [Pure]
@@ -292,68 +157,38 @@ namespace Jint.Native
             return null;
         }
 
-        public bool Is<T>()
+        public virtual bool Is<T>()
         {
-            return _type == Types.Object && _object is T;
+            return false;
         }
 
-        public T As<T>() where T : ObjectInstance
+        public virtual T As<T>() where T : ObjectInstance
         {
-            return _object as T;
+            return null;
         }
 
         [Pure]
-        public bool AsBoolean()
+        public virtual bool AsBoolean()
         {
-            if (_type != Types.Boolean)
-            {
-                throw new ArgumentException("The value is not a boolean");
-            }
-
-            return _double != 0;
+            throw new ArgumentException("The value is not a boolean");
         }
 
         [Pure]
         public virtual string AsString()
         {
-            if (_type != Types.String)
-            {
-                throw new ArgumentException("The value is not a string");
-            }
-
-            if (_object == null)
-            {
-                throw new ArgumentException("The value is not defined");
-            }
-
-            return (string)_object;
+            throw new ArgumentException("The value is not a string");
         }
 
         [Pure]
-        public string AsSymbol()
+        public virtual string AsSymbol()
         {
-            if (_type != Types.Symbol)
-            {
-                throw new ArgumentException("The value is not a symbol");
-            }
-
-            if (_object == null)
-            {
-                throw new ArgumentException("The value is not defined");
-            }
-
-            return (string)_object;
+            throw new ArgumentException("The value is not a symbol");
         }
 
         [Pure]
-        public double AsNumber()
+        public virtual double AsNumber()
         {
-            if (_type != Types.Number)
-            {
-                throw new ArgumentException("The value is not a number");
-            }
-
-            return _double;
+            throw new ArgumentException("The value is not a number");
         }
 
         public virtual bool Equals(JsValue other)
@@ -363,7 +198,7 @@ namespace Jint.Native
                 return false;
             }
 
-            if(ReferenceEquals(this, other))
+            if (ReferenceEquals(this, other))
             {
                 return true;
             }
@@ -378,90 +213,14 @@ namespace Jint.Native
                 case Types.None:
                     return false;
                 case Types.Undefined:
-                    return true;
                 case Types.Null:
                     return true;
-                case Types.Boolean:
-                case Types.Number:
-                    return _double == other._double;
-                case Types.String:
-                case Types.Object:
-                    return _object == other._object;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
         }
 
         public Types Type => _type;
-
-        internal static JsValue FromDouble(double value)
-        {
-            // we can cache positive double zero, but not negative, -0 == 0 in C# but in JS it's a different story
-            if ((value == 0 && BitConverter.DoubleToInt64Bits(value) != NegativeZeroBits || value >= 1)
-                && value < _doubleToJsValue.Length
-                && System.Math.Abs(value % 1) <= DoubleIsIntegerTolerance)
-            {
-                return _doubleToJsValue[(int) value];
-            }
-            if (value == -1)
-            {
-                return DoubleNegativeOne;
-            }
-            if (value == double.NegativeInfinity)
-            {
-                return DoubleNegativeInfinity;
-            }
-            if (value == double.PositiveInfinity)
-            {
-                return DoublePositiveInfinity;
-            }
-            if (double.IsNaN(value))
-            {
-                return DoubleNaN;
-            }
-
-            return new JsValue(value);
-        }
-
-        internal static JsValue FromInt(int value)
-        {
-            if (value >= 0 && value < _intToJsValue.Length)
-            {
-                return _intToJsValue[value];
-            }
-            if (value == -1)
-            {
-                return IntegerNegativeOne;
-            }
-            return new JsValue(value);
-        }
-
-        internal static JsValue FromInt(uint value)
-        {
-            if (value >= 0 && value < _intToJsValue.Length)
-            {
-                return _intToJsValue[value];
-            }
-            return new JsValue(value);
-        }
-
-        internal static JsValue FromInt(ulong value)
-        {
-            if (value >= 0 && value < (ulong) _intToJsValue.Length)
-            {
-                return _intToJsValue[value];
-            }
-            return new JsValue(value);
-        }
-
-        internal static JsValue FromChar(char value)
-        {
-            if (value >= 0 && value <= AsciiMax)
-            {
-                return _charToJsValue[value];
-            }
-            return new JsValue(value);
-        }
 
         /// <summary>
         /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance
@@ -505,13 +264,13 @@ namespace Jint.Native
                 // Learn conversion, racy, worst case we'll try again later
                 Interlocked.CompareExchange(ref Engine.TypeMappers, new Dictionary<Type, Func<Engine, object, JsValue>>(typeMappers)
                 {
-                    [valueType] = (Engine e, object v) => ((ObjectInstance)v).JsValue
+                    [valueType] = (Engine e, object v) => ((ObjectInstance) v).JsValue
                 }, typeMappers);
                 return instance.JsValue;
             }
 
             var type = value as Type;
-            if(type != null)
+            if (type != null)
             {
                 var typeReference = TypeReference.CreateTypeReference(engine, type);
                 return typeReference.JsValue;
@@ -548,7 +307,7 @@ namespace Jint.Native
 
             if (value.GetType().IsEnum())
             {
-                return FromInt((int) value);
+                return JsNumber.Create((int) value);
             }
 
             // if no known type could be guessed, wrap it as an ObjectInstance
@@ -559,7 +318,7 @@ namespace Jint.Native
         /// Converts a <see cref="JsValue"/> to its underlying CLR value.
         /// </summary>
         /// <returns>The underlying CLR value of the <see cref="JsValue"/> instance.</returns>
-        public object ToObject()
+        public virtual object ToObject()
         {
             switch (_type)
             {
@@ -567,115 +326,6 @@ namespace Jint.Native
                 case Types.Undefined:
                 case Types.Null:
                     return null;
-                case Types.String:
-                    return _object;
-                case Types.Boolean:
-                    return _double != 0;
-                case Types.Number:
-                    return _double;
-                case Types.Object:
-                    if (_object is IObjectWrapper wrapper)
-                    {
-                        return wrapper.Target;
-                    }
-
-                    switch ((_object as ObjectInstance).Class)
-                    {
-                        case "Array":
-                            if (_object is ArrayInstance arrayInstance)
-                            {
-                                var len = TypeConverter.ToInt32(arrayInstance.Get("length"));
-                                var result = new object[len];
-                                for (var k = 0; k < len; k++)
-                                {
-                                    var pk = TypeConverter.ToString(k);
-                                    var kpresent = arrayInstance.HasProperty(pk);
-                                    if (kpresent)
-                                    {
-                                        var kvalue = arrayInstance.Get(pk);
-                                        result[k] = kvalue.ToObject();
-                                    }
-                                    else
-                                    {
-                                        result[k] = null;
-                                    }
-                                }
-                                return result;
-                            }
-                            break;
-
-                        case "String":
-                            if (_object is StringInstance stringInstance)
-                            {
-                                return stringInstance.PrimitiveValue.AsString();
-                            }
-
-                            break;
-
-                        case "Date":
-                            if (_object is DateInstance dateInstance)
-                            {
-                                return dateInstance.ToDateTime();
-                            }
-
-                            break;
-
-                        case "Boolean":
-                            if (_object is BooleanInstance booleanInstance)
-                            {
-                                return booleanInstance.PrimitiveValue.AsBoolean();
-                            }
-
-                            break;
-
-                        case "Function":
-                            if (_object is FunctionInstance function)
-                            {
-                                return (Func<JsValue, JsValue[], JsValue>)function.Call;
-                            }
-
-                            break;
-
-                        case "Number":
-                            if (_object is NumberInstance numberInstance)
-                            {
-                                return numberInstance.NumberData.AsNumber();
-                            }
-
-                            break;
-
-                        case "RegExp":
-                            if (_object is RegExpInstance regeExpInstance)
-                            {
-                                return regeExpInstance.Value;
-                            }
-
-                            break;
-
-                        case "Arguments":
-                        case "Object":
-#if __IOS__
-                                IDictionary<string, object> o = new Dictionary<string, object>();
-#else
-                            IDictionary<string, object> o = new ExpandoObject();
-#endif
-
-                            var objectInstance = (ObjectInstance) _object;
-                            foreach (var p in objectInstance.GetOwnProperties())
-                            {
-                                if (!p.Value.Enumerable.HasValue || p.Value.Enumerable.Value == false)
-                                {
-                                    continue;
-                                }
-
-                                o.Add(p.Key, objectInstance.Get(p.Key).ToObject());
-                            }
-
-                            return o;
-                    }
-
-
-                    return _object;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -737,13 +387,6 @@ namespace Jint.Native
                     return "undefined";
                 case Types.Null:
                     return "null";
-                case Types.Boolean:
-                    return _double != 0 ? bool.TrueString : bool.FalseString;
-                case Types.Number:
-                    return _double.ToString();
-                case Types.String:
-                case Types.Object:
-                    return _object.ToString();
                 default:
                     return string.Empty;
             }
@@ -791,53 +434,32 @@ namespace Jint.Native
 
         static public implicit operator JsValue(char value)
         {
-            return FromChar(value);
+            return JsString.Create(value);
         }
 
         static public implicit operator JsValue(int value)
         {
-            return FromInt(value);
+            return JsNumber.Create(value);
         }
 
         static public implicit operator JsValue(uint value)
         {
-            return FromInt(value);
+            return JsNumber.Create(value);
         }
 
         static public implicit operator JsValue(double value)
         {
-            return FromDouble(value);
+            return JsNumber.Create(value);
         }
 
         public static implicit operator JsValue(bool value)
         {
-            return value ? True : False;
+            return value ? JsBoolean.True : JsBoolean.False;
         }
 
         public static implicit operator JsValue(string value)
         {
-            if (value.Length <= 1)
-            {
-                if (value == "")
-                {
-                    return EmptyString;
-                }
-
-                if (value.Length == 1)
-                {
-                    if (value[0] >= 0 && value[0] <= AsciiMax)
-                    {
-                        return _charToStringJsValue[value[0]];
-                    }
-                }
-
-            }
-            else if (value == Native.Null.Text)
-            {
-                return NullString;
-            }
-
-            return new JsString(value);
+            return JsString.Create(value);
         }
 
         public static implicit operator JsValue(ObjectInstance value)
@@ -848,9 +470,9 @@ namespace Jint.Native
         internal class JsValueDebugView
         {
             public string Value;
+
             public JsValueDebugView(JsValue value)
             {
-
                 switch (value.Type)
                 {
                     case Types.None:
@@ -886,31 +508,17 @@ namespace Jint.Native
 
         public override bool Equals(object obj)
         {
-            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(null, obj))
+            {
+                return false;
+            }
+
             return obj is JsValue value && Equals(value);
         }
 
         public override int GetHashCode()
         {
-            unchecked
-            {
-                var hashCode = 0;
-                hashCode = (hashCode * 397) ^ _double.GetHashCode();
-                hashCode = (hashCode * 397) ^ (_object != null ? _object.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ (int)_type;
-                return hashCode;
-            }
-        }
-    }
-
-    /// <summary>
-    /// The _object value of a <see cref="JsSymbol"/> is the [[Description]] internal slot.
-    /// </summary>
-    public class JsSymbol : JsValue
-    {
-        public JsSymbol(string description) : base(description)
-        {
-            _type = Types.Symbol;
+            return _type.GetHashCode();
         }
     }
 }

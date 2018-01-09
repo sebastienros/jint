@@ -32,7 +32,7 @@ namespace Jint.Native.Object
         /// </summary>
         internal JsValue JsValue
         {
-            get { return _jsValue = _jsValue ?? new JsValue(this); }
+            get { return _jsValue = _jsValue ?? new JsObject(this); }
         }
 
         protected bool TryGetIntrinsicValue(JsSymbol symbol, out JsValue value)
