@@ -74,7 +74,12 @@ namespace Jint.Runtime
                     var rprim = TypeConverter.ToPrimitive(rval);
                     if (lprim.IsString() || rprim.IsString())
                     {
-                        lval = TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim);
+                        var jsString = lprim as JsString;
+                        if (jsString == null)
+                        {
+                            jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
+                        }
+                        lval = jsString.Append(rprim);
                     }
                     else
                     {
@@ -378,7 +383,7 @@ namespace Jint.Runtime
             }
         }
 
-        public static bool Equal(JsValue x, JsValue y)
+        private static bool Equal(JsValue x, JsValue y)
         {
             var typex = x.Type;
             var typey = y.Type;
@@ -1094,6 +1099,12 @@ namespace Jint.Runtime
         {
             allLiteral = true;
             var count = expressionArguments.Count;
+
+            if (count == 0)
+            {
+                return Array.Empty<JsValue>();
+            }
+
             var arguments = new JsValue[count];
             for (var i = 0; i < count; i++)
             {

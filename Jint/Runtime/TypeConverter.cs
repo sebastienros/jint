@@ -365,7 +365,7 @@ namespace Jint.Runtime
                     {
                         // TODO: throw a TypeError
                         // NB: But it requires an Engine reference
-                        throw new JavaScriptException(new JsValue("TypeError"));
+                        throw new JavaScriptException(new JsString("TypeError"));
                     }
                 }
             }

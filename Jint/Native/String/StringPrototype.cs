@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Jint.Native.Array;
@@ -207,7 +206,19 @@ namespace Jint.Native.String
             // Swap value if finalStart < finalEnd
             var from = System.Math.Min(finalStart, finalEnd);
             var to = System.Math.Max(finalStart, finalEnd);
-            return s.Substring(from, to - from);
+            var length = to - from;
+
+            if (length == 0)
+            {
+                return string.Empty;
+            }
+
+            if (length == 1)
+            {
+                return TypeConverter.ToString(s[from]);
+            }
+
+            return s.Substring(from, length);
         }
 
         private JsValue Substr(JsValue thisObj, JsValue[] arguments)
@@ -225,7 +236,13 @@ namespace Jint.Native.String
                 return "";
             }
 
-            return s.Substring(TypeConverter.ToInt32(start), TypeConverter.ToInt32(length));
+            var startIndex = TypeConverter.ToInt32(start);
+            var l = TypeConverter.ToInt32(length);
+            if (l == 1)
+            {
+                return TypeConverter.ToString(s[startIndex]);
+            }
+            return s.Substring(startIndex, l);
         }
 
         private JsValue Split(JsValue thisObj, JsValue[] arguments)
@@ -360,8 +377,6 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
-
             var start = TypeConverter.ToNumber(arguments.At(0));
             if (double.NegativeInfinity.Equals(start))
             {
@@ -372,6 +387,7 @@ namespace Jint.Native.String
                 return string.Empty;
             }
 
+            var s = TypeConverter.ToString(thisObj);
             var end = TypeConverter.ToNumber(arguments.At(1));
             if (double.PositiveInfinity.Equals(end))
             {
@@ -384,6 +400,16 @@ namespace Jint.Native.String
             var from = intStart < 0 ? System.Math.Max(len + intStart, 0) : System.Math.Min(intStart, len);
             var to = intEnd < 0 ? System.Math.Max(len + intEnd, 0) : System.Math.Min(intEnd, len);
             var span = System.Math.Max(to - from, 0);
+
+            if (span == 0)
+            {
+                return string.Empty;
+            }
+
+            if (span == 1)
+            {
+                return TypeConverter.ToString(s[from]);
+            }
 
             return s.Substring(from, span);
         }
@@ -710,6 +736,16 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
+            if (thisObj is JsString jsString)
+            {
+                for (int i = 0; i < arguments.Length; i++)
+                {
+                    jsString = jsString.Append(arguments[i]);
+                }
+
+                return jsString;
+            }
+
             var s = TypeConverter.ToString(thisObj);
             var sb = StringExecutionContext.Current.GetStringBuilder(0);
             sb.Clear();
@@ -719,7 +755,7 @@ namespace Jint.Native.String
                 sb.Append(TypeConverter.ToString(arguments[i]));
             }
 
-            return sb.ToString();
+            return new JsString(sb.ToString());
         }
 
         private JsValue CharCodeAt(JsValue thisObj, JsValue[] arguments)

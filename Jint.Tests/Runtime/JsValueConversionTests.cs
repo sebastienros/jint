@@ -138,7 +138,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeAString()
         {
-            var value = new JsValue("a");
+            var value = new JsString("a");
             Assert.Equal(false, value.IsBoolean());
             Assert.Equal(false, value.IsArray());
             Assert.Equal(false, value.IsDate());

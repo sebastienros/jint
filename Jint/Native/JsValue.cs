@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Dynamic;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
@@ -36,8 +35,8 @@ namespace Jint.Native
         private static readonly JsValue[] _charToJsValue = new JsValue[AsciiMax + 1];
         private static readonly JsValue[] _charToStringJsValue = new JsValue[AsciiMax + 1];
 
-        private static readonly JsValue EmptyString = new JsValue("");
-        private static readonly JsValue NullString = new JsValue("null");
+        private static readonly JsValue EmptyString = new JsString("");
+        private static readonly JsValue NullString = new JsString("null");
 
         public static readonly JsValue Undefined = new JsValue(Types.Undefined);
         public static readonly JsValue Null = new JsValue(Types.Null);
@@ -51,7 +50,7 @@ namespace Jint.Native
         private static readonly JsValue IntegerNegativeOne = new JsValue(-1);
 
         private readonly double _double;
-        private readonly object _object;
+        protected object _object;
         protected Types _type;
 
         static JsValue()
@@ -65,7 +64,7 @@ namespace Jint.Native
             for (int i = 0; i <= AsciiMax; i++)
             {
                 _charToJsValue[i] = new JsValue((char) i);
-                _charToStringJsValue[i] = new JsValue(((char) i).ToString());
+                _charToStringJsValue[i] = new JsString(((char) i).ToString());
             }
         }
 
@@ -107,7 +106,7 @@ namespace Jint.Native
             _type = Types.String;
         }
 
-        public JsValue(string value)
+        protected JsValue(string value)
         {
             _double = double.NaN;
             _object = value;
@@ -315,7 +314,7 @@ namespace Jint.Native
         }
 
         [Pure]
-        public string AsString()
+        public virtual string AsString()
         {
             if (_type != Types.String)
             {
@@ -357,8 +356,7 @@ namespace Jint.Native
             return _double;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Equals(JsValue other)
+        public virtual bool Equals(JsValue other)
         {
             if (other == null)
             {
@@ -476,6 +474,11 @@ namespace Jint.Native
             if (value == null)
             {
                 return Null;
+            }
+
+            if (value is JsValue jsValue)
+            {
+                return jsValue;
             }
 
             foreach (var converter in engine.Options._ObjectConverters)
@@ -834,7 +837,7 @@ namespace Jint.Native
                 return NullString;
             }
 
-            return new JsValue(value);
+            return new JsString(value);
         }
 
         public static implicit operator JsValue(ObjectInstance value)

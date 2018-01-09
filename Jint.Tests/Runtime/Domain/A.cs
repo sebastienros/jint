@@ -40,7 +40,7 @@ namespace Jint.Tests.Runtime.Domain
 
         public string Call6(Func<JsValue, JsValue[], JsValue> callback)
         {
-            var thisArg = new JsValue("bar");
+            var thisArg = new JsString("bar");
             var arguments = new JsValue[] { 1, "foo" };
 
             return callback(thisArg, arguments).ToString();
