@@ -335,7 +335,6 @@ namespace Jint.Native.String
                     {
                         segments.Capacity = s.Length;
                     }
-                    segments = new List<string>(s.Length);
                     foreach (var c in s)
                     {
                         segments.Add(TypeConverter.ToString(c));

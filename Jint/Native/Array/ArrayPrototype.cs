@@ -704,21 +704,29 @@ namespace Jint.Native.Array
                 return "";
             }
 
-            var element0 = o.Get(0);
-            string r = element0 == Undefined.Instance || element0 == Null.Instance
-                ? ""
-                : TypeConverter.ToString(element0);
-            for (uint k = 1; k < len; k++)
+            string StringFromJsValue(JsValue value)
             {
-                var s = r + sep;
-                var element = o.Get(k);
-                string next = element == Undefined.Instance || element == Null.Instance
+                return value == Undefined.Instance || value == Null.Instance
                     ? ""
-                    : TypeConverter.ToString(element);
-                r = s + next;
+                    : TypeConverter.ToString(value);
             }
 
-            return r;
+            var s = StringFromJsValue(o.Get(0));
+            if (len == 1)
+            {
+                return s;
+            }
+
+            var sb = ArrayExecutionContext.Current.StringBuilder;
+            sb.Clear();
+            sb.Append(s);
+            for (uint k = 1; k < len; k++)
+            {
+                sb.Append(sep);
+                sb.Append(StringFromJsValue(o.Get(k)));
+            }
+
+            return sb.ToString();
         }
 
         private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
