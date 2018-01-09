@@ -10,9 +10,16 @@ namespace Jint.Native
     {
         private readonly string _value;
 
-        public JsSymbol(string value) : base(Types.Symbol)
+        public JsSymbol(string value)
         {
             _value = value;
+        }
+
+        public override Types Type => Types.Symbol;
+
+        public override object ToObject()
+        {
+            return _value;
         }
 
         public override string AsSymbol()

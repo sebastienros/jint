@@ -11,10 +11,12 @@ namespace Jint.Native
         public static readonly JsValue False = new JsBoolean(false);
         public static readonly JsValue True = new JsBoolean(true);
 
-        public JsBoolean(bool value) : base(Types.Boolean)
+        public JsBoolean(bool value)
         {
             _value = value;
         }
+
+        public override Types Type => Types.Boolean;
 
         [Pure]
         public override bool AsBoolean()

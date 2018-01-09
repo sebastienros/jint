@@ -19,15 +19,17 @@ namespace Jint.Native
     {
         private readonly object _value;
 
-        public JsObject(object value) : base(Types.Object)
+        public JsObject(object value)
         {
             _value = value;
         }
 
-        public JsObject(ObjectInstance value) : base(Types.Object)
+        public JsObject(ObjectInstance value)
         {
             _value = value;
         }
+
+        public override Types Type => Types.Object;
 
         [Pure]
         public override bool IsArray()

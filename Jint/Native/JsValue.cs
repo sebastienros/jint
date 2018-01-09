@@ -13,28 +13,21 @@ using Jint.Runtime.Interop;
 namespace Jint.Native
 {
     [DebuggerTypeProxy(typeof(JsValueDebugView))]
-    public class JsValue : IEquatable<JsValue>
+    public abstract class JsValue : IEquatable<JsValue>
     {
-        public static readonly JsValue Undefined = new JsValue(Types.Undefined);
-        public static readonly JsValue Null = new JsValue(Types.Null);
-
-        private readonly Types _type;
-
-        protected JsValue(Types type)
-        {
-            _type = type;
-        }
+        public static readonly JsValue Undefined = new JsUndefined();
+        public static readonly JsValue Null = new JsNull();
 
         [Pure]
         public bool IsPrimitive()
         {
-            return _type != Types.Object && _type != Types.None;
+            return Type != Types.Object && Type != Types.None;
         }
 
         [Pure]
         public bool IsUndefined()
         {
-            return _type == Types.Undefined;
+            return Type == Types.Undefined;
         }
 
         [Pure]
@@ -58,43 +51,43 @@ namespace Jint.Native
         [Pure]
         public bool IsObject()
         {
-            return _type == Types.Object;
+            return Type == Types.Object;
         }
 
         [Pure]
         public bool IsString()
         {
-            return _type == Types.String;
+            return Type == Types.String;
         }
 
         [Pure]
         public bool IsNumber()
         {
-            return _type == Types.Number;
+            return Type == Types.Number;
         }
 
         [Pure]
         public bool IsBoolean()
         {
-            return _type == Types.Boolean;
+            return Type == Types.Boolean;
         }
 
         [Pure]
         public bool IsNull()
         {
-            return _type == Types.Null;
+            return Type == Types.Null;
         }
 
         [Pure]
         public bool IsCompletion()
         {
-            return _type == Types.Completion;
+            return Type == Types.Completion;
         }
 
         [Pure]
         public bool IsSymbol()
         {
-            return _type == Types.Symbol;
+            return Type == Types.Symbol;
         }
 
         [Pure]
@@ -130,7 +123,7 @@ namespace Jint.Native
         [Pure]
         public virtual Completion AsCompletion()
         {
-            if (_type != Types.Completion)
+            if (Type != Types.Completion)
             {
                 throw new ArgumentException("The value is not a completion record");
             }
@@ -191,36 +184,7 @@ namespace Jint.Native
             throw new ArgumentException("The value is not a number");
         }
 
-        public virtual bool Equals(JsValue other)
-        {
-            if (other == null)
-            {
-                return false;
-            }
-
-            if (ReferenceEquals(this, other))
-            {
-                return true;
-            }
-
-            if (_type != other._type)
-            {
-                return false;
-            }
-
-            switch (_type)
-            {
-                case Types.None:
-                    return false;
-                case Types.Undefined:
-                case Types.Null:
-                    return true;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-
-        public Types Type => _type;
+        public abstract Types Type { get; }
 
         /// <summary>
         /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance
@@ -318,18 +282,7 @@ namespace Jint.Native
         /// Converts a <see cref="JsValue"/> to its underlying CLR value.
         /// </summary>
         /// <returns>The underlying CLR value of the <see cref="JsValue"/> instance.</returns>
-        public virtual object ToObject()
-        {
-            switch (_type)
-            {
-                case Types.None:
-                case Types.Undefined:
-                case Types.Null:
-                    return null;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
+        public abstract object ToObject();
 
         /// <summary>
         /// Invoke the current value as function.
@@ -379,17 +332,7 @@ namespace Jint.Native
 
         public override string ToString()
         {
-            switch (Type)
-            {
-                case Types.None:
-                    return "None";
-                case Types.Undefined:
-                    return "undefined";
-                case Types.Null:
-                    return "null";
-                default:
-                    return string.Empty;
-            }
+            return "None";
         }
 
         public static bool operator ==(JsValue a, JsValue b)
@@ -467,6 +410,28 @@ namespace Jint.Native
             return value.JsValue;
         }
 
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, obj))
+            {
+                return true;
+            }
+
+            return obj is JsValue value && Equals(value);
+        }
+
+        public abstract bool Equals(JsValue other);
+
+        public override int GetHashCode()
+        {
+            return Type.GetHashCode();
+        }
+
         internal class JsValueDebugView
         {
             public string Value;
@@ -504,21 +469,6 @@ namespace Jint.Native
                         break;
                 }
             }
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(null, obj))
-            {
-                return false;
-            }
-
-            return obj is JsValue value && Equals(value);
-        }
-
-        public override int GetHashCode()
-        {
-            return _type.GetHashCode();
         }
     }
 }
