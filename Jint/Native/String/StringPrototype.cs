@@ -757,26 +757,33 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            if (thisObj is JsString jsString)
+            // try to hint capacity if possible
+            int capacity = 0;
+            for (int i = 0; i < arguments.Length; ++i)
             {
-                for (int i = 0; i < arguments.Length; i++)
+                if (arguments[i].Type == Types.String)
                 {
-                    jsString = jsString.Append(arguments[i]);
+                    capacity += arguments[i].AsString().Length;
                 }
-
-                return jsString;
             }
 
-            var s = TypeConverter.ToString(thisObj);
-            var sb = GetStringBuilder(0);
-            sb.Clear();
-            sb.Append(s);
+            var value = TypeConverter.ToString(thisObj);
+            capacity += value.Length;
+            if (!(thisObj is JsString jsString))
+            {
+                jsString = new JsString.ConcatenatedString(value, capacity);
+            }
+            else
+            {
+                jsString = jsString.EnsureCapacity(capacity);
+            }
+
             for (int i = 0; i < arguments.Length; i++)
             {
-                sb.Append(TypeConverter.ToString(arguments[i]));
+                jsString = jsString.Append(arguments[i]);
             }
 
-            return new JsString(sb.ToString());
+            return jsString;
         }
 
         private JsValue CharCodeAt(JsValue thisObj, JsValue[] arguments)

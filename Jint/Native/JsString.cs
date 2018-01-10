@@ -58,7 +58,12 @@ namespace Jint.Native
 
         public virtual JsString Append(JsValue jsValue)
         {
-            return new ConcatenatedString(string.Concat(TypeConverter.ToString(this), TypeConverter.ToString(jsValue)));
+            return new ConcatenatedString(string.Concat(_value, TypeConverter.ToString(jsValue)));
+        }
+
+        internal virtual JsString EnsureCapacity(int capacity)
+        {
+            return new ConcatenatedString(_value, capacity);
         }
 
         internal static JsString Create(string value)
@@ -136,8 +141,16 @@ namespace Jint.Native
             private StringBuilder _stringBuilder;
             private bool _dirty;
 
-            internal ConcatenatedString(string value) : base(value)
+            internal ConcatenatedString(string value, int capacity = 0) : base(value)
             {
+                if (capacity > 0)
+                {
+                    _stringBuilder = new StringBuilder(value, capacity);
+                }
+                else
+                {
+                    _value = value;
+                }
             }
 
             [Pure]
@@ -163,6 +176,12 @@ namespace Jint.Native
                 _stringBuilder.Append(value);
                 _dirty = true;
 
+                return this;
+            }
+
+            internal override JsString EnsureCapacity(int capacity)
+            {
+                _stringBuilder.EnsureCapacity(capacity);
                 return this;
             }
 
