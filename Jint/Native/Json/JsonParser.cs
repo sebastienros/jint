@@ -789,7 +789,7 @@ namespace Jint.Native.Json
                     return Null.Instance;
                 case Tokens.BooleanLiteral:
                     // implicit conversion operator goes through caching
-                    return (bool) Lex().Value ? JsValue.True : JsValue.False;
+                    return (bool) Lex().Value ? JsBoolean.True : JsBoolean.False;
                 case Tokens.String:
                     // implicit conversion operator goes through caching
                     return (string) Lex().Value;

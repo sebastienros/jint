@@ -29,7 +29,7 @@ namespace Jint.Native.Json
 
             // for JSON.stringify(), any function passed as the first argument will return undefined
             // if the replacer is not defined. The function is not called either.
-            if (value.Is<ICallable>() && replacer == Undefined.Instance)
+            if (value.Is<ICallable>() && ReferenceEquals(replacer, Undefined.Instance))
             {
                 return Undefined.Instance;
             }
@@ -165,7 +165,7 @@ namespace Jint.Native.Json
                 }
             }
 
-            if (value == Null.Instance)
+            if (ReferenceEquals(value, Null.Instance))
             {
                 return "null";
             }

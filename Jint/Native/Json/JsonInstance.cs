@@ -45,9 +45,9 @@ namespace Jint.Native.Json
         public JsValue Stringify(JsValue thisObject, JsValue[] arguments)
         {
             JsValue
-                value = Undefined.Instance,
-                replacer = Undefined.Instance,
-                space = Undefined.Instance;
+                value = Undefined,
+                replacer = Undefined,
+                space = Undefined;
 
             if (arguments.Length > 2)
             {
@@ -65,12 +65,11 @@ namespace Jint.Native.Json
             }
 
             var serializer = new JsonSerializer(_engine);
-            if (value == Undefined.Instance && replacer == Undefined.Instance) {
-                return Undefined.Instance;
+            if (ReferenceEquals(value, Undefined) && ReferenceEquals(replacer, Undefined)) {
+                return Undefined;
             }
-            else {
-                return serializer.Serialize(value, replacer, space);
-            }
+
+            return serializer.Serialize(value, replacer, space);
         }
     }
 }

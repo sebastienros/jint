@@ -51,23 +51,22 @@ namespace Jint
 
         internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new Dictionary<Type, Func<Engine, object, JsValue>>()
         {
-            { typeof(bool), (Engine engine, object v) => (bool) v ? JsValue.True : JsValue.False },
-            { typeof(byte), (Engine engine, object v) => JsValue.FromInt((byte)v) },
-            { typeof(char), (Engine engine, object v) => JsValue.FromChar((char)v) },
+            { typeof(bool), (Engine engine, object v) => (bool) v ? JsBoolean.True : JsBoolean.False },
+            { typeof(byte), (Engine engine, object v) => JsNumber.Create((byte)v) },
+            { typeof(char), (Engine engine, object v) => JsString.Create((char)v) },
             { typeof(DateTime), (Engine engine, object v) => engine.Date.Construct((DateTime)v) },
             { typeof(DateTimeOffset), (Engine engine, object v) => engine.Date.Construct((DateTimeOffset)v) },
             { typeof(decimal), (Engine engine, object v) => (JsValue) (double)(decimal)v },
             { typeof(double), (Engine engine, object v) => (JsValue)(double)v },
-            { typeof(Int16), (Engine engine, object v) => JsValue.FromInt((Int16)v) },
-            { typeof(Int32), (Engine engine, object v) => JsValue.FromInt((Int32)v) },
+            { typeof(Int16), (Engine engine, object v) => JsNumber.Create((Int16)v) },
+            { typeof(Int32), (Engine engine, object v) => JsNumber.Create((Int32)v) },
             { typeof(Int64), (Engine engine, object v) => (JsValue)(Int64)v },
-            { typeof(SByte), (Engine engine, object v) => JsValue.FromInt((SByte)v) },
+            { typeof(SByte), (Engine engine, object v) => JsNumber.Create((SByte)v) },
             { typeof(Single), (Engine engine, object v) => (JsValue)(Single)v },
             { typeof(string), (Engine engine, object v) => (JsValue) (string)v },
-            { typeof(UInt16), (Engine engine, object v) => JsValue.FromInt((UInt16)v) },
-            { typeof(UInt32), (Engine engine, object v) => JsValue.FromInt((UInt32)v) },
-            { typeof(UInt64), (Engine engine, object v) => JsValue.FromInt((UInt64)v) },
-            { typeof(JsValue), (Engine engine, object v) => (JsValue)v },
+            { typeof(UInt16), (Engine engine, object v) => JsNumber.Create((UInt16)v) },
+            { typeof(UInt32), (Engine engine, object v) => JsNumber.Create((UInt32)v) },
+            { typeof(UInt64), (Engine engine, object v) => JsNumber.Create((UInt64)v) },
             { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "") }
         };
 
@@ -259,17 +258,17 @@ namespace Jint
 
         public Engine SetValue(string name, double value)
         {
-            return SetValue(name, JsValue.FromDouble(value));
+            return SetValue(name, JsNumber.Create(value));
         }
 
         public Engine SetValue(string name, int value)
         {
-            return SetValue(name, JsValue.FromInt(value));
+            return SetValue(name, JsNumber.Create(value));
         }
 
         public Engine SetValue(string name, bool value)
         {
-            return SetValue(name, value ? JsValue.True : JsValue.False);
+            return SetValue(name, value ? JsBoolean.True : JsBoolean.False);
         }
 
         public Engine SetValue(string name, JsValue value)
@@ -565,7 +564,7 @@ namespace Jint
                     }
 
                     var getter = desc.Get;
-                    if (getter == Undefined.Instance)
+                    if (ReferenceEquals(getter, Undefined.Instance))
                     {
                         return Undefined.Instance;
                     }
@@ -574,17 +573,14 @@ namespace Jint
                     return callable.Call(baseValue, Arguments.Empty);
                 }
             }
-            else
+
+            var record = (EnvironmentRecord) baseValue;
+            if (record == null)
             {
-                var record = baseValue.As<EnvironmentRecord>();
-
-                if (record == null)
-                {
-                    throw new ArgumentException();
-                }
-
-                return record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
+                throw new ArgumentException();
             }
+
+            return record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
         }
 
         /// <summary>

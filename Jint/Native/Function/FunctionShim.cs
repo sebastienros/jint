@@ -10,7 +10,7 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return Undefined.Instance;
+            return Undefined;
         }
     }
 }

@@ -57,7 +57,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.None)
         {
-            if (input == Null.Instance || input == Undefined.Instance)
+            if (ReferenceEquals(input, Null.Instance) || ReferenceEquals(input, Undefined.Instance))
             {
                 return input;
             }
@@ -88,7 +88,7 @@ namespace Jint.Runtime
                 return o.AsBoolean();
             }
 
-            if (o == Undefined.Instance || o == Null.Instance)
+            if (ReferenceEquals(o, Undefined.Instance) || ReferenceEquals(o, Null.Instance))
             {
                 return false;
             }
@@ -140,12 +140,12 @@ namespace Jint.Runtime
                 }
             }
 
-            if (o == Undefined.Instance)
+            if (ReferenceEquals(o, Undefined.Instance))
             {
                 return double.NaN;
             }
 
-            if (o == Null.Instance)
+            if (ReferenceEquals(o, Null.Instance))
             {
                 return 0;
             }
@@ -365,17 +365,17 @@ namespace Jint.Runtime
                     {
                         // TODO: throw a TypeError
                         // NB: But it requires an Engine reference
-                        throw new JavaScriptException(new JsValue("TypeError"));
+                        throw new JavaScriptException(new JsString("TypeError"));
                     }
                 }
             }
 
-            if (o == Undefined.Instance)
+            if (ReferenceEquals(o, Undefined.Instance))
             {
                 return Undefined.Text;
             }
 
-            if (o == Null.Instance)
+            if (ReferenceEquals(o, Null.Instance))
             {
                 return Null.Text;
             }
@@ -405,12 +405,12 @@ namespace Jint.Runtime
                 return value.AsObject();
             }
 
-            if (value == Undefined.Instance)
+            if (ReferenceEquals(value, Undefined.Instance))
             {
                 throw new JavaScriptException(engine.TypeError);
             }
 
-            if (value == Null.Instance)
+            if (ReferenceEquals(value, Null.Instance))
             {
                 throw new JavaScriptException(engine.TypeError);
             }
@@ -475,7 +475,7 @@ namespace Jint.Runtime
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)
         {
-            if (o == Undefined.Instance || o == Null.Instance)
+            if (ReferenceEquals(o, Undefined.Instance) || ReferenceEquals(o, Null.Instance))
             {
                 throw new JavaScriptException(engine.TypeError);
             }

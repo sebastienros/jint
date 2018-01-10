@@ -57,7 +57,7 @@ namespace Jint.Native.RegExp
             }
 
             var match = Exec(r, arguments);
-            return match != Null.Instance;
+            return match != Null;
         }
 
         internal JsValue Exec(JsValue thisObj, JsValue[] arguments)
@@ -91,7 +91,7 @@ namespace Jint.Native.RegExp
             if (i < 0 || i > length)
             {
                 R.Put("lastIndex", (double) 0, true);
-                return Null.Instance;
+                return Null;
             }
 
             r = R.Match(s, i);
@@ -99,7 +99,7 @@ namespace Jint.Native.RegExp
             if (!r.Success)
             {
                 R.Put("lastIndex", (double) 0, true);
-                return Null.Instance;
+                return Null;
             }
 
             var e = r.Index + r.Length;
@@ -116,7 +116,7 @@ namespace Jint.Native.RegExp
             for (uint k = 0; k < n; k++)
             {
                 var group = r.Groups[(int) k];
-                var value = group.Success ? group.Value : Undefined.Instance;
+                var value = group.Success ? group.Value : Undefined;
                 a.SetIndexValue(k, value, throwOnError: true);
             }
 

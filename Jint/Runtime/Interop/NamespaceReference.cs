@@ -50,24 +50,26 @@ namespace Jint.Runtime.Interop
             for (int i = 0; i < arguments.Length; i++)
             {
                 var genericTypeReference = arguments.At(i);
-                if (genericTypeReference == Undefined.Instance || !genericTypeReference.IsObject() || genericTypeReference.AsObject().Class != "TypeReference")
+                if (ReferenceEquals(genericTypeReference, Undefined)
+                    || !genericTypeReference.IsObject() 
+                    || genericTypeReference.AsObject().Class != "TypeReference")
                 {
                     throw new JavaScriptException(Engine.TypeError, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
                 }
 
-                genericTypes[i] = arguments.At(i).As<TypeReference>().Type;
+                genericTypes[i] = arguments.At(i).As<TypeReference>().ReferenceType;
             }
 
             var typeReference = GetPath(_path + "`" + arguments.Length.ToString(CultureInfo.InvariantCulture)).As<TypeReference>();
 
             if (typeReference == null)
             {
-                return Undefined.Instance;
+                return Undefined;
             }
 
             try
             {
-                var genericType = typeReference.Type.MakeGenericType(genericTypes);
+                var genericType = typeReference.ReferenceType.MakeGenericType(genericTypes);
 
                 return TypeReference.CreateTypeReference(Engine, genericType);
             }
@@ -141,7 +143,7 @@ namespace Jint.Runtime.Interop
             }
 
             // search for type in mscorlib
-            type = Type.GetType(path);
+            type = System.Type.GetType(path);
             if (type != null)
             {
                 Engine.TypeCache.Add(path, type);

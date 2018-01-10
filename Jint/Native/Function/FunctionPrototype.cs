@@ -94,7 +94,7 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            if (argArray == Null.Instance || argArray == Undefined.Instance)
+            if (ReferenceEquals(argArray, Null) || ReferenceEquals(argArray, Undefined))
             {
                 return func.Call(thisArg, Arguments.Empty);
             }
@@ -130,7 +130,7 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return Undefined.Instance;
+            return Undefined;
         }
     }
 }

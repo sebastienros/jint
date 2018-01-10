@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
@@ -411,8 +410,8 @@ namespace Jint.Tests.Runtime
         {
             var o = new
             {
-                x = new JsValue(1),
-                y = new JsValue("string"),
+                x = new JsNumber(1),
+                y = new JsString("string"),
             };
 
             _engine.SetValue("o", o);
@@ -427,7 +426,7 @@ namespace Jint.Tests.Runtime
         public void PocosCanReturnObjectInstanceDirectly()
         {
             var x = new ObjectInstance(_engine) { Extensible = true};
-            x.Put("foo", new JsValue("bar"), false);
+            x.Put("foo", new JsString("bar"), false);
 
             var o = new
             {
@@ -1487,7 +1486,7 @@ namespace Jint.Tests.Runtime
                         try {
                             throwMyException();
                             return;
-                        } 
+                        }
                         catch(e) {
                             return;
                         }
@@ -1497,7 +1496,7 @@ namespace Jint.Tests.Runtime
                         try {
                             new Thrower().ThrowNotSupportedException();
                             return;
-                        } 
+                        }
                         catch(e) {
                             return;
                         }
@@ -1521,7 +1520,7 @@ namespace Jint.Tests.Runtime
                         try {
                             throwMyException();
                             return '';
-                        } 
+                        }
                         catch(e) {
                             return e.message;
                         }
@@ -1531,7 +1530,7 @@ namespace Jint.Tests.Runtime
                         try {
                             new Thrower().ThrowExceptionWithMessage('myExceptionMessage');
                             return;
-                        } 
+                        }
                         catch(e) {
                             return e.message;
                         }
@@ -1556,7 +1555,7 @@ namespace Jint.Tests.Runtime
                         try {
                             throwMyException1();
                             return '';
-                        } 
+                        }
                         catch(e) {
                             return e.message;
                         }
@@ -1566,7 +1565,7 @@ namespace Jint.Tests.Runtime
                         try {
                             throwMyException2();
                             return '';
-                        } 
+                        }
                         catch(e) {
                             return e.message;
                         }
@@ -1576,7 +1575,7 @@ namespace Jint.Tests.Runtime
                         try {
                             new Thrower().ThrowNotSupportedExceptionWithMessage('myExceptionMessage');
                             return '';
-                        } 
+                        }
                         catch(e) {
                             return e.message;
                         }
@@ -1586,13 +1585,13 @@ namespace Jint.Tests.Runtime
                         try {
                             new Thrower().ThrowArgumentNullException();
                             return '';
-                        } 
+                        }
                         catch(e) {
                             return e.message;
                         }
                     }
                 ");
-            
+
             Assert.Equal(engine.Invoke("throwException1").AsString(), exceptionMessage);
             Assert.Throws<ArgumentNullException>(() => engine.Invoke("throwException2"));
             Assert.Equal(engine.Invoke("throwException3").AsString(), exceptionMessage);

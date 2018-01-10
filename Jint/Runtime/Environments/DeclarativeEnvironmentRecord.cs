@@ -34,7 +34,7 @@ namespace Jint.Runtime.Environments
         {
             var binding = new Binding
             {
-                Value = Undefined.Instance,
+                Value = Undefined,
                 CanBeDeleted =  canBeDeleted,
                 Mutable = true
             };
@@ -69,14 +69,14 @@ namespace Jint.Runtime.Environments
         {
             var binding = name == BindingNameArguments ? _argumentsBinding : _bindings[name];
 
-            if (!binding.Mutable && binding.Value == Undefined.Instance)
+            if (!binding.Mutable && ReferenceEquals(binding.Value, Undefined))
             {
                 if (strict)
                 {
                     throw new JavaScriptException(_engine.ReferenceError, "Can't access anm uninitiazed immutable binding.");
                 }
 
-                return Undefined.Instance;
+                return Undefined;
             }
 
             return binding.Value;
@@ -118,7 +118,7 @@ namespace Jint.Runtime.Environments
 
         public override JsValue ImplicitThisValue()
         {
-            return Undefined.Instance;
+            return Undefined;
         }
 
         /// <summary>
@@ -129,7 +129,7 @@ namespace Jint.Runtime.Environments
         {
             var binding = new Binding
             {
-                Value = Undefined.Instance,
+                Value = Undefined,
                 Mutable = false,
                 CanBeDeleted = false
             };

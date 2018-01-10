@@ -30,10 +30,10 @@ namespace Jint.Native.Symbol
         {
             FastAddProperty("toString", new ClrFunctionInstance(Engine, ToSymbolString), true, false, true);
             FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf), true, false, true);
-            FastAddProperty("toStringTag", new JsValue("Symbol"), false, false, true);
+            FastAddProperty("toStringTag", new JsString("Symbol"), false, false, true);
 
             SetIntrinsicValue(GlobalSymbolRegistry.ToPrimitive, new ClrFunctionInstance(Engine, ToPrimitive), false, false, true);
-            SetIntrinsicValue(GlobalSymbolRegistry.ToStringTag, new JsValue("Symbol"), false, false, true);
+            SetIntrinsicValue(GlobalSymbolRegistry.ToStringTag, new JsString("Symbol"), false, false, true);
         }
 
         public string SymbolDescriptiveString(JsSymbol sym)

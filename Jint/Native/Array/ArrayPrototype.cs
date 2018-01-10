@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -13,6 +14,12 @@ namespace Jint.Native.Array
     /// </summary>
     public sealed class ArrayPrototype : ArrayInstance
     {
+        private readonly StringBuilder _arrayJoinBuilder = new StringBuilder();
+        private JsValue[] _callArray1;
+        private JsValue[] _callArray2;
+        private JsValue[] _callArray3;
+        private JsValue[] _callArray4;
+
         private ArrayPrototype(Engine engine) : base(engine)
         {
         }
@@ -119,7 +126,7 @@ namespace Jint.Native.Array
             }
 
             var k = 0;
-            JsValue accumulator = Undefined.Instance;
+            JsValue accumulator = Undefined;
             if (arguments.Length > 1)
             {
                 accumulator = initialValue;
@@ -144,7 +151,7 @@ namespace Jint.Native.Array
             }
 
 
-            var args = ArrayExecutionContext.Current.CallArray4;
+            var args = _callArray4 = _callArray4 ?? new JsValue[4];
             while (k < len)
             {
                 var i = (uint) k;
@@ -154,7 +161,7 @@ namespace Jint.Native.Array
                     args[1] = kvalue;
                     args[2] = i;
                     args[3] = o.Target;
-                    accumulator = callable.Call(Undefined.Instance, args);
+                    accumulator = callable.Call(Undefined, args);
                 }
 
                 k++;
@@ -176,7 +183,7 @@ namespace Jint.Native.Array
             var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
 
             uint to = 0;
-            var jsValues = ArrayExecutionContext.Current.CallArray3;
+            var jsValues = _callArray3 = _callArray3 ?? new JsValue[3];
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -206,10 +213,10 @@ namespace Jint.Native.Array
 
             var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
 
-            var args = ArrayExecutionContext.Current.CallArray1;
+            var args = _callArray1 = _callArray1 ?? new JsValue[1];
             args[0] = len;
             var a = Engine.Array.Construct(args, len);
-            var jsValues = ArrayExecutionContext.Current.CallArray3;
+            var jsValues = _callArray3 = _callArray3 ?? new JsValue[3];
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -235,7 +242,7 @@ namespace Jint.Native.Array
 
             var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
 
-            var jsValues = ArrayExecutionContext.Current.CallArray3;
+            var jsValues = _callArray3 = _callArray3 ?? new JsValue[3];
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -247,7 +254,7 @@ namespace Jint.Native.Array
                 }
             }
 
-            return Undefined.Instance;
+            return Undefined;
         }
 
         private JsValue Some(JsValue thisObj, JsValue[] arguments)
@@ -260,7 +267,7 @@ namespace Jint.Native.Array
 
             var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
 
-            var jsValues = ArrayExecutionContext.Current.CallArray3;
+            var jsValues = _callArray3 = _callArray3 ?? new JsValue[3];
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -289,7 +296,7 @@ namespace Jint.Native.Array
 
             var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
 
-            var jsValues = ArrayExecutionContext.Current.CallArray3;
+            var jsValues = _callArray3 = _callArray3 ?? new JsValue[3];
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -300,12 +307,12 @@ namespace Jint.Native.Array
                     var testResult = callable.Call(thisArg, jsValues);
                     if (false == TypeConverter.ToBoolean(testResult))
                     {
-                        return JsValue.False;
+                        return JsBoolean.False;
                     }
                 }
             }
 
-            return JsValue.True;
+            return JsBoolean.True;
         }
 
         private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)
@@ -500,31 +507,34 @@ namespace Jint.Native.Array
 
             var compareArg = arguments.At(0);
             ICallable compareFn = null;
-            if (compareArg != Undefined.Instance)
+            if (compareArg != Undefined)
             {
                 compareFn = compareArg.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "The sort argument must be a function"));
             }
 
             int Comparer(JsValue x, JsValue y)
             {
-                if (x == Undefined.Instance && y == Undefined.Instance)
+                if (ReferenceEquals(x, Undefined) && ReferenceEquals(y, Undefined))
                 {
                     return 0;
                 }
 
-                if (x == Undefined.Instance)
+                if (ReferenceEquals(x, Undefined))
                 {
                     return 1;
                 }
 
-                if (y == Undefined.Instance)
+                if (ReferenceEquals(y, Undefined))
                 {
                     return -1;
                 }
 
                 if (compareFn != null)
                 {
-                    var s = TypeConverter.ToNumber(compareFn.Call(Undefined.Instance, new[] {x, y}));
+                    var args = _callArray2 = _callArray2 ?? new JsValue[2];
+                    args[0] = x;
+                    args[1] = y;
+                    var s = TypeConverter.ToNumber(compareFn.Call(Undefined, args));
                     if (s < 0)
                     {
                         return -1;
@@ -589,7 +599,7 @@ namespace Jint.Native.Array
             }
 
             uint final;
-            if (end == Undefined.Instance)
+            if (ReferenceEquals(end, Undefined))
             {
                 final = TypeConverter.ToUint32(len);
             }
@@ -628,7 +638,7 @@ namespace Jint.Native.Array
             if (len == 0)
             {
                 o.SetLength(0);
-                return Undefined.Instance;
+                return Undefined;
             }
 
             var first = o.Get(0);
@@ -691,7 +701,7 @@ namespace Jint.Native.Array
             var separator = arguments.At(0);
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLength();
-            if (separator == Undefined.Instance)
+            if (ReferenceEquals(separator, Undefined))
             {
                 separator = ",";
             }
@@ -706,7 +716,7 @@ namespace Jint.Native.Array
 
             string StringFromJsValue(JsValue value)
             {
-                return value == Undefined.Instance || value == Null.Instance
+                return ReferenceEquals(value, Undefined) || ReferenceEquals(value, Null)
                     ? ""
                     : TypeConverter.ToString(value);
             }
@@ -717,16 +727,15 @@ namespace Jint.Native.Array
                 return s;
             }
 
-            var sb = ArrayExecutionContext.Current.StringBuilder;
-            sb.Clear();
-            sb.Append(s);
+            _arrayJoinBuilder.Clear();
+            _arrayJoinBuilder.Append(s);
             for (uint k = 1; k < len; k++)
             {
-                sb.Append(sep);
-                sb.Append(StringFromJsValue(o.Get(k)));
+                _arrayJoinBuilder.Append(sep);
+                _arrayJoinBuilder.Append(StringFromJsValue(o.Get(k)));
             }
 
-            return sb.ToString();
+            return _arrayJoinBuilder.ToString();
         }
 
         private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
@@ -740,7 +749,7 @@ namespace Jint.Native.Array
             }
 
             JsValue r;
-            if (!array.TryGetValue(0, out var firstElement) || firstElement == Null.Instance || firstElement == Undefined.Instance)
+            if (!array.TryGetValue(0, out var firstElement) || ReferenceEquals(firstElement, Null) || ReferenceEquals(firstElement, Undefined))
             {
                 r = "";
             }
@@ -755,7 +764,7 @@ namespace Jint.Native.Array
             for (uint k = 1; k < len; k++)
             {
                 string s = r + separator;
-                if (array.TryGetValue(k, out var nextElement) == Undefined.Instance || nextElement == Null.Instance)
+                if (!array.TryGetValue(k, out var nextElement) || ReferenceEquals(nextElement, Null))
                 {
                     r = "";
                 }
@@ -844,7 +853,7 @@ namespace Jint.Native.Array
             }
 
             int k = (int) len - 1;
-            JsValue accumulator = Undefined.Instance;
+            JsValue accumulator = Undefined;
             if (arguments.Length > 1)
             {
                 accumulator = initialValue;
@@ -877,7 +886,7 @@ namespace Jint.Native.Array
                 if (kPresent)
                 {
                     var kvalue = o.Get(pk);
-                    accumulator = callable.Call(Undefined.Instance, new[] {accumulator, kvalue, k, o});
+                    accumulator = callable.Call(Undefined, new[] {accumulator, kvalue, k, o});
                 }
             }
 
@@ -921,7 +930,7 @@ namespace Jint.Native.Array
             if (len == 0)
             {
                 o.SetLength(0);
-                return Undefined.Instance;
+                return Undefined;
             }
 
             len = len - 1;
@@ -993,7 +1002,7 @@ namespace Jint.Native.Array
                         return TypeConverter.ToUint32(desc.Value);
                     }
 
-                    var getter = desc.Get != null ? desc.Get : Undefined.Instance;
+                    var getter = desc.Get != null ? desc.Get : Undefined;
 
                     if (getter.IsUndefined())
                     {

@@ -31,7 +31,7 @@ namespace Jint.Native.Function
             Extensible = true;
             Prototype = engine.Function.PrototypeObject;
 
-            DefineOwnProperty("length", new AllForbiddenPropertyDescriptor(JsValue.FromInt(FormalParameters.Length)), false);
+            DefineOwnProperty("length", new AllForbiddenPropertyDescriptor(JsNumber.Create(FormalParameters.Length)), false);
 
             var proto = engine.Object.Construct(Arguments.Empty);
             proto.SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(this));
@@ -85,7 +85,7 @@ namespace Jint.Native.Function
                 {
                     thisBinding = thisArg;
                 }
-                else if (thisArg == Undefined.Instance || thisArg == Null.Instance)
+                else if (ReferenceEquals(thisArg, Undefined) || ReferenceEquals(thisArg, Null))
                 {
                     thisBinding = Engine.Global;
                 }
@@ -130,7 +130,7 @@ namespace Jint.Native.Function
                     Engine.LeaveExecutionContext();
                 }
 
-                return Undefined.Instance;
+                return Undefined;
             }
         }
 
@@ -154,7 +154,5 @@ namespace Jint.Native.Function
 
             return obj;
         }
-
-        public ObjectInstance PrototypeObject { get; private set; }
     }
 }

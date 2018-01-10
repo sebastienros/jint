@@ -215,11 +215,10 @@ namespace Jint.Runtime
             var varRef = _engine.EvaluateExpression(identifier) as Reference;
             var exprRef = _engine.EvaluateExpression(forInStatement.Right);
             var experValue = _engine.GetValue(exprRef);
-            if (experValue == Undefined.Instance || experValue == Null.Instance)
+            if (ReferenceEquals(experValue, Undefined.Instance) || ReferenceEquals(experValue,  Null.Instance))
             {
                 return Completion.Empty;
             }
-
 
             var obj = TypeConverter.ToObject(_engine, experValue);
             JsValue v = Null.Instance;

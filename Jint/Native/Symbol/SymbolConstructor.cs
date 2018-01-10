@@ -60,8 +60,8 @@ namespace Jint.Native.Symbol
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             var description = arguments.At(0);
-            var descString = description == Undefined.Instance
-                ? Undefined.Instance
+            var descString = ReferenceEquals(description, Undefined)
+                ? Undefined
                 : TypeConverter.ToString(description);
 
             var value = new JsSymbol(description.AsString());
@@ -102,7 +102,7 @@ namespace Jint.Native.Symbol
             JsSymbol symbol;
             if (!Engine.GlobalSymbolRegistry.TryGetValue(sym.AsSymbol(), out symbol))
             {
-                return Undefined.Instance;
+                return Undefined;
             }
 
             return sym.AsSymbol();

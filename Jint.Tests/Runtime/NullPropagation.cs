@@ -24,12 +24,10 @@ namespace Jint.Tests.Runtime
 
             public bool TryGetCallable(Engine engine, object reference, out JsValue value)
             {
-                value = new JsValue(
-                    new ClrFunctionInstance(engine, (thisObj, values) => thisObj)
-                );
+                value = new ClrFunctionInstance(engine, (thisObj, values) => thisObj);
                 return true;
             }
-            
+
             public bool CheckCoercible(JsValue value)
             {
                 return true;
@@ -42,8 +40,8 @@ namespace Jint.Tests.Runtime
             var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
 
             const string Script = @"
-var input = { 
-	Address : null 
+var input = {
+	Address : null
 };
 
 var address = input.Address;
