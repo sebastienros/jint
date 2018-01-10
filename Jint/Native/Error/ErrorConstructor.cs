@@ -47,7 +47,7 @@ namespace Jint.Native.Error
             instance.Prototype = PrototypeObject;
             instance.Extensible = true;
 
-            if (arguments.At(0) != Undefined.Instance)
+            if (arguments.At(0) != Undefined)
             {
                 instance.Put("message", TypeConverter.ToString(arguments.At(0)), false);
             }

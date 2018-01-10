@@ -4,7 +4,7 @@ using Jint.Runtime;
 
 namespace Jint.Native
 {
-    public class JsNumber : JsValue, IEquatable<JsNumber>
+    public sealed class JsNumber : JsValue, IEquatable<JsNumber>
     {
         private readonly double _value;
 
@@ -152,7 +152,7 @@ namespace Jint.Native
 
         public bool Equals(JsNumber other)
         {
-            if (other == null)
+            if (ReferenceEquals(null, other))
             {
                 return false;
             }

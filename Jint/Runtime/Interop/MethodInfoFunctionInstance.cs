@@ -37,7 +37,7 @@ namespace Jint.Runtime.Interop
                 {
                     var parameterType = method.GetParameters()[i].ParameterType;
 
-                    if (parameterType == typeof(JsValue))
+                    if (typeof(JsValue).IsAssignableFrom(parameterType))
                     {
                         parameters[i] = arguments[i];
                     }
@@ -137,7 +137,7 @@ namespace Jint.Runtime.Interop
                     newArgumentsCollection[j] = jsArguments[j];
                 }
 
-                newArgumentsCollection[nonParamsArgumentsCount] = new JsObject(jsArray);
+                newArgumentsCollection[nonParamsArgumentsCount] = jsArray;
                 return newArgumentsCollection;
             }
 

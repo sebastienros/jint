@@ -6,7 +6,7 @@ namespace Jint.Native
     /// <summary>
     /// The _object value of a <see cref="JsSymbol"/> is the [[Description]] internal slot.
     /// </summary>
-    public class JsSymbol : JsValue, IEquatable<JsSymbol>
+    public sealed class JsSymbol : JsValue, IEquatable<JsSymbol>
     {
         private readonly string _value;
 
@@ -49,7 +49,7 @@ namespace Jint.Native
 
         public bool Equals(JsSymbol other)
         {
-            if (other == null)
+            if (ReferenceEquals(null, other))
             {
                 return false;
             }

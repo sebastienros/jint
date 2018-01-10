@@ -221,23 +221,11 @@ namespace Jint.Native
                 return typeMapper(engine, value);
             }
 
-            // if an ObjectInstance is passed directly, use it as is
-            if (value is ObjectInstance instance)
-            {
-                // Learn conversion.
-                // Learn conversion, racy, worst case we'll try again later
-                Interlocked.CompareExchange(ref Engine.TypeMappers, new Dictionary<Type, Func<Engine, object, JsValue>>(typeMappers)
-                {
-                    [valueType] = (Engine e, object v) => ((ObjectInstance) v).JsValue
-                }, typeMappers);
-                return instance.JsValue;
-            }
-
             var type = value as Type;
             if (type != null)
             {
                 var typeReference = TypeReference.CreateTypeReference(engine, type);
-                return typeReference.JsValue;
+                return typeReference;
             }
 
             if (value is System.Array a)
@@ -403,11 +391,6 @@ namespace Jint.Native
         public static implicit operator JsValue(string value)
         {
             return JsString.Create(value);
-        }
-
-        public static implicit operator JsValue(ObjectInstance value)
-        {
-            return value.JsValue;
         }
 
         public override bool Equals(object obj)

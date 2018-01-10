@@ -41,7 +41,7 @@ namespace Jint.Native.RegExp
             var pattern = arguments.At(0);
             var flags = arguments.At(1);
 
-            if (pattern != Undefined.Instance && flags == Undefined.Instance && TypeConverter.ToObject(Engine, pattern).Class == "Regex")
+            if (pattern != Undefined && flags == Undefined && TypeConverter.ToObject(Engine, pattern).Class == "Regex")
             {
                 return pattern;
             }
@@ -64,17 +64,17 @@ namespace Jint.Native.RegExp
             var flags = arguments.At(1);
 
             var r = pattern.TryCast<RegExpInstance>();
-            if (flags == Undefined.Instance && r != null)
+            if (flags == Undefined && r != null)
             {
                 return r;
             }
-            else if (flags != Undefined.Instance && r != null)
+            else if (flags != Undefined && r != null)
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
             else
             {
-                if (pattern == Undefined.Instance)
+                if (pattern == Undefined)
                 {
                     p = "";
 
@@ -84,7 +84,7 @@ namespace Jint.Native.RegExp
                     p = TypeConverter.ToString(pattern);
                 }
 
-                f = flags != Undefined.Instance ? TypeConverter.ToString(flags) : "";
+                f = flags != Undefined ? TypeConverter.ToString(flags) : "";
             }
 
             r = new RegExpInstance(Engine);

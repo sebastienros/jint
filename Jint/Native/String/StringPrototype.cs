@@ -200,7 +200,7 @@ namespace Jint.Native.String
             var len = s.Length;
             var intStart = ToIntegerSupportInfinity(start);
 
-            var intEnd = arguments.At(1) == Undefined.Instance ? len : ToIntegerSupportInfinity(end);
+            var intEnd = arguments.At(1) == Undefined ? len : ToIntegerSupportInfinity(end);
             var finalStart = System.Math.Min(len, System.Math.Max(intStart, 0));
             var finalEnd = System.Math.Min(len, System.Math.Max(intEnd, 0));
             // Swap value if finalStart < finalEnd
@@ -254,7 +254,7 @@ namespace Jint.Native.String
 
             // Coerce into a number, true will become 1
             var l = arguments.At(1);
-            var limit = l == Undefined.Instance ? uint.MaxValue : TypeConverter.ToUint32(l);
+            var limit = l == Undefined ? uint.MaxValue : TypeConverter.ToUint32(l);
             var len = s.Length;
 
             if (limit == 0)
@@ -262,11 +262,11 @@ namespace Jint.Native.String
                 return Engine.Array.Construct(Arguments.Empty);
             }
 
-            if (separator == Null.Instance)
+            if (separator == Null)
             {
-                separator = Null.Text;
+                separator = Native.Null.Text;
             }
-            else if (separator == Undefined.Instance)
+            else if (separator == Undefined)
             {
                 return (ArrayInstance)Engine.Array.Construct(Arguments.From(s));
             }
@@ -317,7 +317,7 @@ namespace Jint.Native.String
                     for (int i = 1; i < match.Groups.Count; i++)
                     {
                         var group = match.Groups[i];
-                        var item = Undefined.Instance;
+                        var item = Undefined;
                         if (group.Captures.Count > 0)
                         {
                             item = match.Groups[i].Value;
@@ -396,7 +396,7 @@ namespace Jint.Native.String
 
             var len = s.Length;
             var intStart = (int)TypeConverter.ToInteger(start);
-            var intEnd = arguments.At(1) == Undefined.Instance ? len : (int)TypeConverter.ToInteger(end);
+            var intEnd = arguments.At(1) == Undefined ? len : (int)TypeConverter.ToInteger(end);
             var from = intStart < 0 ? System.Math.Max(len + intStart, 0) : System.Math.Min(intStart, len);
             var to = intEnd < 0 ? System.Math.Max(len + intEnd, 0) : System.Math.Min(intEnd, len);
             var span = System.Math.Max(to - from, 0);
@@ -428,7 +428,7 @@ namespace Jint.Native.String
             }
             else if (regex.IsNull())
             {
-                regex = Null.Text;
+                regex = Native.Null.Text;
             }
 
             var rx = TypeConverter.ToObject(Engine, regex) as RegExpInstance ?? (RegExpInstance)Engine.RegExp.Construct(new[] { regex });
@@ -535,11 +535,11 @@ namespace Jint.Native.String
 
             if (searchValue.IsNull())
             {
-                searchValue = Null.Text;
+                searchValue = Native.Null.Text;
             }
             if (searchValue.IsUndefined())
             {
-                searchValue = Undefined.Text;
+                searchValue = Native.Undefined.Text;
             }
 
             var rx = TypeConverter.ToObject(Engine, searchValue) as RegExpInstance;
@@ -558,7 +558,7 @@ namespace Jint.Native.String
                     args[match.Groups.Count] = match.Index;
                     args[match.Groups.Count + 1] = thisString;
 
-                    var v = TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args));
+                    var v = TypeConverter.ToString(replaceFunction.Call(Undefined, args));
                     return v;
                 }, rx.Global == true ? -1 : 1);
 
@@ -585,7 +585,7 @@ namespace Jint.Native.String
                 args[1] = start;
                 args[2] = thisString;
 
-                var replaceString = TypeConverter.ToString(replaceFunction.Call(Undefined.Instance, args));
+                var replaceString = TypeConverter.ToString(replaceFunction.Call(Undefined, args));
 
                 // Replace only the first match.
                 var result = StringExecutionContext.Current.GetStringBuilder(thisString.Length + (substr.Length - substr.Length));
@@ -643,7 +643,7 @@ namespace Jint.Native.String
                 }
                 if (n == 0)
                 {
-                    return Null.Instance;
+                    return Null;
                 }
                 return a;
             }
@@ -667,7 +667,7 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
             var searchStr = TypeConverter.ToString(arguments.At(0));
             double numPos = double.NaN;
-            if (arguments.Length > 1 && arguments[1] != Undefined.Instance)
+            if (arguments.Length > 1 && arguments[1] != Undefined)
             {
                 numPos = TypeConverter.ToNumber(arguments[1]);
             }
@@ -714,7 +714,7 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
             var searchStr = TypeConverter.ToString(arguments.At(0));
             double pos = 0;
-            if (arguments.Length > 1 && arguments[1] != Undefined.Instance)
+            if (arguments.Length > 1 && arguments[1] != Undefined)
             {
                 pos = TypeConverter.ToInteger(arguments[1]);
             }
@@ -859,9 +859,9 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
 
             var searchString = arguments.At(0);
-            if (searchString == Null.Instance)
+            if (searchString == Null)
             {
-                searchString = Null.Text;
+                searchString = Native.Null.Text;
             }
             else
             {

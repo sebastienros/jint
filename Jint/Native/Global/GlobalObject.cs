@@ -50,7 +50,7 @@ namespace Jint.Native.Global
 
             FastAddProperty("NaN", double.NaN, false, false, false);
             FastAddProperty("Infinity", double.PositiveInfinity, false, false, false);
-            FastAddProperty("undefined", Undefined.Instance, false, false, false);
+            FastAddProperty("undefined", Undefined, false, false, false);
 
             // Global object functions
             FastAddProperty("parseInt", new ClrFunctionInstance(Engine, ParseInt, 2), true, false, true);

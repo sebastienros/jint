@@ -24,9 +24,7 @@ namespace Jint.Tests.Runtime
 
             public bool TryGetCallable(Engine engine, object reference, out JsValue value)
             {
-                value = new JsObject(
-                    new ClrFunctionInstance(engine, (thisObj, values) => thisObj)
-                );
+                value = new ClrFunctionInstance(engine, (thisObj, values) => thisObj);
                 return true;
             }
 

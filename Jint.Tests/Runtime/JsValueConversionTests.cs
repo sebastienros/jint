@@ -12,7 +12,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeAnArray()
         {
-            var value = new JsObject(new ArrayInstance(null));
+            var value = new ArrayInstance(null);
             Assert.Equal(false, value.IsBoolean());
             Assert.Equal(true, value.IsArray());
             Assert.Equal(false, value.IsDate());
@@ -48,7 +48,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeADate()
         {
-            var value = new JsObject(new DateInstance(null));
+            var value = new DateInstance(null);
             Assert.Equal(false, value.IsBoolean());
             Assert.Equal(false, value.IsArray());
             Assert.Equal(true, value.IsDate());
@@ -99,7 +99,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeAnObject()
         {
-            var value = new JsObject(new ObjectInstance(null));
+            var value = new ObjectInstance(null);
             Assert.Equal(false, value.IsBoolean());
             Assert.Equal(false, value.IsArray());
             Assert.Equal(false, value.IsDate());
@@ -116,7 +116,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeARegExp()
         {
-            var value = new JsObject(new RegExpInstance(null));
+            var value = new RegExpInstance(null);
             Assert.Equal(false, value.IsBoolean());
             Assert.Equal(false, value.IsArray());
             Assert.Equal(false, value.IsDate());

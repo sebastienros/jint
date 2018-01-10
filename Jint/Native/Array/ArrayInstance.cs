@@ -64,7 +64,7 @@ namespace Jint.Native.Array
             if (desc.IsAccessorDescriptor())
             {
                 var setter = desc.Set.TryCast<ICallable>();
-                setter.Call(JsValue, new[] {value});
+                setter.Call(this, new[] {value});
             }
             else
             {

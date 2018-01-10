@@ -137,7 +137,7 @@ namespace Jint.Native.Number
         {
             var x = TypeConverter.ToNumber(thisObj);
 
-            if (arguments.At(0) == Undefined.Instance)
+            if (arguments.At(0) == Undefined)
             {
                 return TypeConverter.ToString(x);
             }

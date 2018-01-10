@@ -161,7 +161,7 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            if (argArray == Null.Instance || argArray == Undefined.Instance)
+            if (argArray == Undefined || argArray == Undefined)
             {
                 return func.Call(thisArg, Arguments.Empty);
             }

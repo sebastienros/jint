@@ -4,7 +4,7 @@ using Jint.Runtime;
 
 namespace Jint.Native
 {
-    public class JsBoolean : JsValue, IEquatable<JsBoolean>
+    public sealed class JsBoolean : JsValue, IEquatable<JsBoolean>
     {
         private readonly bool _value;
 
@@ -51,7 +51,7 @@ namespace Jint.Native
 
         public bool Equals(JsBoolean other)
         {
-            if (other == null)
+            if (ReferenceEquals(null, other))
             {
                 return false;
             }

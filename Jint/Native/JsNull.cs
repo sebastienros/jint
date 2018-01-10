@@ -3,7 +3,7 @@ using Jint.Runtime;
 
 namespace Jint.Native
 {
-    public class JsNull : JsValue, IEquatable<JsNull>
+    public sealed class JsNull : JsValue, IEquatable<JsNull>
     {
         internal JsNull()
         {
@@ -38,7 +38,7 @@ namespace Jint.Native
 
         public bool Equals(JsNull other)
         {
-            if (other == null)
+            if (ReferenceEquals(null, other))
             {
                 return false;
             }

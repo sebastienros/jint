@@ -119,7 +119,7 @@ namespace Jint.Native.Array
             }
 
             var k = 0;
-            JsValue accumulator = Undefined.Instance;
+            JsValue accumulator = Undefined;
             if (arguments.Length > 1)
             {
                 accumulator = initialValue;
@@ -154,7 +154,7 @@ namespace Jint.Native.Array
                     args[1] = kvalue;
                     args[2] = i;
                     args[3] = o.Target;
-                    accumulator = callable.Call(Undefined.Instance, args);
+                    accumulator = callable.Call(Undefined, args);
                 }
 
                 k++;
@@ -247,7 +247,7 @@ namespace Jint.Native.Array
                 }
             }
 
-            return Undefined.Instance;
+            return Undefined;
         }
 
         private JsValue Some(JsValue thisObj, JsValue[] arguments)
@@ -500,31 +500,31 @@ namespace Jint.Native.Array
 
             var compareArg = arguments.At(0);
             ICallable compareFn = null;
-            if (compareArg != Undefined.Instance)
+            if (compareArg != Undefined)
             {
                 compareFn = compareArg.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "The sort argument must be a function"));
             }
 
             int Comparer(JsValue x, JsValue y)
             {
-                if (x == Undefined.Instance && y == Undefined.Instance)
+                if (x == Undefined && y == Undefined)
                 {
                     return 0;
                 }
 
-                if (x == Undefined.Instance)
+                if (x == Undefined)
                 {
                     return 1;
                 }
 
-                if (y == Undefined.Instance)
+                if (y == Undefined)
                 {
                     return -1;
                 }
 
                 if (compareFn != null)
                 {
-                    var s = TypeConverter.ToNumber(compareFn.Call(Undefined.Instance, new[] {x, y}));
+                    var s = TypeConverter.ToNumber(compareFn.Call(Undefined, new[] {x, y}));
                     if (s < 0)
                     {
                         return -1;
@@ -589,7 +589,7 @@ namespace Jint.Native.Array
             }
 
             uint final;
-            if (end == Undefined.Instance)
+            if (end == Undefined)
             {
                 final = TypeConverter.ToUint32(len);
             }
@@ -628,7 +628,7 @@ namespace Jint.Native.Array
             if (len == 0)
             {
                 o.SetLength(0);
-                return Undefined.Instance;
+                return Undefined;
             }
 
             var first = o.Get(0);
@@ -691,7 +691,7 @@ namespace Jint.Native.Array
             var separator = arguments.At(0);
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLength();
-            if (separator == Undefined.Instance)
+            if (separator == Undefined)
             {
                 separator = ",";
             }
@@ -706,7 +706,7 @@ namespace Jint.Native.Array
 
             string StringFromJsValue(JsValue value)
             {
-                return value == Undefined.Instance || value == Null.Instance
+                return value == Undefined|| value == Null
                     ? ""
                     : TypeConverter.ToString(value);
             }
@@ -740,7 +740,7 @@ namespace Jint.Native.Array
             }
 
             JsValue r;
-            if (!array.TryGetValue(0, out var firstElement) || firstElement == Null.Instance || firstElement == Undefined.Instance)
+            if (!array.TryGetValue(0, out var firstElement) || firstElement == Null || firstElement == Undefined)
             {
                 r = "";
             }
@@ -755,7 +755,7 @@ namespace Jint.Native.Array
             for (uint k = 1; k < len; k++)
             {
                 string s = r + separator;
-                if (array.TryGetValue(k, out var nextElement) == Undefined.Instance || nextElement == Null.Instance)
+                if (array.TryGetValue(k, out var nextElement) == Undefined || nextElement == Null)
                 {
                     r = "";
                 }
@@ -844,7 +844,7 @@ namespace Jint.Native.Array
             }
 
             int k = (int) len - 1;
-            JsValue accumulator = Undefined.Instance;
+            JsValue accumulator = Undefined;
             if (arguments.Length > 1)
             {
                 accumulator = initialValue;
@@ -877,7 +877,7 @@ namespace Jint.Native.Array
                 if (kPresent)
                 {
                     var kvalue = o.Get(pk);
-                    accumulator = callable.Call(Undefined.Instance, new[] {accumulator, kvalue, k, o});
+                    accumulator = callable.Call(Undefined, new[] {accumulator, kvalue, k, o});
                 }
             }
 
@@ -921,7 +921,7 @@ namespace Jint.Native.Array
             if (len == 0)
             {
                 o.SetLength(0);
-                return Undefined.Instance;
+                return Undefined;
             }
 
             len = len - 1;
@@ -993,7 +993,7 @@ namespace Jint.Native.Array
                         return TypeConverter.ToUint32(desc.Value);
                     }
 
-                    var getter = desc.Get != null ? desc.Get : Undefined.Instance;
+                    var getter = desc.Get != null ? desc.Get : Undefined;
 
                     if (getter.IsUndefined())
                     {

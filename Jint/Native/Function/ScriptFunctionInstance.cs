@@ -85,7 +85,7 @@ namespace Jint.Native.Function
                 {
                     thisBinding = thisArg;
                 }
-                else if (thisArg == Undefined.Instance || thisArg == Null.Instance)
+                else if (thisArg == Undefined || thisArg == Null)
                 {
                     thisBinding = Engine.Global;
                 }
@@ -130,7 +130,7 @@ namespace Jint.Native.Function
                     Engine.LeaveExecutionContext();
                 }
 
-                return Undefined.Instance;
+                return Undefined;
             }
         }
 

@@ -37,8 +37,8 @@ namespace Jint.Runtime.Environments
         public override void CreateMutableBinding(string name, bool configurable = true)
         {
             var propertyDescriptor = configurable
-                ? (IPropertyDescriptor) new ConfigurableEnumerableWritablePropertyDescriptor(Undefined.Instance)
-                : new NonConfigurablePropertyDescriptor(Undefined.Instance);
+                ? (IPropertyDescriptor) new ConfigurableEnumerableWritablePropertyDescriptor(Undefined)
+                : new NonConfigurablePropertyDescriptor(Undefined);
 
             _bindingObject.SetOwnProperty(name, propertyDescriptor);
         }
@@ -56,7 +56,7 @@ namespace Jint.Runtime.Environments
             {
                 if(!strict)
                 {
-                    return Undefined.Instance;
+                    return Undefined;
                 }
 
                 throw new JavaScriptException(_engine.ReferenceError);
@@ -74,10 +74,10 @@ namespace Jint.Runtime.Environments
         {
             if (_provideThis)
             {
-                return _bindingObject.JsValue;
+                return _bindingObject;
             }
 
-            return Undefined.Instance;
+            return Undefined;
         }
 
         public override string[] GetAllBindingNames()

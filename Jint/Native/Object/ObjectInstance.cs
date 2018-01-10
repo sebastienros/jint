@@ -1,17 +1,26 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics.Contracts;
+using System.Dynamic;
+using Jint.Native.Array;
+using Jint.Native.Boolean;
+using Jint.Native.Date;
+using Jint.Native.Function;
+using Jint.Native.Number;
+using Jint.Native.RegExp;
+using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object
 {
-    public class ObjectInstance
+    public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         private const string PropertyNamePrototype = "prototype";
         private const string PropertyNameConstructor = "constructor";
         private const string PropertyNameLength = "length";
-
-        private JsValue _jsValue;
 
         private Dictionary<string, IPropertyDescriptor> _intrinsicProperties;
         private MruPropertyCache2<string, IPropertyDescriptor> _properties;
@@ -27,14 +36,6 @@ namespace Jint.Native.Object
 
         public Engine Engine { get; set; }
 
-        /// <summary>
-        /// Caches the constructed JS.
-        /// </summary>
-        internal JsValue JsValue
-        {
-            get { return _jsValue = _jsValue ?? new JsObject(this); }
-        }
-
         protected bool TryGetIntrinsicValue(JsSymbol symbol, out JsValue value)
         {
             IPropertyDescriptor descriptor;
@@ -47,7 +48,7 @@ namespace Jint.Native.Object
 
             if (Prototype == null)
             {
-                value = JsValue.Undefined;
+                value = Undefined;
                 return false;
             }
 
@@ -227,20 +228,20 @@ namespace Jint.Native.Object
 
             if (desc == PropertyDescriptor.Undefined)
             {
-                return JsValue.Undefined;
+                return Undefined;
             }
 
             if (desc.IsDataDescriptor())
             {
                 var val = desc.Value;
-                return val != null ? val : Undefined.Instance;
+                return val != null ? val : Undefined;
             }
 
-            var getter = desc.Get != null ? desc.Get : Undefined.Instance;
+            var getter = desc.Get != null ? desc.Get : Undefined;
 
             if (getter.IsUndefined())
             {
-                return Undefined.Instance;
+                return JsValue.Undefined;
             }
 
             // if getter is not undefined it must be ICallable
@@ -337,7 +338,7 @@ namespace Jint.Native.Object
 
         public bool TryGetValue(string propertyName, out JsValue value)
         {
-            value = JsValue.Undefined;
+            value = Undefined;
             var desc = GetOwnProperty(propertyName);
             if (desc != null && desc != PropertyDescriptor.Undefined)
             {
@@ -352,11 +353,11 @@ namespace Jint.Native.Object
                     return true;
                 }
 
-                var getter = desc.Get != null ? desc.Get : Undefined.Instance;
+                var getter = desc.Get != null ? desc.Get : Undefined;
 
                 if (getter.IsUndefined())
                 {
-                    value = Undefined.Instance;
+                    value = Undefined;
                     return false;
                 }
 
@@ -413,7 +414,7 @@ namespace Jint.Native.Object
             if (desc.IsAccessorDescriptor())
             {
                 var setter = desc.Set.TryCast<ICallable>();
-                setter.Call(JsValue, new[] {value});
+                setter.Call(this, new[] {value});
             }
             else
             {
@@ -541,7 +542,7 @@ namespace Jint.Native.Object
                 var toString = Get("toString").TryCast<ICallable>();
                 if (toString != null)
                 {
-                    var str = toString.Call(JsValue, Arguments.Empty);
+                    var str = toString.Call(this, Arguments.Empty);
                     if (str.IsPrimitive())
                     {
                         return str;
@@ -551,7 +552,7 @@ namespace Jint.Native.Object
                 var valueOf = Get("valueOf").TryCast<ICallable>();
                 if (valueOf != null)
                 {
-                    var val = valueOf.Call(JsValue, Arguments.Empty);
+                    var val = valueOf.Call(this, Arguments.Empty);
                     if (val.IsPrimitive())
                     {
                         return val;
@@ -566,7 +567,7 @@ namespace Jint.Native.Object
                 var valueOf = Get("valueOf").TryCast<ICallable>();
                 if (valueOf != null)
                 {
-                    var val = valueOf.Call(JsValue, Arguments.Empty);
+                    var val = valueOf.Call(this, Arguments.Empty);
                     if (val.IsPrimitive())
                     {
                         return val;
@@ -576,7 +577,7 @@ namespace Jint.Native.Object
                 var toString = Get("toString").TryCast<ICallable>();
                 if (toString != null)
                 {
-                    var str = toString.Call(JsValue, Arguments.Empty);
+                    var str = toString.Call(this, Arguments.Empty);
                     if (str.IsPrimitive())
                     {
                         return str;
@@ -625,17 +626,17 @@ namespace Jint.Native.Object
                         IPropertyDescriptor propertyDescriptor;
                         if (desc.Configurable.GetValueOrDefault() && desc.Enumerable.GetValueOrDefault() && desc.Writable.GetValueOrDefault())
                         {
-                            propertyDescriptor = new ConfigurableEnumerableWritablePropertyDescriptor(desc.Value != null ? desc.Value : JsValue.Undefined);
+                            propertyDescriptor = new ConfigurableEnumerableWritablePropertyDescriptor(desc.Value != null ? desc.Value : Undefined);
                         }
                         else if (!desc.Configurable.GetValueOrDefault() && !desc.Enumerable.GetValueOrDefault() && !desc.Writable.GetValueOrDefault())
                         {
-                            propertyDescriptor = new AllForbiddenPropertyDescriptor(desc.Value != null ? desc.Value : JsValue.Undefined);
+                            propertyDescriptor = new AllForbiddenPropertyDescriptor(desc.Value != null ? desc.Value : Undefined);
                         }
                         else
                         {
                             propertyDescriptor = new PropertyDescriptor(desc)
                             {
-                                Value = desc.Value != null ? desc.Value : JsValue.Undefined,
+                                Value = desc.Value != null ? desc.Value : Undefined,
                                 Writable = desc.Writable.HasValue ? desc.Writable.Value : false,
                                 Enumerable = desc.Enumerable.HasValue ? desc.Enumerable.Value : false,
                                 Configurable = desc.Configurable.HasValue ? desc.Configurable.Value : false
@@ -722,8 +723,8 @@ namespace Jint.Native.Object
                     if (current.IsDataDescriptor())
                     {
                         SetOwnProperty(propertyName, current = new PropertyDescriptor(
-                            get: Undefined.Instance,
-                            set: Undefined.Instance,
+                            get: JsValue.Undefined,
+                            set: JsValue.Undefined,
                             enumerable: current.Enumerable,
                             configurable: current.Configurable
                         ));
@@ -731,7 +732,7 @@ namespace Jint.Native.Object
                     else
                     {
                         SetOwnProperty(propertyName, current = new PropertyDescriptor(
-                            value: Undefined.Instance,
+                            value: JsValue.Undefined,
                             writable: null,
                             enumerable: current.Enumerable,
                             configurable: current.Configurable
@@ -770,9 +771,9 @@ namespace Jint.Native.Object
                 {
                     if (!current.Configurable.HasValue || !current.Configurable.Value)
                     {
-                        if ((desc.Set != null && !ExpressionInterpreter.SameValue(desc.Set, current.Set != null ? current.Set : Undefined.Instance))
+                        if ((desc.Set != null && !ExpressionInterpreter.SameValue(desc.Set, current.Set != null ? current.Set : Undefined))
                             ||
-                            (desc.Get != null && !ExpressionInterpreter.SameValue(desc.Get, current.Get != null ? current.Get : Undefined.Instance)))
+                            (desc.Get != null && !ExpressionInterpreter.SameValue(desc.Get, current.Get != null ? current.Get : Undefined)))
                         {
                             if (throwOnError)
                             {
@@ -862,5 +863,217 @@ namespace Jint.Native.Object
         }
 
         protected uint GetLengthValue() => TypeConverter.ToUint32(_length.Value);
+
+                public override Types Type => Types.Object;
+
+        [Pure]
+        public override bool IsArray()
+        {
+            return this is ArrayInstance;
+        }
+
+        [Pure]
+        public override bool IsDate()
+        {
+            return this is DateInstance;
+        }
+
+        [Pure]
+        public override bool IsRegExp()
+        {
+            return this is RegExpInstance;
+        }
+
+        [Pure]
+        public override ObjectInstance AsObject()
+        {
+            return this;
+        }
+
+        [Pure]
+        public override TInstance AsInstance<TInstance>()
+        {
+            return this as TInstance;
+        }
+
+        [Pure]
+        public override ArrayInstance AsArray()
+        {
+            if (!IsArray())
+            {
+                throw new ArgumentException("The value is not an array");
+            }
+
+            return this as ArrayInstance;
+        }
+
+        [Pure]
+        public override DateInstance AsDate()
+        {
+            if (!IsDate())
+            {
+                throw new ArgumentException("The value is not a date");
+            }
+
+            return this as DateInstance;
+        }
+
+        [Pure]
+        public override RegExpInstance AsRegExp()
+        {
+            if (!IsRegExp())
+            {
+                throw new ArgumentException("The value is not a regex");
+            }
+
+            return this as RegExpInstance;
+        }
+
+        public override bool Is<T>()
+        {
+            return this is T;
+        }
+
+        public override T As<T>()
+        {
+            return this as T;
+        }
+
+        public override object ToObject()
+        {
+            if (this is IObjectWrapper wrapper)
+            {
+                return wrapper.Target;
+            }
+
+            switch (Class)
+            {
+                case "Array":
+                    if (this is ArrayInstance arrayInstance)
+                    {
+                        var len = TypeConverter.ToInt32(arrayInstance.Get("length"));
+                        var result = new object[len];
+                        for (var k = 0; k < len; k++)
+                        {
+                            var pk = TypeConverter.ToString(k);
+                            var kpresent = arrayInstance.HasProperty(pk);
+                            if (kpresent)
+                            {
+                                var kvalue = arrayInstance.Get(pk);
+                                result[k] = kvalue.ToObject();
+                            }
+                            else
+                            {
+                                result[k] = null;
+                            }
+                        }
+
+                        return result;
+                    }
+
+                    break;
+
+                case "String":
+                    if (this is StringInstance stringInstance)
+                    {
+                        return stringInstance.PrimitiveValue.AsString();
+                    }
+
+                    break;
+
+                case "Date":
+                    if (this is DateInstance dateInstance)
+                    {
+                        return dateInstance.ToDateTime();
+                    }
+
+                    break;
+
+                case "Boolean":
+                    if (this is BooleanInstance booleanInstance)
+                    {
+                        return booleanInstance.PrimitiveValue.AsBoolean();
+                    }
+
+                    break;
+
+                case "Function":
+                    if (this is FunctionInstance function)
+                    {
+                        return (Func<JsValue, JsValue[], JsValue>) function.Call;
+                    }
+
+                    break;
+
+                case "Number":
+                    if (this is NumberInstance numberInstance)
+                    {
+                        return numberInstance.NumberData.AsNumber();
+                    }
+
+                    break;
+
+                case "RegExp":
+                    if (this is RegExpInstance regeExpInstance)
+                    {
+                        return regeExpInstance.Value;
+                    }
+
+                    break;
+
+                case "Arguments":
+                case "Object":
+#if __IOS__
+                                IDictionary<string, object> o = new Dictionary<string, object>();
+#else
+                    IDictionary<string, object> o = new ExpandoObject();
+#endif
+
+                    foreach (var p in GetOwnProperties())
+                    {
+                        if (!p.Value.Enumerable.HasValue || p.Value.Enumerable.Value == false)
+                        {
+                            continue;
+                        }
+
+                        o.Add(p.Key, Get(p.Key).ToObject());
+                    }
+
+                    return o;
+            }
+
+
+            return this;
+        }
+
+        public override bool Equals(JsValue obj)
+        {
+            if (ReferenceEquals(null, obj))
+            {
+                return false;
+            }
+
+            if (!(obj is ObjectInstance s))
+            {
+                return false;
+            }
+
+            return Equals(s);
+        }
+
+        public bool Equals(ObjectInstance other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return false;
+        }
     }
 }

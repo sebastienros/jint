@@ -118,7 +118,7 @@ namespace Jint.Native
 
         public bool Equals(JsString other)
         {
-            if (other == null)
+            if (ReferenceEquals(null, other))
             {
                 return false;
             }
@@ -131,7 +131,7 @@ namespace Jint.Native
             return _value == other._value;
         }
 
-        internal class ConcatenatedString : JsString
+        internal sealed class ConcatenatedString : JsString
         {
             private StringBuilder _stringBuilder;
             private bool _dirty;
