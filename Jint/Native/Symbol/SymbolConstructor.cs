@@ -60,7 +60,7 @@ namespace Jint.Native.Symbol
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             var description = arguments.At(0);
-            var descString = description == Undefined
+            var descString = ReferenceEquals(description, Undefined)
                 ? Undefined
                 : TypeConverter.ToString(description);
 

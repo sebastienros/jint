@@ -221,7 +221,7 @@ namespace Jint.Native.String
             var len = s.Length;
             var intStart = ToIntegerSupportInfinity(start);
 
-            var intEnd = arguments.At(1) == Undefined ? len : ToIntegerSupportInfinity(end);
+            var intEnd = ReferenceEquals(arguments.At(1), Undefined) ? len : ToIntegerSupportInfinity(end);
             var finalStart = System.Math.Min(len, System.Math.Max(intStart, 0));
             var finalEnd = System.Math.Min(len, System.Math.Max(intEnd, 0));
             // Swap value if finalStart < finalEnd
@@ -275,7 +275,7 @@ namespace Jint.Native.String
 
             // Coerce into a number, true will become 1
             var l = arguments.At(1);
-            var limit = l == Undefined ? uint.MaxValue : TypeConverter.ToUint32(l);
+            var limit = ReferenceEquals(l, Undefined) ? uint.MaxValue : TypeConverter.ToUint32(l);
             var len = s.Length;
 
             if (limit == 0)
@@ -283,11 +283,11 @@ namespace Jint.Native.String
                 return Engine.Array.Construct(Arguments.Empty);
             }
 
-            if (separator == Null)
+            if (ReferenceEquals(separator, Null))
             {
                 separator = Native.Null.Text;
             }
-            else if (separator == Undefined)
+            else if (ReferenceEquals(separator, Undefined))
             {
                 return (ArrayInstance)Engine.Array.Construct(Arguments.From(s));
             }
@@ -417,7 +417,7 @@ namespace Jint.Native.String
 
             var len = s.Length;
             var intStart = (int)TypeConverter.ToInteger(start);
-            var intEnd = arguments.At(1) == Undefined ? len : (int)TypeConverter.ToInteger(end);
+            var intEnd = ReferenceEquals(arguments.At(1), Undefined) ? len : (int)TypeConverter.ToInteger(end);
             var from = intStart < 0 ? System.Math.Max(len + intStart, 0) : System.Math.Min(intStart, len);
             var to = intEnd < 0 ? System.Math.Max(len + intEnd, 0) : System.Math.Min(intEnd, len);
             var span = System.Math.Max(to - from, 0);
@@ -887,7 +887,7 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
 
             var searchString = arguments.At(0);
-            if (searchString == Null)
+            if (ReferenceEquals(searchString, Null))
             {
                 searchString = Native.Null.Text;
             }

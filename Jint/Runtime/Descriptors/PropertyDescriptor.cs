@@ -135,7 +135,7 @@ namespace Jint.Runtime.Descriptors
 
         public static JsValue FromPropertyDescriptor(Engine engine, IPropertyDescriptor desc)
         {
-            if (desc == Undefined)
+            if (ReferenceEquals(desc, Undefined))
             {
                 return Native.Undefined.Instance;
             }

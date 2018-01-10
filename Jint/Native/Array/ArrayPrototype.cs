@@ -16,6 +16,7 @@ namespace Jint.Native.Array
     {
         private readonly StringBuilder _arrayJoinBuilder = new StringBuilder();
         private JsValue[] _callArray1;
+        private JsValue[] _callArray2;
         private JsValue[] _callArray3;
         private JsValue[] _callArray4;
 
@@ -513,24 +514,27 @@ namespace Jint.Native.Array
 
             int Comparer(JsValue x, JsValue y)
             {
-                if (x == Undefined && y == Undefined)
+                if (ReferenceEquals(x, Undefined) && ReferenceEquals(y, Undefined))
                 {
                     return 0;
                 }
 
-                if (x == Undefined)
+                if (ReferenceEquals(x, Undefined))
                 {
                     return 1;
                 }
 
-                if (y == Undefined)
+                if (ReferenceEquals(y, Undefined))
                 {
                     return -1;
                 }
 
                 if (compareFn != null)
                 {
-                    var s = TypeConverter.ToNumber(compareFn.Call(Undefined, new[] {x, y}));
+                    var args = _callArray2 = _callArray2 ?? new JsValue[2];
+                    args[0] = x;
+                    args[1] = y;
+                    var s = TypeConverter.ToNumber(compareFn.Call(Undefined, args));
                     if (s < 0)
                     {
                         return -1;
@@ -595,7 +599,7 @@ namespace Jint.Native.Array
             }
 
             uint final;
-            if (end == Undefined)
+            if (ReferenceEquals(end, Undefined))
             {
                 final = TypeConverter.ToUint32(len);
             }
@@ -697,7 +701,7 @@ namespace Jint.Native.Array
             var separator = arguments.At(0);
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLength();
-            if (separator == Undefined)
+            if (ReferenceEquals(separator, Undefined))
             {
                 separator = ",";
             }
@@ -712,7 +716,7 @@ namespace Jint.Native.Array
 
             string StringFromJsValue(JsValue value)
             {
-                return value == Undefined|| value == Null
+                return ReferenceEquals(value, Undefined) || ReferenceEquals(value, Null)
                     ? ""
                     : TypeConverter.ToString(value);
             }
@@ -745,7 +749,7 @@ namespace Jint.Native.Array
             }
 
             JsValue r;
-            if (!array.TryGetValue(0, out var firstElement) || firstElement == Null || firstElement == Undefined)
+            if (!array.TryGetValue(0, out var firstElement) || ReferenceEquals(firstElement, Null) || ReferenceEquals(firstElement, Undefined))
             {
                 r = "";
             }
@@ -760,7 +764,7 @@ namespace Jint.Native.Array
             for (uint k = 1; k < len; k++)
             {
                 string s = r + separator;
-                if (array.TryGetValue(k, out var nextElement) == Undefined || nextElement == Null)
+                if (!array.TryGetValue(k, out var nextElement) || ReferenceEquals(nextElement, Null))
                 {
                     r = "";
                 }

@@ -65,12 +65,11 @@ namespace Jint.Native.Json
             }
 
             var serializer = new JsonSerializer(_engine);
-            if (value == Undefined && replacer == Undefined) {
+            if (ReferenceEquals(value, Undefined) && ReferenceEquals(replacer, Undefined)) {
                 return Undefined;
             }
-            else {
-                return serializer.Serialize(value, replacer, space);
-            }
+
+            return serializer.Serialize(value, replacer, space);
         }
     }
 }

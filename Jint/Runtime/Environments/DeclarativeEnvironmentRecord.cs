@@ -69,7 +69,7 @@ namespace Jint.Runtime.Environments
         {
             var binding = name == BindingNameArguments ? _argumentsBinding : _bindings[name];
 
-            if (!binding.Mutable && binding.Value == Undefined)
+            if (!binding.Mutable && ReferenceEquals(binding.Value, Undefined))
             {
                 if (strict)
                 {

@@ -92,7 +92,7 @@ namespace Jint.Runtime
                     break;
 
                 case AssignmentOperator.TimesAssign:
-                    if (lval == Undefined.Instance || rval == Undefined.Instance)
+                    if (ReferenceEquals(lval, Undefined.Instance) || ReferenceEquals(rval, Undefined.Instance))
                     {
                         lval = Undefined.Instance;
                     }
@@ -107,7 +107,7 @@ namespace Jint.Runtime
                     break;
 
                 case AssignmentOperator.ModuloAssign:
-                    if (lval == Undefined.Instance || rval == Undefined.Instance)
+                    if (ReferenceEquals(lval, Undefined.Instance) || ReferenceEquals(rval, Undefined.Instance))
                     {
                         lval = Undefined.Instance;
                     }
@@ -153,7 +153,7 @@ namespace Jint.Runtime
 
         private JsValue Divide(JsValue lval, JsValue rval)
         {
-            if (lval == Undefined.Instance || rval == Undefined.Instance)
+            if (ReferenceEquals(lval, Undefined.Instance) || ReferenceEquals(rval, Undefined.Instance))
             {
                 return Undefined.Instance;
             }
@@ -231,7 +231,7 @@ namespace Jint.Runtime
                     break;
 
                 case BinaryOperator.Times:
-                    if (left == Undefined.Instance || right == Undefined.Instance)
+                    if (ReferenceEquals(left, Undefined.Instance) || ReferenceEquals(right, Undefined.Instance))
                     {
                         value = Undefined.Instance;
                     }
@@ -246,7 +246,7 @@ namespace Jint.Runtime
                     break;
 
                 case BinaryOperator.Modulo:
-                    if (left == Undefined.Instance || right == Undefined.Instance)
+                    if (ReferenceEquals(left, Undefined.Instance) || ReferenceEquals(right, Undefined.Instance))
                     {
                         value = Undefined.Instance;
                     }
@@ -266,7 +266,7 @@ namespace Jint.Runtime
 
                 case BinaryOperator.Greater:
                     value = Compare(right, left, false);
-                    if (value == Undefined.Instance)
+                    if (ReferenceEquals(value, Undefined.Instance))
                     {
                         value = false;
                     }
@@ -274,7 +274,7 @@ namespace Jint.Runtime
 
                 case BinaryOperator.GreaterOrEqual:
                     value = Compare(left, right);
-                    if (value == Undefined.Instance || value.AsBoolean())
+                    if (ReferenceEquals(value, Undefined.Instance) || value.AsBoolean())
                     {
                         value = false;
                     }
@@ -286,7 +286,7 @@ namespace Jint.Runtime
 
                 case BinaryOperator.Less:
                     value = Compare(left, right);
-                    if (value == Undefined.Instance)
+                    if (ReferenceEquals(value, Undefined.Instance))
                     {
                         value = false;
                     }
@@ -294,7 +294,7 @@ namespace Jint.Runtime
 
                 case BinaryOperator.LessOrEqual:
                     value = Compare(right, left, false);
-                    if (value == Undefined.Instance || value.AsBoolean())
+                    if (ReferenceEquals(value, Undefined.Instance) || value.AsBoolean())
                     {
                         value = false;
                     }
@@ -393,12 +393,12 @@ namespace Jint.Runtime
 				return StrictlyEqual(x, y);
             }
 
-            if (x == Null.Instance && y == Undefined.Instance)
+            if (ReferenceEquals(x, Null.Instance) && ReferenceEquals(y, Undefined.Instance))
             {
                 return true;
             }
 
-            if (x == Undefined.Instance && y == Null.Instance)
+            if (ReferenceEquals(x, Undefined.Instance) && ReferenceEquals(y, Null.Instance))
             {
                 return true;
             }
@@ -757,7 +757,7 @@ namespace Jint.Runtime
             if (!memberExpression.Computed) // index accessor ?
             {
                 // we can take fast path without querying the engine again
-                propertyNameString = memberExpression.Property.As<Identifier>().Name;
+                propertyNameString = ((Identifier) memberExpression.Property).Name;
             }
             else
             {
@@ -852,7 +852,7 @@ namespace Jint.Runtime
                 }
             }
 
-            if (func == Undefined.Instance)
+            if (ReferenceEquals(func, Undefined.Instance))
             {
                 throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Object has no method '{0}'", r.GetReferencedName()));
             }
@@ -1069,11 +1069,11 @@ namespace Jint.Runtime
                         }
                     }
                     var v = _engine.GetValue(value);
-                    if (v == Undefined.Instance)
+                    if (ReferenceEquals(v, Undefined.Instance))
                     {
                         return "undefined";
                     }
-                    if (v == Null.Instance)
+                    if (ReferenceEquals(v, Null.Instance))
                     {
                         return "object";
                     }

@@ -564,7 +564,7 @@ namespace Jint
                     }
 
                     var getter = desc.Get;
-                    if (getter == Undefined.Instance)
+                    if (ReferenceEquals(getter, Undefined.Instance))
                     {
                         return Undefined.Instance;
                     }
@@ -573,17 +573,14 @@ namespace Jint
                     return callable.Call(baseValue, Arguments.Empty);
                 }
             }
-            else
+
+            var record = (EnvironmentRecord) baseValue;
+            if (record == null)
             {
-                var record = baseValue.As<EnvironmentRecord>();
-
-                if (record == null)
-                {
-                    throw new ArgumentException();
-                }
-
-                return record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
+                throw new ArgumentException();
             }
+
+            return record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
         }
 
         /// <summary>

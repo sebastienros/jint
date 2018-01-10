@@ -85,7 +85,7 @@ namespace Jint.Native.Function
                 {
                     thisBinding = thisArg;
                 }
-                else if (thisArg == Undefined || thisArg == Null)
+                else if (ReferenceEquals(thisArg, Undefined) || ReferenceEquals(thisArg, Null))
                 {
                     thisBinding = Engine.Global;
                 }
