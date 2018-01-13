@@ -539,8 +539,8 @@ namespace Jint.Runtime
                         throw new ArgumentException();
                     }
 
-                    if (lhs.IsStrict() 
-                        && !ReferenceEquals(lhs.GetBase().TryCast<EnvironmentRecord>(), null) 
+                    if (lhs.IsStrict()
+                        && lhs.GetBase() is EnvironmentRecord
                         && (lhs.GetReferencedName() == "eval" || lhs.GetReferencedName() == "arguments"))
                     {
                         throw new JavaScriptException(_engine.SyntaxError);

@@ -106,13 +106,7 @@ namespace Jint.Runtime
 
             if (type == Types.String)
             {
-                var s = o.AsString();
-                if (string.IsNullOrEmpty(s))
-                {
-                    return false;
-                }
-
-                return true;
+                return !((JsString) o).IsNullOrEmpty();
             }
 
             return true;
