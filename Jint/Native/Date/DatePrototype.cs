@@ -1059,8 +1059,8 @@ namespace Jint.Native.Date
 
             if (month < 0)
             {
-                var m = (long)month;
-                year += m / 12 - 1;
+                var m = (long) month;
+                year += (m - 11) / 12;
                 month = (12 + m % 12) % 12;
             }
 

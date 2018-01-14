@@ -2276,74 +2276,101 @@ namespace Jint.Tests.Runtime
         }
 
         [Theory]
-        [InlineData("month", 12)]
-        [InlineData("month", -1)]
-        [InlineData("month", -25)]
-        [InlineData("month", 17)]
-        [InlineData("day", 42)]
-        [InlineData("day", 0)]
-        [InlineData("day", -37)]
-        [InlineData("hour", 25)]
-        [InlineData("hour", 435)]
-        [InlineData("hour", -1)]
-        [InlineData("hour", -678)]
-        [InlineData("minute", 60)]
-        [InlineData("minute", -1)]
-        [InlineData("minute", 2345)]
-        [InlineData("minute", -8976)]
-        [InlineData("second", 60)]
-        [InlineData("second", -1)]
-        [InlineData("second", 234598)]
-        [InlineData("second", -897645)]
-        public void ShouldSupportDateConsturctorWithArgumentOutOfRange(string datePart, int value)
+        //Months
+        [InlineData("new Date(2017, 0, 1, 0, 0, 0)", "new Date(2016, 12, 1, 0, 0, 0)")]
+        [InlineData("new Date(2016, 0, 1, 23, 59, 59)", "new Date(2015, 12, 1, 23, 59, 59)")]
+        [InlineData("new Date(2013, 0, 1, 0, 0, 0)", "new Date(2012, 12, 1, 0, 0, 0)")]
+        [InlineData("new Date(2013, 0, 29, 23, 59, 59)", "new Date(2012, 12, 29, 23, 59, 59)")]
+        [InlineData("new Date(2015, 11, 1, 0, 0, 0)", "new Date(2016, -1, 1, 0, 0, 0)")]
+        [InlineData("new Date(2014, 11, 1, 23, 59, 59)", "new Date(2015, -1, 1, 23, 59, 59)")]
+        [InlineData("new Date(2011, 11, 1, 0, 0, 0)", "new Date(2012, -1, 1, 0, 0, 0)")]
+        [InlineData("new Date(2011, 11, 29, 23, 59, 59)", "new Date(2012, -1, 29, 23, 59, 59)")]
+        [InlineData("new Date(2015, 1, 1, 0, 0, 0)", "new Date(2016, -11, 1, 0, 0, 0)")]
+        [InlineData("new Date(2014, 1, 1, 23, 59, 59)", "new Date(2015, -11, 1, 23, 59, 59)")]
+        [InlineData("new Date(2011, 1, 1, 0, 0, 0)", "new Date(2012, -11, 1, 0, 0, 0)")]
+        [InlineData("new Date(2011, 2, 1, 23, 59, 59)", "new Date(2012, -11, 29, 23, 59, 59)")]
+        [InlineData("new Date(2015, 0, 1, 0, 0, 0)", "new Date(2016, -12, 1, 0, 0, 0)")]
+        [InlineData("new Date(2014, 0, 1, 23, 59, 59)", "new Date(2015, -12, 1, 23, 59, 59)")]
+        [InlineData("new Date(2011, 0, 1, 0, 0, 0)", "new Date(2012, -12, 1, 0, 0, 0)")]
+        [InlineData("new Date(2011, 0, 29, 23, 59, 59)", "new Date(2012, -12, 29, 23, 59, 59)")]
+        [InlineData("new Date(2014, 11, 1, 0, 0, 0)", "new Date(2016, -13, 1, 0, 0, 0)")]
+        [InlineData("new Date(2013, 11, 1, 23, 59, 59)", "new Date(2015, -13, 1, 23, 59, 59)")]
+        [InlineData("new Date(2010, 11, 1, 0, 0, 0)", "new Date(2012, -13, 1, 0, 0, 0)")]
+        [InlineData("new Date(2010, 11, 29, 23, 59, 59)", "new Date(2012, -13, 29, 23, 59, 59)")]
+        [InlineData("new Date(2013, 11, 1, 0, 0, 0)", "new Date(2016, -25, 1, 0, 0, 0)")]
+        [InlineData("new Date(2012, 11, 1, 23, 59, 59)", "new Date(2015, -25, 1, 23, 59, 59)")]
+        [InlineData("new Date(2009, 11, 1, 0, 0, 0)", "new Date(2012, -25, 1, 0, 0, 0)")]
+        [InlineData("new Date(2009, 11, 29, 23, 59, 59)", "new Date(2012, -25, 29, 23, 59, 59)")]
+        //Days
+        [InlineData("new Date(2016, 1, 11, 0, 0, 0)", "new Date(2016, 0, 42, 0, 0, 0)")]
+        [InlineData("new Date(2016, 0, 11, 23, 59, 59)", "new Date(2015, 11, 42, 23, 59, 59)")]
+        [InlineData("new Date(2012, 3, 11, 0, 0, 0)", "new Date(2012, 2, 42, 0, 0, 0)")]
+        [InlineData("new Date(2012, 2, 13, 23, 59, 59)", "new Date(2012, 1, 42, 23, 59, 59)")]
+        [InlineData("new Date(2015, 11, 31, 0, 0, 0)", "new Date(2016, 0, 0, 0, 0, 0)")]
+        [InlineData("new Date(2015, 10, 30, 23, 59, 59)", "new Date(2015, 11, 0, 23, 59, 59)")]
+        [InlineData("new Date(2012, 1, 29, 0, 0, 0)", "new Date(2012, 2, 0, 0, 0, 0)")]
+        [InlineData("new Date(2012, 0, 31, 23, 59, 59)", "new Date(2012, 1, 0, 23, 59, 59)")]
+        [InlineData("new Date(2015, 10, 24, 0, 0, 0)", "new Date(2016, 0, -37, 0, 0, 0)")]
+        [InlineData("new Date(2015, 9, 24, 23, 59, 59)", "new Date(2015, 11, -37, 23, 59, 59)")]
+        [InlineData("new Date(2012, 0, 23, 0, 0, 0)", "new Date(2012, 2, -37, 0, 0, 0)")]
+        [InlineData("new Date(2011, 11, 25, 23, 59, 59)", "new Date(2012, 1, -37, 23, 59, 59)")]
+        //Hours
+        [InlineData("new Date(2016, 0, 2, 1, 0, 0)", "new Date(2016, 0, 1, 25, 0, 0)")]
+        [InlineData("new Date(2015, 11, 2, 1, 59, 59)", "new Date(2015, 11, 1, 25, 59, 59)")]
+        [InlineData("new Date(2012, 2, 2, 1, 0, 0)", "new Date(2012, 2, 1, 25, 0, 0)")]
+        [InlineData("new Date(2012, 2, 1, 1, 59, 59)", "new Date(2012, 1, 29, 25, 59, 59)")]
+        [InlineData("new Date(2016, 0, 19, 3, 0, 0)", "new Date(2016, 0, 1, 435, 0, 0)")]
+        [InlineData("new Date(2015, 11, 19, 3, 59, 59)", "new Date(2015, 11, 1, 435, 59, 59)")]
+        [InlineData("new Date(2012, 2, 19, 3, 0, 0)", "new Date(2012, 2, 1, 435, 0, 0)")]
+        [InlineData("new Date(2012, 2, 18, 3, 59, 59)", "new Date(2012, 1, 29, 435, 59, 59)")]
+        [InlineData("new Date(2015, 11, 31, 23, 0, 0)", "new Date(2016, 0, 1, -1, 0, 0)")]
+        [InlineData("new Date(2015, 10, 30, 23, 59, 59)", "new Date(2015, 11, 1, -1, 59, 59)")]
+        [InlineData("new Date(2012, 1, 29, 23, 0, 0)", "new Date(2012, 2, 1, -1, 0, 0)")]
+        [InlineData("new Date(2012, 1, 28, 23, 59, 59)", "new Date(2012, 1, 29, -1, 59, 59)")]
+        [InlineData("new Date(2015, 11, 3, 18, 0, 0)", "new Date(2016, 0, 1, -678, 0, 0)")]
+        [InlineData("new Date(2015, 10, 2, 18, 59, 59)", "new Date(2015, 11, 1, -678, 59, 59)")]
+        [InlineData("new Date(2012, 1, 1, 18, 0, 0)", "new Date(2012, 2, 1, -678, 0, 0)")]
+        [InlineData("new Date(2012, 0, 31, 18, 59, 59)", "new Date(2012, 1, 29, -678, 59, 59)")]
+        // Minutes
+        [InlineData("new Date(2016, 0, 1, 1, 0, 0)", "new Date(2016, 0, 1, 0, 60, 0)")]
+        [InlineData("new Date(2015, 11, 2, 0, 0, 59)", "new Date(2015, 11, 1, 23, 60, 59)")]
+        [InlineData("new Date(2012, 2, 1, 1, 0, 0)", "new Date(2012, 2, 1, 0, 60, 0)")]
+        [InlineData("new Date(2012, 2, 1, 0, 0, 59)", "new Date(2012, 1, 29, 23, 60, 59)")]
+        [InlineData("new Date(2015, 11, 31, 23, 59, 0)", "new Date(2016, 0, 1, 0, -1, 0)")]
+        [InlineData("new Date(2015, 11, 1, 22, 59, 59)", "new Date(2015, 11, 1, 23, -1, 59)")]
+        [InlineData("new Date(2012, 1, 29, 23, 59, 0)", "new Date(2012, 2, 1, 0, -1, 0)")]
+        [InlineData("new Date(2012, 1, 29, 22, 59, 59)", "new Date(2012, 1, 29, 23, -1, 59)")]
+        [InlineData("new Date(2016, 0, 2, 15, 5, 0)", "new Date(2016, 0, 1, 0, 2345, 0)")]
+        [InlineData("new Date(2015, 11, 3, 14, 5, 59)", "new Date(2015, 11, 1, 23, 2345, 59)")]
+        [InlineData("new Date(2012, 2, 2, 15, 5, 0)", "new Date(2012, 2, 1, 0, 2345, 0)")]
+        [InlineData("new Date(2012, 2, 2, 14, 5, 59)", "new Date(2012, 1, 29, 23, 2345, 59)")]
+        [InlineData("new Date(2015, 11, 25, 18, 24, 0)", "new Date(2016, 0, 1, 0, -8976, 0)")]
+        [InlineData("new Date(2015, 10, 25, 17, 24, 59)", "new Date(2015, 11, 1, 23, -8976, 59)")]
+        [InlineData("new Date(2012, 1, 23, 18, 24, 0)", "new Date(2012, 2, 1, 0, -8976, 0)")]
+        [InlineData("new Date(2012, 1, 23, 17, 24, 59)", "new Date(2012, 1, 29, 23, -8976, 59)")]
+        // Seconds
+        [InlineData("new Date(2016, 0, 1, 0, 1, 0)", "new Date(2016, 0, 1, 0, 0, 60)")]
+        [InlineData("new Date(2015, 11, 2, 0, 0, 0)", "new Date(2015, 11, 1, 23, 59, 60)")]
+        [InlineData("new Date(2012, 2, 1, 0, 1, 0)", "new Date(2012, 2, 1, 0, 0, 60)")]
+        [InlineData("new Date(2012, 2, 1, 0, 0, 0)", "new Date(2012, 1, 29, 23, 59, 60)")]
+        [InlineData("new Date(2015, 11, 31, 23, 59, 59)", "new Date(2016, 0, 1, 0, 0, -1)")]
+        [InlineData("new Date(2015, 11, 1, 23, 58, 59)", "new Date(2015, 11, 1, 23, 59, -1)")]
+        [InlineData("new Date(2012, 1, 29, 23, 59, 59)", "new Date(2012, 2, 1, 0, 0, -1)")]
+        [InlineData("new Date(2012, 1, 29, 23, 58, 59)", "new Date(2012, 1, 29, 23, 59, -1)")]
+        [InlineData("new Date(2016, 0, 3, 17, 9, 58)", "new Date(2016, 0, 1, 0, 0, 234598)")]
+        [InlineData("new Date(2015, 11, 4, 17, 8, 58)", "new Date(2015, 11, 1, 23, 59, 234598)")]
+        [InlineData("new Date(2012, 2, 3, 17, 9, 58)", "new Date(2012, 2, 1, 0, 0, 234598)")]
+        [InlineData("new Date(2012, 2, 3, 17, 8, 58)", "new Date(2012, 1, 29, 23, 59, 234598)")]
+        [InlineData("new Date(2015, 11, 21, 14, 39, 15)", "new Date(2016, 0, 1, 0, 0, -897645)")]
+        [InlineData("new Date(2015, 10, 21, 14, 38, 15)", "new Date(2015, 11, 1, 23, 59, -897645)")]
+        [InlineData("new Date(2012, 1, 19, 14, 39, 15)", "new Date(2012, 2, 1, 0, 0, -897645)")]
+        [InlineData("new Date(2012, 1, 19, 14, 38, 15)", "new Date(2012, 1, 29, 23, 59, -897645)")]
+        public void ShouldSupportDateConsturctorWithArgumentOutOfRange(string expected, string actual)
         {
-            var testDates = new[]
-            {
-                new DateTime(2016, 1, 1),
-                new DateTime(2016, 1, 1, 23, 59, 59),
-                new DateTime(2015, 12, 1),
-                new DateTime(2015, 12, 1, 23, 59, 59),
-                new DateTime(2012, 3, 1),
-                new DateTime(2012, 3, 1, 23, 59, 59),
-                new DateTime(2012, 2, 29),
-                new DateTime(2012, 2, 29, 23, 59, 59),
-            };
-
             var engine = new Engine(o => o.LocalTimeZone(TimeZoneInfo.Utc));
-            foreach (var testDate in testDates)
-            {
-                var dateParts = new[] {testDate.Year, testDate.Month - 1, testDate.Day, testDate.Hour, testDate.Minute, testDate.Second};
-                DateTime expected;
-                switch (datePart)
-                {
-                    case "month":
-                        expected = testDate.AddMonths(value - dateParts[1]);
-                        dateParts[1] = value;
-                        break;
-                    case "day":
-                        expected = testDate.AddDays(value - dateParts[2]);
-                        dateParts[2] = value;
-                        break;
-                    case "hour":
-                        expected = testDate.AddHours(value - dateParts[3]);
-                        dateParts[3] = value;
-                        break;
-                    case "minute":
-                        expected = testDate.AddMinutes(value - dateParts[4]);
-                        dateParts[4] = value;
-                        break;
-                    case "second":
-                        expected = testDate.AddSeconds(value - dateParts[5]);
-                        dateParts[5] = value;
-                        break;
-                    default:
-                        throw new NotSupportedException("datePart=" + datePart);
-                }
-
-                var source = "new Date(" + string.Join(", ", dateParts) + ")";
-                var result = engine.Execute(source).GetCompletionValue().ToObject();
-                Assert.Equal(expected, result);
-            }
+            var expectedValue = engine.Execute(expected).GetCompletionValue().ToObject();
+            var actualValue = engine.Execute(actual).GetCompletionValue().ToObject();
+            Assert.Equal(expectedValue, actualValue);
         }
     }
 }
