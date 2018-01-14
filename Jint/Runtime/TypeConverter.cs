@@ -464,10 +464,12 @@ namespace Jint.Runtime
                 engine.Options._ReferenceResolver.CheckCoercible(o))
                 return;
 
-            var message = string.Empty;
-            var reference = baseReference as Reference;
-            if (reference != null)
-                message = $"{reference.GetReferencedName()} is {o}";
+            string referencedName;
+            if (baseReference is Reference reference)
+                referencedName = reference.GetReferencedName();
+            else
+                referencedName = "The value";
+            var message = $"{referencedName} is {o}";
 
             throw new JavaScriptException(engine.TypeError, message)
                 .SetCallstack(engine, expression.Location);
