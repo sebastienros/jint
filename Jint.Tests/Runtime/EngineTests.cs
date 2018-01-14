@@ -2274,5 +2274,76 @@ namespace Jint.Tests.Runtime
             var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(source));
             Assert.Equal(expected, ex.Message);
         }
+
+        [Theory]
+        [InlineData("month", 12)]
+        [InlineData("month", -1)]
+        [InlineData("month", -25)]
+        [InlineData("month", 17)]
+        [InlineData("day", 42)]
+        [InlineData("day", 0)]
+        [InlineData("day", -37)]
+        [InlineData("hour", 25)]
+        [InlineData("hour", 435)]
+        [InlineData("hour", -1)]
+        [InlineData("hour", -678)]
+        [InlineData("minute", 60)]
+        [InlineData("minute", -1)]
+        [InlineData("minute", 2345)]
+        [InlineData("minute", -8976)]
+        [InlineData("second", 60)]
+        [InlineData("second", -1)]
+        [InlineData("second", 234598)]
+        [InlineData("second", -897645)]
+        public void ShouldSupportDateConsturctorWithArgumentOutOfRange(string datePart, int value)
+        {
+            var testDates = new[]
+            {
+                new DateTime(2016, 1, 1),
+                new DateTime(2016, 1, 1, 23, 59, 59),
+                new DateTime(2015, 12, 1),
+                new DateTime(2015, 12, 1, 23, 59, 59),
+                new DateTime(2012, 3, 1),
+                new DateTime(2012, 3, 1, 23, 59, 59),
+                new DateTime(2012, 2, 29),
+                new DateTime(2012, 2, 29, 23, 59, 59),
+            };
+
+            var engine = new Engine(o => o.LocalTimeZone(TimeZoneInfo.Utc));
+            foreach (var testDate in testDates)
+            {
+                var dateParts = new[] {testDate.Year, testDate.Month - 1, testDate.Day, testDate.Hour, testDate.Minute, testDate.Second};
+                DateTime expected;
+                switch (datePart)
+                {
+                    case "month":
+                        expected = testDate.AddMonths(value - dateParts[1]);
+                        dateParts[1] = value;
+                        break;
+                    case "day":
+                        expected = testDate.AddDays(value - dateParts[2]);
+                        dateParts[2] = value;
+                        break;
+                    case "hour":
+                        expected = testDate.AddHours(value - dateParts[3]);
+                        dateParts[3] = value;
+                        break;
+                    case "minute":
+                        expected = testDate.AddMinutes(value - dateParts[4]);
+                        dateParts[4] = value;
+                        break;
+                    case "second":
+                        expected = testDate.AddSeconds(value - dateParts[5]);
+                        dateParts[5] = value;
+                        break;
+                    default:
+                        throw new NotSupportedException("datePart=" + datePart);
+                }
+
+                var source = "new Date(" + string.Join(", ", dateParts) + ")";
+                var result = engine.Execute(source).GetCompletionValue().ToObject();
+                Assert.Equal(expected, result);
+            }
+        }
     }
 }

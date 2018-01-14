@@ -1057,6 +1057,13 @@ namespace Jint.Native.Date
             month = TypeConverter.ToInteger(month);
             date = TypeConverter.ToInteger(date);
 
+            if (month < 0)
+            {
+                var m = (long)month;
+                year += m / 12 - 1;
+                month = (12 + m % 12) % 12;
+            }
+
             var sign = (year < 1970) ? -1 : 1;
             double t = (year < 1970) ? 1 : 0;
             int y;
