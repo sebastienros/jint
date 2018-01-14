@@ -232,7 +232,7 @@ namespace Jint.Native
             {
                 JsValue Convert(Engine e, object v)
                 {
-                    var array = (System.Array) v;
+                    var array = (System.Array)v;
 
                     var jsArray = engine.Array.Construct(a.Length);
                     foreach (var item in array)
@@ -259,7 +259,7 @@ namespace Jint.Native
 
             if (value.GetType().IsEnum())
             {
-                return JsNumber.Create((int) value);
+                return JsNumber.Create((int)value);
             }
 
             // if no known type could be guessed, wrap it as an ObjectInstance
@@ -325,9 +325,9 @@ namespace Jint.Native
 
         public static bool operator ==(JsValue a, JsValue b)
         {
-            if ((object) a == null)
+            if ((object)a == null)
             {
-                if ((object) b == null)
+                if ((object)b == null)
                 {
                     return true;
                 }
@@ -335,7 +335,7 @@ namespace Jint.Native
                 return false;
             }
 
-            if ((object) b == null)
+            if ((object)b == null)
             {
                 return false;
             }
@@ -345,9 +345,9 @@ namespace Jint.Native
 
         public static bool operator !=(JsValue a, JsValue b)
         {
-            if ((object) a == null)
+            if ((object)a == null)
             {
-                if ((object) b == null)
+                if ((object)b == null)
                 {
                     return false;
                 }
@@ -355,7 +355,7 @@ namespace Jint.Native
                 return true;
             }
 
-            if ((object) b == null)
+            if ((object)b == null)
             {
                 return true;
             }
@@ -390,6 +390,8 @@ namespace Jint.Native
 
         public static implicit operator JsValue(string value)
         {
+            if (value == null)
+                return Null;
             return JsString.Create(value);
         }
 
