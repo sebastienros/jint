@@ -18,23 +18,15 @@ namespace Jint.Native.Object
 {
     public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
-        private const string PropertyNamePrototype = "prototype";
-        private const string PropertyNameConstructor = "constructor";
-        private const string PropertyNameLength = "length";
-
         private Dictionary<string, IPropertyDescriptor> _intrinsicProperties;
-        private MruPropertyCache2<string, IPropertyDescriptor> _properties;
-
-        private IPropertyDescriptor _prototype;
-        private IPropertyDescriptor _constructor;
-        private IPropertyDescriptor _length;
+        private MruPropertyCache2<IPropertyDescriptor> _properties;
 
         public ObjectInstance(Engine engine)
         {
             Engine = engine;
         }
 
-        public Engine Engine { get; set; }
+        public Engine Engine { get; }
 
         protected bool TryGetIntrinsicValue(JsSymbol symbol, out JsValue value)
         {
@@ -91,21 +83,6 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            if (_prototype != null)
-            {
-                yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNamePrototype, _prototype);
-            }
-
-            if (_constructor != null)
-            {
-                yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNameConstructor, _constructor);
-            }
-
-            if (_length != null)
-            {
-                yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNameLength, _length);
-            }
-
             if (_properties != null)
             {
                 foreach (var pair in _properties.GetEnumerator())
@@ -115,54 +92,18 @@ namespace Jint.Native.Object
             }
         }
 
-        protected void AddProperty(string propertyName, IPropertyDescriptor descriptor)
+        protected virtual void AddProperty(string propertyName, IPropertyDescriptor descriptor)
         {
-            if (propertyName == PropertyNamePrototype)
-            {
-                _prototype = descriptor;
-                return;
-            }
-
-            if (propertyName == PropertyNameConstructor)
-            {
-                _constructor = descriptor;
-                return;
-            }
-
-            if (propertyName == PropertyNameLength)
-            {
-                _length = descriptor;
-                return;
-            }
-
             if (_properties == null)
             {
-                _properties = new MruPropertyCache2<string, IPropertyDescriptor>();
+                _properties = new MruPropertyCache2<IPropertyDescriptor>();
             }
 
             _properties.Add(propertyName, descriptor);
         }
 
-        protected bool TryGetProperty(string propertyName, out IPropertyDescriptor descriptor)
+        protected virtual bool TryGetProperty(string propertyName, out IPropertyDescriptor descriptor)
         {
-            if (propertyName == PropertyNamePrototype)
-            {
-                descriptor = _prototype;
-                return _prototype != null;
-            }
-
-            if (propertyName == PropertyNameConstructor)
-            {
-                descriptor = _constructor;
-                return _constructor != null;
-            }
-
-            if (propertyName == PropertyNameLength)
-            {
-                descriptor = _length;
-                return _length != null;
-            }
-
             if (_properties == null)
             {
                 descriptor = null;
@@ -176,42 +117,12 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            if (propertyName == PropertyNamePrototype)
-            {
-                return _prototype != null;
-            }
-
-            if (propertyName == PropertyNameConstructor)
-            {
-                return _constructor != null;
-            }
-
-            if (propertyName == PropertyNameLength)
-            {
-                return _length != null;
-            }
-
             return _properties?.ContainsKey(propertyName) ?? false;
         }
 
         public virtual void RemoveOwnProperty(string propertyName)
         {
             EnsureInitialized();
-
-            if (propertyName == PropertyNamePrototype)
-            {
-                _prototype = null;
-            }
-
-            if (propertyName == PropertyNameConstructor)
-            {
-                _constructor = null;
-            }
-
-            if (propertyName == PropertyNameLength)
-            {
-                _length = null;
-            }
 
             _properties?.Remove(propertyName);
         }
@@ -241,7 +152,7 @@ namespace Jint.Native.Object
 
             if (getter.IsUndefined())
             {
-                return JsValue.Undefined;
+                return Undefined;
             }
 
             // if getter is not undefined it must be ICallable
@@ -261,21 +172,6 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            if (propertyName == PropertyNamePrototype)
-            {
-                return _prototype ?? PropertyDescriptor.Undefined;
-            }
-
-            if (propertyName == PropertyNameConstructor)
-            {
-                return _constructor ?? PropertyDescriptor.Undefined;
-            }
-
-            if (propertyName == PropertyNameLength)
-            {
-                return _length ?? PropertyDescriptor.Undefined;
-            }
-
             if (_properties != null && _properties.TryGetValue(propertyName, out var x))
             {
                 return x;
@@ -288,27 +184,9 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            if (propertyName == PropertyNamePrototype)
-            {
-                _prototype = desc;
-                return;
-            }
-
-            if (propertyName == PropertyNameConstructor)
-            {
-                _constructor = desc;
-                return;
-            }
-
-            if (propertyName == PropertyNameLength)
-            {
-                _length = desc;
-                return;
-            }
-
             if (_properties == null)
             {
-                _properties = new MruPropertyCache2<string, IPropertyDescriptor>();
+                _properties = new MruPropertyCache2<IPropertyDescriptor>();
             }
 
             _properties[propertyName] = desc;
@@ -642,6 +520,7 @@ namespace Jint.Native.Object
                                 Configurable = desc.Configurable.HasValue ? desc.Configurable.Value : false
                             };
                         }
+
                         SetOwnProperty(propertyName, propertyDescriptor);
                     }
                     else
@@ -862,9 +741,7 @@ namespace Jint.Native.Object
             return TypeConverter.ToString(this);
         }
 
-        protected uint GetLengthValue() => TypeConverter.ToUint32(_length.Value);
-
-                public override Types Type => Types.Object;
+        public override Types Type => Types.Object;
 
         [Pure]
         public override bool IsArray()

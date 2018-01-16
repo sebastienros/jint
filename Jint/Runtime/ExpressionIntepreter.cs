@@ -203,11 +203,27 @@ namespace Jint.Runtime
 
         public JsValue EvaluateBinaryExpression(BinaryExpression expression)
         {
-            var leftExpression = EvaluateExpression(expression.Left);
-            JsValue left = _engine.GetValue(leftExpression);
+            JsValue left;
+            if (expression.Left.Type == Nodes.Literal)
+            {
+                left = EvaluateLiteral(expression.Left.As<Literal>());
+            }
+            else
+            {
+                var leftExpression = EvaluateExpression(expression.Left);
+                left = _engine.GetValue(leftExpression);
+            }
 
-            var rightExpression = EvaluateExpression(expression.Right);
-            JsValue right = _engine.GetValue(rightExpression);
+            JsValue right;
+            if (expression.Right.Type == Nodes.Literal)
+            {
+                right = EvaluateLiteral(expression.Right.As<Literal>());
+            }
+            else
+            {
+                var rightExpression = EvaluateExpression(expression.Right);
+                right = _engine.GetValue(rightExpression);
+            }
 
             JsValue value;
 
@@ -451,11 +467,6 @@ namespace Jint.Runtime
                 return true;
             }
 
-            if (typea == Types.None)
-            {
-                return true;
-            }
-
             if (typea == Types.Number)
             {
                 var nx = x.AsNumber();
@@ -486,14 +497,17 @@ namespace Jint.Runtime
 
 			if (typea == Types.Object)
 			{
-				var xw = x.AsObject() as IObjectWrapper;
-
-				if (xw != null)
+			    if (x.AsObject() is IObjectWrapper xw)
 				{
 					var yw = y.AsObject() as IObjectWrapper;
-					return Object.Equals(xw.Target, yw.Target);
+					return Equals(xw.Target, yw.Target);
 				}
 			}
+
+            if (typea == Types.None)
+            {
+                return true;
+            }
 
             return x == y;
         }
@@ -614,6 +628,7 @@ namespace Jint.Runtime
             return LexicalEnvironment.GetIdentifierReference(env, identifier.Name, strict);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue EvaluateLiteral(Literal literal)
         {
             switch (literal.TokenType)

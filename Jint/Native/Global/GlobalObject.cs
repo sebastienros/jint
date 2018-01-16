@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Native.Object;
 using Jint.Native.String;

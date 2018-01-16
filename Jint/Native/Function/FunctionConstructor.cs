@@ -3,7 +3,6 @@ using System.Linq;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native.Object;
-using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
@@ -47,23 +46,6 @@ namespace Jint.Native.Function
             return Construct(arguments);
         }
 
-        private string[] ParseArgumentNames(string parameterDeclaration)
-        {
-            if (string.IsNullOrWhiteSpace(parameterDeclaration))
-            {
-                return System.Array.Empty<string>();
-            }
-
-            string[] values = parameterDeclaration.Split(ArgumentNameSeparator, StringSplitOptions.RemoveEmptyEntries);
-
-            var newValues = new string[values.Length];
-            for (var i = 0; i < values.Length; i++)
-            {
-                newValues[i] = StringPrototype.TrimEx(values[i]);
-            }
-            return newValues;
-        }
-
         public ObjectInstance Construct(JsValue[] arguments)
         {
             var argCount = arguments.Length;
@@ -87,7 +69,6 @@ namespace Jint.Native.Function
                 body = TypeConverter.ToString(arguments[argCount-1]);
             }
 
-            var parameters = this.ParseArgumentNames(p);
             IFunction function;
             try
             {

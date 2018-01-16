@@ -510,18 +510,18 @@ namespace Jint
         /// <returns></returns>
         public JsValue GetValue(object value)
         {
-            var reference = value as Reference;
+            if (value is JsValue jsValue)
+            {
+                return jsValue;
+            }
 
+            var reference = value as Reference;
             if (reference == null)
             {
-                var completion = value as Completion;
-
-                if (completion != null)
+                if (value is Completion completion)
                 {
                     return GetValue(completion.Value);
                 }
-
-                return (JsValue)value;
             }
 
             if (reference.IsUnresolvableReference())

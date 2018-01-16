@@ -13,7 +13,7 @@ namespace Jint.Runtime.Environments
         private const string BindingNameArguments = "arguments";
         private Binding _argumentsBinding;
 
-        private readonly MruPropertyCache2<string, Binding> _bindings = new MruPropertyCache2<string, Binding>();
+        private readonly MruPropertyCache2<Binding> _bindings = new MruPropertyCache2<Binding>();
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
