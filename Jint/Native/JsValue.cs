@@ -391,7 +391,10 @@ namespace Jint.Native
         public static implicit operator JsValue(string value)
         {
             if (value == null)
+            {
                 return Null;
+            }
+                
             return JsString.Create(value);
         }
 
