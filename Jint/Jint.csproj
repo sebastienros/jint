@@ -6,6 +6,6 @@
     <SignAssembly>true</SignAssembly>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Esprima" Version="1.0.0-beta-1023" />
+    <PackageReference Include="Esprima" Version="1.0.0-beta-1025" />
   </ItemGroup>
 </Project>

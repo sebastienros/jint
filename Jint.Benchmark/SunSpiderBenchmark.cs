@@ -3,25 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Jobs;
 using Jint;
 
 namespace Esprima.Benchmark
 {
-    [Config(typeof(Config))]
     [MemoryDiagnoser]
     public class SunSpiderBenchmark
     {
-        private class Config : ManualConfig
-        {
-            public Config()
-            {
-                // if Jint array performance gets better we can go towards defaul 16/16
-                Add(Job.ShortRun.WithInvocationCount(4).WithUnrollFactor(4));
-            }
-        }
-
         private static readonly Dictionary<string, string> files = new Dictionary<string, string>
         {
             {"3d-cube", null},
