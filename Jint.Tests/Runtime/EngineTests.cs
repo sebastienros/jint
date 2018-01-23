@@ -867,6 +867,18 @@ namespace Jint.Tests.Runtime
             Assert.Equal(3, add.Invoke(1, 2));
         }
 
+        [Fact]
+        public void ShouldAllowInvokeAFunctionValueWithNullValueAsArgument()
+        {
+            RunTest(@"
+                function get(x) { return x; }
+            ");
+
+            var add = _engine.GetValue("get");
+            string str = null;
+            Assert.Equal(Native.JsValue.Null, add.Invoke(str));
+        }
+
 
         [Fact]
         public void ShouldNotInvokeNonFunctionValue()
@@ -1240,7 +1252,7 @@ namespace Jint.Tests.Runtime
         {
             var content = GetEmbeddedFile("knockout-3.4.0.js");
 
-            var ex = Assert.Throws<ParserException>(() => _engine.Execute(content, new ParserOptions {Tolerant = false}));
+            var ex = Assert.Throws<ParserException>(() => _engine.Execute(content, new ParserOptions { Tolerant = false }));
             Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
         }
 
@@ -1248,7 +1260,7 @@ namespace Jint.Tests.Runtime
         public void ShouldExecuteKnockoutWithoutErrorWhenTolerant()
         {
             var content = GetEmbeddedFile("knockout-3.4.0.js");
-            _engine.Execute(content, new ParserOptions {Tolerant = true});
+            _engine.Execute(content, new ParserOptions { Tolerant = true });
         }
 
         [Fact]
@@ -2265,9 +2277,9 @@ namespace Jint.Tests.Runtime
 
         [Theory]
         [InlineData("throw {}", "undefined")]
-        [InlineData("throw {message:null}","null")]
-        [InlineData("throw {message:''}","")]
-        [InlineData("throw {message:2}","2")]
+        [InlineData("throw {message:null}", "null")]
+        [InlineData("throw {message:''}", "")]
+        [InlineData("throw {message:2}", "2")]
         public void ShouldAllowNonStringMessage(string source, string expected)
         {
             var engine = new Engine();
