@@ -458,17 +458,27 @@ namespace Jint.Runtime
             object baseReference)
         {
             if (o != Undefined.Instance && o != Null.Instance)
+            {
                 return;
+            }
 
             if (engine.Options._ReferenceResolver != null &&
                 engine.Options._ReferenceResolver.CheckCoercible(o))
+            {
                 return;
+            }
 
             string referencedName;
+            
             if (baseReference is Reference reference)
+            {
                 referencedName = reference.GetReferencedName();
+            }
             else
+            {
                 referencedName = "The value";
+            }
+            
             var message = $"{referencedName} is {o}";
 
             throw new JavaScriptException(engine.TypeError, message)
