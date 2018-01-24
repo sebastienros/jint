@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -13,6 +14,10 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
+        private const string PropertyNameName = "name";
+
+        private IPropertyDescriptor _name;
+
         private readonly IFunction _functionDeclaration;
 
         /// <summary>
@@ -27,18 +32,22 @@ namespace Jint.Native.Function
         {
             _functionDeclaration = functionDeclaration;
 
-            Engine = engine;
             Extensible = true;
             Prototype = engine.Function.PrototypeObject;
 
             DefineOwnProperty("length", new AllForbiddenPropertyDescriptor(JsNumber.Create(FormalParameters.Length)), false);
 
-            var proto = engine.Object.Construct(Arguments.Empty);
-            proto.SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(this));
+            var proto = new ObjectInstanceWithConstructor(engine, this)
+            {
+                Extensible = true,
+                Prototype = Engine.Object.PrototypeObject
+            };
+
             SetOwnProperty("prototype", new WritablePropertyDescriptor(proto));
+
             if (_functionDeclaration.Id != null)
             {
-                DefineOwnProperty("name", new NullConfigurationPropertyDescriptor(_functionDeclaration.Id.Name), false);
+                _name = new NullConfigurationPropertyDescriptor(_functionDeclaration.Id.Name);
             }
 
             if (strict)
@@ -47,6 +56,61 @@ namespace Jint.Native.Function
                 DefineOwnProperty("caller", new PropertyDescriptor(thrower, thrower, false, false), false);
                 DefineOwnProperty("arguments", new PropertyDescriptor(thrower, thrower, false, false), false);
             }
+        }
+
+        public override IEnumerable<KeyValuePair<string, IPropertyDescriptor>> GetOwnProperties()
+        {
+            if (_name != null)
+            {
+                yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNameName, _name);
+            }
+
+            foreach (var entry in base.GetOwnProperties())
+            {
+                yield return entry;
+            }
+        }
+
+        public override IPropertyDescriptor GetOwnProperty(string propertyName)
+        {
+            if (propertyName == PropertyNameName)
+            {
+                return _name ?? PropertyDescriptor.Undefined;
+            }
+
+            return base.GetOwnProperty(propertyName);
+        }
+
+        protected internal override void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
+        {
+            if (propertyName == PropertyNameName)
+            {
+                _name = desc;
+            }
+            else
+            {
+                base.SetOwnProperty(propertyName, desc);
+            }
+        }
+
+        public override bool HasOwnProperty(string propertyName)
+        {
+            if (propertyName == PropertyNameName)
+            {
+                return _name != null;
+            }
+
+            return base.HasOwnProperty(propertyName);
+        }
+
+        public override void RemoveOwnProperty(string propertyName)
+        {
+            if (propertyName == PropertyNameName)
+            {
+                _name = null;
+            }
+
+            base.RemoveOwnProperty(propertyName);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -142,9 +206,11 @@ namespace Jint.Native.Function
         public ObjectInstance Construct(JsValue[] arguments)
         {
             var proto = Get("prototype").TryCast<ObjectInstance>();
-            var obj = new ObjectInstance(Engine);
-            obj.Extensible = true;
-            obj.Prototype = proto ?? Engine.Object.PrototypeObject;
+            var obj = new ObjectInstance(Engine)
+            {
+                Extensible = true,
+                Prototype = proto ?? Engine.Object.PrototypeObject
+            };
 
             var result = Call(obj, arguments).TryCast<ObjectInstance>();
             if (result != null)
@@ -153,6 +219,74 @@ namespace Jint.Native.Function
             }
 
             return obj;
+        }
+
+        private class ObjectInstanceWithConstructor : ObjectInstance
+        {
+            private const string PropertyNameConstructor = "constructor";
+            private IPropertyDescriptor _constructor;
+
+            public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine)
+            {
+                _constructor = new NonEnumerablePropertyDescriptor(thisObj);
+            }
+
+            public override IEnumerable<KeyValuePair<string, IPropertyDescriptor>> GetOwnProperties()
+            {
+                if (_constructor != null)
+                {
+                    yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNameConstructor, _constructor);
+                }
+
+                foreach (var entry in base.GetOwnProperties())
+                {
+                    yield return entry;
+                }
+            }
+
+            public override IPropertyDescriptor GetOwnProperty(string propertyName)
+            {
+                if (propertyName == PropertyNameConstructor)
+                {
+                    return _constructor ?? PropertyDescriptor.Undefined;
+                }
+
+                return base.GetOwnProperty(propertyName);
+            }
+
+            protected internal override void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
+            {
+                if (propertyName == PropertyNameConstructor)
+                {
+                    _constructor = desc;
+                }
+                else
+                {
+                    base.SetOwnProperty(propertyName, desc);
+                }
+            }
+
+            public override bool HasOwnProperty(string propertyName)
+            {
+                if (propertyName == PropertyNameConstructor)
+                {
+                    return _constructor != null;
+                }
+
+                return base.HasOwnProperty(propertyName);
+            }
+
+            public override void RemoveOwnProperty(string propertyName)
+            {
+                if (propertyName == PropertyNameConstructor)
+                {
+                    _constructor = null;
+                }
+                else
+                {
+                    base.RemoveOwnProperty(propertyName);
+                }
+            }
         }
     }
 }

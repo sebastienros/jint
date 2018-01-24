@@ -13,6 +13,9 @@ namespace Jint.Native.Array
     {
         private readonly Engine _engine;
 
+        private const string PropertyNameLength = "length";
+        private IPropertyDescriptor _length;
+
         private const int MaxDenseArrayLength = 1024 * 10;
 
         // we have dense and sparse, we usually can start with dense and fall back to sparse when necessary
@@ -75,7 +78,7 @@ namespace Jint.Native.Array
 
         public override bool DefineOwnProperty(string propertyName, IPropertyDescriptor desc, bool throwOnError)
         {
-            var oldLenDesc = GetOwnProperty("length");
+            var oldLenDesc = _length;
             var oldLen = (uint) TypeConverter.ToNumber(oldLenDesc.Value);
 
             if (propertyName == "length")
@@ -282,11 +285,36 @@ namespace Jint.Native.Array
 
         public uint GetLength()
         {
-            return GetLengthValue();
+            return TypeConverter.ToUint32(_length.Value);
+        }
+
+        protected override void AddProperty(string propertyName, IPropertyDescriptor descriptor)
+        {
+            if (propertyName == PropertyNameLength)
+            {
+                _length = descriptor;
+                return;
+            }
+            base.AddProperty(propertyName, descriptor);
+        }
+
+        protected override bool TryGetProperty(string propertyName, out IPropertyDescriptor descriptor)
+        {
+            if (propertyName == PropertyNameLength)
+            {
+                descriptor = _length;
+                return _length != null;
+            }
+            return base.TryGetProperty(propertyName, out descriptor);
         }
 
         public override IEnumerable<KeyValuePair<string, IPropertyDescriptor>> GetOwnProperties()
         {
+            if (_length != null)
+            {
+                yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNameLength, _length);
+            }
+
             if (_dense != null)
             {
                 for (var i = 0; i < _dense.Length; i++)
@@ -323,6 +351,11 @@ namespace Jint.Native.Array
                 return PropertyDescriptor.Undefined;
             }
 
+            if (propertyName == PropertyNameLength)
+            {
+                return _length ?? PropertyDescriptor.Undefined;
+            }
+
             return base.GetOwnProperty(propertyName);
         }
 
@@ -331,6 +364,10 @@ namespace Jint.Native.Array
             if (IsArrayIndex(propertyName, out var index))
             {
                 WriteArrayValue(index, desc);
+            }
+            else if (propertyName == PropertyNameLength)
+            {
+                _length = desc;
             }
             else
             {
@@ -342,9 +379,14 @@ namespace Jint.Native.Array
         {
             if (IsArrayIndex(p, out var index))
             {
-                return index < GetLengthValue()
+                return index < GetLength()
                        && (_sparse == null || _sparse.ContainsKey(index))
                        && (_dense == null || _dense[index] != null);
+            }
+
+            if (p == PropertyNameLength)
+            {
+                return _length != null;
             }
 
             return base.HasOwnProperty(p);
@@ -356,6 +398,11 @@ namespace Jint.Native.Array
             if (IsArrayIndex(p, out index))
             {
                 DeleteAt(index);
+            }
+
+            if (p == PropertyNameLength)
+            {
+                _length = null;
             }
 
             base.RemoveOwnProperty(p);
@@ -415,11 +462,10 @@ namespace Jint.Native.Array
 
         internal void SetIndexValue(uint index, JsValue value, bool throwOnError)
         {
-            var length = GetLengthValue();
+            var length = GetLength();
             if (index >= length)
             {
-                var p = base.GetOwnProperty("length");
-                p.Value = index + 1;
+                _length.Value = index + 1;
             }
 
             WriteArrayValue(index, new ConfigurableEnumerableWritablePropertyDescriptor(value));
@@ -448,7 +494,7 @@ namespace Jint.Native.Array
 
         public bool TryGetValue(uint index, out JsValue value)
         {
-            value = JsValue.Undefined;
+            value = Undefined;
 
             if (!TryGetDescriptor(index, out var desc)
                 || desc == null
