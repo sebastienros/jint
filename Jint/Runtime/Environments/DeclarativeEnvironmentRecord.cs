@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+﻿using System;
+using Jint.Native;
 
 namespace Jint.Runtime.Environments
 {
@@ -13,7 +14,7 @@ namespace Jint.Runtime.Environments
         private const string BindingNameArguments = "arguments";
         private Binding _argumentsBinding;
 
-        private readonly MruPropertyCache2<Binding> _bindings = new MruPropertyCache2<Binding>();
+        private MruPropertyCache2<Binding> _bindings;
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
@@ -27,7 +28,7 @@ namespace Jint.Runtime.Environments
                 return _argumentsBinding != null;
             }
 
-            return _bindings.ContainsKey(name);
+            return _bindings?.ContainsKey(name) == true;
         }
 
         public override void CreateMutableBinding(string name, bool canBeDeleted = false)
@@ -45,12 +46,21 @@ namespace Jint.Runtime.Environments
             }
             else
             {
+                if (_bindings == null)
+                {
+                    _bindings = new MruPropertyCache2<Binding>();
+                }
                 _bindings.Add(name, binding);
             }
         }
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
+            if (_bindings == null)
+            {
+                _bindings = new MruPropertyCache2<Binding>();
+            }
+
             var binding = name == BindingNameArguments ? _argumentsBinding : _bindings[name];
             if (binding.Mutable)
             {
@@ -84,14 +94,14 @@ namespace Jint.Runtime.Environments
 
         public override bool DeleteBinding(string name)
         {
-            Binding binding;
+            Binding binding = null;
             if (name == BindingNameArguments)
             {
                 binding = _argumentsBinding;
             }
             else
             {
-                _bindings.TryGetValue(name, out binding);
+                _bindings?.TryGetValue(name, out binding);
             }
 
             if (binding == null)
@@ -140,6 +150,10 @@ namespace Jint.Runtime.Environments
             }
             else
             {
+                if (_bindings == null)
+                {
+                    _bindings = new MruPropertyCache2<Binding>();
+                }
                 _bindings.Add(name, binding);
             }
         }
@@ -161,7 +175,7 @@ namespace Jint.Runtime.Environments
         /// <returns>The array of all defined bindings</returns>
         public override string[] GetAllBindingNames()
         {
-            return _bindings.GetKeys();
+            return _bindings?.GetKeys() ?? Array.Empty<string>();
         }
     }
 }
