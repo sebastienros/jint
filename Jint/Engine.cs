@@ -295,6 +295,17 @@ namespace Jint
             _statementsCount = 0;
         }
 
+        /// <summary>
+        /// Gets current statement count.
+        /// </summary>
+        public int StatementCount
+        {
+            get
+            {
+                return _statementsCount;
+            }
+        }
+
         public void ResetTimeoutTicks()
         {
             var timeoutIntervalTicks = Options._TimeoutInterval.Ticks;
@@ -360,10 +371,12 @@ namespace Jint
         public Completion ExecuteStatement(Statement statement)
         {
             var maxStatements = Options._MaxStatements;
-            if (maxStatements > 0 && _statementsCount++ > maxStatements)
+            if (maxStatements > 0 && _statementsCount >= maxStatements)
             {
                 throw new StatementsCountOverflowException();
             }
+
+            _statementsCount++;
 
             if (_timeoutTicks > 0 && _timeoutTicks < DateTime.UtcNow.Ticks)
             {
