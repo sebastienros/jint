@@ -484,6 +484,9 @@ namespace Jint.Runtime
 				if (xw != null)
 				{
 					var yw = y.AsObject() as IObjectWrapper;
+				    if (yw == null)
+				        return false;
+				    
 					return Object.Equals(xw.Target, yw.Target);
 				}
 			}
