@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Dynamic;
+using System.Runtime.CompilerServices;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -136,7 +137,12 @@ namespace Jint.Native.Object
         public virtual JsValue Get(string propertyName)
         {
             var desc = GetProperty(propertyName);
+            return UnwrapJsValue(desc);
+        }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal JsValue UnwrapJsValue(IPropertyDescriptor desc)
+        {
             if (desc == PropertyDescriptor.Undefined)
             {
                 return Undefined;
@@ -145,11 +151,10 @@ namespace Jint.Native.Object
             if (desc.IsDataDescriptor())
             {
                 var val = desc.Value;
-                return val != null ? val : Undefined;
+                return !ReferenceEquals(val, null) ? val : Undefined;
             }
 
-            var getter = desc.Get != null ? desc.Get : Undefined;
-
+            var getter = !ReferenceEquals(desc.Get, null) ? desc.Get : Undefined;
             if (getter.IsUndefined())
             {
                 return Undefined;
@@ -197,6 +202,7 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IPropertyDescriptor GetProperty(string propertyName)
         {
             var prop = GetOwnProperty(propertyName);
@@ -367,6 +373,7 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasProperty(string propertyName)
         {
             return GetProperty(propertyName) != PropertyDescriptor.Undefined;

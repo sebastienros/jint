@@ -32,22 +32,25 @@ namespace Jint.Runtime.Environments
 
         public static Reference GetIdentifierReference(LexicalEnvironment lex, string name, bool strict)
         {
-            if (lex == null)
+            while (true)
             {
-                return new Reference(Undefined.Instance, name, strict);
-            }
+                if (lex == null)
+                {
+                    return new Reference(Undefined.Instance, name, strict);
+                }
 
-            if (lex.Record.HasBinding(name))
-            {
-                return new Reference(lex.Record, name, strict);
-            }
+                if (lex.Record.HasBinding(name))
+                {
+                    return new Reference(lex.Record, name, strict);
+                }
 
-            if (lex.Outer == null)
-            {
-                return new Reference(Undefined.Instance, name, strict);    
-            }
+                if (lex.Outer == null)
+                {
+                    return new Reference(Undefined.Instance, name, strict);
+                }
 
-            return GetIdentifierReference(lex.Outer, name, strict);
+                lex = lex.Outer;
+            }
         }
 
         public static LexicalEnvironment NewDeclarativeEnvironment(Engine engine, LexicalEnvironment outer = null)
