@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -14,12 +13,6 @@ namespace Jint.Native.Array
     /// </summary>
     public sealed class ArrayPrototype : ArrayInstance
     {
-        private readonly StringBuilder _arrayJoinBuilder = new StringBuilder();
-        private JsValue[] _callArray1;
-        private JsValue[] _callArray2;
-        private JsValue[] _callArray3;
-        private JsValue[] _callArray4;
-
         private ArrayPrototype(Engine engine) : base(engine)
         {
         }
@@ -151,7 +144,7 @@ namespace Jint.Native.Array
             }
 
 
-            var args = _callArray4 = _callArray4 ?? new JsValue[4];
+            var args = ArrayExecutionContext.Current.CallArray4;
             while (k < len)
             {
                 var i = (uint) k;
@@ -183,7 +176,7 @@ namespace Jint.Native.Array
             var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
 
             uint to = 0;
-            var jsValues = _callArray3 = _callArray3 ?? new JsValue[3];
+            var jsValues = ArrayExecutionContext.Current.CallArray3;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -213,10 +206,10 @@ namespace Jint.Native.Array
 
             var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
 
-            var args = _callArray1 = _callArray1 ?? new JsValue[1];
+            var args = ArrayExecutionContext.Current.CallArray1;
             args[0] = len;
             var a = Engine.Array.Construct(args, len);
-            var jsValues = _callArray3 = _callArray3 ?? new JsValue[3];
+            var jsValues =ArrayExecutionContext.Current.CallArray3;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -242,7 +235,7 @@ namespace Jint.Native.Array
 
             var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
 
-            var jsValues = _callArray3 = _callArray3 ?? new JsValue[3];
+            var jsValues = ArrayExecutionContext.Current.CallArray3;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -267,7 +260,7 @@ namespace Jint.Native.Array
 
             var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
 
-            var jsValues = _callArray3 = _callArray3 ?? new JsValue[3];
+            var jsValues = ArrayExecutionContext.Current.CallArray3;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -296,7 +289,7 @@ namespace Jint.Native.Array
 
             var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
 
-            var jsValues = _callArray3 = _callArray3 ?? new JsValue[3];
+            var jsValues = ArrayExecutionContext.Current.CallArray3;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -531,7 +524,7 @@ namespace Jint.Native.Array
 
                 if (compareFn != null)
                 {
-                    var args = _callArray2 = _callArray2 ?? new JsValue[2];
+                    var args = ArrayExecutionContext.Current.CallArray2;
                     args[0] = x;
                     args[1] = y;
                     var s = TypeConverter.ToNumber(compareFn.Call(Undefined, args));
@@ -727,15 +720,16 @@ namespace Jint.Native.Array
                 return s;
             }
 
-            _arrayJoinBuilder.Clear();
-            _arrayJoinBuilder.Append(s);
+            var sb = ArrayExecutionContext.Current.StringBuilder;
+            sb.Clear();
+            sb.Append(s);
             for (uint k = 1; k < len; k++)
             {
-                _arrayJoinBuilder.Append(sep);
-                _arrayJoinBuilder.Append(StringFromJsValue(o.Get(k)));
+                sb.Append(sep);
+                sb.Append(StringFromJsValue(o.Get(k)));
             }
 
-            return _arrayJoinBuilder.ToString();
+            return sb.ToString();
         }
 
         private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
