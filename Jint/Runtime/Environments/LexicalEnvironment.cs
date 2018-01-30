@@ -11,24 +11,20 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class LexicalEnvironment
     {
+        private readonly Engine _engine;
         private readonly EnvironmentRecord _record;
         private readonly LexicalEnvironment _outer;
 
-        public LexicalEnvironment(EnvironmentRecord record, LexicalEnvironment outer)
+        public LexicalEnvironment(Engine engine, EnvironmentRecord record, LexicalEnvironment outer)
         {
+            _engine = engine;
             _record = record;
             _outer = outer;
         }
 
-        public EnvironmentRecord Record
-        {
-            get { return _record; }
-        }
+        public EnvironmentRecord Record => _record;
 
-        public LexicalEnvironment Outer
-        {
-            get { return _outer; }
-        }
+        public LexicalEnvironment Outer => _outer;
 
         public static Reference GetIdentifierReference(LexicalEnvironment lex, string name, bool strict)
         {
@@ -41,12 +37,12 @@ namespace Jint.Runtime.Environments
 
                 if (lex.Record.HasBinding(name))
                 {
-                    return new Reference(lex.Record, name, strict);
+                    return lex._engine.ReferencePool.Rent(lex.Record, name, strict);
                 }
 
                 if (lex.Outer == null)
                 {
-                    return new Reference(Undefined.Instance, name, strict);
+                    return lex._engine.ReferencePool.Rent(Undefined.Instance, name, strict);
                 }
 
                 lex = lex.Outer;
@@ -55,14 +51,12 @@ namespace Jint.Runtime.Environments
 
         public static LexicalEnvironment NewDeclarativeEnvironment(Engine engine, LexicalEnvironment outer = null)
         {
-            return new LexicalEnvironment(new DeclarativeEnvironmentRecord(engine), outer);
+            return new LexicalEnvironment(engine, new DeclarativeEnvironmentRecord(engine), outer);
         }
 
         public static LexicalEnvironment NewObjectEnvironment(Engine engine, ObjectInstance objectInstance, LexicalEnvironment outer, bool provideThis)
         {
-            return new LexicalEnvironment(new ObjectEnvironmentRecord(engine, objectInstance, provideThis), outer);
+            return new LexicalEnvironment(engine, new ObjectEnvironmentRecord(engine, objectInstance, provideThis), outer);
         }
     }
-
-    
 }

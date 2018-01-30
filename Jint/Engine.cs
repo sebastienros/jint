@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -156,6 +157,8 @@ namespace Jint
                 options(Options);
             }
 
+            ReferencePool = new ReferencePool();
+
             Eval = new EvalFunctionInstance(this, System.Array.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
 
@@ -204,6 +207,8 @@ namespace Jint
         public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
 
         internal Options Options { get; private set; }
+
+        internal ReferencePool ReferencePool { get; }
 
         #region Debugger
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
@@ -503,12 +508,19 @@ namespace Jint
             }
         }
 
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.1
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
         public JsValue GetValue(object value)
+        {
+            return GetValue(value, false);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal JsValue GetValue(object value, bool returnReferenceToPool)
         {
             if (value is JsValue jsValue)
             {
@@ -520,7 +532,7 @@ namespace Jint
             {
                 if (value is Completion completion)
                 {
-                    return GetValue(completion.Value);
+                    return GetValue(completion.Value, returnReferenceToPool);
                 }
             }
 
@@ -544,15 +556,21 @@ namespace Jint
                     return baseValue;
                 }
 
+                var referencedName = reference.GetReferencedName();
+                if (returnReferenceToPool)
+                {
+                    ReferencePool.Return(reference);
+                }
                 if (reference.HasPrimitiveBase() == false)
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
-                    return o.Get(reference.GetReferencedName());
+                    var v = o.Get(referencedName);
+                    return v;
                 }
                 else
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
-                    var desc = o.GetProperty(reference.GetReferencedName());
+                    var desc = o.GetProperty(referencedName);
                     if (desc == PropertyDescriptor.Undefined)
                     {
                         return JsValue.Undefined;
@@ -580,7 +598,14 @@ namespace Jint
                 throw new ArgumentException();
             }
 
-            return record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
+            var bindingValue = record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
+
+            if (returnReferenceToPool)
+            {
+                ReferencePool.Return(reference);
+            }
+
+            return bindingValue;
         }
 
         /// <summary>
@@ -614,7 +639,7 @@ namespace Jint
             else
             {
                 var baseValue = reference.GetBase();
-                var record = baseValue.As<EnvironmentRecord>();
+                var record = baseValue as EnvironmentRecord;
 
                 if (record == null)
                 {
@@ -757,14 +782,16 @@ namespace Jint
         /// <param name="propertyName">The name of the property to return.</param>
         public JsValue GetValue(JsValue scope, string propertyName)
         {
-            if (System.String.IsNullOrEmpty(propertyName))
+            if (string.IsNullOrEmpty(propertyName))
             {
                 throw new ArgumentException("propertyName");
             }
 
-            var reference = new Reference(scope, propertyName, Options._IsStrict);
+            var reference = ReferencePool.Rent(scope, propertyName, Options._IsStrict);
+            var jsValue = GetValue(reference);
+            ReferencePool.Return(reference);
 
-            return GetValue(reference);
+            return jsValue;
         }
 
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
@@ -878,6 +905,49 @@ namespace Jint
                     }
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Cache reusable Reference instances as we allocate them a lot.
+    /// </summary>
+    internal sealed class ReferencePool
+    {
+        private const int PoolSize = 10;
+        private readonly Reference[] _pool;
+        private int _currentSize;
+
+        public ReferencePool()
+        {
+            // pre-allocate so we don't show up in benchmarks
+            _pool = new Reference[PoolSize];
+            for (var i = 0; i < PoolSize; ++i)
+            {
+                _pool[i] = new Reference(JsValue.Undefined, string.Empty, false);
+            }
+
+            _currentSize = PoolSize;
+        }
+
+        public Reference Rent(JsValue baseValue, string name, bool strict)
+        {
+            if (_currentSize > 0)
+            {
+                _currentSize--;
+                var reference = _pool[_currentSize];
+                return reference.Reassign(baseValue, name, strict);
+            }
+            return new Reference(baseValue, name, strict);
+        }
+
+        public void Return(Reference reference)
+        {
+            if (reference == null || _currentSize >= PoolSize)
+            {
+                return;
+            }
+            _pool[_currentSize] = reference;
+            _currentSize++;
         }
     }
 }
