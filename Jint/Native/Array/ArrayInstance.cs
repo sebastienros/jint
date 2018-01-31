@@ -183,10 +183,7 @@ namespace Jint.Native.Array
                     {
                         // in the case of sparse arrays, treat each concrete element instead of
                         // iterating over all indexes
-
-                        var keys = ArrayExecutionContext.Current.KeyCache;
-                        keys.Clear();
-                        keys.AddRange(_sparse.Keys);
+                        var keys = new List<uint>(_sparse.Keys);
                         foreach (var keyIndex in keys)
                         {
                             // is it the index of the array
