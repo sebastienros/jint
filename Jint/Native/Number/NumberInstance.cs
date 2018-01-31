@@ -28,10 +28,10 @@ namespace Jint.Native.Number
 
         JsValue IPrimitiveInstance.PrimitiveValue
         {
-            get { return PrimitiveValue; }
+            get { return NumberData; }
         }
 
-        public JsValue PrimitiveValue { get; set; }
+        public JsValue NumberData { get; set; }
 
         public static bool IsNegativeZero(double x)
         {

@@ -1,18 +1,24 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Esprima.Ast;
 using Jint.Native.Object;
-using Jint.Parser;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 
 namespace Jint.Native.Function
 {
     /// <summary>
-    /// 
+    ///
     /// </summary>
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        private readonly IFunctionDeclaration _functionDeclaration;
+        private const string PropertyNameName = "name";
+
+        private IPropertyDescriptor _name;
+
+        private readonly IFunction _functionDeclaration;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
@@ -21,23 +27,27 @@ namespace Jint.Native.Function
         /// <param name="functionDeclaration"></param>
         /// <param name="scope"></param>
         /// <param name="strict"></param>
-        public ScriptFunctionInstance(Engine engine, IFunctionDeclaration functionDeclaration, LexicalEnvironment scope, bool strict)
-            : base(engine, functionDeclaration.Parameters.Select(x => x.Name).ToArray(), scope, strict)
+        public ScriptFunctionInstance(Engine engine, IFunction functionDeclaration, LexicalEnvironment scope, bool strict)
+            : base(engine, GetParameterNames(functionDeclaration), scope, strict)
         {
             _functionDeclaration = functionDeclaration;
 
-            Engine = engine;
             Extensible = true;
             Prototype = engine.Function.PrototypeObject;
 
-            DefineOwnProperty("length", new PropertyDescriptor(new JsValue(FormalParameters.Length), false, false, false ), false);
+            DefineOwnProperty("length", new AllForbiddenPropertyDescriptor(JsNumber.Create(FormalParameters.Length)), false);
 
-            var proto = engine.Object.Construct(Arguments.Empty);
-            proto.DefineOwnProperty("constructor", new PropertyDescriptor(this, true, false, true), false);
-            DefineOwnProperty("prototype", new PropertyDescriptor(proto, true, false, false ), false);
+            var proto = new ObjectInstanceWithConstructor(engine, this)
+            {
+                Extensible = true,
+                Prototype = Engine.Object.PrototypeObject
+            };
+
+            SetOwnProperty("prototype", new WritablePropertyDescriptor(proto));
+
             if (_functionDeclaration.Id != null)
             {
-                DefineOwnProperty("name", new PropertyDescriptor(_functionDeclaration.Id.Name, null, null, null), false);
+                _name = new NullConfigurationPropertyDescriptor(_functionDeclaration.Id.Name);
             }
 
             if (strict)
@@ -46,6 +56,81 @@ namespace Jint.Native.Function
                 DefineOwnProperty("caller", new PropertyDescriptor(thrower, thrower, false, false), false);
                 DefineOwnProperty("arguments", new PropertyDescriptor(thrower, thrower, false, false), false);
             }
+        }
+
+        public override IEnumerable<KeyValuePair<string, IPropertyDescriptor>> GetOwnProperties()
+        {
+            if (_name != null)
+            {
+                yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNameName, _name);
+            }
+
+            foreach (var entry in base.GetOwnProperties())
+            {
+                yield return entry;
+            }
+        }
+
+        public override IPropertyDescriptor GetOwnProperty(string propertyName)
+        {
+            if (propertyName == PropertyNameName)
+            {
+                return _name ?? PropertyDescriptor.Undefined;
+            }
+
+            return base.GetOwnProperty(propertyName);
+        }
+
+        protected internal override void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
+        {
+            if (propertyName == PropertyNameName)
+            {
+                _name = desc;
+            }
+            else
+            {
+                base.SetOwnProperty(propertyName, desc);
+            }
+        }
+
+        public override bool HasOwnProperty(string propertyName)
+        {
+            if (propertyName == PropertyNameName)
+            {
+                return _name != null;
+            }
+
+            return base.HasOwnProperty(propertyName);
+        }
+
+        public override void RemoveOwnProperty(string propertyName)
+        {
+            if (propertyName == PropertyNameName)
+            {
+                _name = null;
+            }
+
+            base.RemoveOwnProperty(propertyName);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static string[] GetParameterNames(IFunction functionDeclaration)
+        {
+            var list = functionDeclaration.Params;
+            var count = list.Count;
+
+            if (count == 0)
+            {
+                return System.Array.Empty<string>();
+            }
+
+            var names = new string[count];
+            for (var i = 0; i < count; ++i)
+            {
+                names[i] = ((Identifier) list[i]).Name;
+            }
+
+            return names;
         }
 
         /// <summary>
@@ -64,7 +149,7 @@ namespace Jint.Native.Function
                 {
                     thisBinding = thisArg;
                 }
-                else if (thisArg == Undefined.Instance || thisArg == Null.Instance)
+                else if (ReferenceEquals(thisArg, Undefined) || ReferenceEquals(thisArg, Null))
                 {
                     thisBinding = Engine.Global;
                 }
@@ -85,8 +170,8 @@ namespace Jint.Native.Function
                 {
                     Engine.DeclarationBindingInstantiation(
                         DeclarationBindingType.FunctionCode,
-                        _functionDeclaration.FunctionDeclarations, 
-                        _functionDeclaration.VariableDeclarations, 
+                        _functionDeclaration.HoistingScope.FunctionDeclarations,
+                        _functionDeclaration.HoistingScope.VariableDeclarations,
                         this,
                         arguments);
 
@@ -109,7 +194,7 @@ namespace Jint.Native.Function
                     Engine.LeaveExecutionContext();
                 }
 
-                return Undefined.Instance;
+                return Undefined;
             }
         }
 
@@ -121,19 +206,87 @@ namespace Jint.Native.Function
         public ObjectInstance Construct(JsValue[] arguments)
         {
             var proto = Get("prototype").TryCast<ObjectInstance>();
-            var obj = new ObjectInstance(Engine);
-            obj.Extensible = true;
-            obj.Prototype = proto ?? Engine.Object.PrototypeObject;
+            var obj = new ObjectInstance(Engine)
+            {
+                Extensible = true,
+                Prototype = proto ?? Engine.Object.PrototypeObject
+            };
 
             var result = Call(obj, arguments).TryCast<ObjectInstance>();
             if (result != null)
             {
                 return result;
             }
-            
+
             return obj;
         }
 
-        public ObjectInstance PrototypeObject { get; private set; }
+        private class ObjectInstanceWithConstructor : ObjectInstance
+        {
+            private const string PropertyNameConstructor = "constructor";
+            private IPropertyDescriptor _constructor;
+
+            public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine)
+            {
+                _constructor = new NonEnumerablePropertyDescriptor(thisObj);
+            }
+
+            public override IEnumerable<KeyValuePair<string, IPropertyDescriptor>> GetOwnProperties()
+            {
+                if (_constructor != null)
+                {
+                    yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNameConstructor, _constructor);
+                }
+
+                foreach (var entry in base.GetOwnProperties())
+                {
+                    yield return entry;
+                }
+            }
+
+            public override IPropertyDescriptor GetOwnProperty(string propertyName)
+            {
+                if (propertyName == PropertyNameConstructor)
+                {
+                    return _constructor ?? PropertyDescriptor.Undefined;
+                }
+
+                return base.GetOwnProperty(propertyName);
+            }
+
+            protected internal override void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
+            {
+                if (propertyName == PropertyNameConstructor)
+                {
+                    _constructor = desc;
+                }
+                else
+                {
+                    base.SetOwnProperty(propertyName, desc);
+                }
+            }
+
+            public override bool HasOwnProperty(string propertyName)
+            {
+                if (propertyName == PropertyNameConstructor)
+                {
+                    return _constructor != null;
+                }
+
+                return base.HasOwnProperty(propertyName);
+            }
+
+            public override void RemoveOwnProperty(string propertyName)
+            {
+                if (propertyName == PropertyNameConstructor)
+                {
+                    _constructor = null;
+                }
+                else
+                {
+                    base.RemoveOwnProperty(propertyName);
+                }
+            }
+        }
     }
 }

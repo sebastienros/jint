@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Date
@@ -24,7 +25,7 @@ namespace Jint.Native.Date
                 PrimitiveValue = double.NaN
             };
 
-            obj.FastAddProperty("constructor", dateConstructor, true, false, true);
+            obj.SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(dateConstructor));
 
             return obj;
         }
@@ -1055,6 +1056,13 @@ namespace Jint.Native.Date
             year = TypeConverter.ToInteger(year);
             month = TypeConverter.ToInteger(month);
             date = TypeConverter.ToInteger(date);
+
+            if (month < 0)
+            {
+                var m = (long) month;
+                year += (m - 11) / 12;
+                month = (12 + m % 12) % 12;
+            }
 
             var sign = (year < 1970) ? -1 : 1;
             double t = (year < 1970) ? 1 : 0;

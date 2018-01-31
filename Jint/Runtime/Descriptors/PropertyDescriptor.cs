@@ -1,13 +1,14 @@
 ﻿using Jint.Native;
 using Jint.Native.Object;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime.Descriptors
 {
-    public class PropertyDescriptor
+    public class PropertyDescriptor : IPropertyDescriptor
     {
-        public static PropertyDescriptor Undefined = new PropertyDescriptor();
+        public static readonly IPropertyDescriptor Undefined = new PropertyDescriptor();
 
-        public PropertyDescriptor()
+        protected PropertyDescriptor()
         {
         }
 
@@ -47,7 +48,7 @@ namespace Jint.Runtime.Descriptors
             }
         }
 
-        public PropertyDescriptor(PropertyDescriptor descriptor)
+        public PropertyDescriptor(IPropertyDescriptor descriptor)
         {
             Get = descriptor.Get;
             Set = descriptor.Set;
@@ -63,35 +64,6 @@ namespace Jint.Runtime.Descriptors
         public bool? Writable { get; set; }
         public bool? Configurable { get; set; }
         public virtual JsValue Value { get; set; }
-
-        public bool IsAccessorDescriptor()
-        {
-            if (Get ==null && Set == null)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        public bool IsDataDescriptor()
-        {
-            if (!Writable.HasValue && Value == null)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.10.3
-        /// </summary>
-        /// <returns></returns>
-        public bool IsGenericDescriptor()
-        {
-            return !IsDataDescriptor() && !IsAccessorDescriptor();
-        }
 
         public static PropertyDescriptor ToPropertyDescriptor(Engine engine, JsValue o)
         {
@@ -161,9 +133,9 @@ namespace Jint.Runtime.Descriptors
             return desc;
         }
 
-        public static JsValue FromPropertyDescriptor(Engine engine, PropertyDescriptor desc)
+        public static JsValue FromPropertyDescriptor(Engine engine, IPropertyDescriptor desc)
         {
-            if (desc == Undefined)
+            if (ReferenceEquals(desc, Undefined))
             {
                 return Native.Undefined.Instance;
             }
@@ -172,17 +144,17 @@ namespace Jint.Runtime.Descriptors
 
             if (desc.IsDataDescriptor())
             {
-                obj.DefineOwnProperty("value", new PropertyDescriptor(value: desc.Value != null ? desc.Value : Native.Undefined.Instance, writable: true, enumerable: true, configurable: true ), false);
-                obj.DefineOwnProperty("writable", new PropertyDescriptor(value: desc.Writable.HasValue && desc.Writable.Value, writable: true, enumerable: true, configurable: true), false);
+                obj.SetOwnProperty("value", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Value != null ? desc.Value : Native.Undefined.Instance));
+                obj.SetOwnProperty("writable", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Writable.HasValue && desc.Writable.Value));
             }
             else
             {
-                obj.DefineOwnProperty("get", new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, writable: true, enumerable: true, configurable: true ), false);
-                obj.DefineOwnProperty("set", new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, writable: true, enumerable: true, configurable: true), false);
+                obj.SetOwnProperty("get", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Get ?? Native.Undefined.Instance));
+                obj.SetOwnProperty("set", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Set ?? Native.Undefined.Instance));
             }
 
-            obj.DefineOwnProperty("enumerable", new PropertyDescriptor(value: desc.Enumerable.HasValue && desc.Enumerable.Value, writable: true, enumerable: true, configurable: true), false);
-            obj.DefineOwnProperty("configurable", new PropertyDescriptor(value: desc.Configurable.HasValue && desc.Configurable.Value, writable: true, enumerable: true, configurable: true), false);
+            obj.SetOwnProperty("enumerable", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Enumerable.HasValue && desc.Enumerable.Value));
+            obj.SetOwnProperty("configurable", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Configurable.HasValue && desc.Configurable.Value));
 
             return obj;
         }

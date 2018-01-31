@@ -5,7 +5,7 @@ using Jint.Native.Array;
 using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Native.Json
 {
@@ -29,7 +29,7 @@ namespace Jint.Native.Json
 
             // for JSON.stringify(), any function passed as the first argument will return undefined
             // if the replacer is not defined. The function is not called either.
-            if (value.Is<ICallable>() && replacer == Undefined.Instance) 
+            if (value.Is<ICallable>() && ReferenceEquals(replacer, Undefined.Instance))
             {
                 return Undefined.Instance;
             }
@@ -97,7 +97,7 @@ namespace Jint.Native.Json
                 if (space.AsNumber() > 0) {
                     _gap = new System.String(' ', (int)System.Math.Min(10, space.AsNumber()));
                 }
-                else 
+                else
                 {
                     _gap = string.Empty;
                 }
@@ -113,14 +113,14 @@ namespace Jint.Native.Json
             }
 
             var wrapper = _engine.Object.Construct(Arguments.Empty);
-            wrapper.DefineOwnProperty("", new PropertyDescriptor(value, true, true, true), false);
+            wrapper.DefineOwnProperty("", new ConfigurableEnumerableWritablePropertyDescriptor(value), false);
 
             return Str("", wrapper);
         }
 
         private JsValue Str(string key, ObjectInstance holder)
         {
-            
+
             var value = holder.Get(key);
             if (value.IsObject())
             {
@@ -134,14 +134,14 @@ namespace Jint.Native.Json
                     }
                 }
             }
-            
+
             if (_replacerFunction != Undefined.Instance)
             {
                 var replacerFunctionCallable = (ICallable)_replacerFunction.AsObject();
                 value = replacerFunctionCallable.Call(holder, Arguments.From(key, value));
             }
 
-            
+
             if (value.IsObject())
             {
                 var valueObj = value.AsObject();
@@ -156,7 +156,7 @@ namespace Jint.Native.Json
                     case "Boolean":
                         value = TypeConverter.ToPrimitive(value);
                         break;
-                    case "Array": 
+                    case "Array":
                         value = SerializeArray(value.As<ArrayInstance>());
                         return value;
                     case "Object":
@@ -164,8 +164,8 @@ namespace Jint.Native.Json
                         return value;
                 }
             }
-           
-            if (value == Null.Instance)
+
+            if (ReferenceEquals(value, Null.Instance))
             {
                 return "null";
             }
@@ -191,7 +191,7 @@ namespace Jint.Native.Json
                 {
                     return TypeConverter.ToString(value);
                 }
-                
+
                 return "null";
             }
 
@@ -288,7 +288,7 @@ namespace Jint.Native.Json
                 var properties = System.String.Join(separator, partial.ToArray());
                 final = "[\n" + _indent + properties + "\n" + stepback + "]";
             }
-            
+
             _stack.Pop();
             _indent = stepback;
             return final;
@@ -315,7 +315,7 @@ namespace Jint.Native.Json
             _stack.Push(value);
             var stepback = _indent;
             _indent += _gap;
-            
+
             var k = _propertyList ?? value.GetOwnProperties()
                 .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value == true)
                 .Select(x => x.Key)
@@ -353,7 +353,7 @@ namespace Jint.Native.Json
                     var separator = ",\n" + _indent;
                     var properties = System.String.Join(separator, partial.ToArray());
                     final = "{\n" + _indent + properties + "\n" + stepback + "}";
-                }                
+                }
             }
             _stack.Pop();
             _indent = stepback;

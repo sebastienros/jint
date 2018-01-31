@@ -2,14 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+using System.Runtime.CompilerServices;
+
 namespace Jint.Native.Number.Dtoa
 {
-    public class FastDtoaBuilder
+    internal class FastDtoaBuilder
     {
 
         // allocate buffer for generated digits + extra notation + padding zeroes
         private readonly char[] _chars = new char[FastDtoa.KFastDtoaMaximalLength + 8];
-        internal int End = 0;
+        internal int End;
         internal int Point;
         private bool _formatted;
 
@@ -25,16 +27,18 @@ namespace Jint.Native.Number.Dtoa
 
         public void Reset()
         {
+            Point = 0;
             End = 0;
             _formatted = false;
+            System.Array.Clear(_chars, 0, _chars.Length);
         }
 
         public override string ToString()
         {
-            return "[chars:" + new System.String(_chars, 0, End) + ", point:" + Point + "]";
+            return "[chars:" + new string(_chars, 0, End) + ", point:" + Point + "]";
         }
 
-        public System.String Format()
+        public string Format()
         {
             if (!_formatted)
             {
@@ -51,7 +55,7 @@ namespace Jint.Native.Number.Dtoa
                 }
                 _formatted = true;
             }
-            return new System.String(_chars, 0, End);
+            return new string(_chars, 0, End);
 
         }
 
@@ -127,6 +131,7 @@ namespace Jint.Native.Number.Dtoa
             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
         };
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Fill<T>(T[] array, int fromIndex, int toIndex, T val)
         {
             for (int i = fromIndex; i < toIndex; i++)

@@ -1,146 +1,175 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace Jint.Runtime
 {
-    public class MruPropertyCache2<TKey, TValue> : IDictionary<TKey, TValue> 
-        where TValue:class
+    internal class MruPropertyCache2<TValue> where TValue : class
     {
-        private IDictionary<TKey, TValue> _dictionary = new Dictionary<TKey, TValue>();
-        private bool _set;
-        private TKey _key;
+        private Dictionary<string, TValue> _dictionary;
+        private string _key;
         private TValue _value;
 
-        public MruPropertyCache2() {
-        }
-
-        public TValue this[TKey key] {
-            get {
-                if (_set && key.Equals(_key))
+        public TValue this[string key]
+        {
+            get
+            {
+                if (_key != null && _key == key)
                 {
                     return _value;
                 }
 
-                return _dictionary[key];
+                return _dictionary != null ? _dictionary[key] : null;
             }
 
-            set {
-                _set = true;
+            set
+            {
+                EnsureInitialized(key);
                 _key = key;
                 _value = value;
 
-                _dictionary[key] = value;
+                if (_dictionary != null)
+                {
+                    _dictionary[key] = value;
+                }
             }
         }
 
-        public int Count {
-            get {
-                return _dictionary.Count;
+        public int Count
+        {
+            get
+            {
+                int count = _key != null ? 1 : 0;
+                if (_dictionary != null)
+                {
+                    count += _dictionary.Count;
+                }
+
+                return count;
             }
         }
 
-        public bool IsReadOnly {
-            get {
-                return _dictionary.IsReadOnly;
-            }
-        }
-
-        public ICollection<TKey> Keys {
-            get {
-                return _dictionary.Keys;
-            }
-        }
-
-        public ICollection<TValue> Values {
-            get {
-                return _dictionary.Values;
-            }
-        }
-
-        public void Add(KeyValuePair<TKey, TValue> item) {
-            _set = true;
-            _key = item.Key;
-            _value = item.Value;
-
-            _dictionary.Add(item);
-        }
-
-        public void Add(TKey key, TValue value) {
-            _set = true;
+        public void Add(string key, TValue value)
+        {
+            EnsureInitialized(key);
             _key = key;
             _value = value;
 
-            _dictionary.Add(key, value);
+            if (_dictionary != null)
+            {
+                _dictionary.Add(key, value);
+            }
         }
 
-        public void Clear() {
-            _set = false;
-            _key = default(TKey);
+        public void Clear()
+        {
+            _key = default(string);
             _value = null;
 
-            _dictionary.Clear();
+            _dictionary?.Clear();
         }
 
-        public bool Contains(KeyValuePair<TKey, TValue> item) {
-            if(_set && item.Key.Equals(_key))
+        public bool ContainsKey(string key)
+        {
+            if (_key != null && _key == key)
             {
                 return true;
             }
 
-            return _dictionary.Contains(item);
+            return _dictionary != null && _dictionary.ContainsKey(key);
         }
 
-        public bool ContainsKey(TKey key) {
-            if (_set && key.Equals(_key))
+        public IEnumerable<KeyValuePair<string, TValue>> GetEnumerator()
+        {
+            if (_dictionary == null)
             {
-                return true;
+                if (_key != null)
+                {
+                    yield return new KeyValuePair<string, TValue>(_key, _value);
+                }
+
+                yield break;
             }
 
-            return _dictionary.ContainsKey(key);
-        }
-
-        public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) {
-            _dictionary.CopyTo(array, arrayIndex);
-        }
-
-        public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() {
-            return _dictionary.GetEnumerator();
-        }
-
-        public bool Remove(KeyValuePair<TKey, TValue> item) {
-            if(_set && item.Key.Equals(_key))
+            foreach (var pair in _dictionary)
             {
-                _set = false;
-                _key = default(TKey);
+                yield return pair;
+            }
+        }
+
+        public bool Remove(string key)
+        {
+            bool removed = false;
+            if (_key != null && _key == key)
+            {
+                _key = null;
                 _value = null;
+                removed = true;
             }
 
-            return _dictionary.Remove(item);
+            removed |= _dictionary?.Remove(key) ?? false;
+            return removed;
         }
 
-        public bool Remove(TKey key) {
-            if (_set && key.Equals(_key))
-            {
-                _set = false;
-                _key = default(TKey);
-                _value = null;
-            }
-
-            return _dictionary.Remove(key);
-        }
-
-        public bool TryGetValue(TKey key, out TValue value) {
-            if (_set && key.Equals(_key))
+        public bool TryGetValue(string key, out TValue value)
+        {
+            if (_key != null && _key == key)
             {
                 value = _value;
                 return true;
             }
 
-            return _dictionary.TryGetValue(key, out value);
+            if (_dictionary == null)
+            {
+                value = null;
+                return false;
+            }
+
+            if (_dictionary.TryGetValue(key, out value))
+            {
+                _key = key;
+                _value = value;
+                return true;
+            }
+
+            return false;
         }
 
-        IEnumerator IEnumerable.GetEnumerator() {
-            return _dictionary.GetEnumerator();
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void EnsureInitialized(string key)
+        {
+            if (_key != null && _key != key)
+            {
+                if (_dictionary == null)
+                {
+                    _dictionary = new Dictionary<string, TValue>();
+                }
+                _dictionary[_key] = _value;
+            }
+        }
+
+        public string[] GetKeys()
+        {
+            int size = _key != null ? 1 : 0;
+            if (_dictionary != null)
+            {
+                size += _dictionary.Count;
+            }
+
+            var keys = new string[size];
+            int n = 0;
+            if (_key != null)
+            {
+                keys[n++] = _key;
+            }
+            if (_dictionary != null)
+            {
+                foreach (var key in _dictionary.Keys)
+                {
+                    keys[n++] = key;
+                }
+            }
+
+            return keys;
         }
     }
 }

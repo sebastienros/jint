@@ -94,12 +94,12 @@ namespace Jint.Native.Object
         /// <returns></returns>
         public JsValue ToObjectString(JsValue thisObject, JsValue[] arguments)
         {
-            if (thisObject == Undefined.Instance)
+            if (ReferenceEquals(thisObject, Undefined))
             {
                 return "[object Undefined]";
             }
 
-            if (thisObject == Null.Instance)
+            if (ReferenceEquals(thisObject, Null))
             {
                 return "[object Null]";
             }

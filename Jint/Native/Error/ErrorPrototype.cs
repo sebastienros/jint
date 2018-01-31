@@ -1,5 +1,6 @@
 ﻿using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Error
@@ -17,7 +18,7 @@ namespace Jint.Native.Error
         public static ErrorPrototype CreatePrototypeObject(Engine engine, ErrorConstructor errorConstructor, string name)
         {
             var obj = new ErrorPrototype(engine, name) { Extensible = true };
-            obj.FastAddProperty("constructor", errorConstructor, true, false, true);
+            obj.SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(errorConstructor));
             obj.FastAddProperty("message", "", true, false, true);
 
             if (name != "Error")
@@ -50,7 +51,7 @@ namespace Jint.Native.Error
 
             var msgProp = o.Get("message");
             string msg;
-            if (msgProp == Undefined.Instance)
+            if (ReferenceEquals(msgProp, Undefined))
             {
                 msg = "";
             }

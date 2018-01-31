@@ -1,8 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Function
@@ -24,14 +23,14 @@ namespace Jint.Native.Function
             // The value of the [[Prototype]] internal property of the Function prototype object is the standard built-in Object prototype object
             obj.Prototype = engine.Object.PrototypeObject;
 
-            obj.FastAddProperty("length", 0, false, false, false);
+            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(0));
 
             return obj;
         }
 
         public void Configure()
         {
-            FastAddProperty("constructor", Engine.Function, true, false, true);
+            SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(Engine.Function));
             FastAddProperty("toString", new ClrFunctionInstance(Engine, ToString), true, false, true);
             FastAddProperty("apply", new ClrFunctionInstance(Engine, Apply, 2), true, false, true);
             FastAddProperty("call", new ClrFunctionInstance(Engine, CallImpl, 1), true, false, true);
@@ -44,25 +43,25 @@ namespace Jint.Native.Function
             {
                 throw new JavaScriptException(Engine.TypeError);
             });
-            
+
             var thisArg = arguments.At(0);
             var f = new BindFunctionInstance(Engine) {Extensible = true};
             f.TargetFunction = thisObj;
             f.BoundThis = thisArg;
-            f.BoundArgs = arguments.Skip(1).ToArray();
+            f.BoundArgs = arguments.Skip(1);
             f.Prototype = Engine.Function.PrototypeObject;
 
             var o = target as FunctionInstance;
             if (o != null)
             {
                 var l = TypeConverter.ToNumber(o.Get("length")) - (arguments.Length - 1);
-                f.FastAddProperty("length", System.Math.Max(l, 0), false, false, false); 
+                f.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(System.Math.Max(l, 0)));
             }
             else
             {
-                f.FastAddProperty("length", 0, false, false, false); 
+                f.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(0));
             }
-            
+
 
             var thrower = Engine.Function.ThrowTypeError;
             f.DefineOwnProperty("caller", new PropertyDescriptor(thrower, thrower, false, false), false);
@@ -78,7 +77,7 @@ namespace Jint.Native.Function
 
             if (func == null)
             {
-                throw new JavaScriptException(Engine.TypeError, "Function object expected.");       
+                throw new JavaScriptException(Engine.TypeError, "Function object expected.");
             }
 
             return System.String.Format("function() {{ ... }}");
@@ -95,7 +94,7 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            if (argArray == Null.Instance || argArray == Undefined.Instance)
+            if (ReferenceEquals(argArray, Null) || ReferenceEquals(argArray, Undefined))
             {
                 return func.Call(thisArg, Arguments.Empty);
             }
@@ -108,14 +107,14 @@ namespace Jint.Native.Function
 
             var len = argArrayObj.Get("length").AsNumber();
             uint n = TypeConverter.ToUint32(len);
-            var argList = new List<JsValue>();
+            var argList = new JsValue[n];
             for (int index = 0; index < n; index++)
             {
-                string indexName = index.ToString();
+                string indexName = TypeConverter.ToString(index);
                 var nextArg = argArrayObj.Get(indexName);
-                argList.Add(nextArg);
+                argList[index] = nextArg;
             }
-            return func.Call(thisArg, argList.ToArray());
+            return func.Call(thisArg, argList);
         }
 
         public JsValue CallImpl(JsValue thisObject, JsValue[] arguments)
@@ -126,12 +125,12 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            return func.Call(arguments.At(0), arguments.Length == 0 ? arguments : arguments.Skip(1).ToArray());
+            return func.Call(arguments.At(0), arguments.Length == 0 ? arguments : arguments.Skip(1));
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return Undefined.Instance;
+            return Undefined;
         }
     }
 }

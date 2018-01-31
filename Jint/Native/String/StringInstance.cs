@@ -1,33 +1,26 @@
-﻿using Jint.Native.Object;
+﻿using System.Collections.Generic;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Native.String
 {
     public class StringInstance : ObjectInstance, IPrimitiveInstance
     {
+        private const string PropertyNameLength = "length";
+        private IPropertyDescriptor _length;
+
         public StringInstance(Engine engine)
             : base(engine)
         {
         }
 
-        public override string Class
-        {
-            get
-            {
-                return "String";
-            }
-        }
+        public override string Class => "String";
 
-        Types IPrimitiveInstance.Type
-        {
-            get { return Types.String; }
-        }
+        Types IPrimitiveInstance.Type => Types.String;
 
-        JsValue IPrimitiveInstance.PrimitiveValue
-        {
-            get { return PrimitiveValue; }
-        }
+        JsValue IPrimitiveInstance.PrimitiveValue => PrimitiveValue;
 
         public JsValue PrimitiveValue { get; set; }
 
@@ -35,17 +28,24 @@ namespace Jint.Native.String
         {
             if (d >= long.MinValue && d <= long.MaxValue)
             {
-                var l = (long)d;
+                var l = (long) d;
                 return l >= int.MinValue && l <= int.MaxValue;
             }
-            else 
-                return false;
+
+            return false;
         }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override IPropertyDescriptor GetOwnProperty(string propertyName)
         {
-            if(propertyName == "Infinity")
+            if (propertyName == "Infinity")
+            {
                 return PropertyDescriptor.Undefined;
+            }
+
+            if (propertyName == PropertyNameLength)
+            {
+                return _length ?? PropertyDescriptor.Undefined;
+            }
 
             var desc = base.GetOwnProperty(propertyName);
             if (desc != PropertyDescriptor.Undefined)
@@ -53,24 +53,71 @@ namespace Jint.Native.String
                 return desc;
             }
 
-            if (propertyName != System.Math.Abs(TypeConverter.ToInteger(propertyName)).ToString())
+            var integer = TypeConverter.ToInteger(propertyName);
+            if (integer == 0 && propertyName != "0" || propertyName != System.Math.Abs(integer).ToString())
             {
                 return PropertyDescriptor.Undefined;
             }
 
             var str = PrimitiveValue;
-            var dIndex = TypeConverter.ToInteger(propertyName);
-            if(!IsInt(dIndex))
+            var dIndex = integer;
+            if (!IsInt(dIndex))
                 return PropertyDescriptor.Undefined;
 
-            var index = (int)dIndex;
+            var index = (int) dIndex;
             var len = str.AsString().Length;
             if (len <= index || index < 0)
             {
                 return PropertyDescriptor.Undefined;
             }
-            var resultStr = str.AsString()[index].ToString();
-            return new PropertyDescriptor(new JsValue(resultStr), false, true, false);
+
+            var resultStr = TypeConverter.ToString(str.AsString()[index]);
+            return new EnumerablePropertyDescriptor(resultStr);
+        }
+
+        public override IEnumerable<KeyValuePair<string, IPropertyDescriptor>> GetOwnProperties()
+        {
+            if (_length != null)
+            {
+                yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNameLength, _length);
+            }
+
+            foreach (var entry in base.GetOwnProperties())
+            {
+                yield return entry;
+            }
+        }
+
+        protected internal override void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
+        {
+            if (propertyName == PropertyNameLength)
+            {
+                _length = desc;
+            }
+            else
+            {
+                base.SetOwnProperty(propertyName, desc);
+            }
+        }
+
+        public override bool HasOwnProperty(string propertyName)
+        {
+            if (propertyName == PropertyNameLength)
+            {
+                return _length != null;
+            }
+
+            return base.HasOwnProperty(propertyName);
+        }
+
+        public override void RemoveOwnProperty(string propertyName)
+        {
+            if (propertyName == PropertyNameLength)
+            {
+                _length = null;
+            }
+
+            base.RemoveOwnProperty(propertyName);
         }
     }
 }

@@ -2,9 +2,9 @@
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using Esprima;
+using Esprima.Ast;
 using Jint.Native.Number;
-using Jint.Parser;
-using Jint.Parser.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
@@ -307,6 +307,28 @@ namespace Jint.Tests.Runtime
                 for (var i = 0; i < n; i++) o[i] = i;
                 assert(o[0] == 0);
                 assert(o[7] == 7);
+            ");
+        }
+
+        [Fact]
+        public void DenseArrayTurnsToSparseArrayWhenSizeGrowsTooMuch()
+        {
+            RunTest(@"
+                var n = 1024*10+2;
+                var o = Array(n);
+                for (var i = 0; i < n; i++) o[i] = i;
+                assert(o[0] == 0);
+                assert(o[n - 1] == n -1);
+            ");
+        }
+
+        [Fact]
+        public void DenseArrayTurnsToSparseArrayWhenSparseIndexed()
+        {
+            RunTest(@"
+                var o = Array();
+                o[100] = 1;
+                assert(o[100] == 1);
             ");
         }
 
@@ -845,6 +867,18 @@ namespace Jint.Tests.Runtime
             Assert.Equal(3, add.Invoke(1, 2));
         }
 
+        [Fact]
+        public void ShouldAllowInvokeAFunctionValueWithNullValueAsArgument()
+        {
+            RunTest(@"
+                function get(x) { return x; }
+            ");
+
+            var add = _engine.GetValue("get");
+            string str = null;
+            Assert.Equal(Native.JsValue.Null, add.Invoke(str));
+        }
+
 
         [Fact]
         public void ShouldNotInvokeNonFunctionValue()
@@ -1003,7 +1037,7 @@ namespace Jint.Tests.Runtime
             engine.Execute("1.2");
 
             var result = engine.GetLastSyntaxNode();
-            Assert.Equal(SyntaxNodes.Literal, result.Type);
+            Assert.Equal(Nodes.Literal, result.Type);
         }
 
         [Fact]
@@ -1012,7 +1046,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
             try
             {
-                engine.Execute("1.2+ new", new ParserOptions { Source = "jQuery.js" });
+                engine.Execute("1.2+ new", new ParserOptions(source: "jQuery.js"));
             }
             catch (ParserException e)
             {
@@ -1053,19 +1087,11 @@ namespace Jint.Tests.Runtime
             Assert.Equal(0, result);
         }
 
-#if NET451
         [Fact]
-#else
-        [Fact(Skip = "CreateCustomTimeZone not available on netstandard")]
-#endif
         public void ShouldUseLocalTimeZoneOverride()
         {
-#if NET451
             const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, 11, 0), customName, customName, customName, null, false);
-#else
-            var customTimeZone = TimeZoneInfo.Utc;
-#endif
 
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
@@ -1073,7 +1099,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(11, epochGetLocalMinutes);
 
             var localEpochGetUtcMinutes = engine.Execute("var d = new Date(1970,0,1); d.getUTCMinutes();").GetCompletionValue().AsNumber();
-            Assert.Equal(-11, localEpochGetUtcMinutes);
+            Assert.Equal(49, localEpochGetUtcMinutes);
 
             var parseLocalEpoch = engine.Execute("Date.parse('January 1, 1970');").GetCompletionValue().AsNumber();
             Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
@@ -1121,11 +1147,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(0, result);
         }
 
-#if NET451
         [Theory]
-#else
-        [Theory(Skip = "CreateCustomTimeZone not available on netstandard")]
-#endif
         [InlineData("1970/01")]
         [InlineData("1970/01/01")]
         [InlineData("1970/01/01T00:00")]
@@ -1146,12 +1168,8 @@ namespace Jint.Tests.Runtime
         {
             const int timespanMinutes = 11;
             const int msPriorMidnight = -timespanMinutes * 60 * 1000;
-#if NET451
             const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, timespanMinutes, 0), customName, customName, customName, null, false);
-#else
-            var customTimeZone = TimeZoneInfo.Utc;
-#endif
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)).SetValue("d", date);
 
             var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
@@ -1227,6 +1245,30 @@ namespace Jint.Tests.Runtime
 
                 assert('Hello Paul' == html);
             ");
+        }
+
+        [Fact]
+        public void ShouldExecuteKnockoutWithErrorWhenIntolerant()
+        {
+            var content = GetEmbeddedFile("knockout-3.4.0.js");
+
+            var ex = Assert.Throws<ParserException>(() => _engine.Execute(content, new ParserOptions { Tolerant = false }));
+            Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
+        }
+
+        [Fact]
+        public void ShouldExecuteKnockoutWithoutErrorWhenTolerant()
+        {
+            var content = GetEmbeddedFile("knockout-3.4.0.js");
+            _engine.Execute(content, new ParserOptions { Tolerant = true });
+        }
+
+        [Fact]
+        public void ShouldExecuteLodash()
+        {
+            var content = GetEmbeddedFile("lodash.min.js");
+
+            RunTest(content);
         }
 
         [Fact]
@@ -1838,6 +1880,17 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldUseReplaceMarkers()
+        {
+            RunTest(@"
+                var re = /a/g;
+                var str = 'abab';
+                var newstr = str.replace(re, '$\'x');
+                equal('babxbbxb', newstr);
+            ");
+        }
+
+        [Fact]
         public void ExceptionShouldHaveLocationOfInnerFunction()
         {
             try
@@ -1913,7 +1966,7 @@ namespace Jint.Tests.Runtime
 
             Assert.True(val.AsString() == "53.6841659");
         }
-		
+
         [Theory]
         [InlineData("", "escape('')")]
         [InlineData("%u0100%u0101%u0102", "escape('\u0100\u0101\u0102')")]
@@ -2191,6 +2244,159 @@ namespace Jint.Tests.Runtime
             var result = engine.Execute(source).GetCompletionValue().ToObject();
 
             Assert.Equal(expected, result);
+        }
+
+        /// <summary>
+        /// Tests for startsWith - tests created from MDN and https://github.com/mathiasbynens/String.prototype.startsWith/blob/master/tests/tests.js
+        /// </summary>
+        [Theory]
+        [InlineData("'To be, or not to be, that is the question.'.startsWith('To be')", true)]
+        [InlineData("'To be, or not to be, that is the question.'.startsWith('not to be')", false)]
+        [InlineData("'To be, or not to be, that is the question.'.startsWith()", false)]
+        [InlineData("'To be, or not to be, that is the question.'.startsWith('not to be', 10)", true)]
+        [InlineData("'undefined'.startsWith()", true)]
+        [InlineData("'undefined'.startsWith(undefined)", true)]
+        [InlineData("'undefined'.startsWith(null)", false)]
+        [InlineData("'null'.startsWith()", false)]
+        [InlineData("'null'.startsWith(undefined)", false)]
+        [InlineData("'null'.startsWith(null)", true)]
+        [InlineData("'abc'.startsWith()", false)]
+        [InlineData("'abc'.startsWith('')", true)]
+        [InlineData("'abc'.startsWith('\0')", false)]
+        [InlineData("'abc'.startsWith('a')", true)]
+        [InlineData("'abc'.startsWith('b')", false)]
+        [InlineData("'abc'.startsWith('ab')", true)]
+        [InlineData("'abc'.startsWith('bc')", false)]
+        [InlineData("'abc'.startsWith('abc')", true)]
+        [InlineData("'abc'.startsWith('bcd')", false)]
+        [InlineData("'abc'.startsWith('abcd')", false)]
+        [InlineData("'abc'.startsWith('bcde')", false)]
+        [InlineData("'abc'.startsWith('', 1)", true)]
+        [InlineData("'abc'.startsWith('\0', 1)", false)]
+        [InlineData("'abc'.startsWith('a', 1)", false)]
+        [InlineData("'abc'.startsWith('b', 1)", true)]
+        [InlineData("'abc'.startsWith('ab', 1)", false)]
+        [InlineData("'abc'.startsWith('bc', 1)", true)]
+        [InlineData("'abc'.startsWith('abc', 1)", false)]
+        [InlineData("'abc'.startsWith('bcd', 1)", false)]
+        [InlineData("'abc'.startsWith('abcd', 1)", false)]
+        [InlineData("'abc'.startsWith('bcde', 1)", false)]
+        public void ShouldStartWith(string source, object expected)
+        {
+            var engine = new Engine();
+            var result = engine.Execute(source).GetCompletionValue().ToObject();
+
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("throw {}", "undefined")]
+        [InlineData("throw {message:null}", "null")]
+        [InlineData("throw {message:''}", "")]
+        [InlineData("throw {message:2}", "2")]
+        public void ShouldAllowNonStringMessage(string source, string expected)
+        {
+            var engine = new Engine();
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(source));
+            Assert.Equal(expected, ex.Message);
+        }
+
+        [Theory]
+        //Months
+        [InlineData("new Date(2017, 0, 1, 0, 0, 0)", "new Date(2016, 12, 1, 0, 0, 0)")]
+        [InlineData("new Date(2016, 0, 1, 23, 59, 59)", "new Date(2015, 12, 1, 23, 59, 59)")]
+        [InlineData("new Date(2013, 0, 1, 0, 0, 0)", "new Date(2012, 12, 1, 0, 0, 0)")]
+        [InlineData("new Date(2013, 0, 29, 23, 59, 59)", "new Date(2012, 12, 29, 23, 59, 59)")]
+        [InlineData("new Date(2015, 11, 1, 0, 0, 0)", "new Date(2016, -1, 1, 0, 0, 0)")]
+        [InlineData("new Date(2014, 11, 1, 23, 59, 59)", "new Date(2015, -1, 1, 23, 59, 59)")]
+        [InlineData("new Date(2011, 11, 1, 0, 0, 0)", "new Date(2012, -1, 1, 0, 0, 0)")]
+        [InlineData("new Date(2011, 11, 29, 23, 59, 59)", "new Date(2012, -1, 29, 23, 59, 59)")]
+        [InlineData("new Date(2015, 1, 1, 0, 0, 0)", "new Date(2016, -11, 1, 0, 0, 0)")]
+        [InlineData("new Date(2014, 1, 1, 23, 59, 59)", "new Date(2015, -11, 1, 23, 59, 59)")]
+        [InlineData("new Date(2011, 1, 1, 0, 0, 0)", "new Date(2012, -11, 1, 0, 0, 0)")]
+        [InlineData("new Date(2011, 2, 1, 23, 59, 59)", "new Date(2012, -11, 29, 23, 59, 59)")]
+        [InlineData("new Date(2015, 0, 1, 0, 0, 0)", "new Date(2016, -12, 1, 0, 0, 0)")]
+        [InlineData("new Date(2014, 0, 1, 23, 59, 59)", "new Date(2015, -12, 1, 23, 59, 59)")]
+        [InlineData("new Date(2011, 0, 1, 0, 0, 0)", "new Date(2012, -12, 1, 0, 0, 0)")]
+        [InlineData("new Date(2011, 0, 29, 23, 59, 59)", "new Date(2012, -12, 29, 23, 59, 59)")]
+        [InlineData("new Date(2014, 11, 1, 0, 0, 0)", "new Date(2016, -13, 1, 0, 0, 0)")]
+        [InlineData("new Date(2013, 11, 1, 23, 59, 59)", "new Date(2015, -13, 1, 23, 59, 59)")]
+        [InlineData("new Date(2010, 11, 1, 0, 0, 0)", "new Date(2012, -13, 1, 0, 0, 0)")]
+        [InlineData("new Date(2010, 11, 29, 23, 59, 59)", "new Date(2012, -13, 29, 23, 59, 59)")]
+        [InlineData("new Date(2013, 11, 1, 0, 0, 0)", "new Date(2016, -25, 1, 0, 0, 0)")]
+        [InlineData("new Date(2012, 11, 1, 23, 59, 59)", "new Date(2015, -25, 1, 23, 59, 59)")]
+        [InlineData("new Date(2009, 11, 1, 0, 0, 0)", "new Date(2012, -25, 1, 0, 0, 0)")]
+        [InlineData("new Date(2009, 11, 29, 23, 59, 59)", "new Date(2012, -25, 29, 23, 59, 59)")]
+        //Days
+        [InlineData("new Date(2016, 1, 11, 0, 0, 0)", "new Date(2016, 0, 42, 0, 0, 0)")]
+        [InlineData("new Date(2016, 0, 11, 23, 59, 59)", "new Date(2015, 11, 42, 23, 59, 59)")]
+        [InlineData("new Date(2012, 3, 11, 0, 0, 0)", "new Date(2012, 2, 42, 0, 0, 0)")]
+        [InlineData("new Date(2012, 2, 13, 23, 59, 59)", "new Date(2012, 1, 42, 23, 59, 59)")]
+        [InlineData("new Date(2015, 11, 31, 0, 0, 0)", "new Date(2016, 0, 0, 0, 0, 0)")]
+        [InlineData("new Date(2015, 10, 30, 23, 59, 59)", "new Date(2015, 11, 0, 23, 59, 59)")]
+        [InlineData("new Date(2012, 1, 29, 0, 0, 0)", "new Date(2012, 2, 0, 0, 0, 0)")]
+        [InlineData("new Date(2012, 0, 31, 23, 59, 59)", "new Date(2012, 1, 0, 23, 59, 59)")]
+        [InlineData("new Date(2015, 10, 24, 0, 0, 0)", "new Date(2016, 0, -37, 0, 0, 0)")]
+        [InlineData("new Date(2015, 9, 24, 23, 59, 59)", "new Date(2015, 11, -37, 23, 59, 59)")]
+        [InlineData("new Date(2012, 0, 23, 0, 0, 0)", "new Date(2012, 2, -37, 0, 0, 0)")]
+        [InlineData("new Date(2011, 11, 25, 23, 59, 59)", "new Date(2012, 1, -37, 23, 59, 59)")]
+        //Hours
+        [InlineData("new Date(2016, 0, 2, 1, 0, 0)", "new Date(2016, 0, 1, 25, 0, 0)")]
+        [InlineData("new Date(2015, 11, 2, 1, 59, 59)", "new Date(2015, 11, 1, 25, 59, 59)")]
+        [InlineData("new Date(2012, 2, 2, 1, 0, 0)", "new Date(2012, 2, 1, 25, 0, 0)")]
+        [InlineData("new Date(2012, 2, 1, 1, 59, 59)", "new Date(2012, 1, 29, 25, 59, 59)")]
+        [InlineData("new Date(2016, 0, 19, 3, 0, 0)", "new Date(2016, 0, 1, 435, 0, 0)")]
+        [InlineData("new Date(2015, 11, 19, 3, 59, 59)", "new Date(2015, 11, 1, 435, 59, 59)")]
+        [InlineData("new Date(2012, 2, 19, 3, 0, 0)", "new Date(2012, 2, 1, 435, 0, 0)")]
+        [InlineData("new Date(2012, 2, 18, 3, 59, 59)", "new Date(2012, 1, 29, 435, 59, 59)")]
+        [InlineData("new Date(2015, 11, 31, 23, 0, 0)", "new Date(2016, 0, 1, -1, 0, 0)")]
+        [InlineData("new Date(2015, 10, 30, 23, 59, 59)", "new Date(2015, 11, 1, -1, 59, 59)")]
+        [InlineData("new Date(2012, 1, 29, 23, 0, 0)", "new Date(2012, 2, 1, -1, 0, 0)")]
+        [InlineData("new Date(2012, 1, 28, 23, 59, 59)", "new Date(2012, 1, 29, -1, 59, 59)")]
+        [InlineData("new Date(2015, 11, 3, 18, 0, 0)", "new Date(2016, 0, 1, -678, 0, 0)")]
+        [InlineData("new Date(2015, 10, 2, 18, 59, 59)", "new Date(2015, 11, 1, -678, 59, 59)")]
+        [InlineData("new Date(2012, 1, 1, 18, 0, 0)", "new Date(2012, 2, 1, -678, 0, 0)")]
+        [InlineData("new Date(2012, 0, 31, 18, 59, 59)", "new Date(2012, 1, 29, -678, 59, 59)")]
+        // Minutes
+        [InlineData("new Date(2016, 0, 1, 1, 0, 0)", "new Date(2016, 0, 1, 0, 60, 0)")]
+        [InlineData("new Date(2015, 11, 2, 0, 0, 59)", "new Date(2015, 11, 1, 23, 60, 59)")]
+        [InlineData("new Date(2012, 2, 1, 1, 0, 0)", "new Date(2012, 2, 1, 0, 60, 0)")]
+        [InlineData("new Date(2012, 2, 1, 0, 0, 59)", "new Date(2012, 1, 29, 23, 60, 59)")]
+        [InlineData("new Date(2015, 11, 31, 23, 59, 0)", "new Date(2016, 0, 1, 0, -1, 0)")]
+        [InlineData("new Date(2015, 11, 1, 22, 59, 59)", "new Date(2015, 11, 1, 23, -1, 59)")]
+        [InlineData("new Date(2012, 1, 29, 23, 59, 0)", "new Date(2012, 2, 1, 0, -1, 0)")]
+        [InlineData("new Date(2012, 1, 29, 22, 59, 59)", "new Date(2012, 1, 29, 23, -1, 59)")]
+        [InlineData("new Date(2016, 0, 2, 15, 5, 0)", "new Date(2016, 0, 1, 0, 2345, 0)")]
+        [InlineData("new Date(2015, 11, 3, 14, 5, 59)", "new Date(2015, 11, 1, 23, 2345, 59)")]
+        [InlineData("new Date(2012, 2, 2, 15, 5, 0)", "new Date(2012, 2, 1, 0, 2345, 0)")]
+        [InlineData("new Date(2012, 2, 2, 14, 5, 59)", "new Date(2012, 1, 29, 23, 2345, 59)")]
+        [InlineData("new Date(2015, 11, 25, 18, 24, 0)", "new Date(2016, 0, 1, 0, -8976, 0)")]
+        [InlineData("new Date(2015, 10, 25, 17, 24, 59)", "new Date(2015, 11, 1, 23, -8976, 59)")]
+        [InlineData("new Date(2012, 1, 23, 18, 24, 0)", "new Date(2012, 2, 1, 0, -8976, 0)")]
+        [InlineData("new Date(2012, 1, 23, 17, 24, 59)", "new Date(2012, 1, 29, 23, -8976, 59)")]
+        // Seconds
+        [InlineData("new Date(2016, 0, 1, 0, 1, 0)", "new Date(2016, 0, 1, 0, 0, 60)")]
+        [InlineData("new Date(2015, 11, 2, 0, 0, 0)", "new Date(2015, 11, 1, 23, 59, 60)")]
+        [InlineData("new Date(2012, 2, 1, 0, 1, 0)", "new Date(2012, 2, 1, 0, 0, 60)")]
+        [InlineData("new Date(2012, 2, 1, 0, 0, 0)", "new Date(2012, 1, 29, 23, 59, 60)")]
+        [InlineData("new Date(2015, 11, 31, 23, 59, 59)", "new Date(2016, 0, 1, 0, 0, -1)")]
+        [InlineData("new Date(2015, 11, 1, 23, 58, 59)", "new Date(2015, 11, 1, 23, 59, -1)")]
+        [InlineData("new Date(2012, 1, 29, 23, 59, 59)", "new Date(2012, 2, 1, 0, 0, -1)")]
+        [InlineData("new Date(2012, 1, 29, 23, 58, 59)", "new Date(2012, 1, 29, 23, 59, -1)")]
+        [InlineData("new Date(2016, 0, 3, 17, 9, 58)", "new Date(2016, 0, 1, 0, 0, 234598)")]
+        [InlineData("new Date(2015, 11, 4, 17, 8, 58)", "new Date(2015, 11, 1, 23, 59, 234598)")]
+        [InlineData("new Date(2012, 2, 3, 17, 9, 58)", "new Date(2012, 2, 1, 0, 0, 234598)")]
+        [InlineData("new Date(2012, 2, 3, 17, 8, 58)", "new Date(2012, 1, 29, 23, 59, 234598)")]
+        [InlineData("new Date(2015, 11, 21, 14, 39, 15)", "new Date(2016, 0, 1, 0, 0, -897645)")]
+        [InlineData("new Date(2015, 10, 21, 14, 38, 15)", "new Date(2015, 11, 1, 23, 59, -897645)")]
+        [InlineData("new Date(2012, 1, 19, 14, 39, 15)", "new Date(2012, 2, 1, 0, 0, -897645)")]
+        [InlineData("new Date(2012, 1, 19, 14, 38, 15)", "new Date(2012, 1, 29, 23, 59, -897645)")]
+        public void ShouldSupportDateConsturctorWithArgumentOutOfRange(string expected, string actual)
+        {
+            var engine = new Engine(o => o.LocalTimeZone(TimeZoneInfo.Utc));
+            var expectedValue = engine.Execute(expected).GetCompletionValue().ToObject();
+            var actualValue = engine.Execute(actual).GetCompletionValue().ToObject();
+            Assert.Equal(expectedValue, actualValue);
         }
     }
 }

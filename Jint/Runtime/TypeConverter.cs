@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
-using Jint.Parser.Ast;
 using Jint.Runtime.References;
+using Jint.Native.Symbol;
 
 namespace Jint.Runtime
 {
@@ -20,11 +22,33 @@ namespace Jint.Runtime
         Boolean,
         String,
         Number,
-        Object
+        Object,
+        Completion,
+        Symbol
     }
 
     public class TypeConverter
     {
+        // how many decimals to check when determining if double is actually an int
+        private const double DoubleIsIntegerTolerance = double.Epsilon * 100;
+
+        private static readonly string[] intToString = new string[1024];
+        private static readonly string[] charToString = new string[256];
+
+        static TypeConverter()
+        {
+            for (var i = 0; i < intToString.Length; ++i)
+            {
+                intToString[i] = i.ToString();
+            }
+
+            for (var i = 0; i < charToString.Length; ++i)
+            {
+                var c = (char) i;
+                charToString[i] = c.ToString();
+            }
+        }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.1
         /// </summary>
@@ -33,7 +57,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.None)
         {
-            if (input == Null.Instance || input == Undefined.Instance)
+            if (ReferenceEquals(input, Null.Instance) || ReferenceEquals(input, Undefined.Instance))
             {
                 return input;
             }
@@ -46,7 +70,7 @@ namespace Jint.Runtime
             return input.AsObject().DefaultValue(preferredType);
         }
 
-    
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.2
         /// </summary>
@@ -59,14 +83,14 @@ namespace Jint.Runtime
                 return true;
             }
 
-            if (o == Undefined.Instance || o == Null.Instance)
-            {
-                return false;
-            }
-            
             if (o.IsBoolean())
             {
                 return o.AsBoolean();
+            }
+
+            if (ReferenceEquals(o, Undefined.Instance) || ReferenceEquals(o, Null.Instance))
+            {
+                return false;
             }
 
             if (o.IsNumber())
@@ -76,10 +100,8 @@ namespace Jint.Runtime
                 {
                     return false;
                 }
-                else
-                {
-                    return true;
-                }
+
+                return true;
             }
 
             if (o.IsString())
@@ -89,10 +111,8 @@ namespace Jint.Runtime
                 {
                     return false;
                 }
-                else
-                {
-                    return true;
-                }
+
+                return true;
             }
 
             return true;
@@ -109,8 +129,8 @@ namespace Jint.Runtime
             if (o.IsNumber())
             {
                 return o.AsNumber();
-            } 
-            
+            }
+
             if (o.IsObject())
             {
                 var p = o.AsObject() as IPrimitiveInstance;
@@ -120,12 +140,12 @@ namespace Jint.Runtime
                 }
             }
 
-            if (o == Undefined.Instance)
+            if (ReferenceEquals(o, Undefined.Instance))
             {
                 return double.NaN;
             }
 
-            if (o == Null.Instance)
+            if (ReferenceEquals(o, Null.Instance))
             {
                 return 0;
             }
@@ -137,61 +157,72 @@ namespace Jint.Runtime
 
             if (o.IsString())
             {
-                var s = StringPrototype.TrimEx(o.AsString());
-
-                if (String.IsNullOrEmpty(s))
-                {
-                    return 0;
-                }
-
-                if ("+Infinity".Equals(s) || "Infinity".Equals(s))
-                {
-                    return double.PositiveInfinity;
-                }
-
-                if ("-Infinity".Equals(s))
-                {
-                    return double.NegativeInfinity;
-                }
-
-                // todo: use a common implementation with JavascriptParser
-                try
-                {
-                    if (!s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var start = s[0];
-                        if (start != '+' && start != '-' && start != '.' && !char.IsDigit(start))
-                        {
-                            return double.NaN;
-                        }
-
-                        double n = Double.Parse(s,
-                            NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
-                            NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
-                            NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
-                        if (s.StartsWith("-") && n.Equals(0))
-                        {
-                            return -0.0;
-                        }
-
-                        return n;
-                    }
-
-                    int i = int.Parse(s.Substring(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-                 
-                    return i;
-                }
-                catch (OverflowException)
-                {
-                    return s.StartsWith("-") ? double.NegativeInfinity : double.PositiveInfinity;
-                }
-                catch
-                {
-                    return double.NaN;
-                }
+                return ToNumber(o.AsString());
             }
 
             return ToNumber(ToPrimitive(o, Types.Number));
+        }
+
+        private static double ToNumber(string input)
+        {
+            // eager checks to save time and trimming
+            if (string.IsNullOrEmpty(input))
+            {
+                return 0;
+            }
+
+            var s = StringPrototype.TrimEx(input);
+
+            if (string.IsNullOrEmpty(s))
+            {
+                return 0;
+            }
+
+            if ("+Infinity".Equals(s) || "Infinity".Equals(s))
+            {
+                return double.PositiveInfinity;
+            }
+
+            if ("-Infinity".Equals(s))
+            {
+                return double.NegativeInfinity;
+            }
+
+            // todo: use a common implementation with JavascriptParser
+            try
+            {
+                if (!s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                {
+                    var start = s[0];
+                    if (start != '+' && start != '-' && start != '.' && !char.IsDigit(start))
+                    {
+                        return double.NaN;
+                    }
+
+                    double n = Double.Parse(s,
+                        NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
+                        NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
+                        NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
+                    if (s.StartsWith("-") && n.Equals(0))
+                    {
+                        return -0.0;
+                    }
+
+                    return n;
+                }
+
+                int i = int.Parse(s.Substring(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+
+                return i;
+            }
+            catch (OverflowException)
+            {
+                return s.StartsWith("-") ? double.NegativeInfinity : double.PositiveInfinity;
+            }
+            catch
+            {
+                return double.NaN;
+            }
         }
 
         /// <summary>
@@ -207,13 +238,30 @@ namespace Jint.Runtime
             {
                 return 0;
             }
-            
+
             if (number.Equals(0) || double.IsInfinity(number))
             {
                 return number;
             }
 
-            return (long)number;
+            return (long) number;
+        }
+
+        internal static double ToInteger(string o)
+        {
+            var number = ToNumber(o);
+
+            if (double.IsNaN(number))
+            {
+                return 0;
+            }
+
+            if (number.Equals(0) || double.IsInfinity(number))
+            {
+                return number;
+            }
+
+            return (long) number;
         }
 
         /// <summary>
@@ -223,7 +271,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static int ToInt32(JsValue o)
         {
-            return (int)(uint)ToNumber(o);
+            return (int) (uint) ToNumber(o);
         }
 
         /// <summary>
@@ -233,7 +281,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static uint ToUint32(JsValue o)
         {
-            return (uint)ToNumber(o);
+            return (uint) ToNumber(o);
         }
 
         /// <summary>
@@ -243,7 +291,52 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static ushort ToUint16(JsValue o)
         {
-            return (ushort)(uint)ToNumber(o);
+            return (ushort) (uint) ToNumber(o);
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(long i)
+        {
+            return i >= 0 && i < intToString.Length
+                ? intToString[i]
+                : i.ToString();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(int i)
+        {
+            return i >= 0 && i < intToString.Length
+                ? intToString[i]
+                : i.ToString();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(uint i)
+        {
+            return i >= 0 && i < intToString.Length
+                ? intToString[i]
+                : i.ToString();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(char c)
+        {
+            return c >= 0 && c < charToString.Length
+                ? charToString[c]
+                : c.ToString();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(double d)
+        {
+            if (d > long.MinValue && d < long.MaxValue  && Math.Abs(d % 1) <= DoubleIsIntegerTolerance)
+            {
+                // we are dealing with integer that can be cached
+                return ToString((long) d);
+            }
+
+            return NumberPrototype.ToNumberString(d);
         }
 
         /// <summary>
@@ -253,6 +346,11 @@ namespace Jint.Runtime
         /// <returns></returns>
         public static string ToString(JsValue o)
         {
+            if (o.IsString())
+            {
+                return o.AsString();
+            }
+
             if (o.IsObject())
             {
                 var p = o.AsObject() as IPrimitiveInstance;
@@ -260,23 +358,28 @@ namespace Jint.Runtime
                 {
                     o = p.PrimitiveValue;
                 }
+                else
+                {
+                    var s = o.AsInstance<SymbolInstance>();
+                    if (s != null)
+                    {
+                        // TODO: throw a TypeError
+                        // NB: But it requires an Engine reference
+                        throw new JavaScriptException(new JsString("TypeError"));
+                    }
+                }
             }
 
-            if (o.IsString())
-            {
-                return o.AsString();
-            }
-
-            if (o == Undefined.Instance)
+            if (ReferenceEquals(o, Undefined.Instance))
             {
                 return Undefined.Text;
             }
 
-            if (o == Null.Instance)
+            if (ReferenceEquals(o, Null.Instance))
             {
                 return Null.Text;
             }
-            
+
             if (o.IsBoolean())
             {
                 return o.AsBoolean() ? "true" : "false";
@@ -284,7 +387,12 @@ namespace Jint.Runtime
 
             if (o.IsNumber())
             {
-                return NumberPrototype.ToNumberString(o.AsNumber());
+                return ToString(o.AsNumber());
+            }
+
+            if (o.IsSymbol())
+            {
+                return o.AsSymbol();
             }
 
             return ToString(ToPrimitive(o, Types.String));
@@ -297,12 +405,12 @@ namespace Jint.Runtime
                 return value.AsObject();
             }
 
-            if (value == Undefined.Instance)
+            if (ReferenceEquals(value, Undefined.Instance))
             {
                 throw new JavaScriptException(engine.TypeError);
             }
 
-            if (value == Null.Instance)
+            if (ReferenceEquals(value, Null.Instance))
             {
                 throw new JavaScriptException(engine.TypeError);
             }
@@ -320,6 +428,11 @@ namespace Jint.Runtime
             if (value.IsString())
             {
                 return engine.String.Construct(value.AsString());
+            }
+
+            if (value.IsSymbol())
+            {
+                return engine.Symbol.Construct(value.AsSymbol());
             }
 
             throw new JavaScriptException(engine.TypeError);
@@ -345,16 +458,28 @@ namespace Jint.Runtime
             object baseReference)
         {
             if (o != Undefined.Instance && o != Null.Instance)
+            {
                 return;
+            }
 
-            if (engine.Options._ReferenceResolver != null && 
+            if (engine.Options._ReferenceResolver != null &&
                 engine.Options._ReferenceResolver.CheckCoercible(o))
+            {
                 return;
+            }
 
-            var message = string.Empty;
-            var reference = baseReference as Reference;
-            if (reference != null)
-                message = $"{reference.GetReferencedName()} is {o}";
+            string referencedName;
+            
+            if (baseReference is Reference reference)
+            {
+                referencedName = reference.GetReferencedName();
+            }
+            else
+            {
+                referencedName = "The value";
+            }
+            
+            var message = $"{referencedName} is {o}";
 
             throw new JavaScriptException(engine.TypeError, message)
                 .SetCallstack(engine, expression.Location);
@@ -362,7 +487,7 @@ namespace Jint.Runtime
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)
         {
-            if (o == Undefined.Instance || o == Null.Instance)
+            if (ReferenceEquals(o, Undefined.Instance) || ReferenceEquals(o, Null.Instance))
             {
                 throw new JavaScriptException(engine.TypeError);
             }
@@ -371,7 +496,7 @@ namespace Jint.Runtime
         public static IEnumerable<MethodBase> FindBestMatch(Engine engine, MethodBase[] methods, JsValue[] arguments)
         {
             methods = methods
-                .Where(m => m.GetParameters().Count() == arguments.Length)
+                .Where(m => m.GetParameters().Length == arguments.Length)
                 .ToArray();
 
             if (methods.Length == 1 && !methods[0].GetParameters().Any())
@@ -389,7 +514,7 @@ namespace Jint.Runtime
                 {
                     var arg = objectArguments[i];
                     var paramType = parameters[i].ParameterType;
-                    
+
                     if (arg == null)
                     {
                         if (!TypeIsNullable(paramType))

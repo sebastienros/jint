@@ -158,3 +158,6 @@ Jint.sln.ide/*
 .vs
 project.lock.json
 .build
+
+.idea
+BenchmarkDotNet.Artifacts*

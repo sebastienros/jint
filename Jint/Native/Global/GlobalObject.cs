@@ -11,6 +11,8 @@ namespace Jint.Native.Global
 {
     public sealed class GlobalObject : ObjectInstance
     {
+        private readonly StringBuilder _stringBuilder = new StringBuilder();
+
         private GlobalObject(Engine engine) : base(engine)
         {
         }
@@ -30,6 +32,7 @@ namespace Jint.Native.Global
             // Global object properties
             FastAddProperty("Object", Engine.Object, true, false, true);
             FastAddProperty("Function", Engine.Function, true, false, true);
+            FastAddProperty("Symbol", Engine.Symbol, true, false, true);
             FastAddProperty("Array", Engine.Array, true, false, true);
             FastAddProperty("String", Engine.String, true, false, true);
             FastAddProperty("RegExp", Engine.RegExp, true, false, true);
@@ -49,7 +52,7 @@ namespace Jint.Native.Global
 
             FastAddProperty("NaN", double.NaN, false, false, false);
             FastAddProperty("Infinity", double.PositiveInfinity, false, false, false);
-            FastAddProperty("undefined", Undefined.Instance, false, false, false);
+            FastAddProperty("undefined", Undefined, false, false, false);
 
             // Global object functions
             FastAddProperty("parseInt", new ClrFunctionInstance(Engine, ParseInt, 2), true, false, true);
@@ -354,6 +357,9 @@ namespace Jint.Native.Global
             '~', '*', '\'', '(', ')'
         };
 
+        private static readonly char[] UnescapedUriSet = UriReserved.Concat(UriUnescaped).Concat(new[] { '#' }).ToArray();
+        private static readonly char[] ReservedUriSet = UriReserved.Concat(new[] { '#' }).ToArray();
+
         private const string HexaMap = "0123456789ABCDEF";
 
         private static bool IsValidHexaChar(char c)
@@ -372,9 +378,8 @@ namespace Jint.Native.Global
         public JsValue EncodeUri(JsValue thisObject, JsValue[] arguments)
         {
             var uriString = TypeConverter.ToString(arguments.At(0));
-            var unescapedUriSet = UriReserved.Concat(UriUnescaped).Concat(new[] { '#' }).ToArray();
 
-            return Encode(uriString, unescapedUriSet);
+            return Encode(uriString, UnescapedUriSet);
         }
 
 
@@ -394,13 +399,16 @@ namespace Jint.Native.Global
         private string Encode(string uriString, char[] unescapedUriSet)
         {
             var strLen = uriString.Length;
-            var r = new StringBuilder(uriString.Length);
+
+            _stringBuilder.EnsureCapacity(uriString.Length);
+            _stringBuilder.Clear();
+
             for (var k = 0; k < strLen; k++)
             {
                 var c = uriString[k];
                 if (System.Array.IndexOf(unescapedUriSet, c) != -1)
                 {
-                    r.Append(c);
+                    _stringBuilder.Append(c);
                 }
                 else
                 {
@@ -449,7 +457,7 @@ namespace Jint.Native.Global
                     }
                     else if (v <= 0xD7FF)
                     {
-                        // xxxxyyyy yyzzzzzz -> 1110xxxx; 10yyyyyy; 10zzzzzz	
+                        // xxxxyyyy yyzzzzzz -> 1110xxxx; 10yyyyyy; 10zzzzzz
                         octets = new[]
                         {
                             (byte)(0xE0 | (v >> 12)),
@@ -486,20 +494,19 @@ namespace Jint.Native.Global
                         var jOctet = octets[j];
                         var x1 = HexaMap[jOctet / 16];
                         var x2 = HexaMap[jOctet % 16];
-                        r.Append('%').Append(x1).Append(x2);
+                        _stringBuilder.Append('%').Append(x1).Append(x2);
                     }
                 }
             }
 
-            return r.ToString();
+            return _stringBuilder.ToString();
         }
 
         public JsValue DecodeUri(JsValue thisObject, JsValue[] arguments)
         {
             var uriString = TypeConverter.ToString(arguments.At(0));
-            var reservedUriSet = UriReserved.Concat(new[] { '#' }).ToArray();
 
-            return Decode(uriString, reservedUriSet);
+            return Decode(uriString, ReservedUriSet);
         }
 
         public JsValue DecodeUriComponent(JsValue thisObject, JsValue[] arguments)
@@ -513,13 +520,16 @@ namespace Jint.Native.Global
         public string Decode(string uriString, char[] reservedSet)
         {
             var strLen = uriString.Length;
-            var R = new StringBuilder(strLen);
+
+            _stringBuilder.EnsureCapacity(strLen);
+            _stringBuilder.Clear();
+
             for (var k = 0; k < strLen; k++)
             {
                 var C = uriString[k];
                 if (C != '%')
                 {
-                    R.Append(C);
+                    _stringBuilder.Append(C);
                 }
                 else
                 {
@@ -542,11 +552,11 @@ namespace Jint.Native.Global
                         C = (char)B;
                         if (System.Array.IndexOf(reservedSet, C) == -1)
                         {
-                            R.Append(C);
+                            _stringBuilder.Append(C);
                         }
                         else
                         {
-                            R.Append(uriString.Substring(start, k - start + 1));
+                            _stringBuilder.Append(uriString, start, k - start + 1);
                         }
                     }
                     else
@@ -582,7 +592,7 @@ namespace Jint.Native.Global
 
                             B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
 
-                            // B & 11000000 != 10000000 
+                            // B & 11000000 != 10000000
                             if ((B & 0xC0) != 0x80)
                             {
                                 throw new JavaScriptException(Engine.UriError);
@@ -593,12 +603,12 @@ namespace Jint.Native.Global
                             Octets[j] = B;
                         }
 
-                        R.Append(Encoding.UTF8.GetString(Octets, 0, Octets.Length));
+                        _stringBuilder.Append(Encoding.UTF8.GetString(Octets, 0, Octets.Length));
                     }
                 }
             }
 
-            return R.ToString();
+            return _stringBuilder.ToString();
         }
 
         /// <summary>
@@ -610,25 +620,28 @@ namespace Jint.Native.Global
             var uriString = TypeConverter.ToString(arguments.At(0));
 
             var strLen = uriString.Length;
-            var r = new StringBuilder(strLen);
+
+            _stringBuilder.EnsureCapacity(strLen);
+            _stringBuilder.Clear();
+
             for (var k = 0; k < strLen; k++)
             {
                 var c = uriString[k];
                 if (whiteList.IndexOf(c) != -1)
                 {
-                    r.Append(c);
+                    _stringBuilder.Append(c);
                 }
                 else if (c < 256)
                 {
-                    r.Append(string.Format("%{0}", ((int)c).ToString("X2")));
+                    _stringBuilder.Append(string.Format("%{0}", ((int)c).ToString("X2")));
                 }
                 else
                 {
-                    r.Append(string.Format("%u{0}", ((int)c).ToString("X4")));
+                    _stringBuilder.Append(string.Format("%u{0}", ((int)c).ToString("X4")));
                 }
             }
 
-            return r.ToString();
+            return _stringBuilder.ToString();
         }
 
         /// <summary>
@@ -639,7 +652,10 @@ namespace Jint.Native.Global
             var uriString = TypeConverter.ToString(arguments.At(0));
 
             var strLen = uriString.Length;
-            var r = new StringBuilder(strLen);
+
+            _stringBuilder.EnsureCapacity(strLen);
+            _stringBuilder.Clear();
+
             for (var k = 0; k < strLen; k++)
             {
                 var c = uriString[k];
@@ -665,10 +681,10 @@ namespace Jint.Native.Global
                         k += 2;
                     }
                 }
-                r.Append(c);
+                _stringBuilder.Append(c);
             }
 
-            return r.ToString();
+            return _stringBuilder.ToString();
         }
     }
 }

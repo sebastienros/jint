@@ -1,6 +1,6 @@
-﻿using System;
-using Jint.Parser;
+﻿using Esprima;
 using Jint.Runtime;
+using System;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -21,6 +21,27 @@ var b = a.user.name;
             Assert.Equal("user is undefined", e.Message);
             Assert.Equal(4, e.Location.Start.Line);
             Assert.Equal(8, e.Location.Start.Column);
+        }
+        [Fact]
+        public void CanReturnCorrectErrorMessageAndLocation1WithoutReferencedName()
+        {
+            var script = @"
+var c = a(b().Length);
+";
+
+            var engine = new Engine();
+            engine.SetValue("a", new Action<string>((a) =>
+            {
+
+            }));
+            engine.SetValue("b", new Func<string>(() =>
+            {
+                return null;
+            }));
+            var e = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
+            Assert.Equal("The value is null", e.Message);
+            Assert.Equal(2, e.Location.Start.Line);
+            Assert.Equal(10, e.Location.Start.Column);
         }
 
         [Fact]
@@ -48,12 +69,9 @@ var b = a.user.name;
 
 var b = function(v) {
 	return a(v);
-}", new ParserOptions
-            {
-                Source = "custom.js"
-            });
+}", new ParserOptions("custom.js") { Loc = true });
 
-            var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", new ParserOptions { Source = "main.js"}));
+            var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", new ParserOptions("main.js") { Loc = true } ));
             Assert.Equal("xxx is undefined", e.Message);
             Assert.Equal(2, e.Location.Start.Line);
             Assert.Equal(8, e.Location.Start.Column);

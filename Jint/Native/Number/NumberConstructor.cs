@@ -1,6 +1,7 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Native.Number
 {
@@ -9,7 +10,7 @@ namespace Jint.Native.Number
         public NumberConstructor(Engine engine)
             : base(engine, null, null, false)
         {
-            
+
         }
 
         public static NumberConstructor CreateNumberConstructor(Engine engine)
@@ -17,25 +18,25 @@ namespace Jint.Native.Number
             var obj = new NumberConstructor(engine);
             obj.Extensible = true;
 
-            // The value of the [[Prototype]] internal property of the Number constructor is the Function prototype object 
+            // The value of the [[Prototype]] internal property of the Number constructor is the Function prototype object
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = NumberPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.FastAddProperty("length", 1, false, false, false);
+            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
 
             // The initial value of Number.prototype is the Number prototype object
-            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
 
             return obj;
         }
 
         public void Configure()
         {
-            FastAddProperty("MAX_VALUE", double.MaxValue, false, false, false);
-            FastAddProperty("MIN_VALUE", double.Epsilon, false, false, false);
-            FastAddProperty("NaN", double.NaN, false, false, false);
-            FastAddProperty("NEGATIVE_INFINITY", double.NegativeInfinity, false, false, false);
-            FastAddProperty("POSITIVE_INFINITY", double.PositiveInfinity, false, false, false);
+            SetOwnProperty("MAX_VALUE", new AllForbiddenPropertyDescriptor(double.MaxValue));
+            SetOwnProperty("MIN_VALUE", new AllForbiddenPropertyDescriptor(double.Epsilon));
+            SetOwnProperty("NaN", new AllForbiddenPropertyDescriptor(double.NaN));
+            SetOwnProperty("NEGATIVE_INFINITY", new AllForbiddenPropertyDescriptor(double.NegativeInfinity));
+            SetOwnProperty("POSITIVE_INFINITY", new AllForbiddenPropertyDescriptor(double.PositiveInfinity));
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -64,7 +65,7 @@ namespace Jint.Native.Number
         {
             var instance = new NumberInstance(Engine);
             instance.Prototype = PrototypeObject;
-            instance.PrimitiveValue = value;
+            instance.NumberData = value;
             instance.Extensible = true;
 
             return instance;

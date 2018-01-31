@@ -32,8 +32,7 @@ using System.Diagnostics;
 
 namespace Jint.Native.Number.Dtoa
 {
-
-    public class CachedPowers
+    internal class CachedPowers
     {
         private const double Kd1Log210 = 0.30102999566398114; //  1 / lg(10)
 
@@ -52,17 +51,16 @@ namespace Jint.Native.Number.Dtoa
         }
 
 
-        internal static int GetCachedPower(int e, int alpha, int gamma, DiyFp cMk)
+        internal static (short, DiyFp) GetCachedPower(int e, int alpha, int gamma)
         {
             const int kQ = DiyFp.KSignificandSize;
-            double k = System.Math.Ceiling((alpha - e + kQ - 1)*Kd1Log210);
-            int index = (GrisuCacheOffset + (int) k - 1)/CachedPowersSpacing + 1;
+            double k = System.Math.Ceiling((alpha - e + kQ - 1) * Kd1Log210);
+            int index = (GrisuCacheOffset + (int) k - 1) / CachedPowersSpacing + 1;
             CachedPower cachedPower = CACHED_POWERS[index];
 
-            cMk.F = cachedPower.Significand;
-            cMk.E = cachedPower.BinaryExponent;
+            var cMk = new DiyFp(cachedPower.Significand, cachedPower.BinaryExponent);
             Debug.Assert((alpha <= cMk.E + e) && (cMk.E + e <= gamma));
-            return cachedPower.DecimalExponent;
+            return (cachedPower.DecimalExponent, cMk);
         }
 
         // Code below is converted from GRISU_CACHE_NAME(8) in file "powers-ten.h"
@@ -159,7 +157,5 @@ namespace Jint.Native.Number.Dtoa
         };
 
         private const int GrisuCacheOffset = 308;
-
-
     }
 }

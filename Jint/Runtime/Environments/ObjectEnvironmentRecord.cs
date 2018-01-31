@@ -1,7 +1,9 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime.Environments
 {
@@ -34,7 +36,11 @@ namespace Jint.Runtime.Environments
         /// <param name="configurable"></param>
         public override void CreateMutableBinding(string name, bool configurable = true)
         {
-            _bindingObject.DefineOwnProperty(name, new PropertyDescriptor(Undefined.Instance, true, true, configurable), true);
+            var propertyDescriptor = configurable
+                ? (IPropertyDescriptor) new ConfigurableEnumerableWritablePropertyDescriptor(Undefined)
+                : new NonConfigurablePropertyDescriptor(Undefined);
+
+            _bindingObject.SetOwnProperty(name, propertyDescriptor);
         }
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)
@@ -44,19 +50,13 @@ namespace Jint.Runtime.Environments
 
         public override JsValue GetBindingValue(string name, bool strict)
         {
-            // todo: can be optimized
-
-            if (!_bindingObject.HasProperty(name))
+            var desc = _bindingObject.GetProperty(name);
+            if (strict && desc == PropertyDescriptor.Undefined)
             {
-                if(!strict)
-                {
-                    return Undefined.Instance;
-                }
-
                 throw new JavaScriptException(_engine.ReferenceError);
             }
 
-            return _bindingObject.Get(name);
+            return UnwrapJsValue(desc);
         }
 
         public override bool DeleteBinding(string name)
@@ -68,10 +68,10 @@ namespace Jint.Runtime.Environments
         {
             if (_provideThis)
             {
-                return new JsValue(_bindingObject);
+                return _bindingObject;
             }
 
-            return Undefined.Instance;
+            return Undefined;
         }
 
         public override string[] GetAllBindingNames()
@@ -81,7 +81,7 @@ namespace Jint.Runtime.Environments
                 return _bindingObject.GetOwnProperties().Select( x=> x.Key).ToArray();
             }
 
-            return new string[0];
+            return Array.Empty<string>();
         }
     }
 }

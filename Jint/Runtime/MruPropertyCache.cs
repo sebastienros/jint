@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Jint.Runtime
 {
-    public class MruPropertyCache<TKey, TValue> : IDictionary<TKey, TValue>
+    internal class MruPropertyCache<TKey, TValue> : IDictionary<TKey, TValue>
     {
         private IDictionary<TKey, TValue> _dictionary = new Dictionary<TKey, TValue>();
         private LinkedList<KeyValuePair<TKey, TValue>> _list;

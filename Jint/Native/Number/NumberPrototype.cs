@@ -12,6 +12,8 @@ namespace Jint.Native.Number
     /// </summary>
     public sealed class NumberPrototype : NumberInstance
     {
+        private static readonly char[] _numberSeparators = {'.', 'e'};
+
         private NumberPrototype(Engine engine)
             : base(engine)
         {
@@ -21,7 +23,7 @@ namespace Jint.Native.Number
         {
             var obj = new NumberPrototype(engine);
             obj.Prototype = engine.Object.PrototypeObject;
-            obj.PrimitiveValue = 0;
+            obj.NumberData = 0;
             obj.Extensible = true;
 
             obj.FastAddProperty("constructor", numberConstructor, true, false, true);
@@ -84,7 +86,7 @@ namespace Jint.Native.Number
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            return number.PrimitiveValue;
+            return number.NumberData;
         }
 
         private const double Ten21 = 1e21;
@@ -135,7 +137,7 @@ namespace Jint.Native.Number
         {
             var x = TypeConverter.ToNumber(thisObj);
 
-            if (arguments.At(0) == Undefined.Instance)
+            if (ReferenceEquals(arguments.At(0), Undefined))
             {
                 return TypeConverter.ToString(x);
             }
@@ -154,7 +156,7 @@ namespace Jint.Native.Number
 
             // Get the number of decimals
             string str = x.ToString("e23", CultureInfo.InvariantCulture);
-            int decimals = str.IndexOfAny(new [] { '.', 'e' });
+            int decimals = str.IndexOfAny(_numberSeparators);
             decimals = decimals == -1 ? str.Length : decimals;
 
             p -= decimals;
@@ -201,7 +203,7 @@ namespace Jint.Native.Number
 
             if (radix == 10)
             {
-                return ToNumberString(x);    
+                return ToNumberString(x);
             }
 
             var integer = (long) x;
@@ -229,7 +231,7 @@ namespace Jint.Native.Number
             {
                 var digit = (int)(n % radix);
                 n = n / radix;
-                result.Insert(0, digits[digit].ToString());
+                result.Insert(0, digits[digit]);
             }
 
             return result.ToString();
@@ -253,13 +255,13 @@ namespace Jint.Native.Number
                 var d = (int) c;
                 n = c - d;
 
-                result.Append(digits[d].ToString());
+                result.Append(digits[d]);
             }
 
             return result.ToString();
         }
 
-        public static string ToNumberString(double m) 
+        public static string ToNumberString(double m)
         {
             if (double.IsNaN(m))
             {
@@ -300,7 +302,7 @@ namespace Jint.Native.Number
             {
                 s = rFormat.Replace(".", "").TrimStart('0').TrimEnd('0');
             }
-        
+
             const string format = "0.00000000000000000e0";
             var parts = m.ToString(format, CultureInfo.InvariantCulture).Split('e');
             if (s == null)
@@ -310,7 +312,7 @@ namespace Jint.Native.Number
 
             var n = int.Parse(parts[1]) + 1;
             var k = s.Length;
-            
+
             if (k <= n && n <= 21)
             {
                 return s + new string('0', n - k);

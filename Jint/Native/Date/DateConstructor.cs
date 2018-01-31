@@ -3,6 +3,7 @@ using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Date
@@ -20,14 +21,14 @@ namespace Jint.Native.Date
             var obj = new DateConstructor(engine);
             obj.Extensible = true;
 
-            // The value of the [[Prototype]] internal property of the Date constructor is the Function prototype object 
+            // The value of the [[Prototype]] internal property of the Date constructor is the Function prototype object
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = DatePrototype.CreatePrototypeObject(engine, obj);
 
-            obj.FastAddProperty("length", 7, false, false, false);
+            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(7));
 
             // The initial value of Date.prototype is the Date prototype object
-            obj.FastAddProperty("prototype", obj.PrototypeObject, false, false, false);
+            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
 
             return obj;
         }
@@ -130,7 +131,7 @@ namespace Jint.Native.Date
                 var v = TypeConverter.ToPrimitive(arguments[0]);
                 if (v.IsString())
                 {
-                    return Construct(Parse(Undefined.Instance, Arguments.From(v)).AsNumber());
+                    return Construct(Parse(Undefined, Arguments.From(v)).AsNumber());
                 }
 
                 return Construct(TypeConverter.ToNumber(v));

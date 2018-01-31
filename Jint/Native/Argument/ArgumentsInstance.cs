@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -14,6 +15,12 @@ namespace Jint.Native.Argument
     /// </summary>
     public class ArgumentsInstance : ObjectInstance
     {
+        // cache key container for array iteration for less allocations
+        private static readonly ThreadLocal<List<string>> _mappedNamed = new ThreadLocal<List<string>>(() => new List<string>());
+
+        private readonly Action<ArgumentsInstance> _initializer;
+        private bool _initialized;
+
         private ArgumentsInstance(Engine engine, Action<ArgumentsInstance> initializer) : base(engine)
         {
             _initializer = initializer;
@@ -22,12 +29,9 @@ namespace Jint.Native.Argument
 
         public bool Strict { get; set; }
 
-        private Action<ArgumentsInstance> _initializer;
-        private bool _initialized;
-
         protected override void EnsureInitialized()
         {
-            if(_initialized)
+            if (_initialized)
             {
                 return;
             }
@@ -39,43 +43,42 @@ namespace Jint.Native.Argument
 
         public static ArgumentsInstance CreateArgumentsObject(Engine engine, FunctionInstance func, string[] names, JsValue[] args, EnvironmentRecord env, bool strict)
         {
-            var obj = new ArgumentsInstance(engine, self =>
+            void Initializer(ArgumentsInstance self)
             {
                 var len = args.Length;
-                self.FastAddProperty("length", len, true, false, true);
-                var map = engine.Object.Construct(Arguments.Empty);
-                var mappedNamed = new List<string>();
-                var indx = 0;
-                while (indx <= len - 1)
+                self.SetOwnProperty("length", new NonEnumerablePropertyDescriptor(len));
+                if (args.Length > 0)
                 {
-                    var indxStr = TypeConverter.ToString(indx);
-                    var val = args[indx];
-                    self.FastAddProperty(indxStr, val, true, true, true);
-                    if (indx < names.Length)
+                    var map = engine.Object.Construct(Arguments.Empty);
+                    var mappedNamed = _mappedNamed.Value;
+                    mappedNamed.Clear();
+                    for (var indx = 0; indx < len; indx++)
                     {
-                        var name = names[indx];
-                        if (!strict && !mappedNamed.Contains(name))
+                        var indxStr = TypeConverter.ToString(indx);
+                        var val = args[indx];
+                        self.SetOwnProperty(indxStr, new ConfigurableEnumerableWritablePropertyDescriptor(val));
+                        if (indx < names.Length)
                         {
-                            mappedNamed.Add(name);
-                            Func<JsValue, JsValue> g = n => env.GetBindingValue(name, false);
-                            var p = new Action<JsValue, JsValue>((n, o) => env.SetMutableBinding(name, o, true));
-
-                            map.DefineOwnProperty(indxStr, new ClrAccessDescriptor(engine, g, p) { Configurable = true }, false);
+                            var name = names[indx];
+                            if (!strict && !mappedNamed.Contains(name))
+                            {
+                                mappedNamed.Add(name);
+                                map.SetOwnProperty(indxStr, new ClrAccessDescriptor(env, engine, name));
+                            }
                         }
                     }
-                    indx++;
-                }
 
-                // step 12
-                if (mappedNamed.Count > 0)
-                {
-                    self.ParameterMap = map;
+                    // step 12
+                    if (mappedNamed.Count > 0)
+                    {
+                        self.ParameterMap = map;
+                    }
                 }
 
                 // step 13
                 if (!strict)
                 {
-                    self.FastAddProperty("callee", func, true, false, true);
+                    self.SetOwnProperty("callee", new NonEnumerablePropertyDescriptor(func));
                 }
                 // step 14
                 else
@@ -84,7 +87,9 @@ namespace Jint.Native.Argument
                     self.DefineOwnProperty("caller", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
                     self.DefineOwnProperty("callee", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
                 }
-            });
+            }
+
+            var obj = new ArgumentsInstance(engine, Initializer);
 
             // These properties are pre-initialized as their don't trigger
             // the EnsureInitialized() event and are cheap
@@ -92,22 +97,14 @@ namespace Jint.Native.Argument
             obj.Extensible = true;
             obj.Strict = strict;
 
-
             return obj;
         }
 
         public ObjectInstance ParameterMap { get; set; }
 
-        public override string Class
-        {
-            get
-            {
-                return "Arguments";
-            }
-        }
+        public override string Class => "Arguments";
 
-
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override IPropertyDescriptor GetOwnProperty(string propertyName)
         {
             EnsureInitialized();
 
@@ -152,7 +149,7 @@ namespace Jint.Native.Argument
 
             if (ownDesc.IsDataDescriptor())
             {
-                var valueDesc = new PropertyDescriptor(value: value, writable: null, enumerable: null, configurable: null);
+                var valueDesc = new NullConfigurationPropertyDescriptor(value);
                 DefineOwnProperty(propertyName, valueDesc, throwOnError);
                 return;
             }
@@ -163,16 +160,16 @@ namespace Jint.Native.Argument
             if (desc.IsAccessorDescriptor())
             {
                 var setter = desc.Set.TryCast<ICallable>();
-                setter.Call(new JsValue(this), new[] { value });
+                setter.Call(this, new[] {value});
             }
             else
             {
-                var newDesc = new PropertyDescriptor(value, true, true, true);
+                var newDesc = new ConfigurableEnumerableWritablePropertyDescriptor(value);
                 DefineOwnProperty(propertyName, newDesc, throwOnError);
             }
         }
 
-        public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(string propertyName, IPropertyDescriptor desc, bool throwOnError)
         {
             EnsureInitialized();
 
@@ -188,6 +185,7 @@ namespace Jint.Native.Argument
                         throw new JavaScriptException(Engine.TypeError);
                     }
                 }
+
                 if (isMapped != PropertyDescriptor.Undefined)
                 {
                     if (desc.IsAccessorDescriptor())
@@ -196,7 +194,7 @@ namespace Jint.Native.Argument
                     }
                     else
                     {
-                        if (desc.Value != null && desc.Value != Undefined.Instance)
+                        if (desc.Value != null && desc.Value != Undefined)
                         {
                             map.Put(propertyName, desc.Value, throwOnError);
                         }

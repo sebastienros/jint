@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System;
 using Jint.Native;
 
 namespace Jint.Runtime.Environments
@@ -11,7 +10,11 @@ namespace Jint.Runtime.Environments
     public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
         private readonly Engine _engine;
-        private readonly IDictionary<string, Binding> _bindings = new Dictionary<string, Binding>();
+
+        private const string BindingNameArguments = "arguments";
+        private Binding _argumentsBinding;
+
+        private MruPropertyCache2<Binding> _bindings;
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
@@ -20,22 +23,45 @@ namespace Jint.Runtime.Environments
 
         public override bool HasBinding(string name)
         {
-            return _bindings.ContainsKey(name);
+            if (name == BindingNameArguments)
+            {
+                return _argumentsBinding != null;
+            }
+
+            return _bindings?.ContainsKey(name) == true;
         }
 
         public override void CreateMutableBinding(string name, bool canBeDeleted = false)
         {
-            _bindings.Add(name, new Binding
+            var binding = new Binding
+            {
+                Value = Undefined,
+                CanBeDeleted =  canBeDeleted,
+                Mutable = true
+            };
+
+            if (name == BindingNameArguments)
+            {
+                _argumentsBinding = binding;
+            }
+            else
+            {
+                if (_bindings == null)
                 {
-                    Value = Undefined.Instance, 
-                    CanBeDeleted =  canBeDeleted,
-                    Mutable = true
-                });
+                    _bindings = new MruPropertyCache2<Binding>();
+                }
+                _bindings.Add(name, binding);
+            }
         }
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
-            var binding = _bindings[name];
+            if (_bindings == null)
+            {
+                _bindings = new MruPropertyCache2<Binding>();
+            }
+
+            var binding = name == BindingNameArguments ? _argumentsBinding : _bindings[name];
             if (binding.Mutable)
             {
                 binding.Value = value;
@@ -51,16 +77,16 @@ namespace Jint.Runtime.Environments
 
         public override JsValue GetBindingValue(string name, bool strict)
         {
-            var binding = _bindings[name];
+            var binding = name == BindingNameArguments ? _argumentsBinding : _bindings[name];
 
-            if (!binding.Mutable && binding.Value == Undefined.Instance)
+            if (!binding.Mutable && ReferenceEquals(binding.Value, Undefined))
             {
                 if (strict)
                 {
                     throw new JavaScriptException(_engine.ReferenceError, "Can't access anm uninitiazed immutable binding.");
                 }
 
-                return Undefined.Instance;
+                return Undefined;
             }
 
             return binding.Value;
@@ -68,8 +94,17 @@ namespace Jint.Runtime.Environments
 
         public override bool DeleteBinding(string name)
         {
-            Binding binding;
-            if (!_bindings.TryGetValue(name, out binding))
+            Binding binding = null;
+            if (name == BindingNameArguments)
+            {
+                binding = _argumentsBinding;
+            }
+            else
+            {
+                _bindings?.TryGetValue(name, out binding);
+            }
+
+            if (binding == null)
             {
                 return true;
             }
@@ -79,14 +114,21 @@ namespace Jint.Runtime.Environments
                 return false;
             }
 
-            _bindings.Remove(name);
-            
+            if (name == BindingNameArguments)
+            {
+                _argumentsBinding = null;
+            }
+            else
+            {
+                _bindings.Remove(name);
+            }
+
             return true;
         }
 
         public override JsValue ImplicitThisValue()
         {
-            return Undefined.Instance;
+            return Undefined;
         }
 
         /// <summary>
@@ -95,12 +137,25 @@ namespace Jint.Runtime.Environments
         /// <param name="name">The identifier of the binding.</param>
         public void CreateImmutableBinding(string name)
         {
-            _bindings.Add(name, new Binding
+            var binding = new Binding
+            {
+                Value = Undefined,
+                Mutable = false,
+                CanBeDeleted = false
+            };
+
+            if (name == BindingNameArguments)
+            {
+                _argumentsBinding = binding;
+            }
+            else
+            {
+                if (_bindings == null)
                 {
-                    Value = Undefined.Instance,
-                    Mutable = false,
-                    CanBeDeleted = false
-                });
+                    _bindings = new MruPropertyCache2<Binding>();
+                }
+                _bindings.Add(name, binding);
+            }
         }
 
         /// <summary>
@@ -110,7 +165,7 @@ namespace Jint.Runtime.Environments
         /// <param name="value">The value of the binding.</param>
         public void InitializeImmutableBinding(string name, JsValue value)
         {
-            var binding = _bindings[name];
+            var binding = name == BindingNameArguments ? _argumentsBinding : _bindings[name];
             binding.Value = value;
         }
 
@@ -120,7 +175,7 @@ namespace Jint.Runtime.Environments
         /// <returns>The array of all defined bindings</returns>
         public override string[] GetAllBindingNames()
         {
-            return _bindings.Keys.ToArray();
+            return _bindings?.GetKeys() ?? Array.Empty<string>();
         }
     }
 }

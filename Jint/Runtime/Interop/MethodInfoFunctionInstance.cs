@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Native.Function;
 
 namespace Jint.Runtime.Interop
@@ -29,10 +26,9 @@ namespace Jint.Runtime.Interop
         public JsValue Invoke(MethodInfo[] methodInfos, JsValue thisObject, JsValue[] jsArguments)
         {
             var arguments = ProcessParamsArrays(jsArguments, methodInfos);
-            var methods = TypeConverter.FindBestMatch(Engine, methodInfos, arguments).ToList();
             var converter = Engine.ClrTypeConverter;
 
-            foreach (var method in methods)
+            foreach (var method in TypeConverter.FindBestMatch(Engine, methodInfos, arguments))
             {
                 var parameters = new object[arguments.Length];
                 var argumentsMatch = true;
@@ -41,7 +37,7 @@ namespace Jint.Runtime.Interop
                 {
                     var parameterType = method.GetParameters()[i].ParameterType;
 
-                    if (parameterType == typeof(JsValue))
+                    if (typeof(JsValue).IsAssignableFrom(parameterType))
                     {
                         parameters[i] = arguments[i];
                     }
@@ -52,14 +48,10 @@ namespace Jint.Runtime.Interop
                         var arrayInstance = arguments[i].AsArray();
                         var len = TypeConverter.ToInt32(arrayInstance.Get("length"));
                         var result = new JsValue[len];
-                        for (var k = 0; k < len; k++)
+                        for (uint k = 0; k < len; k++)
                         {
-                            var pk = k.ToString();
-                            result[k] = arrayInstance.HasProperty(pk)
-                                ? arrayInstance.Get(pk)
-                                : JsValue.Undefined;
+                            result[k] = arrayInstance.TryGetValue(k, out var value) ? value : JsValue.Undefined;
                         }
-
                         parameters[i] = result;
                     }
                     else
@@ -86,7 +78,7 @@ namespace Jint.Runtime.Interop
                 // todo: cache method info
                 try
                 {
-                    return JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters.ToArray()));
+                    return JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters));
                 }
                 catch (TargetInvocationException exception)
                 {
@@ -108,29 +100,45 @@ namespace Jint.Runtime.Interop
         /// <summary>
         /// Reduces a flat list of parameters to a params array
         /// </summary>
-        private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, IEnumerable<MethodInfo> methodInfos)
+        private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, MethodInfo[] methodInfos)
         {
-            foreach (var methodInfo in methodInfos)
+            for (var i = 0; i < methodInfos.Length; i++)
             {
+                var methodInfo = methodInfos[i];
                 var parameters = methodInfo.GetParameters();
-                if (!parameters.Any(p => p.HasAttribute<ParamArrayAttribute>()))
+
+                bool hasParamArrayAttribute = false;
+                for (int j = 0; j < parameters.Length; ++j)
+                {
+                    if (parameters[j].HasAttribute<ParamArrayAttribute>())
+                    {
+                        hasParamArrayAttribute = true;
+                        break;
+                    }
+                }
+                if (!hasParamArrayAttribute)
                     continue;
 
                 var nonParamsArgumentsCount = parameters.Length - 1;
                 if (jsArguments.Length < nonParamsArgumentsCount)
                     continue;
 
-                var newArgumentsCollection = jsArguments.Take(nonParamsArgumentsCount).ToList();
-                var argsToTransform = jsArguments.Skip(nonParamsArgumentsCount).ToList();
+                var argsToTransform = jsArguments.Skip(nonParamsArgumentsCount);
 
-                if (argsToTransform.Count == 1 && argsToTransform.FirstOrDefault().IsArray())
+                if (argsToTransform.Length == 1 && argsToTransform[0].IsArray())
                     continue;
 
                 var jsArray = Engine.Array.Construct(Arguments.Empty);
-                Engine.Array.PrototypeObject.Push(jsArray, argsToTransform.ToArray());
+                Engine.Array.PrototypeObject.Push(jsArray, argsToTransform);
 
-                newArgumentsCollection.Add(new JsValue(jsArray));
-                return newArgumentsCollection.ToArray();
+                var newArgumentsCollection = new JsValue[nonParamsArgumentsCount + 1];
+                for (var j = 0; j < nonParamsArgumentsCount; ++j)
+                {
+                    newArgumentsCollection[j] = jsArguments[j];
+                }
+
+                newArgumentsCollection[nonParamsArgumentsCount] = jsArray;
+                return newArgumentsCollection;
             }
 
             return jsArguments;

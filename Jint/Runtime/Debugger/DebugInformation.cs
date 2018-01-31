@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using Esprima.Ast;
 using Jint.Native;
-using Jint.Parser.Ast;
-using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Debugger
 {
