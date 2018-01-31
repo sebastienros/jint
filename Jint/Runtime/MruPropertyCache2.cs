@@ -6,6 +6,7 @@ namespace Jint.Runtime
     internal class MruPropertyCache2<TValue> where TValue : class
     {
         private Dictionary<string, TValue> _dictionary;
+        private bool _set;
         private string _key;
         private TValue _value;
 
@@ -13,17 +14,18 @@ namespace Jint.Runtime
         {
             get
             {
-                if (_key != null && _key == key)
+                if (_set && _key == key)
                 {
                     return _value;
                 }
 
-                return _dictionary != null ? _dictionary[key] : null;
+                return _dictionary?[key];
             }
 
             set
             {
                 EnsureInitialized(key);
+                _set = true;
                 _key = key;
                 _value = value;
 
@@ -38,7 +40,7 @@ namespace Jint.Runtime
         {
             get
             {
-                int count = _key != null ? 1 : 0;
+                int count = _set ? 1 : 0;
                 if (_dictionary != null)
                 {
                     count += _dictionary.Count;
@@ -51,17 +53,16 @@ namespace Jint.Runtime
         public void Add(string key, TValue value)
         {
             EnsureInitialized(key);
+            _set = true;
             _key = key;
             _value = value;
 
-            if (_dictionary != null)
-            {
-                _dictionary.Add(key, value);
-            }
+            _dictionary?.Add(key, value);
         }
 
         public void Clear()
         {
+            _set = false;
             _key = default(string);
             _value = null;
 
@@ -70,7 +71,7 @@ namespace Jint.Runtime
 
         public bool ContainsKey(string key)
         {
-            if (_key != null && _key == key)
+            if (_set && key.Equals(_key))
             {
                 return true;
             }
@@ -82,7 +83,7 @@ namespace Jint.Runtime
         {
             if (_dictionary == null)
             {
-                if (_key != null)
+                if (_set)
                 {
                     yield return new KeyValuePair<string, TValue>(_key, _value);
                 }
@@ -99,20 +100,21 @@ namespace Jint.Runtime
         public bool Remove(string key)
         {
             bool removed = false;
-            if (_key != null && _key == key)
+            if (_set && key.Equals(_key))
             {
+                _set = false;
                 _key = null;
                 _value = null;
                 removed = true;
             }
 
-            removed |= _dictionary?.Remove(key) ?? false;
+            _dictionary?.Remove(key);
             return removed;
         }
 
         public bool TryGetValue(string key, out TValue value)
         {
-            if (_key != null && _key == key)
+            if (_set && _key.Equals(key))
             {
                 value = _value;
                 return true;
@@ -124,32 +126,26 @@ namespace Jint.Runtime
                 return false;
             }
 
-            if (_dictionary.TryGetValue(key, out value))
-            {
-                _key = key;
-                _value = value;
-                return true;
-            }
-
-            return false;
+            return _dictionary.TryGetValue(key, out value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void EnsureInitialized(string key)
         {
-            if (_key != null && _key != key)
+            if (_set && _key != key)
             {
                 if (_dictionary == null)
                 {
                     _dictionary = new Dictionary<string, TValue>();
                 }
+
                 _dictionary[_key] = _value;
             }
         }
 
         public string[] GetKeys()
         {
-            int size = _key != null ? 1 : 0;
+            int size = _set ? 1 : 0;
             if (_dictionary != null)
             {
                 size += _dictionary.Count;
@@ -157,10 +153,11 @@ namespace Jint.Runtime
 
             var keys = new string[size];
             int n = 0;
-            if (_key != null)
+            if (_set)
             {
                 keys[n++] = _key;
             }
+
             if (_dictionary != null)
             {
                 foreach (var key in _dictionary.Keys)
