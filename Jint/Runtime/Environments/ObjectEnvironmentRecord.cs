@@ -50,19 +50,13 @@ namespace Jint.Runtime.Environments
 
         public override JsValue GetBindingValue(string name, bool strict)
         {
-            // todo: can be optimized
-
-            if (!_bindingObject.HasProperty(name))
+            var desc = _bindingObject.GetProperty(name);
+            if (strict && desc == PropertyDescriptor.Undefined)
             {
-                if(!strict)
-                {
-                    return Undefined;
-                }
-
                 throw new JavaScriptException(_engine.ReferenceError);
             }
 
-            return _bindingObject.Get(name);
+            return UnwrapJsValue(desc);
         }
 
         public override bool DeleteBinding(string name)

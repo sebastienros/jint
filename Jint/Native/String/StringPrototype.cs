@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -18,11 +16,6 @@ namespace Jint.Native.String
     /// </summary>
     public sealed class StringPrototype : StringInstance
     {
-        private StringBuilder _stringBuilder;
-        private List<string> _splitSegmentList;
-        private JsValue[] _callArray3;
-        private string[] _splitArray1;
-
         private StringPrototype(Engine engine)
             : base(engine)
         {
@@ -65,20 +58,6 @@ namespace Jint.Native.String
             FastAddProperty("trim", new ClrFunctionInstance(Engine, Trim), true, false, true);
             FastAddProperty("padStart", new ClrFunctionInstance(Engine, PadStart), true, false, true);
             FastAddProperty("padEnd", new ClrFunctionInstance(Engine, PadEnd), true, false, true);
-        }
-
-        private StringBuilder GetStringBuilder(int capacity)
-        {
-            if (_stringBuilder == null)
-            {
-                _stringBuilder = new StringBuilder(capacity);
-            }
-            else
-            {
-                _stringBuilder.EnsureCapacity(capacity);
-            }
-
-            return _stringBuilder;
         }
 
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
@@ -363,7 +342,7 @@ namespace Jint.Native.String
             }
             else
             {
-                var segments = _splitSegmentList = _splitSegmentList ?? new List<string>();
+                var segments = StringExecutionContext.Current.SplitSegmentList;
                 segments.Clear();
                 var sep = TypeConverter.ToString(separator);
 
@@ -380,7 +359,7 @@ namespace Jint.Native.String
                 }
                 else
                 {
-                    var array = _splitArray1 = _splitArray1 ?? new string[1];
+                    var array = StringExecutionContext.Current.SplitArray1;
                     array[0] = sep;
                     segments.AddRange(s.Split(array, StringSplitOptions.None));
                 }
@@ -493,7 +472,7 @@ namespace Jint.Native.String
                     // $`	Inserts the portion of the string that precedes the matched substring.
                     // $'	Inserts the portion of the string that follows the matched substring.
                     // $n or $nn	Where n or nn are decimal digits, inserts the nth parenthesized submatch string, provided the first argument was a RegExp object.
-                    var replacementBuilder = GetStringBuilder(0);
+                    var replacementBuilder = StringExecutionContext.Current.GetStringBuilder(0);
                     replacementBuilder.Clear();
                     for (int i = 0; i < replaceString.Length; i++)
                     {
@@ -601,7 +580,7 @@ namespace Jint.Native.String
                     return thisString;
                 int end = start + substr.Length;
 
-                var args = _callArray3 = _callArray3 ?? new JsValue[3];
+                var args = new JsValue[3];
                 args[0] = substr;
                 args[1] = start;
                 args[2] = thisString;
@@ -609,7 +588,7 @@ namespace Jint.Native.String
                 var replaceString = TypeConverter.ToString(replaceFunction.Call(Undefined, args));
 
                 // Replace only the first match.
-                var result = GetStringBuilder(thisString.Length + (substr.Length - substr.Length));
+                var result = StringExecutionContext.Current.GetStringBuilder(thisString.Length + (substr.Length - substr.Length));
                 result.Clear();
                 result.Append(thisString, 0, start);
                 result.Append(replaceString);

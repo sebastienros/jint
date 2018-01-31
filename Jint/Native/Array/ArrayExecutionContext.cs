@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+﻿using System.Text;
 using System.Threading;
 
 namespace Jint.Native.Array
@@ -11,13 +11,13 @@ namespace Jint.Native.Array
         // cache key container for array iteration for less allocations
         private static readonly ThreadLocal<ArrayExecutionContext> _executionContext = new ThreadLocal<ArrayExecutionContext>(() => new ArrayExecutionContext());
 
-        private List<uint> _keyCache;
+        private StringBuilder _stringBuilder;
 
         private ArrayExecutionContext()
         {
         }
 
-        public List<uint> KeyCache => _keyCache = _keyCache ?? new List<uint>();
+        public StringBuilder StringBuilder => _stringBuilder = _stringBuilder ?? new StringBuilder();
 
         public static ArrayExecutionContext Current => _executionContext.Value;
     }
