@@ -580,7 +580,7 @@ namespace Jint.Native.String
                     return thisString;
                 int end = start + substr.Length;
 
-                var args = StringExecutionContext.Current.CallArray3;
+                var args = new JsValue[3];
                 args[0] = substr;
                 args[1] = start;
                 args[2] = thisString;

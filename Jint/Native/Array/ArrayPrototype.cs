@@ -143,8 +143,7 @@ namespace Jint.Native.Array
                 }
             }
 
-
-            var args = ArrayExecutionContext.Current.CallArray4;
+            var args = new JsValue[4];
             while (k < len)
             {
                 var i = (uint) k;
@@ -176,15 +175,15 @@ namespace Jint.Native.Array
             var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
 
             uint to = 0;
-            var jsValues = ArrayExecutionContext.Current.CallArray3;
+            var args = new JsValue[3];
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
-                    jsValues[0] = kvalue;
-                    jsValues[1] = k;
-                    jsValues[2] = o.Target;
-                    var selected = callable.Call(thisArg, jsValues);
+                    args[0] = kvalue;
+                    args[1] = k;
+                    args[2] = o.Target;
+                    var selected = callable.Call(thisArg, args);
                     if (TypeConverter.ToBoolean(selected))
                     {
                         a.SetIndexValue(to, kvalue, throwOnError: false);
@@ -206,18 +205,16 @@ namespace Jint.Native.Array
 
             var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
 
-            var args = ArrayExecutionContext.Current.CallArray1;
-            args[0] = len;
-            var a = Engine.Array.Construct(args, len);
-            var jsValues =ArrayExecutionContext.Current.CallArray3;
+            var a = Engine.Array.Construct(new JsValue[] {len}, len);
+            var args = new JsValue[3];
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
-                    jsValues[0] = kvalue;
-                    jsValues[1] = k;
-                    jsValues[2] = o.Target;
-                    var mappedValue = callable.Call(thisArg, jsValues);
+                    args[0] = kvalue;
+                    args[1] = k;
+                    args[2] = o.Target;
+                    var mappedValue = callable.Call(thisArg, args);
                     a.SetIndexValue(k, mappedValue, throwOnError: false);
                 }
             }
@@ -235,15 +232,15 @@ namespace Jint.Native.Array
 
             var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
 
-            var jsValues = ArrayExecutionContext.Current.CallArray3;
+            var args = new JsValue[3];
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
-                    jsValues[0] = kvalue;
-                    jsValues[1] = k;
-                    jsValues[2] = o.Target;
-                    callable.Call(thisArg, jsValues);
+                    args[0] = kvalue;
+                    args[1] = k;
+                    args[2] = o.Target;
+                    callable.Call(thisArg, args);
                 }
             }
 
@@ -260,15 +257,15 @@ namespace Jint.Native.Array
 
             var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
 
-            var jsValues = ArrayExecutionContext.Current.CallArray3;
+            var args = new JsValue[3];
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
-                    jsValues[0] = kvalue;
-                    jsValues[1] = k;
-                    jsValues[2] = o.Target;
-                    var testResult = callable.Call(thisArg, jsValues);
+                    args[0] = kvalue;
+                    args[1] = k;
+                    args[2] = o.Target;
+                    var testResult = callable.Call(thisArg, args);
                     if (TypeConverter.ToBoolean(testResult))
                     {
                         return true;
@@ -289,15 +286,15 @@ namespace Jint.Native.Array
 
             var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
 
-            var jsValues = ArrayExecutionContext.Current.CallArray3;
+            var args = new JsValue[3];
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
-                    jsValues[0] = kvalue;
-                    jsValues[1] = k;
-                    jsValues[2] = o.Target;
-                    var testResult = callable.Call(thisArg, jsValues);
+                    args[0] = kvalue;
+                    args[1] = k;
+                    args[2] = o.Target;
+                    var testResult = callable.Call(thisArg, args);
                     if (false == TypeConverter.ToBoolean(testResult))
                     {
                         return JsBoolean.False;
@@ -524,10 +521,7 @@ namespace Jint.Native.Array
 
                 if (compareFn != null)
                 {
-                    var args = ArrayExecutionContext.Current.CallArray2;
-                    args[0] = x;
-                    args[1] = y;
-                    var s = TypeConverter.ToNumber(compareFn.Call(Undefined, args));
+                    var s = TypeConverter.ToNumber(compareFn.Call(Undefined, new[] {x, y}));
                     if (s < 0)
                     {
                         return -1;
