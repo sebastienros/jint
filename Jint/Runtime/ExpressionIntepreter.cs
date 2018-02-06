@@ -913,7 +913,9 @@ namespace Jint.Runtime
             // is it a direct call to eval ? http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.1.1
             if (r != null && r.GetReferencedName() == "eval" && callable is EvalFunctionInstance)
             {
-                return ((EvalFunctionInstance) callable).Call(thisObject, arguments, true);
+                var value = ((EvalFunctionInstance) callable).Call(thisObject, arguments, true);
+                _engine.ReferencePool.Return(r);
+                return value;
             }
 
             var result = callable.Call(thisObject, arguments);
@@ -979,7 +981,9 @@ namespace Jint.Runtime
 
                     oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
                     newValue = oldValue - 1;
+
                     _engine.PutValue(r, newValue);
+                    _engine.ReferencePool.Return(r);
 
                     return updateExpression.Prefix ? newValue : oldValue;
                 default:

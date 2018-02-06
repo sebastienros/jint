@@ -58,15 +58,18 @@ namespace Jint.Native.Function
                             Engine.DeclarationBindingInstantiation(DeclarationBindingType.EvalCode, program.HoistingScope.FunctionDeclarations, program.HoistingScope.VariableDeclarations, this, arguments);
 
                             var result = _engine.ExecuteStatement(program);
+                            var value = result.GetValueOrDefault();
 
                             if (result.Type == Completion.Throw)
                             {
-                                throw new JavaScriptException(result.GetValueOrDefault())
-                                    .SetCallstack(_engine, result.Location);
+                                var ex = new JavaScriptException(value).SetCallstack(_engine, result.Location);
+                                _engine.CompletionPool.Return(result);
+                                throw ex;
                             }
                             else
                             {
-                                return result.GetValueOrDefault();
+                                _engine.CompletionPool.Return(result);
+                                return value;
                             }
                         }
                         finally

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading;
 using Jint.Native;
 using Jint.Runtime.Environments;
 
@@ -9,7 +8,7 @@ namespace Jint.Runtime.References
     /// Represents the Reference Specification Type
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
     /// </summary>
-    public class Reference
+    public sealed class Reference
     {
         private JsValue _baseValue;
         private string _name;
@@ -19,7 +18,6 @@ namespace Jint.Runtime.References
         {
             _baseValue = baseValue;
             _name = name;
-            _strict = strict;
         }
 
         public JsValue GetBase()
@@ -58,6 +56,7 @@ namespace Jint.Runtime.References
             _baseValue = baseValue;
             _name = name;
             _strict = strict;
+
             return this;
         }
     }

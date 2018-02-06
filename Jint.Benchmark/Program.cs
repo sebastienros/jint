@@ -7,7 +7,8 @@ namespace Jint.Benchmark
     {
         public static void Main(string[] args)
         {
-            BenchmarkSwitcher.FromAssembly(typeof(Program).GetTypeInfo().Assembly).Run(args);
+            BenchmarkRunner.Run<UncacheableExpressionsBenchmark>();
+            //BenchmarkSwitcher.FromAssembly(typeof(Program).GetTypeInfo().Assembly).RunAll();
         }
     }
 }
