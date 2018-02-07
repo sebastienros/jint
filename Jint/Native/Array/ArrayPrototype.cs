@@ -111,7 +111,7 @@ namespace Jint.Native.Array
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLength();
 
-            var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
+            var callable = GetCallable(callbackfn);
 
             if (len == 0 && arguments.Length < 2)
             {
@@ -170,7 +170,7 @@ namespace Jint.Native.Array
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLength();
 
-            var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
+            var callable = GetCallable(callbackfn);
 
             var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
 
@@ -203,7 +203,7 @@ namespace Jint.Native.Array
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLength();
 
-            var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
+            var callable = GetCallable(callbackfn);
 
             var a = Engine.Array.Construct(new JsValue[] {len}, len);
             var args = new JsValue[3];
@@ -230,7 +230,7 @@ namespace Jint.Native.Array
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLength();
 
-            var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
+            var callable = GetCallable(callbackfn);
 
             var args = new JsValue[3];
             for (uint k = 0; k < len; k++)
@@ -255,7 +255,7 @@ namespace Jint.Native.Array
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLength();
 
-            var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
+            var callable = GetCallable(callbackfn);
 
             var args = new JsValue[3];
             for (uint k = 0; k < len; k++)
@@ -284,7 +284,7 @@ namespace Jint.Native.Array
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLength();
 
-            var callable = callbackfn.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "Argument must be callable"));
+            var callable = GetCallable(callbackfn);
 
             var args = new JsValue[3];
             for (uint k = 0; k < len; k++)
@@ -833,7 +833,7 @@ namespace Jint.Native.Array
             var lenValue = o.Get("length");
             var len = TypeConverter.ToUint32(lenValue);
 
-            var callable = callbackfn.TryCast<ICallable>(x => { throw new JavaScriptException(Engine.TypeError, "Argument must be callable"); });
+            var callable = GetCallable(callbackfn);
 
             if (len == 0 && arguments.Length < 2)
             {
@@ -928,6 +928,16 @@ namespace Jint.Native.Array
             o.Target.Put("length", len, true);
             return element;
         }
+        
+        private ICallable GetCallable(JsValue source)
+        {
+            if (source is ICallable callable)
+            {
+                return callable;
+            }
+
+            throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
+        }
 
         /// <summary>
         /// Adapter to use optimized array operations when possible.
@@ -998,7 +1008,7 @@ namespace Jint.Native.Array
                     }
 
                     // if getter is not undefined it must be ICallable
-                    var callable = getter.TryCast<ICallable>();
+                    var callable = (ICallable) getter;
                     var value = callable.Call(_instance, Arguments.Empty);
                     return TypeConverter.ToUint32(value);
                 }

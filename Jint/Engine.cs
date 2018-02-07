@@ -157,7 +157,6 @@ namespace Jint
 
             ReferencePool = new ReferencePool();
             CompletionPool = new CompletionPool();
-            DeclarativeEnvironmentRecordPool = new DeclarativeEnvironmentRecordPool(this);
 
             Eval = new EvalFunctionInstance(this, System.Array.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
@@ -210,7 +209,6 @@ namespace Jint
 
         internal ReferencePool ReferencePool { get; }
         internal CompletionPool CompletionPool { get; }
-        internal DeclarativeEnvironmentRecordPool DeclarativeEnvironmentRecordPool { get; }
 
         #region Debugger
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);

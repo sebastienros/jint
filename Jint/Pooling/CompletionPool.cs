@@ -24,22 +24,6 @@ namespace Jint.Pooling
         
         public Completion Rent(string type, JsValue value, string identifier, Location location = null)
         {
-            if (type == Completion.Normal)
-            {
-                if (identifier == null)
-                {
-                    if (value == null)
-                    {
-                        return Completion.Empty;
-                    }
-
-                    if (ReferenceEquals(value, Undefined.Instance))
-                    {
-                        return Completion.EmptyUndefined;
-                    }
-                }
-            }
-
             return _pool.Allocate().Reassign(type, value, identifier, location);
         }
 
