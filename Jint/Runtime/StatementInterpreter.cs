@@ -451,7 +451,7 @@ namespace Jint.Runtime
                         return executeStatementList;
                     }
 
-                    if (sl != null)
+                    if (sl != c)
                     {
                         _engine.CompletionPool.Return(sl);
                     }
@@ -463,11 +463,6 @@ namespace Jint.Runtime
             {
                 var completion = _engine.CompletionPool.Rent(Completion.Throw, v.Error, null, v.Location ?? s.Location);
                 return completion;
-            }
-            finally
-            {
-                _engine.CompletionPool.Return(sl);
-                _engine.CompletionPool.Return(c);
             }
 
             var rent = _engine.CompletionPool.Rent(c.Type, c.GetValueOrDefault(), c.Identifier);
@@ -503,8 +498,7 @@ namespace Jint.Runtime
                     var c = _engine.GetValue(b);
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                    catchEnv.Record.CreateMutableBinding(catchClause.Param.As<Identifier>().Name);
-                    catchEnv.Record.SetMutableBinding(catchClause.Param.As<Identifier>().Name, c, false);
+                    catchEnv.Record.CreateMutableBinding(catchClause.Param.As<Identifier>().Name, c);
                     _engine.ExecutionContext.LexicalEnvironment = catchEnv;
                     b = ExecuteStatement(catchClause.Body);
                     _engine.ExecutionContext.LexicalEnvironment = oldEnv;

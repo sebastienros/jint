@@ -18,6 +18,7 @@ using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.String;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Debugger;
@@ -50,7 +51,7 @@ namespace Jint
         // cache of types used when resolving CLR type names
         internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
 
-        internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new Dictionary<Type, Func<Engine, object, JsValue>>()
+        internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new Dictionary<Type, Func<Engine, object, JsValue>>
         {
             { typeof(bool), (Engine engine, object v) => (bool) v ? JsBoolean.True : JsBoolean.False },
             { typeof(byte), (Engine engine, object v) => JsNumber.Create((byte)v) },
@@ -152,13 +153,11 @@ namespace Jint
 
             Options = new Options();
 
-            if (options != null)
-            {
-                options(Options);
-            }
+            options?.Invoke(Options);
 
             ReferencePool = new ReferencePool();
             CompletionPool = new CompletionPool();
+            DeclarativeEnvironmentRecordPool = new DeclarativeEnvironmentRecordPool(this);
 
             Eval = new EvalFunctionInstance(this, System.Array.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
@@ -211,6 +210,7 @@ namespace Jint
 
         internal ReferencePool ReferencePool { get; }
         internal CompletionPool CompletionPool { get; }
+        internal DeclarativeEnvironmentRecordPool DeclarativeEnvironmentRecordPool { get; }
 
         #region Debugger
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
@@ -222,20 +222,12 @@ namespace Jint
 
         internal StepMode? InvokeStepEvent(DebugInformation info)
         {
-            if (Step != null)
-            {
-                return Step(this, info);
-            }
-            return null;
+            return Step?.Invoke(this, info);
         }
 
         internal StepMode? InvokeBreakEvent(DebugInformation info)
         {
-            if (Break != null)
-            {
-                return Break(this, info);
-            }
-            return null;
+            return Break?.Invoke(this, info);
         }
         #endregion
 
@@ -284,7 +276,7 @@ namespace Jint
             return this;
         }
 
-        public Engine SetValue(string name, Object obj)
+        public Engine SetValue(string name, object obj)
         {
             return SetValue(name, JsValue.FromObject(this, obj));
         }
@@ -822,7 +814,7 @@ namespace Jint
                     var argAlreadyDeclared = env.HasBinding(argName);
                     if (!argAlreadyDeclared)
                     {
-                        env.CreateMutableBinding(argName);
+                        env.CreateMutableBinding(argName, v);
                     }
 
                     env.SetMutableBinding(argName, v, strict);
@@ -883,13 +875,11 @@ namespace Jint
                         throw new ArgumentException();
                     }
 
-                    declEnv.CreateImmutableBinding("arguments");
-                    declEnv.InitializeImmutableBinding("arguments", argsObj);
+                    declEnv.CreateImmutableBinding("arguments", argsObj);
                 }
                 else
                 {
-                    env.CreateMutableBinding("arguments");
-                    env.SetMutableBinding("arguments", argsObj, false);
+                    env.CreateMutableBinding("arguments", argsObj);
                 }
             }
 
@@ -904,8 +894,7 @@ namespace Jint
                     var varAlreadyDeclared = env.HasBinding(dn);
                     if (!varAlreadyDeclared)
                     {
-                        env.CreateMutableBinding(dn, configurableBindings);
-                        env.SetMutableBinding(dn, Undefined.Instance, strict);
+                        env.CreateMutableBinding(dn, Undefined.Instance);
                     }
                 }
             }

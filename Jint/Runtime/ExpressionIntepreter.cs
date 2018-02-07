@@ -795,11 +795,6 @@ namespace Jint.Runtime
             var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
             var envRec = (DeclarativeEnvironmentRecord)funcEnv.Record;
 
-            if (functionExpression.Id != null && !string.IsNullOrEmpty(functionExpression.Id.Name))
-            {
-                envRec.CreateMutableBinding(functionExpression.Id.Name);
-            }
-
             var closure = new ScriptFunctionInstance(
                 _engine,
                 functionExpression,
@@ -807,9 +802,9 @@ namespace Jint.Runtime
                 functionExpression.Strict
                 );
 
-            if (functionExpression.Id != null && !String.IsNullOrEmpty(functionExpression.Id.Name))
+            if (!string.IsNullOrEmpty(functionExpression.Id?.Name))
             {
-                envRec.InitializeImmutableBinding(functionExpression.Id.Name, closure);
+                envRec.CreateMutableBinding(functionExpression.Id.Name, closure);
             }
 
             return closure;

@@ -32,13 +32,11 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2.2
         /// </summary>
-        /// <param name="name"></param>
-        /// <param name="configurable"></param>
-        public override void CreateMutableBinding(string name, bool configurable = true)
+        public override void CreateMutableBinding(string name, JsValue value, bool configurable = true)
         {
             var propertyDescriptor = configurable
-                ? (IPropertyDescriptor) new ConfigurableEnumerableWritablePropertyDescriptor(Undefined)
-                : new NonConfigurablePropertyDescriptor(Undefined);
+                ? (IPropertyDescriptor) new ConfigurableEnumerableWritablePropertyDescriptor(value)
+                : new NonConfigurablePropertyDescriptor(value);
 
             _bindingObject.SetOwnProperty(name, propertyDescriptor);
         }

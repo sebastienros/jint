@@ -1,9 +1,8 @@
-﻿using System;
-using Esprima;
+﻿using Esprima;
 using Jint.Native;
 using Jint.Runtime;
 
-namespace Jint
+namespace Jint.Pooling
 {
     /// <summary>
     /// Cache reusable <see cref="Completion" /> instances as we allocate them a lot.
@@ -11,21 +10,18 @@ namespace Jint
     internal sealed class CompletionPool
     {
         private const int PoolSize = 15;
-        private readonly Completion[] _pool;
-        private int _currentSize;
+        private readonly ObjectPool<Completion> _pool;
 
         public CompletionPool()
         {
-            // pre-allocate so we don't show up in benchmarks
-            _pool = new Completion[PoolSize];
-            for (var i = 0; i < PoolSize; ++i)
-            {
-                _pool[i] = new Completion(string.Empty, JsValue.Undefined, string.Empty);
-            }
-
-            _currentSize = PoolSize;
+            _pool = new ObjectPool<Completion>(Factory, PoolSize);
         }
 
+        private static Completion Factory()
+        {
+            return new Completion(string.Empty, JsValue.Undefined, string.Empty);
+        }
+        
         public Completion Rent(string type, JsValue value, string identifier, Location location = null)
         {
             if (type == Completion.Normal)
@@ -44,27 +40,18 @@ namespace Jint
                 }
             }
 
-            if (_currentSize > 0)
-            {
-                _currentSize--;
-                var completion = _pool[_currentSize];
-                return completion.Reassign(type, value, identifier, location);
-            }
-
-            return new Completion(type, value, identifier, location);
+            return _pool.Allocate().Reassign(type, value, identifier, location);
         }
 
         public void Return(Completion completion)
         {
             if (completion == null
-                || _currentSize >= PoolSize
-                || ReferenceEquals(completion, Completion.Empty)
-                || ReferenceEquals(completion, Completion.EmptyUndefined))
+                || completion == Completion.Empty
+                || completion == Completion.EmptyUndefined)
             {
                 return;
             }
-            _pool[_currentSize] = completion;
-            _currentSize++;
+            _pool.Free(completion);;
         }
     }
 }
