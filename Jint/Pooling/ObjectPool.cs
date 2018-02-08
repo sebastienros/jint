@@ -134,11 +134,14 @@ namespace Jint.Pooling
             // We will interlock only when we have a candidate. in a worst case we may miss some
             // recently returned objects. Not a big deal.
             T inst = _firstItem;
-            if (inst == null || inst != Interlocked.CompareExchange(ref _firstItem, null, inst))
+            if (inst != null)
             {
-                inst = AllocateSlow();
+                _firstItem = null;
+                return inst;
             }
- 
+
+            inst = AllocateSlow();
+
 #if DETECT_LEAKS
             var tracker = new LeakTracker();
             leakTrackers.Add(inst, tracker);
@@ -150,23 +153,18 @@ namespace Jint.Pooling
 #endif
             return inst;
         }
- 
+
         private T AllocateSlow()
         {
             var items = _items;
  
             for (int i = 0; i < items.Length; i++)
             {
-                // Note that the initial read is optimistically not synchronized. That is intentional. 
-                // We will interlock only when we have a candidate. in a worst case we may miss some
-                // recently returned objects. Not a big deal.
                 T inst = items[i].Value;
                 if (inst != null)
                 {
-                    if (inst == Interlocked.CompareExchange(ref items[i].Value, null, inst))
-                    {
-                        return inst;
-                    }
+                    items[i].Value = null;
+                    return inst;
                 }
             }
  
