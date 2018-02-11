@@ -1,5 +1,6 @@
 ﻿using System;
 using Jint.Native;
+using Jint.Native.Argument;
 
 namespace Jint.Runtime.Environments
 {
@@ -31,11 +32,11 @@ namespace Jint.Runtime.Environments
             return _bindings?.ContainsKey(name) == true;
         }
 
-        public override void CreateMutableBinding(string name, bool canBeDeleted = false)
+        public override void CreateMutableBinding(string name, JsValue value, bool canBeDeleted = false)
         {
             var binding = new Binding
             {
-                Value = Undefined,
+                Value = value,
                 CanBeDeleted =  canBeDeleted,
                 Mutable = true
             };
@@ -132,14 +133,15 @@ namespace Jint.Runtime.Environments
         }
 
         /// <summary>
-        /// Creates a new but uninitialised immutable binding in an environment record.
+        /// Creates a new immutable binding in an environment record.
         /// </summary>
         /// <param name="name">The identifier of the binding.</param>
-        public void CreateImmutableBinding(string name)
+        /// <param name="value">The value  of the binding.</param>
+        public void CreateImmutableBinding(string name, JsValue value)
         {
             var binding = new Binding
             {
-                Value = Undefined,
+                Value = value,
                 Mutable = false,
                 CanBeDeleted = false
             };
@@ -159,23 +161,21 @@ namespace Jint.Runtime.Environments
         }
 
         /// <summary>
-        /// Sets the value of an already existing but uninitialised immutable binding in an environment record.
-        /// </summary>
-        /// <param name="name">The identifier of the binding.</param>
-        /// <param name="value">The value of the binding.</param>
-        public void InitializeImmutableBinding(string name, JsValue value)
-        {
-            var binding = name == BindingNameArguments ? _argumentsBinding : _bindings[name];
-            binding.Value = value;
-        }
-
-        /// <summary>
         /// Returns an array of all the defined binding names
         /// </summary>
         /// <returns>The array of all defined bindings</returns>
         public override string[] GetAllBindingNames()
         {
             return _bindings?.GetKeys() ?? Array.Empty<string>();
+        }
+
+        internal void ReleaseArguments()
+        {
+            if (_argumentsBinding?.Value is ArgumentsInstance instance)
+            {
+                _engine.ArgumentsInstancePool.Return(instance);
+                _argumentsBinding = null;
+            }
         }
     }
 }

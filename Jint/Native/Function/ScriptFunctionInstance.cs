@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
+using Jint.Native.Argument;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -166,31 +167,42 @@ namespace Jint.Native.Function
 
                 Engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
+                Completion result = null;
                 try
                 {
-                    Engine.DeclarationBindingInstantiation(
+                    var argumentInstanceRented = Engine.DeclarationBindingInstantiation(
                         DeclarationBindingType.FunctionCode,
                         _functionDeclaration.HoistingScope.FunctionDeclarations,
                         _functionDeclaration.HoistingScope.VariableDeclarations,
                         this,
                         arguments);
 
-                    var result = Engine.ExecuteStatement(_functionDeclaration.Body);
+                    result = Engine.ExecuteStatement(_functionDeclaration.Body);
+                    
+                    var value = result.GetValueOrDefault();
+                    
+                    // we can safely release arguments if they don't escape the scope
+                    if (argumentInstanceRented
+                        && Engine.ExecutionContext.LexicalEnvironment?.Record is DeclarativeEnvironmentRecord der
+                        && !(result.Value is ArgumentsInstance))
+                    {
+                        der.ReleaseArguments();
+                    }
 
                     if (result.Type == Completion.Throw)
                     {
-                        JavaScriptException ex = new JavaScriptException(result.GetValueOrDefault())
-                            .SetCallstack(Engine, result.Location);
+                        var ex = new JavaScriptException(value).SetCallstack(Engine, result.Location);
                         throw ex;
                     }
 
                     if (result.Type == Completion.Return)
                     {
-                        return result.GetValueOrDefault();
+                        return value;
                     }
                 }
                 finally
                 {
+                    Engine.CompletionPool.Return(result);
                     Engine.LeaveExecutionContext();
                 }
 
