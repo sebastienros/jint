@@ -1,5 +1,6 @@
 ﻿using System;
 using Jint.Native;
+using Jint.Native.Argument;
 
 namespace Jint.Runtime.Environments
 {
@@ -168,11 +169,13 @@ namespace Jint.Runtime.Environments
             return _bindings?.GetKeys() ?? Array.Empty<string>();
         }
 
-        internal override void Clear()
+        internal void ReleaseArguments()
         {
-            base.Clear();
-            _argumentsBinding = null;
-            _bindings?.Clear();
+            if (_argumentsBinding?.Value is ArgumentsInstance instance)
+            {
+                _engine.ArgumentsInstancePool.Return(instance);
+                _argumentsBinding = null;
+            }
         }
     }
 }

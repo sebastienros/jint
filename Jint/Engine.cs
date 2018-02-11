@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Argument;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -157,6 +156,7 @@ namespace Jint
 
             ReferencePool = new ReferencePool();
             CompletionPool = new CompletionPool();
+            ArgumentsInstancePool = new ArgumentsInstancePool(this);
 
             Eval = new EvalFunctionInstance(this, System.Array.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
@@ -209,6 +209,7 @@ namespace Jint
 
         internal ReferencePool ReferencePool { get; }
         internal CompletionPool CompletionPool { get; }
+        internal ArgumentsInstancePool ArgumentsInstancePool { get; }
 
         #region Debugger
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
@@ -789,7 +790,7 @@ namespace Jint
         }
 
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
-        public void DeclarationBindingInstantiation(
+        internal bool DeclarationBindingInstantiation(
             DeclarationBindingType declarationBindingType,
             IList<FunctionDeclaration> functionDeclarations,
             IList<VariableDeclaration> variableDeclarations,
@@ -858,11 +859,11 @@ namespace Jint
                 env.SetMutableBinding(fn, fo, strict);
             }
 
-            var argumentsAlreadyDeclared = env.HasBinding("arguments");
-
-            if (declarationBindingType == DeclarationBindingType.FunctionCode && !argumentsAlreadyDeclared)
+            bool canReleaseArgumentsInstance = false;
+            if (declarationBindingType == DeclarationBindingType.FunctionCode && !env.HasBinding("arguments"))
             {
-                var argsObj = ArgumentsInstance.CreateArgumentsObject(this, functionInstance, functionInstance.FormalParameters, arguments, env, strict);
+                var argsObj = ArgumentsInstancePool.Rent(functionInstance, functionInstance.FormalParameters, arguments, env, strict);
+                canReleaseArgumentsInstance = true;
 
                 if (strict)
                 {
@@ -896,6 +897,8 @@ namespace Jint
                     }
                 }
             }
+
+            return canReleaseArgumentsInstance;
         }
     }
 }

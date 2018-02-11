@@ -960,7 +960,7 @@ namespace Jint.Native.Object
             return false;
         }
 
-        internal virtual void Clear()
+        internal void Clear()
         {
             _intrinsicProperties?.Clear();
             _properties?.Clear();

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
+using Jint.Native.Argument;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -169,7 +170,7 @@ namespace Jint.Native.Function
                 Completion result = null;
                 try
                 {
-                    Engine.DeclarationBindingInstantiation(
+                    var argumentInstanceRented = Engine.DeclarationBindingInstantiation(
                         DeclarationBindingType.FunctionCode,
                         _functionDeclaration.HoistingScope.FunctionDeclarations,
                         _functionDeclaration.HoistingScope.VariableDeclarations,
@@ -177,7 +178,17 @@ namespace Jint.Native.Function
                         arguments);
 
                     result = Engine.ExecuteStatement(_functionDeclaration.Body);
+                    
                     var value = result.GetValueOrDefault();
+                    
+                    // we can safely release arguments if they don't escape the scope
+                    if (argumentInstanceRented
+                        && Engine.ExecutionContext.LexicalEnvironment?.Record is DeclarativeEnvironmentRecord der
+                        && !(result.Value is ArgumentsInstance))
+                    {
+                        der.ReleaseArguments();
+                    }
+
                     if (result.Type == Completion.Throw)
                     {
                         var ex = new JavaScriptException(value).SetCallstack(Engine, result.Location);

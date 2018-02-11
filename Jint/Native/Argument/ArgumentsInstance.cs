@@ -17,27 +17,29 @@ namespace Jint.Native.Argument
         // cache key container for array iteration for less allocations
         private static readonly ThreadLocal<HashSet<string>> _mappedNamed = new ThreadLocal<HashSet<string>>(() => new HashSet<string>());
 
-        private readonly FunctionInstance _func;
-        private readonly string[] _names;
-        private readonly JsValue[] _args;
-        private readonly EnvironmentRecord _env;
-        private readonly bool _strict;
+        private FunctionInstance _func;
+        private string[] _names;
+        private JsValue[] _args;
+        private EnvironmentRecord _env;
+        private bool _strict;
 
         private bool _initialized;
 
-        private ArgumentsInstance(
-            Engine engine, 
-            FunctionInstance func,
-            string[] names,
-            JsValue[] args, 
-            EnvironmentRecord env,
-            bool strict) : base(engine)
+        internal ArgumentsInstance(Engine engine) : base(engine)
         {
+        }
+
+        internal void Prepare(FunctionInstance func, string[] names, JsValue[] args, EnvironmentRecord env, bool strict)
+        {
+            Clear();
+
             _func = func;
             _names = names;
             _args = args;
             _env = env;
             _strict = strict;
+
+            _initialized = false;
         }
 
         public bool Strict { get; set; }
@@ -94,25 +96,6 @@ namespace Jint.Native.Argument
                 self.DefineOwnProperty("caller", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
                 self.DefineOwnProperty("callee", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
             }
-        }
-
-        public static ArgumentsInstance CreateArgumentsObject(
-            Engine engine, 
-            FunctionInstance func, 
-            string[] names, 
-            JsValue[] args, 
-            EnvironmentRecord env, 
-            bool strict)
-        {
-            var obj = new ArgumentsInstance(engine, func, names, args, env, strict);
-
-            // These properties are pre-initialized as their don't trigger
-            // the EnsureInitialized() event and are cheap
-            obj.Prototype = engine.Object.PrototypeObject;
-            obj.Extensible = true;
-            obj.Strict = strict;
-
-            return obj;
         }
 
         public ObjectInstance ParameterMap { get; set; }
