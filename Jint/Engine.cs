@@ -42,6 +42,9 @@ namespace Jint
         private readonly Stack<ExecutionContext> _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
+#if NETCOREAPP2_0
+        private long _initialMemoryUsage;
+#endif
         private long _timeoutTicks;
         private INode _lastSyntaxNode = null;
 
@@ -293,6 +296,13 @@ namespace Jint
             _statementsCount = 0;
         }
 
+#if NETCOREAPP2_0
+        public void ResetMemoryUsage()
+        {
+            _initialMemoryUsage = GC.GetAllocatedBytesForCurrentThread();
+        }
+#endif
+
         public void ResetTimeoutTicks()
         {
             var timeoutIntervalTicks = Options._TimeoutInterval.Ticks;
@@ -321,6 +331,9 @@ namespace Jint
         public Engine Execute(Program program)
         {
             ResetStatementsCount();
+#if NETCOREAPP2_0
+            ResetMemoryUsage();
+#endif
             ResetTimeoutTicks();
             ResetLastStatement();
             ResetCallStack();
@@ -369,6 +382,17 @@ namespace Jint
             {
                 throw new TimeoutException();
             }
+
+#if NETCOREAPP2_0
+            if (Options._MemoryLimit > 0)
+            {
+                var memoryUsage = GC.GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
+                if (memoryUsage > Options._MemoryLimit)
+                {
+                    throw new MemoryLimitExceededException();
+                }
+            }
+#endif
 
             _lastSyntaxNode = statement;
 
