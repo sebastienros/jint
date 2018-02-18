@@ -383,8 +383,11 @@ namespace Jint.Runtime
             JsValue v = Undefined.Instance;
             SwitchCase defaultCase = null;
             bool hit = false;
-            foreach (var clause in switchBlock)
+
+            var switchBlockCount = switchBlock.Count;
+            for (var i = 0; i < switchBlockCount; i++)
             {
+                var clause = switchBlock[i];
                 if (clause.Test == null)
                 {
                     defaultCase = clause;
@@ -408,7 +411,6 @@ namespace Jint.Runtime
 
                     v = r.Value != null ? r.Value : Undefined.Instance;
                 }
-
             }
 
             // do we need to execute the default case ?
@@ -434,8 +436,10 @@ namespace Jint.Runtime
 
             try
             {
-                foreach (var statement in statementList)
+                var statementListCount = statementList.Count;
+                for (var i = 0; i < statementListCount; i++)
                 {
+                    var statement = statementList[i];
                     s = statement.As<Statement>();
                     c = ExecuteStatement(s);
                     if (c.Type != Completion.Normal)
@@ -526,8 +530,10 @@ namespace Jint.Runtime
 
         public Completion ExecuteVariableDeclaration(VariableDeclaration statement)
         {
-            foreach (var declaration in statement.Declarations)
+            var declarationsCount = statement.Declarations.Count;
+            for (var i = 0; i < declarationsCount; i++)
             {
+                var declaration = statement.Declarations[i];
                 if (declaration.Init != null)
                 {
                     if (!(_engine.EvaluateExpression(declaration.Id.As<Identifier>()) is Reference lhs))

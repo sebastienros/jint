@@ -88,9 +88,7 @@ namespace Jint.Runtime.Interop
 
         public JsValue GetPath(string path)
         {
-            Type type;
-
-            if (Engine.TypeCache.TryGetValue(path, out type))
+            if (Engine.TypeCache.TryGetValue(path, out var type))
             {
                 if (type == null)
                 {
@@ -108,8 +106,10 @@ namespace Jint.Runtime.Interop
             // search in loaded assemblies
             var lookupAssemblies = new[] {Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly()};
 
-            foreach (var assembly in lookupAssemblies)
+            var lookupAssembliesLength = lookupAssemblies.Length;
+            for (var i = 0; i < lookupAssembliesLength; i++)
             {
+                var assembly = lookupAssemblies[i];
                 type = assembly.GetType(path);
                 if (type != null)
                 {

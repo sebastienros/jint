@@ -883,12 +883,14 @@ namespace Jint
             }
 
             // process all variable declarations in the current parser scope
-            for (var i = 0; i < variableDeclarations.Count; i++)
+            var variableDeclarationsCount = variableDeclarations.Count;
+            for (var i = 0; i < variableDeclarationsCount; i++)
             {
                 var variableDeclaration = variableDeclarations[i];
-                var declarations  = variableDeclaration.Declarations;
-                foreach (var d in declarations)
+                var declarationsCount = variableDeclaration.Declarations.Count;
+                for (var j = 0; j < declarationsCount; j++)
                 {
+                    var d = variableDeclaration.Declarations[j];
                     var dn = d.Id.As<Identifier>().Name;
                     var varAlreadyDeclared = env.HasBinding(dn);
                     if (!varAlreadyDeclared)

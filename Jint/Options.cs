@@ -165,9 +165,9 @@ namespace Jint
 
         internal Predicate<Exception> _ClrExceptionsHandler => _clrExceptionsHandler;
 
-        internal IList<Assembly> _LookupAssemblies => _lookupAssemblies;
+        internal List<Assembly> _LookupAssemblies => _lookupAssemblies;
 
-        internal IEnumerable<IObjectConverter> _ObjectConverters => _objectConverters;
+        internal List<IObjectConverter> _ObjectConverters => _objectConverters;
 
         internal int _MaxStatements => _maxStatements;
 

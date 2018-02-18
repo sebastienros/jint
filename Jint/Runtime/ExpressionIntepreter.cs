@@ -658,8 +658,10 @@ namespace Jint.Runtime
             // http://www.ecma-international.org/ecma-262/5.1/#sec-11.1.5
 
             var obj = _engine.Object.Construct(Arguments.Empty);
-            foreach (var property in objectExpression.Properties)
+            var propertiesCount = objectExpression.Properties.Count;
+            for (var i = 0; i < propertiesCount; i++)
             {
+                var property = objectExpression.Properties[i];
                 var propName = property.Key.GetKey();
                 var previous = obj.GetOwnProperty(propName);
                 IPropertyDescriptor propDesc;
@@ -692,7 +694,7 @@ namespace Jint.Runtime
                             );
                         }
 
-                        propDesc = new PropertyDescriptor(get: get, set: null, enumerable: true, configurable:true);
+                        propDesc = new PropertyDescriptor(get: get, set: null, enumerable: true, configurable: true);
                         break;
 
                     case PropertyKind.Set:
@@ -706,15 +708,15 @@ namespace Jint.Runtime
                         ScriptFunctionInstance set;
                         using (new StrictModeScope(setter.Strict))
                         {
-
                             set = new ScriptFunctionInstance(
                                 _engine,
                                 setter,
                                 _engine.ExecutionContext.LexicalEnvironment,
                                 StrictModeScope.IsStrictModeCode
-                                );
+                            );
                         }
-                        propDesc = new PropertyDescriptor(get:null, set: set, enumerable: true, configurable: true);
+
+                        propDesc = new PropertyDescriptor(get: null, set: set, enumerable: true, configurable: true);
                         break;
 
                     default:
@@ -932,8 +934,10 @@ namespace Jint.Runtime
         public JsValue EvaluateSequenceExpression(SequenceExpression sequenceExpression)
         {
             var result = Undefined.Instance;
-            foreach (var expression in sequenceExpression.Expressions)
+            var expressionsCount = sequenceExpression.Expressions.Count;
+            for (var i = 0; i < expressionsCount; i++)
             {
+                var expression = sequenceExpression.Expressions[i];
                 result = _engine.GetValue(_engine.EvaluateExpression(expression.As<Expression>()), true);
             }
 
