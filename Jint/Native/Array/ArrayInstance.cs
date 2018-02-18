@@ -188,7 +188,8 @@ namespace Jint.Native.Array
                         for (var i = 0; i < keysCount; i++)
                         {
                             var keyIndex = keys[i];
-// is it the index of the array
+                            
+                            // is it the index of the array
                             if (keyIndex >= newLen && keyIndex < oldLen)
                             {
                                 var deleteSucceeded = Delete(TypeConverter.ToString(keyIndex), false);
