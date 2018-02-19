@@ -8,6 +8,7 @@ using Jint.Native.Date;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native
@@ -204,8 +205,10 @@ namespace Jint.Native
                 return jsValue;
             }
 
-            foreach (var converter in engine.Options._ObjectConverters)
+            var objectConvertersCount = engine.Options._ObjectConverters.Count;
+            for (var i = 0; i < objectConvertersCount; i++)
             {
+                var converter = engine.Options._ObjectConverters[i];
                 if (converter.TryConvert(value, out var result))
                 {
                     return result;
@@ -232,14 +235,19 @@ namespace Jint.Native
             {
                 JsValue Convert(Engine e, object v)
                 {
-                    var array = (System.Array)v;
+                    var array = (System.Array) v;
+                    var arrayLength = (uint) array.Length;
 
-                    var jsArray = engine.Array.Construct(a.Length);
-                    foreach (var item in array)
+                    var jsArray = new ArrayInstance(e, arrayLength);
+                    jsArray.Prototype = e.Array.PrototypeObject;
+                    jsArray.Extensible = true;
+                    
+                    for (uint i = 0; i < arrayLength; ++i)
                     {
-                        var jsItem = FromObject(engine, item);
-                        engine.Array.PrototypeObject.Push(jsArray, Arguments.From(jsItem));
+                        var jsItem = FromObject(e, array.GetValue(i));
+                        jsArray.WriteArrayValue(i, new ConfigurableEnumerableWritablePropertyDescriptor(jsItem));
                     }
+                    jsArray.SetOwnProperty("length", new WritablePropertyDescriptor(arrayLength));
 
                     return jsArray;
                 }
@@ -249,6 +257,7 @@ namespace Jint.Native
                 {
                     [valueType] = Convert
                 }, typeMappers);
+
                 return Convert(engine, a);
             }
 
@@ -259,7 +268,7 @@ namespace Jint.Native
 
             if (value.GetType().IsEnum())
             {
-                return JsNumber.Create((int)value);
+                return JsNumber.Create((int) value);
             }
 
             // if no known type could be guessed, wrap it as an ObjectInstance

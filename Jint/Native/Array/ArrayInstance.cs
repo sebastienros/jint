@@ -184,8 +184,11 @@ namespace Jint.Native.Array
                         // in the case of sparse arrays, treat each concrete element instead of
                         // iterating over all indexes
                         var keys = new List<uint>(_sparse.Keys);
-                        foreach (var keyIndex in keys)
+                        var keysCount = keys.Count;
+                        for (var i = 0; i < keysCount; i++)
                         {
+                            var keyIndex = keys[i];
+                            
                             // is it the index of the array
                             if (keyIndex >= newLen && keyIndex < oldLen)
                             {
@@ -542,7 +545,7 @@ namespace Jint.Native.Array
             return _sparse.TryGetValue(index, out descriptor);
         }
 
-        private void WriteArrayValue(uint index, IPropertyDescriptor desc)
+        internal void WriteArrayValue(uint index, IPropertyDescriptor desc)
         {
             // calculate eagerly so we know if we outgrow
             var newSize = _dense != null && index >= _dense.Length
