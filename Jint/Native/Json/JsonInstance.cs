@@ -51,16 +51,16 @@ namespace Jint.Native.Json
                     var arrLen = valAsArray.GetLength();
                     while (i < arrLen)
                     {
-                        var newValue = AbstractWalkOperation(valAsArray, i.ToString());
+                        var newValue = AbstractWalkOperation(valAsArray, TypeConverter.ToString(i));
                         if (newValue.IsUndefined())
                         {
-                            valAsArray.Delete(i.ToString(), false);
+                            valAsArray.Delete(TypeConverter.ToString(i), false);
                         }
                         else
                         {
                             valAsArray.DefineOwnProperty
                             (
-                                i.ToString(),
+                                TypeConverter.ToString(i),
                                 new PropertyDescriptor
                                 (
                                     value: newValue,
