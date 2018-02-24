@@ -1017,29 +1017,6 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void JsonParserShouldUseReviverFunction()
-        {
-            RunTest(@"
-                var jsonObj = JSON.parse('{""p"": 5}', function (key, value){
-                    return typeof value === 'number' ? value * 2 : value;
-                });
-                assert(jsonObj.p === 10);
-            ");
-
-            RunTest(@"
-                var expectedKeys = [""1"", ""2"", ""4"", ""6"", ""5"", ""3"", """"];
-                var actualKeys = [];
-                JSON.parse('{""1"": 1, ""2"": 2, ""3"": {""4"": 4, ""5"": {""6"": 6}}}', function (key, value){
-                    actualKeys.push(key);
-                    return value;// return the unchanged property value.
-                });
-                expectedKeys.forEach(function (val, i){
-                    assert(actualKeys[i] === val);
-                });
-            ");
-        }
-
-        [Fact]
         [ReplaceCulture("fr-FR")]
         public void ShouldBeCultureInvariant()
         {
