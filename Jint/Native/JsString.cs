@@ -164,6 +164,17 @@ namespace Jint.Native
 
                 return _value;
             }
+            
+            [Pure]
+            public override object ToObject()
+            {
+                if (_dirty)
+                {
+                    _value = _stringBuilder.ToString();
+                    _dirty = false;
+                }
+                return _value;
+            }
 
             public override JsString Append(JsValue jsValue)
             {
