@@ -1,6 +1,5 @@
 ﻿using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
@@ -64,8 +63,8 @@ namespace Jint.Native.Function
 
 
             var thrower = Engine.Function.ThrowTypeError;
-            f.DefineOwnProperty("caller", new PropertyDescriptor(thrower, thrower, false, false), false);
-            f.DefineOwnProperty("arguments", new PropertyDescriptor(thrower, thrower, false, false), false);
+            f.DefineOwnProperty("caller", new GetSetPropertyDescriptor(thrower, thrower, false, false), false);
+            f.DefineOwnProperty("arguments", new GetSetPropertyDescriptor(thrower, thrower, false, false), false);
 
 
             return f;

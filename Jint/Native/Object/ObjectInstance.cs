@@ -532,12 +532,10 @@ namespace Jint.Native.Object
                     }
                     else
                     {
-                        SetOwnProperty(propertyName, new PropertyDescriptor(desc)
+                        SetOwnProperty(propertyName, new GetSetPropertyDescriptor(desc)
                         {
-                            Get = desc.Get,
-                            Set = desc.Set,
-                            Enumerable = desc.Enumerable.HasValue ? desc.Enumerable : false,
-                            Configurable = desc.Configurable.HasValue ? desc.Configurable : false,
+                            Enumerable = desc.Enumerable ?? false,
+                            Configurable = desc.Configurable ?? false,
                         });
                     }
                 }
@@ -608,7 +606,7 @@ namespace Jint.Native.Object
 
                     if (current.IsDataDescriptor())
                     {
-                        SetOwnProperty(propertyName, current = new PropertyDescriptor(
+                        SetOwnProperty(propertyName, current = new GetSetPropertyDescriptor(
                             get: JsValue.Undefined,
                             set: JsValue.Undefined,
                             enumerable: current.Enumerable,
@@ -698,14 +696,14 @@ namespace Jint.Native.Object
 
             if (desc.Get != null)
             {
-                current = mutable = current as PropertyDescriptor ?? new PropertyDescriptor(current);
-                mutable.Get = desc.Get;
+                current = mutable = new GetSetPropertyDescriptor(current);
+                ((GetSetPropertyDescriptor) mutable).SetGet(desc.Get);
             }
 
             if (desc.Set != null)
             {
-                mutable = current as PropertyDescriptor ?? new PropertyDescriptor(current);
-                mutable.Set = desc.Set;
+                current = mutable = new GetSetPropertyDescriptor(current);
+                ((GetSetPropertyDescriptor) mutable).SetSet(desc.Set);
             }
 
             if (mutable != null)

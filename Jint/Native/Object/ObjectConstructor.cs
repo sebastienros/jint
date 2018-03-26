@@ -352,9 +352,9 @@ namespace Jint.Native.Object
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            foreach (var p in o.GetOwnProperties().Select(x => x.Key))
+            foreach (var pair in o.GetOwnProperties())
             {
-                var desc = o.GetOwnProperty(p);
+                var desc = pair.Value;
                 if (desc.IsDataDescriptor())
                 {
                     if (desc.Writable.HasValue && desc.Writable.Value)

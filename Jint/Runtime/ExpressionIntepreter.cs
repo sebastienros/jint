@@ -694,7 +694,7 @@ namespace Jint.Runtime
                             );
                         }
 
-                        propDesc = new PropertyDescriptor(get: get, set: null, enumerable: true, configurable: true);
+                        propDesc = new GetSetPropertyDescriptor(get: get, set: null, enumerable: true, configurable: true);
                         break;
 
                     case PropertyKind.Set:
@@ -716,7 +716,7 @@ namespace Jint.Runtime
                             );
                         }
 
-                        propDesc = new PropertyDescriptor(get: null, set: set, enumerable: true, configurable: true);
+                        propDesc = new GetSetPropertyDescriptor(get: null, set: set, enumerable: true, configurable: true);
                         break;
 
                     default:

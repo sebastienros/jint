@@ -1,4 +1,6 @@
-﻿using Jint.Native;
+﻿using System;
+using System.Runtime.CompilerServices;
+using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors.Specialized;
 
@@ -6,7 +8,20 @@ namespace Jint.Runtime.Descriptors
 {
     public class PropertyDescriptor : IPropertyDescriptor
     {
+        [Flags]
+        private enum PropertyFlag
+        {
+            Enumerable = 1,
+            EnumerableSet = 2,
+            Writable = 4,
+            WritableSet = 8,
+            Configurable = 16,
+            ConfigurableSet = 32
+        }
+
         public static readonly IPropertyDescriptor Undefined = new PropertyDescriptor();
+
+        private PropertyFlag _flags;
 
         protected PropertyDescriptor()
         {
@@ -15,54 +30,76 @@ namespace Jint.Runtime.Descriptors
         public PropertyDescriptor(JsValue value, bool? writable, bool? enumerable, bool? configurable)
         {
             Value = value;
-
-            if (writable.HasValue)
-            {
-                Writable = writable.Value;
-            }
-
-            if (enumerable.HasValue)
-            {
-                Enumerable = enumerable.Value;
-            }
-
-            if (configurable.HasValue)
-            {
-                Configurable = configurable.Value;
-            }
-        }
-
-        public PropertyDescriptor(JsValue get, JsValue set, bool? enumerable = null, bool? configurable = null)
-        {
-            Get = get;
-            Set = set;
-
-            if (enumerable.HasValue)
-            {
-                Enumerable = enumerable.Value;
-            }
-
-            if (configurable.HasValue)
-            {
-                Configurable = configurable.Value;
-            }
+            Writable = writable;
+            Enumerable = enumerable;
+            Configurable = configurable;
         }
 
         public PropertyDescriptor(IPropertyDescriptor descriptor)
         {
-            Get = descriptor.Get;
-            Set = descriptor.Set;
             Value = descriptor.Value;
             Enumerable = descriptor.Enumerable;
             Configurable = descriptor.Configurable;
             Writable = descriptor.Writable;
         }
 
-        public JsValue Get { get; set; }
-        public JsValue Set { get; set; }
-        public bool? Enumerable { get; set; }
-        public bool? Writable { get; set; }
-        public bool? Configurable { get; set; }
+        public virtual JsValue Get => null;
+        public virtual JsValue Set => null;
+
+        public bool? Enumerable
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => (_flags & PropertyFlag.EnumerableSet) != 0 ? (_flags & PropertyFlag.Enumerable) != 0 : (bool?) null;
+            set
+            {
+                _flags &= ~(PropertyFlag.EnumerableSet | PropertyFlag.Enumerable);
+                if (value != null)
+                {
+                    _flags |= PropertyFlag.EnumerableSet;
+                    if (value.Value)
+                    {
+                        _flags |= PropertyFlag.Enumerable;
+                    }
+                }
+            }
+        }
+
+        public bool? Writable
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => (_flags & PropertyFlag.WritableSet) != 0 ? (_flags & PropertyFlag.Writable) != 0 : (bool?) null;
+            set
+            {
+                _flags &= ~(PropertyFlag.WritableSet | PropertyFlag.Writable);
+                if (value != null)
+                {
+                    _flags |= PropertyFlag.WritableSet;
+                    if (value.Value)
+                    {
+                        _flags |= PropertyFlag.Writable;
+                    }
+                }
+            }
+        }
+
+        public bool? Configurable
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => (_flags & PropertyFlag.ConfigurableSet) != 0 ? (_flags & PropertyFlag.Configurable) != 0 : (bool?) null;
+            set
+            {
+                _flags &= ~(PropertyFlag.ConfigurableSet | PropertyFlag.Configurable);
+                if (value != null)
+                {
+                    _flags |= PropertyFlag.ConfigurableSet;
+                    if (value.Value)
+                    {
+                        _flags |= PropertyFlag.Configurable;
+                    }
+                }
+            }
+        }
+
         public virtual JsValue Value { get; set; }
 
         public static PropertyDescriptor ToPropertyDescriptor(Engine engine, JsValue o)
@@ -73,13 +110,18 @@ namespace Jint.Runtime.Descriptors
                 throw new JavaScriptException(engine.TypeError);
             }
 
+            var hasGetProperty = obj.HasProperty("get");
+            var hasSetProperty = obj.HasProperty("set");
+            
             if ((obj.HasProperty("value") || obj.HasProperty("writable")) &&
-                (obj.HasProperty("get") || obj.HasProperty("set")))
+                (hasGetProperty || hasSetProperty))
             {
                 throw new JavaScriptException(engine.TypeError);
             }
 
-            var desc = new PropertyDescriptor();
+            var desc = hasGetProperty || hasSetProperty
+                ? new GetSetPropertyDescriptor(null, null, null, null)
+                : new PropertyDescriptor();
 
             if (obj.HasProperty("enumerable"))
             {
@@ -102,24 +144,26 @@ namespace Jint.Runtime.Descriptors
                 desc.Writable = TypeConverter.ToBoolean(obj.Get("writable"));
             }
 
-            if (obj.HasProperty("get"))
+            if (hasGetProperty)
             {
                 var getter = obj.Get("get");
                 if (getter != JsValue.Undefined && getter.TryCast<ICallable>() == null)
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
-                desc.Get = getter;
+
+                ((GetSetPropertyDescriptor) desc).SetGet(getter);
             }
 
-            if (obj.HasProperty("set"))
+            if (hasSetProperty)
             {
                 var setter = obj.Get("set");
                 if (setter != Native.Undefined.Instance && setter.TryCast<ICallable>() == null)
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
-                desc.Set = setter;
+
+                ((GetSetPropertyDescriptor) desc).SetSet(setter);
             }
 
             if (desc.Get != null || desc.Get != null)

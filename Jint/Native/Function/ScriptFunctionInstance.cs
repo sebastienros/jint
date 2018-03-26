@@ -55,8 +55,8 @@ namespace Jint.Native.Function
             if (strict)
             {
                 var thrower = engine.Function.ThrowTypeError;
-                DefineOwnProperty("caller", new PropertyDescriptor(thrower, thrower, false, false), false);
-                DefineOwnProperty("arguments", new PropertyDescriptor(thrower, thrower, false, false), false);
+                DefineOwnProperty("caller", new GetSetPropertyDescriptor(thrower, thrower, false, false), false);
+                DefineOwnProperty("arguments", new GetSetPropertyDescriptor(thrower, thrower, false, false), false);
             }
         }
 

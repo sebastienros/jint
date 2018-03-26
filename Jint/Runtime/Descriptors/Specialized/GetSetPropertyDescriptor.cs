@@ -1,0 +1,37 @@
+﻿using Jint.Native;
+
+namespace Jint.Runtime.Descriptors.Specialized
+{
+    public sealed class GetSetPropertyDescriptor : PropertyDescriptor
+    {
+        private JsValue _get;
+        private JsValue _set;
+
+        public GetSetPropertyDescriptor(JsValue get, JsValue set, bool? enumerable = null, bool? configurable = null)
+        {
+            _get = get;
+            _set = set;
+            Enumerable = enumerable;
+            Configurable = configurable;
+        }
+
+        public GetSetPropertyDescriptor(IPropertyDescriptor descriptor) : base(descriptor)
+        {
+            _get = descriptor.Get;
+            _set = descriptor.Set;
+        }
+
+        public override JsValue Get => _get;
+        public override JsValue Set => _set;
+
+        internal void SetGet(JsValue getter)
+        {
+            _get = getter;
+        }
+        
+        internal void SetSet(JsValue setter)
+        {
+            _set = setter;
+        }
+    }
+}

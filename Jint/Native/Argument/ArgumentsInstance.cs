@@ -93,8 +93,8 @@ namespace Jint.Native.Argument
             else
             {
                 var thrower = Engine.Function.ThrowTypeError;
-                self.DefineOwnProperty("caller", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
-                self.DefineOwnProperty("callee", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
+                self.DefineOwnProperty("caller", new GetSetPropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
+                self.DefineOwnProperty("callee", new GetSetPropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
             }
         }
 

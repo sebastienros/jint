@@ -1,9 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
+
 using PropertyDescriptor = Jint.Runtime.Descriptors.PropertyDescriptor;
 using TypeConverter = Jint.Runtime.TypeConverter;
 
@@ -130,22 +132,7 @@ namespace Jint.Native.Array
                     return false;
                 }
 
-                int count = 0;
-                if (_dense != null)
-                {
-                    for (int i = 0; i < _dense.Length; ++i)
-                    {
-                        if (_dense[i] != null)
-                        {
-                            count++;
-                        }
-                    }
-                }
-                else
-                {
-                    count = _sparse.Count;
-                }
-
+                var count = _dense?.Length ?? _sparse.Count;
                 if (count < oldLen - newLen)
                 {
                     if (_dense != null)
@@ -160,7 +147,7 @@ namespace Jint.Native.Array
                             // is it the index of the array
                             if (keyIndex >= newLen && keyIndex < oldLen)
                             {
-                                var deleteSucceeded = Delete(TypeConverter.ToString(keyIndex), false);
+                                var deleteSucceeded = DeleteAt(keyIndex);
                                 if (!deleteSucceeded)
                                 {
                                     newLenDesc.Value = keyIndex + 1;
@@ -190,7 +177,7 @@ namespace Jint.Native.Array
                         for (var i = 0; i < keysCount; i++)
                         {
                             var keyIndex = keys[i];
-                            
+
                             // is it the index of the array
                             if (keyIndex >= newLen && keyIndex < oldLen)
                             {
@@ -287,7 +274,7 @@ namespace Jint.Native.Array
 
         public uint GetLength()
         {
-            return TypeConverter.ToUint32(_length.Value);
+            return (uint) ((JsNumber) _length.Value)._value;
         }
 
         protected override void AddProperty(string propertyName, IPropertyDescriptor descriptor)
@@ -297,6 +284,7 @@ namespace Jint.Native.Array
                 _length = descriptor;
                 return;
             }
+
             base.AddProperty(propertyName, descriptor);
         }
 
@@ -307,6 +295,7 @@ namespace Jint.Native.Array
                 descriptor = _length;
                 return _length != null;
             }
+
             return base.TryGetProperty(propertyName, out descriptor);
         }
 
@@ -319,7 +308,8 @@ namespace Jint.Native.Array
 
             if (_dense != null)
             {
-                for (var i = 0; i < _dense.Length; i++)
+                var length = System.Math.Min(_dense.Length, GetLength());
+                for (var i = 0; i < length; i++)
                 {
                     if (_dense[i] != null)
                     {
@@ -383,7 +373,7 @@ namespace Jint.Native.Array
             {
                 return index < GetLength()
                        && (_sparse == null || _sparse.ContainsKey(index))
-                       && (_dense == null || _dense[index] != null);
+                       && (_dense == null || (index < _dense.Length && _dense[index] != null));
             }
 
             if (p == PropertyNameLength)
@@ -396,8 +386,7 @@ namespace Jint.Native.Array
 
         public override void RemoveOwnProperty(string p)
         {
-            uint index;
-            if (IsArrayIndex(p, out index))
+            if (IsArrayIndex(p, out var index))
             {
                 DeleteAt(index);
             }
@@ -515,19 +504,22 @@ namespace Jint.Native.Array
             return false;
         }
 
-        internal void DeleteAt(uint index)
+        internal bool DeleteAt(uint index)
         {
             if (_dense != null)
             {
                 if (index < _dense.Length)
                 {
                     _dense[index] = null;
+                    return true;
                 }
             }
             else
             {
-                _sparse.Remove(index);
+                return _sparse.Remove(index);
             }
+
+            return false;
         }
 
         private bool TryGetDescriptor(uint index, out IPropertyDescriptor descriptor)
@@ -547,6 +539,7 @@ namespace Jint.Native.Array
             return _sparse.TryGetValue(index, out descriptor);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void WriteArrayValue(uint index, IPropertyDescriptor desc)
         {
             // calculate eagerly so we know if we outgrow
@@ -572,23 +565,28 @@ namespace Jint.Native.Array
             {
                 if (_dense != null)
                 {
-                    _sparse = new Dictionary<uint, IPropertyDescriptor>(_dense.Length <= 1024 ? _dense.Length : 0);
-                    // need to move data
-                    for (uint i = 0; i < _dense.Length; ++i)
-                    {
-                        if (_dense[i] != null)
-                        {
-                            _sparse[i] = _dense[i];
-                        }
-                    }
-
-                    _dense = null;
+                    ConvertToSparse();
                 }
-
                 _sparse[index] = desc;
             }
         }
 
+        private void ConvertToSparse()
+        {
+            _sparse = new Dictionary<uint, IPropertyDescriptor>(_dense.Length <= 1024 ? _dense.Length : 0);
+            // need to move data
+            for (uint i = 0; i < _dense.Length; ++i)
+            {
+                if (_dense[i] != null)
+                {
+                    _sparse[i] = _dense[i];
+                }
+            }
+
+            _dense = null;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void EnsureCapacity(uint capacity)
         {
             if (capacity > _dense.Length)

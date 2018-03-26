@@ -205,10 +205,11 @@ namespace Jint.Native
                 return jsValue;
             }
 
-            var objectConvertersCount = engine.Options._ObjectConverters.Count;
-            for (var i = 0; i < objectConvertersCount; i++)
+            var converters = engine.Options._ObjectConverters;
+            var convertersCount = converters.Count;
+            for (var i = 0; i < convertersCount; i++)
             {
-                var converter = engine.Options._ObjectConverters[i];
+                var converter = converters[i];
                 if (converter.TryConvert(value, out var result))
                 {
                     return result;
@@ -233,25 +234,6 @@ namespace Jint.Native
 
             if (value is System.Array a)
             {
-                JsValue Convert(Engine e, object v)
-                {
-                    var array = (System.Array) v;
-                    var arrayLength = (uint) array.Length;
-
-                    var jsArray = new ArrayInstance(e, arrayLength);
-                    jsArray.Prototype = e.Array.PrototypeObject;
-                    jsArray.Extensible = true;
-                    
-                    for (uint i = 0; i < arrayLength; ++i)
-                    {
-                        var jsItem = FromObject(e, array.GetValue(i));
-                        jsArray.WriteArrayValue(i, new ConfigurableEnumerableWritablePropertyDescriptor(jsItem));
-                    }
-                    jsArray.SetOwnProperty("length", new WritablePropertyDescriptor(arrayLength));
-
-                    return jsArray;
-                }
-
                 // racy, we don't care, worst case we'll catch up later
                 Interlocked.CompareExchange(ref Engine.TypeMappers, new Dictionary<Type, Func<Engine, object, JsValue>>(typeMappers)
                 {
@@ -273,6 +255,26 @@ namespace Jint.Native
 
             // if no known type could be guessed, wrap it as an ObjectInstance
             return new ObjectWrapper(engine, value);
+        }
+
+        private static JsValue Convert(Engine e, object v)
+        {
+            var array = (System.Array) v;
+            var arrayLength = (uint) array.Length;
+
+            var jsArray = new ArrayInstance(e, arrayLength);
+            jsArray.Prototype = e.Array.PrototypeObject;
+            jsArray.Extensible = true;
+
+            for (uint i = 0; i < arrayLength; ++i)
+            {
+                var jsItem = FromObject(e, array.GetValue(i));
+                jsArray.WriteArrayValue(i, new ConfigurableEnumerableWritablePropertyDescriptor(jsItem));
+            }
+
+            jsArray.SetOwnProperty("length", new WritablePropertyDescriptor(arrayLength));
+
+            return jsArray;
         }
 
         /// <summary>
