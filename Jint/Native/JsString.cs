@@ -168,12 +168,7 @@ namespace Jint.Native
             [Pure]
             public override object ToObject()
             {
-                if (_dirty)
-                {
-                    _value = _stringBuilder.ToString();
-                    _dirty = false;
-                }
-                return _value;
+                return AsString();
             }
 
             public override JsString Append(JsValue jsValue)
