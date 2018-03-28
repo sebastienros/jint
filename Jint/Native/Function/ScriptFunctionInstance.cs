@@ -16,6 +16,7 @@ namespace Jint.Native.Function
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
         private const string PropertyNameName = "name";
+        private const int PropertyNameNameLength = 4;
 
         private IPropertyDescriptor _name;
 
@@ -74,7 +75,7 @@ namespace Jint.Native.Function
 
         public override IPropertyDescriptor GetOwnProperty(string propertyName)
         {
-            if (propertyName == PropertyNameName)
+            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
             {
                 return _name ?? PropertyDescriptor.Undefined;
             }
@@ -84,7 +85,7 @@ namespace Jint.Native.Function
 
         protected internal override void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
         {
-            if (propertyName == PropertyNameName)
+            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
             {
                 _name = desc;
             }
@@ -96,7 +97,7 @@ namespace Jint.Native.Function
 
         public override bool HasOwnProperty(string propertyName)
         {
-            if (propertyName == PropertyNameName)
+            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
             {
                 return _name != null;
             }
@@ -106,7 +107,7 @@ namespace Jint.Native.Function
 
         public override void RemoveOwnProperty(string propertyName)
         {
-            if (propertyName == PropertyNameName)
+            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
             {
                 _name = null;
             }
@@ -236,6 +237,7 @@ namespace Jint.Native.Function
         private class ObjectInstanceWithConstructor : ObjectInstance
         {
             private const string PropertyNameConstructor = "constructor";
+            private const int PropertyNameConstructorLength = 11;
             private IPropertyDescriptor _constructor;
 
             public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine)
@@ -258,7 +260,7 @@ namespace Jint.Native.Function
 
             public override IPropertyDescriptor GetOwnProperty(string propertyName)
             {
-                if (propertyName == PropertyNameConstructor)
+                if (propertyName.Length == PropertyNameConstructorLength && propertyName == PropertyNameConstructor)
                 {
                     return _constructor ?? PropertyDescriptor.Undefined;
                 }
@@ -268,7 +270,7 @@ namespace Jint.Native.Function
 
             protected internal override void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
             {
-                if (propertyName == PropertyNameConstructor)
+                if (propertyName.Length == PropertyNameConstructorLength && propertyName == PropertyNameConstructor)
                 {
                     _constructor = desc;
                 }
@@ -280,7 +282,7 @@ namespace Jint.Native.Function
 
             public override bool HasOwnProperty(string propertyName)
             {
-                if (propertyName == PropertyNameConstructor)
+                if (propertyName.Length == PropertyNameConstructorLength && propertyName == PropertyNameConstructor)
                 {
                     return _constructor != null;
                 }
@@ -290,7 +292,7 @@ namespace Jint.Native.Function
 
             public override void RemoveOwnProperty(string propertyName)
             {
-                if (propertyName == PropertyNameConstructor)
+                if (propertyName.Length == PropertyNameConstructorLength && propertyName == PropertyNameConstructor)
                 {
                     _constructor = null;
                 }

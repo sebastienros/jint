@@ -401,7 +401,12 @@ namespace Jint.Native.Object
                 .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value)
                 .ToArray();
             var n = enumerableProperties.Length;
-            var array = Engine.Array.Construct(new JsValue[] {n}, (uint) n);
+
+            var args = _engine.JsValueArrayPool.RentArray(1);
+            args[0] = n;
+            var array = Engine.Array.Construct(args, (uint) n);
+            _engine.JsValueArrayPool.ReturnArray(args);
+
             uint index = 0;
             foreach (var prop in enumerableProperties)
             {

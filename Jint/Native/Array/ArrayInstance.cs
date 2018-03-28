@@ -14,6 +14,8 @@ namespace Jint.Native.Array
         private readonly Engine _engine;
 
         private const string PropertyNameLength = "length";
+        private const int PropertyNameLengthLength = 6;
+
         private IPropertyDescriptor _length;
 
         private const int MaxDenseArrayLength = 1024 * 10;
@@ -81,7 +83,7 @@ namespace Jint.Native.Array
             var oldLenDesc = _length;
             var oldLen = (uint) TypeConverter.ToNumber(oldLenDesc.Value);
 
-            if (propertyName == "length")
+            if (propertyName.Length == 6 && propertyName == "length")
             {
                 if (desc.Value == null)
                 {
@@ -290,7 +292,7 @@ namespace Jint.Native.Array
 
         protected override void AddProperty(string propertyName, IPropertyDescriptor descriptor)
         {
-            if (propertyName == PropertyNameLength)
+            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
             {
                 _length = descriptor;
                 return;
@@ -300,7 +302,7 @@ namespace Jint.Native.Array
 
         protected override bool TryGetProperty(string propertyName, out IPropertyDescriptor descriptor)
         {
-            if (propertyName == PropertyNameLength)
+            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
             {
                 descriptor = _length;
                 return _length != null;
@@ -351,7 +353,7 @@ namespace Jint.Native.Array
                 return PropertyDescriptor.Undefined;
             }
 
-            if (propertyName == PropertyNameLength)
+            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
             {
                 return _length ?? PropertyDescriptor.Undefined;
             }
@@ -365,7 +367,7 @@ namespace Jint.Native.Array
             {
                 WriteArrayValue(index, desc);
             }
-            else if (propertyName == PropertyNameLength)
+            else if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
             {
                 _length = desc;
             }

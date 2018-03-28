@@ -825,16 +825,19 @@ namespace Jint.Runtime
 
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
 
-
-            JsValue[] arguments;
-
+            var arguments = Array.Empty<JsValue>();
             if (callExpression.Cached)
             {
                 arguments = (JsValue[]) callExpression.CachedArguments;
             }
             else
             {
-                arguments = BuildArguments(callExpression.Arguments, out bool allLiteral);
+                var allLiteral = true;
+                if (callExpression.Arguments.Count > 0)
+                {
+                    arguments = _engine.JsValueArrayPool.RentArray(callExpression.Arguments.Count);
+                    BuildArguments(callExpression.Arguments, arguments, out allLiteral);
+                }
 
                 if (callExpression.CanBeCached)
                 {
@@ -927,6 +930,11 @@ namespace Jint.Runtime
                 _engine.CallStack.Pop();
             }
 
+            if (!callExpression.Cached && arguments.Length > 0)
+            {
+                _engine.JsValueArrayPool.ReturnArray(arguments);
+            }
+
             _engine.ReferencePool.Return(r);
             return result;
         }
@@ -998,7 +1006,8 @@ namespace Jint.Runtime
 
         public JsValue EvaluateNewExpression(NewExpression newExpression)
         {
-            var arguments = BuildArguments(newExpression.Arguments, out bool _);
+            var arguments = _engine.JsValueArrayPool.RentArray(newExpression.Arguments.Count);
+            BuildArguments(newExpression.Arguments, arguments, out _);
 
             // todo: optimize by defining a common abstract class or interface
             var callee = _engine.GetValue(EvaluateExpression(newExpression.Callee), true).TryCast<IConstructor>();
@@ -1011,6 +1020,8 @@ namespace Jint.Runtime
             // construct the new instance using the Function's constructor method
             var instance = callee.Construct(arguments);
 
+            _engine.JsValueArrayPool.ReturnArray(arguments);
+
             return instance;
         }
 
@@ -1018,7 +1029,11 @@ namespace Jint.Runtime
         {
             var elements = arrayExpression.Elements;
             var count = elements.Count;
-            var a = _engine.Array.Construct(new JsValue[] {count}, (uint) count);
+            
+            var jsValues = _engine.JsValueArrayPool.RentArray(1);
+            jsValues[0] = count;
+            
+            var a = _engine.Array.Construct(jsValues, (uint) count);
             for (var n = 0; n < count; n++)
             {
                 var expr = elements[n];
@@ -1028,6 +1043,7 @@ namespace Jint.Runtime
                     a.SetIndexValue((uint) n, value, throwOnError: false);
                 }
             }
+            _engine.JsValueArrayPool.ReturnArray(jsValues);
 
             return a;
         }
@@ -1128,25 +1144,20 @@ namespace Jint.Runtime
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private JsValue[] BuildArguments(List<ArgumentListElement> expressionArguments, out bool allLiteral)
+        private void BuildArguments(
+            List<ArgumentListElement> expressionArguments, 
+            JsValue[] targetArray,
+            out bool cacheable)
         {
-            allLiteral = true;
+            cacheable = true;
             var count = expressionArguments.Count;
 
-            if (count == 0)
-            {
-                return Array.Empty<JsValue>();
-            }
-
-            var arguments = new JsValue[count];
             for (var i = 0; i < count; i++)
             {
                 var argument = (Expression) expressionArguments[i];
-                arguments[i] = _engine.GetValue(EvaluateExpression(argument), true);
-                allLiteral &= argument is Literal;
+                targetArray[i] = _engine.GetValue(EvaluateExpression(argument), true);
+                cacheable &= argument is Literal;
             }
-
-            return arguments;
         }
     }
 }

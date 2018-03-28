@@ -268,7 +268,11 @@ namespace Jint.Native.String
             }
             else if (ReferenceEquals(separator, Undefined))
             {
-                return (ArrayInstance)Engine.Array.Construct(Arguments.From(s));
+                var jsValues = Engine.JsValueArrayPool.RentArray(1);
+                jsValues[0] = s;
+                var arrayInstance = (ArrayInstance)Engine.Array.Construct(jsValues);
+                Engine.JsValueArrayPool.ReturnArray(jsValues);
+                return arrayInstance;
             }
             else
             {
@@ -581,12 +585,14 @@ namespace Jint.Native.String
                     return thisString;
                 int end = start + substr.Length;
 
-                var args = new JsValue[3];
+                var args = Engine.JsValueArrayPool.RentArray(3);
                 args[0] = substr;
                 args[1] = start;
                 args[2] = thisString;
 
                 var replaceString = TypeConverter.ToString(replaceFunction.Call(Undefined, args));
+                
+                Engine.JsValueArrayPool.ReturnArray(args);
 
                 // Replace only the first match.
                 var result = StringExecutionContext.Current.GetStringBuilder(thisString.Length + (substr.Length - substr.Length));

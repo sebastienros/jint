@@ -6,7 +6,7 @@ namespace Jint.Runtime
 {
     public static class Arguments
     {
-        public static JsValue[] Empty = new JsValue[0];
+        public static readonly JsValue[] Empty = Array.Empty<JsValue>();
 
         public static JsValue[] From(params JsValue[] o)
         {
