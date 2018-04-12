@@ -2384,5 +2384,21 @@ namespace Jint.Tests.Runtime
             var actualValue = engine.Execute(actual).GetCompletionValue().ToObject();
             Assert.Equal(expectedValue, actualValue);
         }
+	
+	[Fact]
+        public void ShouldReturnCorrectConcatenatedStrings()
+        {
+            RunTest(@"
+                function concat(x, a, b) { 
+                    x += a;
+                    x += b;
+                    return x; 
+                }");
+
+            var concat = _engine.GetValue("concat");
+            var result = concat.Invoke("concat", "well", "done").ToObject() as string;
+            Assert.Equal("concatwelldone", result);
+        }
+
     }
 }
