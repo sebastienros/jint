@@ -959,5 +959,11 @@ namespace Jint.Native.Object
 
             return false;
         }
+
+        internal void Clear()
+        {
+            _intrinsicProperties?.Clear();
+            _properties?.Clear();
+        }
     }
 }

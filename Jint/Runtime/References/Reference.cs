@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+﻿using System;
+using Jint.Native;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.References
@@ -7,17 +8,16 @@ namespace Jint.Runtime.References
     /// Represents the Reference Specification Type
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
     /// </summary>
-    public class Reference
+    public sealed class Reference
     {
-        private readonly JsValue _baseValue;
-        private readonly string _name;
-        private readonly bool _strict;
+        private JsValue _baseValue;
+        private string _name;
+        private bool _strict;
 
         public Reference(JsValue baseValue, string name, bool strict)
         {
             _baseValue = baseValue;
             _name = name;
-            _strict = strict;
         }
 
         public JsValue GetBase()
@@ -49,6 +49,15 @@ namespace Jint.Runtime.References
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
             return HasPrimitiveBase() || (_baseValue.IsObject() && !(_baseValue is EnvironmentRecord));
+        }
+
+        internal Reference Reassign(JsValue baseValue, string name, bool strict)
+        {
+            _baseValue = baseValue;
+            _name = name;
+            _strict = strict;
+
+            return this;
         }
     }
 }

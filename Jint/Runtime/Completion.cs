@@ -1,4 +1,5 @@
-﻿using Esprima;
+﻿using System;
+using Esprima;
 using Jint.Native;
 
 namespace Jint.Runtime
@@ -6,7 +7,7 @@ namespace Jint.Runtime
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.9
     /// </summary>
-    public class Completion
+    public sealed class Completion
     {
         public const string Normal = "normal";
         public const string Break = "break";
@@ -14,19 +15,22 @@ namespace Jint.Runtime
         public const string Return = "return";
         public const string Throw = "throw";
 
-        public static readonly Completion Empty = new Completion(Normal, null, null);
-        public static readonly Completion EmptyUndefined = new Completion(Normal, Undefined.Instance, null);
+        internal static readonly Completion Empty = new Completion(Normal, null, null).Freeze();
+        internal static readonly Completion EmptyUndefined = new Completion(Normal, Undefined.Instance, null).Freeze();
 
-        public Completion(string type, JsValue value, string identifier)
+        private bool _frozen;
+
+        public Completion(string type, JsValue value, string identifier, Location location = null)
         {
             Type = type;
             Value = value;
             Identifier = identifier;
+            Location = location;
         }
 
-        public string Type { get; }
-        public JsValue Value { get; }
-        public string Identifier { get; }
+        public string Type { get; private set; }
+        public JsValue Value { get; private set; }
+        public string Identifier { get; private set; }
 
         public JsValue GetValueOrDefault()
         {
@@ -38,6 +42,26 @@ namespace Jint.Runtime
             return Type != Normal;
         }
 
-        public Location Location { get; set; }
+        public Location Location { get; private set; }
+
+        private Completion Freeze()
+        {
+            _frozen = true;
+            return this;
+        }
+
+        public Completion Reassign(string type, JsValue value, string identifier, Location location = null)
+        {
+            if (_frozen)
+            {
+                throw new InvalidOperationException("object is frozen");
+            }
+            Type = type;
+            Value = value;
+            Identifier = identifier;
+            Location = location;
+
+            return this;
+        }
     }
 }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -16,14 +15,30 @@ namespace Jint.Native.Argument
     public class ArgumentsInstance : ObjectInstance
     {
         // cache key container for array iteration for less allocations
-        private static readonly ThreadLocal<List<string>> _mappedNamed = new ThreadLocal<List<string>>(() => new List<string>());
+        private static readonly ThreadLocal<HashSet<string>> _mappedNamed = new ThreadLocal<HashSet<string>>(() => new HashSet<string>());
 
-        private readonly Action<ArgumentsInstance> _initializer;
+        private FunctionInstance _func;
+        private string[] _names;
+        private JsValue[] _args;
+        private EnvironmentRecord _env;
+        private bool _strict;
+
         private bool _initialized;
 
-        private ArgumentsInstance(Engine engine, Action<ArgumentsInstance> initializer) : base(engine)
+        internal ArgumentsInstance(Engine engine) : base(engine)
         {
-            _initializer = initializer;
+        }
+
+        internal void Prepare(FunctionInstance func, string[] names, JsValue[] args, EnvironmentRecord env, bool strict)
+        {
+            Clear();
+
+            _func = func;
+            _names = names;
+            _args = args;
+            _env = env;
+            _strict = strict;
+
             _initialized = false;
         }
 
@@ -38,66 +53,49 @@ namespace Jint.Native.Argument
 
             _initialized = true;
 
-            _initializer(this);
-        }
-
-        public static ArgumentsInstance CreateArgumentsObject(Engine engine, FunctionInstance func, string[] names, JsValue[] args, EnvironmentRecord env, bool strict)
-        {
-            void Initializer(ArgumentsInstance self)
+            var self = this;
+            var len = _args.Length;
+            self.SetOwnProperty("length", new NonEnumerablePropertyDescriptor(len));
+            if (_args.Length > 0)
             {
-                var len = args.Length;
-                self.SetOwnProperty("length", new NonEnumerablePropertyDescriptor(len));
-                if (args.Length > 0)
+                var map = Engine.Object.Construct(Arguments.Empty);
+                var mappedNamed = _mappedNamed.Value;
+                mappedNamed.Clear();
+                for (var indx = 0; indx < len; indx++)
                 {
-                    var map = engine.Object.Construct(Arguments.Empty);
-                    var mappedNamed = _mappedNamed.Value;
-                    mappedNamed.Clear();
-                    for (var indx = 0; indx < len; indx++)
+                    var indxStr = TypeConverter.ToString(indx);
+                    var val = _args[indx];
+                    self.SetOwnProperty(indxStr, new ConfigurableEnumerableWritablePropertyDescriptor(val));
+                    if (indx < _names.Length)
                     {
-                        var indxStr = TypeConverter.ToString(indx);
-                        var val = args[indx];
-                        self.SetOwnProperty(indxStr, new ConfigurableEnumerableWritablePropertyDescriptor(val));
-                        if (indx < names.Length)
+                        var name = _names[indx];
+                        if (!_strict && !mappedNamed.Contains(name))
                         {
-                            var name = names[indx];
-                            if (!strict && !mappedNamed.Contains(name))
-                            {
-                                mappedNamed.Add(name);
-                                map.SetOwnProperty(indxStr, new ClrAccessDescriptor(env, engine, name));
-                            }
+                            mappedNamed.Add(name);
+                            map.SetOwnProperty(indxStr, new ClrAccessDescriptor(_env, Engine, name));
                         }
                     }
-
-                    // step 12
-                    if (mappedNamed.Count > 0)
-                    {
-                        self.ParameterMap = map;
-                    }
                 }
 
-                // step 13
-                if (!strict)
+                // step 12
+                if (mappedNamed.Count > 0)
                 {
-                    self.SetOwnProperty("callee", new NonEnumerablePropertyDescriptor(func));
-                }
-                // step 14
-                else
-                {
-                    var thrower = engine.Function.ThrowTypeError;
-                    self.DefineOwnProperty("caller", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
-                    self.DefineOwnProperty("callee", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
+                    self.ParameterMap = map;
                 }
             }
 
-            var obj = new ArgumentsInstance(engine, Initializer);
-
-            // These properties are pre-initialized as their don't trigger
-            // the EnsureInitialized() event and are cheap
-            obj.Prototype = engine.Object.PrototypeObject;
-            obj.Extensible = true;
-            obj.Strict = strict;
-
-            return obj;
+            // step 13
+            if (!_strict)
+            {
+                self.SetOwnProperty("callee", new NonEnumerablePropertyDescriptor(_func));
+            }
+            // step 14
+            else
+            {
+                var thrower = Engine.Function.ThrowTypeError;
+                self.DefineOwnProperty("caller", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
+                self.DefineOwnProperty("callee", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
+            }
         }
 
         public ObjectInstance ParameterMap { get; set; }

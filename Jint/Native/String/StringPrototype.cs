@@ -352,9 +352,10 @@ namespace Jint.Native.String
                     {
                         segments.Capacity = s.Length;
                     }
-                    foreach (var c in s)
+
+                    for (var i = 0; i < s.Length; i++)
                     {
-                        segments.Add(TypeConverter.ToString(c));
+                        segments.Add(TypeConverter.ToString(s[i]));
                     }
                 }
                 else

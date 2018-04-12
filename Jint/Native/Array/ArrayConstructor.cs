@@ -100,15 +100,17 @@ namespace Jint.Native.Array
 
                 instance.SetOwnProperty("length", new WritablePropertyDescriptor(length));
             }
-            else if (arguments.Length == 1 && arguments.At(0).IsObject() && arguments.At(0).As<ObjectWrapper>() != null )
+            else if (arguments.Length == 1 && arguments[0] is ObjectWrapper objectWrapper)
             {
-                if (arguments.At(0).As<ObjectWrapper>().Target is IEnumerable enumerable)
+                if (objectWrapper.Target is IEnumerable enumerable)
                 {
                     var jsArray = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
+                    var tempArray = new JsValue[1];
                     foreach (var item in enumerable)
                     {
-                        var jsItem = JsValue.FromObject(Engine, item);
-                        Engine.Array.PrototypeObject.Push(jsArray, Arguments.From(jsItem));
+                        var jsItem = FromObject(Engine, item);
+                        tempArray[0] = jsItem;
+                        Engine.Array.PrototypeObject.Push(jsArray, tempArray);
                     }
 
                     return jsArray;

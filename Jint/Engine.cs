@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Argument;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -17,6 +17,7 @@ using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.String;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Debugger;
@@ -49,7 +50,7 @@ namespace Jint
         // cache of types used when resolving CLR type names
         internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
 
-        internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new Dictionary<Type, Func<Engine, object, JsValue>>()
+        internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new Dictionary<Type, Func<Engine, object, JsValue>>
         {
             { typeof(bool), (Engine engine, object v) => (bool) v ? JsBoolean.True : JsBoolean.False },
             { typeof(byte), (Engine engine, object v) => JsNumber.Create((byte)v) },
@@ -151,10 +152,11 @@ namespace Jint
 
             Options = new Options();
 
-            if (options != null)
-            {
-                options(Options);
-            }
+            options?.Invoke(Options);
+
+            ReferencePool = new ReferencePool();
+            CompletionPool = new CompletionPool();
+            ArgumentsInstancePool = new ArgumentsInstancePool(this);
 
             Eval = new EvalFunctionInstance(this, System.Array.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
@@ -205,6 +207,10 @@ namespace Jint
 
         internal Options Options { get; private set; }
 
+        internal ReferencePool ReferencePool { get; }
+        internal CompletionPool CompletionPool { get; }
+        internal ArgumentsInstancePool ArgumentsInstancePool { get; }
+
         #region Debugger
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
         public delegate StepMode BreakDelegate(object sender, DebugInformation e);
@@ -215,20 +221,12 @@ namespace Jint
 
         internal StepMode? InvokeStepEvent(DebugInformation info)
         {
-            if (Step != null)
-            {
-                return Step(this, info);
-            }
-            return null;
+            return Step?.Invoke(this, info);
         }
 
         internal StepMode? InvokeBreakEvent(DebugInformation info)
         {
-            if (Break != null)
-            {
-                return Break(this, info);
-            }
-            return null;
+            return Break?.Invoke(this, info);
         }
         #endregion
 
@@ -277,7 +275,7 @@ namespace Jint
             return this;
         }
 
-        public Engine SetValue(string name, Object obj)
+        public Engine SetValue(string name, object obj)
         {
             return SetValue(name, JsValue.FromObject(this, obj));
         }
@@ -334,11 +332,13 @@ namespace Jint
                 var result = _statements.ExecuteProgram(program);
                 if (result.Type == Completion.Throw)
                 {
-                    throw new JavaScriptException(result.GetValueOrDefault())
-                        .SetCallstack(this, result.Location);
+                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                    CompletionPool.Return(result);
+                    throw ex;
                 }
 
                 _completionValue = result.GetValueOrDefault();
+                CompletionPool.Return(result);
             }
 
             return this;
@@ -503,12 +503,19 @@ namespace Jint
             }
         }
 
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.1
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
         public JsValue GetValue(object value)
+        {
+            return GetValue(value, false);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal JsValue GetValue(object value, bool returnReferenceToPool)
         {
             if (value is JsValue jsValue)
             {
@@ -520,7 +527,7 @@ namespace Jint
             {
                 if (value is Completion completion)
                 {
-                    return GetValue(completion.Value);
+                    return GetValue(completion.Value, returnReferenceToPool);
                 }
             }
 
@@ -544,15 +551,21 @@ namespace Jint
                     return baseValue;
                 }
 
+                var referencedName = reference.GetReferencedName();
+                if (returnReferenceToPool)
+                {
+                    ReferencePool.Return(reference);
+                }
                 if (reference.HasPrimitiveBase() == false)
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
-                    return o.Get(reference.GetReferencedName());
+                    var v = o.Get(referencedName);
+                    return v;
                 }
                 else
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
-                    var desc = o.GetProperty(reference.GetReferencedName());
+                    var desc = o.GetProperty(referencedName);
                     if (desc == PropertyDescriptor.Undefined)
                     {
                         return JsValue.Undefined;
@@ -580,7 +593,14 @@ namespace Jint
                 throw new ArgumentException();
             }
 
-            return record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
+            var bindingValue = record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
+
+            if (returnReferenceToPool)
+            {
+                ReferencePool.Return(reference);
+            }
+
+            return bindingValue;
         }
 
         /// <summary>
@@ -614,7 +634,7 @@ namespace Jint
             else
             {
                 var baseValue = reference.GetBase();
-                var record = baseValue.As<EnvironmentRecord>();
+                var record = baseValue as EnvironmentRecord;
 
                 if (record == null)
                 {
@@ -757,18 +777,20 @@ namespace Jint
         /// <param name="propertyName">The name of the property to return.</param>
         public JsValue GetValue(JsValue scope, string propertyName)
         {
-            if (System.String.IsNullOrEmpty(propertyName))
+            if (string.IsNullOrEmpty(propertyName))
             {
                 throw new ArgumentException("propertyName");
             }
 
-            var reference = new Reference(scope, propertyName, Options._IsStrict);
+            var reference = ReferencePool.Rent(scope, propertyName, Options._IsStrict);
+            var jsValue = GetValue(reference);
+            ReferencePool.Return(reference);
 
-            return GetValue(reference);
+            return jsValue;
         }
 
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
-        public void DeclarationBindingInstantiation(
+        internal bool DeclarationBindingInstantiation(
             DeclarationBindingType declarationBindingType,
             IList<FunctionDeclaration> functionDeclarations,
             IList<VariableDeclaration> variableDeclarations,
@@ -791,7 +813,7 @@ namespace Jint
                     var argAlreadyDeclared = env.HasBinding(argName);
                     if (!argAlreadyDeclared)
                     {
-                        env.CreateMutableBinding(argName);
+                        env.CreateMutableBinding(argName, v);
                     }
 
                     env.SetMutableBinding(argName, v, strict);
@@ -837,11 +859,11 @@ namespace Jint
                 env.SetMutableBinding(fn, fo, strict);
             }
 
-            var argumentsAlreadyDeclared = env.HasBinding("arguments");
-
-            if (declarationBindingType == DeclarationBindingType.FunctionCode && !argumentsAlreadyDeclared)
+            bool canReleaseArgumentsInstance = false;
+            if (declarationBindingType == DeclarationBindingType.FunctionCode && !env.HasBinding("arguments"))
             {
-                var argsObj = ArgumentsInstance.CreateArgumentsObject(this, functionInstance, functionInstance.FormalParameters, arguments, env, strict);
+                var argsObj = ArgumentsInstancePool.Rent(functionInstance, functionInstance.FormalParameters, arguments, env, strict);
+                canReleaseArgumentsInstance = true;
 
                 if (strict)
                 {
@@ -852,32 +874,33 @@ namespace Jint
                         throw new ArgumentException();
                     }
 
-                    declEnv.CreateImmutableBinding("arguments");
-                    declEnv.InitializeImmutableBinding("arguments", argsObj);
+                    declEnv.CreateImmutableBinding("arguments", argsObj);
                 }
                 else
                 {
-                    env.CreateMutableBinding("arguments");
-                    env.SetMutableBinding("arguments", argsObj, false);
+                    env.CreateMutableBinding("arguments", argsObj);
                 }
             }
 
             // process all variable declarations in the current parser scope
-            for (var i = 0; i < variableDeclarations.Count; i++)
+            var variableDeclarationsCount = variableDeclarations.Count;
+            for (var i = 0; i < variableDeclarationsCount; i++)
             {
                 var variableDeclaration = variableDeclarations[i];
-                var declarations  = variableDeclaration.Declarations;
-                foreach (var d in declarations)
+                var declarationsCount = variableDeclaration.Declarations.Count;
+                for (var j = 0; j < declarationsCount; j++)
                 {
+                    var d = variableDeclaration.Declarations[j];
                     var dn = d.Id.As<Identifier>().Name;
                     var varAlreadyDeclared = env.HasBinding(dn);
                     if (!varAlreadyDeclared)
                     {
-                        env.CreateMutableBinding(dn, configurableBindings);
-                        env.SetMutableBinding(dn, Undefined.Instance, strict);
+                        env.CreateMutableBinding(dn, Undefined.Instance);
                     }
                 }
             }
+
+            return canReleaseArgumentsInstance;
         }
     }
 }
