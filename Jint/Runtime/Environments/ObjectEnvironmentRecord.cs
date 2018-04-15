@@ -3,7 +3,6 @@ using System.Linq;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime.Environments
 {
@@ -35,8 +34,8 @@ namespace Jint.Runtime.Environments
         public override void CreateMutableBinding(string name, JsValue value, bool configurable = true)
         {
             var propertyDescriptor = configurable
-                ? (IPropertyDescriptor) new ConfigurableEnumerableWritablePropertyDescriptor(value)
-                : new NonConfigurablePropertyDescriptor(value);
+                ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable)
+                : new PropertyDescriptor(value, PropertyFlag.NonConfigurable);
 
             _bindingObject.SetOwnProperty(name, propertyDescriptor);
         }

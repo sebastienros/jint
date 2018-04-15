@@ -14,7 +14,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             _set = set;
         }
 
-        public GetSetPropertyDescriptor(IPropertyDescriptor descriptor) : base(descriptor)
+        public GetSetPropertyDescriptor(PropertyDescriptor descriptor) : base(descriptor)
         {
             _get = descriptor.Get;
             _set = descriptor.Set;

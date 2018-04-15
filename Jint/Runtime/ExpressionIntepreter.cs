@@ -664,7 +664,7 @@ namespace Jint.Runtime
                 var property = objectExpression.Properties[i];
                 var propName = property.Key.GetKey();
                 var previous = obj.GetOwnProperty(propName);
-                IPropertyDescriptor propDesc;
+                PropertyDescriptor propDesc;
 
                 switch (property.Kind)
                 {
@@ -672,7 +672,7 @@ namespace Jint.Runtime
                     case PropertyKind.Data:
                         var exprValue = _engine.EvaluateExpression(property.Value.As<Expression>());
                         var propValue = _engine.GetValue(exprValue, true);
-                        propDesc = new ConfigurableEnumerableWritablePropertyDescriptor(propValue);
+                        propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
                         break;
 
                     case PropertyKind.Get:

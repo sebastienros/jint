@@ -2,7 +2,6 @@
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Native.String
 {
@@ -11,7 +10,7 @@ namespace Jint.Native.String
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
 
-        private IPropertyDescriptor _length;
+        private PropertyDescriptor _length;
 
         public StringInstance(Engine engine)
             : base(engine)
@@ -37,7 +36,7 @@ namespace Jint.Native.String
             return false;
         }
 
-        public override IPropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
             if (propertyName.Length == 8 && propertyName == "Infinity")
             {
@@ -74,14 +73,14 @@ namespace Jint.Native.String
             }
 
             var resultStr = TypeConverter.ToString(str.AsString()[index]);
-            return new EnumerablePropertyDescriptor(resultStr);
+            return new PropertyDescriptor(resultStr, PropertyFlag.OnlyEnumerable);
         }
 
-        public override IEnumerable<KeyValuePair<string, IPropertyDescriptor>> GetOwnProperties()
+        public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {
             if (_length != null)
             {
-                yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNameLength, _length);
+                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameLength, _length);
             }
 
             foreach (var entry in base.GetOwnProperties())
@@ -90,7 +89,7 @@ namespace Jint.Native.String
             }
         }
 
-        protected internal override void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
+        protected internal override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
         {
             if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
             {

@@ -18,7 +18,7 @@ namespace Jint.Native.Function
         private const string PropertyNameName = "name";
         private const int PropertyNameNameLength = 4;
 
-        private IPropertyDescriptor _name;
+        private PropertyDescriptor _name;
 
         private readonly IFunction _functionDeclaration;
 
@@ -37,7 +37,7 @@ namespace Jint.Native.Function
             Extensible = true;
             Prototype = engine.Function.PrototypeObject;
 
-            DefineOwnProperty("length", new AllForbiddenPropertyDescriptor(JsNumber.Create(FormalParameters.Length)), false);
+            DefineOwnProperty("length", new PropertyDescriptor(JsNumber.Create(FormalParameters.Length), PropertyFlag.AllForbidden), false);
 
             var proto = new ObjectInstanceWithConstructor(engine, this)
             {
@@ -45,11 +45,11 @@ namespace Jint.Native.Function
                 Prototype = Engine.Object.PrototypeObject
             };
 
-            SetOwnProperty("prototype", new WritablePropertyDescriptor(proto));
+            SetOwnProperty("prototype", new PropertyDescriptor(proto, PropertyFlag.OnlyWritable));
 
             if (_functionDeclaration.Id != null)
             {
-                _name = new NullConfigurationPropertyDescriptor(_functionDeclaration.Id.Name);
+                _name = new PropertyDescriptor(_functionDeclaration.Id.Name, PropertyFlag.None);
             }
 
             if (strict)
@@ -60,11 +60,11 @@ namespace Jint.Native.Function
             }
         }
 
-        public override IEnumerable<KeyValuePair<string, IPropertyDescriptor>> GetOwnProperties()
+        public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {
             if (_name != null)
             {
-                yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNameName, _name);
+                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameName, _name);
             }
 
             foreach (var entry in base.GetOwnProperties())
@@ -73,7 +73,7 @@ namespace Jint.Native.Function
             }
         }
 
-        public override IPropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
             if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
             {
@@ -83,7 +83,7 @@ namespace Jint.Native.Function
             return base.GetOwnProperty(propertyName);
         }
 
-        protected internal override void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
+        protected internal override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
         {
             if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
             {
@@ -238,18 +238,18 @@ namespace Jint.Native.Function
         {
             private const string PropertyNameConstructor = "constructor";
             private const int PropertyNameConstructorLength = 11;
-            private IPropertyDescriptor _constructor;
+            private PropertyDescriptor _constructor;
 
             public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine)
             {
-                _constructor = new NonEnumerablePropertyDescriptor(thisObj);
+                _constructor = new PropertyDescriptor(thisObj, PropertyFlag.NonEnumerable);
             }
 
-            public override IEnumerable<KeyValuePair<string, IPropertyDescriptor>> GetOwnProperties()
+            public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
             {
                 if (_constructor != null)
                 {
-                    yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNameConstructor, _constructor);
+                    yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameConstructor, _constructor);
                 }
 
                 foreach (var entry in base.GetOwnProperties())
@@ -258,7 +258,7 @@ namespace Jint.Native.Function
                 }
             }
 
-            public override IPropertyDescriptor GetOwnProperty(string propertyName)
+            public override PropertyDescriptor GetOwnProperty(string propertyName)
             {
                 if (propertyName.Length == PropertyNameConstructorLength && propertyName == PropertyNameConstructor)
                 {
@@ -268,7 +268,7 @@ namespace Jint.Native.Function
                 return base.GetOwnProperty(propertyName);
             }
 
-            protected internal override void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
+            protected internal override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
             {
                 if (propertyName.Length == PropertyNameConstructorLength && propertyName == PropertyNameConstructor)
                 {

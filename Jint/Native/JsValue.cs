@@ -8,7 +8,7 @@ using Jint.Native.Date;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native
@@ -269,10 +269,10 @@ namespace Jint.Native
             for (uint i = 0; i < arrayLength; ++i)
             {
                 var jsItem = FromObject(e, array.GetValue(i));
-                jsArray.WriteArrayValue(i, new ConfigurableEnumerableWritablePropertyDescriptor(jsItem));
+                jsArray.WriteArrayValue(i, new PropertyDescriptor(jsItem, PropertyFlag.ConfigurableEnumerableWritable));
             }
 
-            jsArray.SetOwnProperty("length", new WritablePropertyDescriptor(arrayLength));
+            jsArray.SetOwnProperty("length", new PropertyDescriptor(arrayLength, PropertyFlag.OnlyWritable));
 
             return jsArray;
         }

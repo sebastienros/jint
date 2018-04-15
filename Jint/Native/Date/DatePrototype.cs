@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Date
@@ -25,7 +25,7 @@ namespace Jint.Native.Date
                 PrimitiveValue = double.NaN
             };
 
-            obj.SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(dateConstructor));
+            obj.SetOwnProperty("constructor", new PropertyDescriptor(dateConstructor, PropertyFlag.NonEnumerable));
 
             return obj;
         }

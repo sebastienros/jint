@@ -4,7 +4,7 @@ using Esprima;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.RegExp
 {
@@ -24,10 +24,10 @@ namespace Jint.Native.RegExp
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = RegExpPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(2));
+            obj.SetOwnProperty("length", new PropertyDescriptor(2, PropertyFlag.AllForbidden));
 
             // The initial value of RegExp.prototype is the RegExp prototype object
-            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
+            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
             return obj;
         }
@@ -158,11 +158,11 @@ namespace Jint.Native.RegExp
 
         private static void SetRegexProperties(RegExpInstance r)
         {
-            r.SetOwnProperty("global", new AllForbiddenPropertyDescriptor(r.Global));
-            r.SetOwnProperty("ignoreCase", new AllForbiddenPropertyDescriptor(r.IgnoreCase));
-            r.SetOwnProperty("multiline", new AllForbiddenPropertyDescriptor(r.Multiline));
-            r.SetOwnProperty("source", new AllForbiddenPropertyDescriptor(r.Source));
-            r.SetOwnProperty("lastIndex", new WritablePropertyDescriptor(0));
+            r.SetOwnProperty("global", new PropertyDescriptor(r.Global, PropertyFlag.AllForbidden));
+            r.SetOwnProperty("ignoreCase", new PropertyDescriptor(r.IgnoreCase, PropertyFlag.AllForbidden));
+            r.SetOwnProperty("multiline", new PropertyDescriptor(r.Multiline, PropertyFlag.AllForbidden));
+            r.SetOwnProperty("source", new PropertyDescriptor(r.Source, PropertyFlag.AllForbidden));
+            r.SetOwnProperty("lastIndex", new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
         }
 
         private void AssignFlags(RegExpInstance r, string flags)

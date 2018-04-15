@@ -3,7 +3,7 @@ using System.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
@@ -25,17 +25,17 @@ namespace Jint.Native.Array
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = ArrayPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
+            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
 
             // The initial value of Array.prototype is the Array prototype object
-            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
+            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
             return obj;
         }
 
         public void Configure()
         {
-            SetOwnProperty("isArray", new NonEnumerablePropertyDescriptor(new ClrFunctionInstance(Engine, IsArray, 1)));
+            SetOwnProperty("isArray", new PropertyDescriptor(new ClrFunctionInstance(Engine, IsArray, 1), PropertyFlag.NonEnumerable));
         }
 
         private static JsValue IsArray(JsValue thisObj, JsValue[] arguments)
@@ -98,7 +98,7 @@ namespace Jint.Native.Array
                     throw new JavaScriptException(Engine.RangeError, "Invalid array length");
                 }
 
-                instance.SetOwnProperty("length", new WritablePropertyDescriptor(length));
+                instance.SetOwnProperty("length", new PropertyDescriptor(length, PropertyFlag.OnlyWritable));
             }
             else if (arguments.Length == 1 && arguments[0] is ObjectWrapper objectWrapper)
             {
@@ -118,7 +118,7 @@ namespace Jint.Native.Array
             }
             else
             {
-                instance.SetOwnProperty("length", new WritablePropertyDescriptor(0));
+                instance.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
                 if (arguments.Length > 0)
                 {
                     PrototypeObject.Push(instance, arguments);
