@@ -815,14 +815,16 @@ namespace Jint.Runtime
         public JsValue EvaluateCallExpression(CallExpression callExpression)
         {
             var callee = EvaluateExpression(callExpression.Callee);
-
-            if (_engine.Options._IsDebugMode)
+            var options = _engine.Options;
+            var maxRecursionDepth = options._MaxRecursionDepth;
+            var debug = options._IsDebugMode;
+            
+            if (debug)
             {
                 _engine.DebugHandler.AddToDebugCallStack(callExpression);
             }
 
             JsValue thisObject;
-
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
 
             var arguments = Array.Empty<JsValue>();
@@ -858,13 +860,13 @@ namespace Jint.Runtime
 
             var r = callee as Reference;
 
-            if (_engine.Options._MaxRecursionDepth >= 0)
+            if (maxRecursionDepth >= 0)
             {
                 var stackItem = new CallStackElement(callExpression, func, r != null ? r.GetReferencedName() : "anonymous function");
 
                 var recursionDepth = _engine.CallStack.Push(stackItem);
 
-                if (recursionDepth > _engine.Options._MaxRecursionDepth)
+                if (recursionDepth > maxRecursionDepth)
                 {
                     _engine.CallStack.Pop();
                     throw new RecursionDepthOverflowException(_engine.CallStack, stackItem.ToString());
@@ -879,8 +881,8 @@ namespace Jint.Runtime
             if (!func.IsObject())
             {
 
-                if (_engine.Options._ReferenceResolver == null ||
-                    !_engine.Options._ReferenceResolver.TryGetCallable(_engine, callee, out func))
+                if (options._ReferenceResolver == null ||
+                    !options._ReferenceResolver.TryGetCallable(_engine, callee, out func))
                 {
                     throw new JavaScriptException(_engine.TypeError,
                         r == null ? "" : string.Format("Property '{0}' of object is not a function", r.GetReferencedName()));
@@ -920,12 +922,12 @@ namespace Jint.Runtime
 
             var result = callable.Call(thisObject, arguments);
 
-            if (_engine.Options._IsDebugMode)
+            if (debug)
             {
                 _engine.DebugHandler.PopDebugCallStack();
             }
 
-            if (_engine.Options._MaxRecursionDepth >= 0)
+            if (maxRecursionDepth >= 0)
             {
                 _engine.CallStack.Pop();
             }

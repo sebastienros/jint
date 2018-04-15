@@ -197,7 +197,7 @@ namespace Jint.Native.Argument
                             map.Put(propertyName, desc.Value, throwOnError);
                         }
 
-                        if (desc.Writable.HasValue && desc.Writable.Value == false)
+                        if (desc.WritableSet && !desc.Writable)
                         {
                             map.Delete(propertyName, false);
                         }

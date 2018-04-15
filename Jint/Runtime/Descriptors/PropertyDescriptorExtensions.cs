@@ -15,7 +15,7 @@ namespace Jint.Runtime.Descriptors
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsDataDescriptor(this IPropertyDescriptor descriptor)
         {
-            return descriptor.Writable.HasValue || descriptor.Value != null;
+            return descriptor.WritableSet || descriptor.Value != null;
         }
 
         /// <summary>

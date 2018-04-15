@@ -317,7 +317,7 @@ namespace Jint.Native.Json
             _indent += _gap;
 
             var k = _propertyList ?? value.GetOwnProperties()
-                .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value == true)
+                .Where(x => x.Value.Enumerable)
                 .Select(x => x.Key)
                 .ToList();
 

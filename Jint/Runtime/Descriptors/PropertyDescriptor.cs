@@ -30,72 +30,141 @@ namespace Jint.Runtime.Descriptors
         public PropertyDescriptor(JsValue value, bool? writable, bool? enumerable, bool? configurable)
         {
             Value = value;
-            Writable = writable;
-            Enumerable = enumerable;
-            Configurable = configurable;
+
+            Writable = writable.GetValueOrDefault();
+            WritableSet = writable != null;
+
+            Enumerable = enumerable.GetValueOrDefault();
+            EnumerableSet = enumerable != null;
+
+            Configurable = configurable.GetValueOrDefault();
+            ConfigurableSet = configurable != null;
         }
 
         public PropertyDescriptor(IPropertyDescriptor descriptor)
         {
             Value = descriptor.Value;
+
             Enumerable = descriptor.Enumerable;
+            EnumerableSet = descriptor.EnumerableSet;
+            
             Configurable = descriptor.Configurable;
+            ConfigurableSet = descriptor.ConfigurableSet;
+
             Writable = descriptor.Writable;
+            WritableSet = descriptor.WritableSet;
         }
 
         public virtual JsValue Get => null;
         public virtual JsValue Set => null;
 
-        public bool? Enumerable
+        public bool Enumerable
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (_flags & PropertyFlag.EnumerableSet) != 0 ? (_flags & PropertyFlag.Enumerable) != 0 : (bool?) null;
+            get => (_flags & PropertyFlag.Enumerable) != 0;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
-                _flags &= ~(PropertyFlag.EnumerableSet | PropertyFlag.Enumerable);
-                if (value != null)
+                _flags |= PropertyFlag.EnumerableSet;
+                if (value)
+                {
+                    _flags |= PropertyFlag.Enumerable;
+                }
+                else
+                {
+                    _flags &= ~(PropertyFlag.Enumerable);
+                }
+            }
+        }
+                
+        public bool EnumerableSet
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => (_flags & (PropertyFlag.EnumerableSet | PropertyFlag.Enumerable)) != 0;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private set
+            {
+                if (value)
                 {
                     _flags |= PropertyFlag.EnumerableSet;
-                    if (value.Value)
-                    {
-                        _flags |= PropertyFlag.Enumerable;
-                    }
+                }
+                else
+                {
+                    _flags &= ~(PropertyFlag.EnumerableSet);
                 }
             }
         }
 
-        public bool? Writable
+        public bool Writable
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (_flags & PropertyFlag.WritableSet) != 0 ? (_flags & PropertyFlag.Writable) != 0 : (bool?) null;
+            get => (_flags & PropertyFlag.Writable) != 0;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
-                _flags &= ~(PropertyFlag.WritableSet | PropertyFlag.Writable);
-                if (value != null)
+                _flags |= PropertyFlag.WritableSet;
+                if (value)
+                {
+                    _flags |= PropertyFlag.Writable;
+                }
+                else
+                {
+                    _flags &= ~(PropertyFlag.Writable);
+                }
+            }
+        }
+
+        public bool WritableSet
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private set
+            {
+                if (value)
                 {
                     _flags |= PropertyFlag.WritableSet;
-                    if (value.Value)
-                    {
-                        _flags |= PropertyFlag.Writable;
-                    }
+                }
+                else
+                {
+                    _flags &= ~(PropertyFlag.WritableSet);
                 }
             }
         }
 
-        public bool? Configurable
+        public bool Configurable
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (_flags & PropertyFlag.ConfigurableSet) != 0 ? (_flags & PropertyFlag.Configurable) != 0 : (bool?) null;
+            get => (_flags & PropertyFlag.Configurable) != 0;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
-                _flags &= ~(PropertyFlag.ConfigurableSet | PropertyFlag.Configurable);
-                if (value != null)
+                _flags |= PropertyFlag.ConfigurableSet;
+                if (value)
+                {
+                    _flags |= PropertyFlag.Configurable;
+                }
+                else
+                {
+                    _flags &= ~(PropertyFlag.Configurable);
+                }
+            }
+        }
+        
+        public bool ConfigurableSet
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => (_flags & (PropertyFlag.ConfigurableSet | PropertyFlag.Configurable)) != 0;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private set
+            {
+                if (value)
                 {
                     _flags |= PropertyFlag.ConfigurableSet;
-                    if (value.Value)
-                    {
-                        _flags |= PropertyFlag.Configurable;
-                    }
+                }
+                else
+                {
+                    _flags &= ~(PropertyFlag.ConfigurableSet);
                 }
             }
         }
@@ -110,8 +179,10 @@ namespace Jint.Runtime.Descriptors
                 throw new JavaScriptException(engine.TypeError);
             }
 
-            var hasGetProperty = obj.HasProperty("get");
-            var hasSetProperty = obj.HasProperty("set");
+            var getProperty = obj.GetProperty("get");
+            var hasGetProperty = getProperty != Undefined;
+            var setProperty = obj.GetProperty("set");
+            var hasSetProperty = setProperty != Undefined;
             
             if ((obj.HasProperty("value") || obj.HasProperty("writable")) &&
                 (hasGetProperty || hasSetProperty))
@@ -123,30 +194,36 @@ namespace Jint.Runtime.Descriptors
                 ? new GetSetPropertyDescriptor(null, null, null, null)
                 : new PropertyDescriptor();
 
-            if (obj.HasProperty("enumerable"))
+            var enumerableProperty = obj.GetProperty("enumerable");
+            if (enumerableProperty != Undefined)
             {
-                desc.Enumerable = TypeConverter.ToBoolean(obj.Get("enumerable"));
+                desc.Enumerable = TypeConverter.ToBoolean(obj.UnwrapJsValue(enumerableProperty));
+                desc.EnumerableSet = true;
             }
 
-            if (obj.HasProperty("configurable"))
+            var configurableProperty = obj.GetProperty("configurable");
+            if (configurableProperty != Undefined)
             {
-                desc.Configurable = TypeConverter.ToBoolean(obj.Get("configurable"));
+                desc.Configurable = TypeConverter.ToBoolean(obj.UnwrapJsValue(configurableProperty));
+                desc.ConfigurableSet = true;
             }
 
-            if (obj.HasProperty("value"))
+            var valueProperty = obj.GetProperty("value");
+            if (valueProperty != Undefined)
             {
-                var value = obj.Get("value");
-                desc.Value = value;
+                desc.Value = obj.UnwrapJsValue(valueProperty);
             }
 
-            if (obj.HasProperty("writable"))
+            var writableProperty = obj.GetProperty("writable");
+            if (writableProperty != Undefined)
             {
-                desc.Writable = TypeConverter.ToBoolean(obj.Get("writable"));
+                desc.Writable = TypeConverter.ToBoolean(obj.UnwrapJsValue(writableProperty));
+                desc.WritableSet = true;
             }
 
             if (hasGetProperty)
             {
-                var getter = obj.Get("get");
+                var getter = obj.UnwrapJsValue(getProperty);
                 if (getter != JsValue.Undefined && getter.TryCast<ICallable>() == null)
                 {
                     throw new JavaScriptException(engine.TypeError);
@@ -157,7 +234,7 @@ namespace Jint.Runtime.Descriptors
 
             if (hasSetProperty)
             {
-                var setter = obj.Get("set");
+                var setter = obj.UnwrapJsValue(setProperty);
                 if (setter != Native.Undefined.Instance && setter.TryCast<ICallable>() == null)
                 {
                     throw new JavaScriptException(engine.TypeError);
@@ -168,7 +245,7 @@ namespace Jint.Runtime.Descriptors
 
             if (desc.Get != null || desc.Get != null)
             {
-                if (desc.Value != null || desc.Writable.HasValue)
+                if (desc.Value != null || desc.WritableSet)
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
@@ -189,7 +266,7 @@ namespace Jint.Runtime.Descriptors
             if (desc.IsDataDescriptor())
             {
                 obj.SetOwnProperty("value", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Value != null ? desc.Value : Native.Undefined.Instance));
-                obj.SetOwnProperty("writable", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Writable.HasValue && desc.Writable.Value));
+                obj.SetOwnProperty("writable", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Writable));
             }
             else
             {
@@ -197,8 +274,8 @@ namespace Jint.Runtime.Descriptors
                 obj.SetOwnProperty("set", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Set ?? Native.Undefined.Instance));
             }
 
-            obj.SetOwnProperty("enumerable", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Enumerable.HasValue && desc.Enumerable.Value));
-            obj.SetOwnProperty("configurable", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Configurable.HasValue && desc.Configurable.Value));
+            obj.SetOwnProperty("enumerable", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Enumerable));
+            obj.SetOwnProperty("configurable", new ConfigurableEnumerableWritablePropertyDescriptor(desc.Configurable));
 
             return obj;
         }

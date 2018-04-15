@@ -8,11 +8,10 @@ namespace Jint.Runtime.Descriptors.Specialized
         private JsValue _set;
 
         public GetSetPropertyDescriptor(JsValue get, JsValue set, bool? enumerable = null, bool? configurable = null)
+        : base(null, writable: null, enumerable: enumerable, configurable: configurable)
         {
             _get = get;
             _set = set;
-            Enumerable = enumerable;
-            Configurable = configurable;
         }
 
         public GetSetPropertyDescriptor(IPropertyDescriptor descriptor) : base(descriptor)

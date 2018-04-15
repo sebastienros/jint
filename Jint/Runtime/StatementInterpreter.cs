@@ -257,7 +257,7 @@ namespace Jint.Runtime
 
 
                     var value = cursor.GetOwnProperty(p);
-                    if (!value.Enumerable.HasValue || !value.Enumerable.Value)
+                    if (!value.Enumerable)
                     {
                         continue;
                     }

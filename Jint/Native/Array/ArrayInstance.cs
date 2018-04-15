@@ -105,7 +105,7 @@ namespace Jint.Native.Array
                     return base.DefineOwnProperty("length", newLenDesc, throwOnError);
                 }
 
-                if (!oldLenDesc.Writable.Value)
+                if (!oldLenDesc.Writable)
                 {
                     if (throwOnError)
                     {
@@ -116,7 +116,7 @@ namespace Jint.Native.Array
                 }
 
                 bool newWritable;
-                if (!newLenDesc.Writable.HasValue || newLenDesc.Writable.Value)
+                if (!newLenDesc.WritableSet || newLenDesc.Writable)
                 {
                     newWritable = true;
                 }
@@ -239,7 +239,7 @@ namespace Jint.Native.Array
             }
             else if (IsArrayIndex(propertyName, out var index))
             {
-                if (index >= oldLen && !oldLenDesc.Writable.Value)
+                if (index >= oldLen && !oldLenDesc.Writable)
                 {
                     if (throwOnError)
                     {

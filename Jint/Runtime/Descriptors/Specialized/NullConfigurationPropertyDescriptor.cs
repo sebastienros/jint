@@ -15,10 +15,15 @@ namespace Jint.Runtime.Descriptors.Specialized
         public JsValue Get => null;
         public JsValue Set => null;
 
-        public bool? Enumerable => null;
-        public bool? Writable => null;
-        public bool? Configurable => null;
-
+        public bool Enumerable => false;
+        public bool EnumerableSet => false;
+        
+        public bool Writable => false;
+        public bool WritableSet => false;
+        
+        public bool Configurable => false;
+        public bool ConfigurableSet => false;
+        
         public JsValue Value { get; set; }
     }
 }

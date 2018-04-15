@@ -841,7 +841,7 @@ namespace Jint
                     {
                         var go = Global;
                         var existingProp = go.GetProperty(fn);
-                        if (existingProp.Configurable.Value)
+                        if (existingProp.Configurable)
                         {
                             go.DefineOwnProperty(fn,
                                 new PropertyDescriptor(
@@ -853,7 +853,7 @@ namespace Jint
                         }
                         else
                         {
-                            if (existingProp.IsAccessorDescriptor() || (!existingProp.Enumerable.Value))
+                            if (existingProp.IsAccessorDescriptor() || !existingProp.Enumerable)
                             {
                                 throw new JavaScriptException(TypeError);
                             }

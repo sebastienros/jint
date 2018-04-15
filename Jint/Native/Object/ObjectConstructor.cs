@@ -222,7 +222,7 @@ namespace Jint.Native.Object
             var descriptors = new List<KeyValuePair<string, PropertyDescriptor>>();
             foreach (var p in props.GetOwnProperties())
             {
-                if (!p.Value.Enumerable.HasValue || !p.Value.Enumerable.Value)
+                if (!p.Value.Enumerable)
                 {
                     continue;
                 }
@@ -252,7 +252,7 @@ namespace Jint.Native.Object
             foreach (var prop in properties)
             {
                 var propertyDescriptor = prop.Value;
-                if (propertyDescriptor.Configurable.HasValue && propertyDescriptor.Configurable.Value)
+                if (propertyDescriptor.Configurable)
                 {
                     var mutable = propertyDescriptor as PropertyDescriptor ?? new PropertyDescriptor(propertyDescriptor);
                     mutable.Configurable = false;
@@ -283,14 +283,14 @@ namespace Jint.Native.Object
                 var desc = o.GetOwnProperty(p.Key);
                 if (desc.IsDataDescriptor())
                 {
-                    if (desc.Writable.HasValue && desc.Writable.Value)
+                    if (desc.Writable)
                     {
                         var mutable = desc as PropertyDescriptor ?? new PropertyDescriptor(desc);
                         mutable.Writable = false;
                         desc = mutable;
                     }
                 }
-                if (desc.Configurable.HasValue && desc.Configurable.Value)
+                if (desc.Configurable)
                 {
                     var mutable = desc as PropertyDescriptor ?? new PropertyDescriptor(desc);
                     mutable.Configurable = false;
@@ -329,7 +329,7 @@ namespace Jint.Native.Object
 
             foreach (var prop in o.GetOwnProperties())
             {
-                if (prop.Value.Configurable.Value == true)
+                if (prop.Value.Configurable)
                 {
                     return false;
                 }
@@ -357,12 +357,12 @@ namespace Jint.Native.Object
                 var desc = pair.Value;
                 if (desc.IsDataDescriptor())
                 {
-                    if (desc.Writable.HasValue && desc.Writable.Value)
+                    if (desc.Writable)
                     {
                         return false;
                     }
                 }
-                if (desc.Configurable.HasValue && desc.Configurable.Value)
+                if (desc.Configurable)
                 {
                     return false;
                 }
@@ -398,7 +398,7 @@ namespace Jint.Native.Object
             }
 
             var enumerableProperties = o.GetOwnProperties()
-                .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value)
+                .Where(x => x.Value.Enumerable)
                 .ToArray();
             var n = enumerableProperties.Length;
 
