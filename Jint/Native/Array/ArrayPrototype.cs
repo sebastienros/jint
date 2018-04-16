@@ -175,7 +175,7 @@ namespace Jint.Native.Array
             var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
 
             uint to = 0;
-            var args = new JsValue[3];
+            var args = Engine.JsValueArrayPool.RentArray(3);
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -191,6 +191,7 @@ namespace Jint.Native.Array
                     }
                 }
             }
+            Engine.JsValueArrayPool.ReturnArray(args);
 
             return a;
         }
@@ -205,8 +206,12 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var a = Engine.Array.Construct(new JsValue[] {len}, len);
-            var args = new JsValue[3];
+            var jsValues = Engine.JsValueArrayPool.RentArray(1);
+            jsValues[0] = len;
+            var a = Engine.Array.Construct(jsValues, len);
+            Engine.JsValueArrayPool.ReturnArray(jsValues);
+            
+            var args = Engine.JsValueArrayPool.RentArray(3);
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -218,6 +223,8 @@ namespace Jint.Native.Array
                     a.SetIndexValue(k, mappedValue, throwOnError: false);
                 }
             }
+
+            Engine.JsValueArrayPool.ReturnArray(args);
 
             return a;
         }
@@ -232,7 +239,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var args = new JsValue[3];
+            var args = Engine.JsValueArrayPool.RentArray(3);
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -243,6 +250,7 @@ namespace Jint.Native.Array
                     callable.Call(thisArg, args);
                 }
             }
+            Engine.JsValueArrayPool.ReturnArray(args);
 
             return Undefined;
         }
@@ -257,7 +265,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var args = new JsValue[3];
+            var args = Engine.JsValueArrayPool.RentArray(3);
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -272,6 +280,7 @@ namespace Jint.Native.Array
                     }
                 }
             }
+            Engine.JsValueArrayPool.ReturnArray(args);
 
             return false;
         }
@@ -286,7 +295,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var args = new JsValue[3];
+            var args = Engine.JsValueArrayPool.RentArray(3);
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -301,6 +310,7 @@ namespace Jint.Native.Array
                     }
                 }
             }
+            Engine.JsValueArrayPool.ReturnArray(args);
 
             return JsBoolean.True;
         }

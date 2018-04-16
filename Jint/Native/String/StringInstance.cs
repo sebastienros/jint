@@ -9,6 +9,8 @@ namespace Jint.Native.String
     public class StringInstance : ObjectInstance, IPrimitiveInstance
     {
         private const string PropertyNameLength = "length";
+        private const int PropertyNameLengthLength = 6;
+
         private IPropertyDescriptor _length;
 
         public StringInstance(Engine engine)
@@ -37,12 +39,12 @@ namespace Jint.Native.String
 
         public override IPropertyDescriptor GetOwnProperty(string propertyName)
         {
-            if (propertyName == "Infinity")
+            if (propertyName.Length == 8 && propertyName == "Infinity")
             {
                 return PropertyDescriptor.Undefined;
             }
 
-            if (propertyName == PropertyNameLength)
+            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
             {
                 return _length ?? PropertyDescriptor.Undefined;
             }
@@ -90,7 +92,7 @@ namespace Jint.Native.String
 
         protected internal override void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
         {
-            if (propertyName == PropertyNameLength)
+            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
             {
                 _length = desc;
             }
@@ -102,7 +104,7 @@ namespace Jint.Native.String
 
         public override bool HasOwnProperty(string propertyName)
         {
-            if (propertyName == PropertyNameLength)
+            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
             {
                 return _length != null;
             }
@@ -112,7 +114,7 @@ namespace Jint.Native.String
 
         public override void RemoveOwnProperty(string propertyName)
         {
-            if (propertyName == PropertyNameLength)
+            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
             {
                 _length = null;
             }

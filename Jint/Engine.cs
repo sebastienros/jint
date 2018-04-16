@@ -157,6 +157,7 @@ namespace Jint
             ReferencePool = new ReferencePool();
             CompletionPool = new CompletionPool();
             ArgumentsInstancePool = new ArgumentsInstancePool(this);
+            JsValueArrayPool = new JsValueArrayPool();
 
             Eval = new EvalFunctionInstance(this, System.Array.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
@@ -178,38 +179,39 @@ namespace Jint
             DebugHandler = new DebugHandler(this);
         }
 
-        public LexicalEnvironment GlobalEnvironment;
-        public GlobalObject Global { get; private set; }
-        public ObjectConstructor Object { get; private set; }
-        public FunctionConstructor Function { get; private set; }
-        public ArrayConstructor Array { get; private set; }
-        public StringConstructor String { get; private set; }
-        public RegExpConstructor RegExp { get; private set; }
-        public BooleanConstructor Boolean { get; private set; }
-        public NumberConstructor Number { get; private set; }
-        public DateConstructor Date { get; private set; }
-        public MathInstance Math { get; private set; }
-        public JsonInstance Json { get; private set; }
-        public SymbolConstructor Symbol { get; private set; }
-        public EvalFunctionInstance Eval { get; private set; }
+        public LexicalEnvironment GlobalEnvironment { get; }
+        public GlobalObject Global { get; }
+        public ObjectConstructor Object { get; }
+        public FunctionConstructor Function { get; }
+        public ArrayConstructor Array { get; }
+        public StringConstructor String { get; }
+        public RegExpConstructor RegExp { get; }
+        public BooleanConstructor Boolean { get; }
+        public NumberConstructor Number { get; }
+        public DateConstructor Date { get; }
+        public MathInstance Math { get; }
+        public JsonInstance Json { get; }
+        public SymbolConstructor Symbol { get; }
+        public EvalFunctionInstance Eval { get; }
 
-        public ErrorConstructor Error { get; private set; }
-        public ErrorConstructor EvalError { get; private set; }
-        public ErrorConstructor SyntaxError { get; private set; }
-        public ErrorConstructor TypeError { get; private set; }
-        public ErrorConstructor RangeError { get; private set; }
-        public ErrorConstructor ReferenceError { get; private set; }
-        public ErrorConstructor UriError { get; private set; }
+        public ErrorConstructor Error { get; }
+        public ErrorConstructor EvalError { get; }
+        public ErrorConstructor SyntaxError { get; }
+        public ErrorConstructor TypeError { get; }
+        public ErrorConstructor RangeError { get; }
+        public ErrorConstructor ReferenceError { get; }
+        public ErrorConstructor UriError { get; }
 
-        public ExecutionContext ExecutionContext { get { return _executionContexts.Peek(); } }
+        public ExecutionContext ExecutionContext => _executionContexts.Peek();
 
         public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
 
-        internal Options Options { get; private set; }
+        internal Options Options { get; }
 
         internal ReferencePool ReferencePool { get; }
         internal CompletionPool CompletionPool { get; }
         internal ArgumentsInstancePool ArgumentsInstancePool { get; }
+        internal JsValueArrayPool JsValueArrayPool { get; }
 
         #region Debugger
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
@@ -382,6 +384,12 @@ namespace Jint
                 case Nodes.BlockStatement:
                     return _statements.ExecuteBlockStatement(statement.As<BlockStatement>());
 
+                case Nodes.ReturnStatement:
+                    return _statements.ExecuteReturnStatement(statement.As<ReturnStatement>());
+
+                case Nodes.VariableDeclaration:
+                    return _statements.ExecuteVariableDeclaration(statement.As<VariableDeclaration>());
+
                 case Nodes.BreakStatement:
                     return _statements.ExecuteBreakStatement(statement.As<BreakStatement>());
 
@@ -390,9 +398,6 @@ namespace Jint
 
                 case Nodes.DoWhileStatement:
                     return _statements.ExecuteDoWhileStatement(statement.As<DoWhileStatement>());
-
-                case Nodes.DebuggerStatement:
-                    return _statements.ExecuteDebuggerStatement(statement.As<DebuggerStatement>());
 
                 case Nodes.EmptyStatement:
                     return _statements.ExecuteEmptyStatement(statement.As<EmptyStatement>());
@@ -406,20 +411,17 @@ namespace Jint
                 case Nodes.ForInStatement:
                     return _statements.ExecuteForInStatement(statement.As<ForInStatement>());
 
-                case Nodes.FunctionDeclaration:
-                    return Completion.Empty;
-
                 case Nodes.IfStatement:
                     return _statements.ExecuteIfStatement(statement.As<IfStatement>());
 
                 case Nodes.LabeledStatement:
                     return _statements.ExecuteLabeledStatement(statement.As<LabeledStatement>());
 
-                case Nodes.ReturnStatement:
-                    return _statements.ExecuteReturnStatement(statement.As<ReturnStatement>());
-
                 case Nodes.SwitchStatement:
                     return _statements.ExecuteSwitchStatement(statement.As<SwitchStatement>());
+
+                case Nodes.FunctionDeclaration:
+                    return Completion.Empty;
 
                 case Nodes.ThrowStatement:
                     return _statements.ExecuteThrowStatement(statement.As<ThrowStatement>());
@@ -427,14 +429,14 @@ namespace Jint
                 case Nodes.TryStatement:
                     return _statements.ExecuteTryStatement(statement.As<TryStatement>());
 
-                case Nodes.VariableDeclaration:
-                    return _statements.ExecuteVariableDeclaration(statement.As<VariableDeclaration>());
-
                 case Nodes.WhileStatement:
                     return _statements.ExecuteWhileStatement(statement.As<WhileStatement>());
 
                 case Nodes.WithStatement:
                     return _statements.ExecuteWithStatement(statement.As<WithStatement>());
+
+                case Nodes.DebuggerStatement:
+                    return _statements.ExecuteDebuggerStatement(statement.As<DebuggerStatement>());
 
                 case Nodes.Program:
                     return _statements.ExecuteProgram(statement.As<Program>());
@@ -745,12 +747,16 @@ namespace Jint
                 throw new ArgumentException("Can only invoke functions");
             }
 
-            var items = new JsValue[arguments.Length];
+            var items = JsValueArrayPool.RentArray(arguments.Length);
             for (int i = 0; i < arguments.Length; ++i)
             {
                 items[i] = JsValue.FromObject(this, arguments[i]);
             }
-            return callable.Call(JsValue.FromObject(this, thisObj), items);
+
+            var result = callable.Call(JsValue.FromObject(this, thisObj), items);
+            JsValueArrayPool.ReturnArray(items);
+
+            return result;
         }
 
         /// <summary>
@@ -792,8 +798,8 @@ namespace Jint
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
         internal bool DeclarationBindingInstantiation(
             DeclarationBindingType declarationBindingType,
-            IList<FunctionDeclaration> functionDeclarations,
-            IList<VariableDeclaration> variableDeclarations,
+            List<FunctionDeclaration> functionDeclarations,
+            List<VariableDeclaration> variableDeclarations,
             FunctionInstance functionInstance,
             JsValue[] arguments)
         {
@@ -803,13 +809,11 @@ namespace Jint
 
             if (declarationBindingType == DeclarationBindingType.FunctionCode)
             {
-                var argCount = arguments.Length;
-                var n = 0;
-                for (var i = 0; i < functionInstance.FormalParameters.Length; i++)
+                var parameters = functionInstance.FormalParameters;
+                for (var i = 0; i < parameters.Length; i++)
                 {
-                    var argName = functionInstance.FormalParameters[i];
-                    n++;
-                    var v = n > argCount ? Undefined.Instance : arguments[n - 1];
+                    var argName = parameters[i];
+                    var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
                     var argAlreadyDeclared = env.HasBinding(argName);
                     if (!argAlreadyDeclared)
                     {
@@ -820,7 +824,8 @@ namespace Jint
                 }
             }
 
-            for (var i = 0; i < functionDeclarations.Count; i++)
+            var functionDeclarationsCount = functionDeclarations.Count;
+            for (var i = 0; i < functionDeclarationsCount; i++)
             {
                 var f = functionDeclarations[i];
                 var fn = f.Id.Name;

@@ -80,7 +80,7 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.TypeError, "Function object expected.");
             }
 
-            return System.String.Format("function() {{ ... }}");
+            return "function() {{ ... }}";
         }
 
         public JsValue Apply(JsValue thisObject, JsValue[] arguments)
@@ -107,14 +107,22 @@ namespace Jint.Native.Function
 
             var len = argArrayObj.Get("length").AsNumber();
             uint n = TypeConverter.ToUint32(len);
-            var argList = new JsValue[n];
+
+            var argList = n < 10 
+                ? Engine.JsValueArrayPool.RentArray((int) n)
+                : new JsValue[n];
+            
             for (int index = 0; index < n; index++)
             {
                 string indexName = TypeConverter.ToString(index);
                 var nextArg = argArrayObj.Get(indexName);
                 argList[index] = nextArg;
             }
-            return func.Call(thisArg, argList);
+
+            var result = func.Call(thisArg, argList);
+            Engine.JsValueArrayPool.ReturnArray(argList);
+            
+            return result;
         }
 
         public JsValue CallImpl(JsValue thisObject, JsValue[] arguments)
