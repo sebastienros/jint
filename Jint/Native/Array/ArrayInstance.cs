@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 using Jint.Native.Object;
@@ -10,7 +11,7 @@ using TypeConverter = Jint.Runtime.TypeConverter;
 
 namespace Jint.Native.Array
 {
-    public class ArrayInstance : ObjectInstance
+    public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     {
         private readonly Engine _engine;
 
@@ -595,6 +596,22 @@ namespace Jint.Native.Array
                 System.Array.Copy(_dense, newArray, _dense.Length);
                 _dense = newArray;
             }
+        }
+
+        public IEnumerator<JsValue> GetEnumerator()
+        {
+            for (uint i = 0; i < GetLength(); i++)
+            {
+                if (TryGetValue(i, out JsValue outValue))
+                {
+                    yield return outValue;
+                }
+            };
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }
