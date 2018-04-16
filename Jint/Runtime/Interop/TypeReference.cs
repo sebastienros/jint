@@ -28,10 +28,10 @@ namespace Jint.Runtime.Interop
             // The value of the [[Prototype]] internal property of the TypeReference constructor is the Function prototype object
             obj.Prototype = engine.Function.PrototypeObject;
 
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(0));
+            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
 
             // The initial value of Boolean.prototype is the Boolean prototype object
-            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(engine.Object.PrototypeObject));
+            obj.SetOwnProperty("prototype", new PropertyDescriptor(engine.Object.PrototypeObject, PropertyFlag.AllForbidden));
 
             return obj;
         }
@@ -108,7 +108,7 @@ namespace Jint.Runtime.Interop
             return wrapper.Target.GetType() == ReferenceType;
         }
 
-        public override bool DefineOwnProperty(string propertyName, IPropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             if (throwOnError)
             {
@@ -157,7 +157,7 @@ namespace Jint.Runtime.Interop
             ownDesc.Value = value;
         }
 
-        public override IPropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
             // todo: cache members locally
 
@@ -170,7 +170,7 @@ namespace Jint.Runtime.Interop
                 {
                     if (enumNames.GetValue(i) as string == propertyName)
                     {
-                        return new AllForbiddenPropertyDescriptor((int) enumValues.GetValue(i));
+                        return new PropertyDescriptor((int) enumValues.GetValue(i), PropertyFlag.AllForbidden);
                     }
                 }
                 return PropertyDescriptor.Undefined;
@@ -198,7 +198,7 @@ namespace Jint.Runtime.Interop
                 return PropertyDescriptor.Undefined;
             }
 
-            return new AllForbiddenPropertyDescriptor(new MethodInfoFunctionInstance(Engine, methodInfo));
+            return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methodInfo), PropertyFlag.AllForbidden);
         }
 
         public object Target => ReferenceType;

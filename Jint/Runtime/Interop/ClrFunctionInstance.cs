@@ -1,7 +1,7 @@
 ﻿using System;
 using Jint.Native;
 using Jint.Native.Function;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Interop
 {
@@ -17,7 +17,7 @@ namespace Jint.Runtime.Interop
         {
             _func = func;
             Prototype = engine.Function.PrototypeObject;
-            SetOwnProperty("length", new AllForbiddenPropertyDescriptor(length));
+            SetOwnProperty("length", new PropertyDescriptor(length, PropertyFlag.AllForbidden));
             Extensible = true;
         }
 

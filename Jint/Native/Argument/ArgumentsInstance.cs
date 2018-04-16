@@ -55,7 +55,7 @@ namespace Jint.Native.Argument
 
             var self = this;
             var len = _args.Length;
-            self.SetOwnProperty("length", new NonEnumerablePropertyDescriptor(len));
+            self.SetOwnProperty("length", new PropertyDescriptor(len, PropertyFlag.NonEnumerable));
             if (_args.Length > 0)
             {
                 var map = Engine.Object.Construct(Arguments.Empty);
@@ -65,7 +65,7 @@ namespace Jint.Native.Argument
                 {
                     var indxStr = TypeConverter.ToString(indx);
                     var val = _args[indx];
-                    self.SetOwnProperty(indxStr, new ConfigurableEnumerableWritablePropertyDescriptor(val));
+                    self.SetOwnProperty(indxStr, new PropertyDescriptor(val, PropertyFlag.ConfigurableEnumerableWritable));
                     if (indx < _names.Length)
                     {
                         var name = _names[indx];
@@ -87,14 +87,14 @@ namespace Jint.Native.Argument
             // step 13
             if (!_strict)
             {
-                self.SetOwnProperty("callee", new NonEnumerablePropertyDescriptor(_func));
+                self.SetOwnProperty("callee", new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
             }
             // step 14
             else
             {
                 var thrower = Engine.Function.ThrowTypeError;
-                self.DefineOwnProperty("caller", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
-                self.DefineOwnProperty("callee", new PropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
+                self.DefineOwnProperty("caller", new GetSetPropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
+                self.DefineOwnProperty("callee", new GetSetPropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
             }
         }
 
@@ -102,7 +102,7 @@ namespace Jint.Native.Argument
 
         public override string Class => "Arguments";
 
-        public override IPropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
             EnsureInitialized();
 
@@ -147,7 +147,7 @@ namespace Jint.Native.Argument
 
             if (ownDesc.IsDataDescriptor())
             {
-                var valueDesc = new NullConfigurationPropertyDescriptor(value);
+                var valueDesc = new PropertyDescriptor(value, PropertyFlag.None);
                 DefineOwnProperty(propertyName, valueDesc, throwOnError);
                 return;
             }
@@ -162,12 +162,12 @@ namespace Jint.Native.Argument
             }
             else
             {
-                var newDesc = new ConfigurableEnumerableWritablePropertyDescriptor(value);
+                var newDesc = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
                 DefineOwnProperty(propertyName, newDesc, throwOnError);
             }
         }
 
-        public override bool DefineOwnProperty(string propertyName, IPropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             EnsureInitialized();
 
@@ -197,7 +197,7 @@ namespace Jint.Native.Argument
                             map.Put(propertyName, desc.Value, throwOnError);
                         }
 
-                        if (desc.Writable.HasValue && desc.Writable.Value == false)
+                        if (desc.WritableSet && !desc.Writable)
                         {
                             map.Delete(propertyName, false);
                         }

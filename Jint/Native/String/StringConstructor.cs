@@ -1,7 +1,7 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.String
@@ -22,17 +22,17 @@ namespace Jint.Native.String
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = StringPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
+            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
 
             // The initial value of String.prototype is the String prototype object
-            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
+            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
             return obj;
         }
 
         public void Configure()
         {
-            SetOwnProperty("fromCharCode", new NonEnumerablePropertyDescriptor(new ClrFunctionInstance(Engine, FromCharCode, 1)));
+            SetOwnProperty("fromCharCode", new PropertyDescriptor(new ClrFunctionInstance(Engine, FromCharCode, 1), PropertyFlag.NonEnumerable));
         }
 
         private static JsValue FromCharCode(JsValue thisObj, JsValue[] arguments)
@@ -75,7 +75,7 @@ namespace Jint.Native.String
             instance.PrimitiveValue = value;
             instance.Extensible = true;
 
-            instance.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(value.Length));
+            instance.SetOwnProperty("length", new PropertyDescriptor(value.Length, PropertyFlag.AllForbidden));
 
             return instance;
         }

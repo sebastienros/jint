@@ -19,8 +19,8 @@ namespace Jint.Native.Object
 {
     public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
-        private Dictionary<string, IPropertyDescriptor> _intrinsicProperties;
-        private MruPropertyCache2<IPropertyDescriptor> _properties;
+        private Dictionary<string, PropertyDescriptor> _intrinsicProperties;
+        private MruPropertyCache2<PropertyDescriptor> _properties;
 
         public ObjectInstance(Engine engine)
         {
@@ -31,9 +31,7 @@ namespace Jint.Native.Object
 
         protected bool TryGetIntrinsicValue(JsSymbol symbol, out JsValue value)
         {
-            IPropertyDescriptor descriptor;
-
-            if (_intrinsicProperties != null && _intrinsicProperties.TryGetValue(symbol.AsSymbol(), out descriptor))
+            if (_intrinsicProperties != null && _intrinsicProperties.TryGetValue(symbol.AsSymbol(), out var descriptor))
             {
                 value = descriptor.Value;
                 return true;
@@ -57,7 +55,7 @@ namespace Jint.Native.Object
         {
             if (_intrinsicProperties == null)
             {
-                _intrinsicProperties = new Dictionary<string, IPropertyDescriptor>();
+                _intrinsicProperties = new Dictionary<string, PropertyDescriptor>();
             }
 
             _intrinsicProperties[symbol.AsSymbol()] = new PropertyDescriptor(value, writable, enumerable, configurable);
@@ -80,7 +78,7 @@ namespace Jint.Native.Object
         /// </summary>
         public virtual string Class => "Object";
 
-        public virtual IEnumerable<KeyValuePair<string, IPropertyDescriptor>> GetOwnProperties()
+        public virtual IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {
             EnsureInitialized();
 
@@ -93,17 +91,17 @@ namespace Jint.Native.Object
             }
         }
 
-        protected virtual void AddProperty(string propertyName, IPropertyDescriptor descriptor)
+        protected virtual void AddProperty(string propertyName, PropertyDescriptor descriptor)
         {
             if (_properties == null)
             {
-                _properties = new MruPropertyCache2<IPropertyDescriptor>();
+                _properties = new MruPropertyCache2<PropertyDescriptor>();
             }
 
             _properties.Add(propertyName, descriptor);
         }
 
-        protected virtual bool TryGetProperty(string propertyName, out IPropertyDescriptor descriptor)
+        protected virtual bool TryGetProperty(string propertyName, out PropertyDescriptor descriptor)
         {
             if (_properties == null)
             {
@@ -141,7 +139,7 @@ namespace Jint.Native.Object
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal JsValue UnwrapJsValue(IPropertyDescriptor desc)
+        internal JsValue UnwrapJsValue(PropertyDescriptor desc)
         {
             if (desc == PropertyDescriptor.Undefined)
             {
@@ -173,7 +171,7 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public virtual IPropertyDescriptor GetOwnProperty(string propertyName)
+        public virtual PropertyDescriptor GetOwnProperty(string propertyName)
         {
             EnsureInitialized();
 
@@ -185,13 +183,13 @@ namespace Jint.Native.Object
             return PropertyDescriptor.Undefined;
         }
 
-        protected internal virtual void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
+        protected internal virtual void SetOwnProperty(string propertyName, PropertyDescriptor desc)
         {
             EnsureInitialized();
 
             if (_properties == null)
             {
-                _properties = new MruPropertyCache2<IPropertyDescriptor>();
+                _properties = new MruPropertyCache2<PropertyDescriptor>();
             }
 
             _properties[propertyName] = desc;
@@ -203,7 +201,7 @@ namespace Jint.Native.Object
         /// <param name="propertyName"></param>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public IPropertyDescriptor GetProperty(string propertyName)
+        public PropertyDescriptor GetProperty(string propertyName)
         {
             var prop = GetOwnProperty(propertyName);
 
@@ -302,7 +300,7 @@ namespace Jint.Native.Object
             }
             else
             {
-                var newDesc = new ConfigurableEnumerableWritablePropertyDescriptor(value);
+                var newDesc = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
                 DefineOwnProperty(propertyName, newDesc, throwOnError);
             }
         }
@@ -331,7 +329,7 @@ namespace Jint.Native.Object
                     return true;
                 }
 
-                return desc.Writable.HasValue && desc.Writable.Value;
+                return desc.Writable;
             }
 
             if (Prototype == null)
@@ -360,10 +358,8 @@ namespace Jint.Native.Object
             {
                 return false;
             }
-            else
-            {
-                return inherited.Writable.HasValue && inherited.Writable.Value;
-            }
+
+            return inherited.Writable;
         }
 
         /// <summary>
@@ -396,7 +392,7 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            if (desc.Configurable.HasValue && desc.Configurable.Value)
+            if (desc.Configurable)
             {
                 RemoveOwnProperty(propertyName);
                 return true;
@@ -484,7 +480,7 @@ namespace Jint.Native.Object
         /// <param name="desc"></param>
         /// <param name="throwOnError"></param>
         /// <returns></returns>
-        public virtual bool DefineOwnProperty(string propertyName, IPropertyDescriptor desc, bool throwOnError)
+        public virtual bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             var current = GetOwnProperty(propertyName);
 
@@ -508,23 +504,20 @@ namespace Jint.Native.Object
                 {
                     if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
                     {
-                        IPropertyDescriptor propertyDescriptor;
-                        if (desc.Configurable.GetValueOrDefault() && desc.Enumerable.GetValueOrDefault() && desc.Writable.GetValueOrDefault())
+                        PropertyDescriptor propertyDescriptor;
+                        if (desc.Configurable && desc.Enumerable && desc.Writable)
                         {
-                            propertyDescriptor = new ConfigurableEnumerableWritablePropertyDescriptor(desc.Value != null ? desc.Value : Undefined);
+                            propertyDescriptor = new PropertyDescriptor(desc.Value != null ? desc.Value : Undefined, PropertyFlag.ConfigurableEnumerableWritable);
                         }
-                        else if (!desc.Configurable.GetValueOrDefault() && !desc.Enumerable.GetValueOrDefault() && !desc.Writable.GetValueOrDefault())
+                        else if (!desc.Configurable && !desc.Enumerable && !desc.Writable)
                         {
-                            propertyDescriptor = new AllForbiddenPropertyDescriptor(desc.Value != null ? desc.Value : Undefined);
+                            propertyDescriptor = new PropertyDescriptor(desc.Value != null ? desc.Value : Undefined, PropertyFlag.AllForbidden);
                         }
                         else
                         {
                             propertyDescriptor = new PropertyDescriptor(desc)
                             {
-                                Value = desc.Value != null ? desc.Value : Undefined,
-                                Writable = desc.Writable.HasValue ? desc.Writable.Value : false,
-                                Enumerable = desc.Enumerable.HasValue ? desc.Enumerable.Value : false,
-                                Configurable = desc.Configurable.HasValue ? desc.Configurable.Value : false
+                                Value = desc.Value != null ? desc.Value : Undefined
                             };
                         }
 
@@ -532,13 +525,7 @@ namespace Jint.Native.Object
                     }
                     else
                     {
-                        SetOwnProperty(propertyName, new PropertyDescriptor(desc)
-                        {
-                            Get = desc.Get,
-                            Set = desc.Set,
-                            Enumerable = desc.Enumerable.HasValue ? desc.Enumerable : false,
-                            Configurable = desc.Configurable.HasValue ? desc.Configurable : false,
-                        });
+                        SetOwnProperty(propertyName, new GetSetPropertyDescriptor(desc));
                     }
                 }
 
@@ -546,9 +533,9 @@ namespace Jint.Native.Object
             }
 
             // Step 5
-            if (!current.Configurable.HasValue &&
-                !current.Enumerable.HasValue &&
-                !current.Writable.HasValue &&
+            if (!current.ConfigurableSet &&
+                !current.EnumerableSet &&
+                !current.WritableSet &&
                 current.Get == null &&
                 current.Set == null &&
                 current.Value == null)
@@ -558,9 +545,9 @@ namespace Jint.Native.Object
 
             // Step 6
             if (
-                current.Configurable == desc.Configurable &&
-                current.Writable == desc.Writable &&
-                current.Enumerable == desc.Enumerable &&
+                current.Configurable == desc.Configurable && current.ConfigurableSet == desc.ConfigurableSet &&
+                current.Writable == desc.Writable && current.WritableSet == desc.WritableSet &&
+                current.Enumerable == desc.Enumerable && current.EnumerableSet == desc.EnumerableSet &&
                 ((current.Get == null && desc.Get == null) || (current.Get != null && desc.Get != null && ExpressionInterpreter.SameValue(current.Get, desc.Get))) &&
                 ((current.Set == null && desc.Set == null) || (current.Set != null && desc.Set != null && ExpressionInterpreter.SameValue(current.Set, desc.Set))) &&
                 ((current.Value == null && desc.Value == null) || (current.Value != null && desc.Value != null && ExpressionInterpreter.StrictlyEqual(current.Value, desc.Value)))
@@ -569,9 +556,9 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            if (!current.Configurable.HasValue || !current.Configurable.Value)
+            if (!current.Configurable)
             {
-                if (desc.Configurable.HasValue && desc.Configurable.Value)
+                if (desc.Configurable)
                 {
                     if (throwOnError)
                     {
@@ -581,7 +568,7 @@ namespace Jint.Native.Object
                     return false;
                 }
 
-                if (desc.Enumerable.HasValue && (!current.Enumerable.HasValue || desc.Enumerable.Value != current.Enumerable.Value))
+                if (desc.EnumerableSet && (desc.Enumerable != current.Enumerable))
                 {
                     if (throwOnError)
                     {
@@ -596,7 +583,7 @@ namespace Jint.Native.Object
             {
                 if (current.IsDataDescriptor() != desc.IsDataDescriptor())
                 {
-                    if (!current.Configurable.HasValue || !current.Configurable.Value)
+                    if (!current.Configurable)
                     {
                         if (throwOnError)
                         {
@@ -608,7 +595,7 @@ namespace Jint.Native.Object
 
                     if (current.IsDataDescriptor())
                     {
-                        SetOwnProperty(propertyName, current = new PropertyDescriptor(
+                        SetOwnProperty(propertyName, current = new GetSetPropertyDescriptor(
                             get: JsValue.Undefined,
                             set: JsValue.Undefined,
                             enumerable: current.Enumerable,
@@ -627,9 +614,9 @@ namespace Jint.Native.Object
                 }
                 else if (current.IsDataDescriptor() && desc.IsDataDescriptor())
                 {
-                    if (!current.Configurable.HasValue || current.Configurable.Value == false)
+                    if (!current.Configurable)
                     {
-                        if (!current.Writable.HasValue || !current.Writable.Value && desc.Writable.HasValue && desc.Writable.Value)
+                        if (!current.Writable && desc.Writable)
                         {
                             if (throwOnError)
                             {
@@ -639,7 +626,7 @@ namespace Jint.Native.Object
                             return false;
                         }
 
-                        if (!current.Writable.Value)
+                        if (!current.Writable)
                         {
                             if (desc.Value != null && !ExpressionInterpreter.SameValue(desc.Value, current.Value))
                             {
@@ -655,7 +642,7 @@ namespace Jint.Native.Object
                 }
                 else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())
                 {
-                    if (!current.Configurable.HasValue || !current.Configurable.Value)
+                    if (!current.Configurable)
                     {
                         if ((desc.Set != null && !ExpressionInterpreter.SameValue(desc.Set, current.Set != null ? current.Set : Undefined))
                             ||
@@ -677,39 +664,37 @@ namespace Jint.Native.Object
                 current.Value = desc.Value;
             }
 
+            if (desc.WritableSet)
+            {
+                current.Writable = desc.Writable;
+            }
+
+            if (desc.EnumerableSet)
+            {
+                current.Enumerable = desc.Enumerable;
+            }
+
+            if (desc.ConfigurableSet)
+            {
+                current.Configurable = desc.Configurable;
+            }
+
             PropertyDescriptor mutable = null;
-            if (desc.Writable.HasValue)
-            {
-                current = mutable = current as PropertyDescriptor ?? new PropertyDescriptor(current);
-                mutable.Writable = desc.Writable;
-            }
-
-            if (desc.Enumerable.HasValue)
-            {
-                current = mutable = current as PropertyDescriptor ?? new PropertyDescriptor(current);
-                mutable.Enumerable = desc.Enumerable;
-            }
-
-            if (desc.Configurable.HasValue)
-            {
-                current = mutable = current as PropertyDescriptor ?? new PropertyDescriptor(current);
-                mutable.Configurable = desc.Configurable;
-            }
-
             if (desc.Get != null)
             {
-                current = mutable = current as PropertyDescriptor ?? new PropertyDescriptor(current);
-                mutable.Get = desc.Get;
+                mutable = new GetSetPropertyDescriptor(mutable ?? current);
+                ((GetSetPropertyDescriptor) mutable).SetGet(desc.Get);
             }
 
             if (desc.Set != null)
             {
-                mutable = current as PropertyDescriptor ?? new PropertyDescriptor(current);
-                mutable.Set = desc.Set;
+                mutable = new GetSetPropertyDescriptor(mutable ?? current);
+                ((GetSetPropertyDescriptor) mutable).SetSet(desc.Set);
             }
 
             if (mutable != null)
-            {
+            { 
+                // replace old with new type that supports get and set
                 FastSetProperty(propertyName, mutable);
             }
 
@@ -734,7 +719,7 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="name"></param>
         /// <param name="value"></param>
-        public void FastSetProperty(string name, IPropertyDescriptor value)
+        public void FastSetProperty(string name, PropertyDescriptor value)
         {
             SetOwnProperty(name, value);
         }
@@ -915,7 +900,7 @@ namespace Jint.Native.Object
 
                     foreach (var p in GetOwnProperties())
                     {
-                        if (!p.Value.Enumerable.HasValue || p.Value.Enumerable.Value == false)
+                        if (!p.Value.Enumerable)
                         {
                             continue;
                         }

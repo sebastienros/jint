@@ -10,11 +10,11 @@ namespace Jint.Native.Function
     {
         private const string PropertyNamePrototype = "prototype";
         private const int PropertyNamePrototypeLength = 9;
-        private IPropertyDescriptor _prototype;
+        private PropertyDescriptor _prototype;
 
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
-        private IPropertyDescriptor _length;
+        private PropertyDescriptor _length;
 
         private readonly Engine _engine;
 
@@ -97,15 +97,15 @@ namespace Jint.Native.Function
             return v;
         }
 
-        public override IEnumerable<KeyValuePair<string, IPropertyDescriptor>> GetOwnProperties()
+        public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {
             if (_prototype != null)
             {
-                yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNamePrototype, _prototype);
+                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNamePrototype, _prototype);
             }
             if (_length != null)
             {
-                yield return new KeyValuePair<string, IPropertyDescriptor>(PropertyNameLength, _length);
+                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameLength, _length);
             }
 
             foreach (var entry in base.GetOwnProperties())
@@ -114,7 +114,7 @@ namespace Jint.Native.Function
             }
         }
 
-        public override IPropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
             if (propertyName.Length == PropertyNamePrototypeLength && propertyName == PropertyNamePrototype)
             {
@@ -128,7 +128,7 @@ namespace Jint.Native.Function
             return base.GetOwnProperty(propertyName);
         }
 
-        protected internal override void SetOwnProperty(string propertyName, IPropertyDescriptor desc)
+        protected internal override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
         {
             if (propertyName.Length == PropertyNamePrototypeLength && propertyName == PropertyNamePrototype)
             {

@@ -49,7 +49,6 @@ namespace Jint.Runtime.Descriptors.Specialized
             Writable = true;
         }
 
-
         public IndexDescriptor(Engine engine, string key, object item)
             : this(engine, item.GetType(), key, item)
         {

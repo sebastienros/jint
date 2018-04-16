@@ -6,7 +6,7 @@ namespace Jint.Native
 {
     public sealed class JsNumber : JsValue, IEquatable<JsNumber>
     {
-        private readonly double _value;
+        internal readonly double _value;
 
         // how many decimals to check when determining if double is actually an int
         private const double DoubleIsIntegerTolerance = double.Epsilon * 100;

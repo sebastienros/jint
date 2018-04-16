@@ -5,7 +5,7 @@ using Jint.Native.Array;
 using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Json
 {
@@ -113,7 +113,7 @@ namespace Jint.Native.Json
             }
 
             var wrapper = _engine.Object.Construct(Arguments.Empty);
-            wrapper.DefineOwnProperty("", new ConfigurableEnumerableWritablePropertyDescriptor(value), false);
+            wrapper.DefineOwnProperty("", new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable), false);
 
             return Str("", wrapper);
         }
@@ -317,7 +317,7 @@ namespace Jint.Native.Json
             _indent += _gap;
 
             var k = _propertyList ?? value.GetOwnProperties()
-                .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value == true)
+                .Where(x => x.Value.Enumerable)
                 .Select(x => x.Key)
                 .ToList();
 

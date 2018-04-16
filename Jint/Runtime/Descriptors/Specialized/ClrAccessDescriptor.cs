@@ -4,7 +4,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    internal sealed class ClrAccessDescriptor : IPropertyDescriptor
+    internal sealed class ClrAccessDescriptor : PropertyDescriptor
     {
         private readonly EnvironmentRecord _env;
         private readonly Engine _engine;
@@ -17,20 +17,15 @@ namespace Jint.Runtime.Descriptors.Specialized
             EnvironmentRecord env,
             Engine engine,
             string name)
+            : base(value: null, writable: null, enumerable: null, configurable: true)
         {
             _env = env;
             _engine = engine;
             _name = name;
         }
 
-        public JsValue Get => _get = _get ?? new GetterFunctionInstance(_engine, DoGet);
-        public JsValue Set => _set = _set ?? new SetterFunctionInstance(_engine, DoSet);
-
-        public bool? Enumerable => null;
-        public bool? Writable => null;
-        public bool? Configurable => true;
-
-        public JsValue Value { get; set; }
+        public override JsValue Get => _get = _get ?? new GetterFunctionInstance(_engine, DoGet);
+        public override JsValue Set => _set = _set ?? new SetterFunctionInstance(_engine, DoSet);
 
         private JsValue DoGet(JsValue n)
         {

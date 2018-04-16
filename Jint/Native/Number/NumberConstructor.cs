@@ -1,7 +1,7 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Number
 {
@@ -22,21 +22,21 @@ namespace Jint.Native.Number
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = NumberPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
+            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
 
             // The initial value of Number.prototype is the Number prototype object
-            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
+            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
             return obj;
         }
 
         public void Configure()
         {
-            SetOwnProperty("MAX_VALUE", new AllForbiddenPropertyDescriptor(double.MaxValue));
-            SetOwnProperty("MIN_VALUE", new AllForbiddenPropertyDescriptor(double.Epsilon));
-            SetOwnProperty("NaN", new AllForbiddenPropertyDescriptor(double.NaN));
-            SetOwnProperty("NEGATIVE_INFINITY", new AllForbiddenPropertyDescriptor(double.NegativeInfinity));
-            SetOwnProperty("POSITIVE_INFINITY", new AllForbiddenPropertyDescriptor(double.PositiveInfinity));
+            SetOwnProperty("MAX_VALUE", new PropertyDescriptor(double.MaxValue, PropertyFlag.AllForbidden));
+            SetOwnProperty("MIN_VALUE", new PropertyDescriptor(double.Epsilon, PropertyFlag.AllForbidden));
+            SetOwnProperty("NaN", new PropertyDescriptor(double.NaN, PropertyFlag.AllForbidden));
+            SetOwnProperty("NEGATIVE_INFINITY", new PropertyDescriptor(double.NegativeInfinity, PropertyFlag.AllForbidden));
+            SetOwnProperty("POSITIVE_INFINITY", new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.AllForbidden));
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
