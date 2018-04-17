@@ -227,7 +227,7 @@ namespace Jint.Native.Function
             };
 
             var result = Call(obj, arguments).TryCast<ObjectInstance>();
-            if (result != null)
+            if (!ReferenceEquals(result, null))
             {
                 return result;
             }

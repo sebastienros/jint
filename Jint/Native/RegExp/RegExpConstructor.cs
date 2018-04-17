@@ -66,27 +66,26 @@ namespace Jint.Native.RegExp
             var flags = arguments.At(1);
 
             var r = pattern.TryCast<RegExpInstance>();
-            if (ReferenceEquals(flags, Undefined) && r != null)
+            if (ReferenceEquals(flags, Undefined) && !ReferenceEquals(r, null))
             {
                 return r;
             }
-            else if (flags != Undefined && r != null)
+
+            if (!ReferenceEquals(flags, Undefined) && !ReferenceEquals(r, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
+
+            if (ReferenceEquals(pattern, Undefined))
+            {
+                p = "";
+            }
             else
             {
-                if (ReferenceEquals(pattern, Undefined))
-                {
-                    p = "";
-                }
-                else
-                {
-                    p = TypeConverter.ToString(pattern);
-                }
-
-                f = !ReferenceEquals(flags, Undefined) ? TypeConverter.ToString(flags) : "";
+                p = TypeConverter.ToString(pattern);
             }
+
+            f = !ReferenceEquals(flags, Undefined) ? TypeConverter.ToString(flags) : "";
 
             r = new RegExpInstance(Engine);
             r.Prototype = PrototypeObject;
@@ -105,7 +104,7 @@ namespace Jint.Native.RegExp
             string s;
             s = p;
 
-            if (System.String.IsNullOrEmpty(s))
+            if (string.IsNullOrEmpty(s))
             {
                 s = "(?:)";
             }

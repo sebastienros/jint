@@ -63,7 +63,7 @@ namespace Jint.Native.String
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
         {
             var s = TypeConverter.ToObject(Engine, thisObj) as StringInstance;
-            if (s == null)
+            if (ReferenceEquals(s, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -229,7 +229,7 @@ namespace Jint.Native.String
         {
             var s = TypeConverter.ToString(thisObj);
             var start = TypeConverter.ToInteger(arguments.At(0));
-            var length = arguments.At(1) == JsValue.Undefined
+            var length = ReferenceEquals(arguments.At(1), Undefined)
                 ? double.PositiveInfinity
                 : TypeConverter.ToInteger(arguments.At(1));
 
@@ -290,7 +290,7 @@ namespace Jint.Native.String
 
             const string regExpForMatchingAllCharactere = "(?:)";
 
-            if (rx != null &&
+            if (!ReferenceEquals(rx, null) &&
                 rx.Source != regExpForMatchingAllCharactere // We need pattern to be defined -> for s.split(new RegExp)
                 )
             {
@@ -354,7 +354,7 @@ namespace Jint.Native.String
                 segments.Clear();
                 var sep = TypeConverter.ToString(separator);
 
-                if (sep == string.Empty || (rx != null && rx.Source == regExpForMatchingAllCharactere)) // for s.split(new RegExp)
+                if (sep == string.Empty || (!ReferenceEquals(rx, null) && rx.Source == regExpForMatchingAllCharactere)) // for s.split(new RegExp)
                 {
                     if (s.Length > segments.Capacity)
                     {
@@ -460,7 +460,7 @@ namespace Jint.Native.String
 
             // If the second parameter is not a function we create one
             var replaceFunction = replaceValue.TryCast<FunctionInstance>();
-            if (replaceFunction == null)
+            if (ReferenceEquals(replaceFunction, null))
             {
                 replaceFunction = new ClrFunctionInstance(Engine, (self, args) =>
                 {
@@ -552,7 +552,7 @@ namespace Jint.Native.String
             }
 
             var rx = TypeConverter.ToObject(Engine, searchValue) as RegExpInstance;
-            if (rx != null)
+            if (!ReferenceEquals(rx, null))
             {
                 // Replace the input string with replaceText, recording the last match found.
                 string result = rx.Value.Replace(thisString, match =>
@@ -634,7 +634,7 @@ namespace Jint.Native.String
                 while (lastMatch)
                 {
                     var result = Engine.RegExp.PrototypeObject.Exec(rx, Arguments.From(s)).TryCast<ObjectInstance>();
-                    if (result == null)
+                    if (ReferenceEquals(result, null))
                     {
                         lastMatch = false;
                     }
@@ -678,7 +678,7 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
             var searchStr = TypeConverter.ToString(arguments.At(0));
             double numPos = double.NaN;
-            if (arguments.Length > 1 && arguments[1] != Undefined)
+            if (arguments.Length > 1 && !ReferenceEquals(arguments[1], Undefined))
             {
                 numPos = TypeConverter.ToNumber(arguments[1]);
             }
@@ -725,7 +725,7 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
             var searchStr = TypeConverter.ToString(arguments.At(0));
             double pos = 0;
-            if (arguments.Length > 1 && arguments[1] != Undefined)
+            if (arguments.Length > 1 && !ReferenceEquals(arguments[1], Undefined))
             {
                 pos = TypeConverter.ToInteger(arguments[1]);
             }
@@ -807,7 +807,7 @@ namespace Jint.Native.String
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
         {
             var s = thisObj.TryCast<StringInstance>();
-            if (s == null)
+            if (ReferenceEquals(s, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }

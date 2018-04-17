@@ -206,7 +206,7 @@ namespace Jint
 
         public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
 
-        internal Options Options { get; }
+        internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; }
 
         internal ReferencePool ReferencePool { get; }
         internal CompletionPool CompletionPool { get; }
@@ -520,7 +520,7 @@ namespace Jint
         internal JsValue GetValue(object value, bool returnReferenceToPool)
         {
             var jsValue = value as JsValue;
-            if (jsValue != null)
+            if (!ReferenceEquals(jsValue, null))
             {
                 return jsValue;
             }
@@ -591,7 +591,7 @@ namespace Jint
             }
 
             var record = (EnvironmentRecord) baseValue;
-            if (record == null)
+            if (ReferenceEquals(record, null))
             {
                 throw new ArgumentException();
             }
@@ -639,7 +639,7 @@ namespace Jint
                 var baseValue = reference.GetBase();
                 var record = baseValue as EnvironmentRecord;
 
-                if (record == null)
+                if (ReferenceEquals(record, null))
                 {
                     throw new ArgumentNullException();
                 }
@@ -838,7 +838,7 @@ namespace Jint
                 }
                 else
                 {
-                    if (env == GlobalEnvironment.Record)
+                    if (ReferenceEquals(env, GlobalEnvironment.Record))
                     {
                         var go = Global;
                         var existingProp = go.GetProperty(fn);
@@ -876,7 +876,7 @@ namespace Jint
                 {
                     var declEnv = env as DeclarativeEnvironmentRecord;
 
-                    if (declEnv == null)
+                    if (ReferenceEquals(declEnv, null))
                     {
                         throw new ArgumentException();
                     }

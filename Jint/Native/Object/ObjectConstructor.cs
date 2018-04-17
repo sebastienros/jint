@@ -84,7 +84,7 @@ namespace Jint.Native.Object
             {
                 var value = arguments[0];
                 var valueObj = value.TryCast<ObjectInstance>();
-                if (valueObj != null)
+                if (!ReferenceEquals(valueObj, null))
                 {
                     return valueObj;
                 }
@@ -108,7 +108,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -120,7 +120,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -136,7 +136,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -171,7 +171,7 @@ namespace Jint.Native.Object
             var oArg = arguments.At(0);
 
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null && oArg != Null)
+            if (ReferenceEquals(o, null) && !ReferenceEquals(oArg, Null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -180,7 +180,7 @@ namespace Jint.Native.Object
             obj.Prototype = o;
 
             var properties = arguments.At(1);
-            if (properties != Undefined)
+            if (!ReferenceEquals(properties, Undefined))
             {
                 DefineProperties(thisObject, new [] {obj, properties});
             }
@@ -192,7 +192,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -211,7 +211,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -242,7 +242,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -269,7 +269,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -305,7 +305,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -319,7 +319,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -344,7 +344,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -377,7 +377,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -389,7 +389,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }

@@ -56,7 +56,9 @@ namespace Jint.Runtime
             if (assignmentExpression.Operator == AssignmentOperator.Assign) // "="
             {
 
-                if(lref.IsStrict() && lref.GetBase().TryCast<EnvironmentRecord>() != null && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
+                if(lref.IsStrict() 
+                   && !ReferenceEquals(lref.GetBase().TryCast<EnvironmentRecord>(), null) 
+                   && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
                 {
                     throw new JavaScriptException(_engine.SyntaxError);
                 }
@@ -76,7 +78,7 @@ namespace Jint.Runtime
                     if (lprim.IsString() || rprim.IsString())
                     {
                         var jsString = lprim as JsString;
-                        if (jsString == null)
+                        if (ReferenceEquals(jsString, null))
                         {
                             jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
                         }
@@ -346,12 +348,10 @@ namespace Jint.Runtime
 
                 case BinaryOperator.InstanceOf:
                     var f = right.TryCast<FunctionInstance>();
-
-                    if (f == null)
+                    if (ReferenceEquals(f, null))
                     {
                         throw new JavaScriptException(_engine.TypeError, "instanceof can only be used with a function object");
                     }
-
                     value = f.HasInstance(left);
                     break;
 
@@ -744,12 +744,12 @@ namespace Jint.Runtime
 
                     if (previous.IsAccessorDescriptor() && propDesc.IsAccessorDescriptor())
                     {
-                        if (propDesc.Set != null && previous.Set != null)
+                        if (!ReferenceEquals(propDesc.Set, null) && !ReferenceEquals(previous.Set, null))
                         {
                             throw new JavaScriptException(_engine.SyntaxError);
                         }
 
-                        if (propDesc.Get != null && previous.Get != null)
+                        if (!ReferenceEquals(propDesc.Get, null) && !ReferenceEquals(previous.Get, null))
                         {
                             throw new JavaScriptException(_engine.SyntaxError);
                         }
@@ -967,7 +967,7 @@ namespace Jint.Runtime
                     r = value as Reference;
                     if (r != null
                         && r.IsStrict()
-                        && (r.GetBase().TryCast<EnvironmentRecord>() != null)
+                        && (!ReferenceEquals(r.GetBase().TryCast<EnvironmentRecord>(), null))
                         && ("eval" == r.GetReferencedName() || "arguments" == r.GetReferencedName()))
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
@@ -984,7 +984,7 @@ namespace Jint.Runtime
                     r = value as Reference;
                     if (r != null
                         && r.IsStrict()
-                        && (r.GetBase().TryCast<EnvironmentRecord>() != null)
+                        && (!ReferenceEquals(r.GetBase().TryCast<EnvironmentRecord>(), null))
                         && ("eval" == r.GetReferencedName() || "arguments" == r.GetReferencedName()))
                     {
                         throw new JavaScriptException(_engine.SyntaxError);

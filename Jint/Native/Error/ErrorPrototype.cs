@@ -42,7 +42,7 @@ namespace Jint.Native.Error
         public JsValue ToString(JsValue thisObject, JsValue[] arguments)
         {
             var o = thisObject.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }

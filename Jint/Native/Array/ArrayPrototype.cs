@@ -506,7 +506,7 @@ namespace Jint.Native.Array
 
             var compareArg = arguments.At(0);
             ICallable compareFn = null;
-            if (compareArg != Undefined)
+            if (!ReferenceEquals(compareArg, Undefined))
             {
                 compareFn = compareArg.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "The sort argument must be a function"));
             }
@@ -797,7 +797,7 @@ namespace Jint.Native.Array
             foreach (var e in items)
             {
                 var eArray = e.TryCast<ArrayInstance>();
-                if (eArray != null)
+                if (!ReferenceEquals(eArray, null))
                 {
                     var len = eArray.GetLength();
                     for (uint k = 0; k < len; k++)
@@ -901,7 +901,7 @@ namespace Jint.Native.Array
             for (var i = 0; i < arguments.Length; i++)
             {
                 JsValue e = arguments[i];
-                if (arrayInstance != null && n >= 0 && n < uint.MaxValue)
+                if (!ReferenceEquals(arrayInstance, null) && n >= 0 && n < uint.MaxValue)
                 {
                     // try to optimize a bit
                     arrayInstance.SetIndexValue((uint) n, e, true);
@@ -1004,13 +1004,13 @@ namespace Jint.Native.Array
                 public override uint GetLength()
                 {
                     var desc = _instance.GetProperty("length");
-                    if (desc.IsDataDescriptor() && desc.Value != null)
+                    var descValue = desc.Value;
+                    if (desc.IsDataDescriptor() && !ReferenceEquals(descValue, null))
                     {
-                        return TypeConverter.ToUint32(desc.Value);
+                        return TypeConverter.ToUint32(descValue);
                     }
 
-                    var getter = desc.Get != null ? desc.Get : Undefined;
-
+                    var getter = desc.Get ?? Undefined;
                     if (getter.IsUndefined())
                     {
                         return 0;

@@ -53,7 +53,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetValueOrDefault()
         {
-            return Value != null ? Value : Undefined.Instance;
+            return Value ?? Undefined.Instance;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

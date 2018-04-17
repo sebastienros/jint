@@ -56,13 +56,13 @@ namespace Jint.Native.RegExp
             }
 
             var match = Exec(r, arguments);
-            return match != Null;
+            return !ReferenceEquals(match, Null);
         }
 
         internal JsValue Exec(JsValue thisObj, JsValue[] arguments)
         {
             var R = TypeConverter.ToObject(Engine, thisObj) as RegExpInstance;
-            if (R == null)
+            if (ReferenceEquals(R, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }

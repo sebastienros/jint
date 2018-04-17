@@ -100,7 +100,7 @@ namespace Jint.Runtime.Interop
         {
             ObjectWrapper wrapper = v.As<ObjectWrapper>();
 
-            if (wrapper == null)
+            if (ReferenceEquals(wrapper, null))
             {
                 return base.HasInstance(v);
             }

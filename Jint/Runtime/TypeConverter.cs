@@ -363,7 +363,7 @@ namespace Jint.Runtime
                 else
                 {
                     var s = o.AsInstance<SymbolInstance>();
-                    if (s != null)
+                    if (!ReferenceEquals(s, null))
                     {
                         // TODO: throw a TypeError
                         // NB: But it requires an Engine reference
@@ -456,10 +456,13 @@ namespace Jint.Runtime
             return value.Type;
         }
 
-        public static void CheckObjectCoercible(Engine engine, JsValue o, MemberExpression expression,
+        public static void CheckObjectCoercible(
+            Engine engine,
+            JsValue o,
+            MemberExpression expression,
             object baseReference)
         {
-            if (o != Undefined.Instance && o != Null.Instance)
+            if (!ReferenceEquals(o, Undefined.Instance) && !ReferenceEquals(o, Null.Instance))
             {
                 return;
             }

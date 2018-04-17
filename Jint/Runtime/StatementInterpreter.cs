@@ -81,7 +81,7 @@ namespace Jint.Runtime
             do
             {
                 var stmt = ExecuteStatement(doWhileStatement.Body);
-                if (stmt.Value != null)
+                if (!ReferenceEquals(stmt.Value, null))
                 {
                     v = stmt.Value;
                 }
@@ -126,7 +126,7 @@ namespace Jint.Runtime
 
                 var stmt = ExecuteStatement(whileStatement.Body);
 
-                if (stmt.Value != null)
+                if (!ReferenceEquals(stmt.Value, null))
                 {
                     v = stmt.Value;
                 }
@@ -156,18 +156,18 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteForStatement(ForStatement forStatement)
         {
-
-            if (forStatement.Init != null)
+            var init = forStatement.Init;
+            if (init != null)
             {
-                if (forStatement.Init.Type == Nodes.VariableDeclaration)
+                if (init.Type == Nodes.VariableDeclaration)
                 {
-                    var c = ExecuteStatement((Statement) forStatement.Init);
+                    var c = ExecuteStatement((Statement) init);
                     _engine.CompletionPool.Return(c);
 
                 }
                 else
                 {
-                    _engine.GetValue(_engine.EvaluateExpression(forStatement.Init), true);
+                    _engine.GetValue(_engine.EvaluateExpression(init), true);
                 }
             }
 
@@ -184,7 +184,7 @@ namespace Jint.Runtime
                 }
 
                 var stmt = ExecuteStatement(forStatement.Body);
-                if (stmt.Value != null)
+                if (!ReferenceEquals(stmt.Value, null))
                 {
                     v = stmt.Value;
                 }
@@ -233,7 +233,7 @@ namespace Jint.Runtime
             var cursor = obj;
             var processedKeys = new HashSet<string>();
 
-            while (cursor != null)
+            while (!ReferenceEquals(cursor, null))
             {
                 var keys = _engine.Object.GetOwnPropertyNames(Undefined.Instance, Arguments.From(cursor)).AsArray();
 
@@ -264,7 +264,7 @@ namespace Jint.Runtime
                     _engine.PutValue(varRef, p);
 
                     var stmt = ExecuteStatement(forInStatement.Body);
-                    if (stmt.Value != null)
+                    if (!ReferenceEquals(stmt.Value, null))
                     {
                         v = stmt.Value;
                     }
@@ -408,7 +408,7 @@ namespace Jint.Runtime
                         return r;
                     }
 
-                    v = r.Value != null ? r.Value : Undefined.Instance;
+                    v = r.Value ?? Undefined.Instance;
                 }
             }
 
@@ -421,7 +421,7 @@ namespace Jint.Runtime
                     return r;
                 }
 
-                v = r.Value != null ? r.Value : Undefined.Instance;
+                v = r.Value ?? Undefined.Instance;
             }
 
             return _engine.CompletionPool.Rent(Completion.Normal, v, null);
@@ -444,7 +444,7 @@ namespace Jint.Runtime
                     {
                         var executeStatementList = _engine.CompletionPool.Rent(
                             c.Type,
-                            c.Value != null ? c.Value : sl.Value,
+                            c.Value ?? sl.Value,
                             c.Identifier,
                             c.Location);
 
@@ -539,8 +539,9 @@ namespace Jint.Runtime
                         throw new ArgumentException();
                     }
 
-                    if (lhs.IsStrict() && lhs.GetBase().TryCast<EnvironmentRecord>() != null &&
-                        (lhs.GetReferencedName() == "eval" || lhs.GetReferencedName() == "arguments"))
+                    if (lhs.IsStrict() 
+                        && !ReferenceEquals(lhs.GetBase().TryCast<EnvironmentRecord>(), null) 
+                        && (lhs.GetReferencedName() == "eval" || lhs.GetReferencedName() == "arguments"))
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
                     }

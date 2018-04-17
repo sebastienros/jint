@@ -62,7 +62,7 @@ namespace Jint.Native.Object
             {
                 v = v.Prototype;
 
-                if (v == null)
+                if (ReferenceEquals(v, null))
                 {
                     return false;
                 }

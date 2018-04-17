@@ -115,7 +115,7 @@ namespace Jint.Native.Function
         {
             get
             {
-                if (_throwTypeError != null)
+                if (!ReferenceEquals(_throwTypeError, null))
                 {
                     return _throwTypeError;
                 }
@@ -147,7 +147,7 @@ namespace Jint.Native.Function
             }
 
             var argArrayObj = argArray.TryCast<ObjectInstance>();
-            if (argArrayObj == null)
+            if (ReferenceEquals(argArrayObj, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }

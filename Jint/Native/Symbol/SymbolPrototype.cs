@@ -54,7 +54,7 @@ namespace Jint.Native.Symbol
         private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
         {
             var sym = thisObject.TryCast<SymbolInstance>();
-            if (sym == null)
+            if (ReferenceEquals(sym, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -71,7 +71,7 @@ namespace Jint.Native.Symbol
 
             // Steps 3. and 4.
             var o = thisObject.AsInstance<SymbolInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }

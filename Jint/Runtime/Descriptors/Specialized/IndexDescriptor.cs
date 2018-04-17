@@ -92,7 +92,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                     throw new InvalidOperationException("Indexer has no public setter.");
                 }
 
-                object[] parameters = {_key, value != null ? value.ToObject() : null};
+                object[] parameters = {_key, value?.ToObject()};
                 setter.Invoke(_item, parameters);
             }
         }
