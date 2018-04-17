@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native.Object;
@@ -74,7 +73,7 @@ namespace Jint.Native.Function
             {
                 var functionExpression = "function f(" + p + ") { " + body + "}";
                 var parser = new JavaScriptParser(functionExpression, ParserOptions);
-                function = parser.ParseProgram().Body.First().As<IFunction>();
+                function = (IFunction) parser.ParseProgram().Body[0];
             }
             catch (ParserException)
             {

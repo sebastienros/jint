@@ -14,6 +14,13 @@ namespace Jint.Runtime.Descriptors.Specialized
             _set = set;
         }
 
+        internal GetSetPropertyDescriptor(JsValue get, JsValue set, PropertyFlag flags)
+            : base(null, flags)
+        {
+            _get = get;
+            _set = set;
+        }
+
         public GetSetPropertyDescriptor(PropertyDescriptor descriptor) : base(descriptor)
         {
             _get = descriptor.Get;

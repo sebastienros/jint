@@ -28,7 +28,7 @@ namespace Jint.Native
             }
         }
 
-        public JsString(string value)
+        public JsString(string value) : base(Types.String)
         {
             _value = value;
         }
@@ -38,12 +38,10 @@ namespace Jint.Native
             return _value;
         }
 
-        public JsString(char value)
+        public JsString(char value) : base(Types.String)
         {
             _value = value.ToString();
         }
-
-        public override Types Type => Types.String;
 
         [Pure]
         public override string AsString()

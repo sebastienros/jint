@@ -77,7 +77,7 @@ namespace Jint.Native.String
         const char MONGOLIAN_VOWEL_SEPARATOR = '\u180E';
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsWhiteSpaceEx(char c)
+        internal static bool IsWhiteSpaceEx(char c)
         {
             return
                 char.IsWhiteSpace(c) ||
@@ -86,6 +86,7 @@ namespace Jint.Native.String
                 c == MONGOLIAN_VOWEL_SEPARATOR;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string TrimEndEx(string s)
         {
             if (s.Length == 0)
@@ -108,6 +109,7 @@ namespace Jint.Native.String
                 return string.Empty;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string TrimStartEx(string s)
         {
             if (s.Length == 0)
@@ -130,11 +132,13 @@ namespace Jint.Native.String
                 return s.Substring(i);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string TrimEx(string s)
         {
             return TrimEndEx(TrimStartEx(s));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private JsValue Trim(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);

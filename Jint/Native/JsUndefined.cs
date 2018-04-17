@@ -5,11 +5,9 @@ namespace Jint.Native
 {
     public sealed class JsUndefined : JsValue, IEquatable<JsUndefined>
     {
-        internal JsUndefined()
+        internal JsUndefined() : base(Types.Undefined)
         {
         }
-
-        public override Types Type => Types.Undefined;
 
         public override object ToObject()
         {

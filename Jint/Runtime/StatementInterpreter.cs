@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Descriptors;
@@ -162,13 +161,13 @@ namespace Jint.Runtime
             {
                 if (forStatement.Init.Type == Nodes.VariableDeclaration)
                 {
-                    var c = ExecuteStatement(forStatement.Init.As<Statement>());
+                    var c = ExecuteStatement((Statement) forStatement.Init);
                     _engine.CompletionPool.Return(c);
 
                 }
                 else
                 {
-                    _engine.GetValue(_engine.EvaluateExpression(forStatement.Init.As<Expression>()), true);
+                    _engine.GetValue(_engine.EvaluateExpression(forStatement.Init), true);
                 }
             }
 
@@ -216,9 +215,9 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteForInStatement(ForInStatement forInStatement)
         {
-            Identifier identifier = forInStatement.Left.Type == Nodes.VariableDeclaration
-                                        ? forInStatement.Left.As<VariableDeclaration>().Declarations.First().Id.As<Identifier>()
-                                        : forInStatement.Left.As<Identifier>();
+            var identifier = forInStatement.Left.Type == Nodes.VariableDeclaration
+                ? (Identifier) ((VariableDeclaration) forInStatement.Left).Declarations[0].Id
+                : (Identifier) forInStatement.Left;
 
             var varRef = _engine.EvaluateExpression(identifier) as Reference;
             var experValue = _engine.GetValue(_engine.EvaluateExpression(forInStatement.Right), true);
@@ -439,8 +438,7 @@ namespace Jint.Runtime
                 var statementListCount = statementList.Count;
                 for (var i = 0; i < statementListCount; i++)
                 {
-                    var statement = statementList[i];
-                    s = statement.As<Statement>();
+                    s = (Statement) statementList[i];
                     c = ExecuteStatement(s);
                     if (c.Type != Completion.Normal)
                     {
@@ -502,7 +500,7 @@ namespace Jint.Runtime
                     var c = _engine.GetValue(b);
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                    catchEnv.Record.CreateMutableBinding(catchClause.Param.As<Identifier>().Name, c);
+                    catchEnv.Record.CreateMutableBinding(((Identifier) catchClause.Param).Name, c);
                     _engine.ExecutionContext.LexicalEnvironment = catchEnv;
                     b = ExecuteStatement(catchClause.Body);
                     _engine.ExecutionContext.LexicalEnvironment = oldEnv;
@@ -536,7 +534,7 @@ namespace Jint.Runtime
                 var declaration = statement.Declarations[i];
                 if (declaration.Init != null)
                 {
-                    if (!(_engine.EvaluateExpression(declaration.Id.As<Identifier>()) is Reference lhs))
+                    if (!(_engine.EvaluateExpression(declaration.Id) is Reference lhs))
                     {
                         throw new ArgumentException();
                     }

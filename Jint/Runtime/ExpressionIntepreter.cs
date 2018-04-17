@@ -45,7 +45,7 @@ namespace Jint.Runtime
 
         public JsValue EvaluateAssignmentExpression(AssignmentExpression assignmentExpression)
         {
-            var lref = EvaluateExpression(assignmentExpression.Left.As<Expression>()) as Reference;
+            var lref = EvaluateExpression((Expression) assignmentExpression.Left) as Reference;
             JsValue rval = _engine.GetValue(EvaluateExpression(assignmentExpression.Right), true);
 
             if (lref == null)
@@ -208,7 +208,7 @@ namespace Jint.Runtime
             JsValue left;
             if (expression.Left.Type == Nodes.Literal)
             {
-                left = EvaluateLiteral(expression.Left.As<Literal>());
+                left = EvaluateLiteral((Literal) expression.Left);
             }
             else
             {
@@ -218,7 +218,7 @@ namespace Jint.Runtime
             JsValue right;
             if (expression.Right.Type == Nodes.Literal)
             {
-                right = EvaluateLiteral(expression.Right.As<Literal>());
+                right = EvaluateLiteral((Literal) expression.Right);
             }
             else
             {
@@ -666,11 +666,13 @@ namespace Jint.Runtime
                 var previous = obj.GetOwnProperty(propName);
                 PropertyDescriptor propDesc;
 
+                const PropertyFlag enumerableConfigurable = PropertyFlag.Enumerable | PropertyFlag.Configurable;
+                
                 switch (property.Kind)
                 {
                     case PropertyKind.Init:
                     case PropertyKind.Data:
-                        var exprValue = _engine.EvaluateExpression(property.Value.As<Expression>());
+                        var exprValue = _engine.EvaluateExpression(property.Value);
                         var propValue = _engine.GetValue(exprValue, true);
                         propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
                         break;
@@ -694,7 +696,7 @@ namespace Jint.Runtime
                             );
                         }
 
-                        propDesc = new GetSetPropertyDescriptor(get: get, set: null, enumerable: true, configurable: true);
+                        propDesc = new GetSetPropertyDescriptor(get: get, set: null, enumerableConfigurable);
                         break;
 
                     case PropertyKind.Set:
@@ -716,7 +718,7 @@ namespace Jint.Runtime
                             );
                         }
 
-                        propDesc = new GetSetPropertyDescriptor(get: null, set: set, enumerable: true, configurable: true);
+                        propDesc = new GetSetPropertyDescriptor(get: null, set: set, enumerableConfigurable);
                         break;
 
                     default:
@@ -948,7 +950,7 @@ namespace Jint.Runtime
             for (var i = 0; i < expressionsCount; i++)
             {
                 var expression = sequenceExpression.Expressions[i];
-                result = _engine.GetValue(_engine.EvaluateExpression(expression.As<Expression>()), true);
+                result = _engine.GetValue(_engine.EvaluateExpression(expression), true);
             }
 
             return result;
@@ -1041,7 +1043,7 @@ namespace Jint.Runtime
                 var expr = elements[n];
                 if (expr != null)
                 {
-                    var value = _engine.GetValue(EvaluateExpression(expr.As<Expression>()), true);
+                    var value = _engine.GetValue(EvaluateExpression((Expression) expr), true);
                     a.SetIndexValue((uint) n, value, throwOnError: false);
                 }
             }

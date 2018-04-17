@@ -232,7 +232,7 @@ namespace Jint.Native.Array
 
                 if (!newWritable)
                 {
-                    DefineOwnProperty("length", new PropertyDescriptor(value: null, writable: false, enumerable: null, configurable: null), false);
+                    DefineOwnProperty("length", new PropertyDescriptor(value: null, PropertyFlag.WritableSet), false);
                 }
 
                 return true;

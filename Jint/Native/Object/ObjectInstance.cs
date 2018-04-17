@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.Contracts;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
 using Jint.Native.Array;
@@ -22,7 +21,7 @@ namespace Jint.Native.Object
         private Dictionary<string, PropertyDescriptor> _intrinsicProperties;
         private MruPropertyCache2<PropertyDescriptor> _properties;
 
-        public ObjectInstance(Engine engine)
+        public ObjectInstance(Engine engine) : base(Types.Object)
         {
             Engine = engine;
         }
@@ -595,20 +594,19 @@ namespace Jint.Native.Object
 
                     if (current.IsDataDescriptor())
                     {
+                        var flags = current.Flags & ~(PropertyFlag.Writable | PropertyFlag.WritableSet);
                         SetOwnProperty(propertyName, current = new GetSetPropertyDescriptor(
                             get: JsValue.Undefined,
                             set: JsValue.Undefined,
-                            enumerable: current.Enumerable,
-                            configurable: current.Configurable
+                            flags
                         ));
                     }
                     else
                     {
+                        var flags = current.Flags & ~(PropertyFlag.Writable | PropertyFlag.WritableSet);
                         SetOwnProperty(propertyName, current = new PropertyDescriptor(
                             value: JsValue.Undefined,
-                            writable: null,
-                            enumerable: current.Enumerable,
-                            configurable: current.Configurable
+                            flags
                         ));
                     }
                 }
@@ -733,81 +731,6 @@ namespace Jint.Native.Object
             return TypeConverter.ToString(this);
         }
 
-        public override Types Type => Types.Object;
-
-        [Pure]
-        public override bool IsArray()
-        {
-            return this is ArrayInstance;
-        }
-
-        [Pure]
-        public override bool IsDate()
-        {
-            return this is DateInstance;
-        }
-
-        [Pure]
-        public override bool IsRegExp()
-        {
-            return this is RegExpInstance;
-        }
-
-        [Pure]
-        public override ObjectInstance AsObject()
-        {
-            return this;
-        }
-
-        [Pure]
-        public override TInstance AsInstance<TInstance>()
-        {
-            return this as TInstance;
-        }
-
-        [Pure]
-        public override ArrayInstance AsArray()
-        {
-            if (!IsArray())
-            {
-                throw new ArgumentException("The value is not an array");
-            }
-
-            return this as ArrayInstance;
-        }
-
-        [Pure]
-        public override DateInstance AsDate()
-        {
-            if (!IsDate())
-            {
-                throw new ArgumentException("The value is not a date");
-            }
-
-            return this as DateInstance;
-        }
-
-        [Pure]
-        public override RegExpInstance AsRegExp()
-        {
-            if (!IsRegExp())
-            {
-                throw new ArgumentException("The value is not a regex");
-            }
-
-            return this as RegExpInstance;
-        }
-
-        public override bool Is<T>()
-        {
-            return this is T;
-        }
-
-        public override T As<T>()
-        {
-            return this as T;
-        }
-
         public override object ToObject()
         {
             if (this is IObjectWrapper wrapper)
@@ -861,7 +784,9 @@ namespace Jint.Native.Object
                 case "Boolean":
                     if (this is BooleanInstance booleanInstance)
                     {
-                        return booleanInstance.PrimitiveValue.AsBoolean();
+                        return booleanInstance.PrimitiveValue.AsBoolean()
+                             ? JsBoolean.BoxedTrue
+                             : JsBoolean.BoxedFalse;
                     }
 
                     break;

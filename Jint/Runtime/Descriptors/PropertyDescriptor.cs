@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors.Specialized;
@@ -7,32 +8,43 @@ namespace Jint.Runtime.Descriptors
 {
     public class PropertyDescriptor
     {
-        public static readonly PropertyDescriptor Undefined = new PropertyDescriptor();
+        public static readonly PropertyDescriptor Undefined = new PropertyDescriptor(PropertyFlag.None);
 
         private PropertyFlag _flags;
+        private JsValue _value;
 
-        protected PropertyDescriptor()
+        protected PropertyDescriptor(PropertyFlag flags)
         {
+            _flags = flags;
+        }
+        
+        
+        protected internal PropertyDescriptor(JsValue value, PropertyFlag flags) : this(flags)
+        {
+            Value = value;
         }
 
         public PropertyDescriptor(JsValue value, bool? writable, bool? enumerable, bool? configurable)
         {
             Value = value;
 
-            Writable = writable.GetValueOrDefault();
-            WritableSet = writable != null;
+            if (writable != null)
+            {
+                Writable = writable.Value;
+                WritableSet = true;
+            }
 
-            Enumerable = enumerable.GetValueOrDefault();
-            EnumerableSet = enumerable != null;
+            if (enumerable != null)
+            {
+                Enumerable = enumerable.Value;
+                EnumerableSet = true;
+            }
 
-            Configurable = configurable.GetValueOrDefault();
-            ConfigurableSet = configurable != null;
-        }
-
-        internal PropertyDescriptor(JsValue value, PropertyFlag flags)
-        {
-            Value = value;
-            _flags = flags;
+            if (configurable != null)
+            {
+                Configurable = configurable.Value;
+                ConfigurableSet = true;
+            }
         }
 
         public PropertyDescriptor(PropertyDescriptor descriptor)
@@ -163,7 +175,40 @@ namespace Jint.Runtime.Descriptors
             }
         }
 
-        public virtual JsValue Value { get; set; }
+        public JsValue Value
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                if ((_flags & PropertyFlag.CustomJsValue) != 0)
+                {
+                    return CustomValue;
+                }
+                
+                return _value;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set
+            {
+                if ((_flags & PropertyFlag.CustomJsValue) != 0)
+                {
+                    CustomValue = value;
+                }
+                _value = value;
+            }
+        }
+
+        protected virtual JsValue CustomValue
+        {
+            get => null;
+            set => throw new NotImplementedException();
+        }
+
+        internal PropertyFlag Flags
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return _flags; }
+        }
 
         public static PropertyDescriptor ToPropertyDescriptor(Engine engine, JsValue o)
         {
@@ -185,8 +230,8 @@ namespace Jint.Runtime.Descriptors
             }
 
             var desc = hasGetProperty || hasSetProperty
-                ? new GetSetPropertyDescriptor(null, null, null, null)
-                : new PropertyDescriptor();
+                ? new GetSetPropertyDescriptor(null, null, PropertyFlag.None)
+                : new PropertyDescriptor(PropertyFlag.None);
 
             var enumerableProperty = obj.GetProperty("enumerable");
             if (enumerableProperty != Undefined)

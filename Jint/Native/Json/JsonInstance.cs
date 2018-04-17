@@ -64,9 +64,7 @@ namespace Jint.Native.Json
                                 new PropertyDescriptor
                                 (
                                     value: newValue,
-                                    writable: true,
-                                    enumerable: true,
-                                    configurable: true
+                                    PropertyFlag.ConfigurableEnumerableWritable
                                 ),
                                 false
                             );
@@ -91,9 +89,7 @@ namespace Jint.Native.Json
                                 new PropertyDescriptor
                                 (
                                     value: newElement,
-                                    writable: true,
-                                    enumerable: true,
-                                    configurable: true
+                                    PropertyFlag.ConfigurableEnumerableWritable
                                 ),
                                 false
                             );
@@ -116,9 +112,7 @@ namespace Jint.Native.Json
                     "",
                     new PropertyDescriptor(
                         value: res,
-                        writable: true,
-                        enumerable: true,
-                        configurable: true
+                        PropertyFlag.ConfigurableEnumerableWritable
                     ),
                     false
                 );

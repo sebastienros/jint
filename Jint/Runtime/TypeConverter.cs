@@ -74,18 +74,18 @@ namespace Jint.Runtime
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.2
         /// </summary>
-        /// <param name="o"></param>
-        /// <returns></returns>
         public static bool ToBoolean(JsValue o)
         {
-            if (o.IsObject())
+            var type = o.Type;
+
+            if (type == Types.Object)
             {
                 return true;
             }
 
-            if (o.IsBoolean())
+            if (type == Types.Boolean)
             {
-                return o.AsBoolean();
+                return ((JsBoolean) o)._value;
             }
 
             if (ReferenceEquals(o, Undefined.Instance) || ReferenceEquals(o, Null.Instance))
@@ -93,9 +93,9 @@ namespace Jint.Runtime
                 return false;
             }
 
-            if (o.IsNumber())
+            if (type == Types.Number)
             {
-                var n = o.AsNumber();
+                var n = ((JsNumber) o)._value;
                 if (n.Equals(0) || double.IsNaN(n))
                 {
                     return false;
@@ -104,10 +104,10 @@ namespace Jint.Runtime
                 return true;
             }
 
-            if (o.IsString())
+            if (type == Types.String)
             {
                 var s = o.AsString();
-                if (String.IsNullOrEmpty(s))
+                if (string.IsNullOrEmpty(s))
                 {
                     return false;
                 }
@@ -126,15 +126,15 @@ namespace Jint.Runtime
         public static double ToNumber(JsValue o)
         {
             // check number first as this is what is usually expected
-            if (o.IsNumber())
+            var type = o.Type;
+            if (type == Types.Number)
             {
-                return o.AsNumber();
+                return ((JsNumber) o)._value;
             }
 
-            if (o.IsObject())
+            if (type == Types.Object)
             {
-                var p = o.AsObject() as IPrimitiveInstance;
-                if (p != null)
+                if (o is IPrimitiveInstance p)
                 {
                     o = p.PrimitiveValue;
                 }
@@ -150,12 +150,12 @@ namespace Jint.Runtime
                 return 0;
             }
 
-            if (o.IsBoolean())
+            if (type == Types.Boolean)
             {
-                return o.AsBoolean() ? 1 : 0;
+                return ((JsBoolean) o)._value ? 1 : 0;
             }
 
-            if (o.IsString())
+            if (type == Types.String)
             {
                 return ToNumber(o.AsString());
             }
@@ -171,7 +171,9 @@ namespace Jint.Runtime
                 return 0;
             }
 
-            var s = StringPrototype.TrimEx(input);
+            var s = StringPrototype.IsWhiteSpaceEx(input[0]) || StringPrototype.IsWhiteSpaceEx(input[input.Length - 1])
+                ? StringPrototype.TrimEx(input)
+                : input;
 
             if (string.IsNullOrEmpty(s))
             {

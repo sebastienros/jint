@@ -82,7 +82,7 @@ namespace Jint.Native.RegExp
             {
                 // "aaa".match() => [ '', index: 0, input: 'aaa' ]
                 var aa = InitReturnValueArray((ArrayInstance) Engine.Array.Construct(Arguments.Empty), s, 1, 0);
-                aa.DefineOwnProperty("0", new PropertyDescriptor("", true, true, true), true);
+                aa.DefineOwnProperty("0", new PropertyDescriptor("", PropertyFlag.ConfigurableEnumerableWritable), true);
                 return aa;
             }
 
