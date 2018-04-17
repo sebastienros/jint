@@ -52,7 +52,7 @@ namespace Jint.Native.Function
             f.Prototype = Engine.Function.PrototypeObject;
 
             var o = target as FunctionInstance;
-            if (o != null)
+            if (!ReferenceEquals(o, null))
             {
                 var l = TypeConverter.ToNumber(o.Get("length")) - (arguments.Length - 1);
                 f.SetOwnProperty("length", new PropertyDescriptor(System.Math.Max(l, 0), PropertyFlag.AllForbidden));
@@ -64,9 +64,9 @@ namespace Jint.Native.Function
 
 
             var thrower = Engine.Function.ThrowTypeError;
-            f.DefineOwnProperty("caller", new GetSetPropertyDescriptor(thrower, thrower, false, false), false);
-            f.DefineOwnProperty("arguments", new GetSetPropertyDescriptor(thrower, thrower, false, false), false);
-
+            const PropertyFlag flags = PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet;
+            f.DefineOwnProperty("caller", new GetSetPropertyDescriptor(thrower, thrower, flags), false);
+            f.DefineOwnProperty("arguments", new GetSetPropertyDescriptor(thrower, thrower, flags), false);
 
             return f;
         }
@@ -75,7 +75,7 @@ namespace Jint.Native.Function
         {
             var func = thisObj.TryCast<FunctionInstance>();
 
-            if (func == null)
+            if (ReferenceEquals(func, null))
             {
                 throw new JavaScriptException(Engine.TypeError, "Function object expected.");
             }
@@ -100,7 +100,7 @@ namespace Jint.Native.Function
             }
 
             var argArrayObj = argArray.TryCast<ObjectInstance>();
-            if (argArrayObj == null)
+            if (ReferenceEquals(argArrayObj, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Descriptors;
@@ -82,7 +81,7 @@ namespace Jint.Runtime
             do
             {
                 var stmt = ExecuteStatement(doWhileStatement.Body);
-                if (stmt.Value != null)
+                if (!ReferenceEquals(stmt.Value, null))
                 {
                     v = stmt.Value;
                 }
@@ -127,7 +126,7 @@ namespace Jint.Runtime
 
                 var stmt = ExecuteStatement(whileStatement.Body);
 
-                if (stmt.Value != null)
+                if (!ReferenceEquals(stmt.Value, null))
                 {
                     v = stmt.Value;
                 }
@@ -157,18 +156,18 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteForStatement(ForStatement forStatement)
         {
-
-            if (forStatement.Init != null)
+            var init = forStatement.Init;
+            if (init != null)
             {
-                if (forStatement.Init.Type == Nodes.VariableDeclaration)
+                if (init.Type == Nodes.VariableDeclaration)
                 {
-                    var c = ExecuteStatement(forStatement.Init.As<Statement>());
+                    var c = ExecuteStatement((Statement) init);
                     _engine.CompletionPool.Return(c);
 
                 }
                 else
                 {
-                    _engine.GetValue(_engine.EvaluateExpression(forStatement.Init.As<Expression>()), true);
+                    _engine.GetValue(_engine.EvaluateExpression(init), true);
                 }
             }
 
@@ -185,7 +184,7 @@ namespace Jint.Runtime
                 }
 
                 var stmt = ExecuteStatement(forStatement.Body);
-                if (stmt.Value != null)
+                if (!ReferenceEquals(stmt.Value, null))
                 {
                     v = stmt.Value;
                 }
@@ -216,9 +215,9 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteForInStatement(ForInStatement forInStatement)
         {
-            Identifier identifier = forInStatement.Left.Type == Nodes.VariableDeclaration
-                                        ? forInStatement.Left.As<VariableDeclaration>().Declarations.First().Id.As<Identifier>()
-                                        : forInStatement.Left.As<Identifier>();
+            var identifier = forInStatement.Left.Type == Nodes.VariableDeclaration
+                ? (Identifier) ((VariableDeclaration) forInStatement.Left).Declarations[0].Id
+                : (Identifier) forInStatement.Left;
 
             var varRef = _engine.EvaluateExpression(identifier) as Reference;
             var experValue = _engine.GetValue(_engine.EvaluateExpression(forInStatement.Right), true);
@@ -234,7 +233,7 @@ namespace Jint.Runtime
             var cursor = obj;
             var processedKeys = new HashSet<string>();
 
-            while (cursor != null)
+            while (!ReferenceEquals(cursor, null))
             {
                 var keys = _engine.Object.GetOwnPropertyNames(Undefined.Instance, Arguments.From(cursor)).AsArray();
 
@@ -265,7 +264,7 @@ namespace Jint.Runtime
                     _engine.PutValue(varRef, p);
 
                     var stmt = ExecuteStatement(forInStatement.Body);
-                    if (stmt.Value != null)
+                    if (!ReferenceEquals(stmt.Value, null))
                     {
                         v = stmt.Value;
                     }
@@ -409,7 +408,7 @@ namespace Jint.Runtime
                         return r;
                     }
 
-                    v = r.Value != null ? r.Value : Undefined.Instance;
+                    v = r.Value ?? Undefined.Instance;
                 }
             }
 
@@ -422,7 +421,7 @@ namespace Jint.Runtime
                     return r;
                 }
 
-                v = r.Value != null ? r.Value : Undefined.Instance;
+                v = r.Value ?? Undefined.Instance;
             }
 
             return _engine.CompletionPool.Rent(Completion.Normal, v, null);
@@ -439,14 +438,13 @@ namespace Jint.Runtime
                 var statementListCount = statementList.Count;
                 for (var i = 0; i < statementListCount; i++)
                 {
-                    var statement = statementList[i];
-                    s = statement.As<Statement>();
+                    s = (Statement) statementList[i];
                     c = ExecuteStatement(s);
                     if (c.Type != Completion.Normal)
                     {
                         var executeStatementList = _engine.CompletionPool.Rent(
                             c.Type,
-                            c.Value != null ? c.Value : sl.Value,
+                            c.Value ?? sl.Value,
                             c.Identifier,
                             c.Location);
 
@@ -502,7 +500,7 @@ namespace Jint.Runtime
                     var c = _engine.GetValue(b);
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                    catchEnv.Record.CreateMutableBinding(catchClause.Param.As<Identifier>().Name, c);
+                    catchEnv.Record.CreateMutableBinding(((Identifier) catchClause.Param).Name, c);
                     _engine.ExecutionContext.LexicalEnvironment = catchEnv;
                     b = ExecuteStatement(catchClause.Body);
                     _engine.ExecutionContext.LexicalEnvironment = oldEnv;
@@ -536,13 +534,14 @@ namespace Jint.Runtime
                 var declaration = statement.Declarations[i];
                 if (declaration.Init != null)
                 {
-                    if (!(_engine.EvaluateExpression(declaration.Id.As<Identifier>()) is Reference lhs))
+                    if (!(_engine.EvaluateExpression(declaration.Id) is Reference lhs))
                     {
                         throw new ArgumentException();
                     }
 
-                    if (lhs.IsStrict() && lhs.GetBase().TryCast<EnvironmentRecord>() != null &&
-                        (lhs.GetReferencedName() == "eval" || lhs.GetReferencedName() == "arguments"))
+                    if (lhs.IsStrict() 
+                        && !ReferenceEquals(lhs.GetBase().TryCast<EnvironmentRecord>(), null) 
+                        && (lhs.GetReferencedName() == "eval" || lhs.GetReferencedName() == "arguments"))
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
                     }

@@ -34,22 +34,20 @@ namespace Jint.Native
             }
         }
 
-        public JsNumber(double value)
+        public JsNumber(double value) : base(Types.Number)
         {
             _value = value;
         }
 
-        public JsNumber(int value)
+        public JsNumber(int value) : base(Types.Number)
         {
             _value = value;
         }
 
-        public JsNumber(uint value)
+        public JsNumber(uint value) : base(Types.Number)
         {
             _value = value;
         }
-
-        public override Types Type => Types.Number;
 
         [Pure]
         public override double AsNumber()

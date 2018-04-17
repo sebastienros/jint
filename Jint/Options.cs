@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Runtime.Interop;
 
@@ -155,11 +156,19 @@ namespace Jint
 
         internal bool _IsGlobalDiscarded => _discardGlobal;
 
-        internal bool _IsStrict => _strict;
+        internal bool _IsStrict
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return _strict; }
+        }
 
         internal bool _IsDebuggerStatementAllowed => _allowDebuggerStatement;
 
-        internal bool _IsDebugMode => _debugMode;
+        internal bool _IsDebugMode
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return _debugMode; }
+        }
 
         internal bool _IsClrAllowed => _allowClr;
 
@@ -169,7 +178,11 @@ namespace Jint
 
         internal List<IObjectConverter> _ObjectConverters => _objectConverters;
 
-        internal int _MaxStatements => _maxStatements;
+        internal int _MaxStatements
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return _maxStatements; }
+        }
 
         internal int _MaxRecursionDepth => _maxRecursionDepth;
 

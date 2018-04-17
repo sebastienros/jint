@@ -93,8 +93,9 @@ namespace Jint.Native.Argument
             else
             {
                 var thrower = Engine.Function.ThrowTypeError;
-                self.DefineOwnProperty("caller", new GetSetPropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
-                self.DefineOwnProperty("callee", new GetSetPropertyDescriptor(get: thrower, set: thrower, enumerable: false, configurable: false), false);
+                const PropertyFlag flags = PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet;
+                self.DefineOwnProperty("caller", new GetSetPropertyDescriptor(get: thrower, set: thrower, flags), false);
+                self.DefineOwnProperty("callee", new GetSetPropertyDescriptor(get: thrower, set: thrower, flags), false);
             }
         }
 
@@ -106,7 +107,7 @@ namespace Jint.Native.Argument
         {
             EnsureInitialized();
 
-            if (!Strict && ParameterMap != null)
+            if (!Strict && !ReferenceEquals(ParameterMap, null))
             {
                 var desc = base.GetOwnProperty(propertyName);
                 if (desc == PropertyDescriptor.Undefined)
@@ -171,7 +172,7 @@ namespace Jint.Native.Argument
         {
             EnsureInitialized();
 
-            if (!Strict && ParameterMap != null)
+            if (!Strict && !ReferenceEquals(ParameterMap, null))
             {
                 var map = ParameterMap;
                 var isMapped = map.GetOwnProperty(propertyName);
@@ -192,9 +193,10 @@ namespace Jint.Native.Argument
                     }
                     else
                     {
-                        if (desc.Value != null && desc.Value != Undefined)
+                        var descValue = desc.Value;
+                        if (!ReferenceEquals(descValue, null) && !ReferenceEquals(descValue, Undefined))
                         {
-                            map.Put(propertyName, desc.Value, throwOnError);
+                            map.Put(propertyName, descValue, throwOnError);
                         }
 
                         if (desc.WritableSet && !desc.Writable)
@@ -214,7 +216,7 @@ namespace Jint.Native.Argument
         {
             EnsureInitialized();
 
-            if (!Strict && ParameterMap != null)
+            if (!Strict && !ReferenceEquals(ParameterMap, null))
             {
                 var map = ParameterMap;
                 var isMapped = map.GetOwnProperty(propertyName);

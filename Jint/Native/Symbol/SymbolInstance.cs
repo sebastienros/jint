@@ -10,23 +10,11 @@ namespace Jint.Native.Symbol
         {
         }
 
-        public override string Class
-        {
-            get
-            {
-                return "Symbol";
-            }
-        }
+        public override string Class => "Symbol";
 
-        Types IPrimitiveInstance.Type
-        {
-            get { return Types.Symbol; }
-        }
+        Types IPrimitiveInstance.Type => Types.Symbol;
 
-        JsValue IPrimitiveInstance.PrimitiveValue
-        {
-            get { return SymbolData; }
-        }
+        JsValue IPrimitiveInstance.PrimitiveValue => SymbolData;
 
         public JsSymbol SymbolData { get; set; }
     }

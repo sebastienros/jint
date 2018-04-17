@@ -73,7 +73,7 @@ namespace Jint.Runtime.Environments
 
         public override string[] GetAllBindingNames()
         {
-            if (_bindingObject != null)
+            if (!ReferenceEquals(_bindingObject, null))
             {
                 return _bindingObject.GetOwnProperties().Select( x=> x.Key).ToArray();
             }

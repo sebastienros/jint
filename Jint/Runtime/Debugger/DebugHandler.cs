@@ -161,7 +161,7 @@ namespace Jint.Runtime.Debugger
         private static Dictionary<string, JsValue> GetLocalVariables(LexicalEnvironment lex)
         {
             Dictionary<string, JsValue> locals = new Dictionary<string, JsValue>();
-            if (lex != null && lex.Record != null)
+            if (!ReferenceEquals(lex?.Record, null))
             {
                 AddRecordsFromEnvironment(lex, locals);
             }
@@ -173,7 +173,7 @@ namespace Jint.Runtime.Debugger
             Dictionary<string, JsValue> globals = new Dictionary<string, JsValue>();
             LexicalEnvironment tempLex = lex;
 
-            while (tempLex != null && tempLex.Record != null)
+            while (tempLex != null && !ReferenceEquals(tempLex.Record, null))
             {
                 AddRecordsFromEnvironment(tempLex, globals);
                 tempLex = tempLex.Outer;

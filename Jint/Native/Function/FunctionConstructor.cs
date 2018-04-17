@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native.Object;
@@ -74,7 +73,7 @@ namespace Jint.Native.Function
             {
                 var functionExpression = "function f(" + p + ") { " + body + "}";
                 var parser = new JavaScriptParser(functionExpression, ParserOptions);
-                function = parser.ParseProgram().Body.First().As<IFunction>();
+                function = (IFunction) parser.ParseProgram().Body[0];
             }
             catch (ParserException)
             {
@@ -116,7 +115,7 @@ namespace Jint.Native.Function
         {
             get
             {
-                if (_throwTypeError != null)
+                if (!ReferenceEquals(_throwTypeError, null))
                 {
                     return _throwTypeError;
                 }
@@ -148,7 +147,7 @@ namespace Jint.Native.Function
             }
 
             var argArrayObj = argArray.TryCast<ObjectInstance>();
-            if (argArrayObj == null)
+            if (ReferenceEquals(argArrayObj, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native.Array;
 using Jint.Native.Date;
@@ -18,115 +19,158 @@ namespace Jint.Native
     {
         public static readonly JsValue Undefined = new JsUndefined();
         public static readonly JsValue Null = new JsNull();
+        private readonly Types _type;
+
+        protected JsValue(Types type)
+        {
+            _type = type;
+        }
 
         [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPrimitive()
         {
-            return Type != Types.Object && Type != Types.None;
+            return _type != Types.Object && Type != Types.None;
         }
 
         [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsUndefined()
         {
-            return Type == Types.Undefined;
+            return _type == Types.Undefined;
         }
 
         [Pure]
-        public virtual bool IsArray()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsArray()
         {
-            return false;
+            return this is ArrayInstance;
         }
 
         [Pure]
-        public virtual bool IsDate()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsDate()
         {
-            return false;
+            return this is DateInstance;
         }
 
         [Pure]
-        public virtual bool IsRegExp()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsRegExp()
         {
-            return false;
+            return this is RegExpInstance;
         }
 
         [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsObject()
         {
-            return Type == Types.Object;
+            return _type == Types.Object;
         }
 
         [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsString()
         {
-            return Type == Types.String;
+            return _type == Types.String;
         }
 
         [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsNumber()
         {
-            return Type == Types.Number;
+            return _type == Types.Number;
         }
 
         [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsBoolean()
         {
-            return Type == Types.Boolean;
+            return _type == Types.Boolean;
         }
 
         [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsNull()
         {
-            return Type == Types.Null;
+            return _type == Types.Null;
         }
 
         [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsCompletion()
         {
-            return Type == Types.Completion;
+            return _type == Types.Completion;
         }
 
         [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsSymbol()
         {
-            return Type == Types.Symbol;
+            return _type == Types.Symbol;
         }
 
         [Pure]
-        public virtual ObjectInstance AsObject()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ObjectInstance AsObject()
         {
-            throw new ArgumentException("The value is not an object");
-        }
-
-        [Pure]
-        public virtual TInstance AsInstance<TInstance>() where TInstance : class
-        {
-            throw new ArgumentException("The value is not an object");
-        }
-
-        [Pure]
-        public virtual ArrayInstance AsArray()
-        {
-            throw new ArgumentException("The value is not an array");
-        }
-
-        [Pure]
-        public virtual DateInstance AsDate()
-        {
-            throw new ArgumentException("The value is not a date");
-        }
-
-        [Pure]
-        public virtual RegExpInstance AsRegExp()
-        {
-            throw new ArgumentException("The value is not a date");
-        }
-
-        [Pure]
-        public virtual Completion AsCompletion()
-        {
-            if (Type != Types.Completion)
+            if (!IsObject())
             {
-                throw new ArgumentException("The value is not a completion record");
+                ThrowArgumentException("The value is not an object");
+            }
+            return this as ObjectInstance;
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public TInstance AsInstance<TInstance>() where TInstance : class
+        {
+            if (!IsObject())
+            {
+                ThrowArgumentException("The value is not an object");
+            }
+            return this as TInstance;
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ArrayInstance AsArray()
+        {
+            if (!IsArray())
+            {
+                ThrowArgumentException("The value is not an array");
+            }
+            return this as ArrayInstance;
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public DateInstance AsDate()
+        {
+            if (!IsDate())
+            {
+                ThrowArgumentException("The value is not a date");
+            }
+            return this as DateInstance;
+        }
+
+        [Pure]
+        public RegExpInstance AsRegExp()
+        {
+            if (!IsRegExp())
+            {
+                ThrowArgumentException("The value is not a regex");
+            }
+
+            return this as RegExpInstance;
+        }
+
+        [Pure]
+        public Completion AsCompletion()
+        {
+            if (_type != Types.Completion)
+            {
+                ThrowArgumentException("The value is not a completion record");
             }
 
             // TODO not implemented
@@ -134,15 +178,15 @@ namespace Jint.Native
         }
 
         [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T TryCast<T>(Action<JsValue> fail = null) where T : class
         {
             if (IsObject())
             {
-                var o = AsObject();
-                var t = o as T;
-                if (t != null)
+                var o = this as T;
+                if (o != null)
                 {
-                    return t;
+                    return o;
                 }
             }
 
@@ -151,13 +195,21 @@ namespace Jint.Native
             return null;
         }
 
-        public virtual bool Is<T>()
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Is<T>()
         {
-            return false;
+            return IsObject() && this is T;
         }
 
-        public virtual T As<T>() where T : ObjectInstance
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public T As<T>() where T : ObjectInstance
         {
+            if (IsObject())
+            {
+                return this as T;
+            }
             return null;
         }
 
@@ -185,7 +237,12 @@ namespace Jint.Native
             throw new ArgumentException("The value is not a number");
         }
 
-        public abstract Types Type { get; }
+        // ReSharper disable once ConvertToAutoPropertyWhenPossible // PERF
+        public Types Type
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return _type; }
+        }
 
         /// <summary>
         /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance
@@ -329,6 +386,11 @@ namespace Jint.Native
             return false;
         }
 
+        private static void ThrowArgumentException(string message)
+        {
+            throw new ArgumentException(message);
+        }
+
         public override string ToString()
         {
             return "None";
@@ -428,7 +490,7 @@ namespace Jint.Native
 
         public override int GetHashCode()
         {
-            return Type.GetHashCode();
+            return _type.GetHashCode();
         }
 
         internal class JsValueDebugView

@@ -87,14 +87,15 @@ namespace Jint.Native.Array
 
             if (propertyName.Length == 6 && propertyName == "length")
             {
-                if (desc.Value == null)
+                var value = desc.Value;
+                if (ReferenceEquals(value, null))
                 {
                     return base.DefineOwnProperty("length", desc, throwOnError);
                 }
 
                 var newLenDesc = new PropertyDescriptor(desc);
-                uint newLen = TypeConverter.ToUint32(desc.Value);
-                if (newLen != TypeConverter.ToNumber(desc.Value))
+                uint newLen = TypeConverter.ToUint32(value);
+                if (newLen != TypeConverter.ToNumber(value))
                 {
                     throw new JavaScriptException(_engine.RangeError);
                 }
@@ -232,7 +233,7 @@ namespace Jint.Native.Array
 
                 if (!newWritable)
                 {
-                    DefineOwnProperty("length", new PropertyDescriptor(value: null, writable: false, enumerable: null, configurable: null), false);
+                    DefineOwnProperty("length", new PropertyDescriptor(value: null, PropertyFlag.WritableSet), false);
                 }
 
                 return true;
@@ -490,7 +491,7 @@ namespace Jint.Native.Array
             if (!TryGetDescriptor(index, out var desc)
                 || desc == null
                 || desc == PropertyDescriptor.Undefined
-                || (desc.Value == null && desc.Get == null))
+                || (ReferenceEquals(desc.Value, null) && ReferenceEquals(desc.Get, null)))
             {
                 desc = GetProperty(TypeConverter.ToString(index));
             }

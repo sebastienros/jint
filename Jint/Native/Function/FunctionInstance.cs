@@ -42,7 +42,7 @@ namespace Jint.Native.Function
         public virtual bool HasInstance(JsValue v)
         {
             var vObj = v.TryCast<ObjectInstance>();
-            if (vObj == null)
+            if (ReferenceEquals(vObj, null))
             {
                 return false;
             }
@@ -50,12 +50,12 @@ namespace Jint.Native.Function
             var po = Get("prototype");
             if (!po.IsObject())
             {
-                throw new JavaScriptException(_engine.TypeError, string.Format("Function has non-object prototype '{0}' in instanceof check", TypeConverter.ToString(po)));
+                throw new JavaScriptException(_engine.TypeError, $"Function has non-object prototype '{TypeConverter.ToString(po)}' in instanceof check");
             }
 
             var o = po.AsObject();
 
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(_engine.TypeError);
             }
@@ -64,7 +64,7 @@ namespace Jint.Native.Function
             {
                 vObj = vObj.Prototype;
 
-                if (vObj == null)
+                if (ReferenceEquals(vObj, null))
                 {
                     return false;
                 }

@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors.Specialized;
@@ -7,32 +8,43 @@ namespace Jint.Runtime.Descriptors
 {
     public class PropertyDescriptor
     {
-        public static readonly PropertyDescriptor Undefined = new PropertyDescriptor();
+        public static readonly PropertyDescriptor Undefined = new PropertyDescriptor(PropertyFlag.None);
 
         private PropertyFlag _flags;
+        private JsValue _value;
 
-        protected PropertyDescriptor()
+        protected PropertyDescriptor(PropertyFlag flags)
         {
+            _flags = flags;
+        }
+        
+        
+        protected internal PropertyDescriptor(JsValue value, PropertyFlag flags) : this(flags)
+        {
+            Value = value;
         }
 
         public PropertyDescriptor(JsValue value, bool? writable, bool? enumerable, bool? configurable)
         {
             Value = value;
 
-            Writable = writable.GetValueOrDefault();
-            WritableSet = writable != null;
+            if (writable != null)
+            {
+                Writable = writable.Value;
+                WritableSet = true;
+            }
 
-            Enumerable = enumerable.GetValueOrDefault();
-            EnumerableSet = enumerable != null;
+            if (enumerable != null)
+            {
+                Enumerable = enumerable.Value;
+                EnumerableSet = true;
+            }
 
-            Configurable = configurable.GetValueOrDefault();
-            ConfigurableSet = configurable != null;
-        }
-
-        internal PropertyDescriptor(JsValue value, PropertyFlag flags)
-        {
-            Value = value;
-            _flags = flags;
+            if (configurable != null)
+            {
+                Configurable = configurable.Value;
+                ConfigurableSet = true;
+            }
         }
 
         public PropertyDescriptor(PropertyDescriptor descriptor)
@@ -163,12 +175,45 @@ namespace Jint.Runtime.Descriptors
             }
         }
 
-        public virtual JsValue Value { get; set; }
+        public JsValue Value
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                if ((_flags & PropertyFlag.CustomJsValue) != 0)
+                {
+                    return CustomValue;
+                }
+                
+                return _value;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set
+            {
+                if ((_flags & PropertyFlag.CustomJsValue) != 0)
+                {
+                    CustomValue = value;
+                }
+                _value = value;
+            }
+        }
+
+        protected virtual JsValue CustomValue
+        {
+            get => null;
+            set => throw new NotImplementedException();
+        }
+
+        internal PropertyFlag Flags
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return _flags; }
+        }
 
         public static PropertyDescriptor ToPropertyDescriptor(Engine engine, JsValue o)
         {
             var obj = o.TryCast<ObjectInstance>();
-            if (obj == null)
+            if (ReferenceEquals(obj, null))
             {
                 throw new JavaScriptException(engine.TypeError);
             }
@@ -185,8 +230,8 @@ namespace Jint.Runtime.Descriptors
             }
 
             var desc = hasGetProperty || hasSetProperty
-                ? new GetSetPropertyDescriptor(null, null, null, null)
-                : new PropertyDescriptor();
+                ? new GetSetPropertyDescriptor(null, null, PropertyFlag.None)
+                : new PropertyDescriptor(PropertyFlag.None);
 
             var enumerableProperty = obj.GetProperty("enumerable");
             if (enumerableProperty != Undefined)
@@ -218,7 +263,7 @@ namespace Jint.Runtime.Descriptors
             if (hasGetProperty)
             {
                 var getter = obj.UnwrapJsValue(getProperty);
-                if (getter != JsValue.Undefined && getter.TryCast<ICallable>() == null)
+                if (!ReferenceEquals(getter, JsValue.Undefined) && getter.TryCast<ICallable>() == null)
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
@@ -229,7 +274,7 @@ namespace Jint.Runtime.Descriptors
             if (hasSetProperty)
             {
                 var setter = obj.UnwrapJsValue(setProperty);
-                if (setter != Native.Undefined.Instance && setter.TryCast<ICallable>() == null)
+                if (!ReferenceEquals(setter, JsValue.Undefined) && setter.TryCast<ICallable>() == null)
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
@@ -237,9 +282,9 @@ namespace Jint.Runtime.Descriptors
                 ((GetSetPropertyDescriptor) desc).SetSet(setter);
             }
 
-            if (desc.Get != null || desc.Get != null)
+            if (!ReferenceEquals(desc.Get, null) || !ReferenceEquals(desc.Get, null))
             {
-                if (desc.Value != null || desc.WritableSet)
+                if (!ReferenceEquals(desc.Value, null) || desc.WritableSet)
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
@@ -259,7 +304,7 @@ namespace Jint.Runtime.Descriptors
 
             if (desc.IsDataDescriptor())
             {
-                obj.SetOwnProperty("value", new PropertyDescriptor(desc.Value != null ? desc.Value : Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable));
+                obj.SetOwnProperty("value", new PropertyDescriptor(desc.Value ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable));
                 obj.SetOwnProperty("writable", new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable));
             }
             else
@@ -277,13 +322,13 @@ namespace Jint.Runtime.Descriptors
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsAccessorDescriptor()
         {
-            return Get != null || Set != null;
+            return !ReferenceEquals(Get, null) || !ReferenceEquals(Set, null);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsDataDescriptor()
         {
-            return WritableSet || Value != null;
+            return WritableSet || !ReferenceEquals(Value, null);
         }
 
         /// <summary>
@@ -310,17 +355,18 @@ namespace Jint.Runtime.Descriptors
             if (IsDataDescriptor())
             {
                 var val = Value;
-                if (val != null)
+                if (!ReferenceEquals(val, null))
                 {
                     value = val;
                     return true;
                 }
             }
 
-            if (Get != null && !Get.IsUndefined())
+            var getter = Get;
+            if (!ReferenceEquals(getter, null) && !getter.IsUndefined())
             {
                 // if getter is not undefined it must be ICallable
-                var callable = Get.TryCast<ICallable>();
+                var callable = getter.TryCast<ICallable>();
                 value = callable.Call(thisArg, Arguments.Empty);
             }
 

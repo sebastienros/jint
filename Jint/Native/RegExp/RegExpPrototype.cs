@@ -56,13 +56,13 @@ namespace Jint.Native.RegExp
             }
 
             var match = Exec(r, arguments);
-            return match != Null;
+            return !ReferenceEquals(match, Null);
         }
 
         internal JsValue Exec(JsValue thisObj, JsValue[] arguments)
         {
             var R = TypeConverter.ToObject(Engine, thisObj) as RegExpInstance;
-            if (R == null)
+            if (ReferenceEquals(R, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -82,7 +82,7 @@ namespace Jint.Native.RegExp
             {
                 // "aaa".match() => [ '', index: 0, input: 'aaa' ]
                 var aa = InitReturnValueArray((ArrayInstance) Engine.Array.Construct(Arguments.Empty), s, 1, 0);
-                aa.DefineOwnProperty("0", new PropertyDescriptor("", true, true, true), true);
+                aa.DefineOwnProperty("0", new PropertyDescriptor("", PropertyFlag.ConfigurableEnumerableWritable), true);
                 return aa;
             }
 

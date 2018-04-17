@@ -135,7 +135,7 @@ namespace Jint.Native.Json
                 }
             }
 
-            if (_replacerFunction != Undefined.Instance)
+            if (!ReferenceEquals(_replacerFunction, Undefined.Instance))
             {
                 var replacerFunctionCallable = (ICallable)_replacerFunction.AsObject();
                 value = replacerFunctionCallable.Call(holder, Arguments.From(key, value));
@@ -266,7 +266,7 @@ namespace Jint.Native.Json
             for (int i = 0; i < len; i++)
             {
                 var strP = Str(TypeConverter.ToString(i), value);
-                if (strP == JsValue.Undefined)
+                if (ReferenceEquals(strP, JsValue.Undefined))
                     strP = "null";
                 partial.Add(strP.AsString());
             }
@@ -325,7 +325,7 @@ namespace Jint.Native.Json
             foreach (var p in k)
             {
                 var strP = Str(p, value);
-                if (strP != JsValue.Undefined)
+                if (!ReferenceEquals(strP, JsValue.Undefined))
                 {
                     var member = Quote(p) + ":";
                     if (_gap != "")

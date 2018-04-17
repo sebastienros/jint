@@ -3,7 +3,7 @@
 namespace Jint.Runtime.Descriptors
 {
     [Flags]
-    internal enum PropertyFlag
+    public enum PropertyFlag
     {
         None = 0,
         Enumerable = 1,
@@ -12,6 +12,8 @@ namespace Jint.Runtime.Descriptors
         WritableSet = 8,
         Configurable = 16,
         ConfigurableSet = 32,
+        
+        CustomJsValue = 256,
         
         // common helpers
         AllForbidden = ConfigurableSet | EnumerableSet | WritableSet,

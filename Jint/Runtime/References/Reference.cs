@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Runtime.Environments;
 
@@ -20,35 +21,41 @@ namespace Jint.Runtime.References
             _name = name;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetBase()
         {
             return _baseValue;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string GetReferencedName()
         {
             return _name;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsStrict()
         {
             return _strict;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasPrimitiveBase()
         {
             return _baseValue.IsPrimitive();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsUnresolvableReference()
         {
             return _baseValue.IsUndefined();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPropertyReference()
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
-            return HasPrimitiveBase() || (_baseValue.IsObject() && !(_baseValue is EnvironmentRecord));
+            return _baseValue.IsPrimitive() || (_baseValue.IsObject() && !(_baseValue is EnvironmentRecord));
         }
 
         internal Reference Reassign(JsValue baseValue, string name, bool strict)

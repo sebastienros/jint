@@ -95,12 +95,12 @@ namespace Jint.Runtime
             {
                 if (_callStack != null)
                     return _callStack;
-                if (Error == null)
+                if (ReferenceEquals(Error, null))
                     return null;
                 if (Error.IsObject() == false)
                     return null;
                 var callstack = Error.AsObject().Get("callstack");
-                if (callstack == JsValue.Undefined)
+                if (ReferenceEquals(callstack, JsValue.Undefined))
                     return null;
                 return callstack.AsString();
             }

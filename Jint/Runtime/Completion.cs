@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using Esprima;
 using Jint.Native;
 
@@ -28,15 +29,34 @@ namespace Jint.Runtime
             Location = location;
         }
 
-        public string Type { get; private set; }
-        public JsValue Value { get; private set; }
-        public string Identifier { get; private set; }
-
-        public JsValue GetValueOrDefault()
+        public string Type
         {
-            return Value != null ? Value : Undefined.Instance;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get;
+            private set;
         }
 
+        public JsValue Value
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get; 
+            private set;
+        }
+
+        public string Identifier
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get; 
+            private set;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public JsValue GetValueOrDefault()
+        {
+            return Value ?? Undefined.Instance;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsAbrupt()
         {
             return Type != Normal;

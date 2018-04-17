@@ -206,7 +206,7 @@ namespace Jint
 
         public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
 
-        internal Options Options { get; }
+        internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; }
 
         internal ReferencePool ReferencePool { get; }
         internal CompletionPool CompletionPool { get; }
@@ -382,64 +382,64 @@ namespace Jint
             switch (statement.Type)
             {
                 case Nodes.BlockStatement:
-                    return _statements.ExecuteBlockStatement(statement.As<BlockStatement>());
+                    return _statements.ExecuteBlockStatement((BlockStatement) statement);
 
                 case Nodes.ReturnStatement:
-                    return _statements.ExecuteReturnStatement(statement.As<ReturnStatement>());
+                    return _statements.ExecuteReturnStatement((ReturnStatement) statement);
 
                 case Nodes.VariableDeclaration:
-                    return _statements.ExecuteVariableDeclaration(statement.As<VariableDeclaration>());
+                    return _statements.ExecuteVariableDeclaration((VariableDeclaration) statement);
 
                 case Nodes.BreakStatement:
-                    return _statements.ExecuteBreakStatement(statement.As<BreakStatement>());
+                    return _statements.ExecuteBreakStatement((BreakStatement) statement);
 
                 case Nodes.ContinueStatement:
-                    return _statements.ExecuteContinueStatement(statement.As<ContinueStatement>());
+                    return _statements.ExecuteContinueStatement((ContinueStatement) statement);
 
                 case Nodes.DoWhileStatement:
-                    return _statements.ExecuteDoWhileStatement(statement.As<DoWhileStatement>());
+                    return _statements.ExecuteDoWhileStatement((DoWhileStatement) statement);
 
                 case Nodes.EmptyStatement:
-                    return _statements.ExecuteEmptyStatement(statement.As<EmptyStatement>());
+                    return _statements.ExecuteEmptyStatement((EmptyStatement) statement);
 
                 case Nodes.ExpressionStatement:
-                    return _statements.ExecuteExpressionStatement(statement.As<ExpressionStatement>());
+                    return _statements.ExecuteExpressionStatement((ExpressionStatement) statement);
 
                 case Nodes.ForStatement:
-                    return _statements.ExecuteForStatement(statement.As<ForStatement>());
+                    return _statements.ExecuteForStatement((ForStatement) statement);
 
                 case Nodes.ForInStatement:
-                    return _statements.ExecuteForInStatement(statement.As<ForInStatement>());
+                    return _statements.ExecuteForInStatement((ForInStatement) statement);
 
                 case Nodes.IfStatement:
-                    return _statements.ExecuteIfStatement(statement.As<IfStatement>());
+                    return _statements.ExecuteIfStatement((IfStatement) statement);
 
                 case Nodes.LabeledStatement:
-                    return _statements.ExecuteLabeledStatement(statement.As<LabeledStatement>());
+                    return _statements.ExecuteLabeledStatement((LabeledStatement) statement);
 
                 case Nodes.SwitchStatement:
-                    return _statements.ExecuteSwitchStatement(statement.As<SwitchStatement>());
+                    return _statements.ExecuteSwitchStatement((SwitchStatement) statement);
 
                 case Nodes.FunctionDeclaration:
                     return Completion.Empty;
 
                 case Nodes.ThrowStatement:
-                    return _statements.ExecuteThrowStatement(statement.As<ThrowStatement>());
+                    return _statements.ExecuteThrowStatement((ThrowStatement) statement);
 
                 case Nodes.TryStatement:
-                    return _statements.ExecuteTryStatement(statement.As<TryStatement>());
+                    return _statements.ExecuteTryStatement((TryStatement) statement);
 
                 case Nodes.WhileStatement:
-                    return _statements.ExecuteWhileStatement(statement.As<WhileStatement>());
+                    return _statements.ExecuteWhileStatement((WhileStatement) statement);
 
                 case Nodes.WithStatement:
-                    return _statements.ExecuteWithStatement(statement.As<WithStatement>());
+                    return _statements.ExecuteWithStatement((WithStatement) statement);
 
                 case Nodes.DebuggerStatement:
-                    return _statements.ExecuteDebuggerStatement(statement.As<DebuggerStatement>());
+                    return _statements.ExecuteDebuggerStatement((DebuggerStatement) statement);
 
                 case Nodes.Program:
-                    return _statements.ExecuteProgram(statement.As<Program>());
+                    return _statements.ExecuteProgram((Program) statement);
 
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -453,52 +453,52 @@ namespace Jint
             switch (expression.Type)
             {
                 case Nodes.AssignmentExpression:
-                    return _expressions.EvaluateAssignmentExpression(expression.As<AssignmentExpression>());
+                    return _expressions.EvaluateAssignmentExpression((AssignmentExpression) expression);
 
                 case Nodes.ArrayExpression:
-                    return _expressions.EvaluateArrayExpression(expression.As<ArrayExpression>());
+                    return _expressions.EvaluateArrayExpression((ArrayExpression) expression);
 
                 case Nodes.BinaryExpression:
-                    return _expressions.EvaluateBinaryExpression(expression.As<BinaryExpression>());
+                    return _expressions.EvaluateBinaryExpression((BinaryExpression) expression);
 
                 case Nodes.CallExpression:
-                    return _expressions.EvaluateCallExpression(expression.As<CallExpression>());
+                    return _expressions.EvaluateCallExpression((CallExpression) expression);
 
                 case Nodes.ConditionalExpression:
-                    return _expressions.EvaluateConditionalExpression(expression.As<ConditionalExpression>());
+                    return _expressions.EvaluateConditionalExpression((ConditionalExpression) expression);
 
                 case Nodes.FunctionExpression:
-                    return _expressions.EvaluateFunctionExpression(expression.As<IFunction>());
+                    return _expressions.EvaluateFunctionExpression((IFunction) expression);
 
                 case Nodes.Identifier:
-                    return _expressions.EvaluateIdentifier(expression.As<Identifier>());
+                    return _expressions.EvaluateIdentifier((Identifier) expression);
 
                 case Nodes.Literal:
-                    return _expressions.EvaluateLiteral(expression.As<Literal>());
+                    return _expressions.EvaluateLiteral((Literal) expression);
 
                 case Nodes.LogicalExpression:
-                    return _expressions.EvaluateLogicalExpression(expression.As<BinaryExpression>());
+                    return _expressions.EvaluateLogicalExpression((BinaryExpression) expression);
 
                 case Nodes.MemberExpression:
-                    return _expressions.EvaluateMemberExpression(expression.As<MemberExpression>());
+                    return _expressions.EvaluateMemberExpression((MemberExpression) expression);
 
                 case Nodes.NewExpression:
-                    return _expressions.EvaluateNewExpression(expression.As<NewExpression>());
+                    return _expressions.EvaluateNewExpression((NewExpression) expression);
 
                 case Nodes.ObjectExpression:
-                    return _expressions.EvaluateObjectExpression(expression.As<ObjectExpression>());
+                    return _expressions.EvaluateObjectExpression((ObjectExpression) expression);
 
                 case Nodes.SequenceExpression:
-                    return _expressions.EvaluateSequenceExpression(expression.As<SequenceExpression>());
+                    return _expressions.EvaluateSequenceExpression((SequenceExpression) expression);
 
                 case Nodes.ThisExpression:
-                    return _expressions.EvaluateThisExpression(expression.As<ThisExpression>());
+                    return _expressions.EvaluateThisExpression((ThisExpression) expression);
 
                 case Nodes.UpdateExpression:
-                    return _expressions.EvaluateUpdateExpression(expression.As<UpdateExpression>());
+                    return _expressions.EvaluateUpdateExpression((UpdateExpression) expression);
 
                 case Nodes.UnaryExpression:
-                    return _expressions.EvaluateUnaryExpression(expression.As<UnaryExpression>());
+                    return _expressions.EvaluateUnaryExpression((UnaryExpression) expression);
 
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -519,7 +519,8 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal JsValue GetValue(object value, bool returnReferenceToPool)
         {
-            if (value is JsValue jsValue)
+            var jsValue = value as JsValue;
+            if (!ReferenceEquals(jsValue, null))
             {
                 return jsValue;
             }
@@ -590,7 +591,7 @@ namespace Jint
             }
 
             var record = (EnvironmentRecord) baseValue;
-            if (record == null)
+            if (ReferenceEquals(record, null))
             {
                 throw new ArgumentException();
             }
@@ -638,7 +639,7 @@ namespace Jint
                 var baseValue = reference.GetBase();
                 var record = baseValue as EnvironmentRecord;
 
-                if (record == null)
+                if (ReferenceEquals(record, null))
                 {
                     throw new ArgumentNullException();
                 }
@@ -837,19 +838,20 @@ namespace Jint
                 }
                 else
                 {
-                    if (env == GlobalEnvironment.Record)
+                    if (ReferenceEquals(env, GlobalEnvironment.Record))
                     {
                         var go = Global;
                         var existingProp = go.GetProperty(fn);
                         if (existingProp.Configurable)
                         {
-                            go.DefineOwnProperty(fn,
-                                new PropertyDescriptor(
-                                    value: Undefined.Instance,
-                                    writable: true,
-                                    enumerable: true,
-                                    configurable: configurableBindings
-                                ), true);
+                            var flags = PropertyFlag.Writable | PropertyFlag.Enumerable;
+                            if (configurableBindings)
+                            {
+                                flags |= PropertyFlag.Configurable;
+                            }
+
+                            var descriptor = new PropertyDescriptor(Undefined.Instance, flags);
+                            go.DefineOwnProperty(fn, descriptor, true);
                         }
                         else
                         {
@@ -874,7 +876,7 @@ namespace Jint
                 {
                     var declEnv = env as DeclarativeEnvironmentRecord;
 
-                    if (declEnv == null)
+                    if (ReferenceEquals(declEnv, null))
                     {
                         throw new ArgumentException();
                     }
@@ -896,7 +898,7 @@ namespace Jint
                 for (var j = 0; j < declarationsCount; j++)
                 {
                     var d = variableDeclaration.Declarations[j];
-                    var dn = d.Id.As<Identifier>().Name;
+                    var dn = ((Identifier) d.Id).Name;
                     var varAlreadyDeclared = env.HasBinding(dn);
                     if (!varAlreadyDeclared)
                     {
