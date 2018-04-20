@@ -51,37 +51,20 @@ namespace Jint.Native.Json
                     var arrLen = valAsArray.GetLength();
                     while (i < arrLen)
                     {
-<<<<<<< HEAD
                         var newValue = AbstractWalkOperation(valAsArray, TypeConverter.ToString(i));
                         if (newValue.IsUndefined())
                         {
                             valAsArray.Delete(TypeConverter.ToString(i), false);
-=======
-                        var newValue = AbstractWalkOperation(valAsArray, i.ToString());
-                        if (newValue.IsUndefined())
-                        {
-                            valAsArray.Delete(i.ToString(), false);
->>>>>>> fixed bug #436
                         }
                         else
                         {
                             valAsArray.DefineOwnProperty
                             (
-<<<<<<< HEAD
                                 TypeConverter.ToString(i),
                                 new PropertyDescriptor
                                 (
                                     value: newValue,
                                     PropertyFlag.ConfigurableEnumerableWritable
-=======
-                                i.ToString(),
-                                new PropertyDescriptor
-                                (
-                                    value: newValue,
-                                    writable: true,
-                                    enumerable: true,
-                                    configurable: true
->>>>>>> fixed bug #436
                                 ),
                                 false
                             );
@@ -106,13 +89,7 @@ namespace Jint.Native.Json
                                 new PropertyDescriptor
                                 (
                                     value: newElement,
-<<<<<<< HEAD
                                     PropertyFlag.ConfigurableEnumerableWritable
-=======
-                                    writable: true,
-                                    enumerable: true,
-                                    configurable: true
->>>>>>> fixed bug #436
                                 ),
                                 false
                             );
@@ -135,13 +112,7 @@ namespace Jint.Native.Json
                     "",
                     new PropertyDescriptor(
                         value: res,
-<<<<<<< HEAD
                         PropertyFlag.ConfigurableEnumerableWritable
-=======
-                        writable: true,
-                        enumerable: true,
-                        configurable: true
->>>>>>> fixed bug #436
                     ),
                     false
                 );
