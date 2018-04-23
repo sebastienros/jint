@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 using Jint.Native.Object;
@@ -20,7 +21,7 @@ namespace Jint.Native.Array
 
         private PropertyDescriptor _length;
 
-        private const int MaxDenseArrayLength = 1024 * 10;
+        public const int MaxDenseArrayLength = 1024 * 10;
 
         // we have dense and sparse, we usually can start with dense and fall back to sparse when necessary
         private PropertyDescriptor[] _dense;
@@ -37,6 +38,31 @@ namespace Jint.Native.Array
             {
                 _sparse = new Dictionary<uint, PropertyDescriptor>((int) (capacity <= 1024 ? capacity : 1024));
             }
+        }
+
+        public ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine)
+        {
+            _engine = engine;
+            if (items.Length < MaxDenseArrayLength)
+            {
+                _dense = (items != null && items.Length !=0 ) ? items : System.Array.Empty<PropertyDescriptor>();
+            }
+            else
+            {
+                _sparse = new Dictionary<uint, PropertyDescriptor>(items.Length);
+                for (uint i = 0; i < items.Length; i++)
+                {
+                    _sparse[i] = items[i];
+                }
+            }
+            SetOwnProperty("length", new PropertyDescriptor(items.Length, PropertyFlag.OnlyWritable));
+        }
+
+        public ArrayInstance(Engine engine, Dictionary<uint, PropertyDescriptor> items) : base(engine)
+        {
+            _engine = engine;
+            _sparse = items;
+            SetOwnProperty("length", new PropertyDescriptor(items.Count, PropertyFlag.OnlyWritable));
         }
 
         public override string Class => "Array";
@@ -541,7 +567,7 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void WriteArrayValue(uint index, PropertyDescriptor desc)
+        public void WriteArrayValue(uint index, PropertyDescriptor desc)
         {
             // calculate eagerly so we know if we outgrow
             var newSize = _dense != null && index >= _dense.Length
