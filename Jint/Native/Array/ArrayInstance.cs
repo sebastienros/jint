@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 using Jint.Native.Object;
@@ -37,6 +38,32 @@ namespace Jint.Native.Array
             {
                 _sparse = new Dictionary<uint, PropertyDescriptor>((int) (capacity <= 1024 ? capacity : 1024));
             }
+        }
+
+        public ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine)
+        {
+            _engine = engine;
+            int length = 0;
+            if (items == null || items.Length == 0)
+            {
+                _dense = System.Array.Empty<PropertyDescriptor>();
+                length = 0;
+            }
+            else
+            {
+                _dense = items;
+                length = items.Length;
+            }            
+            
+            SetOwnProperty(PropertyNameLength, new PropertyDescriptor(length, PropertyFlag.OnlyWritable));
+        }
+
+        public ArrayInstance(Engine engine, Dictionary<uint, PropertyDescriptor> items) : base(engine)
+        {
+            _engine = engine;
+            _sparse = items;
+            var length = items?.Count ?? 0;
+            SetOwnProperty(PropertyNameLength, new PropertyDescriptor(length, PropertyFlag.OnlyWritable));
         }
 
         public override string Class => "Array";
