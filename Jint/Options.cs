@@ -192,8 +192,6 @@ namespace Jint
         internal long _MemoryLimit => _memoryLimit;
 #endif
 
-        internal int _MaxStatements => _maxStatements;
-
         internal int _MaxStatements
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
