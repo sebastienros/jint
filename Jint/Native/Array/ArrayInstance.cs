@@ -568,7 +568,7 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteArrayValue(uint index, PropertyDescriptor desc)
+        internal void WriteArrayValue(uint index, PropertyDescriptor desc)
         {
             // calculate eagerly so we know if we outgrow
             var newSize = _dense != null && index >= _dense.Length
