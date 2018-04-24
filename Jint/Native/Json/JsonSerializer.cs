@@ -272,6 +272,7 @@ namespace Jint.Native.Json
             }
             if (partial.Count == 0)
             {
+                _stack.Pop();
                 return "[]";
             }
 

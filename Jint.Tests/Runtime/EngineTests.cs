@@ -1976,6 +1976,45 @@ namespace Jint.Tests.Runtime
             Assert.True(val.AsString() == "53.6841659");
         }
 
+        [Fact]
+        public void ShouldStringifyObjectWithPropertiesToSameRef()
+        {
+            var engine = new Engine();
+            var res = engine.Execute(@"
+                var obj = {
+                    a : [],
+                    a1 : ['str'],
+                    a2 : {},
+                    a3 : { 'prop' : 'val' }
+                };
+                obj.b = obj.a;
+                obj.b1 = obj.a1;
+                JSON.stringify(obj);
+            ").GetCompletionValue();
+
+            Assert.True(res == "{\"a\":[],\"a1\":[\"str\"],\"a2\":{},\"a3\":{\"prop\":\"val\"},\"b\":[],\"b1\":[\"str\"]}");
+        }
+
+        [Fact]
+        public void ShouldThrowOnSerializingCyclicRefObject()
+        {
+            var engine = new Engine();
+            var res = engine.Execute(@"
+                (function(){
+                    try{
+                        a = [];
+                        a[0] = a;
+                        my_text = JSON.stringify(a);
+                    }
+                    catch(ex){
+                        return ex.message;
+                    }
+                })();
+            ").GetCompletionValue();
+
+            Assert.True(res == "Cyclic reference detected.");
+        }
+
         [Theory]
         [InlineData("", "escape('')")]
         [InlineData("%u0100%u0101%u0102", "escape('\u0100\u0101\u0102')")]
