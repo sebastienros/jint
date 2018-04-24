@@ -23,14 +23,14 @@ namespace Jint.Native.Function
             // The value of the [[Prototype]] internal property of the Function prototype object is the standard built-in Object prototype object
             obj.Prototype = engine.Object.PrototypeObject;
 
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(0));
+            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
 
             return obj;
         }
 
         public void Configure()
         {
-            SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(Engine.Function));
+            SetOwnProperty("constructor", new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable));
             FastAddProperty("toString", new ClrFunctionInstance(Engine, ToString), true, false, true);
             FastAddProperty("apply", new ClrFunctionInstance(Engine, Apply, 2), true, false, true);
             FastAddProperty("call", new ClrFunctionInstance(Engine, CallImpl, 1), true, false, true);
@@ -52,21 +52,21 @@ namespace Jint.Native.Function
             f.Prototype = Engine.Function.PrototypeObject;
 
             var o = target as FunctionInstance;
-            if (o != null)
+            if (!ReferenceEquals(o, null))
             {
                 var l = TypeConverter.ToNumber(o.Get("length")) - (arguments.Length - 1);
-                f.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(System.Math.Max(l, 0)));
+                f.SetOwnProperty("length", new PropertyDescriptor(System.Math.Max(l, 0), PropertyFlag.AllForbidden));
             }
             else
             {
-                f.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(0));
+                f.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
             }
 
 
             var thrower = Engine.Function.ThrowTypeError;
-            f.DefineOwnProperty("caller", new PropertyDescriptor(thrower, thrower, false, false), false);
-            f.DefineOwnProperty("arguments", new PropertyDescriptor(thrower, thrower, false, false), false);
-
+            const PropertyFlag flags = PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet;
+            f.DefineOwnProperty("caller", new GetSetPropertyDescriptor(thrower, thrower, flags), false);
+            f.DefineOwnProperty("arguments", new GetSetPropertyDescriptor(thrower, thrower, flags), false);
 
             return f;
         }
@@ -75,12 +75,12 @@ namespace Jint.Native.Function
         {
             var func = thisObj.TryCast<FunctionInstance>();
 
-            if (func == null)
+            if (ReferenceEquals(func, null))
             {
                 throw new JavaScriptException(Engine.TypeError, "Function object expected.");
             }
 
-            return System.String.Format("function() {{ ... }}");
+            return "function() {{ ... }}";
         }
 
         public JsValue Apply(JsValue thisObject, JsValue[] arguments)
@@ -100,21 +100,29 @@ namespace Jint.Native.Function
             }
 
             var argArrayObj = argArray.TryCast<ObjectInstance>();
-            if (argArrayObj == null)
+            if (ReferenceEquals(argArrayObj, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
             var len = argArrayObj.Get("length").AsNumber();
             uint n = TypeConverter.ToUint32(len);
-            var argList = new JsValue[n];
+
+            var argList = n < 10 
+                ? Engine.JsValueArrayPool.RentArray((int) n)
+                : new JsValue[n];
+            
             for (int index = 0; index < n; index++)
             {
                 string indexName = TypeConverter.ToString(index);
                 var nextArg = argArrayObj.Get(indexName);
                 argList[index] = nextArg;
             }
-            return func.Call(thisArg, argList);
+
+            var result = func.Call(thisArg, argList);
+            Engine.JsValueArrayPool.ReturnArray(argList);
+            
+            return result;
         }
 
         public JsValue CallImpl(JsValue thisObject, JsValue[] arguments)

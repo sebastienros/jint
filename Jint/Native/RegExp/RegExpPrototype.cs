@@ -2,7 +2,6 @@
 using Jint.Native.Array;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.RegExp
@@ -57,13 +56,13 @@ namespace Jint.Native.RegExp
             }
 
             var match = Exec(r, arguments);
-            return match != Null;
+            return !ReferenceEquals(match, Null);
         }
 
         internal JsValue Exec(JsValue thisObj, JsValue[] arguments)
         {
             var R = TypeConverter.ToObject(Engine, thisObj) as RegExpInstance;
-            if (R == null)
+            if (ReferenceEquals(R, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -83,7 +82,7 @@ namespace Jint.Native.RegExp
             {
                 // "aaa".match() => [ '', index: 0, input: 'aaa' ]
                 var aa = InitReturnValueArray((ArrayInstance) Engine.Array.Construct(Arguments.Empty), s, 1, 0);
-                aa.DefineOwnProperty("0", new PropertyDescriptor("", true, true, true), true);
+                aa.DefineOwnProperty("0", new PropertyDescriptor("", PropertyFlag.ConfigurableEnumerableWritable), true);
                 return aa;
             }
 
@@ -125,9 +124,9 @@ namespace Jint.Native.RegExp
 
         private static ArrayInstance InitReturnValueArray(ArrayInstance array, string inputValue, int lengthValue, int indexValue)
         {
-            array.SetOwnProperty("index", new ConfigurableEnumerableWritablePropertyDescriptor(indexValue));
-            array.SetOwnProperty("input", new ConfigurableEnumerableWritablePropertyDescriptor(inputValue));
-            array.SetOwnProperty("length", new WritablePropertyDescriptor(lengthValue));
+            array.SetOwnProperty("index", new PropertyDescriptor(indexValue, PropertyFlag.ConfigurableEnumerableWritable));
+            array.SetOwnProperty("input", new PropertyDescriptor(inputValue, PropertyFlag.ConfigurableEnumerableWritable));
+            array.SetOwnProperty("length", new PropertyDescriptor(lengthValue, PropertyFlag.OnlyWritable));
             return array;
         }
     }

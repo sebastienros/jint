@@ -6,7 +6,7 @@ namespace Jint.Native
 {
     public sealed class JsNumber : JsValue, IEquatable<JsNumber>
     {
-        private readonly double _value;
+        internal readonly double _value;
 
         // how many decimals to check when determining if double is actually an int
         private const double DoubleIsIntegerTolerance = double.Epsilon * 100;
@@ -34,22 +34,20 @@ namespace Jint.Native
             }
         }
 
-        public JsNumber(double value)
+        public JsNumber(double value) : base(Types.Number)
         {
             _value = value;
         }
 
-        public JsNumber(int value)
+        public JsNumber(int value) : base(Types.Number)
         {
             _value = value;
         }
 
-        public JsNumber(uint value)
+        public JsNumber(uint value) : base(Types.Number)
         {
             _value = value;
         }
-
-        public override Types Type => Types.Number;
 
         [Pure]
         public override double AsNumber()

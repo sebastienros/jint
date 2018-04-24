@@ -3,7 +3,7 @@ using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Date
@@ -25,10 +25,10 @@ namespace Jint.Native.Date
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = DatePrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(7));
+            obj.SetOwnProperty("length", new PropertyDescriptor(7, PropertyFlag.AllForbidden));
 
             // The initial value of Date.prototype is the Date prototype object
-            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
+            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
             return obj;
         }

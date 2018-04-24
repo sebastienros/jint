@@ -4,6 +4,7 @@
     <TargetFrameworks>netstandard2.0;netcoreapp2.0</TargetFrameworks>
     <AssemblyOriginatorKeyFile>Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Esprima" Version="1.0.0-beta-1026" />

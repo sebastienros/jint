@@ -10,7 +10,7 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly PropertyInfo _propertyInfo;
         private readonly object _item;
 
-        public PropertyInfoDescriptor(Engine engine, PropertyInfo propertyInfo, object item)
+        public PropertyInfoDescriptor(Engine engine, PropertyInfo propertyInfo, object item) : base(PropertyFlag.CustomJsValue)
         {
             _engine = engine;
             _propertyInfo = propertyInfo;
@@ -19,13 +19,9 @@ namespace Jint.Runtime.Descriptors.Specialized
             Writable = propertyInfo.CanWrite;
         }
 
-        public override JsValue Value
+        protected override JsValue CustomValue
         {
-            get
-            {
-                return JsValue.FromObject(_engine, _propertyInfo.GetValue(_item, null));
-            }
-
+            get => JsValue.FromObject(_engine, _propertyInfo.GetValue(_item, null));
             set
             {
                 var currentValue = value;

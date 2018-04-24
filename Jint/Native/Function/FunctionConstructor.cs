@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Linq;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
 namespace Jint.Native.Function
@@ -28,8 +27,8 @@ namespace Jint.Native.Function
             // The value of the [[Prototype]] internal property of the Function constructor is the standard built-in Function prototype object
             obj.Prototype = obj.PrototypeObject;
 
-            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
+            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
+            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
 
             return obj;
         }
@@ -74,7 +73,7 @@ namespace Jint.Native.Function
             {
                 var functionExpression = "function f(" + p + ") { " + body + "}";
                 var parser = new JavaScriptParser(functionExpression, ParserOptions);
-                function = parser.ParseProgram().Body.First().As<IFunction>();
+                function = (IFunction) parser.ParseProgram().Body[0];
             }
             catch (ParserException)
             {
@@ -116,7 +115,7 @@ namespace Jint.Native.Function
         {
             get
             {
-                if (_throwTypeError != null)
+                if (!ReferenceEquals(_throwTypeError, null))
                 {
                     return _throwTypeError;
                 }
@@ -148,7 +147,7 @@ namespace Jint.Native.Function
             }
 
             var argArrayObj = argArray.TryCast<ObjectInstance>();
-            if (argArrayObj == null)
+            if (ReferenceEquals(argArrayObj, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }

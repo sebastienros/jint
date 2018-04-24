@@ -1025,6 +1025,29 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void JsonParserShouldUseReviverFunction()
+        {
+            RunTest(@"
+                var jsonObj = JSON.parse('{""p"": 5}', function (key, value){
+                    return typeof value === 'number' ? value * 2 : value;
+                });
+                assert(jsonObj.p === 10);
+            ");
+
+            RunTest(@"
+                var expectedKeys = [""1"", ""2"", ""4"", ""6"", ""5"", ""3"", """"];
+                var actualKeys = [];
+                JSON.parse('{""1"": 1, ""2"": 2, ""3"": {""4"": 4, ""5"": {""6"": 6}}}', function (key, value){
+                    actualKeys.push(key);
+                    return value;// return the unchanged property value.
+                });
+                expectedKeys.forEach(function (val, i){
+                    assert(actualKeys[i] === val);
+                });
+            ");
+        }
+
+        [Fact]
         [ReplaceCulture("fr-FR")]
         public void ShouldBeCultureInvariant()
         {
@@ -1959,6 +1982,45 @@ namespace Jint.Tests.Runtime
             Native.JsValue val = engine.Execute("JSON.stringify(53.6841659)").GetCompletionValue();
 
             Assert.True(val.AsString() == "53.6841659");
+        }
+
+        [Fact]
+        public void ShouldStringifyObjectWithPropertiesToSameRef()
+        {
+            var engine = new Engine();
+            var res = engine.Execute(@"
+                var obj = {
+                    a : [],
+                    a1 : ['str'],
+                    a2 : {},
+                    a3 : { 'prop' : 'val' }
+                };
+                obj.b = obj.a;
+                obj.b1 = obj.a1;
+                JSON.stringify(obj);
+            ").GetCompletionValue();
+
+            Assert.True(res == "{\"a\":[],\"a1\":[\"str\"],\"a2\":{},\"a3\":{\"prop\":\"val\"},\"b\":[],\"b1\":[\"str\"]}");
+        }
+
+        [Fact]
+        public void ShouldThrowOnSerializingCyclicRefObject()
+        {
+            var engine = new Engine();
+            var res = engine.Execute(@"
+                (function(){
+                    try{
+                        a = [];
+                        a[0] = a;
+                        my_text = JSON.stringify(a);
+                    }
+                    catch(ex){
+                        return ex.message;
+                    }
+                })();
+            ").GetCompletionValue();
+
+            Assert.True(res == "Cyclic reference detected.");
         }
 
         [Theory]

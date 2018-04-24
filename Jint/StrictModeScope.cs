@@ -2,7 +2,7 @@
 
 namespace Jint
 {
-    public class StrictModeScope : IDisposable
+    public readonly struct StrictModeScope : IDisposable
     {
         private readonly bool _strict;
         private readonly bool _force;
@@ -21,12 +21,15 @@ namespace Jint
                 _forcedRefCount = _refCount;
                 _refCount = 0;
             }
+            else
+            {
+                _forcedRefCount = 0;
+            }
 
             if (_strict)
             {
                 _refCount++;
             }
-
         }
 
         public void Dispose()
@@ -42,21 +45,6 @@ namespace Jint
             } 
         }
 
-        public static bool IsStrictModeCode
-        {
-            get { return _refCount > 0; }
-        }
-
-        public static int RefCount
-        {
-            get
-            {
-                return _refCount;
-            }
-            set
-            {
-                _refCount = value;
-            }
-        }
+        public static bool IsStrictModeCode => _refCount > 0;
     }
 }

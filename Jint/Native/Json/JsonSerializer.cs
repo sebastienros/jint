@@ -5,7 +5,7 @@ using Jint.Native.Array;
 using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Json
 {
@@ -113,7 +113,7 @@ namespace Jint.Native.Json
             }
 
             var wrapper = _engine.Object.Construct(Arguments.Empty);
-            wrapper.DefineOwnProperty("", new ConfigurableEnumerableWritablePropertyDescriptor(value), false);
+            wrapper.DefineOwnProperty("", new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable), false);
 
             return Str("", wrapper);
         }
@@ -135,7 +135,7 @@ namespace Jint.Native.Json
                 }
             }
 
-            if (_replacerFunction != Undefined.Instance)
+            if (!ReferenceEquals(_replacerFunction, Undefined.Instance))
             {
                 var replacerFunctionCallable = (ICallable)_replacerFunction.AsObject();
                 value = replacerFunctionCallable.Call(holder, Arguments.From(key, value));
@@ -266,12 +266,13 @@ namespace Jint.Native.Json
             for (int i = 0; i < len; i++)
             {
                 var strP = Str(TypeConverter.ToString(i), value);
-                if (strP == JsValue.Undefined)
+                if (ReferenceEquals(strP, JsValue.Undefined))
                     strP = "null";
                 partial.Add(strP.AsString());
             }
             if (partial.Count == 0)
             {
+                _stack.Pop();
                 return "[]";
             }
 
@@ -317,7 +318,7 @@ namespace Jint.Native.Json
             _indent += _gap;
 
             var k = _propertyList ?? value.GetOwnProperties()
-                .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value == true)
+                .Where(x => x.Value.Enumerable)
                 .Select(x => x.Key)
                 .ToList();
 
@@ -325,7 +326,7 @@ namespace Jint.Native.Json
             foreach (var p in k)
             {
                 var strP = Str(p, value);
-                if (strP != JsValue.Undefined)
+                if (!ReferenceEquals(strP, JsValue.Undefined))
                 {
                     var member = Quote(p) + ":";
                     if (_gap != "")

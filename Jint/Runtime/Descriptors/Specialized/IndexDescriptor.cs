@@ -13,7 +13,7 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly PropertyInfo _indexer;
         private readonly MethodInfo _containsKey;
 
-        public IndexDescriptor(Engine engine, Type targetType, string key, object item)
+        public IndexDescriptor(Engine engine, Type targetType, string key, object item) : base(PropertyFlag.CustomJsValue)
         {
             _engine = engine;
             _item = item;
@@ -33,9 +33,8 @@ namespace Jint.Runtime.Descriptors.Specialized
                     {
                         _indexer = indexer;
                         // get contains key method to avoid index exception being thrown in dictionaries
-                        _containsKey = targetType.GetMethod("ContainsKey", new Type[] { paramType });
+                        _containsKey = targetType.GetMethod("ContainsKey", new Type[] {paramType});
                         break;
-
                     }
                 }
             }
@@ -49,13 +48,12 @@ namespace Jint.Runtime.Descriptors.Specialized
             Writable = true;
         }
 
-
         public IndexDescriptor(Engine engine, string key, object item)
             : this(engine, item.GetType(), key, item)
         {
         }
 
-        public override JsValue Value
+        protected override JsValue CustomValue
         {
             get
             {
@@ -66,7 +64,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                     throw new InvalidOperationException("Indexer has no public getter.");
                 }
 
-                object[] parameters = { _key };
+                object[] parameters = {_key};
 
                 if (_containsKey != null)
                 {
@@ -94,7 +92,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                     throw new InvalidOperationException("Indexer has no public setter.");
                 }
 
-                object[] parameters = { _key, value != null ? value.ToObject() : null };
+                object[] parameters = {_key, value?.ToObject()};
                 setter.Invoke(_item, parameters);
             }
         }

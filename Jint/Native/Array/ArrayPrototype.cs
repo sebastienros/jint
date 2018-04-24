@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
@@ -26,7 +25,7 @@ namespace Jint.Native.Array
             };
 
             obj.FastAddProperty("length", 0, true, false, false);
-            obj.SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(arrayConstructor));
+            obj.SetOwnProperty("constructor", new PropertyDescriptor(arrayConstructor, PropertyFlag.NonEnumerable));
 
             return obj;
         }
@@ -175,7 +174,7 @@ namespace Jint.Native.Array
             var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
 
             uint to = 0;
-            var args = new JsValue[3];
+            var args = Engine.JsValueArrayPool.RentArray(3);
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -191,6 +190,7 @@ namespace Jint.Native.Array
                     }
                 }
             }
+            Engine.JsValueArrayPool.ReturnArray(args);
 
             return a;
         }
@@ -205,8 +205,12 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var a = Engine.Array.Construct(new JsValue[] {len}, len);
-            var args = new JsValue[3];
+            var jsValues = Engine.JsValueArrayPool.RentArray(1);
+            jsValues[0] = len;
+            var a = Engine.Array.Construct(jsValues, len);
+            Engine.JsValueArrayPool.ReturnArray(jsValues);
+            
+            var args = Engine.JsValueArrayPool.RentArray(3);
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -218,6 +222,8 @@ namespace Jint.Native.Array
                     a.SetIndexValue(k, mappedValue, throwOnError: false);
                 }
             }
+
+            Engine.JsValueArrayPool.ReturnArray(args);
 
             return a;
         }
@@ -232,7 +238,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var args = new JsValue[3];
+            var args = Engine.JsValueArrayPool.RentArray(3);
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -243,6 +249,7 @@ namespace Jint.Native.Array
                     callable.Call(thisArg, args);
                 }
             }
+            Engine.JsValueArrayPool.ReturnArray(args);
 
             return Undefined;
         }
@@ -257,7 +264,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var args = new JsValue[3];
+            var args = Engine.JsValueArrayPool.RentArray(3);
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -272,6 +279,7 @@ namespace Jint.Native.Array
                     }
                 }
             }
+            Engine.JsValueArrayPool.ReturnArray(args);
 
             return false;
         }
@@ -286,7 +294,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var args = new JsValue[3];
+            var args = Engine.JsValueArrayPool.RentArray(3);
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
@@ -301,6 +309,7 @@ namespace Jint.Native.Array
                     }
                 }
             }
+            Engine.JsValueArrayPool.ReturnArray(args);
 
             return JsBoolean.True;
         }
@@ -497,7 +506,7 @@ namespace Jint.Native.Array
 
             var compareArg = arguments.At(0);
             ICallable compareFn = null;
-            if (compareArg != Undefined)
+            if (!ReferenceEquals(compareArg, Undefined))
             {
                 compareFn = compareArg.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "The sort argument must be a function"));
             }
@@ -788,7 +797,7 @@ namespace Jint.Native.Array
             foreach (var e in items)
             {
                 var eArray = e.TryCast<ArrayInstance>();
-                if (eArray != null)
+                if (!ReferenceEquals(eArray, null))
                 {
                     var len = eArray.GetLength();
                     for (uint k = 0; k < len; k++)
@@ -810,7 +819,7 @@ namespace Jint.Native.Array
 
             // this is not in the specs, but is necessary in case the last element of the last
             // array doesn't exist, and thus the length would not be incremented
-            a.DefineOwnProperty("length", new NullConfigurationPropertyDescriptor(n), false);
+            a.DefineOwnProperty("length", new PropertyDescriptor(n, PropertyFlag.None), false);
 
             return a;
         }
@@ -892,7 +901,7 @@ namespace Jint.Native.Array
             for (var i = 0; i < arguments.Length; i++)
             {
                 JsValue e = arguments[i];
-                if (arrayInstance != null && n >= 0 && n < uint.MaxValue)
+                if (!ReferenceEquals(arrayInstance, null) && n >= 0 && n < uint.MaxValue)
                 {
                     // try to optimize a bit
                     arrayInstance.SetIndexValue((uint) n, e, true);
@@ -995,13 +1004,13 @@ namespace Jint.Native.Array
                 public override uint GetLength()
                 {
                     var desc = _instance.GetProperty("length");
-                    if (desc.IsDataDescriptor() && desc.Value != null)
+                    var descValue = desc.Value;
+                    if (desc.IsDataDescriptor() && !ReferenceEquals(descValue, null))
                     {
-                        return TypeConverter.ToUint32(desc.Value);
+                        return TypeConverter.ToUint32(descValue);
                     }
 
-                    var getter = desc.Get != null ? desc.Get : Undefined;
-
+                    var getter = desc.Get ?? Undefined;
                     if (getter.IsUndefined())
                     {
                         return 0;

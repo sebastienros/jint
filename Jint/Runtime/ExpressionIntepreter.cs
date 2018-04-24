@@ -45,7 +45,7 @@ namespace Jint.Runtime
 
         public JsValue EvaluateAssignmentExpression(AssignmentExpression assignmentExpression)
         {
-            var lref = EvaluateExpression(assignmentExpression.Left.As<Expression>()) as Reference;
+            var lref = EvaluateExpression((Expression) assignmentExpression.Left) as Reference;
             JsValue rval = _engine.GetValue(EvaluateExpression(assignmentExpression.Right), true);
 
             if (lref == null)
@@ -56,7 +56,9 @@ namespace Jint.Runtime
             if (assignmentExpression.Operator == AssignmentOperator.Assign) // "="
             {
 
-                if(lref.IsStrict() && lref.GetBase().TryCast<EnvironmentRecord>() != null && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
+                if(lref.IsStrict() 
+                   && !ReferenceEquals(lref.GetBase().TryCast<EnvironmentRecord>(), null) 
+                   && (lref.GetReferencedName() == "eval" || lref.GetReferencedName() == "arguments"))
                 {
                     throw new JavaScriptException(_engine.SyntaxError);
                 }
@@ -76,7 +78,7 @@ namespace Jint.Runtime
                     if (lprim.IsString() || rprim.IsString())
                     {
                         var jsString = lprim as JsString;
-                        if (jsString == null)
+                        if (ReferenceEquals(jsString, null))
                         {
                             jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
                         }
@@ -208,7 +210,7 @@ namespace Jint.Runtime
             JsValue left;
             if (expression.Left.Type == Nodes.Literal)
             {
-                left = EvaluateLiteral(expression.Left.As<Literal>());
+                left = EvaluateLiteral((Literal) expression.Left);
             }
             else
             {
@@ -218,7 +220,7 @@ namespace Jint.Runtime
             JsValue right;
             if (expression.Right.Type == Nodes.Literal)
             {
-                right = EvaluateLiteral(expression.Right.As<Literal>());
+                right = EvaluateLiteral((Literal) expression.Right);
             }
             else
             {
@@ -346,12 +348,10 @@ namespace Jint.Runtime
 
                 case BinaryOperator.InstanceOf:
                     var f = right.TryCast<FunctionInstance>();
-
-                    if (f == null)
+                    if (ReferenceEquals(f, null))
                     {
                         throw new JavaScriptException(_engine.TypeError, "instanceof can only be used with a function object");
                     }
-
                     value = f.HasInstance(left);
                     break;
 
@@ -658,19 +658,23 @@ namespace Jint.Runtime
             // http://www.ecma-international.org/ecma-262/5.1/#sec-11.1.5
 
             var obj = _engine.Object.Construct(Arguments.Empty);
-            foreach (var property in objectExpression.Properties)
+            var propertiesCount = objectExpression.Properties.Count;
+            for (var i = 0; i < propertiesCount; i++)
             {
+                var property = objectExpression.Properties[i];
                 var propName = property.Key.GetKey();
                 var previous = obj.GetOwnProperty(propName);
-                IPropertyDescriptor propDesc;
+                PropertyDescriptor propDesc;
 
+                const PropertyFlag enumerableConfigurable = PropertyFlag.Enumerable | PropertyFlag.Configurable;
+                
                 switch (property.Kind)
                 {
                     case PropertyKind.Init:
                     case PropertyKind.Data:
-                        var exprValue = _engine.EvaluateExpression(property.Value.As<Expression>());
+                        var exprValue = _engine.EvaluateExpression(property.Value);
                         var propValue = _engine.GetValue(exprValue, true);
-                        propDesc = new ConfigurableEnumerableWritablePropertyDescriptor(propValue);
+                        propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
                         break;
 
                     case PropertyKind.Get:
@@ -692,7 +696,7 @@ namespace Jint.Runtime
                             );
                         }
 
-                        propDesc = new PropertyDescriptor(get: get, set: null, enumerable: true, configurable:true);
+                        propDesc = new GetSetPropertyDescriptor(get: get, set: null, enumerableConfigurable);
                         break;
 
                     case PropertyKind.Set:
@@ -706,15 +710,15 @@ namespace Jint.Runtime
                         ScriptFunctionInstance set;
                         using (new StrictModeScope(setter.Strict))
                         {
-
                             set = new ScriptFunctionInstance(
                                 _engine,
                                 setter,
                                 _engine.ExecutionContext.LexicalEnvironment,
                                 StrictModeScope.IsStrictModeCode
-                                );
+                            );
                         }
-                        propDesc = new PropertyDescriptor(get:null, set: set, enumerable: true, configurable: true);
+
+                        propDesc = new GetSetPropertyDescriptor(get: null, set: set, enumerableConfigurable);
                         break;
 
                     default:
@@ -740,12 +744,12 @@ namespace Jint.Runtime
 
                     if (previous.IsAccessorDescriptor() && propDesc.IsAccessorDescriptor())
                     {
-                        if (propDesc.Set != null && previous.Set != null)
+                        if (!ReferenceEquals(propDesc.Set, null) && !ReferenceEquals(previous.Set, null))
                         {
                             throw new JavaScriptException(_engine.SyntaxError);
                         }
 
-                        if (propDesc.Get != null && previous.Get != null)
+                        if (!ReferenceEquals(propDesc.Get, null) && !ReferenceEquals(previous.Get, null))
                         {
                             throw new JavaScriptException(_engine.SyntaxError);
                         }
@@ -813,26 +817,31 @@ namespace Jint.Runtime
         public JsValue EvaluateCallExpression(CallExpression callExpression)
         {
             var callee = EvaluateExpression(callExpression.Callee);
-
-            if (_engine.Options._IsDebugMode)
+            var options = _engine.Options;
+            var maxRecursionDepth = options._MaxRecursionDepth;
+            var debug = options._IsDebugMode;
+            
+            if (debug)
             {
                 _engine.DebugHandler.AddToDebugCallStack(callExpression);
             }
 
             JsValue thisObject;
-
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
 
-
-            JsValue[] arguments;
-
+            var arguments = Array.Empty<JsValue>();
             if (callExpression.Cached)
             {
                 arguments = (JsValue[]) callExpression.CachedArguments;
             }
             else
             {
-                arguments = BuildArguments(callExpression.Arguments, out bool allLiteral);
+                var allLiteral = true;
+                if (callExpression.Arguments.Count > 0)
+                {
+                    arguments = _engine.JsValueArrayPool.RentArray(callExpression.Arguments.Count);
+                    BuildArguments(callExpression.Arguments, arguments, out allLiteral);
+                }
 
                 if (callExpression.CanBeCached)
                 {
@@ -853,13 +862,13 @@ namespace Jint.Runtime
 
             var r = callee as Reference;
 
-            if (_engine.Options._MaxRecursionDepth >= 0)
+            if (maxRecursionDepth >= 0)
             {
                 var stackItem = new CallStackElement(callExpression, func, r != null ? r.GetReferencedName() : "anonymous function");
 
                 var recursionDepth = _engine.CallStack.Push(stackItem);
 
-                if (recursionDepth > _engine.Options._MaxRecursionDepth)
+                if (recursionDepth > maxRecursionDepth)
                 {
                     _engine.CallStack.Pop();
                     throw new RecursionDepthOverflowException(_engine.CallStack, stackItem.ToString());
@@ -874,8 +883,8 @@ namespace Jint.Runtime
             if (!func.IsObject())
             {
 
-                if (_engine.Options._ReferenceResolver == null ||
-                    !_engine.Options._ReferenceResolver.TryGetCallable(_engine, callee, out func))
+                if (options._ReferenceResolver == null ||
+                    !options._ReferenceResolver.TryGetCallable(_engine, callee, out func))
                 {
                     throw new JavaScriptException(_engine.TypeError,
                         r == null ? "" : string.Format("Property '{0}' of object is not a function", r.GetReferencedName()));
@@ -915,14 +924,19 @@ namespace Jint.Runtime
 
             var result = callable.Call(thisObject, arguments);
 
-            if (_engine.Options._IsDebugMode)
+            if (debug)
             {
                 _engine.DebugHandler.PopDebugCallStack();
             }
 
-            if (_engine.Options._MaxRecursionDepth >= 0)
+            if (maxRecursionDepth >= 0)
             {
                 _engine.CallStack.Pop();
+            }
+
+            if (!callExpression.Cached && arguments.Length > 0)
+            {
+                _engine.JsValueArrayPool.ReturnArray(arguments);
             }
 
             _engine.ReferencePool.Return(r);
@@ -932,9 +946,11 @@ namespace Jint.Runtime
         public JsValue EvaluateSequenceExpression(SequenceExpression sequenceExpression)
         {
             var result = Undefined.Instance;
-            foreach (var expression in sequenceExpression.Expressions)
+            var expressionsCount = sequenceExpression.Expressions.Count;
+            for (var i = 0; i < expressionsCount; i++)
             {
-                result = _engine.GetValue(_engine.EvaluateExpression(expression.As<Expression>()), true);
+                var expression = sequenceExpression.Expressions[i];
+                result = _engine.GetValue(_engine.EvaluateExpression(expression), true);
             }
 
             return result;
@@ -951,7 +967,7 @@ namespace Jint.Runtime
                     r = value as Reference;
                     if (r != null
                         && r.IsStrict()
-                        && (r.GetBase().TryCast<EnvironmentRecord>() != null)
+                        && (!ReferenceEquals(r.GetBase().TryCast<EnvironmentRecord>(), null))
                         && ("eval" == r.GetReferencedName() || "arguments" == r.GetReferencedName()))
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
@@ -968,7 +984,7 @@ namespace Jint.Runtime
                     r = value as Reference;
                     if (r != null
                         && r.IsStrict()
-                        && (r.GetBase().TryCast<EnvironmentRecord>() != null)
+                        && (!ReferenceEquals(r.GetBase().TryCast<EnvironmentRecord>(), null))
                         && ("eval" == r.GetReferencedName() || "arguments" == r.GetReferencedName()))
                     {
                         throw new JavaScriptException(_engine.SyntaxError);
@@ -994,7 +1010,8 @@ namespace Jint.Runtime
 
         public JsValue EvaluateNewExpression(NewExpression newExpression)
         {
-            var arguments = BuildArguments(newExpression.Arguments, out bool _);
+            var arguments = _engine.JsValueArrayPool.RentArray(newExpression.Arguments.Count);
+            BuildArguments(newExpression.Arguments, arguments, out _);
 
             // todo: optimize by defining a common abstract class or interface
             var callee = _engine.GetValue(EvaluateExpression(newExpression.Callee), true).TryCast<IConstructor>();
@@ -1007,6 +1024,8 @@ namespace Jint.Runtime
             // construct the new instance using the Function's constructor method
             var instance = callee.Construct(arguments);
 
+            _engine.JsValueArrayPool.ReturnArray(arguments);
+
             return instance;
         }
 
@@ -1014,16 +1033,21 @@ namespace Jint.Runtime
         {
             var elements = arrayExpression.Elements;
             var count = elements.Count;
-            var a = _engine.Array.Construct(new JsValue[] {count}, (uint) count);
+            
+            var jsValues = _engine.JsValueArrayPool.RentArray(1);
+            jsValues[0] = count;
+            
+            var a = _engine.Array.Construct(jsValues, (uint) count);
             for (var n = 0; n < count; n++)
             {
                 var expr = elements[n];
                 if (expr != null)
                 {
-                    var value = _engine.GetValue(EvaluateExpression(expr.As<Expression>()), true);
+                    var value = _engine.GetValue(EvaluateExpression((Expression) expr), true);
                     a.SetIndexValue((uint) n, value, throwOnError: false);
                 }
             }
+            _engine.JsValueArrayPool.ReturnArray(jsValues);
 
             return a;
         }
@@ -1124,25 +1148,20 @@ namespace Jint.Runtime
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private JsValue[] BuildArguments(List<ArgumentListElement> expressionArguments, out bool allLiteral)
+        private void BuildArguments(
+            List<ArgumentListElement> expressionArguments, 
+            JsValue[] targetArray,
+            out bool cacheable)
         {
-            allLiteral = true;
+            cacheable = true;
             var count = expressionArguments.Count;
 
-            if (count == 0)
-            {
-                return Array.Empty<JsValue>();
-            }
-
-            var arguments = new JsValue[count];
             for (var i = 0; i < count; i++)
             {
                 var argument = (Expression) expressionArguments[i];
-                arguments[i] = _engine.GetValue(EvaluateExpression(argument), true);
-                allLiteral &= argument is Literal;
+                targetArray[i] = _engine.GetValue(EvaluateExpression(argument), true);
+                cacheable &= argument is Literal;
             }
-
-            return arguments;
         }
     }
 }

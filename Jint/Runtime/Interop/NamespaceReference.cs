@@ -23,7 +23,7 @@ namespace Jint.Runtime.Interop
             _path = path;
         }
 
-        public override bool DefineOwnProperty(string propertyName, IPropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             if (throwOnError)
             {
@@ -62,7 +62,7 @@ namespace Jint.Runtime.Interop
 
             var typeReference = GetPath(_path + "`" + arguments.Length.ToString(CultureInfo.InvariantCulture)).As<TypeReference>();
 
-            if (typeReference == null)
+            if (ReferenceEquals(typeReference, null))
             {
                 return Undefined;
             }
@@ -88,9 +88,7 @@ namespace Jint.Runtime.Interop
 
         public JsValue GetPath(string path)
         {
-            Type type;
-
-            if (Engine.TypeCache.TryGetValue(path, out type))
+            if (Engine.TypeCache.TryGetValue(path, out var type))
             {
                 if (type == null)
                 {
@@ -108,8 +106,10 @@ namespace Jint.Runtime.Interop
             // search in loaded assemblies
             var lookupAssemblies = new[] {Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly()};
 
-            foreach (var assembly in lookupAssemblies)
+            var lookupAssembliesLength = lookupAssemblies.Length;
+            for (var i = 0; i < lookupAssembliesLength; i++)
             {
+                var assembly = lookupAssemblies[i];
                 type = assembly.GetType(path);
                 if (type != null)
                 {
@@ -193,7 +193,7 @@ namespace Jint.Runtime.Interop
             }
         }
 
-        public override IPropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
             return PropertyDescriptor.Undefined;
         }

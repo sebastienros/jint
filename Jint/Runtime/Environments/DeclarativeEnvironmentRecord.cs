@@ -24,7 +24,7 @@ namespace Jint.Runtime.Environments
 
         public override bool HasBinding(string name)
         {
-            if (name == BindingNameArguments)
+            if (name.Length == 9 && name == BindingNameArguments)
             {
                 return _argumentsBinding != null;
             }

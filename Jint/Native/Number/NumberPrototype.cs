@@ -43,7 +43,7 @@ namespace Jint.Native.Number
 
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
         {
-            if (!thisObject.IsNumber() && (thisObject.TryCast<NumberInstance>() == null))
+            if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -81,7 +81,7 @@ namespace Jint.Native.Number
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
         {
             var number = thisObj.TryCast<NumberInstance>();
-            if (number == null)
+            if (ReferenceEquals(number, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -167,12 +167,14 @@ namespace Jint.Native.Number
 
         private JsValue ToNumberString(JsValue thisObject, JsValue[] arguments)
         {
-            if (!thisObject.IsNumber() && (thisObject.TryCast<NumberInstance>() == null))
+            if (!thisObject.IsNumber() && (ReferenceEquals(thisObject.TryCast<NumberInstance>(), null)))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var radix = arguments.At(0) == JsValue.Undefined ? 10 : (int) TypeConverter.ToInteger(arguments.At(0));
+            var radix = ReferenceEquals(arguments.At(0), Undefined) 
+                ? 10 
+                : (int) TypeConverter.ToInteger(arguments.At(0));
 
             if (radix < 2 || radix > 36)
             {
