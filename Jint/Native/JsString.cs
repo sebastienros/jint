@@ -64,6 +64,11 @@ namespace Jint.Native
             return new ConcatenatedString(_value, capacity);
         }
 
+        internal virtual bool IsNullOrEmpty()
+        {
+            return string.IsNullOrEmpty(_value);
+        }
+
         internal static JsString Create(string value)
         {
             if (value.Length <= 1)
@@ -181,6 +186,12 @@ namespace Jint.Native
             {
                 _stringBuilder.EnsureCapacity(capacity);
                 return this;
+            }
+
+            internal override bool IsNullOrEmpty()
+            {
+                return _stringBuilder == null && string.IsNullOrEmpty(_value)
+                    || _stringBuilder != null && _stringBuilder.Length == 0;
             }
 
             public override bool Equals(JsValue other)

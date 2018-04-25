@@ -18,7 +18,7 @@ namespace Jint.Native.Object
 {
     public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
-        private Dictionary<string, PropertyDescriptor> _intrinsicProperties;
+        private MruPropertyCache2<PropertyDescriptor> _intrinsicProperties;
         private MruPropertyCache2<PropertyDescriptor> _properties;
 
         public ObjectInstance(Engine engine) : base(Types.Object)
@@ -54,7 +54,7 @@ namespace Jint.Native.Object
         {
             if (_intrinsicProperties == null)
             {
-                _intrinsicProperties = new Dictionary<string, PropertyDescriptor>();
+                _intrinsicProperties = new MruPropertyCache2<PropertyDescriptor>();
             }
 
             _intrinsicProperties[symbol.AsSymbol()] = new PropertyDescriptor(value, writable, enumerable, configurable);
