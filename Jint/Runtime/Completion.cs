@@ -5,23 +5,26 @@ using Jint.Native;
 
 namespace Jint.Runtime
 {
+    public enum CompletionType
+    {
+        Normal,
+        Break,
+        Continue,
+        Return,
+        Throw
+    }
+
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.9
     /// </summary>
     public sealed class Completion
     {
-        public const string Normal = "normal";
-        public const string Break = "break";
-        public const string Continue = "continue";
-        public const string Return = "return";
-        public const string Throw = "throw";
-
-        internal static readonly Completion Empty = new Completion(Normal, null, null).Freeze();
-        internal static readonly Completion EmptyUndefined = new Completion(Normal, Undefined.Instance, null).Freeze();
+        internal static readonly Completion Empty = new Completion(CompletionType.Normal, null, null).Freeze();
+        internal static readonly Completion EmptyUndefined = new Completion(CompletionType.Normal, Undefined.Instance, null).Freeze();
 
         private bool _frozen;
 
-        public Completion(string type, JsValue value, string identifier, Location location = null)
+        public Completion(CompletionType type, JsValue value, string identifier, Location location = null)
         {
             Type = type;
             Value = value;
@@ -29,7 +32,7 @@ namespace Jint.Runtime
             Location = location;
         }
 
-        public string Type
+        public CompletionType Type
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get;
@@ -39,14 +42,14 @@ namespace Jint.Runtime
         public JsValue Value
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get; 
+            get;
             private set;
         }
 
         public string Identifier
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get; 
+            get;
             private set;
         }
 
@@ -59,7 +62,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsAbrupt()
         {
-            return Type != Normal;
+            return Type != CompletionType.Normal;
         }
 
         public Location Location { get; private set; }
@@ -70,12 +73,13 @@ namespace Jint.Runtime
             return this;
         }
 
-        public Completion Reassign(string type, JsValue value, string identifier, Location location = null)
+        public Completion Reassign(CompletionType type, JsValue value, string identifier, Location location = null)
         {
             if (_frozen)
             {
                 throw new InvalidOperationException("object is frozen");
             }
+
             Type = type;
             Value = value;
             Identifier = identifier;

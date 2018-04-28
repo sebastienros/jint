@@ -17,10 +17,18 @@ namespace Jint.Runtime
     public class ExpressionInterpreter
     {
         private readonly Engine _engine;
+        private readonly bool _isDebugMode;
+        private readonly int _maxRecursionDepth;
+        private readonly IReferenceResolver _referenceResolver;
 
         public ExpressionInterpreter(Engine engine)
         {
             _engine = engine;
+            
+            // gather some options as fields for faster checks
+            _isDebugMode = engine.Options.IsDebugMode;
+            _maxRecursionDepth = engine.Options.MaxRecursionDepth;
+            _referenceResolver = engine.Options.ReferenceResolver;
         }
 
         private object EvaluateExpression(Expression expression)
@@ -817,11 +825,8 @@ namespace Jint.Runtime
         public JsValue EvaluateCallExpression(CallExpression callExpression)
         {
             var callee = EvaluateExpression(callExpression.Callee);
-            var options = _engine.Options;
-            var maxRecursionDepth = options._MaxRecursionDepth;
-            var debug = options._IsDebugMode;
             
-            if (debug)
+            if (_isDebugMode)
             {
                 _engine.DebugHandler.AddToDebugCallStack(callExpression);
             }
@@ -862,13 +867,13 @@ namespace Jint.Runtime
 
             var r = callee as Reference;
 
-            if (maxRecursionDepth >= 0)
+            if (_maxRecursionDepth >= 0)
             {
                 var stackItem = new CallStackElement(callExpression, func, r != null ? r.GetReferencedName() : "anonymous function");
 
                 var recursionDepth = _engine.CallStack.Push(stackItem);
 
-                if (recursionDepth > maxRecursionDepth)
+                if (recursionDepth > _maxRecursionDepth)
                 {
                     _engine.CallStack.Pop();
                     throw new RecursionDepthOverflowException(_engine.CallStack, stackItem.ToString());
@@ -882,12 +887,10 @@ namespace Jint.Runtime
 
             if (!func.IsObject())
             {
-
-                if (options._ReferenceResolver == null ||
-                    !options._ReferenceResolver.TryGetCallable(_engine, callee, out func))
+                if (_referenceResolver == null || !_referenceResolver.TryGetCallable(_engine, callee, out func))
                 {
                     throw new JavaScriptException(_engine.TypeError,
-                        r == null ? "" : string.Format("Property '{0}' of object is not a function", r.GetReferencedName()));
+                        r == null ? "" : $"Property '{r.GetReferencedName()}' of object is not a function");
                 }
             }
 
@@ -924,12 +927,12 @@ namespace Jint.Runtime
 
             var result = callable.Call(thisObject, arguments);
 
-            if (debug)
+            if (_isDebugMode)
             {
                 _engine.DebugHandler.PopDebugCallStack();
             }
 
-            if (maxRecursionDepth >= 0)
+            if (_maxRecursionDepth >= 0)
             {
                 _engine.CallStack.Pop();
             }
@@ -1044,9 +1047,10 @@ namespace Jint.Runtime
                 if (expr != null)
                 {
                     var value = _engine.GetValue(EvaluateExpression((Expression) expr), true);
-                    a.SetIndexValue((uint) n, value, throwOnError: false);
+                    a.SetIndexValue((uint) n, value, updateLength: false);
                 }
             }
+            a.SetLength((uint) count);
             _engine.JsValueArrayPool.ReturnArray(jsValues);
 
             return a;

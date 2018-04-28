@@ -74,7 +74,7 @@ namespace Jint.Native.Function
                                 der.ReleaseArguments();
                             }
 
-                            if (result.Type == Completion.Throw)
+                            if (result.Type == CompletionType.Throw)
                             {
                                 var ex = new JavaScriptException(value).SetCallstack(_engine, result.Location);
                                 _engine.CompletionPool.Return(result);

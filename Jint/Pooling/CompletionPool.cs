@@ -19,10 +19,10 @@ namespace Jint.Pooling
 
         private static Completion Factory()
         {
-            return new Completion(string.Empty, JsValue.Undefined, string.Empty);
+            return new Completion(CompletionType.Normal, JsValue.Undefined, string.Empty);
         }
         
-        public Completion Rent(string type, JsValue value, string identifier, Location location = null)
+        public Completion Rent(CompletionType type, JsValue value, string identifier, Location location = null)
         {
             return _pool.Allocate().Reassign(type, value, identifier, location);
         }

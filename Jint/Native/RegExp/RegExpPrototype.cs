@@ -116,9 +116,10 @@ namespace Jint.Native.RegExp
             {
                 var group = r.Groups[(int) k];
                 var value = group.Success ? group.Value : Undefined;
-                a.SetIndexValue(k, value, throwOnError: true);
+                a.SetIndexValue(k, value, updateLength: false);
             }
 
+            a.SetLength((uint) n);
             return a;
         }
 
