@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 
 using Jint.Native.Object;
@@ -55,7 +54,7 @@ namespace Jint.Native.Array
                 length = items.Length;
             }            
             
-            SetOwnProperty(PropertyNameLength, new PropertyDescriptor(length, PropertyFlag.OnlyWritable));
+            _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
         public ArrayInstance(Engine engine, Dictionary<uint, PropertyDescriptor> items) : base(engine)
@@ -63,7 +62,7 @@ namespace Jint.Native.Array
             _engine = engine;
             _sparse = items;
             var length = items?.Count ?? 0;
-            SetOwnProperty(PropertyNameLength, new PropertyDescriptor(length, PropertyFlag.OnlyWritable));
+            _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
         public override string Class => "Array";
@@ -300,6 +299,7 @@ namespace Jint.Native.Array
             return base.DefineOwnProperty(propertyName, desc, throwOnError);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public uint GetLength()
         {
             return (uint) ((JsNumber) _length.Value)._value;
@@ -479,15 +479,24 @@ namespace Jint.Native.Array
             return (uint) result;
         }
 
-        internal void SetIndexValue(uint index, JsValue value, bool throwOnError)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void SetIndexValue(uint index, JsValue value, bool updateLength)
         {
-            var length = GetLength();
-            if (index >= length)
+            if (updateLength)
             {
-                _length.Value = index + 1;
+                var length = GetLength();
+                if (index >= length)
+                {
+                    SetLength(index + 1);
+                }
             }
-
             WriteArrayValue(index, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void SetLength(uint length)
+        {
+            _length.Value = length;
         }
 
         internal uint GetSmallestIndex()
@@ -550,6 +559,7 @@ namespace Jint.Native.Array
             return false;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool TryGetDescriptor(uint index, out PropertyDescriptor descriptor)
         {
             if (_dense != null)
@@ -628,7 +638,8 @@ namespace Jint.Native.Array
 
         public IEnumerator<JsValue> GetEnumerator()
         {
-            for (uint i = 0; i < GetLength(); i++)
+            var length = GetLength();
+            for (uint i = 0; i < length; i++)
             {
                 if (TryGetValue(i, out JsValue outValue))
                 {
@@ -640,6 +651,129 @@ namespace Jint.Native.Array
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        internal uint Push(JsValue[] arguments)
+        {
+            var initialLength = GetLength();
+            var newLength = initialLength + arguments.Length;
+            
+            // if we see that we are bringing more than normal growth algorithm handles, ensure capacity eagerly
+            if (_dense != null
+                && initialLength != 0
+                && arguments.Length > initialLength * 2
+                && newLength <= MaxDenseArrayLength)
+            {
+                EnsureCapacity((uint) newLength);
+            }
+
+            double n = initialLength;
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                var desc = new PropertyDescriptor(arguments[i], PropertyFlag.ConfigurableEnumerableWritable);
+                if (_dense != null && n < _dense.Length)
+                {
+                    _dense[(int) n] = desc;
+                }
+                else if (n < uint.MaxValue)
+                {
+                    WriteArrayValue((uint) n, desc);
+                }
+                else
+                {
+                    DefineOwnProperty(TypeConverter.ToString(n), desc, true);
+                }
+                n++;
+            }
+
+            // check if we can set length fast without breaking ECMA specification
+            if (n < uint.MaxValue && CanPut(PropertyNameLength))
+            {
+                _length.Value = (uint) n;
+            }
+            else
+            {
+                Put(PropertyNameLength, newLength, true);
+            }
+
+            return (uint) n;
+        }
+
+        internal ArrayInstance Map(JsValue[] arguments)
+        {
+            var callbackfn = arguments.At(0);
+            var thisArg = arguments.At(1);
+
+            var len = GetLength();
+
+            var callable = GetCallable(callbackfn);
+            var a = Engine.Array.ConstructFast(len);
+            var args = Engine.JsValueArrayPool.RentArray(3);
+            for (uint k = 0; k < len; k++)
+            {
+                if (TryGetValue(k, out var kvalue))
+                {
+                    args[0] = kvalue;
+                    args[1] = k;
+                    args[2] = this;
+                    var mappedValue = callable.Call(thisArg, args);
+                    var desc = new PropertyDescriptor(mappedValue, PropertyFlag.ConfigurableEnumerableWritable);
+                    if (a._dense != null && k < a._dense.Length)
+                    {
+                        a._dense[k] = desc;
+                    }
+                    else
+                    {
+                        a.WriteArrayValue(k, desc);
+                    }
+                }
+            }
+
+            Engine.JsValueArrayPool.ReturnArray(args);
+            return a;
+        }
+        
+        /// <inheritdoc />
+        internal override bool FindWithCallback(
+            JsValue[] arguments, 
+            out uint index, 
+            out JsValue value)
+        {
+            var len = GetLength();
+            if (len == 0)
+            {
+                index = 0;
+                value = Undefined;
+                return false;
+            }
+
+            var callbackfn = arguments.At(0);
+            var thisArg = arguments.At(1);
+            var callable = GetCallable(callbackfn);
+
+            var args = Engine.JsValueArrayPool.RentArray(3);
+            for (uint k = 0; k < len; k++)
+            {
+                if (TryGetValue(k, out var kvalue))
+                {
+                    args[0] = kvalue;
+                    args[1] = k;
+                    args[2] = this;
+                    var testResult = callable.Call(thisArg, args);
+                    if (TypeConverter.ToBoolean(testResult))
+                    {
+                        index = k;
+                        value = kvalue;
+                        return true;
+                    }
+                }
+            }
+
+            Engine.JsValueArrayPool.ReturnArray(args);
+
+            index = 0;
+            value = Undefined;
+            return false;
         }
     }
 }

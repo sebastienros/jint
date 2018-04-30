@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Runtime.Interop;
 
@@ -14,7 +13,6 @@ namespace Jint
         private bool _discardGlobal;
         private bool _strict;
         private bool _allowDebuggerStatement;
-        private bool _debugMode;
         private bool _allowClr;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private int _maxStatements;
@@ -63,7 +61,7 @@ namespace Jint
         /// </summary>
         public Options DebugMode(bool debugMode = true)
         {
-            _debugMode = debugMode;
+            IsDebugMode = debugMode;
             return this;
         }
 
@@ -156,19 +154,11 @@ namespace Jint
 
         internal bool _IsGlobalDiscarded => _discardGlobal;
 
-        internal bool _IsStrict
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return _strict; }
-        }
+        internal bool IsStrict => _strict;
 
         internal bool _IsDebuggerStatementAllowed => _allowDebuggerStatement;
 
-        internal bool _IsDebugMode
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return _debugMode; }
-        }
+        internal bool IsDebugMode { get; private set; }
 
         internal bool _IsClrAllowed => _allowClr;
 
@@ -178,13 +168,9 @@ namespace Jint
 
         internal List<IObjectConverter> _ObjectConverters => _objectConverters;
 
-        internal int _MaxStatements
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return _maxStatements; }
-        }
+        internal int MaxStatementCount => _maxStatements;
 
-        internal int _MaxRecursionDepth => _maxRecursionDepth;
+        internal int MaxRecursionDepth => _maxRecursionDepth;
 
         internal TimeSpan _TimeoutInterval => _timeoutInterval;
 
@@ -192,7 +178,7 @@ namespace Jint
 
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
 
-        internal IReferenceResolver  _ReferenceResolver => _referenceResolver;
+        internal IReferenceResolver  ReferenceResolver => _referenceResolver;
 
     }
 }

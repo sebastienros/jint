@@ -169,7 +169,6 @@ namespace Jint.Native.Function
 
                 Engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
-                Completion result = null;
                 try
                 {
                     var argumentInstanceRented = Engine.DeclarationBindingInstantiation(
@@ -179,7 +178,7 @@ namespace Jint.Native.Function
                         this,
                         arguments);
 
-                    result = Engine.ExecuteStatement(_functionDeclaration.Body);
+                    var result = Engine.ExecuteStatement(_functionDeclaration.Body);
                     
                     var value = result.GetValueOrDefault();
                     
@@ -191,20 +190,19 @@ namespace Jint.Native.Function
                         der.ReleaseArguments();
                     }
 
-                    if (result.Type == Completion.Throw)
+                    if (result.Type == CompletionType.Throw)
                     {
                         var ex = new JavaScriptException(value).SetCallstack(Engine, result.Location);
                         throw ex;
                     }
 
-                    if (result.Type == Completion.Return)
+                    if (result.Type == CompletionType.Return)
                     {
                         return value;
                     }
                 }
                 finally
                 {
-                    Engine.CompletionPool.Return(result);
                     Engine.LeaveExecutionContext();
                 }
 

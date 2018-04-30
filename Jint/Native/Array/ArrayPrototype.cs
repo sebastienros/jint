@@ -53,6 +53,8 @@ namespace Jint.Native.Array
             FastAddProperty("filter", new ClrFunctionInstance(Engine, Filter, 1), true, false, true);
             FastAddProperty("reduce", new ClrFunctionInstance(Engine, Reduce, 1), true, false, true);
             FastAddProperty("reduceRight", new ClrFunctionInstance(Engine, ReduceRight, 1), true, false, true);
+            FastAddProperty("find", new ClrFunctionInstance(Engine, Find, 1), true, false, true);
+            FastAddProperty("findIndex", new ClrFunctionInstance(Engine, FindIndex, 1), true, false, true);
         }
 
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
@@ -171,7 +173,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
+            var a = Engine.Array.ConstructFast(0);
 
             uint to = 0;
             var args = Engine.JsValueArrayPool.RentArray(3);
@@ -185,11 +187,13 @@ namespace Jint.Native.Array
                     var selected = callable.Call(thisArg, args);
                     if (TypeConverter.ToBoolean(selected))
                     {
-                        a.SetIndexValue(to, kvalue, throwOnError: false);
+                        a.SetIndexValue(to, kvalue, updateLength: false);
                         to++;
                     }
                 }
             }
+
+            a.SetLength(to);
             Engine.JsValueArrayPool.ReturnArray(args);
 
             return a;
@@ -197,12 +201,16 @@ namespace Jint.Native.Array
 
         private JsValue Map(JsValue thisObj, JsValue[] arguments)
         {
-            var callbackfn = arguments.At(0);
-            var thisArg = arguments.At(1);
+            if (thisObj is ArrayInstance arrayInstance)
+            {
+                return arrayInstance.Map(arguments);
+            }
 
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLength();
 
+            var callbackfn = arguments.At(0);
+            var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
 
             var jsValues = Engine.JsValueArrayPool.RentArray(1);
@@ -219,10 +227,11 @@ namespace Jint.Native.Array
                     args[1] = k;
                     args[2] = o.Target;
                     var mappedValue = callable.Call(thisArg, args);
-                    a.SetIndexValue(k, mappedValue, throwOnError: false);
+                    a.SetIndexValue(k, mappedValue, updateLength: false);
                 }
             }
 
+            a.SetLength(len);
             Engine.JsValueArrayPool.ReturnArray(args);
 
             return a;
@@ -256,32 +265,8 @@ namespace Jint.Native.Array
 
         private JsValue Some(JsValue thisObj, JsValue[] arguments)
         {
-            var callbackfn = arguments.At(0);
-            var thisArg = arguments.At(1);
-
-            var o = ArrayOperations.For(Engine, thisObj);
-            var len = o.GetLength();
-
-            var callable = GetCallable(callbackfn);
-
-            var args = Engine.JsValueArrayPool.RentArray(3);
-            for (uint k = 0; k < len; k++)
-            {
-                if (o.TryGetValue(k, out var kvalue))
-                {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    args[2] = o.Target;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
-                    {
-                        return true;
-                    }
-                }
-            }
-            Engine.JsValueArrayPool.ReturnArray(args);
-
-            return false;
+            var target = TypeConverter.ToObject(Engine, thisObj);
+            return target.FindWithCallback(arguments, out _, out _);
         }
 
         private JsValue Every(JsValue thisObj, JsValue[] arguments)
@@ -373,6 +358,23 @@ namespace Jint.Native.Array
 
             return -1;
         }
+        
+        private JsValue Find(JsValue thisObj, JsValue[] arguments)
+        {
+            var target = TypeConverter.ToObject(Engine, thisObj);
+            target.FindWithCallback(arguments, out _, out var value);
+            return value;
+        }
+        
+        private JsValue FindIndex(JsValue thisObj, JsValue[] arguments)
+        {
+            var target = TypeConverter.ToObject(Engine, thisObj);
+            if (target.FindWithCallback(arguments, out var index, out _))
+            {
+                return index;
+            }
+            return -1;
+        }
 
         private JsValue Splice(JsValue thisObj, JsValue[] arguments)
         {
@@ -394,14 +396,15 @@ namespace Jint.Native.Array
             }
 
             var actualDeleteCount = (uint) System.Math.Min(System.Math.Max(TypeConverter.ToInteger(deleteCount), 0), len - actualStart);
-            var a = Engine.Array.Construct(actualDeleteCount);
+            var a = Engine.Array.ConstructFast(actualDeleteCount);
             for (uint k = 0; k < actualDeleteCount; k++)
             {
                 if (o.TryGetValue(actualStart + k, out var fromValue))
                 {
-                    a.SetIndexValue(k, fromValue, throwOnError: false);
+                    a.SetIndexValue(k, fromValue, updateLength: false);
                 }
             }
+            a.SetLength(actualDeleteCount);
 
             var items = System.Array.Empty<JsValue>();
             if (arguments.Length > 2)
@@ -618,7 +621,7 @@ namespace Jint.Native.Array
             {
                 if (o.TryGetValue(k, out var kValue))
                 {
-                    a.SetIndexValue(n, kValue, throwOnError: false);
+                    a.SetIndexValue(n, kValue, updateLength: true);
                 }
 
                 n++;
@@ -787,24 +790,24 @@ namespace Jint.Native.Array
 
             // try to find best capacity
             uint capacity = 0;
-            foreach (var e in items)
+            for (var i = 0; i < items.Count; i++)
             {
-                var eArray = e.TryCast<ArrayInstance>();
+                var eArray = items[i] as ArrayInstance;
                 capacity += eArray?.GetLength() ?? (uint) 1;
             }
 
-            var a = Engine.Array.Construct(Arguments.Empty, capacity);
-            foreach (var e in items)
+            var a = Engine.Array.ConstructFast(capacity);
+            for (var i = 0; i < items.Count; i++)
             {
-                var eArray = e.TryCast<ArrayInstance>();
-                if (!ReferenceEquals(eArray, null))
+                var e = items[i];
+                if (e is ArrayInstance eArray)
                 {
                     var len = eArray.GetLength();
                     for (uint k = 0; k < len; k++)
                     {
                         if (eArray.TryGetValue(k, out var subElement))
                         {
-                            a.SetIndexValue(n, subElement, throwOnError: false);
+                            a.SetIndexValue(n, subElement, updateLength: false);
                         }
 
                         n++;
@@ -812,7 +815,7 @@ namespace Jint.Native.Array
                 }
                 else
                 {
-                    a.SetIndexValue(n, e, throwOnError: false);
+                    a.SetIndexValue(n, e, updateLength: false);
                     n++;
                 }
             }
@@ -892,29 +895,23 @@ namespace Jint.Native.Array
 
         public JsValue Push(JsValue thisObject, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(Engine, thisObject);
-            var lenVal = TypeConverter.ToNumber(o.Target.Get("length"));
+            if (thisObject is ArrayInstance arrayInstance)
+            {
+                return arrayInstance.Push(arguments);
+            }
+
+            var o = TypeConverter.ToObject(Engine, thisObject);
+            var lenVal = TypeConverter.ToNumber(o.Get("length"));
 
             // cast to double as we need to prevent an overflow
             double n = TypeConverter.ToUint32(lenVal);
-            var arrayInstance = o.Target as ArrayInstance;
             for (var i = 0; i < arguments.Length; i++)
             {
-                JsValue e = arguments[i];
-                if (!ReferenceEquals(arrayInstance, null) && n >= 0 && n < uint.MaxValue)
-                {
-                    // try to optimize a bit
-                    arrayInstance.SetIndexValue((uint) n, e, true);
-                }
-                else
-                {
-                    o.Target.Put(TypeConverter.ToString(n), e, true);
-                }
+                o.Put(TypeConverter.ToString(n), arguments[i], true);
                 n++;
             }
 
-            o.Target.Put("length", n, true);
-
+            o.Put("length", n, true);
             return n;
         }
 
@@ -938,16 +935,6 @@ namespace Jint.Native.Array
             return element;
         }
         
-        private ICallable GetCallable(JsValue source)
-        {
-            if (source is ICallable callable)
-            {
-                return callable;
-            }
-
-            throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
-        }
-
         /// <summary>
         /// Adapter to use optimized array operations when possible.
         /// Gaps the difference between ArgumensInstance and ArrayInstance.
@@ -1030,7 +1017,7 @@ namespace Jint.Native.Array
                 {
                     var property = TypeConverter.ToString(index);
                     var kPresent = _instance.HasProperty(property);
-                    value = kPresent ? _instance.Get(property) : JsValue.Undefined;
+                    value = kPresent ? _instance.Get(property) : Undefined;
                     return kPresent;
                 }
 

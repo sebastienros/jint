@@ -848,6 +848,88 @@ namespace Jint.Native.Object
 
             return this;
         }
+        
+        /// <summary>
+        /// Handles the generic find of (callback[, thisArg])
+        /// </summary>
+        internal virtual bool FindWithCallback(
+            JsValue[] arguments, 
+            out uint index, 
+            out JsValue value)
+        {
+            uint GetLength()
+            {
+                var desc = GetProperty("length");
+                var descValue = desc.Value;
+                if (desc.IsDataDescriptor() && !ReferenceEquals(descValue, null))
+                {
+                    return TypeConverter.ToUint32(descValue);
+                }
+
+                var getter = desc.Get ?? Undefined;
+                if (getter.IsUndefined())
+                {
+                    return 0;
+                }
+
+                // if getter is not undefined it must be ICallable
+                return TypeConverter.ToUint32(((ICallable) getter).Call(this, Arguments.Empty));
+            }
+           
+            bool TryGetValue(uint idx, out JsValue jsValue)
+            {
+                var property = TypeConverter.ToString(idx);
+                var kPresent = HasProperty(property);
+                jsValue = kPresent ? Get(property) : Undefined;
+                return kPresent;
+            }
+
+            var len = GetLength();
+            if (len == 0)
+            {
+                index = 0;
+                value = Undefined;
+                return false;
+            }
+
+            var callbackfn = arguments.At(0);
+            var thisArg = arguments.At(1);
+            var callable = GetCallable(callbackfn);
+
+            var args = Engine.JsValueArrayPool.RentArray(3);
+            for (uint k = 0; k < len; k++)
+            {
+                if (TryGetValue(k, out var kvalue))
+                {
+                    args[0] = kvalue;
+                    args[1] = k;
+                    args[2] = this;
+                    var testResult = callable.Call(thisArg, args);
+                    if (TypeConverter.ToBoolean(testResult))
+                    {
+                        index = k;
+                        value = kvalue;
+                        return true;
+                    }
+                }
+            }
+
+            Engine.JsValueArrayPool.ReturnArray(args);
+
+            index = 0;
+            value = Undefined;
+            return false;
+        }
+
+        protected ICallable GetCallable(JsValue source)
+        {
+            if (source is ICallable callable)
+            {
+                return callable;
+            }
+
+            throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
+        }
 
         public override bool Equals(JsValue obj)
         {
