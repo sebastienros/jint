@@ -77,12 +77,10 @@ namespace Jint.Native.Function
                             if (result.Type == CompletionType.Throw)
                             {
                                 var ex = new JavaScriptException(value).SetCallstack(_engine, result.Location);
-                                _engine.CompletionPool.Return(result);
                                 throw ex;
                             }
                             else
                             {
-                                _engine.CompletionPool.Return(result);
                                 return value;
                             }
                         }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Esprima;
 using Jint.Native;
 
@@ -17,12 +16,10 @@ namespace Jint.Runtime
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.9
     /// </summary>
-    public sealed class Completion
+    public readonly struct Completion
     {
-        internal static readonly Completion Empty = new Completion(CompletionType.Normal, null, null).Freeze();
-        internal static readonly Completion EmptyUndefined = new Completion(CompletionType.Normal, Undefined.Instance, null).Freeze();
-
-        private bool _frozen;
+        internal static readonly Completion Empty = new Completion(CompletionType.Normal, null, null);
+        internal static readonly Completion EmptyUndefined = new Completion(CompletionType.Normal, Undefined.Instance, null);
 
         public Completion(CompletionType type, JsValue value, string identifier, Location location = null)
         {
@@ -32,26 +29,11 @@ namespace Jint.Runtime
             Location = location;
         }
 
-        public CompletionType Type
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get;
-            private set;
-        }
+        public readonly CompletionType Type;
 
-        public JsValue Value
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get;
-            private set;
-        }
+        public readonly JsValue Value;
 
-        public string Identifier
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get;
-            private set;
-        }
+        public readonly string Identifier;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetValueOrDefault()
@@ -65,27 +47,6 @@ namespace Jint.Runtime
             return Type != CompletionType.Normal;
         }
 
-        public Location Location { get; private set; }
-
-        private Completion Freeze()
-        {
-            _frozen = true;
-            return this;
-        }
-
-        public Completion Reassign(CompletionType type, JsValue value, string identifier, Location location = null)
-        {
-            if (_frozen)
-            {
-                throw new InvalidOperationException("object is frozen");
-            }
-
-            Type = type;
-            Value = value;
-            Identifier = identifier;
-            Location = location;
-
-            return this;
-        }
+        public readonly Location Location;
     }
 }

@@ -167,7 +167,6 @@ namespace Jint
             _referenceResolver = Options.ReferenceResolver;
 
             ReferencePool = new ReferencePool();
-            CompletionPool = new CompletionPool();
             ArgumentsInstancePool = new ArgumentsInstancePool(this);
             JsValueArrayPool = new JsValueArrayPool();
 
@@ -226,7 +225,6 @@ namespace Jint
             get;
         }
 
-        internal CompletionPool CompletionPool { get; }
         internal ArgumentsInstancePool ArgumentsInstancePool { get; }
         internal JsValueArrayPool JsValueArrayPool { get; }
 
@@ -352,12 +350,10 @@ namespace Jint
                 if (result.Type == CompletionType.Throw)
                 {
                     var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
-                    CompletionPool.Return(result);
                     throw ex;
                 }
 
                 _completionValue = result.GetValueOrDefault();
-                CompletionPool.Return(result);
             }
 
             return this;

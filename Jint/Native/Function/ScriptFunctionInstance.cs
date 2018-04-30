@@ -169,7 +169,6 @@ namespace Jint.Native.Function
 
                 Engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
-                Completion result = null;
                 try
                 {
                     var argumentInstanceRented = Engine.DeclarationBindingInstantiation(
@@ -179,7 +178,7 @@ namespace Jint.Native.Function
                         this,
                         arguments);
 
-                    result = Engine.ExecuteStatement(_functionDeclaration.Body);
+                    var result = Engine.ExecuteStatement(_functionDeclaration.Body);
                     
                     var value = result.GetValueOrDefault();
                     
@@ -204,7 +203,6 @@ namespace Jint.Native.Function
                 }
                 finally
                 {
-                    Engine.CompletionPool.Return(result);
                     Engine.LeaveExecutionContext();
                 }
 
