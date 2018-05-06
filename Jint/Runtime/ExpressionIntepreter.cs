@@ -300,7 +300,7 @@ namespace Jint.Runtime
 
                 case BinaryOperator.GreaterOrEqual:
                     value = Compare(left, right);
-                    if (ReferenceEquals(value, Undefined.Instance) || value.AsBoolean())
+                    if (ReferenceEquals(value, Undefined.Instance) || ((JsBoolean) value)._value)
                     {
                         value = false;
                     }
@@ -320,7 +320,7 @@ namespace Jint.Runtime
 
                 case BinaryOperator.LessOrEqual:
                     value = Compare(right, left, false);
-                    if (ReferenceEquals(value, Undefined.Instance) || value.AsBoolean())
+                    if (ReferenceEquals(value, Undefined.Instance) || ((JsBoolean) value)._value)
                     {
                         value = false;
                     }
@@ -477,8 +477,8 @@ namespace Jint.Runtime
 
             if (typea == Types.Number)
             {
-                var nx = x.AsNumber();
-                var ny = y.AsNumber();
+                var nx = ((JsNumber) x)._value;
+                var ny = ((JsNumber) y)._value;
 
                 if (double.IsNaN(nx) || double.IsNaN(ny))
                 {
@@ -495,12 +495,12 @@ namespace Jint.Runtime
 
             if (typea == Types.String)
             {
-                return x.AsString() == y.AsString();
+                return x.AsStringWithoutTypeCheck() == y.AsStringWithoutTypeCheck();
             }
 
             if (typea == Types.Boolean)
             {
-                return x.AsBoolean() == y.AsBoolean();
+                return ((JsBoolean) x)._value == ((JsBoolean) y)._value;
             }
 
 			if (typea == Types.Object)

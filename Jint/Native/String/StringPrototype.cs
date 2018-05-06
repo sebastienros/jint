@@ -621,7 +621,7 @@ namespace Jint.Native.String
 
             rx = rx ?? (RegExpInstance) Engine.RegExp.Construct(new[] {regex});
 
-            var global = rx.Get("global").AsBoolean();
+            var global = ((JsBoolean) rx.Get("global"))._value;
             if (!global)
             {
                 return Engine.RegExp.PrototypeObject.Exec(rx, Arguments.From(s));
@@ -642,7 +642,7 @@ namespace Jint.Native.String
                     }
                     else
                     {
-                        var thisIndex = rx.Get("lastIndex").AsNumber();
+                        var thisIndex = ((JsNumber) rx.Get("lastIndex"))._value;
                         if (thisIndex == previousLastIndex)
                         {
                             rx.Put("lastIndex", thisIndex + 1, false);
@@ -756,7 +756,7 @@ namespace Jint.Native.String
             {
                 if (arguments[i].Type == Types.String)
                 {
-                    capacity += arguments[i].AsString().Length;
+                    capacity += arguments[i].AsStringWithoutTypeCheck().Length;
                 }
             }
 

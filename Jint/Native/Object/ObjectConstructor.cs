@@ -147,7 +147,7 @@ namespace Jint.Native.Object
             var ownProperties = o.GetOwnProperties().ToList();
             if (o is StringInstance s)
             {
-                var length = s.PrimitiveValue.AsString().Length;
+                var length = s.PrimitiveValue.AsStringWithoutTypeCheck().Length;
                 array = Engine.Array.Construct(ownProperties.Count + length);
                 for (var i = 0; i < length; i++)
                 {

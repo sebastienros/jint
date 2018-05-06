@@ -562,9 +562,9 @@ namespace Jint.Native.Date
         {
             var o = TypeConverter.ToObject(Engine, thisObj);
             var tv = TypeConverter.ToPrimitive(o, Types.Number);
-            if (tv.IsNumber() && double.IsInfinity(tv.AsNumber()))
+            if (tv.IsNumber() && double.IsInfinity(((JsNumber) tv)._value))
             {
-                return JsValue.Null;
+                return Null;
             }
 
             var toIso = o.Get("toISOString");

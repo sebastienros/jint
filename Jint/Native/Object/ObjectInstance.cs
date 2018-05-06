@@ -777,7 +777,7 @@ namespace Jint.Native.Object
                 case "String":
                     if (this is StringInstance stringInstance)
                     {
-                        return stringInstance.PrimitiveValue.AsString();
+                        return stringInstance.PrimitiveValue.AsStringWithoutTypeCheck();
                     }
 
                     break;
@@ -793,7 +793,7 @@ namespace Jint.Native.Object
                 case "Boolean":
                     if (this is BooleanInstance booleanInstance)
                     {
-                        return booleanInstance.PrimitiveValue.AsBoolean()
+                        return ((JsBoolean) booleanInstance.PrimitiveValue)._value
                              ? JsBoolean.BoxedTrue
                              : JsBoolean.BoxedFalse;
                     }
@@ -811,7 +811,7 @@ namespace Jint.Native.Object
                 case "Number":
                     if (this is NumberInstance numberInstance)
                     {
-                        return numberInstance.NumberData.AsNumber();
+                        return ((JsNumber) numberInstance.NumberData)._value;
                     }
 
                     break;

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics.Contracts;
 using Jint.Runtime;
 
 namespace Jint.Native
@@ -47,12 +46,6 @@ namespace Jint.Native
         public JsNumber(uint value) : base(Types.Number)
         {
             _value = value;
-        }
-
-        [Pure]
-        public override double AsNumber()
-        {
-            return _value;
         }
 
         public override object ToObject()

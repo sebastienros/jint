@@ -151,7 +151,7 @@ namespace Jint.Runtime
 
             if (type == Types.String)
             {
-                return ToNumber(o.AsString());
+                return ToNumber(o.AsStringWithoutTypeCheck());
             }
 
             return ToNumber(ToPrimitive(o, Types.Number));
@@ -344,13 +344,12 @@ namespace Jint.Runtime
         {
             if (o.IsString())
             {
-                return o.AsString();
+                return o.AsStringWithoutTypeCheck();
             }
 
             if (o.IsObject())
             {
-                var p = o.AsObject() as IPrimitiveInstance;
-                if (p != null)
+                if (o.AsObject() is IPrimitiveInstance p)
                 {
                     o = p.PrimitiveValue;
                 }
@@ -378,12 +377,12 @@ namespace Jint.Runtime
 
             if (o.IsBoolean())
             {
-                return o.AsBoolean() ? "true" : "false";
+                return ((JsBoolean) o)._value ? "true" : "false";
             }
 
             if (o.IsNumber())
             {
-                return ToString(o.AsNumber());
+                return ToString(((JsNumber) o)._value);
             }
 
             if (o.IsSymbol())
@@ -413,17 +412,17 @@ namespace Jint.Runtime
 
             if (value.IsBoolean())
             {
-                return engine.Boolean.Construct(value.AsBoolean());
+                return engine.Boolean.Construct(((JsBoolean) value)._value);
             }
 
             if (value.IsNumber())
             {
-                return engine.Number.Construct(value.AsNumber());
+                return engine.Number.Construct(((JsNumber) value)._value);
             }
 
             if (value.IsString())
             {
-                return engine.String.Construct(value.AsString());
+                return engine.String.Construct(value.AsStringWithoutTypeCheck());
             }
 
             if (value.IsSymbol())

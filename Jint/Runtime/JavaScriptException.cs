@@ -77,7 +77,7 @@ namespace Jint.Runtime
                 return message;
             }
             if (error.IsString())
-                return error.AsString();
+                return error.AsStringWithoutTypeCheck();
 
             return error.ToString();
         }

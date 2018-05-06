@@ -138,7 +138,8 @@ namespace Jint.Runtime.Debugger
 
             if (!string.IsNullOrEmpty(breakpoint.Condition))
             {
-                return _engine.Execute(breakpoint.Condition).GetCompletionValue().AsBoolean();
+                var completionValue = _engine.Execute(breakpoint.Condition).GetCompletionValue();
+                return ((JsBoolean) completionValue)._value;
             }
 
             return true;

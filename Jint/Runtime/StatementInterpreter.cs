@@ -232,7 +232,7 @@ namespace Jint.Runtime
 
                 for (var i = 0; i < keys.GetLength(); i++)
                 {
-                    var p = keys.GetOwnProperty(TypeConverter.ToString(i)).Value.AsString();
+                    var p = keys.GetOwnProperty(TypeConverter.ToString(i)).Value.AsStringWithoutTypeCheck();
 
                     if (processedKeys.Contains(p))
                     {
@@ -246,7 +246,6 @@ namespace Jint.Runtime
                     {
                         continue;
                     }
-
 
                     var value = cursor.GetOwnProperty(p);
                     if (!value.Enumerable)
