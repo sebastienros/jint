@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Descriptors;
@@ -17,16 +18,19 @@ namespace Jint.Runtime
             _engine = engine;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private Completion ExecuteStatement(Statement statement)
         {
             return _engine.ExecuteStatement(statement);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteEmptyStatement(EmptyStatement emptyStatement)
         {
-            return Completion.Empty;
+            return new Completion(CompletionType.Normal, null, null);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteExpressionStatement(ExpressionStatement expressionStatement)
         {
             var exprRef = _engine.EvaluateExpression(expressionStatement.Expression);
@@ -46,7 +50,7 @@ namespace Jint.Runtime
             }
             else
             {
-                return Completion.Empty;
+                return new Completion(CompletionType.Normal, null, null);
             }
 
             return result;
@@ -216,7 +220,7 @@ namespace Jint.Runtime
             var experValue = _engine.GetValue(_engine.EvaluateExpression(forInStatement.Right), true);
             if (ReferenceEquals(experValue, Undefined.Instance) || ReferenceEquals(experValue,  Null.Instance))
             {
-                return Completion.Empty;
+                return new Completion(CompletionType.Normal, null, null);
             }
 
             var obj = TypeConverter.ToObject(_engine, experValue);
@@ -284,6 +288,7 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="continueStatement"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteContinueStatement(ContinueStatement continueStatement)
         {
             return new Completion(
@@ -297,6 +302,7 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="breakStatement"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteBreakStatement(BreakStatement breakStatement)
         {
             return new Completion(
@@ -310,6 +316,7 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="statement"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteReturnStatement(ReturnStatement statement)
         {
             if (statement.Argument == null)
@@ -332,7 +339,7 @@ namespace Jint.Runtime
             var obj = TypeConverter.ToObject(_engine, jsValue);
             var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
             var newEnv = LexicalEnvironment.NewObjectEnvironment(_engine, obj, oldEnv, true);
-            _engine.ExecutionContext.LexicalEnvironment = newEnv;
+            _engine.UpdateLexicalEnvironment(newEnv);
 
             Completion c;
             try
@@ -345,7 +352,7 @@ namespace Jint.Runtime
             }
             finally
             {
-                _engine.ExecutionContext.LexicalEnvironment = oldEnv;
+                _engine.UpdateLexicalEnvironment(oldEnv);
             }
 
             return c;
@@ -356,6 +363,7 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="switchStatement"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteSwitchStatement(SwitchStatement switchStatement)
         {
             var jsValue = _engine.GetValue(_engine.EvaluateExpression(switchStatement.Discriminant), true);
@@ -419,7 +427,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteStatementList(List<StatementListItem> statementList)
         {
-            var c = Completion.Empty;
+            var c = new Completion(CompletionType.Normal, null, null);
             Completion sl = c;
             Statement s = null;
 
@@ -482,9 +490,10 @@ namespace Jint.Runtime
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
                     catchEnv.Record.CreateMutableBinding(((Identifier) catchClause.Param).Name, c);
-                    _engine.ExecutionContext.LexicalEnvironment = catchEnv;
+
+                    _engine.UpdateLexicalEnvironment(catchEnv);
                     b = ExecuteStatement(catchClause.Body);
-                    _engine.ExecutionContext.LexicalEnvironment = oldEnv;
+                    _engine.UpdateLexicalEnvironment(oldEnv);
                 }
             }
 
@@ -533,9 +542,10 @@ namespace Jint.Runtime
                 }
             }
 
-            return Completion.EmptyUndefined;
+            return new Completion(CompletionType.Normal, Undefined.Instance, null);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteBlockStatement(BlockStatement blockStatement)
         {
             return ExecuteStatementList(blockStatement.Body);
@@ -553,7 +563,7 @@ namespace Jint.Runtime
                 System.Diagnostics.Debugger.Break();
             }
 
-            return Completion.Empty;
+            return new Completion(CompletionType.Normal, null, null);
         }
     }
 }

@@ -39,7 +39,7 @@ namespace Jint
 
         private readonly ExpressionInterpreter _expressions;
         private readonly StatementInterpreter _statements;
-        private readonly Stack<ExecutionContext> _executionContexts;
+        private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
         private long _timeoutTicks;
@@ -85,7 +85,7 @@ namespace Jint
 
         public Engine(Action<Options> options)
         {
-            _executionContexts = new Stack<ExecutionContext>();
+            _executionContexts = new ExecutionContextStack();
 
             Global = GlobalObject.CreateGlobalObject(this);
 
@@ -213,7 +213,11 @@ namespace Jint
         public ErrorConstructor ReferenceError { get; }
         public ErrorConstructor UriError { get; }
 
-        public ExecutionContext ExecutionContext => _executionContexts.Peek();
+        public ref readonly ExecutionContext ExecutionContext
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return ref _executionContexts.Peek(); }
+        }
 
         public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
 
@@ -247,17 +251,17 @@ namespace Jint
         }
         #endregion
 
-        public ExecutionContext EnterExecutionContext(LexicalEnvironment lexicalEnvironment, LexicalEnvironment variableEnvironment, JsValue thisBinding)
+        public void EnterExecutionContext(
+            LexicalEnvironment lexicalEnvironment,
+            LexicalEnvironment variableEnvironment,
+            JsValue thisBinding)
         {
-            var executionContext = new ExecutionContext
-                {
-                    LexicalEnvironment = lexicalEnvironment,
-                    VariableEnvironment = variableEnvironment,
-                    ThisBinding = thisBinding
-                };
-            _executionContexts.Push(executionContext);
+            var context = new ExecutionContext(
+                lexicalEnvironment,
+                variableEnvironment,
+                thisBinding);
 
-            return executionContext;
+            _executionContexts.Push(context);
         }
 
         public Engine SetValue(string name, Delegate value)
@@ -372,16 +376,17 @@ namespace Jint
             return _completionValue;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteStatement(Statement statement)
         {
             if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
             {
-                throw new StatementsCountOverflowException();
+                ThrowStatementsCountOverflowException();
             }
 
             if (_timeoutTicks > 0 && _timeoutTicks < DateTime.UtcNow.Ticks)
             {
-                throw new TimeoutException();
+                ThrowTimeoutException();
             }
 
             _lastSyntaxNode = statement;
@@ -433,7 +438,7 @@ namespace Jint
                     return _statements.ExecuteSwitchStatement((SwitchStatement) statement);
 
                 case Nodes.FunctionDeclaration:
-                    return Completion.Empty;
+                    return new Completion(CompletionType.Normal, null, null);
 
                 case Nodes.ThrowStatement:
                     return _statements.ExecuteThrowStatement((ThrowStatement) statement);
@@ -454,10 +459,12 @@ namespace Jint
                     return _statements.ExecuteProgram((Program) statement);
 
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    ThrowArgumentOutOfRange();
+                    return new Completion(CompletionType.Normal, null, null);
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public object EvaluateExpression(INode expression)
         {
             _lastSyntaxNode = expression;
@@ -513,10 +520,10 @@ namespace Jint
                     return _expressions.EvaluateUnaryExpression((UnaryExpression) expression);
 
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    ThrowArgumentOutOfRange();
+                    return null;
             }
         }
-
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.1
@@ -623,13 +630,14 @@ namespace Jint
         /// </summary>
         /// <param name="reference"></param>
         /// <param name="value"></param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void PutValue(Reference reference, JsValue value)
         {
             if (reference.IsUnresolvableReference())
             {
                 if (reference.IsStrict())
                 {
-                    throw new JavaScriptException(ReferenceError);
+                    ThrowReferenceError();
                 }
 
                 Global.Put(reference.GetReferencedName(), value, false);
@@ -649,11 +657,10 @@ namespace Jint
             else
             {
                 var baseValue = reference.GetBase();
-                var record = baseValue as EnvironmentRecord;
-
-                if (ReferenceEquals(record, null))
+                if (!(baseValue is EnvironmentRecord record))
                 {
-                    throw new ArgumentNullException();
+                    ThrowArgumentNullException();
+                    return;
                 }
 
                 record.SetMutableBinding(reference.GetReferencedName(), value, reference.IsStrict());
@@ -663,10 +670,6 @@ namespace Jint
         /// <summary>
         /// Used by PutValue when the reference has a primitive base value
         /// </summary>
-        /// <param name="b"></param>
-        /// <param name="name"></param>
-        /// <param name="value"></param>
-        /// <param name="throwOnError"></param>
         public void PutPrimitiveBase(JsValue b, string name, JsValue value, bool throwOnError)
         {
             var o = TypeConverter.ToObject(this, b);
@@ -674,9 +677,8 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(TypeError);
+                    ThrowTypeError();
                 }
-
                 return;
             }
 
@@ -686,9 +688,8 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(TypeError);
+                    ThrowTypeError();
                 }
-
                 return;
             }
 
@@ -703,7 +704,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(TypeError);
+                    ThrowTypeError();
                 }
             }
         }
@@ -794,17 +795,14 @@ namespace Jint
         /// </summary>
         /// <param name="scope">The scope to get the property from.</param>
         /// <param name="propertyName">The name of the property to return.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetValue(JsValue scope, string propertyName)
         {
-            if (string.IsNullOrEmpty(propertyName))
-            {
-                throw new ArgumentException("propertyName");
-            }
+            AssertNotNullOrEmpty(nameof(propertyName), propertyName);
 
             var reference = ReferencePool.Rent(scope, propertyName, _isStrict);
             var jsValue = GetValue(reference);
             ReferencePool.Return(reference);
-
             return jsValue;
         }
 
@@ -921,5 +919,49 @@ namespace Jint
 
             return canReleaseArgumentsInstance;
         }
+
+        internal void UpdateLexicalEnvironment(LexicalEnvironment newEnv)
+        {
+            _executionContexts.ReplaceTopLexicalEnvironment(newEnv);
+        }
+
+        private static void ThrowTimeoutException()
+        {
+            throw new TimeoutException();
+        }
+
+        private static void ThrowStatementsCountOverflowException()
+        {
+            throw new StatementsCountOverflowException();
+        }
+
+        private static void ThrowArgumentOutOfRange()
+        {
+            throw new ArgumentOutOfRangeException();
+        }
+        
+        private static void ThrowArgumentNullException()
+        {
+            throw new ArgumentNullException();
+        }
+        
+        private void ThrowReferenceError()
+        {
+            throw new JavaScriptException(ReferenceError);
+        }
+        
+        private static void AssertNotNullOrEmpty(string propertyname, string propertyValue)
+        {
+            if (string.IsNullOrEmpty(propertyValue))
+            {
+                throw new ArgumentException(propertyname);
+            }
+        }
+        
+        private void ThrowTypeError()
+        {
+            throw new JavaScriptException(TypeError);
+        }
+
     }
 }

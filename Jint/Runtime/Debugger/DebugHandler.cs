@@ -149,7 +149,7 @@ namespace Jint.Runtime.Debugger
         {
             var info = new DebugInformation { CurrentStatement = statement, CallStack = _debugCallStack };
 
-            if (_engine.ExecutionContext?.LexicalEnvironment != null)
+            if (_engine.ExecutionContext.LexicalEnvironment != null)
             {
                 var lexicalEnvironment = _engine.ExecutionContext.LexicalEnvironment;
                 info.Locals = GetLocalVariables(lexicalEnvironment);

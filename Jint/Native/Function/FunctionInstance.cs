@@ -16,11 +16,8 @@ namespace Jint.Native.Function
         private const int PropertyNameLengthLength = 6;
         private PropertyDescriptor _length;
 
-        private readonly Engine _engine;
-
         protected FunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine)
         {
-            _engine = engine;
             FormalParameters = parameters;
             Scope = scope;
             Strict = strict;

@@ -13,8 +13,6 @@ namespace Jint.Native.Array
 {
     public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     {
-        private readonly Engine _engine;
-
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
 
@@ -28,7 +26,6 @@ namespace Jint.Native.Array
 
         public ArrayInstance(Engine engine, uint capacity = 0) : base(engine)
         {
-            _engine = engine;
             if (capacity < MaxDenseArrayLength)
             {
                 _dense = capacity > 0 ? new PropertyDescriptor[capacity] : System.Array.Empty<PropertyDescriptor>();
@@ -41,7 +38,6 @@ namespace Jint.Native.Array
 
         public ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine)
         {
-            _engine = engine;
             int length = 0;
             if (items == null || items.Length == 0)
             {
@@ -59,7 +55,6 @@ namespace Jint.Native.Array
 
         public ArrayInstance(Engine engine, Dictionary<uint, PropertyDescriptor> items) : base(engine)
         {
-            _engine = engine;
             _sparse = items;
             var length = items?.Count ?? 0;
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);

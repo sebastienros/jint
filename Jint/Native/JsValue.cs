@@ -30,7 +30,7 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPrimitive()
         {
-            return _type != Types.Object && Type != Types.None;
+            return _type != Types.Object && _type != Types.None;
         }
 
         [Pure]
@@ -174,7 +174,7 @@ namespace Jint.Native
             }
 
             // TODO not implemented
-            return Completion.EmptyUndefined;
+            return new Completion(CompletionType.Normal, Native.Undefined.Instance, null);
         }
 
         [Pure]

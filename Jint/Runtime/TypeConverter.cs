@@ -393,21 +393,17 @@ namespace Jint.Runtime
             return ToString(ToPrimitive(o, Types.String));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ObjectInstance ToObject(Engine engine, JsValue value)
         {
             if (value.IsObject())
             {
-                return value.AsObject();
+                return (ObjectInstance) value;
             }
 
-            if (ReferenceEquals(value, Undefined.Instance))
+            if (ReferenceEquals(value, Undefined.Instance) ||ReferenceEquals(value, Null.Instance))
             {
-                throw new JavaScriptException(engine.TypeError);
-            }
-
-            if (ReferenceEquals(value, Null.Instance))
-            {
-                throw new JavaScriptException(engine.TypeError);
+                ThrowTypeError(engine);
             }
 
             if (value.IsBoolean())
@@ -430,6 +426,12 @@ namespace Jint.Runtime
                 return engine.Symbol.Construct(value.AsSymbol());
             }
 
+            ThrowTypeError(engine);
+            return null;
+        }
+
+        private static void ThrowTypeError(Engine engine)
+        {
             throw new JavaScriptException(engine.TypeError);
         }
 

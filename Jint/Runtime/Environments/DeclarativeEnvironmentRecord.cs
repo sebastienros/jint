@@ -10,8 +10,6 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private readonly Engine _engine;
-
         private const string BindingNameArguments = "arguments";
         private Binding _argumentsBinding;
 
@@ -19,7 +17,6 @@ namespace Jint.Runtime.Environments
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
-            _engine = engine;
         }
 
         public override bool HasBinding(string name)

@@ -12,13 +12,11 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class ObjectEnvironmentRecord : EnvironmentRecord
     {
-        private readonly Engine _engine;
         private readonly ObjectInstance _bindingObject;
         private readonly bool _provideThis;
 
         public ObjectEnvironmentRecord(Engine engine, ObjectInstance bindingObject, bool provideThis) : base(engine)
         {
-            _engine = engine;
             _bindingObject = bindingObject;
             _provideThis = provideThis;
         }

@@ -20,13 +20,14 @@ namespace Jint.Native.Object
     {
         private MruPropertyCache2<PropertyDescriptor> _intrinsicProperties;
         private MruPropertyCache2<PropertyDescriptor> _properties;
+        protected Engine _engine;
 
         public ObjectInstance(Engine engine) : base(Types.Object)
         {
-            Engine = engine;
+            _engine = engine;
         }
 
-        public Engine Engine { get; }
+        public Engine Engine => _engine;
 
         protected bool TryGetIntrinsicValue(JsSymbol symbol, out JsValue value)
         {

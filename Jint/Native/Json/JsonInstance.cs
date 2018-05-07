@@ -7,13 +7,11 @@ namespace Jint.Native.Json
 {
     public sealed class JsonInstance : ObjectInstance
     {
-        private readonly Engine _engine;
         private JsValue _reviver;
 
         private JsonInstance(Engine engine)
             : base(engine)
         {
-            _engine = engine;
             Extensible = true;
         }
 

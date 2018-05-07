@@ -11,11 +11,8 @@ namespace Jint.Native.Object
 {
     public sealed class ObjectConstructor : FunctionInstance, IConstructor
     {
-        private readonly Engine _engine;
-
         private ObjectConstructor(Engine engine) : base(engine, null, null, false)
         {
-            _engine = engine;
         }
 
         public static ObjectConstructor CreateObjectConstructor(Engine engine)
