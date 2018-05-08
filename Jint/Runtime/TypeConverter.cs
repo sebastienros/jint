@@ -52,17 +52,10 @@ namespace Jint.Runtime
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.1
         /// </summary>
-        /// <param name="input"></param>
-        /// <param name="preferredType"></param>
-        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.None)
         {
-            if (ReferenceEquals(input, Null.Instance) || ReferenceEquals(input, Undefined.Instance))
-            {
-                return input;
-            }
-
-            if (input.IsPrimitive())
+            if (input._type == Types.Null || input._type == Types.Undefined || input.IsPrimitive())
             {
                 return input;
             }
@@ -76,24 +69,17 @@ namespace Jint.Runtime
         /// </summary>
         public static bool ToBoolean(JsValue o)
         {
-            var type = o.Type;
-
-            if (type == Types.Object)
-            {
-                return true;
-            }
-
-            if (type == Types.Boolean)
+            if (o.IsBoolean())
             {
                 return ((JsBoolean) o)._value;
             }
 
-            if (ReferenceEquals(o, Undefined.Instance) || ReferenceEquals(o, Null.Instance))
+            if (o.IsUndefined() || o.IsNull())
             {
                 return false;
             }
 
-            if (type == Types.Number)
+            if (o.IsNumber())
             {
                 var n = ((JsNumber) o)._value;
                 if (n.Equals(0) || double.IsNaN(n))
@@ -104,7 +90,7 @@ namespace Jint.Runtime
                 return true;
             }
 
-            if (type == Types.String)
+            if (o.IsString())
             {
                 return !((JsString) o).IsNullOrEmpty();
             }
@@ -120,13 +106,22 @@ namespace Jint.Runtime
         public static double ToNumber(JsValue o)
         {
             // check number first as this is what is usually expected
-            var type = o.Type;
-            if (type == Types.Number)
+            if (o.IsNumber())
             {
                 return ((JsNumber) o)._value;
             }
 
-            if (type == Types.Object)
+            if (o.IsUndefined())
+            {
+                return double.NaN;
+            }
+
+            if (o.IsNull())
+            {
+                return 0;
+            }
+
+            if (o._type == Types.Object)
             {
                 if (o is IPrimitiveInstance p)
                 {
@@ -134,22 +129,12 @@ namespace Jint.Runtime
                 }
             }
 
-            if (ReferenceEquals(o, Undefined.Instance))
-            {
-                return double.NaN;
-            }
-
-            if (ReferenceEquals(o, Null.Instance))
-            {
-                return 0;
-            }
-
-            if (type == Types.Boolean)
+            if (o.IsBoolean())
             {
                 return ((JsBoolean) o)._value ? 1 : 0;
             }
 
-            if (type == Types.String)
+            if (o.IsString())
             {
                 return ToNumber(o.AsStringWithoutTypeCheck());
             }
@@ -347,9 +332,19 @@ namespace Jint.Runtime
                 return o.AsStringWithoutTypeCheck();
             }
 
+            if (o.IsUndefined())
+            {
+                return Undefined.Text;
+            }
+
+            if (o.IsNull())
+            {
+                return Null.Text;
+            }
+
             if (o.IsObject())
             {
-                if (o.AsObject() is IPrimitiveInstance p)
+                if (o is IPrimitiveInstance p)
                 {
                     o = p.PrimitiveValue;
                 }
@@ -363,16 +358,6 @@ namespace Jint.Runtime
                         throw new JavaScriptException(new JsString("TypeError"));
                     }
                 }
-            }
-
-            if (ReferenceEquals(o, Undefined.Instance))
-            {
-                return Undefined.Text;
-            }
-
-            if (ReferenceEquals(o, Null.Instance))
-            {
-                return Null.Text;
             }
 
             if (o.IsBoolean())
@@ -401,11 +386,6 @@ namespace Jint.Runtime
                 return (ObjectInstance) value;
             }
 
-            if (ReferenceEquals(value, Undefined.Instance) ||ReferenceEquals(value, Null.Instance))
-            {
-                ThrowTypeError(engine);
-            }
-
             if (value.IsBoolean())
             {
                 return engine.Boolean.Construct(((JsBoolean) value)._value);
@@ -423,9 +403,14 @@ namespace Jint.Runtime
 
             if (value.IsSymbol())
             {
-                return engine.Symbol.Construct(value.AsSymbol());
+                return engine.Symbol.Construct(((JsSymbol) value)._value);
             }
 
+            if (value.IsUndefined() || value.IsNull())
+            {
+                ThrowTypeError(engine);
+            }
+            
             ThrowTypeError(engine);
             return null;
         }
@@ -439,8 +424,7 @@ namespace Jint.Runtime
         {
             if (value.IsObject())
             {
-                var primitive = value.TryCast<IPrimitiveInstance>();
-                if (primitive != null)
+                if (value is IPrimitiveInstance primitive)
                 {
                     return primitive.Type;
                 }
@@ -457,7 +441,7 @@ namespace Jint.Runtime
             MemberExpression expression,
             object baseReference)
         {
-            if (!ReferenceEquals(o, Undefined.Instance) && !ReferenceEquals(o, Null.Instance))
+            if (!o.IsUndefined() && !o.IsNull())
             {
                 return;
             }
@@ -487,7 +471,7 @@ namespace Jint.Runtime
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)
         {
-            if (ReferenceEquals(o, Undefined.Instance) || ReferenceEquals(o, Null.Instance))
+            if (o.IsUndefined() || o.IsNull())
             {
                 throw new JavaScriptException(engine.TypeError);
             }

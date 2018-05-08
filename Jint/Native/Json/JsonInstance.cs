@@ -10,17 +10,9 @@ namespace Jint.Native.Json
         private JsValue _reviver;
 
         private JsonInstance(Engine engine)
-            : base(engine)
+            : base(engine, objectClass: "JSON")
         {
             Extensible = true;
-        }
-
-        public override string Class
-        {
-            get
-            {
-                return "JSON";
-            }
         }
 
         public static JsonInstance CreateJsonObject(Engine engine)
@@ -142,7 +134,7 @@ namespace Jint.Native.Json
             }
 
             var serializer = new JsonSerializer(_engine);
-            if (ReferenceEquals(value, Undefined) && ReferenceEquals(replacer, Undefined)) {
+            if (value.IsUndefined() && replacer.IsUndefined()) {
                 return Undefined;
             }
 

@@ -538,8 +538,7 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal JsValue GetValue(object value, bool returnReferenceToPool)
         {
-            var jsValue = value as JsValue;
-            if (!ReferenceEquals(jsValue, null))
+            if (value is JsValue jsValue)
             {
                 return jsValue;
             }
@@ -599,7 +598,7 @@ namespace Jint
                     }
 
                     var getter = desc.Get;
-                    if (ReferenceEquals(getter, Undefined.Instance))
+                    if (getter.IsUndefined())
                     {
                         return Undefined.Instance;
                     }

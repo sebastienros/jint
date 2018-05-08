@@ -51,7 +51,7 @@ namespace Jint.Native.Error
 
             var msgProp = o.Get("message");
             string msg;
-            if (ReferenceEquals(msgProp, Undefined))
+            if (msgProp.IsUndefined())
             {
                 msg = "";
             }

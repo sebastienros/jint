@@ -25,7 +25,7 @@ namespace Jint.Native.Argument
 
         private bool _initialized;
 
-        internal ArgumentsInstance(Engine engine) : base(engine)
+        internal ArgumentsInstance(Engine engine) : base(engine, objectClass: "Arguments")
         {
         }
 
@@ -100,8 +100,6 @@ namespace Jint.Native.Argument
         }
 
         public ObjectInstance ParameterMap { get; set; }
-
-        public override string Class => "Arguments";
 
         public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
@@ -194,7 +192,7 @@ namespace Jint.Native.Argument
                     else
                     {
                         var descValue = desc.Value;
-                        if (!ReferenceEquals(descValue, null) && !ReferenceEquals(descValue, Undefined))
+                        if (!ReferenceEquals(descValue, null) && !descValue.IsUndefined())
                         {
                             map.Put(propertyName, descValue, throwOnError);
                         }

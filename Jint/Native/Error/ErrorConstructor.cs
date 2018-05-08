@@ -47,9 +47,10 @@ namespace Jint.Native.Error
             instance.Prototype = PrototypeObject;
             instance.Extensible = true;
 
-            if (!ReferenceEquals(arguments.At(0), Undefined))
+            var jsValue = arguments.At(0);
+            if (!jsValue.IsUndefined())
             {
-                instance.Put("message", TypeConverter.ToString(arguments.At(0)), false);
+                instance.Put("message", TypeConverter.ToString(jsValue), false);
             }
 
             return instance;

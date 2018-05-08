@@ -137,7 +137,7 @@ namespace Jint.Native.Number
         {
             var x = TypeConverter.ToNumber(thisObj);
 
-            if (ReferenceEquals(arguments.At(0), Undefined))
+            if (arguments.At(0).IsUndefined())
             {
                 return TypeConverter.ToString(x);
             }
@@ -172,7 +172,7 @@ namespace Jint.Native.Number
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var radix = ReferenceEquals(arguments.At(0), Undefined) 
+            var radix = arguments.At(0).IsUndefined() 
                 ? 10 
                 : (int) TypeConverter.ToInteger(arguments.At(0));
 

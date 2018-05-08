@@ -13,11 +13,9 @@ namespace Jint.Native.String
         private PropertyDescriptor _length;
 
         public StringInstance(Engine engine)
-            : base(engine)
+            : base(engine, objectClass: "String")
         {
         }
-
-        public override string Class => "String";
 
         Types IPrimitiveInstance.Type => Types.String;
 

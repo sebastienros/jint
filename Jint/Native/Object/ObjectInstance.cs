@@ -20,11 +20,19 @@ namespace Jint.Native.Object
     {
         private MruPropertyCache2<PropertyDescriptor> _intrinsicProperties;
         private MruPropertyCache2<PropertyDescriptor> _properties;
-        protected Engine _engine;
-
-        public ObjectInstance(Engine engine) : base(Types.Object)
+        
+        private readonly string _class;
+        protected readonly Engine _engine;
+        
+        public ObjectInstance(Engine engine) : this(engine, "Object")
         {
             _engine = engine;
+        }
+        
+        protected ObjectInstance(Engine engine, in string objectClass) : base(Types.Object)
+        {
+            _engine = engine;
+            _class = objectClass;
         }
 
         public Engine Engine => _engine;
@@ -76,7 +84,7 @@ namespace Jint.Native.Object
         /// A String value indicating a specification defined
         /// classification of objects.
         /// </summary>
-        public virtual string Class => "Object";
+        public ref readonly string Class => ref _class;
 
         public virtual IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {

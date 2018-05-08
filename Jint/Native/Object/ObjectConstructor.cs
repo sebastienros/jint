@@ -62,7 +62,7 @@ namespace Jint.Native.Object
                 return Construct(arguments);
             }
 
-            if(ReferenceEquals(arguments[0], Null) || ReferenceEquals(arguments[0], Undefined))
+            if(arguments[0].IsNull() || arguments[0].IsUndefined())
             {
                 return Construct(arguments);
             }
@@ -170,7 +170,7 @@ namespace Jint.Native.Object
             var oArg = arguments.At(0);
 
             var o = oArg.TryCast<ObjectInstance>();
-            if (ReferenceEquals(o, null) && !ReferenceEquals(oArg, Null))
+            if (ReferenceEquals(o, null) && !oArg.IsNull())
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -179,7 +179,7 @@ namespace Jint.Native.Object
             obj.Prototype = o;
 
             var properties = arguments.At(1);
-            if (!ReferenceEquals(properties, Undefined))
+            if (!properties.IsUndefined())
             {
                 DefineProperties(thisObject, new [] {obj, properties});
             }

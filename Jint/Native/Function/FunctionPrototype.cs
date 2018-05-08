@@ -94,7 +94,7 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            if (ReferenceEquals(argArray, Null) || ReferenceEquals(argArray, Undefined))
+            if (argArray.IsNull() || argArray.IsUndefined())
             {
                 return func.Call(thisArg, Arguments.Empty);
             }

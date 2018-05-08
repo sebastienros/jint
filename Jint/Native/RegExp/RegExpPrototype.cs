@@ -56,7 +56,7 @@ namespace Jint.Native.RegExp
             }
 
             var match = Exec(r, arguments);
-            return !ReferenceEquals(match, Null);
+            return !match.IsNull();
         }
 
         internal JsValue Exec(JsValue thisObj, JsValue[] arguments)

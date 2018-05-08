@@ -152,7 +152,7 @@ namespace Jint.Native.Function
                 {
                     thisBinding = thisArg;
                 }
-                else if (ReferenceEquals(thisArg, Undefined) || ReferenceEquals(thisArg, Null))
+                else if (thisArg.IsUndefined() || thisArg.IsNull())
                 {
                     thisBinding = _engine.Global;
                 }

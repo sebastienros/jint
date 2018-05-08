@@ -10,11 +10,9 @@ namespace Jint.Native.Number
         private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
 
         public NumberInstance(Engine engine)
-            : base(engine)
+            : base(engine, "Number")
         {
         }
-
-        public override string Class => "Number";
 
         Types IPrimitiveInstance.Type => Types.Number;
 

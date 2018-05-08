@@ -85,8 +85,7 @@ namespace Jint.Runtime
                     var rprim = TypeConverter.ToPrimitive(rval);
                     if (lprim.IsString() || rprim.IsString())
                     {
-                        var jsString = lprim as JsString;
-                        if (ReferenceEquals(jsString, null))
+                        if (!(lprim is JsString jsString))
                         {
                             jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
                         }
@@ -103,7 +102,7 @@ namespace Jint.Runtime
                     break;
 
                 case AssignmentOperator.TimesAssign:
-                    if (ReferenceEquals(lval, Undefined.Instance) || ReferenceEquals(rval, Undefined.Instance))
+                    if (lval.IsUndefined() || rval.IsUndefined())
                     {
                         lval = Undefined.Instance;
                     }
@@ -118,7 +117,7 @@ namespace Jint.Runtime
                     break;
 
                 case AssignmentOperator.ModuloAssign:
-                    if (ReferenceEquals(lval, Undefined.Instance) || ReferenceEquals(rval, Undefined.Instance))
+                    if (lval.IsUndefined() || rval.IsUndefined())
                     {
                         lval = Undefined.Instance;
                     }
@@ -165,7 +164,7 @@ namespace Jint.Runtime
 
         private JsValue Divide(JsValue lval, JsValue rval)
         {
-            if (ReferenceEquals(lval, Undefined.Instance) || ReferenceEquals(rval, Undefined.Instance))
+            if (lval.IsUndefined() || rval.IsUndefined())
             {
                 return Undefined.Instance;
             }
@@ -257,7 +256,7 @@ namespace Jint.Runtime
                     break;
 
                 case BinaryOperator.Times:
-                    if (ReferenceEquals(left, Undefined.Instance) || ReferenceEquals(right, Undefined.Instance))
+                    if (left.IsUndefined() || right.IsUndefined())
                     {
                         value = Undefined.Instance;
                     }
@@ -272,7 +271,7 @@ namespace Jint.Runtime
                     break;
 
                 case BinaryOperator.Modulo:
-                    if (ReferenceEquals(left, Undefined.Instance) || ReferenceEquals(right, Undefined.Instance))
+                    if (left.IsUndefined() || right.IsUndefined())
                     {
                         value = Undefined.Instance;
                     }
@@ -292,7 +291,7 @@ namespace Jint.Runtime
 
                 case BinaryOperator.Greater:
                     value = Compare(right, left, false);
-                    if (ReferenceEquals(value, Undefined.Instance))
+                    if (value.IsUndefined())
                     {
                         value = false;
                     }
@@ -300,7 +299,7 @@ namespace Jint.Runtime
 
                 case BinaryOperator.GreaterOrEqual:
                     value = Compare(left, right);
-                    if (ReferenceEquals(value, Undefined.Instance) || ((JsBoolean) value)._value)
+                    if (value.IsUndefined() || ((JsBoolean) value)._value)
                     {
                         value = false;
                     }
@@ -312,7 +311,7 @@ namespace Jint.Runtime
 
                 case BinaryOperator.Less:
                     value = Compare(left, right);
-                    if (ReferenceEquals(value, Undefined.Instance))
+                    if (value.IsUndefined())
                     {
                         value = false;
                     }
@@ -320,7 +319,7 @@ namespace Jint.Runtime
 
                 case BinaryOperator.LessOrEqual:
                     value = Compare(right, left, false);
-                    if (ReferenceEquals(value, Undefined.Instance) || ((JsBoolean) value)._value)
+                    if (value.IsUndefined() || ((JsBoolean) value)._value)
                     {
                         value = false;
                     }
@@ -417,12 +416,12 @@ namespace Jint.Runtime
 				return StrictlyEqual(x, y);
             }
 
-            if (ReferenceEquals(x, Null.Instance) && ReferenceEquals(y, Undefined.Instance))
+            if (x.IsNull() && y.IsUndefined())
             {
                 return true;
             }
 
-            if (ReferenceEquals(x, Undefined.Instance) && ReferenceEquals(y, Null.Instance))
+            if (x.IsUndefined() && y.IsNull())
             {
                 return true;
             }
@@ -880,7 +879,7 @@ namespace Jint.Runtime
                 }
             }
 
-            if (ReferenceEquals(func, Undefined.Instance))
+            if (func.IsUndefined())
             {
                 throw new JavaScriptException(_engine.TypeError, r == null ? "" : string.Format("Object has no method '{0}'", r.GetReferencedName()));
             }
@@ -1126,11 +1125,11 @@ namespace Jint.Runtime
 
                     var v = _engine.GetValue(value, true);
 
-                    if (ReferenceEquals(v, Undefined.Instance))
+                    if (v.IsUndefined())
                     {
                         return "undefined";
                     }
-                    if (ReferenceEquals(v, Null.Instance))
+                    if (v.IsNull())
                     {
                         return "object";
                     }

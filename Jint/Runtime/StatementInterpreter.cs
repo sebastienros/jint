@@ -218,7 +218,7 @@ namespace Jint.Runtime
 
             var varRef = _engine.EvaluateExpression(identifier) as Reference;
             var experValue = _engine.GetValue(_engine.EvaluateExpression(forInStatement.Right), true);
-            if (ReferenceEquals(experValue, Undefined.Instance) || ReferenceEquals(experValue,  Null.Instance))
+            if (experValue.IsUndefined() || experValue.IsNull())
             {
                 return new Completion(CompletionType.Normal, null, null);
             }

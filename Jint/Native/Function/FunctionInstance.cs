@@ -15,8 +15,19 @@ namespace Jint.Native.Function
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
         private PropertyDescriptor _length;
+        
+        protected FunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict)
+            : this(engine, parameters, scope, strict, objectClass: "Function")
+        {
+        }
 
-        protected FunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine)
+        protected FunctionInstance(
+            Engine engine, 
+            string[] parameters, 
+            LexicalEnvironment scope, 
+            bool strict, 
+            in string objectClass)
+            : base(engine, objectClass)
         {
             FormalParameters = parameters;
             Scope = scope;
@@ -72,8 +83,6 @@ namespace Jint.Native.Function
                 }
             }
         }
-
-        public override string Class => "Function";
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.3.5.4

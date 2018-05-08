@@ -183,8 +183,7 @@ namespace Jint.Native
         {
             if (IsObject())
             {
-                var o = this as T;
-                if (o != null)
+                if (this is T o)
                 {
                     return o;
                 }

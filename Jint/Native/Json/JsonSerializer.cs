@@ -264,7 +264,7 @@ namespace Jint.Native.Json
             for (int i = 0; i < len; i++)
             {
                 var strP = Str(TypeConverter.ToString(i), value);
-                if (ReferenceEquals(strP, JsValue.Undefined))
+                if (strP.IsUndefined())
                     strP = "null";
                 partial.Add(strP.AsStringWithoutTypeCheck());
             }
@@ -324,7 +324,7 @@ namespace Jint.Native.Json
             foreach (var p in k)
             {
                 var strP = Str(p, value);
-                if (!ReferenceEquals(strP, JsValue.Undefined))
+                if (!strP.IsUndefined())
                 {
                     var member = Quote(p) + ":";
                     if (_gap != "")

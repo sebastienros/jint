@@ -8,18 +8,10 @@ namespace Jint.Native.Math
 {
     public sealed class MathInstance : ObjectInstance
     {
-        private static Random _random = new Random();
-        
-        private MathInstance(Engine engine):base(engine)
-        {
-        }
+        private static readonly Random _random = new Random();
 
-        public override string Class
+        private MathInstance(Engine engine) : base(engine, "Math")
         {
-            get
-            {
-                return "Math";
-            }
         }
 
         public static MathInstance CreateMathObject(Engine engine)

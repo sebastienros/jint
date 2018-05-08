@@ -204,7 +204,7 @@ namespace Jint.Native.String
             var len = s.Length;
             var intStart = ToIntegerSupportInfinity(start);
 
-            var intEnd = ReferenceEquals(arguments.At(1), Undefined) ? len : ToIntegerSupportInfinity(end);
+            var intEnd = arguments.At(1).IsUndefined() ? len : ToIntegerSupportInfinity(end);
             var finalStart = System.Math.Min(len, System.Math.Max(intStart, 0));
             var finalEnd = System.Math.Min(len, System.Math.Max(intEnd, 0));
             // Swap value if finalStart < finalEnd
@@ -229,7 +229,7 @@ namespace Jint.Native.String
         {
             var s = TypeConverter.ToString(thisObj);
             var start = TypeConverter.ToInteger(arguments.At(0));
-            var length = ReferenceEquals(arguments.At(1), Undefined)
+            var length = arguments.At(1).IsUndefined()
                 ? double.PositiveInfinity
                 : TypeConverter.ToInteger(arguments.At(1));
 
@@ -258,7 +258,7 @@ namespace Jint.Native.String
 
             // Coerce into a number, true will become 1
             var l = arguments.At(1);
-            var limit = ReferenceEquals(l, Undefined) ? uint.MaxValue : TypeConverter.ToUint32(l);
+            var limit = l.IsUndefined() ? uint.MaxValue : TypeConverter.ToUint32(l);
             var len = s.Length;
 
             if (limit == 0)
@@ -266,11 +266,11 @@ namespace Jint.Native.String
                 return Engine.Array.Construct(Arguments.Empty);
             }
 
-            if (ReferenceEquals(separator, Null))
+            if (separator.IsNull())
             {
                 separator = Native.Null.Text;
             }
-            else if (ReferenceEquals(separator, Undefined))
+            else if (separator.IsUndefined())
             {
                 var jsValues = Engine.JsValueArrayPool.RentArray(1);
                 jsValues[0] = s;
@@ -407,7 +407,7 @@ namespace Jint.Native.String
 
             var len = s.Length;
             var intStart = (int)TypeConverter.ToInteger(start);
-            var intEnd = ReferenceEquals(arguments.At(1), Undefined) ? len : (int)TypeConverter.ToInteger(end);
+            var intEnd = arguments.At(1).IsUndefined() ? len : (int)TypeConverter.ToInteger(end);
             var from = intStart < 0 ? System.Math.Max(len + intStart, 0) : System.Math.Min(intStart, len);
             var to = intEnd < 0 ? System.Math.Max(len + intEnd, 0) : System.Math.Min(intEnd, len);
             var span = System.Math.Max(to - from, 0);
@@ -681,7 +681,7 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
             var searchStr = TypeConverter.ToString(arguments.At(0));
             double numPos = double.NaN;
-            if (arguments.Length > 1 && !ReferenceEquals(arguments[1], Undefined))
+            if (arguments.Length > 1 && !arguments[1].IsUndefined())
             {
                 numPos = TypeConverter.ToNumber(arguments[1]);
             }
@@ -728,7 +728,7 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
             var searchStr = TypeConverter.ToString(arguments.At(0));
             double pos = 0;
-            if (arguments.Length > 1 && !ReferenceEquals(arguments[1], Undefined))
+            if (arguments.Length > 1 && !arguments[1].IsUndefined())
             {
                 pos = TypeConverter.ToInteger(arguments[1]);
             }
