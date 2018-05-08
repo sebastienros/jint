@@ -21,9 +21,9 @@ namespace Jint.Runtime.Environments
 
         public override bool HasBinding(string name)
         {
-            if (name.Length == 9 && name == BindingNameArguments)
+            if (_argumentsBinding != null && name.Length == 9 && name == BindingNameArguments)
             {
-                return _argumentsBinding != null;
+                return true;
             }
 
             return _bindings?.ContainsKey(name) == true;

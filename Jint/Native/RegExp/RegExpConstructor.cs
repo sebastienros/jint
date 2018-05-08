@@ -164,7 +164,7 @@ namespace Jint.Native.RegExp
             r.SetOwnProperty("lastIndex", new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
         }
 
-        private void AssignFlags(RegExpInstance r, string flags)
+        private static void AssignFlags(RegExpInstance r, string flags)
         {
             for(var i=0; i < flags.Length; i++)
             {

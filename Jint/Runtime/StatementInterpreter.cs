@@ -18,19 +18,16 @@ namespace Jint.Runtime
             _engine = engine;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private Completion ExecuteStatement(Statement statement)
         {
             return _engine.ExecuteStatement(statement);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteEmptyStatement(EmptyStatement emptyStatement)
         {
             return new Completion(CompletionType.Normal, null, null);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteExpressionStatement(ExpressionStatement expressionStatement)
         {
             var exprRef = _engine.EvaluateExpression(expressionStatement.Expression);
@@ -288,7 +285,6 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="continueStatement"></param>
         /// <returns></returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteContinueStatement(ContinueStatement continueStatement)
         {
             return new Completion(
@@ -302,7 +298,6 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="breakStatement"></param>
         /// <returns></returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteBreakStatement(BreakStatement breakStatement)
         {
             return new Completion(
@@ -316,7 +311,6 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="statement"></param>
         /// <returns></returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteReturnStatement(ReturnStatement statement)
         {
             if (statement.Argument == null)
@@ -363,7 +357,6 @@ namespace Jint.Runtime
         /// </summary>
         /// <param name="switchStatement"></param>
         /// <returns></returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteSwitchStatement(SwitchStatement switchStatement)
         {
             var jsValue = _engine.GetValue(_engine.EvaluateExpression(switchStatement.Discriminant), true);
@@ -545,7 +538,6 @@ namespace Jint.Runtime
             return new Completion(CompletionType.Normal, Undefined.Instance, null);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteBlockStatement(BlockStatement blockStatement)
         {
             return ExecuteStatementList(blockStatement.Body);

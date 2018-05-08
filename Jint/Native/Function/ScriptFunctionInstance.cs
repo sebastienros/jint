@@ -116,7 +116,6 @@ namespace Jint.Native.Function
             base.RemoveOwnProperty(propertyName);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static string[] GetParameterNames(IFunction functionDeclaration)
         {
             var list = functionDeclaration.Params;

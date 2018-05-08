@@ -376,7 +376,6 @@ namespace Jint
             return _completionValue;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion ExecuteStatement(Statement statement)
         {
             if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
@@ -464,7 +463,6 @@ namespace Jint
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public object EvaluateExpression(INode expression)
         {
             _lastSyntaxNode = expression;
@@ -528,11 +526,27 @@ namespace Jint
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.1
         /// </summary>
-        /// <param name="value"></param>
-        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetValue(object value)
         {
-            return GetValue(value, false);
+            if (value is JsValue jsValue)
+            {
+                return jsValue;
+            }
+
+            return GetValueFromReference(value, false);
+        }
+        
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal JsValue GetValue(in Completion completion)
+        {
+            var value = completion.Value;
+            if (value is JsValue jsValue)
+            {
+                return jsValue;
+            }
+            return GetValueFromReference(completion.Value, false);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -543,6 +557,11 @@ namespace Jint
                 return jsValue;
             }
 
+            return GetValueFromReference(value, returnReferenceToPool);
+        }
+       
+        internal JsValue GetValueFromReference(object value, bool returnReferenceToPool)
+        {
             var reference = value as Reference;
             if (reference == null)
             {
@@ -629,7 +648,6 @@ namespace Jint
         /// </summary>
         /// <param name="reference"></param>
         /// <param name="value"></param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void PutValue(Reference reference, JsValue value)
         {
             if (reference.IsUnresolvableReference())
@@ -794,7 +812,6 @@ namespace Jint
         /// </summary>
         /// <param name="scope">The scope to get the property from.</param>
         /// <param name="propertyName">The name of the property to return.</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetValue(JsValue scope, string propertyName)
         {
             AssertNotNullOrEmpty(nameof(propertyName), propertyName);
@@ -919,6 +936,7 @@ namespace Jint
             return canReleaseArgumentsInstance;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void UpdateLexicalEnvironment(LexicalEnvironment newEnv)
         {
             _executionContexts.ReplaceTopLexicalEnvironment(newEnv);
@@ -961,6 +979,5 @@ namespace Jint
         {
             throw new JavaScriptException(TypeError);
         }
-
     }
 }

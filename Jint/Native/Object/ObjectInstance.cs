@@ -157,10 +157,10 @@ namespace Jint.Native.Object
             if (desc.IsDataDescriptor())
             {
                 var val = desc.Value;
-                return !ReferenceEquals(val, null) ? val : Undefined;
+                return val ?? Undefined;
             }
 
-            var getter = !ReferenceEquals(desc.Get, null) ? desc.Get : Undefined;
+            var getter = desc.Get ?? Undefined;
             if (getter.IsUndefined())
             {
                 return Undefined;

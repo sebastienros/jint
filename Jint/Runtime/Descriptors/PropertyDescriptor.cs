@@ -282,7 +282,7 @@ namespace Jint.Runtime.Descriptors
                 ((GetSetPropertyDescriptor) desc).SetSet(setter);
             }
 
-            if (!ReferenceEquals(desc.Get, null) || !ReferenceEquals(desc.Get, null))
+            if (!ReferenceEquals(desc.Get, null))
             {
                 if (!ReferenceEquals(desc.Value, null) || desc.WritableSet)
                 {
@@ -295,6 +295,11 @@ namespace Jint.Runtime.Descriptors
 
         public static JsValue FromPropertyDescriptor(Engine engine, PropertyDescriptor desc)
         {
+            if (ReferenceEquals(desc, Undefined))
+            {
+                return Native.Undefined.Instance;
+            }
+            
             var obj = engine.Object.Construct(Arguments.Empty);
 
             if (desc.IsDataDescriptor())

@@ -31,26 +31,38 @@ namespace Jint.Runtime.Environments
 
         public LexicalEnvironment Outer => _outer;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Reference GetIdentifierReference(LexicalEnvironment lex, string name, bool strict)
+        {
+            // optimize for common case where result is in one of the nearest scopes
+            if (lex._record.HasBinding(name))
+            {
+                return lex._engine.ReferencePool.Rent(lex._record, name, strict);
+            }
+
+            if (lex._outer == null)
+            {
+                return new Reference(Undefined.Instance, name, strict);
+            }
+            
+            return GetIdentifierReferenceLooping(lex._outer, name, strict);
+        }
+
+        private static Reference GetIdentifierReferenceLooping(LexicalEnvironment lex, string name, bool strict)
         {
             while (true)
             {
-                if (lex == null)
-                {
-                    return new Reference(Undefined.Instance, name, strict);
-                }
-
                 if (lex.Record.HasBinding(name))
                 {
-                    return lex._engine.ReferencePool.Rent(lex.Record, name, strict);
+                    return lex._engine.ReferencePool.Rent(lex._record, name, strict);
                 }
 
-                if (lex.Outer == null)
+                if (lex._outer == null)
                 {
                     return lex._engine.ReferencePool.Rent(Undefined.Instance, name, strict);
                 }
 
-                lex = lex.Outer;
+                lex = lex._outer;
             }
         }
 

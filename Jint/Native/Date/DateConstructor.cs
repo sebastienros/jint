@@ -105,7 +105,7 @@ namespace Jint.Native.Date
             return TimeClip(ConstructTimeValue(arguments, useUtc: true));
         }
 
-        private JsValue Now(JsValue thisObj, JsValue[] arguments)
+        private static JsValue Now(JsValue thisObj, JsValue[] arguments)
         {
             return System.Math.Floor((DateTime.UtcNow - Epoch).TotalMilliseconds);
         }

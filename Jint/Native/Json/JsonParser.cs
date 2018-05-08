@@ -757,7 +757,7 @@ namespace Jint.Native.Json
             return obj;
         }
 
-        private bool PropertyNameContainsInvalidChar0To31(string s)
+        private static bool PropertyNameContainsInvalidChar0To31(string s)
         {
             const int max = 31;
 

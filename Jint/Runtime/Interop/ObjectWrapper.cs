@@ -140,7 +140,7 @@ namespace Jint.Runtime.Interop
             return PropertyDescriptor.Undefined;
         }
 
-        private bool EqualsIgnoreCasing(string s1, string s2)
+        private static bool EqualsIgnoreCasing(string s1, string s2)
         {
             bool equals = false;
             if (s1.Length == s2.Length)

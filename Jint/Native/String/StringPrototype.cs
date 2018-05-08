@@ -95,6 +95,11 @@ namespace Jint.Native.String
             if (!IsWhiteSpaceEx(s[s.Length - 1]))
                 return s;
 
+            return TrimEnd(s);
+        }
+
+        private static string TrimEnd(string s)
+        {
             var i = s.Length - 1;
             while (i >= 0)
             {
@@ -103,10 +108,8 @@ namespace Jint.Native.String
                 else
                     break;
             }
-            if (i >= 0)
-                return s.Substring(0, i + 1);
-            else
-                return string.Empty;
+
+            return i >= 0 ? s.Substring(0, i + 1) : string.Empty;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -118,6 +121,11 @@ namespace Jint.Native.String
             if (!IsWhiteSpaceEx(s[0]))
                 return s;
 
+            return TrimStart(s);
+        }
+
+        private static string TrimStart(string s)
+        {
             var i = 0;
             while (i < s.Length)
             {
@@ -126,10 +134,8 @@ namespace Jint.Native.String
                 else
                     break;
             }
-            if (i >= s.Length)
-                return string.Empty;
-            else
-                return s.Substring(i);
+
+            return i >= s.Length ? string.Empty : s.Substring(i);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -225,7 +231,7 @@ namespace Jint.Native.String
             return s.Substring(from, length);
         }
 
-        private JsValue Substr(JsValue thisObj, JsValue[] arguments)
+        private static JsValue Substr(JsValue thisObj, JsValue[] arguments)
         {
             var s = TypeConverter.ToString(thisObj);
             var start = TypeConverter.ToInteger(arguments.At(0));

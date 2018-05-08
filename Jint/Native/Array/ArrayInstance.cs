@@ -450,8 +450,17 @@ namespace Jint.Native.Array
                 return uint.MaxValue;
             }
 
-            ulong result = (uint) d;
+            if (p.Length > 1)
+            {
+                return StringAsIndex(d, p);
+            }
+            
+            return (uint) d;
+        }
 
+        private static uint StringAsIndex(int d, string p)
+        {
+            ulong result = (uint) d;
             for (int i = 1; i < p.Length; i++)
             {
                 d = p[i] - '0';

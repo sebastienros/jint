@@ -635,7 +635,6 @@ namespace Jint.Runtime
             return LexicalEnvironment.GetIdentifierReference(env, identifier.Name, strict);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue EvaluateLiteral(Literal literal)
         {
             switch (literal.TokenType)
@@ -1150,7 +1149,6 @@ namespace Jint.Runtime
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void BuildArguments(
             List<ArgumentListElement> expressionArguments, 
             JsValue[] targetArray,

@@ -208,7 +208,7 @@ namespace Jint.Native.Json
             return JsValue.Undefined;
         }
 
-        private string Quote(string value)
+        private static string Quote(string value)
         {
             var sb = new System.Text.StringBuilder("\"");
 
