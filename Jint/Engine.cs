@@ -258,7 +258,7 @@ namespace Jint
         }
         #endregion
 
-        private static Func<long> GetAllocatedBytesForCurrentThread;
+        private static readonly Func<long> GetAllocatedBytesForCurrentThread;
 
         public ExecutionContext EnterExecutionContext(LexicalEnvironment lexicalEnvironment, LexicalEnvironment variableEnvironment, JsValue thisBinding)
         {
