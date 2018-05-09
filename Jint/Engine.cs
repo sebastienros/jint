@@ -88,10 +88,6 @@ namespace Jint
             {
                 GetAllocatedBytesForCurrentThread =  (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), null, methodInfo);
             }
-            else
-            {
-                GetAllocatedBytesForCurrentThread = () => long.MaxValue;
-            }
         }
 
         public Engine() : this(null)
@@ -329,7 +325,10 @@ namespace Jint
 
         public void ResetMemoryUsage()
         {
-            _initialMemoryUsage = GetAllocatedBytesForCurrentThread();
+            if (GetAllocatedBytesForCurrentThread != null)
+            {
+                _initialMemoryUsage = GetAllocatedBytesForCurrentThread();
+            }
         }
 
         public void ResetTimeoutTicks()
@@ -414,10 +413,17 @@ namespace Jint
 
             if (Options._MemoryLimit > 0)
             {
-                var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
-                if (memoryUsage > Options._MemoryLimit)
+                if (GetAllocatedBytesForCurrentThread != null)
                 {
-                    throw new MemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {Options._MemoryLimit}");
+                    var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
+                    if (memoryUsage > Options._MemoryLimit)
+                    {
+                        throw new MemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {Options._MemoryLimit}");
+                    }
+                }
+                else
+                {
+                    throw new PlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
                 }
             }
 
