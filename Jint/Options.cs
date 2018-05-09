@@ -18,9 +18,7 @@ namespace Jint
         private bool _allowClr;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private int _maxStatements;
-#if NETCOREAPP2_0
         private long _memoryLimit;
-#endif
         private int _maxRecursionDepth = -1;
         private TimeSpan _timeoutInterval;
         private CultureInfo _culture = CultureInfo.CurrentCulture;
@@ -117,13 +115,11 @@ namespace Jint
             _maxStatements = maxStatements;
             return this;
         }
-#if NETCOREAPP2_0
         public Options LimitMemory(long memoryLimit)
         {
             _memoryLimit = memoryLimit;
             return this;
         }
-#endif
 
         public Options TimeoutInterval(TimeSpan timeoutInterval)
         {
@@ -188,9 +184,7 @@ namespace Jint
 
         internal List<IObjectConverter> _ObjectConverters => _objectConverters;
 
-#if NETCOREAPP2_0
         internal long _MemoryLimit => _memoryLimit;
-#endif
 
         internal int _MaxStatements
         {

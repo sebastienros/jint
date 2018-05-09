@@ -42,9 +42,7 @@ namespace Jint
         private readonly Stack<ExecutionContext> _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
-#if NETCOREAPP2_0
         private long _initialMemoryUsage;
-#endif
         private long _timeoutTicks;
         private INode _lastSyntaxNode = null;
 
@@ -75,6 +73,20 @@ namespace Jint
         };
 
         internal JintCallStack CallStack = new JintCallStack();
+
+        static Engine()
+        {
+            var methodInfo = typeof(GC).GetMethod("GetAllocatedBytesForCurrentThread");
+
+            if (methodInfo != null)
+            {
+                GetAllocatedBytesForCurrentThread =  (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), null, methodInfo);
+            }
+            else
+            {
+                GetAllocatedBytesForCurrentThread = () => long.MaxValue;
+            }
+        }
 
         public Engine() : this(null)
         {
@@ -235,6 +247,8 @@ namespace Jint
         }
         #endregion
 
+        private static Func<long> GetAllocatedBytesForCurrentThread;
+
         public ExecutionContext EnterExecutionContext(LexicalEnvironment lexicalEnvironment, LexicalEnvironment variableEnvironment, JsValue thisBinding)
         {
             var executionContext = new ExecutionContext
@@ -298,12 +312,10 @@ namespace Jint
             _statementsCount = 0;
         }
 
-#if NETCOREAPP2_0
         public void ResetMemoryUsage()
         {
-            _initialMemoryUsage = GC.GetAllocatedBytesForCurrentThread();
+            _initialMemoryUsage = GetAllocatedBytesForCurrentThread();
         }
-#endif
 
         public void ResetTimeoutTicks()
         {
@@ -333,9 +345,12 @@ namespace Jint
         public Engine Execute(Program program)
         {
             ResetStatementsCount();
-#if NETCOREAPP2_0
-            ResetMemoryUsage();
-#endif
+            
+            if (Options._MemoryLimit > 0)
+            {
+                ResetMemoryUsage();
+            }
+            
             ResetTimeoutTicks();
             ResetLastStatement();
             ResetCallStack();
@@ -385,16 +400,14 @@ namespace Jint
                 throw new TimeoutException();
             }
 
-#if NETCOREAPP2_0
             if (Options._MemoryLimit > 0)
             {
-                var memoryUsage = GC.GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
+                var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
                 if (memoryUsage > Options._MemoryLimit)
                 {
-                    throw new MemoryLimitExceededException();
+                    throw new MemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {Options._MemoryLimit}");
                 }
             }
-#endif
 
             _lastSyntaxNode = statement;
 

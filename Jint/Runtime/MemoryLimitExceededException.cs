@@ -4,7 +4,11 @@ namespace Jint.Runtime
 {
     public class MemoryLimitExceededException : Exception
     {
-        public MemoryLimitExceededException() : base("The memory limit has been exceeded.")
+        public MemoryLimitExceededException() : base()
+        {
+        }
+
+        public MemoryLimitExceededException(string message) : base(message)
         {
         }
     }
