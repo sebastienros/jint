@@ -174,7 +174,7 @@ namespace Jint.Native
             }
 
             // TODO not implemented
-            return null;
+            return Completion.EmptyUndefined;
         }
 
         [Pure]

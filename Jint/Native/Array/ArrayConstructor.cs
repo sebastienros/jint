@@ -128,5 +128,13 @@ namespace Jint.Native.Array
             return instance;
         }
 
+        internal ArrayInstance ConstructFast(uint length)
+        {
+            var instance = new ArrayInstance(Engine, length);
+            instance.Prototype = PrototypeObject;
+            instance.Extensible = true;
+            instance.SetOwnProperty("length", new PropertyDescriptor(length, PropertyFlag.OnlyWritable));
+            return instance;
+        }
     }
 }

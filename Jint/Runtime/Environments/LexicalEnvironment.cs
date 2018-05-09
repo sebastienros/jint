@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+﻿using System.Runtime.CompilerServices;
+using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.References;
 
@@ -22,7 +23,11 @@ namespace Jint.Runtime.Environments
             _outer = outer;
         }
 
-        public EnvironmentRecord Record => _record;
+        public EnvironmentRecord Record
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return _record; }
+        }
 
         public LexicalEnvironment Outer => _outer;
 

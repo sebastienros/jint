@@ -151,18 +151,20 @@ namespace Jint.Native.Object
                 array = Engine.Array.Construct(ownProperties.Count + length);
                 for (var i = 0; i < length; i++)
                 {
-                    array.SetIndexValue(n, TypeConverter.ToString(i), throwOnError: false);
+                    array.SetIndexValue(n, TypeConverter.ToString(i), updateLength: false);
                     n++;
                 }
             }
 
-            array = array ?? Engine.Array.Construct(ownProperties.Count);
-            foreach (var p in ownProperties)
+            array = array ?? Engine.Array.ConstructFast((uint) ownProperties.Count);
+            for (var i = 0; i < ownProperties.Count; i++)
             {
+                var p = ownProperties[i];
                 array.SetIndexValue(n, p.Key, false);
                 n++;
             }
 
+            array.SetLength(n);
             return array;
         }
 
@@ -408,9 +410,10 @@ namespace Jint.Native.Object
             foreach (var prop in enumerableProperties)
             {
                 var p = prop.Key;
-                array.SetIndexValue(index, p, throwOnError: false);
+                array.SetIndexValue(index, p, updateLength: false);
                 index++;
             }
+            array.SetLength(index);
             return array;
         }
     }

@@ -44,8 +44,14 @@ namespace Jint
         private int _statementsCount;
         private long _initialMemoryUsage;
         private long _timeoutTicks;
-        private INode _lastSyntaxNode = null;
+        private INode _lastSyntaxNode;
 
+        // cached access
+        private readonly bool _isDebugMode;
+        private readonly bool _isStrict;
+        private readonly int _maxStatements;
+        private readonly IReferenceResolver _referenceResolver;
+        
         public ITypeConverter ClrTypeConverter;
 
         // cache of types used when resolving CLR type names
@@ -168,9 +174,14 @@ namespace Jint
             Options = new Options();
 
             options?.Invoke(Options);
+            
+            // gather some options as fields for faster checks
+            _isDebugMode = Options.IsDebugMode;
+            _isStrict = Options.IsStrict;
+            _maxStatements = Options.MaxStatementCount;
+            _referenceResolver = Options.ReferenceResolver;
 
             ReferencePool = new ReferencePool();
-            CompletionPool = new CompletionPool();
             ArgumentsInstancePool = new ArgumentsInstancePool(this);
             JsValueArrayPool = new JsValueArrayPool();
 
@@ -223,8 +234,12 @@ namespace Jint
 
         internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; }
 
-        internal ReferencePool ReferencePool { get; }
-        internal CompletionPool CompletionPool { get; }
+        internal ReferencePool ReferencePool
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get;
+        }
+
         internal ArgumentsInstancePool ArgumentsInstancePool { get; }
         internal JsValueArrayPool JsValueArrayPool { get; }
 
@@ -355,20 +370,18 @@ namespace Jint
             ResetLastStatement();
             ResetCallStack();
 
-            using (new StrictModeScope(Options._IsStrict || program.Strict))
+            using (new StrictModeScope(_isStrict || program.Strict))
             {
                 DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.HoistingScope.FunctionDeclarations, program.HoistingScope.VariableDeclarations, null, null);
 
                 var result = _statements.ExecuteProgram(program);
-                if (result.Type == Completion.Throw)
+                if (result.Type == CompletionType.Throw)
                 {
                     var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
-                    CompletionPool.Return(result);
                     throw ex;
                 }
 
                 _completionValue = result.GetValueOrDefault();
-                CompletionPool.Return(result);
             }
 
             return this;
@@ -389,8 +402,7 @@ namespace Jint
 
         public Completion ExecuteStatement(Statement statement)
         {
-            var maxStatements = Options._MaxStatements;
-            if (maxStatements > 0 && _statementsCount++ > maxStatements)
+            if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
             {
                 throw new StatementsCountOverflowException();
             }
@@ -411,7 +423,7 @@ namespace Jint
 
             _lastSyntaxNode = statement;
 
-            if (Options._IsDebugMode)
+            if (_isDebugMode)
             {
                 DebugHandler.OnStep(statement);
             }
@@ -573,8 +585,8 @@ namespace Jint
 
             if (reference.IsUnresolvableReference())
             {
-                if (Options._ReferenceResolver != null &&
-                    Options._ReferenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
+                if (_referenceResolver != null &&
+                    _referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
                 {
                     return val;
                 }
@@ -585,8 +597,8 @@ namespace Jint
 
             if (reference.IsPropertyReference())
             {
-                if (Options._ReferenceResolver != null &&
-                    Options._ReferenceResolver.TryPropertyReference(this, reference, ref baseValue))
+                if (_referenceResolver != null &&
+                    _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
                 {
                     return baseValue;
                 }
@@ -826,7 +838,7 @@ namespace Jint
                 throw new ArgumentException("propertyName");
             }
 
-            var reference = ReferencePool.Rent(scope, propertyName, Options._IsStrict);
+            var reference = ReferencePool.Rent(scope, propertyName, _isStrict);
             var jsValue = GetValue(reference);
             ReferencePool.Return(reference);
 

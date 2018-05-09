@@ -299,7 +299,7 @@ namespace Jint.Native.String
 
                 if (!match.Success) // No match at all return the string in an array
                 {
-                    a.SetIndexValue(0, s, throwOnError: false);
+                    a.SetIndexValue(0, s, updateLength: true);
                     return a;
                 }
 
@@ -314,7 +314,7 @@ namespace Jint.Native.String
                     }
 
                     // Add the match results to the array.
-                    a.SetIndexValue(index++, s.Substring(lastIndex, match.Index - lastIndex), throwOnError: false);
+                    a.SetIndexValue(index++, s.Substring(lastIndex, match.Index - lastIndex), updateLength: true);
 
                     if (index >= limit)
                     {
@@ -331,7 +331,7 @@ namespace Jint.Native.String
                             item = match.Groups[i].Value;
                         }
 
-                        a.SetIndexValue(index++, item, throwOnError: false);
+                        a.SetIndexValue(index++, item, updateLength: true);
 
                         if (index >= limit)
                         {
@@ -342,7 +342,7 @@ namespace Jint.Native.String
                     match = match.NextMatch();
                     if (!match.Success) // Add the last part of the split
                     {
-                        a.SetIndexValue(index++, s.Substring(lastIndex), throwOnError: false);
+                        a.SetIndexValue(index++, s.Substring(lastIndex), updateLength: true);
                     }
                 }
 
@@ -373,11 +373,13 @@ namespace Jint.Native.String
                     segments.AddRange(s.Split(array, StringSplitOptions.None));
                 }
 
-                var a = Engine.Array.Construct(Arguments.Empty, (uint) segments.Count);
-                for (int i = 0; i < segments.Count && i < limit; i++)
+                var length = (uint) System.Math.Min(segments.Count, limit);
+                var a = Engine.Array.ConstructFast(length);
+                for (int i = 0; i < length; i++)
                 {
-                    a.SetIndexValue((uint) i, segments[i], throwOnError: false);
+                    a.SetIndexValue((uint) i, segments[i], updateLength: false);
                 }
+                a.SetLength(length);
                 return a;
             }
         }
@@ -648,7 +650,7 @@ namespace Jint.Native.String
                         }
 
                         var matchStr = result.Get("0");
-                        a.SetIndexValue(n, matchStr, throwOnError: false);
+                        a.SetIndexValue(n, matchStr, updateLength: false);
                         n++;
                     }
                 }
@@ -656,6 +658,7 @@ namespace Jint.Native.String
                 {
                     return Null;
                 }
+                a.SetLength(n);
                 return a;
             }
 

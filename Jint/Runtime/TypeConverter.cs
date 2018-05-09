@@ -106,13 +106,7 @@ namespace Jint.Runtime
 
             if (type == Types.String)
             {
-                var s = o.AsString();
-                if (string.IsNullOrEmpty(s))
-                {
-                    return false;
-                }
-
-                return true;
+                return !((JsString) o).IsNullOrEmpty();
             }
 
             return true;
@@ -467,8 +461,8 @@ namespace Jint.Runtime
                 return;
             }
 
-            if (engine.Options._ReferenceResolver != null &&
-                engine.Options._ReferenceResolver.CheckCoercible(o))
+            var referenceResolver = engine.Options.ReferenceResolver;
+            if (referenceResolver != null && referenceResolver.CheckCoercible(o))
             {
                 return;
             }
