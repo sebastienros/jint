@@ -178,7 +178,7 @@ namespace Jint
             // gather some options as fields for faster checks
             _isDebugMode = Options.IsDebugMode;
             _isStrict = Options.IsStrict;
-            _maxStatements = Options.MaxStatementCount;
+            _maxStatements = Options._MaxStatements;
             _referenceResolver = Options.ReferenceResolver;
 
             ReferencePool = new ReferencePool();
