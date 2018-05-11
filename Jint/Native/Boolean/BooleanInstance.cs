@@ -6,11 +6,9 @@ namespace Jint.Native.Boolean
     public class BooleanInstance : ObjectInstance, IPrimitiveInstance
     {
         public BooleanInstance(Engine engine)
-            : base(engine)
+            : base(engine, objectClass: "Boolean")
         {
         }
-
-        public override string Class => "Boolean";
 
         Types IPrimitiveInstance.Type => Types.Boolean;
 

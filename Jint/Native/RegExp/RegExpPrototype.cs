@@ -36,7 +36,7 @@ namespace Jint.Native.RegExp
             FastAddProperty("lastIndex", 0, true, false, false);
         }
 
-        private JsValue ToRegExpString(JsValue thisObj, JsValue[] arguments)
+        private static JsValue ToRegExpString(JsValue thisObj, JsValue[] arguments)
         {
             var regExp = thisObj.TryCast<RegExpInstance>();
 
@@ -56,7 +56,7 @@ namespace Jint.Native.RegExp
             }
 
             var match = Exec(r, arguments);
-            return !ReferenceEquals(match, Null);
+            return !match.IsNull();
         }
 
         internal JsValue Exec(JsValue thisObj, JsValue[] arguments)

@@ -20,13 +20,22 @@ namespace Jint.Native.Object
     {
         private MruPropertyCache2<PropertyDescriptor> _intrinsicProperties;
         private MruPropertyCache2<PropertyDescriptor> _properties;
-
-        public ObjectInstance(Engine engine) : base(Types.Object)
+        
+        private readonly string _class;
+        protected readonly Engine _engine;
+        
+        public ObjectInstance(Engine engine) : this(engine, "Object")
         {
-            Engine = engine;
+            _engine = engine;
+        }
+        
+        protected ObjectInstance(Engine engine, in string objectClass) : base(Types.Object)
+        {
+            _engine = engine;
+            _class = objectClass;
         }
 
-        public Engine Engine { get; }
+        public Engine Engine => _engine;
 
         protected bool TryGetIntrinsicValue(JsSymbol symbol, out JsValue value)
         {
@@ -75,7 +84,7 @@ namespace Jint.Native.Object
         /// A String value indicating a specification defined
         /// classification of objects.
         /// </summary>
-        public virtual string Class => "Object";
+        public ref readonly string Class => ref _class;
 
         public virtual IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {
@@ -148,10 +157,10 @@ namespace Jint.Native.Object
             if (desc.IsDataDescriptor())
             {
                 var val = desc.Value;
-                return !ReferenceEquals(val, null) ? val : Undefined;
+                return val ?? Undefined;
             }
 
-            var getter = !ReferenceEquals(desc.Get, null) ? desc.Get : Undefined;
+            var getter = desc.Get ?? Undefined;
             if (getter.IsUndefined())
             {
                 return Undefined;
@@ -777,7 +786,7 @@ namespace Jint.Native.Object
                 case "String":
                     if (this is StringInstance stringInstance)
                     {
-                        return stringInstance.PrimitiveValue.AsString();
+                        return stringInstance.PrimitiveValue.AsStringWithoutTypeCheck();
                     }
 
                     break;
@@ -793,7 +802,7 @@ namespace Jint.Native.Object
                 case "Boolean":
                     if (this is BooleanInstance booleanInstance)
                     {
-                        return booleanInstance.PrimitiveValue.AsBoolean()
+                        return ((JsBoolean) booleanInstance.PrimitiveValue)._value
                              ? JsBoolean.BoxedTrue
                              : JsBoolean.BoxedFalse;
                     }
@@ -811,7 +820,7 @@ namespace Jint.Native.Object
                 case "Number":
                     if (this is NumberInstance numberInstance)
                     {
-                        return numberInstance.NumberData.AsNumber();
+                        return ((JsNumber) numberInstance.NumberData)._value;
                     }
 
                     break;

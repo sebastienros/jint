@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics.Contracts;
 using System.Text;
 using Jint.Runtime;
 
@@ -14,7 +13,7 @@ namespace Jint.Native
         private static readonly JsString Empty = new JsString("");
         private static readonly JsString NullString = new JsString("null");
 
-        private string _value;
+        internal string _value;
 
         static JsString()
         {
@@ -41,17 +40,6 @@ namespace Jint.Native
         public JsString(char value) : base(Types.String)
         {
             _value = value.ToString();
-        }
-
-        [Pure]
-        public override string AsString()
-        {
-            if (_value == null)
-            {
-                throw new ArgumentException("The value is not defined");
-            }
-
-            return _value;
         }
 
         public virtual JsString Append(JsValue jsValue)
@@ -156,8 +144,7 @@ namespace Jint.Native
                 }
             }
 
-            [Pure]
-            public override string AsString()
+            public override string ToString()
             {
                 if (_dirty)
                 {
@@ -203,13 +190,13 @@ namespace Jint.Native
 
                 if (other.Type == Types.String)
                 {
-                    var otherString = other.AsString();
+                    var otherString = other.AsStringWithoutTypeCheck();
                     if (otherString.Length != _stringBuilder.Length)
                     {
                         return false;
                     }
 
-                    return AsString().Equals(otherString);
+                    return ToString().Equals(otherString);
                 }
 
                 return base.Equals(other);

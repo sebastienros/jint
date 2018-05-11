@@ -105,7 +105,7 @@ namespace Jint.Native.Date
             return TimeClip(ConstructTimeValue(arguments, useUtc: true));
         }
 
-        private JsValue Now(JsValue thisObj, JsValue[] arguments)
+        private static JsValue Now(JsValue thisObj, JsValue[] arguments)
         {
             return System.Math.Floor((DateTime.UtcNow - Epoch).TotalMilliseconds);
         }
@@ -131,7 +131,7 @@ namespace Jint.Native.Date
                 var v = TypeConverter.ToPrimitive(arguments[0]);
                 if (v.IsString())
                 {
-                    return Construct(Parse(Undefined, Arguments.From(v)).AsNumber());
+                    return Construct(((JsNumber) Parse(Undefined, Arguments.From(v)))._value);
                 }
 
                 return Construct(TypeConverter.ToNumber(v));

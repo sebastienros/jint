@@ -11,11 +11,8 @@ namespace Jint.Native.Object
 {
     public sealed class ObjectConstructor : FunctionInstance, IConstructor
     {
-        private readonly Engine _engine;
-
         private ObjectConstructor(Engine engine) : base(engine, null, null, false)
         {
-            _engine = engine;
         }
 
         public static ObjectConstructor CreateObjectConstructor(Engine engine)
@@ -65,7 +62,7 @@ namespace Jint.Native.Object
                 return Construct(arguments);
             }
 
-            if(ReferenceEquals(arguments[0], Null) || ReferenceEquals(arguments[0], Undefined))
+            if(arguments[0].IsNull() || arguments[0].IsUndefined())
             {
                 return Construct(arguments);
             }
@@ -147,7 +144,7 @@ namespace Jint.Native.Object
             var ownProperties = o.GetOwnProperties().ToList();
             if (o is StringInstance s)
             {
-                var length = s.PrimitiveValue.AsString().Length;
+                var length = s.PrimitiveValue.AsStringWithoutTypeCheck().Length;
                 array = Engine.Array.Construct(ownProperties.Count + length);
                 for (var i = 0; i < length; i++)
                 {
@@ -173,7 +170,7 @@ namespace Jint.Native.Object
             var oArg = arguments.At(0);
 
             var o = oArg.TryCast<ObjectInstance>();
-            if (ReferenceEquals(o, null) && !ReferenceEquals(oArg, Null))
+            if (ReferenceEquals(o, null) && !oArg.IsNull())
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -182,7 +179,7 @@ namespace Jint.Native.Object
             obj.Prototype = o;
 
             var properties = arguments.At(1);
-            if (!ReferenceEquals(properties, Undefined))
+            if (!properties.IsUndefined())
             {
                 DefineProperties(thisObject, new [] {obj, properties});
             }

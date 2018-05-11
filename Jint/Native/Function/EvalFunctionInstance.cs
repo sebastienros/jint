@@ -10,11 +10,8 @@ namespace Jint.Native.Function
     {
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
 
-        private readonly Engine _engine;
-
         public EvalFunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine, parameters, scope, strict)
         {
-            _engine = engine;
             Prototype = Engine.Function.PrototypeObject;
             SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
         }

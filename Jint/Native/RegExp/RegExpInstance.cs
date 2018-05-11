@@ -6,20 +6,11 @@ namespace Jint.Native.RegExp
     public class RegExpInstance : ObjectInstance
     {
         public RegExpInstance(Engine engine)
-            : base(engine)
+            : base(engine, objectClass: "RegExp")
         {
-        }
-
-        public override string Class
-        {
-            get
-            {
-                return "RegExp";
-            }
         }
 
         public Regex Value { get; set; }
-        //public string Pattern { get; set; }
         public string Source { get; set; }
         public string Flags { get; set; }
         public bool Global { get; set; }

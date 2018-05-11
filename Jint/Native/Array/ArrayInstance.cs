@@ -13,8 +13,6 @@ namespace Jint.Native.Array
 {
     public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     {
-        private readonly Engine _engine;
-
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
 
@@ -26,9 +24,8 @@ namespace Jint.Native.Array
         private PropertyDescriptor[] _dense;
         private Dictionary<uint, PropertyDescriptor> _sparse;
 
-        public ArrayInstance(Engine engine, uint capacity = 0) : base(engine)
+        public ArrayInstance(Engine engine, uint capacity = 0) : base(engine, objectClass: "Array")
         {
-            _engine = engine;
             if (capacity < MaxDenseArrayLength)
             {
                 _dense = capacity > 0 ? new PropertyDescriptor[capacity] : System.Array.Empty<PropertyDescriptor>();
@@ -39,9 +36,8 @@ namespace Jint.Native.Array
             }
         }
 
-        public ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine)
+        public ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine, objectClass: "Array")
         {
-            _engine = engine;
             int length = 0;
             if (items == null || items.Length == 0)
             {
@@ -57,15 +53,12 @@ namespace Jint.Native.Array
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
-        public ArrayInstance(Engine engine, Dictionary<uint, PropertyDescriptor> items) : base(engine)
+        public ArrayInstance(Engine engine, Dictionary<uint, PropertyDescriptor> items) : base(engine, objectClass: "Array")
         {
-            _engine = engine;
             _sparse = items;
             var length = items?.Count ?? 0;
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
-
-        public override string Class => "Array";
 
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
@@ -457,8 +450,17 @@ namespace Jint.Native.Array
                 return uint.MaxValue;
             }
 
-            ulong result = (uint) d;
+            if (p.Length > 1)
+            {
+                return StringAsIndex(d, p);
+            }
+            
+            return (uint) d;
+        }
 
+        private static uint StringAsIndex(int d, string p)
+        {
+            ulong result = (uint) d;
             for (int i = 1; i < p.Length; i++)
             {
                 d = p[i] - '0';
