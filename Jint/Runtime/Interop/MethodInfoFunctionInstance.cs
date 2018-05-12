@@ -87,14 +87,15 @@ namespace Jint.Runtime.Interop
 
                     if (handler != null && handler(meaningfulException))
                     {
-                        throw new JavaScriptException(Engine.Error, meaningfulException.Message);
+                        ExceptionHelper.ThrowError(_engine, meaningfulException.Message);
                     }
 
                     throw meaningfulException;
                 }
             }
 
-            throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
+            ExceptionHelper.ThrowTypeError(_engine, "No public methods with the specified arguments were found.");
+            return null;
         }
 
         /// <summary>

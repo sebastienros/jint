@@ -92,7 +92,7 @@ namespace Jint.Native.Date
         {
             return thisObj.TryCast<DateInstance>(value =>
                {
-                   throw new JavaScriptException(Engine.TypeError, "Invalid Date");
+                   ExceptionHelper.ThrowTypeError(_engine, "Invalid Date");
                });
         }
 
@@ -523,9 +523,9 @@ namespace Jint.Native.Date
         private JsValue ToUtcString(JsValue thisObj, JsValue[] arguments)
         {
             return thisObj.TryCast<DateInstance>(x =>
-            {
-                throw new JavaScriptException(Engine.TypeError);
-            } )
+                {
+                    ExceptionHelper.ThrowTypeError(_engine);
+                } )
             .ToDateTime().ToUniversalTime().ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'", CultureInfo.InvariantCulture);
         }
 
@@ -533,12 +533,12 @@ namespace Jint.Native.Date
         {
             var t = thisObj.TryCast<DateInstance>(x =>
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(_engine);
             }).PrimitiveValue;
 
             if (double.IsInfinity(t) || double.IsNaN(t))
             {
-                throw new JavaScriptException(Engine.RangeError);
+                ExceptionHelper.ThrowRangeError(_engine);
             }
             double h = HourFromTime(t);
             double m = MinFromTime(t);
@@ -548,14 +548,7 @@ namespace Jint.Native.Date
             if (m < 0) { m += MinutesPerHour; }
             if (s < 0) { s += SecondsPerMinute; }
             if (ms < 0) { ms += MsPerSecond; }
-            return string.Format("{0:0000}-{1:00}-{2:00}T{3:00}:{4:00}:{5:00}.{6:000}Z",
-                YearFromTime(t),
-                MonthFromTime(t)+1,
-                DateFromTime(t),
-                h,
-                m,
-                s,
-                ms);
+            return $"{YearFromTime(t):0000}-{MonthFromTime(t) + 1:00}-{DateFromTime(t):00}T{h:00}:{m:00}:{s:00}.{ms:000}Z";
         }
 
         private JsValue ToJSON(JsValue thisObj, JsValue[] arguments)
@@ -570,7 +563,7 @@ namespace Jint.Native.Date
             var toIso = o.Get("toISOString");
             if (!toIso.Is<ICallable>())
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             return toIso.TryCast<ICallable>().Call(o, Arguments.Empty);
@@ -717,7 +710,8 @@ namespace Jint.Native.Date
                 return 1;
             }
 
-            throw new ArgumentException();
+            ExceptionHelper.ThrowArgumentException();
+            return 0;
         }
 
         /// <summary>
@@ -788,7 +782,8 @@ namespace Jint.Native.Date
                 return 11;
             }
 
-            throw new InvalidOperationException();
+            ExceptionHelper.ThrowInvalidOperationException();
+            return 0;
         }
 
         public static double DayWithinYear(double t)
@@ -861,7 +856,8 @@ namespace Jint.Native.Date
                 return dayWithinYear - 333 - InLeapYear(t);
             }
 
-            throw new InvalidOperationException();
+            ExceptionHelper.ThrowInvalidOperationException();
+            return 0;
         }
 
         /// <summary>
@@ -872,13 +868,7 @@ namespace Jint.Native.Date
             return (Day(t) + 4)%7;
         }
 
-        public double LocalTza
-        {
-            get
-            {
-                return Engine.Options._LocalTimeZone.BaseUtcOffset.TotalMilliseconds;
-            }
-        }
+        public double LocalTza => Engine.Options._LocalTimeZone.BaseUtcOffset.TotalMilliseconds;
 
         public double DaylightSavingTa(double t)
         {
@@ -1025,8 +1015,8 @@ namespace Jint.Native.Date
                 case 1:
                     return 28 + leap;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(month));
-
+                    ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(month), "invalid month");
+                    return 0;
             }
         }
 

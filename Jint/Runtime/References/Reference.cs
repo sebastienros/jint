@@ -55,7 +55,13 @@ namespace Jint.Runtime.References
         public bool IsPropertyReference()
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
-            return _baseValue.IsPrimitive() || (_baseValue.IsObject() && !(_baseValue is EnvironmentRecord));
+            if (_baseValue._type != Types.Object && _baseValue._type != Types.None)
+            {
+                // primitive
+                return true;
+            }
+            
+            return _baseValue._type == Types.Object && !(_baseValue is EnvironmentRecord);
         }
 
         internal Reference Reassign(JsValue baseValue, string name, bool strict)
@@ -65,6 +71,14 @@ namespace Jint.Runtime.References
             _strict = strict;
 
             return this;
+        }
+
+        internal void AssertValid(Engine engine)
+        {
+            if(_strict && (_name == "eval" || _name == "arguments") && _baseValue is EnvironmentRecord)
+            {
+                ExceptionHelper.ThrowSyntaxError(engine);
+            }
         }
     }
 }

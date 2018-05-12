@@ -31,7 +31,7 @@ namespace Jint.Runtime.Interop
                     return null;
                 }
 
-                throw new NotSupportedException(string.Format("Unable to convert null to '{0}'", type.FullName));
+                ExceptionHelper.ThrowNotSupportedException($"Unable to convert null to '{type.FullName}'");
             }
 
             // don't try to convert if value is derived from type
@@ -45,7 +45,7 @@ namespace Jint.Runtime.Interop
                 var integer = System.Convert.ChangeType(value, typeof(int), formatProvider);
                 if (integer == null)
                 {
-                    throw new ArgumentOutOfRangeException();
+                    ExceptionHelper.ThrowArgumentOutOfRangeException();
                 }
 
                 return Enum.ToObject(type, integer);
@@ -181,7 +181,9 @@ namespace Jint.Runtime.Interop
             {
                 var source = value as object[];
                 if (source == null)
-                    throw new ArgumentException(String.Format("Value of object[] type is expected, but actual type is {0}.", value.GetType()));
+                {
+                    ExceptionHelper.ThrowArgumentException($"Value of object[] type is expected, but actual type is {value.GetType()}.");
+                }
 
                 var targetElementType = type.GetElementType();
                 var itemsConverted = new object[source.Length];
@@ -204,10 +206,9 @@ namespace Jint.Runtime.Interop
 
         public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)
         {
-            bool canConvert;
-            var key = value == null ? String.Format("Null->{0}", type) : String.Format("{0}->{1}", value.GetType(), type);
+            var key = value == null ? $"Null->{type}" : $"{value.GetType()}->{type}";
 
-            if (!_knownConversions.TryGetValue(key, out canConvert))
+            if (!_knownConversions.TryGetValue(key, out var canConvert))
             {
                 lock (_lockObject)
                 {

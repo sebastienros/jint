@@ -20,7 +20,7 @@ namespace Jint.Native.Function
         {
             var f = TargetFunction.TryCast<FunctionInstance>(x =>
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             });
 
             return f.Call(BoundThis, BoundArgs.Union(arguments).ToArray());
@@ -30,7 +30,7 @@ namespace Jint.Native.Function
         {
             var target = TargetFunction.TryCast<IConstructor>(x =>
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             });
 
             return target.Construct(BoundArgs.Union(arguments).ToArray());
@@ -40,7 +40,7 @@ namespace Jint.Native.Function
         {
             var f = TargetFunction.TryCast<FunctionInstance>(x =>
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             });
 
             return f.HasInstance(v);

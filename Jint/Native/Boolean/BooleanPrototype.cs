@@ -45,7 +45,8 @@ namespace Jint.Native.Boolean
                 return o.PrimitiveValue;
             }
 
-            throw new JavaScriptException(Engine.TypeError);
+            ExceptionHelper.ThrowTypeError(Engine);
+            return null;
         }
 
         private JsValue ToBooleanString(JsValue thisObj, JsValue[] arguments)

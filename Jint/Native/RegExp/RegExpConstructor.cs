@@ -73,7 +73,7 @@ namespace Jint.Native.RegExp
 
             if (!flags.IsUndefined() && !ReferenceEquals(r, null))
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             if (pattern.IsUndefined())
@@ -98,11 +98,10 @@ namespace Jint.Native.RegExp
             }
             catch (Exception e)
             {
-                throw new JavaScriptException(Engine.SyntaxError, e.Message);
+                ExceptionHelper.ThrowSyntaxError(_engine, e.Message);
             }
 
-            string s;
-            s = p;
+            var s = p;
 
             if (string.IsNullOrEmpty(s))
             {

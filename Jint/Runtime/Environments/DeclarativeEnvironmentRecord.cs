@@ -68,7 +68,7 @@ namespace Jint.Runtime.Environments
             {
                 if (strict)
                 {
-                    throw new JavaScriptException(_engine.TypeError, "Can't update the value of an immutable binding.");
+                    ExceptionHelper.ThrowTypeError(_engine, "Can't update the value of an immutable binding.");
                 }
             }
         }
@@ -81,7 +81,7 @@ namespace Jint.Runtime.Environments
             {
                 if (strict)
                 {
-                    throw new JavaScriptException(_engine.ReferenceError, "Can't access anm uninitiazed immutable binding.");
+                    ExceptionHelper.ThrowReferenceError(_engine, "Can't access an uninitialized immutable binding.");
                 }
 
                 return Undefined;

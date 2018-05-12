@@ -58,14 +58,14 @@ namespace Jint.Native.Function
             var po = Get("prototype");
             if (!po.IsObject())
             {
-                throw new JavaScriptException(_engine.TypeError, $"Function has non-object prototype '{TypeConverter.ToString(po)}' in instanceof check");
+                ExceptionHelper.ThrowTypeError(_engine, $"Function has non-object prototype '{TypeConverter.ToString(po)}' in instanceof check");
             }
 
             var o = po.AsObject();
 
             if (ReferenceEquals(o, null))
             {
-                throw new JavaScriptException(_engine.TypeError);
+                ExceptionHelper.ThrowTypeError(_engine);
             }
 
             while (true)
@@ -97,7 +97,7 @@ namespace Jint.Native.Function
                 && propertyName == "caller"
                 && ((v.As<FunctionInstance>()?.Strict).GetValueOrDefault()))
             {
-                throw new JavaScriptException(_engine.TypeError);
+                ExceptionHelper.ThrowTypeError(_engine);
             }
 
             return v;

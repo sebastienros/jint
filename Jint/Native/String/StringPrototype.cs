@@ -65,7 +65,7 @@ namespace Jint.Native.String
             var s = TypeConverter.ToObject(Engine, thisObj) as StringInstance;
             if (ReferenceEquals(s, null))
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             return s.PrimitiveValue;
@@ -818,7 +818,7 @@ namespace Jint.Native.String
             var s = thisObj.TryCast<StringInstance>();
             if (ReferenceEquals(s, null))
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             return s.PrimitiveValue;
@@ -894,7 +894,7 @@ namespace Jint.Native.String
             {
                 if (searchString.IsRegExp())
                 {
-                    throw new JavaScriptException(Engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(Engine);
                 }
             }
 

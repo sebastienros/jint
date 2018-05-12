@@ -279,7 +279,7 @@ namespace Jint.Native.Object
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(Engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(Engine);
                 }
 
                 return;
@@ -411,7 +411,7 @@ namespace Jint.Native.Object
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(Engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(Engine);
                 }
 
                 return false;
@@ -450,7 +450,7 @@ namespace Jint.Native.Object
                     }
                 }
 
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             if (hint == Types.Number || hint == Types.None)
@@ -475,7 +475,7 @@ namespace Jint.Native.Object
                     }
                 }
 
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             return ToString();
@@ -506,7 +506,7 @@ namespace Jint.Native.Object
                 {
                     if (throwOnError)
                     {
-                        throw new JavaScriptException(Engine.TypeError);
+                        ExceptionHelper.ThrowTypeError(Engine);
                     }
 
                     return false;
@@ -579,7 +579,7 @@ namespace Jint.Native.Object
                 {
                     if (throwOnError)
                     {
-                        throw new JavaScriptException(Engine.TypeError);
+                        ExceptionHelper.ThrowTypeError(Engine);
                     }
 
                     return false;
@@ -589,7 +589,7 @@ namespace Jint.Native.Object
                 {
                     if (throwOnError)
                     {
-                        throw new JavaScriptException(Engine.TypeError);
+                        ExceptionHelper.ThrowTypeError(Engine);
                     }
 
                     return false;
@@ -604,7 +604,7 @@ namespace Jint.Native.Object
                     {
                         if (throwOnError)
                         {
-                            throw new JavaScriptException(Engine.TypeError);
+                            ExceptionHelper.ThrowTypeError(Engine);
                         }
 
                         return false;
@@ -636,7 +636,7 @@ namespace Jint.Native.Object
                         {
                             if (throwOnError)
                             {
-                                throw new JavaScriptException(Engine.TypeError);
+                                ExceptionHelper.ThrowTypeError(Engine);
                             }
 
                             return false;
@@ -648,7 +648,7 @@ namespace Jint.Native.Object
                             {
                                 if (throwOnError)
                                 {
-                                    throw new JavaScriptException(Engine.TypeError);
+                                    ExceptionHelper.ThrowTypeError(Engine);
                                 }
 
                                 return false;
@@ -666,7 +666,7 @@ namespace Jint.Native.Object
                         {
                             if (throwOnError)
                             {
-                                throw new JavaScriptException(Engine.TypeError);
+                                ExceptionHelper.ThrowTypeError(Engine);
                             }
 
                             return false;
@@ -937,7 +937,8 @@ namespace Jint.Native.Object
                 return callable;
             }
 
-            throw new JavaScriptException(Engine.TypeError, "Argument must be callable");
+            ExceptionHelper.ThrowTypeError(_engine, "Argument must be callable");
+            return null;
         }
 
         public override bool Equals(JsValue obj)

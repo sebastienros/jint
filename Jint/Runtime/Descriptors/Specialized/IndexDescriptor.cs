@@ -42,7 +42,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             // throw if no indexer found
             if (_indexer == null)
             {
-                throw new InvalidOperationException("No matching indexer found.");
+                ExceptionHelper.ThrowInvalidOperationException("No matching indexer found.");
             }
 
             Writable = true;
@@ -61,7 +61,7 @@ namespace Jint.Runtime.Descriptors.Specialized
 
                 if (getter == null)
                 {
-                    throw new InvalidOperationException("Indexer has no public getter.");
+                    ExceptionHelper.ThrowInvalidOperationException("Indexer has no public getter.");
                 }
 
                 object[] parameters = {_key};
@@ -89,7 +89,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                 var setter = _indexer.GetSetMethod();
                 if (setter == null)
                 {
-                    throw new InvalidOperationException("Indexer has no public setter.");
+                    ExceptionHelper.ThrowInvalidOperationException("Indexer has no public setter.");
                 }
 
                 object[] parameters = {_key, value?.ToObject()};

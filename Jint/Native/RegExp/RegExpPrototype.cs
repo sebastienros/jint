@@ -52,7 +52,7 @@ namespace Jint.Native.RegExp
             var r = TypeConverter.ToObject(Engine, thisObj);
             if (r.Class != "RegExp")
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             var match = Exec(r, arguments);
@@ -64,7 +64,7 @@ namespace Jint.Native.RegExp
             var R = TypeConverter.ToObject(Engine, thisObj) as RegExpInstance;
             if (ReferenceEquals(R, null))
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             var s = TypeConverter.ToString(arguments.At(0));

@@ -22,7 +22,7 @@ namespace Jint.Runtime
         {
             if (_size == 0)
             {
-                ThrowEmptyStackException();
+                ExceptionHelper.ThrowInvalidOperationException("stack is empty");
             }
             return ref _array[_size - 1];
         }
@@ -32,7 +32,7 @@ namespace Jint.Runtime
         {
             if (_size == 0)
             {
-                ThrowEmptyStackException();
+                ExceptionHelper.ThrowInvalidOperationException("stack is empty");
             }
             _size--;
         }
@@ -49,11 +49,6 @@ namespace Jint.Runtime
             }
 
             _array[_size++] = item;
-        }
-
-        private static void ThrowEmptyStackException()
-        {
-            throw new InvalidOperationException("stack is empty");
         }
 
         public void ReplaceTopLexicalEnvironment(LexicalEnvironment newEnv)

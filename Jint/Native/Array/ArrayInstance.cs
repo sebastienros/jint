@@ -69,7 +69,7 @@ namespace Jint.Native.Array
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(Engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(Engine);
                 }
 
                 return;
@@ -116,7 +116,7 @@ namespace Jint.Native.Array
                 uint newLen = TypeConverter.ToUint32(value);
                 if (newLen != TypeConverter.ToNumber(value))
                 {
-                    throw new JavaScriptException(_engine.RangeError);
+                    ExceptionHelper.ThrowRangeError(_engine);
                 }
 
                 newLenDesc.Value = newLen;
@@ -129,7 +129,7 @@ namespace Jint.Native.Array
                 {
                     if (throwOnError)
                     {
-                        throw new JavaScriptException(_engine.TypeError);
+                        ExceptionHelper.ThrowTypeError(_engine);
                     }
 
                     return false;
@@ -180,7 +180,7 @@ namespace Jint.Native.Array
 
                                     if (throwOnError)
                                     {
-                                        throw new JavaScriptException(_engine.TypeError);
+                                        ExceptionHelper.ThrowTypeError(_engine);
                                     }
 
                                     return false;
@@ -214,7 +214,7 @@ namespace Jint.Native.Array
 
                                     if (throwOnError)
                                     {
-                                        throw new JavaScriptException(_engine.TypeError);
+                                        ExceptionHelper.ThrowTypeError(_engine);
                                     }
 
                                     return false;
@@ -242,7 +242,7 @@ namespace Jint.Native.Array
 
                             if (throwOnError)
                             {
-                                throw new JavaScriptException(_engine.TypeError);
+                                ExceptionHelper.ThrowTypeError(_engine);
                             }
 
                             return false;
@@ -263,7 +263,7 @@ namespace Jint.Native.Array
                 {
                     if (throwOnError)
                     {
-                        throw new JavaScriptException(_engine.TypeError);
+                        ExceptionHelper.ThrowTypeError(_engine);
                     }
 
                     return false;
@@ -274,7 +274,7 @@ namespace Jint.Native.Array
                 {
                     if (throwOnError)
                     {
-                        throw new JavaScriptException(_engine.TypeError);
+                        ExceptionHelper.ThrowTypeError(_engine);
                     }
 
                     return false;

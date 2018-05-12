@@ -45,7 +45,7 @@ namespace Jint.Native.Symbol
         {
             if (!thisObject.IsSymbol())
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             return SymbolDescriptiveString((JsSymbol)thisObject);
@@ -56,7 +56,7 @@ namespace Jint.Native.Symbol
             var sym = thisObject.TryCast<SymbolInstance>();
             if (ReferenceEquals(sym, null))
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             return sym.SymbolData;
@@ -73,7 +73,7 @@ namespace Jint.Native.Symbol
             var o = thisObject.AsInstance<SymbolInstance>();
             if (ReferenceEquals(o, null))
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             return o.SymbolData;
