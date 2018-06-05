@@ -426,7 +426,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void PocosCanReturnObjectInstanceDirectly()
         {
-            var x = new ObjectInstance(_engine) { Extensible = true};
+            var x = new ObjectInstance(_engine) { Extensible = true };
             x.Put("foo", new JsString("bar"), false);
 
             var o = new
@@ -549,7 +549,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void CanUseTrim()
         {
-            var p = new Person { Name = "Mickey Mouse "};
+            var p = new Person { Name = "Mickey Mouse " };
             _engine.SetValue("p", p);
 
             RunTest(@"
@@ -1335,7 +1335,7 @@ namespace Jint.Tests.Runtime
         public void ShouldReturnUndefinedProperty()
         {
             _engine.SetValue("uo", new { foo = "bar" });
-            _engine.SetValue("ud", new Dictionary<string, object>() { {"foo", "bar"} });
+            _engine.SetValue("ud", new Dictionary<string, object>() { { "foo", "bar" } });
             _engine.SetValue("ul", new List<string>() { "foo", "bar" });
 
             RunTest(@"
@@ -1365,7 +1365,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldImportNamespaceNestedType()
         {
-          RunTest(@"
+            RunTest(@"
                 var shapes = importNamespace('Shapes.Circle');
                 var kinds = shapes.Kind;
                 assert(kinds.Unit === 0);
@@ -1377,7 +1377,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldImportNamespaceNestedNestedType()
         {
-          RunTest(@"
+            RunTest(@"
                 var meta = importNamespace('Shapes.Circle.Meta');
                 var usages = meta.Usage;
                 assert(usages.Public === 0);
@@ -1619,6 +1619,34 @@ namespace Jint.Tests.Runtime
             Assert.Throws<ArgumentNullException>(() => engine.Invoke("throwException2"));
             Assert.Equal(engine.Invoke("throwException3").AsString(), exceptionMessage);
             Assert.Throws<ArgumentNullException>(() => engine.Invoke("throwException4"));
+        }
+
+        [Fact]
+        public void Recursive()
+        {
+            var engine = new Engine();
+
+            engine.Global.Put("printer",
+                  Native.JsValue.FromObject(engine, NodePrinter.Instance), true);
+
+            engine.Execute("var p = { parent: null, child: null };");
+            engine.Execute("var c = { parent: p, child: null };");
+            engine.Execute("p.child = c;");
+            engine.Execute("printer.print(p);");
+        }
+
+        public class NodePrinter
+        {
+
+            public static NodePrinter Instance = new NodePrinter();
+
+            public void Print(Native.JsValue node)
+            {
+                var a = node.AsObject();
+                var b = node.AsObject();
+                System.Diagnostics.Debug.WriteLine($"{a},{b}");
+            }
+
         }
     }
 }
