@@ -908,22 +908,22 @@ namespace Jint.Native.Object
                 case "Arguments":
                 case "Object":
 #if __IOS__
-                                IDictionary<string, object> o = new Dictionary<string, object>();
+                    //            IDictionary<string, object> o = new Dictionary<string, object>();
 #else
-                    IDictionary<string, object> o = new ExpandoObject();
+                    // IDictionary<string, object> o = new ExpandoObject();
 #endif
 
-                    foreach (var p in GetOwnProperties())
-                    {
-                        if (!p.Value.Enumerable.HasValue || p.Value.Enumerable.Value == false)
-                        {
-                            continue;
-                        }
+                    //foreach (var p in GetOwnProperties())
+                    //{
+                    //    if (!p.Value.Enumerable.HasValue || p.Value.Enumerable.Value == false)
+                    //    {
+                    //        continue;
+                    //    }
 
-                        o.Add(p.Key, Get(p.Key).ToObject());
-                    }
+                    //    o.Add(p.Key, Get(p.Key).ToObject());
+                    //}
 
-                    return o;
+                    return new JsExpandoObject(this);
             }
 
 

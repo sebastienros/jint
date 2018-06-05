@@ -1597,5 +1597,33 @@ namespace Jint.Tests.Runtime
             Assert.Equal(engine.Invoke("throwException3").AsString(), exceptionMessage);
             Assert.Throws<ArgumentNullException>(() => engine.Invoke("throwException4"));
         }
+
+        [Fact]
+        public void Recursive()
+        {
+            var engine = new Engine();
+
+            engine.Global.Put("printer",
+                  Native.JsValue.FromObject(engine, NodePrinter.Instance), true);
+
+            engine.Execute("var p = { parent: null, child: null };");
+            engine.Execute("var c = { parent: p, child: null };");
+            engine.Execute("p.child = c;");
+            engine.Execute("printer.print(p);");
+        }
+
+        public class NodePrinter
+        {
+
+            public static NodePrinter Instance = new NodePrinter();
+
+            public void Print(Native.JsValue node)
+            {
+                var a = node.AsObject();
+                var b = node.AsObject();
+                System.Diagnostics.Debug.WriteLine($"{a},{b}");
+            }
+
+        }
     }
 }
