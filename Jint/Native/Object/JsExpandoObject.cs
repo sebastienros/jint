@@ -19,12 +19,12 @@ namespace Jint.Native.Object
 #endif
     {
 
-#if !__IOS__
-
-        private object ToObject(JsValue v) {
+        private object ToObject(JsValue v)
+        {
             if (v.IsObject())
                 return v.ToObject();
-            if (v.IsNumber()) {
+            if (v.IsNumber())
+            {
                 return v.AsNumber();
             }
             if (v.IsBoolean())
@@ -37,6 +37,9 @@ namespace Jint.Native.Object
                 return v.AsArray().ToObject();
             return null;
         }
+
+
+#if !__IOS__
 
         public override bool TryGetMember(GetMemberBinder binder, out object result)
         {
@@ -91,7 +94,7 @@ namespace Jint.Native.Object
         }
 
         public object this[string key] {
-            get => Instance.Get(key).ToObject();
+            get => ToObject(Instance.Get(key));
             set => throw new System.NotImplementedException();
         }
 
@@ -102,7 +105,7 @@ namespace Jint.Native.Object
             EnumerableValues.Select(x => x.Key).ToList();
 
         public ICollection<object> Values =>
-            EnumerableValues.Select(x => x.Value.Value.ToObject()).ToList();
+            EnumerableValues.Select(x => ToObject(x.Value.Value)).ToList();
 
         public int Count =>
             EnumerableValues.Count();
@@ -145,7 +148,7 @@ namespace Jint.Native.Object
         public IEnumerator<KeyValuePair<string, object>> GetEnumerator()
         {
             foreach (var k in this.EnumerableValues) {
-                yield return new KeyValuePair<string, object>(k.Key, k.Value.Value.ToObject());
+                yield return new KeyValuePair<string, object>(k.Key, ToObject(k.Value.Value));
             }
         }
 
