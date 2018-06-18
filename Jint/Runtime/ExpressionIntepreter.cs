@@ -643,24 +643,20 @@ namespace Jint.Runtime
             {
                 case TokenType.BooleanLiteral:
                     // bool is fast enough
-                    return literal.CachedValue as JsValue
-                           ?? (literal.NumericValue != 0.0 ? JsBoolean.True : JsBoolean.False);
+                    return (JsValue) (literal.CachedValue = literal.CachedValue ?? (literal.NumericValue != 0.0 ? JsBoolean.True : JsBoolean.False));
                 
                 case TokenType.NullLiteral:
                     // and so is null
                     return JsValue.Null;
 
                 case TokenType.NumericLiteral:
-                    return (JsValue) (literal.CachedValue as JsValue
-                                      ?? (literal.CachedValue = JsNumber.Create(literal.NumericValue)));
+                    return (JsValue) (literal.CachedValue = literal.CachedValue ?? JsNumber.Create(literal.NumericValue));
                 
                 case TokenType.StringLiteral:
-                    return (JsValue) (literal.CachedValue as JsValue 
-                                      ?? (literal.CachedValue = JsString.Create((string) literal.Value)));
+                    return (JsValue) (literal.CachedValue = literal.CachedValue ?? (literal.CachedValue = JsString.Create((string) literal.Value)));
                 
                 case TokenType.RegularExpression:
-                    return (JsValue) (literal.CachedValue as JsValue
-                                      ??  (literal.CachedValue = _engine.RegExp.Construct((System.Text.RegularExpressions.Regex) literal.Value, literal.Regex.Flags)));
+                    return (JsValue) (literal.CachedValue = literal.CachedValue ??  (literal.CachedValue = _engine.RegExp.Construct((System.Text.RegularExpressions.Regex) literal.Value, literal.Regex.Flags)));
 
                 default:
                     // a rare case, above types should cover all
