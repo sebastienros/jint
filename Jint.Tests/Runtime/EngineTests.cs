@@ -1972,7 +1972,7 @@ namespace Jint.Tests.Runtime
 
             Assert.True(result);
         }
-        
+
         [Fact]
         public void ShouldNotCompareClrInstancesWithObjects()
         {
@@ -2468,8 +2468,8 @@ namespace Jint.Tests.Runtime
             var actualValue = engine.Execute(actual).GetCompletionValue().ToObject();
             Assert.Equal(expectedValue, actualValue);
         }
-	
-	[Fact]
+
+        [Fact]
         public void ShouldReturnCorrectConcatenatedStrings()
         {
             RunTest(@"

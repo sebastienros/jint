@@ -171,6 +171,11 @@ namespace Jint.Native
                     || _stringBuilder != null && _stringBuilder.Length == 0;
             }
 
+            public override object ToObject()
+            {
+                return _stringBuilder.ToString();
+            }
+
             public override bool Equals(JsValue other)
             {
                 if (other is ConcatenatedString cs)
