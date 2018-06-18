@@ -59,27 +59,17 @@ namespace Jint.Native
 
         internal static JsString Create(string value)
         {
-            if (value.Length <= 1)
+            switch (value.Length)
             {
-                if (value == "")
-                {
+                case 0:
                     return Empty;
-                }
-
-                if (value.Length == 1)
-                {
-                    if (value[0] >= 0 && value[0] <= AsciiMax)
-                    {
-                        return _charToStringJsValue[value[0]];
-                    }
-                }
+                case 1 when value[0] >= 0 && value[0] <= AsciiMax:
+                    return _charToStringJsValue[value[0]];
+                case 4 when value == Native.Null.Text:
+                    return NullString;
+                default:
+                    return new JsString(value);
             }
-            else if (value == Native.Null.Text)
-            {
-                return NullString;
-            }
-
-            return new JsString(value);
         }
 
         internal static JsString Create(char value)
