@@ -648,6 +648,14 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldThrowMemoryLimitExceeded()
+        {
+            Assert.Throws<MemoryLimitExceededException>(
+                () => new Engine(cfg => cfg.LimitMemory(2048)).Execute("a=[]; while(true){ a.push(0); }")
+            );
+        }
+
+        [Fact]
         public void ShouldThrowTimeout()
         {
             Assert.Throws<TimeoutException>(

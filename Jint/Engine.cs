@@ -42,6 +42,7 @@ namespace Jint
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
+        private long _initialMemoryUsage;
         private long _timeoutTicks;
         private INode _lastSyntaxNode;
 
@@ -78,6 +79,16 @@ namespace Jint
         };
 
         internal JintCallStack CallStack = new JintCallStack();
+
+        static Engine()
+        {
+            var methodInfo = typeof(GC).GetMethod("GetAllocatedBytesForCurrentThread");
+
+            if (methodInfo != null)
+            {
+                GetAllocatedBytesForCurrentThread =  (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), null, methodInfo);
+            }
+        }
 
         public Engine() : this(null)
         {
@@ -163,7 +174,7 @@ namespace Jint
             // gather some options as fields for faster checks
             _isDebugMode = Options.IsDebugMode;
             _isStrict = Options.IsStrict;
-            _maxStatements = Options.MaxStatementCount;
+            _maxStatements = Options._MaxStatements;
             _referenceResolver = Options.ReferenceResolver;
 
             ReferencePool = new ReferencePool();
@@ -251,6 +262,8 @@ namespace Jint
         }
         #endregion
 
+        private static readonly Func<long> GetAllocatedBytesForCurrentThread;
+
         public void EnterExecutionContext(
             LexicalEnvironment lexicalEnvironment,
             LexicalEnvironment variableEnvironment,
@@ -314,6 +327,14 @@ namespace Jint
             _statementsCount = 0;
         }
 
+        public void ResetMemoryUsage()
+        {
+            if (GetAllocatedBytesForCurrentThread != null)
+            {
+                _initialMemoryUsage = GetAllocatedBytesForCurrentThread();
+            }
+        }
+
         public void ResetTimeoutTicks()
         {
             var timeoutIntervalTicks = Options._TimeoutInterval.Ticks;
@@ -342,6 +363,12 @@ namespace Jint
         public Engine Execute(Program program)
         {
             ResetStatementsCount();
+            
+            if (Options._MemoryLimit > 0)
+            {
+                ResetMemoryUsage();
+            }
+            
             ResetTimeoutTicks();
             ResetLastStatement();
             ResetCallStack();
@@ -386,6 +413,22 @@ namespace Jint
             if (_timeoutTicks > 0 && _timeoutTicks < DateTime.UtcNow.Ticks)
             {
                 ThrowTimeoutException();
+            }
+
+            if (Options._MemoryLimit > 0)
+            {
+                if (GetAllocatedBytesForCurrentThread != null)
+                {
+                    var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
+                    if (memoryUsage > Options._MemoryLimit)
+                    {
+                        throw new MemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {Options._MemoryLimit}");
+                    }
+                }
+                else
+                {
+                    throw new PlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
+                }
             }
 
             _lastSyntaxNode = statement;
