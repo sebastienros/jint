@@ -1964,6 +1964,20 @@ namespace Jint.Tests.Runtime
 
             Assert.True(result);
         }
+        
+        [Fact]
+        public void ShouldNotCompareClrInstancesWithObjects()
+        {
+            var engine = new Engine();
+
+            var guid1 = Guid.NewGuid();
+
+            engine.SetValue("guid1", guid1);
+
+            var result = engine.Execute("guid1 == {}").GetCompletionValue().AsBoolean();
+
+            Assert.False(result);
+        }
 
         [Fact]
         public void ShouldStringifyNumWithoutV8DToA()

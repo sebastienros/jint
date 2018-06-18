@@ -501,14 +501,17 @@ namespace Jint.Runtime
                 return ((JsBoolean) x)._value == ((JsBoolean) y)._value;
             }
 
-			if (typea == Types.Object)
-			{
-			    if (x.AsObject() is IObjectWrapper xw)
-				{
-					var yw = y.AsObject() as IObjectWrapper;
-					return Equals(xw.Target, yw.Target);
-				}
-			}
+            if (typea == Types.Object)
+            {
+                if (x.AsObject() is IObjectWrapper xw)
+                {
+                    var yw = y.AsObject() as IObjectWrapper;
+                    if (yw == null)
+                        return false;
+
+                    return Equals(xw.Target, yw.Target);
+                }
+            }
 
             if (typea == Types.None)
             {
