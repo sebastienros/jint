@@ -18,9 +18,6 @@ namespace Jint.Runtime
     /// </summary>
     public readonly struct Completion
     {
-        internal static readonly Completion Empty = new Completion(CompletionType.Normal, null, null);
-        internal static readonly Completion EmptyUndefined = new Completion(CompletionType.Normal, Undefined.Instance, null);
-
         public Completion(CompletionType type, JsValue value, string identifier, Location location = null)
         {
             Type = type;
@@ -30,10 +27,9 @@ namespace Jint.Runtime
         }
 
         public readonly CompletionType Type;
-
         public readonly JsValue Value;
-
         public readonly string Identifier;
+        public readonly Location Location;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetValueOrDefault()
@@ -46,7 +42,5 @@ namespace Jint.Runtime
         {
             return Type != CompletionType.Normal;
         }
-
-        public readonly Location Location;
     }
 }

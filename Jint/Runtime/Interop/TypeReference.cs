@@ -13,7 +13,7 @@ namespace Jint.Runtime.Interop
     public class TypeReference : FunctionInstance, IConstructor, IObjectWrapper
     {
         private TypeReference(Engine engine)
-            : base(engine, null, null, false)
+            : base(engine, null, null, false, "TypeReference")
         {
         }
 
@@ -202,7 +202,5 @@ namespace Jint.Runtime.Interop
         }
 
         public object Target => ReferenceType;
-
-        public override string Class => "TypeReference";
     }
 }

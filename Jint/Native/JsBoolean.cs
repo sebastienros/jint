@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics.Contracts;
 using Jint.Runtime;
 
 namespace Jint.Native
@@ -17,12 +16,6 @@ namespace Jint.Native
         public JsBoolean(bool value) : base(Types.Boolean)
         {
             _value = value;
-        }
-
-        [Pure]
-        public override bool AsBoolean()
-        {
-            return _value;
         }
 
         public override object ToObject()

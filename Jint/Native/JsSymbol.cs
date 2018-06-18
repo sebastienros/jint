@@ -8,7 +8,7 @@ namespace Jint.Native
     /// </summary>
     public sealed class JsSymbol : JsValue, IEquatable<JsSymbol>
     {
-        private readonly string _value;
+        internal readonly string _value;
 
         public JsSymbol(string value) : base(Types.Symbol)
         {
@@ -17,16 +17,6 @@ namespace Jint.Native
 
         public override object ToObject()
         {
-            return _value;
-        }
-
-        public override string AsSymbol()
-        {
-            if (_value == null)
-            {
-                throw new ArgumentException("The value is not defined");
-            }
-
             return _value;
         }
 

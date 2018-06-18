@@ -138,7 +138,8 @@ namespace Jint.Runtime.Debugger
 
             if (!string.IsNullOrEmpty(breakpoint.Condition))
             {
-                return _engine.Execute(breakpoint.Condition).GetCompletionValue().AsBoolean();
+                var completionValue = _engine.Execute(breakpoint.Condition).GetCompletionValue();
+                return ((JsBoolean) completionValue)._value;
             }
 
             return true;
@@ -148,7 +149,7 @@ namespace Jint.Runtime.Debugger
         {
             var info = new DebugInformation { CurrentStatement = statement, CallStack = _debugCallStack };
 
-            if (_engine.ExecutionContext?.LexicalEnvironment != null)
+            if (_engine.ExecutionContext.LexicalEnvironment != null)
             {
                 var lexicalEnvironment = _engine.ExecutionContext.LexicalEnvironment;
                 info.Locals = GetLocalVariables(lexicalEnvironment);

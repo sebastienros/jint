@@ -94,7 +94,7 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            if (ReferenceEquals(argArray, Null) || ReferenceEquals(argArray, Undefined))
+            if (argArray.IsNull() || argArray.IsUndefined())
             {
                 return func.Call(thisArg, Arguments.Empty);
             }
@@ -105,7 +105,7 @@ namespace Jint.Native.Function
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var len = argArrayObj.Get("length").AsNumber();
+            var len = ((JsNumber) argArrayObj.Get("length"))._value;
             uint n = TypeConverter.ToUint32(len);
 
             var argList = n < 10 

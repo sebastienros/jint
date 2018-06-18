@@ -19,7 +19,7 @@ namespace Jint.Native
     {
         public static readonly JsValue Undefined = new JsUndefined();
         public static readonly JsValue Null = new JsNull();
-        private readonly Types _type;
+        internal readonly Types _type;
 
         protected JsValue(Types type)
         {
@@ -30,7 +30,7 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPrimitive()
         {
-            return _type != Types.Object && Type != Types.None;
+            return _type != Types.Object && _type != Types.None;
         }
 
         [Pure]
@@ -174,7 +174,7 @@ namespace Jint.Native
             }
 
             // TODO not implemented
-            return Completion.EmptyUndefined;
+            return new Completion(CompletionType.Normal, Native.Undefined.Instance, null);
         }
 
         [Pure]
@@ -183,8 +183,7 @@ namespace Jint.Native
         {
             if (IsObject())
             {
-                var o = this as T;
-                if (o != null)
+                if (this is T o)
                 {
                     return o;
                 }
@@ -211,30 +210,6 @@ namespace Jint.Native
                 return this as T;
             }
             return null;
-        }
-
-        [Pure]
-        public virtual bool AsBoolean()
-        {
-            throw new ArgumentException("The value is not a boolean");
-        }
-
-        [Pure]
-        public virtual string AsString()
-        {
-            throw new ArgumentException("The value is not a string");
-        }
-
-        [Pure]
-        public virtual string AsSymbol()
-        {
-            throw new ArgumentException("The value is not a symbol");
-        }
-
-        [Pure]
-        public virtual double AsNumber()
-        {
-            throw new ArgumentException("The value is not a number");
         }
 
         // ReSharper disable once ConvertToAutoPropertyWhenPossible // PERF
@@ -511,13 +486,13 @@ namespace Jint.Native
                         Value = "null";
                         break;
                     case Types.Boolean:
-                        Value = value.AsBoolean() + " (bool)";
+                        Value = ((JsBoolean) value)._value + " (bool)";
                         break;
                     case Types.String:
-                        Value = value.AsString() + " (string)";
+                        Value = value.AsStringWithoutTypeCheck() + " (string)";
                         break;
                     case Types.Number:
-                        Value = value.AsNumber() + " (number)";
+                        Value = ((JsNumber) value)._value + " (number)";
                         break;
                     case Types.Object:
                         Value = value.AsObject().GetType().Name;

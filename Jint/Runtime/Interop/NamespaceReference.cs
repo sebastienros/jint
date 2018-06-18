@@ -50,7 +50,7 @@ namespace Jint.Runtime.Interop
             for (int i = 0; i < arguments.Length; i++)
             {
                 var genericTypeReference = arguments.At(i);
-                if (ReferenceEquals(genericTypeReference, Undefined)
+                if (genericTypeReference.IsUndefined()
                     || !genericTypeReference.IsObject() 
                     || genericTypeReference.AsObject().Class != "TypeReference")
                 {

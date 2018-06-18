@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 
 namespace Jint.Pooling
@@ -35,36 +36,43 @@ namespace Jint.Pooling
             return new JsValue[3];
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue[] RentArray(int size)
         {
-            switch (size)
+            if (size == 0)
             {
-                case 0:
-                    return Array.Empty<JsValue>();
-                case 1:
-                    return _poolArray1.Allocate();
-                case 2:
-                    return _poolArray2.Allocate();
-                case 3:
-                    return _poolArray3.Allocate();
+                return Array.Empty<JsValue>();
+            }
+            if (size == 1)
+            {
+                return _poolArray1.Allocate();
+            }
+            if (size == 2)
+            {
+                return _poolArray2.Allocate();
+            }
+            if (size == 3)
+            {
+                return _poolArray3.Allocate();
             }
 
             return new JsValue[size];
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ReturnArray(JsValue[] array)
         {
-            switch (array.Length)
+            if (array.Length == 1)
             {
-                case 1:
-                    _poolArray1.Free(array);
-                    break;
-                case 2:
-                    _poolArray2.Free(array);
-                    break;
-                case 3:
-                    _poolArray3.Free(array);
-                    break;
+                _poolArray1.Free(array);
+            }
+            else if (array.Length == 2)
+            {
+                _poolArray2.Free(array);
+            }
+            else if (array.Length == 3)
+            {
+                _poolArray3.Free(array);
             }
         }
     }

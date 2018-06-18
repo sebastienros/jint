@@ -61,7 +61,7 @@ namespace Jint.Native.Array
             var capacity = arguments.Length > 0 ? (uint) arguments.Length : 0;
             if (arguments.Length == 1 && arguments[0].Type == Types.Number)
             {
-                var number = arguments[0].AsNumber();
+                var number = ((JsNumber) arguments[0])._value;
                 if (number > 0)
                 {
                     capacity = (uint) number;

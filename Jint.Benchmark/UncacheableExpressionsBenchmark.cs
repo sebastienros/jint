@@ -23,7 +23,7 @@ namespace Jint.Benchmark
         {
             public Config()
             {
-                Add(Job.ShortRun);
+                Add(Job.MediumRun.WithLaunchCount(1));
                 Add(MemoryDiagnoser.Default);
             }
         }

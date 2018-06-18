@@ -13,11 +13,9 @@ namespace Jint.Native.String
         private PropertyDescriptor _length;
 
         public StringInstance(Engine engine)
-            : base(engine)
+            : base(engine, objectClass: "String")
         {
         }
-
-        public override string Class => "String";
 
         Types IPrimitiveInstance.Type => Types.String;
 
@@ -66,13 +64,13 @@ namespace Jint.Native.String
                 return PropertyDescriptor.Undefined;
 
             var index = (int) dIndex;
-            var len = str.AsString().Length;
+            var len = str.AsStringWithoutTypeCheck().Length;
             if (len <= index || index < 0)
             {
                 return PropertyDescriptor.Undefined;
             }
 
-            var resultStr = TypeConverter.ToString(str.AsString()[index]);
+            var resultStr = TypeConverter.ToString(str.AsStringWithoutTypeCheck()[index]);
             return new PropertyDescriptor(resultStr, PropertyFlag.OnlyEnumerable);
         }
 

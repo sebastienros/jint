@@ -77,7 +77,7 @@ namespace Jint.Runtime
                 return message;
             }
             if (error.IsString())
-                return error.AsString();
+                return error.AsStringWithoutTypeCheck();
 
             return error.ToString();
         }
@@ -100,7 +100,7 @@ namespace Jint.Runtime
                 if (Error.IsObject() == false)
                     return null;
                 var callstack = Error.AsObject().Get("callstack");
-                if (ReferenceEquals(callstack, JsValue.Undefined))
+                if (callstack.IsUndefined())
                     return null;
                 return callstack.AsString();
             }
@@ -117,8 +117,8 @@ namespace Jint.Runtime
 
         public Location Location { get; set; }
 
-        public int LineNumber { get { return null == Location ? 0 : Location.Start.Line; } }
+        public int LineNumber => Location?.Start.Line ?? 0;
 
-        public int Column { get { return null == Location ? 0 : Location.Start.Column; } }
+        public int Column => Location?.Start.Column ?? 0;
     }
 }

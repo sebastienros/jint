@@ -6,11 +6,9 @@ namespace Jint.Native.Symbol
     public class SymbolInstance : ObjectInstance, IPrimitiveInstance
     {
         public SymbolInstance(Engine engine)
-            : base(engine)
+            : base(engine, objectClass: "Symbol")
         {
         }
-
-        public override string Class => "Symbol";
 
         Types IPrimitiveInstance.Type => Types.Symbol;
 

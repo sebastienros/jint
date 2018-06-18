@@ -10,8 +10,6 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private readonly Engine _engine;
-
         private const string BindingNameArguments = "arguments";
         private Binding _argumentsBinding;
 
@@ -19,14 +17,13 @@ namespace Jint.Runtime.Environments
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
-            _engine = engine;
         }
 
         public override bool HasBinding(string name)
         {
-            if (name.Length == 9 && name == BindingNameArguments)
+            if (_argumentsBinding != null && name.Length == 9 && name == BindingNameArguments)
             {
-                return _argumentsBinding != null;
+                return true;
             }
 
             return _bindings?.ContainsKey(name) == true;
@@ -80,7 +77,7 @@ namespace Jint.Runtime.Environments
         {
             var binding = name == BindingNameArguments ? _argumentsBinding : _bindings[name];
 
-            if (!binding.Mutable && ReferenceEquals(binding.Value, Undefined))
+            if (!binding.Mutable && binding.Value.IsUndefined())
             {
                 if (strict)
                 {

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics.Contracts;
 using System.Text;
 using Jint.Runtime;
 
@@ -14,7 +13,7 @@ namespace Jint.Native
         private static readonly JsString Empty = new JsString("");
         private static readonly JsString NullString = new JsString("null");
 
-        private string _value;
+        internal string _value;
 
         static JsString()
         {
@@ -43,17 +42,6 @@ namespace Jint.Native
             _value = value.ToString();
         }
 
-        [Pure]
-        public override string AsString()
-        {
-            if (_value == null)
-            {
-                throw new ArgumentException("The value is not defined");
-            }
-
-            return _value;
-        }
-
         public virtual JsString Append(JsValue jsValue)
         {
             return new ConcatenatedString(string.Concat(_value, TypeConverter.ToString(jsValue)));
@@ -71,27 +59,17 @@ namespace Jint.Native
 
         internal static JsString Create(string value)
         {
-            if (value.Length <= 1)
+            switch (value.Length)
             {
-                if (value == "")
-                {
+                case 0:
                     return Empty;
-                }
-
-                if (value.Length == 1)
-                {
-                    if (value[0] >= 0 && value[0] <= AsciiMax)
-                    {
-                        return _charToStringJsValue[value[0]];
-                    }
-                }
+                case 1 when value[0] >= 0 && value[0] <= AsciiMax:
+                    return _charToStringJsValue[value[0]];
+                case 4 when value == Native.Null.Text:
+                    return NullString;
+                default:
+                    return new JsString(value);
             }
-            else if (value == Native.Null.Text)
-            {
-                return NullString;
-            }
-
-            return new JsString(value);
         }
 
         internal static JsString Create(char value)
@@ -156,8 +134,7 @@ namespace Jint.Native
                 }
             }
 
-            [Pure]
-            public override string AsString()
+            public override string ToString()
             {
                 if (_dirty)
                 {
@@ -203,13 +180,13 @@ namespace Jint.Native
 
                 if (other.Type == Types.String)
                 {
-                    var otherString = other.AsString();
+                    var otherString = other.AsStringWithoutTypeCheck();
                     if (otherString.Length != _stringBuilder.Length)
                     {
                         return false;
                     }
 
-                    return AsString().Equals(otherString);
+                    return ToString().Equals(otherString);
                 }
 
                 return base.Equals(other);

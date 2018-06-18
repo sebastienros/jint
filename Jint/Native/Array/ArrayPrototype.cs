@@ -509,24 +509,26 @@ namespace Jint.Native.Array
 
             var compareArg = arguments.At(0);
             ICallable compareFn = null;
-            if (!ReferenceEquals(compareArg, Undefined))
+            if (!compareArg.IsUndefined())
             {
                 compareFn = compareArg.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "The sort argument must be a function"));
             }
 
             int Comparer(JsValue x, JsValue y)
             {
-                if (ReferenceEquals(x, Undefined) && ReferenceEquals(y, Undefined))
+                var xUndefined = x.IsUndefined();
+                var yUndefined = y.IsUndefined();
+                if (xUndefined && yUndefined)
                 {
                     return 0;
                 }
 
-                if (ReferenceEquals(x, Undefined))
+                if (xUndefined)
                 {
                     return 1;
                 }
 
-                if (ReferenceEquals(y, Undefined))
+                if (yUndefined)
                 {
                     return -1;
                 }
@@ -598,7 +600,7 @@ namespace Jint.Native.Array
             }
 
             uint final;
-            if (ReferenceEquals(end, Undefined))
+            if (end.IsUndefined())
             {
                 final = TypeConverter.ToUint32(len);
             }
@@ -700,7 +702,7 @@ namespace Jint.Native.Array
             var separator = arguments.At(0);
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLength();
-            if (ReferenceEquals(separator, Undefined))
+            if (separator.IsUndefined())
             {
                 separator = ",";
             }
@@ -715,7 +717,7 @@ namespace Jint.Native.Array
 
             string StringFromJsValue(JsValue value)
             {
-                return ReferenceEquals(value, Undefined) || ReferenceEquals(value, Null)
+                return value.IsUndefined() || value.IsNull()
                     ? ""
                     : TypeConverter.ToString(value);
             }
@@ -749,7 +751,7 @@ namespace Jint.Native.Array
             }
 
             JsValue r;
-            if (!array.TryGetValue(0, out var firstElement) || ReferenceEquals(firstElement, Null) || ReferenceEquals(firstElement, Undefined))
+            if (!array.TryGetValue(0, out var firstElement) || firstElement.IsNull() || firstElement.IsUndefined())
             {
                 r = "";
             }
@@ -764,7 +766,7 @@ namespace Jint.Native.Array
             for (uint k = 1; k < len; k++)
             {
                 string s = r + separator;
-                if (!array.TryGetValue(k, out var nextElement) || ReferenceEquals(nextElement, Null))
+                if (!array.TryGetValue(k, out var nextElement) || nextElement.IsNull())
                 {
                     r = "";
                 }

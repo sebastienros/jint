@@ -24,7 +24,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteEmptyStatement(EmptyStatement emptyStatement)
         {
-            return Completion.Empty;
+            return new Completion(CompletionType.Normal, null, null);
         }
 
         public Completion ExecuteExpressionStatement(ExpressionStatement expressionStatement)
@@ -46,7 +46,7 @@ namespace Jint.Runtime
             }
             else
             {
-                return Completion.Empty;
+                return new Completion(CompletionType.Normal, null, null);
             }
 
             return result;
@@ -214,9 +214,9 @@ namespace Jint.Runtime
 
             var varRef = _engine.EvaluateExpression(identifier) as Reference;
             var experValue = _engine.GetValue(_engine.EvaluateExpression(forInStatement.Right), true);
-            if (ReferenceEquals(experValue, Undefined.Instance) || ReferenceEquals(experValue,  Null.Instance))
+            if (experValue.IsUndefined() || experValue.IsNull())
             {
-                return Completion.Empty;
+                return new Completion(CompletionType.Normal, null, null);
             }
 
             var obj = TypeConverter.ToObject(_engine, experValue);
@@ -232,7 +232,7 @@ namespace Jint.Runtime
 
                 for (var i = 0; i < keys.GetLength(); i++)
                 {
-                    var p = keys.GetOwnProperty(TypeConverter.ToString(i)).Value.AsString();
+                    var p = keys.GetOwnProperty(TypeConverter.ToString(i)).Value.AsStringWithoutTypeCheck();
 
                     if (processedKeys.Contains(p))
                     {
@@ -246,7 +246,6 @@ namespace Jint.Runtime
                     {
                         continue;
                     }
-
 
                     var value = cursor.GetOwnProperty(p);
                     if (!value.Enumerable)
@@ -333,7 +332,7 @@ namespace Jint.Runtime
             var obj = TypeConverter.ToObject(_engine, jsValue);
             var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
             var newEnv = LexicalEnvironment.NewObjectEnvironment(_engine, obj, oldEnv, true);
-            _engine.ExecutionContext.LexicalEnvironment = newEnv;
+            _engine.UpdateLexicalEnvironment(newEnv);
 
             Completion c;
             try
@@ -346,7 +345,7 @@ namespace Jint.Runtime
             }
             finally
             {
-                _engine.ExecutionContext.LexicalEnvironment = oldEnv;
+                _engine.UpdateLexicalEnvironment(oldEnv);
             }
 
             return c;
@@ -420,7 +419,7 @@ namespace Jint.Runtime
 
         public Completion ExecuteStatementList(List<StatementListItem> statementList)
         {
-            var c = Completion.Empty;
+            var c = new Completion(CompletionType.Normal, null, null);
             Completion sl = c;
             Statement s = null;
 
@@ -483,9 +482,10 @@ namespace Jint.Runtime
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
                     catchEnv.Record.CreateMutableBinding(((Identifier) catchClause.Param).Name, c);
-                    _engine.ExecutionContext.LexicalEnvironment = catchEnv;
+
+                    _engine.UpdateLexicalEnvironment(catchEnv);
                     b = ExecuteStatement(catchClause.Body);
-                    _engine.ExecutionContext.LexicalEnvironment = oldEnv;
+                    _engine.UpdateLexicalEnvironment(oldEnv);
                 }
             }
 
@@ -534,7 +534,7 @@ namespace Jint.Runtime
                 }
             }
 
-            return Completion.EmptyUndefined;
+            return new Completion(CompletionType.Normal, Undefined.Instance, null);
         }
 
         public Completion ExecuteBlockStatement(BlockStatement blockStatement)
@@ -554,7 +554,7 @@ namespace Jint.Runtime
                 System.Diagnostics.Debugger.Break();
             }
 
-            return Completion.Empty;
+            return new Completion(CompletionType.Normal, null, null);
         }
     }
 }

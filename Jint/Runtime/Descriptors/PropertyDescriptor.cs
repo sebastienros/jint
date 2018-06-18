@@ -263,7 +263,7 @@ namespace Jint.Runtime.Descriptors
             if (hasGetProperty)
             {
                 var getter = obj.UnwrapJsValue(getProperty);
-                if (!ReferenceEquals(getter, JsValue.Undefined) && getter.TryCast<ICallable>() == null)
+                if (!getter.IsUndefined() && getter.TryCast<ICallable>() == null)
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
@@ -274,7 +274,7 @@ namespace Jint.Runtime.Descriptors
             if (hasSetProperty)
             {
                 var setter = obj.UnwrapJsValue(setProperty);
-                if (!ReferenceEquals(setter, JsValue.Undefined) && setter.TryCast<ICallable>() == null)
+                if (!setter.IsUndefined() && setter.TryCast<ICallable>() == null)
                 {
                     throw new JavaScriptException(engine.TypeError);
                 }
@@ -282,7 +282,7 @@ namespace Jint.Runtime.Descriptors
                 ((GetSetPropertyDescriptor) desc).SetSet(setter);
             }
 
-            if (!ReferenceEquals(desc.Get, null) || !ReferenceEquals(desc.Get, null))
+            if (!ReferenceEquals(desc.Get, null))
             {
                 if (!ReferenceEquals(desc.Value, null) || desc.WritableSet)
                 {
@@ -299,7 +299,7 @@ namespace Jint.Runtime.Descriptors
             {
                 return Native.Undefined.Instance;
             }
-
+            
             var obj = engine.Object.Construct(Arguments.Empty);
 
             if (desc.IsDataDescriptor())
