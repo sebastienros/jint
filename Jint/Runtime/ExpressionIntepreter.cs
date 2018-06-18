@@ -656,7 +656,8 @@ namespace Jint.Runtime
                     return (JsValue) (literal.CachedValue = literal.CachedValue ?? (literal.CachedValue = JsString.Create((string) literal.Value)));
                 
                 case TokenType.RegularExpression:
-                    return (JsValue) (literal.CachedValue = literal.CachedValue ??  (literal.CachedValue = _engine.RegExp.Construct((System.Text.RegularExpressions.Regex) literal.Value, literal.Regex.Flags)));
+                    // should not cache
+                    return _engine.RegExp.Construct((System.Text.RegularExpressions.Regex) literal.Value, literal.Regex.Flags);
 
                 default:
                     // a rare case, above types should cover all
