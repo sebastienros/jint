@@ -1025,7 +1025,7 @@ namespace Jint.Native.Date
                 case 1:
                     return 28 + leap;
                 default:
-                    throw new ArgumentOutOfRangeException("month");
+                    throw new ArgumentOutOfRangeException(nameof(month));
 
             }
         }
