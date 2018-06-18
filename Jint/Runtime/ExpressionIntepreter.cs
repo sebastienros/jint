@@ -642,23 +642,27 @@ namespace Jint.Runtime
             switch (literal.TokenType)
             {
                 case TokenType.BooleanLiteral:
-                    return literal.BooleanValue ? JsBoolean.True : JsBoolean.False;
+                    // bool is fast enough
+                    return (JsValue) (literal.CachedValue = literal.CachedValue ?? (literal.NumericValue != 0.0 ? JsBoolean.True : JsBoolean.False));
+                
                 case TokenType.NullLiteral:
+                    // and so is null
                     return JsValue.Null;
+
                 case TokenType.NumericLiteral:
-                    // implicit conversion operator goes through caching
-                    return literal.NumericValue;
+                    return (JsValue) (literal.CachedValue = literal.CachedValue ?? JsNumber.Create(literal.NumericValue));
+                
                 case TokenType.StringLiteral:
-                    // implicit conversion operator goes through caching
-                    return literal.StringValue;
-            }
+                    return (JsValue) (literal.CachedValue = literal.CachedValue ?? (literal.CachedValue = JsString.Create((string) literal.Value)));
+                
+                case TokenType.RegularExpression:
+                    // should not cache
+                    return _engine.RegExp.Construct((System.Text.RegularExpressions.Regex) literal.Value, literal.Regex.Flags);
 
-            if (literal.RegexValue != null) //(literal.Type == Nodes.RegularExpressionLiteral)
-            {
-                return _engine.RegExp.Construct(literal.RegexValue, literal.Regex.Flags);
+                default:
+                    // a rare case, above types should cover all
+                    return JsValue.FromObject(_engine, literal.Value);
             }
-
-            return JsValue.FromObject(_engine, literal.Value);
         }
 
         public JsValue EvaluateObjectExpression(ObjectExpression objectExpression)
