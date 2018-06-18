@@ -144,12 +144,6 @@ namespace Jint.Native
 
                 return _value;
             }
-            
-            [Pure]
-            public override object ToObject()
-            {
-                return AsString();
-            }
 
             public override JsString Append(JsValue jsValue)
             {
