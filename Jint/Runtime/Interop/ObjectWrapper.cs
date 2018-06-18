@@ -50,7 +50,7 @@ namespace Jint.Runtime.Interop
             ownDesc.Value = value;
         }
 
-        public override IPropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(string propertyName)
         {
             if (TryGetProperty(propertyName, out var x))
                 return x;
@@ -86,7 +86,7 @@ namespace Jint.Runtime.Interop
 
             if (methods.Any())
             {
-                var descriptor = new EnumerablePropertyDescriptor(new MethodInfoFunctionInstance(Engine, methods));
+                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methods), PropertyFlag.OnlyEnumerable);
                 AddProperty(propertyName, descriptor);
                 return descriptor;
             }
@@ -120,7 +120,7 @@ namespace Jint.Runtime.Interop
 
             if (explicitMethods.Length > 0)
             {
-                var descriptor = new EnumerablePropertyDescriptor(new MethodInfoFunctionInstance(Engine, explicitMethods));
+                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, explicitMethods), PropertyFlag.OnlyEnumerable);
                 AddProperty(propertyName, descriptor);
                 return descriptor;
             }
@@ -140,7 +140,7 @@ namespace Jint.Runtime.Interop
             return PropertyDescriptor.Undefined;
         }
 
-        private bool EqualsIgnoreCasing(string s1, string s2)
+        private static bool EqualsIgnoreCasing(string s1, string s2)
         {
             bool equals = false;
             if (s1.Length == s2.Length)

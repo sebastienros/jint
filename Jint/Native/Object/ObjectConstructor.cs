@@ -5,18 +5,14 @@ using Jint.Native.Function;
 using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object
 {
     public sealed class ObjectConstructor : FunctionInstance, IConstructor
     {
-        private readonly Engine _engine;
-
         private ObjectConstructor(Engine engine) : base(engine, null, null, false)
         {
-            _engine = engine;
         }
 
         public static ObjectConstructor CreateObjectConstructor(Engine engine)
@@ -26,8 +22,8 @@ namespace Jint.Native.Object
 
             obj.PrototypeObject = ObjectPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
-            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
+            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
+            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
             return obj;
         }
@@ -66,7 +62,7 @@ namespace Jint.Native.Object
                 return Construct(arguments);
             }
 
-            if(ReferenceEquals(arguments[0], Null) || ReferenceEquals(arguments[0], Undefined))
+            if(arguments[0].IsNull() || arguments[0].IsUndefined())
             {
                 return Construct(arguments);
             }
@@ -85,7 +81,7 @@ namespace Jint.Native.Object
             {
                 var value = arguments[0];
                 var valueObj = value.TryCast<ObjectInstance>();
-                if (valueObj != null)
+                if (!ReferenceEquals(valueObj, null))
                 {
                     return valueObj;
                 }
@@ -109,7 +105,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -121,7 +117,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -137,7 +133,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -148,22 +144,24 @@ namespace Jint.Native.Object
             var ownProperties = o.GetOwnProperties().ToList();
             if (o is StringInstance s)
             {
-                var length = s.PrimitiveValue.AsString().Length;
+                var length = s.PrimitiveValue.AsStringWithoutTypeCheck().Length;
                 array = Engine.Array.Construct(ownProperties.Count + length);
                 for (var i = 0; i < length; i++)
                 {
-                    array.SetIndexValue(n, TypeConverter.ToString(i), throwOnError: false);
+                    array.SetIndexValue(n, TypeConverter.ToString(i), updateLength: false);
                     n++;
                 }
             }
 
-            array = array ?? Engine.Array.Construct(ownProperties.Count);
-            foreach (var p in ownProperties)
+            array = array ?? Engine.Array.ConstructFast((uint) ownProperties.Count);
+            for (var i = 0; i < ownProperties.Count; i++)
             {
+                var p = ownProperties[i];
                 array.SetIndexValue(n, p.Key, false);
                 n++;
             }
 
+            array.SetLength(n);
             return array;
         }
 
@@ -172,7 +170,7 @@ namespace Jint.Native.Object
             var oArg = arguments.At(0);
 
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null && oArg != Null)
+            if (ReferenceEquals(o, null) && !oArg.IsNull())
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -181,7 +179,7 @@ namespace Jint.Native.Object
             obj.Prototype = o;
 
             var properties = arguments.At(1);
-            if (properties != Undefined)
+            if (!properties.IsUndefined())
             {
                 DefineProperties(thisObject, new [] {obj, properties});
             }
@@ -193,7 +191,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -212,7 +210,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -222,7 +220,7 @@ namespace Jint.Native.Object
             var descriptors = new List<KeyValuePair<string, PropertyDescriptor>>();
             foreach (var p in props.GetOwnProperties())
             {
-                if (!p.Value.Enumerable.HasValue || !p.Value.Enumerable.Value)
+                if (!p.Value.Enumerable)
                 {
                     continue;
                 }
@@ -243,21 +241,19 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var properties = new List<KeyValuePair<string, IPropertyDescriptor>>(o.GetOwnProperties());
+            var properties = new List<KeyValuePair<string, PropertyDescriptor>>(o.GetOwnProperties());
             foreach (var prop in properties)
             {
                 var propertyDescriptor = prop.Value;
-                if (propertyDescriptor.Configurable.HasValue && propertyDescriptor.Configurable.Value)
+                if (propertyDescriptor.Configurable)
                 {
-                    var mutable = propertyDescriptor as PropertyDescriptor ?? new PropertyDescriptor(propertyDescriptor);
-                    mutable.Configurable = false;
-                    propertyDescriptor = mutable;
-                    FastSetProperty(prop.Key, mutable);
+                    propertyDescriptor.Configurable = false;
+                    FastSetProperty(prop.Key, propertyDescriptor);
                 }
 
                 o.DefineOwnProperty(prop.Key, propertyDescriptor, true);
@@ -272,25 +268,25 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            var properties = new List<KeyValuePair<string, IPropertyDescriptor>>(o.GetOwnProperties());
+            var properties = new List<KeyValuePair<string, PropertyDescriptor>>(o.GetOwnProperties());
             foreach (var p in properties)
             {
                 var desc = o.GetOwnProperty(p.Key);
                 if (desc.IsDataDescriptor())
                 {
-                    if (desc.Writable.HasValue && desc.Writable.Value)
+                    if (desc.Writable)
                     {
                         var mutable = desc as PropertyDescriptor ?? new PropertyDescriptor(desc);
                         mutable.Writable = false;
                         desc = mutable;
                     }
                 }
-                if (desc.Configurable.HasValue && desc.Configurable.Value)
+                if (desc.Configurable)
                 {
                     var mutable = desc as PropertyDescriptor ?? new PropertyDescriptor(desc);
                     mutable.Configurable = false;
@@ -308,7 +304,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -322,14 +318,14 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
             foreach (var prop in o.GetOwnProperties())
             {
-                if (prop.Value.Configurable.Value == true)
+                if (prop.Value.Configurable)
                 {
                     return false;
                 }
@@ -347,22 +343,22 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
-            foreach (var p in o.GetOwnProperties().Select(x => x.Key))
+            foreach (var pair in o.GetOwnProperties())
             {
-                var desc = o.GetOwnProperty(p);
+                var desc = pair.Value;
                 if (desc.IsDataDescriptor())
                 {
-                    if (desc.Writable.HasValue && desc.Writable.Value)
+                    if (desc.Writable)
                     {
                         return false;
                     }
                 }
-                if (desc.Configurable.HasValue && desc.Configurable.Value)
+                if (desc.Configurable)
                 {
                     return false;
                 }
@@ -380,7 +376,7 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -392,23 +388,29 @@ namespace Jint.Native.Object
         {
             var oArg = arguments.At(0);
             var o = oArg.TryCast<ObjectInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
 
             var enumerableProperties = o.GetOwnProperties()
-                .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value)
+                .Where(x => x.Value.Enumerable)
                 .ToArray();
             var n = enumerableProperties.Length;
-            var array = Engine.Array.Construct(new JsValue[] {n}, (uint) n);
+
+            var args = _engine.JsValueArrayPool.RentArray(1);
+            args[0] = n;
+            var array = Engine.Array.Construct(args, (uint) n);
+            _engine.JsValueArrayPool.ReturnArray(args);
+
             uint index = 0;
             foreach (var prop in enumerableProperties)
             {
                 var p = prop.Key;
-                array.SetIndexValue(index, p, throwOnError: false);
+                array.SetIndexValue(index, p, updateLength: false);
                 index++;
             }
+            array.SetLength(index);
             return array;
         }
     }

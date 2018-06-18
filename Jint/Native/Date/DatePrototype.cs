@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Date
@@ -25,7 +25,7 @@ namespace Jint.Native.Date
                 PrimitiveValue = double.NaN
             };
 
-            obj.SetOwnProperty("constructor", new NonEnumerablePropertyDescriptor(dateConstructor));
+            obj.SetOwnProperty("constructor", new PropertyDescriptor(dateConstructor, PropertyFlag.NonEnumerable));
 
             return obj;
         }
@@ -562,9 +562,9 @@ namespace Jint.Native.Date
         {
             var o = TypeConverter.ToObject(Engine, thisObj);
             var tv = TypeConverter.ToPrimitive(o, Types.Number);
-            if (tv.IsNumber() && double.IsInfinity(tv.AsNumber()))
+            if (tv.IsNumber() && double.IsInfinity(((JsNumber) tv)._value))
             {
-                return JsValue.Null;
+                return Null;
             }
 
             var toIso = o.Get("toISOString");
@@ -1025,7 +1025,7 @@ namespace Jint.Native.Date
                 case 1:
                     return 28 + leap;
                 default:
-                    throw new ArgumentOutOfRangeException("month");
+                    throw new ArgumentOutOfRangeException(nameof(month));
 
             }
         }

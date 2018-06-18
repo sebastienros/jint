@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
@@ -651,6 +652,28 @@ namespace Jint.Tests.Runtime
             Assert.Equal(2, ((object[])parts).Length);
             Assert.Equal("foo", ((object[])parts)[0]);
             Assert.Equal("bar.com", ((object[])parts)[1]);
+        }
+
+        [Fact]
+        public void ShouldLoopWithNativeEnumerator()
+        {
+            JsValue adder(JsValue argValue)
+            {
+                ArrayInstance args = argValue.AsArray();
+                double sum = 0;
+                foreach (var item in args)
+                {
+                    if (item.IsNumber())
+                    {
+                        sum += item.AsNumber();
+                    }
+                }
+                return sum;
+            }
+            var result = _engine.SetValue("getSum", new Func<JsValue, JsValue>(adder))
+                .Execute("getSum([1,2,3]);");
+
+            Assert.True(result.GetCompletionValue() == 6);
         }
 
         [Fact]

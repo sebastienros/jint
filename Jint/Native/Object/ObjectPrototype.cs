@@ -38,7 +38,7 @@ namespace Jint.Native.Object
             {
                 return false;
             }
-            return desc.Enumerable.HasValue && desc.Enumerable.Value;
+            return desc.Enumerable;
         }
 
         private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
@@ -62,7 +62,7 @@ namespace Jint.Native.Object
             {
                 v = v.Prototype;
 
-                if (v == null)
+                if (ReferenceEquals(v, null))
                 {
                     return false;
                 }
@@ -94,12 +94,12 @@ namespace Jint.Native.Object
         /// <returns></returns>
         public JsValue ToObjectString(JsValue thisObject, JsValue[] arguments)
         {
-            if (ReferenceEquals(thisObject, Undefined))
+            if (thisObject.IsUndefined())
             {
                 return "[object Undefined]";
             }
 
-            if (ReferenceEquals(thisObject, Null))
+            if (thisObject.IsNull())
             {
                 return "[object Null]";
             }

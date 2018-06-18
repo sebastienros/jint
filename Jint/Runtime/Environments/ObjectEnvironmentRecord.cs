@@ -3,7 +3,6 @@ using System.Linq;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime.Environments
 {
@@ -13,13 +12,11 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class ObjectEnvironmentRecord : EnvironmentRecord
     {
-        private readonly Engine _engine;
         private readonly ObjectInstance _bindingObject;
         private readonly bool _provideThis;
 
         public ObjectEnvironmentRecord(Engine engine, ObjectInstance bindingObject, bool provideThis) : base(engine)
         {
-            _engine = engine;
             _bindingObject = bindingObject;
             _provideThis = provideThis;
         }
@@ -35,8 +32,8 @@ namespace Jint.Runtime.Environments
         public override void CreateMutableBinding(string name, JsValue value, bool configurable = true)
         {
             var propertyDescriptor = configurable
-                ? (IPropertyDescriptor) new ConfigurableEnumerableWritablePropertyDescriptor(value)
-                : new NonConfigurablePropertyDescriptor(value);
+                ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable)
+                : new PropertyDescriptor(value, PropertyFlag.NonConfigurable);
 
             _bindingObject.SetOwnProperty(name, propertyDescriptor);
         }
@@ -74,7 +71,7 @@ namespace Jint.Runtime.Environments
 
         public override string[] GetAllBindingNames()
         {
-            if (_bindingObject != null)
+            if (!ReferenceEquals(_bindingObject, null))
             {
                 return _bindingObject.GetOwnProperties().Select( x=> x.Key).ToArray();
             }

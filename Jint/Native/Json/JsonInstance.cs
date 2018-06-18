@@ -7,22 +7,12 @@ namespace Jint.Native.Json
 {
     public sealed class JsonInstance : ObjectInstance
     {
-        private readonly Engine _engine;
         private JsValue _reviver;
 
         private JsonInstance(Engine engine)
-            : base(engine)
+            : base(engine, objectClass: "JSON")
         {
-            _engine = engine;
             Extensible = true;
-        }
-
-        public override string Class
-        {
-            get
-            {
-                return "JSON";
-            }
         }
 
         public static JsonInstance CreateJsonObject(Engine engine)
@@ -64,9 +54,7 @@ namespace Jint.Native.Json
                                 new PropertyDescriptor
                                 (
                                     value: newValue,
-                                    writable: true,
-                                    enumerable: true,
-                                    configurable: true
+                                    PropertyFlag.ConfigurableEnumerableWritable
                                 ),
                                 false
                             );
@@ -91,9 +79,7 @@ namespace Jint.Native.Json
                                 new PropertyDescriptor
                                 (
                                     value: newElement,
-                                    writable: true,
-                                    enumerable: true,
-                                    configurable: true
+                                    PropertyFlag.ConfigurableEnumerableWritable
                                 ),
                                 false
                             );
@@ -116,9 +102,7 @@ namespace Jint.Native.Json
                     "",
                     new PropertyDescriptor(
                         value: res,
-                        writable: true,
-                        enumerable: true,
-                        configurable: true
+                        PropertyFlag.ConfigurableEnumerableWritable
                     ),
                     false
                 );
@@ -150,7 +134,7 @@ namespace Jint.Native.Json
             }
 
             var serializer = new JsonSerializer(_engine);
-            if (ReferenceEquals(value, Undefined) && ReferenceEquals(replacer, Undefined)) {
+            if (value.IsUndefined() && replacer.IsUndefined()) {
                 return Undefined;
             }
 

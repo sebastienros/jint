@@ -1,16 +1,13 @@
 ﻿using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Function
 {
     public sealed class ThrowTypeError : FunctionInstance
     {
-        private readonly Engine _engine;
-
         public ThrowTypeError(Engine engine): base(engine, System.Array.Empty<string>(), engine.GlobalEnvironment, false)
         {
-            _engine = engine;
-            DefineOwnProperty("length", new AllForbiddenPropertyDescriptor(0), false);
+            DefineOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden), false);
             Extensible = false;
         }
 

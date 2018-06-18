@@ -5,11 +5,9 @@ namespace Jint.Native
 {
     public sealed class JsNull : JsValue, IEquatable<JsNull>
     {
-        internal JsNull()
+        internal JsNull() : base(Types.Null)
         {
         }
-
-        public override Types Type => Types.Null;
 
         public override object ToObject()
         {

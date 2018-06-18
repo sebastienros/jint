@@ -1,7 +1,7 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Symbol
@@ -26,10 +26,10 @@ namespace Jint.Native.Symbol
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = SymbolPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(0));
+            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
 
             // The initial value of String.prototype is the String prototype object
-            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
+            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
 
             return obj;
@@ -60,7 +60,7 @@ namespace Jint.Native.Symbol
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             var description = arguments.At(0);
-            var descString = ReferenceEquals(description, Undefined)
+            var descString = description.IsUndefined()
                 ? Undefined
                 : TypeConverter.ToString(description);
 
@@ -80,8 +80,7 @@ namespace Jint.Native.Symbol
 
             // 2. ReturnIfAbrupt(stringKey).
 
-            JsSymbol symbol;
-            if (!Engine.GlobalSymbolRegistry.TryGetValue(stringKey, out symbol))
+            if (!Engine.GlobalSymbolRegistry.TryGetValue(stringKey, out var symbol))
             {
                 symbol = new JsSymbol(stringKey);
                 Engine.GlobalSymbolRegistry.Add(stringKey, symbol);

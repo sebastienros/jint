@@ -1,7 +1,7 @@
 ﻿using Esprima;
 using Jint.Native.Argument;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
 namespace Jint.Native.Function
@@ -10,13 +10,10 @@ namespace Jint.Native.Function
     {
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
 
-        private readonly Engine _engine;
-
         public EvalFunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) : base(engine, parameters, scope, strict)
         {
-            _engine = engine;
             Prototype = Engine.Function.PrototypeObject;
-            SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
+            SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -74,15 +71,13 @@ namespace Jint.Native.Function
                                 der.ReleaseArguments();
                             }
 
-                            if (result.Type == Completion.Throw)
+                            if (result.Type == CompletionType.Throw)
                             {
                                 var ex = new JavaScriptException(value).SetCallstack(_engine, result.Location);
-                                _engine.CompletionPool.Return(result);
                                 throw ex;
                             }
                             else
                             {
-                                _engine.CompletionPool.Return(result);
                                 return value;
                             }
                         }

@@ -6,27 +6,13 @@ namespace Jint.Native.Symbol
     public class SymbolInstance : ObjectInstance, IPrimitiveInstance
     {
         public SymbolInstance(Engine engine)
-            : base(engine)
+            : base(engine, objectClass: "Symbol")
         {
         }
 
-        public override string Class
-        {
-            get
-            {
-                return "Symbol";
-            }
-        }
+        Types IPrimitiveInstance.Type => Types.Symbol;
 
-        Types IPrimitiveInstance.Type
-        {
-            get { return Types.Symbol; }
-        }
-
-        JsValue IPrimitiveInstance.PrimitiveValue
-        {
-            get { return SymbolData; }
-        }
+        JsValue IPrimitiveInstance.PrimitiveValue => SymbolData;
 
         public JsSymbol SymbolData { get; set; }
     }

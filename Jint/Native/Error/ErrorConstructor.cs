@@ -1,7 +1,7 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Error
 {
@@ -23,10 +23,10 @@ namespace Jint.Native.Error
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = ErrorPrototype.CreatePrototypeObject(engine, obj, name);
 
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(1));
+            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
 
             // The initial value of Error.prototype is the Error prototype object
-            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
+            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
             return obj;
         }
@@ -47,9 +47,10 @@ namespace Jint.Native.Error
             instance.Prototype = PrototypeObject;
             instance.Extensible = true;
 
-            if (arguments.At(0) != Undefined)
+            var jsValue = arguments.At(0);
+            if (!jsValue.IsUndefined())
             {
-                instance.Put("message", TypeConverter.ToString(arguments.At(0)), false);
+                instance.Put("message", TypeConverter.ToString(jsValue), false);
             }
 
             return instance;

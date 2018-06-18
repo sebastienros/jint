@@ -648,6 +648,14 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldThrowMemoryLimitExceeded()
+        {
+            Assert.Throws<MemoryLimitExceededException>(
+                () => new Engine(cfg => cfg.LimitMemory(2048)).Execute("a=[]; while(true){ a.push(0); }")
+            );
+        }
+
+        [Fact]
         public void ShouldThrowTimeout()
         {
             Assert.Throws<TimeoutException>(
@@ -1964,6 +1972,20 @@ namespace Jint.Tests.Runtime
 
             Assert.True(result);
         }
+        
+        [Fact]
+        public void ShouldNotCompareClrInstancesWithObjects()
+        {
+            var engine = new Engine();
+
+            var guid1 = Guid.NewGuid();
+
+            engine.SetValue("guid1", guid1);
+
+            var result = engine.Execute("guid1 == {}").GetCompletionValue().AsBoolean();
+
+            Assert.False(result);
+        }
 
         [Fact]
         public void ShouldStringifyNumWithoutV8DToA()
@@ -1974,6 +1996,45 @@ namespace Jint.Tests.Runtime
             Native.JsValue val = engine.Execute("JSON.stringify(53.6841659)").GetCompletionValue();
 
             Assert.True(val.AsString() == "53.6841659");
+        }
+
+        [Fact]
+        public void ShouldStringifyObjectWithPropertiesToSameRef()
+        {
+            var engine = new Engine();
+            var res = engine.Execute(@"
+                var obj = {
+                    a : [],
+                    a1 : ['str'],
+                    a2 : {},
+                    a3 : { 'prop' : 'val' }
+                };
+                obj.b = obj.a;
+                obj.b1 = obj.a1;
+                JSON.stringify(obj);
+            ").GetCompletionValue();
+
+            Assert.True(res == "{\"a\":[],\"a1\":[\"str\"],\"a2\":{},\"a3\":{\"prop\":\"val\"},\"b\":[],\"b1\":[\"str\"]}");
+        }
+
+        [Fact]
+        public void ShouldThrowOnSerializingCyclicRefObject()
+        {
+            var engine = new Engine();
+            var res = engine.Execute(@"
+                (function(){
+                    try{
+                        a = [];
+                        a[0] = a;
+                        my_text = JSON.stringify(a);
+                    }
+                    catch(ex){
+                        return ex.message;
+                    }
+                })();
+            ").GetCompletionValue();
+
+            Assert.True(res == "Cyclic reference detected.");
         }
 
         [Theory]

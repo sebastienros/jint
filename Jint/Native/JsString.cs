@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics.Contracts;
 using System.Text;
 using Jint.Runtime;
 
@@ -14,7 +13,7 @@ namespace Jint.Native
         private static readonly JsString Empty = new JsString("");
         private static readonly JsString NullString = new JsString("null");
 
-        private string _value;
+        internal string _value;
 
         static JsString()
         {
@@ -28,7 +27,7 @@ namespace Jint.Native
             }
         }
 
-        public JsString(string value)
+        public JsString(string value) : base(Types.String)
         {
             _value = value;
         }
@@ -38,22 +37,9 @@ namespace Jint.Native
             return _value;
         }
 
-        public JsString(char value)
+        public JsString(char value) : base(Types.String)
         {
             _value = value.ToString();
-        }
-
-        public override Types Type => Types.String;
-
-        [Pure]
-        public override string AsString()
-        {
-            if (_value == null)
-            {
-                throw new ArgumentException("The value is not defined");
-            }
-
-            return _value;
         }
 
         public virtual JsString Append(JsValue jsValue)
@@ -66,29 +52,24 @@ namespace Jint.Native
             return new ConcatenatedString(_value, capacity);
         }
 
+        internal virtual bool IsNullOrEmpty()
+        {
+            return string.IsNullOrEmpty(_value);
+        }
+
         internal static JsString Create(string value)
         {
-            if (value.Length <= 1)
+            switch (value.Length)
             {
-                if (value == "")
-                {
+                case 0:
                     return Empty;
-                }
-
-                if (value.Length == 1)
-                {
-                    if (value[0] >= 0 && value[0] <= AsciiMax)
-                    {
-                        return _charToStringJsValue[value[0]];
-                    }
-                }
+                case 1 when value[0] >= 0 && value[0] <= AsciiMax:
+                    return _charToStringJsValue[value[0]];
+                case 4 when value == Native.Null.Text:
+                    return NullString;
+                default:
+                    return new JsString(value);
             }
-            else if (value == Native.Null.Text)
-            {
-                return NullString;
-            }
-
-            return new JsString(value);
         }
 
         internal static JsString Create(char value)
@@ -153,8 +134,7 @@ namespace Jint.Native
                 }
             }
 
-            [Pure]
-            public override string AsString()
+            public override string ToString()
             {
                 if (_dirty)
                 {
@@ -191,6 +171,12 @@ namespace Jint.Native
                 return this;
             }
 
+            internal override bool IsNullOrEmpty()
+            {
+                return _stringBuilder == null && string.IsNullOrEmpty(_value)
+                    || _stringBuilder != null && _stringBuilder.Length == 0;
+            }
+
             public override bool Equals(JsValue other)
             {
                 if (other is ConcatenatedString cs)
@@ -200,13 +186,13 @@ namespace Jint.Native
 
                 if (other.Type == Types.String)
                 {
-                    var otherString = other.AsString();
+                    var otherString = other.AsStringWithoutTypeCheck();
                     if (otherString.Length != _stringBuilder.Length)
                     {
                         return false;
                     }
 
-                    return AsString().Equals(otherString);
+                    return ToString().Equals(otherString);
                 }
 
                 return base.Equals(other);

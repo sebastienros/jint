@@ -3,7 +3,7 @@ using System.Globalization;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Date
@@ -11,6 +11,45 @@ namespace Jint.Native.Date
     public sealed class DateConstructor : FunctionInstance, IConstructor
     {
         internal static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        private static readonly string[] DefaultFormats = {
+            "yyyy-MM-ddTHH:mm:ss.FFF",
+            "yyyy-MM-ddTHH:mm:ss",
+            "yyyy-MM-ddTHH:mm",
+            "yyyy-MM-dd",
+            "yyyy-MM",
+            "yyyy"
+        };
+
+        private static readonly string[] SecondaryFormats = {
+            // Formats used in DatePrototype toString methods
+            "ddd MMM dd yyyy HH:mm:ss 'GMT'K",
+            "ddd MMM dd yyyy",
+            "HH:mm:ss 'GMT'K",
+
+            // standard formats
+            "yyyy-M-dTH:m:s.FFFK",
+            "yyyy/M/dTH:m:s.FFFK",
+            "yyyy-M-dTH:m:sK",
+            "yyyy/M/dTH:m:sK",
+            "yyyy-M-dTH:mK",
+            "yyyy/M/dTH:mK",
+            "yyyy-M-d H:m:s.FFFK",
+            "yyyy/M/d H:m:s.FFFK",
+            "yyyy-M-d H:m:sK",
+            "yyyy/M/d H:m:sK",
+            "yyyy-M-d H:mK",
+            "yyyy/M/d H:mK",
+            "yyyy-M-dK",
+            "yyyy/M/dK",
+            "yyyy-MK",
+            "yyyy/MK",
+            "yyyyK",
+            "THH:mm:ss.FFFK",
+            "THH:mm:ssK",
+            "THH:mmK",
+            "THHK"
+        };
 
         public DateConstructor(Engine engine) : base(engine, null, null, false)
         {
@@ -25,10 +64,10 @@ namespace Jint.Native.Date
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = DatePrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(7));
+            obj.SetOwnProperty("length", new PropertyDescriptor(7, PropertyFlag.AllForbidden));
 
             // The initial value of Date.prototype is the Date prototype object
-            obj.SetOwnProperty("prototype", new AllForbiddenPropertyDescriptor(obj.PrototypeObject));
+            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
             return obj;
         }
@@ -42,49 +81,11 @@ namespace Jint.Native.Date
 
         private JsValue Parse(JsValue thisObj, JsValue[] arguments)
         {
-            DateTime result;
             var date = TypeConverter.ToString(arguments.At(0));
 
-            if (!DateTime.TryParseExact(date, new[]
+            if (!DateTime.TryParseExact(date, DefaultFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var result))
             {
-                "yyyy-MM-ddTHH:mm:ss.FFF",
-                "yyyy-MM-ddTHH:mm:ss",
-                "yyyy-MM-ddTHH:mm",
-                "yyyy-MM-dd",
-                "yyyy-MM",
-                "yyyy"
-            }, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out result))
-            {
-                if (!DateTime.TryParseExact(date, new[]
-                {
-                    // Formats used in DatePrototype toString methods
-                    "ddd MMM dd yyyy HH:mm:ss 'GMT'K",
-                    "ddd MMM dd yyyy",
-                    "HH:mm:ss 'GMT'K",
-
-                    // standard formats
-                    "yyyy-M-dTH:m:s.FFFK",
-                    "yyyy/M/dTH:m:s.FFFK",
-                    "yyyy-M-dTH:m:sK",
-                    "yyyy/M/dTH:m:sK",
-                    "yyyy-M-dTH:mK",
-                    "yyyy/M/dTH:mK",
-                    "yyyy-M-d H:m:s.FFFK",
-                    "yyyy/M/d H:m:s.FFFK",
-                    "yyyy-M-d H:m:sK",
-                    "yyyy/M/d H:m:sK",
-                    "yyyy-M-d H:mK",
-                    "yyyy/M/d H:mK",
-                    "yyyy-M-dK",
-                    "yyyy/M/dK",
-                    "yyyy-MK",
-                    "yyyy/MK",
-                    "yyyyK",
-                    "THH:mm:ss.FFFK",
-                    "THH:mm:ssK",
-                    "THH:mmK",
-                    "THHK"
-                }, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
+                if (!DateTime.TryParseExact(date, SecondaryFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
                 {
                     if (!DateTime.TryParse(date, Engine.Options._Culture, DateTimeStyles.AdjustToUniversal, out result))
                     {
@@ -105,7 +106,7 @@ namespace Jint.Native.Date
             return TimeClip(ConstructTimeValue(arguments, useUtc: true));
         }
 
-        private JsValue Now(JsValue thisObj, JsValue[] arguments)
+        private static JsValue Now(JsValue thisObj, JsValue[] arguments)
         {
             return System.Math.Floor((DateTime.UtcNow - Epoch).TotalMilliseconds);
         }
@@ -131,7 +132,7 @@ namespace Jint.Native.Date
                 var v = TypeConverter.ToPrimitive(arguments[0]);
                 if (v.IsString())
                 {
-                    return Construct(Parse(Undefined, Arguments.From(v)).AsNumber());
+                    return Construct(((JsNumber) Parse(Undefined, Arguments.From(v)))._value);
                 }
 
                 return Construct(TypeConverter.ToNumber(v));
@@ -146,7 +147,7 @@ namespace Jint.Native.Date
         {
             if (arguments.Length < 2)
             {
-                throw new ArgumentOutOfRangeException("arguments", "There must be at least two arguments.");
+                throw new ArgumentOutOfRangeException(nameof(arguments), "There must be at least two arguments.");
             }
 
             var y = TypeConverter.ToNumber(arguments[0]);
@@ -165,7 +166,7 @@ namespace Jint.Native.Date
                 }
             }
 
-            if ((!double.IsNaN(y)) && (0 <= TypeConverter.ToInteger(y)) && (TypeConverter.ToInteger(y) <= 99))
+            if (!double.IsNaN(y) && 0 <= TypeConverter.ToInteger(y) && TypeConverter.ToInteger(y) <= 99)
             {
                 y += 1900;
             }

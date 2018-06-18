@@ -5,7 +5,7 @@ using Jint.Native.Array;
 using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Json
 {
@@ -54,7 +54,7 @@ namespace Jint.Native.Json
                         string item = null;
                         if (v.IsString())
                         {
-                            item = v.AsString();
+                            item = v.AsStringWithoutTypeCheck();
                         }
                         else if (v.IsNumber())
                         {
@@ -94,8 +94,10 @@ namespace Jint.Native.Json
             // defining the gap
             if (space.IsNumber())
             {
-                if (space.AsNumber() > 0) {
-                    _gap = new System.String(' ', (int)System.Math.Min(10, space.AsNumber()));
+                var number = ((JsNumber) space)._value;
+                if (number > 0)
+                {
+                    _gap = new string(' ', (int) System.Math.Min(10, number));
                 }
                 else
                 {
@@ -104,7 +106,7 @@ namespace Jint.Native.Json
             }
             else if (space.IsString())
             {
-                var stringSpace = space.AsString();
+                var stringSpace = space.AsStringWithoutTypeCheck();
                 _gap = stringSpace.Length <= 10 ? stringSpace : stringSpace.Substring(0, 10);
             }
             else
@@ -113,7 +115,7 @@ namespace Jint.Native.Json
             }
 
             var wrapper = _engine.Object.Construct(Arguments.Empty);
-            wrapper.DefineOwnProperty("", new ConfigurableEnumerableWritablePropertyDescriptor(value), false);
+            wrapper.DefineOwnProperty("", new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable), false);
 
             return Str("", wrapper);
         }
@@ -135,7 +137,7 @@ namespace Jint.Native.Json
                 }
             }
 
-            if (_replacerFunction != Undefined.Instance)
+            if (!ReferenceEquals(_replacerFunction, Undefined.Instance))
             {
                 var replacerFunctionCallable = (ICallable)_replacerFunction.AsObject();
                 value = replacerFunctionCallable.Call(holder, Arguments.From(key, value));
@@ -170,24 +172,20 @@ namespace Jint.Native.Json
                 return "null";
             }
 
-            if (value.IsBoolean() && value.AsBoolean())
+            if (value.IsBoolean())
             {
-                return "true";
-            }
-
-            if (value.IsBoolean() && !value.AsBoolean())
-            {
-                return "false";
+                return ((JsBoolean) value)._value ? "true" : "false";
             }
 
             if (value.IsString())
             {
-                return Quote(value.AsString());
+                return Quote(value.AsStringWithoutTypeCheck());
             }
 
             if (value.IsNumber())
             {
-                if (GlobalObject.IsFinite(Undefined.Instance, Arguments.From(value)).AsBoolean())
+                var isFinite = GlobalObject.IsFinite(Undefined.Instance, Arguments.From(value));
+                if (((JsBoolean) isFinite)._value)
                 {
                     return TypeConverter.ToString(value);
                 }
@@ -210,7 +208,7 @@ namespace Jint.Native.Json
             return JsValue.Undefined;
         }
 
-        private string Quote(string value)
+        private static string Quote(string value)
         {
             var sb = new System.Text.StringBuilder("\"");
 
@@ -266,12 +264,13 @@ namespace Jint.Native.Json
             for (int i = 0; i < len; i++)
             {
                 var strP = Str(TypeConverter.ToString(i), value);
-                if (strP == JsValue.Undefined)
+                if (strP.IsUndefined())
                     strP = "null";
-                partial.Add(strP.AsString());
+                partial.Add(strP.AsStringWithoutTypeCheck());
             }
             if (partial.Count == 0)
             {
+                _stack.Pop();
                 return "[]";
             }
 
@@ -317,7 +316,7 @@ namespace Jint.Native.Json
             _indent += _gap;
 
             var k = _propertyList ?? value.GetOwnProperties()
-                .Where(x => x.Value.Enumerable.HasValue && x.Value.Enumerable.Value == true)
+                .Where(x => x.Value.Enumerable)
                 .Select(x => x.Key)
                 .ToList();
 
@@ -325,7 +324,7 @@ namespace Jint.Native.Json
             foreach (var p in k)
             {
                 var strP = Str(p, value);
-                if (strP != JsValue.Undefined)
+                if (!strP.IsUndefined())
                 {
                     var member = Quote(p) + ":";
                     if (_gap != "")

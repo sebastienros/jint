@@ -8,18 +8,10 @@ namespace Jint.Native.Math
 {
     public sealed class MathInstance : ObjectInstance
     {
-        private static Random _random = new Random();
-        
-        private MathInstance(Engine engine):base(engine)
-        {
-        }
+        private static readonly Random _random = new Random();
 
-        public override string Class
+        private MathInstance(Engine engine) : base(engine, "Math")
         {
-            get
-            {
-                return "Math";
-            }
         }
 
         public static MathInstance CreateMathObject(Engine engine)
@@ -67,24 +59,76 @@ namespace Jint.Native.Math
         private static JsValue Abs(JsValue thisObject, JsValue[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(x))
+            {
+                return double.NaN;
+            }
+            else if (NumberInstance.IsNegativeZero(x))
+            {
+                return +0;
+            }
+            else if (double.IsInfinity(x))
+            {
+                return double.PositiveInfinity;
+            }
+
             return System.Math.Abs(x);
         }
 
         private static JsValue Acos(JsValue thisObject, JsValue[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(x) || (x > 1) || (x < -1))
+            {
+                return double.NaN;
+            }
+            else if (x == 1)
+            {
+                return 0;
+            }
+
             return System.Math.Acos(x);
         }
 
         private static JsValue Asin(JsValue thisObject, JsValue[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(x) || (x > 1) || (x < -1))
+            {
+                return double.NaN;
+            }
+            else if (NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
+            {
+                return x;
+            }
+
             return System.Math.Asin(x);
         }
 
         private static JsValue Atan(JsValue thisObject, JsValue[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(x))
+            {
+                return double.NaN;
+            }
+            else if (NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
+            {
+                return x;
+            }
+            else if (double.IsPositiveInfinity(x))
+            {
+                return System.Math.PI / 2;
+            }
+            else if (double.IsNegativeInfinity(x))
+            {
+                return -System.Math.PI / 2;
+            }
+
             return System.Math.Atan(x);
         }
 
@@ -239,30 +283,132 @@ namespace Jint.Native.Math
         private static JsValue Ceil(JsValue thisObject, JsValue[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(x))
+            {
+                return double.NaN;
+            }
+            else if (NumberInstance.IsPositiveZero(x))
+            {
+                return +0;
+            }
+            else if (NumberInstance.IsNegativeZero(x))
+            {
+                return -0;
+            }
+            else if (double.IsPositiveInfinity(x))
+            {
+                return double.PositiveInfinity;
+            }
+            else if (double.IsNegativeInfinity(x))
+            {
+                return double.NegativeInfinity;
+            }
+
             return System.Math.Ceiling(x);
         }
 
         private static JsValue Cos(JsValue thisObject, JsValue[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(x))
+            {
+                return double.NaN;
+            }
+            else if (NumberInstance.IsPositiveZero(x))
+            {
+                return 1;
+            }
+            else if (NumberInstance.IsNegativeZero(x))
+            {
+                return 1;
+            }
+            else if (double.IsInfinity(x))
+            {
+                return double.NaN;
+            }
+
             return System.Math.Cos(x);
         }
 
         private static JsValue Exp(JsValue thisObject, JsValue[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(x))
+            {
+                return double.NaN;
+            }
+            else if (NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
+            {
+                return 1;
+            }
+            else if (double.IsPositiveInfinity(x))
+            {
+                return double.PositiveInfinity;
+            }
+            else if (double.IsNegativeInfinity(x))
+            {
+                return +0;
+            }
+
             return System.Math.Exp(x);
         }
 
         private static JsValue Floor(JsValue thisObject, JsValue[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(x))
+            {
+                return double.NaN;
+            }
+            else if (NumberInstance.IsPositiveZero(x))
+            {
+                return +0;
+            }
+            else if (NumberInstance.IsNegativeZero(x))
+            {
+                return -0;
+            }
+            else if (double.IsPositiveInfinity(x))
+            {
+                return double.PositiveInfinity;
+            }
+            else if (double.IsNegativeInfinity(x))
+            {
+                return double.NegativeInfinity;
+            }
+
             return System.Math.Floor(x);
         }
 
         private static JsValue Log(JsValue thisObject, JsValue[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(x))
+            {
+                return double.NaN;
+            }
+            if (x < 0)
+            {
+                return double.NaN;
+            }
+            else if (x == 0)
+            {
+                return double.NegativeInfinity;
+            }
+            else if (double.IsPositiveInfinity(x))
+            {
+                return double.PositiveInfinity;
+            }
+            else if (x == 1)
+            {
+                return +0;
+            }
+
             return System.Math.Log(x);
         }
 
@@ -274,9 +420,22 @@ namespace Jint.Native.Math
             }
 
             double max = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(max))
+            {
+                return double.NaN;
+            }
+
             for (int i = 0; i < arguments.Length; i++)
             {
-                max = System.Math.Max(max, TypeConverter.ToNumber(arguments[i]));
+                var value = TypeConverter.ToNumber(arguments[i]);
+
+                if (double.IsNaN(value))
+                {
+                    return double.NaN;
+                }
+
+                max = System.Math.Max(max, value);
             }
             return max;
         }
@@ -458,6 +617,24 @@ namespace Jint.Native.Math
         private static JsValue Sin(JsValue thisObject, JsValue[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(x))
+            {
+                return double.NaN;
+            }
+            else if (NumberInstance.IsPositiveZero(x))
+            {
+                return +0;
+            }
+            else if (NumberInstance.IsNegativeZero(x))
+            {
+                return -0;
+            }
+            else if (double.IsInfinity(x))
+            {
+                return double.NaN;
+            }
+
             return System.Math.Sin(x);
         }
 

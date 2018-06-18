@@ -1,6 +1,6 @@
 ﻿using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Symbol
@@ -20,7 +20,7 @@ namespace Jint.Native.Symbol
             var obj = new SymbolPrototype(engine);
             obj.Prototype = engine.Object.PrototypeObject;
             obj.Extensible = true;
-            obj.SetOwnProperty("length", new AllForbiddenPropertyDescriptor(0));
+            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
             obj.FastAddProperty("constructor", symbolConstructor, true, false, true);
 
             return obj;
@@ -54,7 +54,7 @@ namespace Jint.Native.Symbol
         private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
         {
             var sym = thisObject.TryCast<SymbolInstance>();
-            if (sym == null)
+            if (ReferenceEquals(sym, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }
@@ -71,7 +71,7 @@ namespace Jint.Native.Symbol
 
             // Steps 3. and 4.
             var o = thisObject.AsInstance<SymbolInstance>();
-            if (o == null)
+            if (ReferenceEquals(o, null))
             {
                 throw new JavaScriptException(Engine.TypeError);
             }

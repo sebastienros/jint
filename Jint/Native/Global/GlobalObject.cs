@@ -120,7 +120,7 @@ namespace Jint.Native.Global
 
             try
             {
-                return sign * Parse(s, radix).AsNumber();
+                return sign * Parse(s, radix);
             }
             catch
             {
@@ -129,7 +129,7 @@ namespace Jint.Native.Global
 
         }
 
-        private static JsValue Parse(string number, int radix)
+        private static double Parse(string number, int radix)
         {
             if (number == "")
             {
