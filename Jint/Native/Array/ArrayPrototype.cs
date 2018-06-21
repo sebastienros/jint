@@ -116,7 +116,7 @@ namespace Jint.Native.Array
 
             if (len == 0 && arguments.Length < 2)
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             var k = 0;
@@ -140,7 +140,7 @@ namespace Jint.Native.Array
 
                 if (kPresent == false)
                 {
-                    throw new JavaScriptException(Engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(Engine);
                 }
             }
 
@@ -496,7 +496,7 @@ namespace Jint.Native.Array
         {
             if (!thisObj.IsObject())
             {
-                throw new JavaScriptException(Engine.TypeError, "Array.prorotype.sort can only be applied on objects");
+                ExceptionHelper.ThrowTypeError(_engine, "Array.prorotype.sort can only be applied on objects");
             }
 
             var obj = ArrayOperations.For(thisObj.AsObject());
@@ -511,7 +511,7 @@ namespace Jint.Native.Array
             ICallable compareFn = null;
             if (!compareArg.IsUndefined())
             {
-                compareFn = compareArg.TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError, "The sort argument must be a function"));
+                compareFn = compareArg.TryCast<ICallable>(x => ExceptionHelper.ThrowTypeError(_engine, "The sort argument must be a function"));
             }
 
             int Comparer(JsValue x, JsValue y)
@@ -758,7 +758,7 @@ namespace Jint.Native.Array
             else
             {
                 var elementObj = TypeConverter.ToObject(Engine, firstElement);
-                var func = elementObj.Get("toLocaleString").TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError));
+                var func = elementObj.Get("toLocaleString") as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(_engine);
 
                 r = func.Call(elementObj, Arguments.Empty);
             }
@@ -773,7 +773,7 @@ namespace Jint.Native.Array
                 else
                 {
                     var elementObj = TypeConverter.ToObject(Engine, nextElement);
-                    var func = elementObj.Get("toLocaleString").TryCast<ICallable>(x => throw new JavaScriptException(Engine.TypeError));
+                    var func = elementObj.Get("toLocaleString") as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(_engine);
                     r = func.Call(elementObj, Arguments.Empty);
                 }
 
@@ -833,7 +833,10 @@ namespace Jint.Native.Array
         {
             var array = TypeConverter.ToObject(Engine, thisObj);
             ICallable func;
-            func = array.Get("join").TryCast<ICallable>(x => { func = Engine.Object.PrototypeObject.Get("toString").TryCast<ICallable>(y => throw new ArgumentException()); });
+            func = array.Get("join").TryCast<ICallable>(x =>
+            {
+                func = Engine.Object.PrototypeObject.Get("toString").TryCast<ICallable>(y => ExceptionHelper.ThrowArgumentException());
+            });
 
             return func.Call(array, Arguments.Empty);
         }
@@ -851,7 +854,7 @@ namespace Jint.Native.Array
 
             if (len == 0 && arguments.Length < 2)
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             int k = (int) len - 1;
@@ -877,10 +880,11 @@ namespace Jint.Native.Array
 
                 if (kPresent == false)
                 {
-                    throw new JavaScriptException(Engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(Engine);
                 }
             }
 
+            var jsValues = new JsValue[4];
             for (; k >= 0; k--)
             {
                 var pk = TypeConverter.ToString(k);
@@ -888,7 +892,11 @@ namespace Jint.Native.Array
                 if (kPresent)
                 {
                     var kvalue = o.Get(pk);
-                    accumulator = callable.Call(Undefined, new[] {accumulator, kvalue, k, o});
+                    jsValues[0] = accumulator;
+                    jsValues[1] = kvalue;
+                    jsValues[2] = k;
+                    jsValues[3] = o;
+                    accumulator = callable.Call(Undefined, jsValues);
                 }
             }
 

@@ -100,10 +100,11 @@ namespace Jint.Native.Function
             {
                 if (e.Description == Messages.InvalidLHSInAssignment)
                 {
-                    throw new JavaScriptException(Engine.ReferenceError);
+                    ExceptionHelper.ThrowReferenceError(_engine);
                 }
 
-                throw new JavaScriptException(Engine.SyntaxError);
+                ExceptionHelper.ThrowSyntaxError(_engine);
+                return null;
             }
         }
     }

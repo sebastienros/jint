@@ -1,5 +1,4 @@
-﻿using System;
-using Esprima;
+﻿using Esprima;
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -77,7 +76,8 @@ namespace Jint.Native.Function
             }
             catch (ParserException)
             {
-                throw new JavaScriptException(Engine.SyntaxError);
+                ExceptionHelper.ThrowSyntaxError(_engine);
+                return null;
             }
 
             var functionObject = new ScriptFunctionInstance(
@@ -129,7 +129,7 @@ namespace Jint.Native.Function
         {
             if (arguments.Length != 2)
             {
-                throw new ArgumentException("Apply has to be called with two arguments.");
+                ExceptionHelper.ThrowArgumentException("Apply has to be called with two arguments.");
             }
 
             var func = thisObject.TryCast<ICallable>();
@@ -138,7 +138,7 @@ namespace Jint.Native.Function
 
             if (func == null)
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             if (argArray.IsNull() || argArray.IsUndefined())
@@ -149,7 +149,7 @@ namespace Jint.Native.Function
             var argArrayObj = argArray.TryCast<ObjectInstance>();
             if (ReferenceEquals(argArrayObj, null))
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             var len = argArrayObj.Get("length");

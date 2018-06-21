@@ -16,15 +16,15 @@ namespace Jint.Runtime
 {
     public enum Types
     {
-        None,
-        Undefined,
-        Null,
-        Boolean,
-        String,
-        Number,
-        Object,
-        Completion,
-        Symbol
+        None = 0,
+        Undefined = 1,
+        Null = 2,
+        Boolean = 3,
+        String = 4,
+        Number = 5,
+        Symbol = 9,
+        Object = 10,
+        Completion = 20,
     }
 
     public class TypeConverter
@@ -55,7 +55,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.None)
         {
-            if (input._type == Types.Null || input._type == Types.Undefined || input.IsPrimitive())
+            if (input._type > Types.None && input._type < Types.Object) 
             {
                 return input;
             }
@@ -355,7 +355,7 @@ namespace Jint.Runtime
                     {
                         // TODO: throw a TypeError
                         // NB: But it requires an Engine reference
-                        throw new JavaScriptException(new JsString("TypeError"));
+                        ExceptionHelper.ThrowJavaScriptException("TypeError");
                     }
                 }
             }
@@ -408,16 +408,11 @@ namespace Jint.Runtime
 
             if (value.IsUndefined() || value.IsNull())
             {
-                ThrowTypeError(engine);
+                ExceptionHelper.ThrowTypeError(engine);
             }
             
-            ThrowTypeError(engine);
+            ExceptionHelper.ThrowTypeError(engine);
             return null;
-        }
-
-        private static void ThrowTypeError(Engine engine)
-        {
-            throw new JavaScriptException(engine.TypeError);
         }
 
         public static Types GetPrimitiveType(JsValue value)
@@ -452,28 +447,26 @@ namespace Jint.Runtime
                 return;
             }
 
-            string referencedName;
-            
+            ThrowTypeError(engine, o, expression, baseReference);
+        }
+
+        private static void ThrowTypeError(Engine engine, JsValue o, MemberExpression expression, object baseReference)
+        {
+            var referencedName = "The value";
             if (baseReference is Reference reference)
             {
                 referencedName = reference.GetReferencedName();
             }
-            else
-            {
-                referencedName = "The value";
-            }
             
             var message = $"{referencedName} is {o}";
-
-            throw new JavaScriptException(engine.TypeError, message)
-                .SetCallstack(engine, expression.Location);
+            throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, expression.Location);
         }
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)
         {
             if (o.IsUndefined() || o.IsNull())
             {
-                throw new JavaScriptException(engine.TypeError);
+                ExceptionHelper.ThrowTypeError(engine);
             }
         }
 

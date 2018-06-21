@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Runtime;
 
@@ -12,7 +11,7 @@ namespace Jint
         {
             if (value._type != Types.Boolean)
             {
-                ThrowWrongTypeException("The value is not a boolean");
+                ExceptionHelper.ThrowArgumentException("The value is not a boolean");
             }
 
             return ((JsBoolean) value)._value;
@@ -23,7 +22,7 @@ namespace Jint
         {
             if (value._type != Types.Number)
             {
-                ThrowWrongTypeException("The value is not a number");
+                ExceptionHelper.ThrowArgumentException("The value is not a number");
             }
 
             return ((JsNumber) value)._value;
@@ -34,7 +33,7 @@ namespace Jint
         {
             if (value._type != Types.String)
             {
-                ThrowWrongTypeException("The value is not a string");
+                ExceptionHelper.ThrowArgumentException("The value is not a string");
             }
 
             return AsStringWithoutTypeCheck(value);
@@ -51,15 +50,10 @@ namespace Jint
         {
             if (value._type != Types.Symbol)
             {
-                ThrowWrongTypeException("The value is not a symbol");
+                ExceptionHelper.ThrowArgumentException("The value is not a symbol");
             }
 
             return ((JsSymbol) value)._value;
-        }
-        
-        private static void ThrowWrongTypeException(string message)
-        {
-            throw new ArgumentException(message);
         }
     }
 }

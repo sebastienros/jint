@@ -44,7 +44,7 @@ namespace Jint.Native.Error
             var o = thisObject.TryCast<ObjectInstance>();
             if (ReferenceEquals(o, null))
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             var name = TypeConverter.ToString(o.Get("name"));

@@ -45,7 +45,7 @@ namespace Jint.Native.Number
         {
             if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             var m = TypeConverter.ToNumber(thisObject);
@@ -83,7 +83,7 @@ namespace Jint.Native.Number
             var number = thisObj.TryCast<NumberInstance>();
             if (ReferenceEquals(number, null))
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             return number.NumberData;
@@ -96,7 +96,7 @@ namespace Jint.Native.Number
             var f = (int)TypeConverter.ToInteger(arguments.At(0, 0));
             if (f < 0 || f > 20)
             {
-                throw new JavaScriptException(Engine.RangeError, "fractionDigits argument must be between 0 and 20");
+                ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 20");
             }
 
             var x = TypeConverter.ToNumber(thisObj);
@@ -119,7 +119,7 @@ namespace Jint.Native.Number
             var f = (int)TypeConverter.ToInteger(arguments.At(0, 16));
             if (f < 0 || f > 20)
             {
-                throw new JavaScriptException(Engine.RangeError, "fractionDigits argument must be between 0 and 20");
+                ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 20");
             }
 
             var x = TypeConverter.ToNumber(thisObj);
@@ -129,7 +129,7 @@ namespace Jint.Native.Number
                 return "NaN";
             }
 
-            string format = System.String.Concat("#.", new System.String('0', f), "e+0");
+            string format = string.Concat("#.", new string('0', f), "e+0");
             return x.ToString(format, CultureInfo.InvariantCulture);
         }
 
@@ -151,7 +151,7 @@ namespace Jint.Native.Number
 
             if (p < 1 || p > 21)
             {
-                throw new JavaScriptException(Engine.RangeError, "precision must be between 1 and 21");
+                ExceptionHelper.ThrowRangeError(_engine, "precision must be between 1 and 21");
             }
 
             // Get the number of decimals
@@ -169,7 +169,7 @@ namespace Jint.Native.Number
         {
             if (!thisObject.IsNumber() && (ReferenceEquals(thisObject.TryCast<NumberInstance>(), null)))
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(_engine);
             }
 
             var radix = arguments.At(0).IsUndefined() 
@@ -178,7 +178,7 @@ namespace Jint.Native.Number
 
             if (radix < 2 || radix > 36)
             {
-                throw new JavaScriptException(Engine.RangeError, "radix must be between 2 and 36");
+                ExceptionHelper.ThrowRangeError(_engine, "radix must be between 2 and 36");
             }
 
             var x = TypeConverter.ToNumber(thisObject);

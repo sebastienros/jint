@@ -136,7 +136,7 @@ namespace Jint.Native.Argument
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(Engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(Engine);
                 }
 
                 return;
@@ -179,7 +179,7 @@ namespace Jint.Native.Argument
                 {
                     if (throwOnError)
                     {
-                        throw new JavaScriptException(Engine.TypeError);
+                        ExceptionHelper.ThrowTypeError(Engine);
                     }
                 }
 

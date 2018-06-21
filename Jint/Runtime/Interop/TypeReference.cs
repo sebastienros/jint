@@ -92,8 +92,8 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
-
+            ExceptionHelper.ThrowTypeError(_engine, "No public methods with the specified arguments were found.");
+            return null;
         }
 
         public override bool HasInstance(JsValue v)
@@ -112,7 +112,7 @@ namespace Jint.Runtime.Interop
         {
             if (throwOnError)
             {
-                throw new JavaScriptException(Engine.TypeError, "Can't define a property of a TypeReference");
+                ExceptionHelper.ThrowTypeError(_engine, "Can't define a property of a TypeReference");
             }
 
             return false;
@@ -122,7 +122,7 @@ namespace Jint.Runtime.Interop
         {
             if (throwOnError)
             {
-                throw new JavaScriptException(Engine.TypeError, "Can't delete a property of a TypeReference");
+                ExceptionHelper.ThrowTypeError(_engine, "Can't delete a property of a TypeReference");
             }
 
             return false;
@@ -134,7 +134,7 @@ namespace Jint.Runtime.Interop
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(Engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(Engine);
                 }
 
                 return;
@@ -146,7 +146,7 @@ namespace Jint.Runtime.Interop
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(Engine.TypeError, "Unknown member: " + propertyName);
+                    ExceptionHelper.ThrowTypeError(_engine, "Unknown member: " + propertyName);
                 }
                 else
                 {

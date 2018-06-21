@@ -27,7 +27,7 @@ namespace Jint.Runtime.Interop
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(Engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(Engine);
                 }
 
                 return;
@@ -39,7 +39,7 @@ namespace Jint.Runtime.Interop
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(Engine.TypeError, "Unknown member: " + propertyName);
+                    ExceptionHelper.ThrowTypeError(_engine, "Unknown member: " + propertyName);
                 }
                 else
                 {

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors.Specialized;
@@ -17,7 +16,6 @@ namespace Jint.Runtime.Descriptors
         {
             _flags = flags;
         }
-        
         
         protected internal PropertyDescriptor(JsValue value, PropertyFlag flags) : this(flags)
         {
@@ -201,7 +199,7 @@ namespace Jint.Runtime.Descriptors
         protected virtual JsValue CustomValue
         {
             get => null;
-            set => throw new NotImplementedException();
+            set => ExceptionHelper.ThrowNotImplementedException();
         }
 
         internal PropertyFlag Flags
@@ -215,7 +213,7 @@ namespace Jint.Runtime.Descriptors
             var obj = o.TryCast<ObjectInstance>();
             if (ReferenceEquals(obj, null))
             {
-                throw new JavaScriptException(engine.TypeError);
+                ExceptionHelper.ThrowTypeError(engine);
             }
 
             var getProperty = obj.GetProperty("get");
@@ -226,7 +224,7 @@ namespace Jint.Runtime.Descriptors
             if ((obj.HasProperty("value") || obj.HasProperty("writable")) &&
                 (hasGetProperty || hasSetProperty))
             {
-                throw new JavaScriptException(engine.TypeError);
+                ExceptionHelper.ThrowTypeError(engine);
             }
 
             var desc = hasGetProperty || hasSetProperty
@@ -265,7 +263,7 @@ namespace Jint.Runtime.Descriptors
                 var getter = obj.UnwrapJsValue(getProperty);
                 if (!getter.IsUndefined() && getter.TryCast<ICallable>() == null)
                 {
-                    throw new JavaScriptException(engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(engine);
                 }
 
                 ((GetSetPropertyDescriptor) desc).SetGet(getter);
@@ -276,7 +274,7 @@ namespace Jint.Runtime.Descriptors
                 var setter = obj.UnwrapJsValue(setProperty);
                 if (!setter.IsUndefined() && setter.TryCast<ICallable>() == null)
                 {
-                    throw new JavaScriptException(engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(engine);
                 }
 
                 ((GetSetPropertyDescriptor) desc).SetSet(setter);
@@ -286,7 +284,7 @@ namespace Jint.Runtime.Descriptors
             {
                 if (!ReferenceEquals(desc.Value, null) || desc.WritableSet)
                 {
-                    throw new JavaScriptException(engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(engine);
                 }
             }
 

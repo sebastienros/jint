@@ -21,7 +21,8 @@ namespace Jint.Native.Date
         {
             if (double.IsNaN(PrimitiveValue) || PrimitiveValue > Max || PrimitiveValue < Min)
             {
-                throw new JavaScriptException(Engine.RangeError);
+                ExceptionHelper.ThrowRangeError(Engine);
+                return DateTime.MinValue;
             }
             else
             {

@@ -66,7 +66,7 @@ namespace Jint.Native.Symbol
 
             var value = new JsSymbol(description.AsString());
 
-            if (JsValue.ReturnOnAbruptCompletion(ref descString))
+            if (ReturnOnAbruptCompletion(ref descString))
             {
                 return descString;
             }
@@ -95,7 +95,7 @@ namespace Jint.Native.Symbol
 
             if (!sym.IsSymbol())
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             JsSymbol symbol;
@@ -109,7 +109,8 @@ namespace Jint.Native.Symbol
 
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            throw new JavaScriptException(Engine.TypeError);
+            ExceptionHelper.ThrowTypeError(Engine);
+            return null;
         }
 
         public SymbolInstance Construct(string description)

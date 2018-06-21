@@ -35,7 +35,8 @@ namespace Jint.Runtime.Interop
             }
             catch (InvalidCastException)
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
+                return null;
             }
         }
     }

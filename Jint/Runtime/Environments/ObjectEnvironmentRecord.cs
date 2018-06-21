@@ -48,7 +48,7 @@ namespace Jint.Runtime.Environments
             var desc = _bindingObject.GetProperty(name);
             if (strict && desc == PropertyDescriptor.Undefined)
             {
-                throw new JavaScriptException(_engine.ReferenceError);
+                ExceptionHelper.ThrowReferenceError(_engine);
             }
 
             return UnwrapJsValue(desc);

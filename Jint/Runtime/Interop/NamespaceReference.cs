@@ -27,7 +27,7 @@ namespace Jint.Runtime.Interop
         {
             if (throwOnError)
             {
-                throw new JavaScriptException(Engine.TypeError, "Can't define a property of a NamespaceReference");
+                ExceptionHelper.ThrowTypeError(_engine, "Can't define a property of a NamespaceReference");
             }
 
             return false;
@@ -37,7 +37,7 @@ namespace Jint.Runtime.Interop
         {
             if (throwOnError)
             {
-                throw new JavaScriptException(Engine.TypeError, "Can't delete a property of a NamespaceReference");
+                ExceptionHelper.ThrowTypeError(_engine, "Can't delete a property of a NamespaceReference");
             }
 
             return false;
@@ -54,7 +54,7 @@ namespace Jint.Runtime.Interop
                     || !genericTypeReference.IsObject() 
                     || genericTypeReference.AsObject().Class != "TypeReference")
                 {
-                    throw new JavaScriptException(Engine.TypeError, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
+                    ExceptionHelper.ThrowTypeError(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
                 }
 
                 genericTypes[i] = arguments.At(i).As<TypeReference>().ReferenceType;
@@ -75,7 +75,8 @@ namespace Jint.Runtime.Interop
             }
             catch (Exception e)
             {
-                throw new JavaScriptException(Engine.TypeError, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?", e);
+                ExceptionHelper.ThrowTypeError(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?", e);
+                return null;
             }
         }
 

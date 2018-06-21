@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -74,7 +73,7 @@ namespace Jint.Native.Array
         {
             if (capacity < 0)
             {
-                throw new ArgumentException("invalid array length", nameof(capacity));
+                ExceptionHelper.ThrowArgumentException("invalid array length", nameof(capacity));
             }
             return Construct(System.Array.Empty<JsValue>(), (uint) capacity);
         }
@@ -95,7 +94,7 @@ namespace Jint.Native.Array
                 var length = TypeConverter.ToUint32(arguments.At(0));
                 if (!TypeConverter.ToNumber(arguments[0]).Equals(length))
                 {
-                    throw new JavaScriptException(Engine.RangeError, "Invalid array length");
+                    ExceptionHelper.ThrowRangeError(_engine, "Invalid array length");
                 }
 
                 instance.SetOwnProperty("length", new PropertyDescriptor(length, PropertyFlag.OnlyWritable));

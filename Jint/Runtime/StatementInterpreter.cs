@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Descriptors;
@@ -518,15 +517,11 @@ namespace Jint.Runtime
                 {
                     if (!(_engine.EvaluateExpression(declaration.Id) is Reference lhs))
                     {
-                        throw new ArgumentException();
+                        ExceptionHelper.ThrowArgumentException();
+                        return new Completion();
                     }
 
-                    if (lhs.IsStrict()
-                        && lhs.GetBase() is EnvironmentRecord
-                        && (lhs.GetReferencedName() == "eval" || lhs.GetReferencedName() == "arguments"))
-                    {
-                        throw new JavaScriptException(_engine.SyntaxError);
-                    }
+                    lhs.AssertValid(_engine);
 
                     var value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init), true);
                     _engine.PutValue(lhs, value);

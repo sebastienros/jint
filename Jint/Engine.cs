@@ -405,38 +405,7 @@ namespace Jint
 
         public Completion ExecuteStatement(Statement statement)
         {
-            if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
-            {
-                ThrowStatementsCountOverflowException();
-            }
-
-            if (_timeoutTicks > 0 && _timeoutTicks < DateTime.UtcNow.Ticks)
-            {
-                ThrowTimeoutException();
-            }
-
-            if (Options._MemoryLimit > 0)
-            {
-                if (GetAllocatedBytesForCurrentThread != null)
-                {
-                    var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
-                    if (memoryUsage > Options._MemoryLimit)
-                    {
-                        throw new MemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {Options._MemoryLimit}");
-                    }
-                }
-                else
-                {
-                    throw new PlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
-                }
-            }
-
-            _lastSyntaxNode = statement;
-
-            if (_isDebugMode)
-            {
-                DebugHandler.OnStep(statement);
-            }
+            BeforeExecuteStatement(statement);
 
             switch (statement.Type)
             {
@@ -501,8 +470,44 @@ namespace Jint
                     return _statements.ExecuteProgram((Program) statement);
 
                 default:
-                    ThrowArgumentOutOfRange();
+                    ExceptionHelper.ThrowArgumentOutOfRangeException();
                     return new Completion(CompletionType.Normal, null, null);
+            }
+        }
+
+        private void BeforeExecuteStatement(Statement statement)
+        {
+            if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
+            {
+                ExceptionHelper.ThrowStatementsCountOverflowException();
+            }
+
+            if (_timeoutTicks > 0 && _timeoutTicks < DateTime.UtcNow.Ticks)
+            {
+                ExceptionHelper.ThrowTimeoutException();
+            }
+
+            if (Options._MemoryLimit > 0)
+            {
+                if (GetAllocatedBytesForCurrentThread != null)
+                {
+                    var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
+                    if (memoryUsage > Options._MemoryLimit)
+                    {
+                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {Options._MemoryLimit}");
+                    }
+                }
+                else
+                {
+                    ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
+                }
+            }
+
+            _lastSyntaxNode = statement;
+
+            if (_isDebugMode)
+            {
+                DebugHandler.OnStep(statement);
             }
         }
 
@@ -561,7 +566,7 @@ namespace Jint
                     return _expressions.EvaluateUnaryExpression((UnaryExpression) expression);
 
                 default:
-                    ThrowArgumentOutOfRange();
+                    ExceptionHelper.ThrowArgumentOutOfRangeException();
                     return null;
             }
         }
@@ -621,7 +626,7 @@ namespace Jint
                 {
                     return val;
                 }
-                throw new JavaScriptException(ReferenceError, reference.GetReferencedName() + " is not defined");
+                ExceptionHelper.ThrowReferenceError(this, reference.GetReferencedName() + " is not defined");
             }
 
             var baseValue = reference.GetBase();
@@ -673,7 +678,7 @@ namespace Jint
             var record = (EnvironmentRecord) baseValue;
             if (ReferenceEquals(record, null))
             {
-                throw new ArgumentException();
+                ExceptionHelper.ThrowArgumentException();
             }
 
             var bindingValue = record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
@@ -697,7 +702,7 @@ namespace Jint
             {
                 if (reference.IsStrict())
                 {
-                    ThrowReferenceError();
+                    ExceptionHelper.ThrowReferenceError(this);
                 }
 
                 Global.Put(reference.GetReferencedName(), value, false);
@@ -717,13 +722,7 @@ namespace Jint
             else
             {
                 var baseValue = reference.GetBase();
-                if (!(baseValue is EnvironmentRecord record))
-                {
-                    ThrowArgumentNullException();
-                    return;
-                }
-
-                record.SetMutableBinding(reference.GetReferencedName(), value, reference.IsStrict());
+                ((EnvironmentRecord) baseValue).SetMutableBinding(reference.GetReferencedName(), value, reference.IsStrict());
             }
         }
 
@@ -737,7 +736,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    ThrowTypeError();
+                    ExceptionHelper.ThrowTypeError(this);
                 }
                 return;
             }
@@ -748,7 +747,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    ThrowTypeError();
+                    ExceptionHelper.ThrowTypeError(this);
                 }
                 return;
             }
@@ -764,7 +763,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    ThrowTypeError();
+                    ExceptionHelper.ThrowTypeError(this);
                 }
             }
         }
@@ -814,12 +813,7 @@ namespace Jint
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(JsValue value, object thisObj, object[] arguments)
         {
-            var callable = value.TryCast<ICallable>();
-
-            if (callable == null)
-            {
-                throw new ArgumentException("Can only invoke functions");
-            }
+            var callable = value as ICallable ?? ExceptionHelper.ThrowArgumentException<ICallable>("Can only invoke functions");
 
             var items = JsValueArrayPool.RentArray(arguments.Length);
             for (int i = 0; i < arguments.Length; ++i)
@@ -926,7 +920,7 @@ namespace Jint
                         {
                             if (existingProp.IsAccessorDescriptor() || !existingProp.Enumerable)
                             {
-                                throw new JavaScriptException(TypeError);
+                                ExceptionHelper.ThrowTypeError(this);
                             }
                         }
                     }
@@ -947,7 +941,7 @@ namespace Jint
 
                     if (ReferenceEquals(declEnv, null))
                     {
-                        throw new ArgumentException();
+                        ExceptionHelper.ThrowArgumentException();
                     }
 
                     declEnv.CreateImmutableBinding("arguments", argsObj);
@@ -984,43 +978,13 @@ namespace Jint
         {
             _executionContexts.ReplaceTopLexicalEnvironment(newEnv);
         }
-
-        private static void ThrowTimeoutException()
-        {
-            throw new TimeoutException();
-        }
-
-        private static void ThrowStatementsCountOverflowException()
-        {
-            throw new StatementsCountOverflowException();
-        }
-
-        private static void ThrowArgumentOutOfRange()
-        {
-            throw new ArgumentOutOfRangeException();
-        }
-        
-        private static void ThrowArgumentNullException()
-        {
-            throw new ArgumentNullException();
-        }
-        
-        private void ThrowReferenceError()
-        {
-            throw new JavaScriptException(ReferenceError);
-        }
         
         private static void AssertNotNullOrEmpty(string propertyname, string propertyValue)
         {
             if (string.IsNullOrEmpty(propertyValue))
             {
-                throw new ArgumentException(propertyname);
+                ExceptionHelper.ThrowArgumentException(propertyname);
             }
-        }
-        
-        private void ThrowTypeError()
-        {
-            throw new JavaScriptException(TypeError);
         }
     }
 }
