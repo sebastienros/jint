@@ -3,13 +3,12 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Runtime.Interop;
 
 namespace Jint
 {
-    public class Options
+    public sealed class Options
     {
         private bool _discardGlobal;
         private bool _strict;
@@ -177,11 +176,7 @@ namespace Jint
 
         internal long _MemoryLimit => _memoryLimit;
 
-        internal int _MaxStatements
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return _maxStatements; }
-        }
+        internal int _MaxStatements => _maxStatements;
 
         internal int MaxRecursionDepth => _maxRecursionDepth;
 

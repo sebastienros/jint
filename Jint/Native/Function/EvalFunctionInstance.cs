@@ -6,7 +6,7 @@ using Jint.Runtime.Environments;
 
 namespace Jint.Native.Function
 {
-    public class EvalFunctionInstance: FunctionInstance
+    public sealed class EvalFunctionInstance : FunctionInstance
     {
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
 

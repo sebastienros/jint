@@ -7,7 +7,7 @@ using Jint.Runtime.References;
 
 namespace Jint.Runtime
 {
-    public class StatementInterpreter
+    public sealed class StatementInterpreter
     {
         private readonly Engine _engine;
 
@@ -515,12 +515,7 @@ namespace Jint.Runtime
                 var declaration = statement.Declarations[i];
                 if (declaration.Init != null)
                 {
-                    if (!(_engine.EvaluateExpression(declaration.Id) is Reference lhs))
-                    {
-                        ExceptionHelper.ThrowArgumentException();
-                        return new Completion();
-                    }
-
+                    var lhs = (Reference) _engine.EvaluateExpression(declaration.Id);
                     lhs.AssertValid(_engine);
 
                     var value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init), true);

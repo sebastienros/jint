@@ -326,7 +326,8 @@ namespace Jint.Runtime.Descriptors
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsDataDescriptor()
         {
-            return WritableSet || !ReferenceEquals(Value, null);
+            return (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0 
+                   || !ReferenceEquals(Value, null);
         }
 
         /// <summary>

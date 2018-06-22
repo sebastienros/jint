@@ -2,7 +2,7 @@
 
 namespace Jint.Runtime.Environments
 {
-    public class Binding
+    public sealed class Binding
     {
         public JsValue Value;
         public bool CanBeDeleted;

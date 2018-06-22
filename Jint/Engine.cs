@@ -28,7 +28,7 @@ using Jint.Runtime.References;
 
 namespace Jint
 {
-    public class Engine
+    public sealed class Engine
     {
         private static readonly ParserOptions DefaultParserOptions = new ParserOptions
         {
@@ -50,6 +50,8 @@ namespace Jint
         private readonly bool _isDebugMode;
         private readonly bool _isStrict;
         private readonly int _maxStatements;
+        private readonly long _memoryLimit;
+        private readonly bool _runBeforeStatementChecks;
         private readonly IReferenceResolver _referenceResolver;
         
         public ITypeConverter ClrTypeConverter;
@@ -176,6 +178,11 @@ namespace Jint
             _isStrict = Options.IsStrict;
             _maxStatements = Options._MaxStatements;
             _referenceResolver = Options.ReferenceResolver;
+            _memoryLimit = Options._MemoryLimit;
+            _runBeforeStatementChecks = (_maxStatements > 0 &&_maxStatements < int.MaxValue) 
+                                        || Options._TimeoutInterval.Ticks > 0
+                                        || _memoryLimit > 0 
+                                        || _isDebugMode;
 
             ReferencePool = new ReferencePool();
             ArgumentsInstancePool = new ArgumentsInstancePool(this);
@@ -364,7 +371,7 @@ namespace Jint
         {
             ResetStatementsCount();
             
-            if (Options._MemoryLimit > 0)
+            if (_memoryLimit > 0)
             {
                 ResetMemoryUsage();
             }
@@ -405,7 +412,12 @@ namespace Jint
 
         public Completion ExecuteStatement(Statement statement)
         {
-            BeforeExecuteStatement(statement);
+            _lastSyntaxNode = statement;
+
+            if (_runBeforeStatementChecks)
+            {
+                BeforeExecuteStatement(statement);
+            }
 
             switch (statement.Type)
             {
@@ -487,14 +499,14 @@ namespace Jint
                 ExceptionHelper.ThrowTimeoutException();
             }
 
-            if (Options._MemoryLimit > 0)
+            if (_memoryLimit > 0)
             {
                 if (GetAllocatedBytesForCurrentThread != null)
                 {
                     var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
-                    if (memoryUsage > Options._MemoryLimit)
+                    if (memoryUsage > _memoryLimit)
                     {
-                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {Options._MemoryLimit}");
+                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {_memoryLimit}");
                     }
                 }
                 else
@@ -502,8 +514,6 @@ namespace Jint
                     ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
                 }
             }
-
-            _lastSyntaxNode = statement;
 
             if (_isDebugMode)
             {
@@ -871,20 +881,34 @@ namespace Jint
             bool configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
             var strict = StrictModeScope.IsStrictModeCode;
 
+            var der = env as DeclarativeEnvironmentRecord;
+            bool canReleaseArgumentsInstance = false;
             if (declarationBindingType == DeclarationBindingType.FunctionCode)
             {
-                var parameters = functionInstance.FormalParameters;
-                for (var i = 0; i < parameters.Length; i++)
-                {
-                    var argName = parameters[i];
-                    var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
-                    var argAlreadyDeclared = env.HasBinding(argName);
-                    if (!argAlreadyDeclared)
-                    {
-                        env.CreateMutableBinding(argName, v);
-                    }
+                var argsObj = ArgumentsInstancePool.Rent(functionInstance, functionInstance.FormalParameters, arguments, env, strict);
+                canReleaseArgumentsInstance = true;
 
-                    env.SetMutableBinding(argName, v, strict);
+                if (!ReferenceEquals(der, null))
+                {
+                    der.AddFunctionParameters(functionInstance, arguments, argsObj);
+                }
+                else
+                {
+                    // slow path
+                    var parameters = functionInstance.FormalParameters;
+                    for (var i = 0; i < parameters.Length; i++)
+                    {
+                        var argName = parameters[i];
+                        var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
+                        var argAlreadyDeclared = env.HasBinding(argName);
+                        if (!argAlreadyDeclared)
+                        {
+                            env.CreateMutableBinding(argName, v);
+                        }
+
+                        env.SetMutableBinding(argName, v, strict);
+                    }
+                    env.CreateMutableBinding("arguments", argsObj);
                 }
             }
 
@@ -929,43 +953,28 @@ namespace Jint
                 env.SetMutableBinding(fn, fo, strict);
             }
 
-            bool canReleaseArgumentsInstance = false;
-            if (declarationBindingType == DeclarationBindingType.FunctionCode && !env.HasBinding("arguments"))
-            {
-                var argsObj = ArgumentsInstancePool.Rent(functionInstance, functionInstance.FormalParameters, arguments, env, strict);
-                canReleaseArgumentsInstance = true;
-
-                if (strict)
-                {
-                    var declEnv = env as DeclarativeEnvironmentRecord;
-
-                    if (ReferenceEquals(declEnv, null))
-                    {
-                        ExceptionHelper.ThrowArgumentException();
-                    }
-
-                    declEnv.CreateImmutableBinding("arguments", argsObj);
-                }
-                else
-                {
-                    env.CreateMutableBinding("arguments", argsObj);
-                }
-            }
-
             // process all variable declarations in the current parser scope
-            var variableDeclarationsCount = variableDeclarations.Count;
-            for (var i = 0; i < variableDeclarationsCount; i++)
+            if (!ReferenceEquals(der, null))
             {
-                var variableDeclaration = variableDeclarations[i];
-                var declarationsCount = variableDeclaration.Declarations.Count;
-                for (var j = 0; j < declarationsCount; j++)
+                der.AddVariableDeclarations(variableDeclarations);
+            }
+            else
+            {
+                // slow path
+                var variableDeclarationsCount = variableDeclarations.Count;
+                for (var i = 0; i < variableDeclarationsCount; i++)
                 {
-                    var d = variableDeclaration.Declarations[j];
-                    var dn = ((Identifier) d.Id).Name;
-                    var varAlreadyDeclared = env.HasBinding(dn);
-                    if (!varAlreadyDeclared)
+                    var variableDeclaration = variableDeclarations[i];
+                    var declarationsCount = variableDeclaration.Declarations.Count;
+                    for (var j = 0; j < declarationsCount; j++)
                     {
-                        env.CreateMutableBinding(dn, Undefined.Instance);
+                        var d = variableDeclaration.Declarations[j];
+                        var dn = ((Identifier) d.Id).Name;
+                        var varAlreadyDeclared = env.HasBinding(dn);
+                        if (!varAlreadyDeclared)
+                        {
+                            env.CreateMutableBinding(dn, Undefined.Instance);
+                        }
                     }
                 }
             }

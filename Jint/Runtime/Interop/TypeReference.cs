@@ -10,7 +10,7 @@ using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime.Interop
 {
-    public class TypeReference : FunctionInstance, IConstructor, IObjectWrapper
+    public sealed class TypeReference : FunctionInstance, IConstructor, IObjectWrapper
     {
         private TypeReference(Engine engine)
             : base(engine, null, null, false, "TypeReference")
