@@ -229,7 +229,8 @@ namespace Jint.Runtime
             {
                 var keys = _engine.Object.GetOwnPropertyNames(Undefined.Instance, Arguments.From(cursor)).AsArray();
 
-                for (var i = 0; i < keys.GetLength(); i++)
+                var length = keys.GetLength();
+                for (var i = 0; i < length; i++)
                 {
                     var p = keys.GetOwnProperty(TypeConverter.ToString(i)).Value.AsStringWithoutTypeCheck();
 
@@ -418,6 +419,30 @@ namespace Jint.Runtime
 
         public Completion ExecuteStatementList(List<StatementListItem> statementList)
         {
+            // optimize common case with unrolled loop
+            if (statementList.Count == 1)
+            {
+                try
+                {
+                    var completion = _engine.ExecuteStatement((Statement) statementList[0]);
+                    if (completion.Type != CompletionType.Normal)
+                    {
+                        var executeStatementList = new Completion(
+                            completion.Type,
+                            completion.Value,
+                            completion.Identifier,
+                            completion.Location);
+
+                        return executeStatementList;
+                    }
+                    return new Completion(completion.Type, completion.GetValueOrDefault(), completion.Identifier);
+                }
+                catch (JavaScriptException v)
+                {
+                    return new Completion(CompletionType.Throw, v.Error, null, v.Location);
+                }
+            }
+            
             var c = new Completion(CompletionType.Normal, null, null);
             Completion sl = c;
             Statement s = null;
@@ -428,7 +453,7 @@ namespace Jint.Runtime
                 for (var i = 0; i < statementListCount; i++)
                 {
                     s = (Statement) statementList[i];
-                    c = ExecuteStatement(s);
+                    c = _engine.ExecuteStatement(s);
                     if (c.Type != CompletionType.Normal)
                     {
                         var executeStatementList = new Completion(

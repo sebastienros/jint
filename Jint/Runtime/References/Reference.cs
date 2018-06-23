@@ -11,9 +11,9 @@ namespace Jint.Runtime.References
     /// </summary>
     public sealed class Reference
     {
-        private JsValue _baseValue;
-        private string _name;
-        private bool _strict;
+        internal JsValue _baseValue;
+        internal string _name;
+        internal bool _strict;
 
         public Reference(JsValue baseValue, string name, bool strict)
         {
@@ -42,13 +42,13 @@ namespace Jint.Runtime.References
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasPrimitiveBase()
         {
-            return _baseValue.IsPrimitive();
+            return _baseValue._type != Types.Object && _baseValue._type != Types.None;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsUnresolvableReference()
         {
-            return _baseValue.IsUndefined();
+            return _baseValue._type == Types.Undefined;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

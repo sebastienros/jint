@@ -506,18 +506,26 @@ namespace Jint.Runtime
                 case Types.None:
                     return true;
                 case Types.Number:
-                    var nx = TypeConverter.ToNumber(x);
-                    var ny = TypeConverter.ToNumber(y);
-                    if (!double.IsNaN(nx) && !double.IsNaN(ny) && nx.Equals(ny))
+                var nx = TypeConverter.ToNumber(x);
+                var ny = TypeConverter.ToNumber(y);
+
+                if (double.IsNaN(nx) && double.IsNaN(ny))
+                {
+                    return true;
+                }
+
+                if (nx.Equals(ny))
+                {
+                    if (nx.Equals(0))
                     {
-                        if (nx.Equals(0))
-                        {
-                            // +0 !== -0
-                            return NumberInstance.IsNegativeZero(nx) == NumberInstance.IsNegativeZero(ny);
-                        }
-                        return true;
+                        // +0 !== -0
+                        return NumberInstance.IsNegativeZero(nx) == NumberInstance.IsNegativeZero(ny);
                     }
-                    return false;
+
+                    return true;
+                }
+
+                return false;
                 case Types.String:
                     return TypeConverter.ToString(x) == TypeConverter.ToString(y);
                 case Types.Boolean:
@@ -1027,7 +1035,7 @@ namespace Jint.Runtime
                     }
                     if (r.IsUnresolvableReference())
                     {
-                        if (r.IsStrict())
+                        if (r._strict)
                         {
                             ExceptionHelper.ThrowSyntaxError(_engine);
                         }
@@ -1038,11 +1046,11 @@ namespace Jint.Runtime
                     if (r.IsPropertyReference())
                     {
                         var o = TypeConverter.ToObject(_engine, r.GetBase());
-                        var jsValue = o.Delete(r.GetReferencedName(), r.IsStrict());
+                        var jsValue = o.Delete(r._name, r._strict);
                         _referencePool.Return(r);
                         return jsValue;
                     }
-                    if (r.IsStrict())
+                    if (r._strict)
                     {
                         ExceptionHelper.ThrowSyntaxError(_engine);
                     }

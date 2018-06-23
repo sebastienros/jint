@@ -9,8 +9,8 @@ namespace Jint.Runtime.Descriptors
     {
         public static readonly PropertyDescriptor Undefined = new PropertyDescriptor(PropertyFlag.None);
 
-        private PropertyFlag _flags;
-        private JsValue _value;
+        internal PropertyFlag _flags;
+        internal JsValue _value;
 
         protected PropertyDescriptor(PropertyFlag flags)
         {
@@ -19,12 +19,20 @@ namespace Jint.Runtime.Descriptors
         
         protected internal PropertyDescriptor(JsValue value, PropertyFlag flags) : this(flags)
         {
-            Value = value;
+            if ((_flags & PropertyFlag.CustomJsValue) != 0)
+            {
+                CustomValue = value;
+            }
+            _value = value;
         }
 
         public PropertyDescriptor(JsValue value, bool? writable, bool? enumerable, bool? configurable)
         {
-            Value = value;
+            if ((_flags & PropertyFlag.CustomJsValue) != 0)
+            {
+                CustomValue = value;
+            }
+            _value = value;  
 
             if (writable != null)
             {
@@ -327,7 +335,8 @@ namespace Jint.Runtime.Descriptors
         public bool IsDataDescriptor()
         {
             return (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0 
-                   || !ReferenceEquals(Value, null);
+                   || (_flags & PropertyFlag.CustomJsValue) != 0 && !ReferenceEquals(CustomValue, null)
+                   || !ReferenceEquals(_value, null);
         }
 
         /// <summary>
@@ -351,9 +360,13 @@ namespace Jint.Runtime.Descriptors
                 return false;
             }
 
-            if (IsDataDescriptor())
+            // IsDataDescriptor logic inlined
+            if ((_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0)
             {
-                var val = Value;
+                var val = (_flags & PropertyFlag.CustomJsValue) != 0
+                    ? CustomValue
+                    : _value;
+                
                 if (!ReferenceEquals(val, null))
                 {
                     value = val;

@@ -422,10 +422,14 @@ namespace Jint
             switch (statement.Type)
             {
                 case Nodes.BlockStatement:
-                    return _statements.ExecuteBlockStatement((BlockStatement) statement);
+                    return _statements.ExecuteStatementList(((BlockStatement) statement).Body);
 
                 case Nodes.ReturnStatement:
-                    return _statements.ExecuteReturnStatement((ReturnStatement) statement);
+                    var jsValue = ((ReturnStatement) statement).Argument == null
+                        ? Undefined.Instance
+                        : GetValue(EvaluateExpression(((ReturnStatement) statement).Argument), true);
+
+                    return new Completion(CompletionType.Return, jsValue, null);
 
                 case Nodes.VariableDeclaration:
                     return _statements.ExecuteVariableDeclaration((VariableDeclaration) statement);
@@ -440,10 +444,13 @@ namespace Jint
                     return _statements.ExecuteDoWhileStatement((DoWhileStatement) statement);
 
                 case Nodes.EmptyStatement:
-                    return _statements.ExecuteEmptyStatement((EmptyStatement) statement);
+                    return new Completion(CompletionType.Normal, null, null);
 
                 case Nodes.ExpressionStatement:
-                    return _statements.ExecuteExpressionStatement((ExpressionStatement) statement);
+                    return new Completion(
+                        CompletionType.Normal, 
+                        GetValue(EvaluateExpression(((ExpressionStatement) statement).Expression), true),
+                        null);
 
                 case Nodes.ForStatement:
                     return _statements.ExecuteForStatement((ForStatement) statement);
@@ -629,7 +636,7 @@ namespace Jint
                 }
             }
 
-            if (reference.IsUnresolvableReference())
+            if (reference._baseValue._type == Types.Undefined)
             {
                 if (_referenceResolver != null &&
                     _referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
@@ -639,7 +646,7 @@ namespace Jint
                 ExceptionHelper.ThrowReferenceError(this, reference.GetReferencedName() + " is not defined");
             }
 
-            var baseValue = reference.GetBase();
+            var baseValue = reference._baseValue;
 
             if (reference.IsPropertyReference())
             {
@@ -649,12 +656,12 @@ namespace Jint
                     return baseValue;
                 }
 
-                var referencedName = reference.GetReferencedName();
+                var referencedName = reference._name;
                 if (returnReferenceToPool)
                 {
                     ReferencePool.Return(reference);
                 }
-                if (reference.HasPrimitiveBase() == false)
+                if (!(reference._baseValue._type != Types.Object && reference._baseValue._type != Types.None))
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
                     var v = o.Get(referencedName);
@@ -691,7 +698,7 @@ namespace Jint
                 ExceptionHelper.ThrowArgumentException();
             }
 
-            var bindingValue = record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
+            var bindingValue = record.GetBindingValue(reference._name, reference._strict);
 
             if (returnReferenceToPool)
             {
@@ -710,7 +717,7 @@ namespace Jint
         {
             if (reference.IsUnresolvableReference())
             {
-                if (reference.IsStrict())
+                if (reference._strict)
                 {
                     ExceptionHelper.ThrowReferenceError(this);
                 }
@@ -719,20 +726,20 @@ namespace Jint
             }
             else if (reference.IsPropertyReference())
             {
-                var baseValue = reference.GetBase();
+                var baseValue = reference._baseValue;
                 if (!reference.HasPrimitiveBase())
                 {
-                    baseValue.AsObject().Put(reference.GetReferencedName(), value, reference.IsStrict());
+                    baseValue.AsObject().Put(reference._name, value, reference._strict);
                 }
                 else
                 {
-                    PutPrimitiveBase(baseValue, reference.GetReferencedName(), value, reference.IsStrict());
+                    PutPrimitiveBase(baseValue, reference._name, value, reference._strict);
                 }
             }
             else
             {
-                var baseValue = reference.GetBase();
-                ((EnvironmentRecord) baseValue).SetMutableBinding(reference.GetReferencedName(), value, reference.IsStrict());
+                var baseValue = reference._baseValue;
+                ((EnvironmentRecord) baseValue).SetMutableBinding(reference.GetReferencedName(), value, reference._strict);
             }
         }
 

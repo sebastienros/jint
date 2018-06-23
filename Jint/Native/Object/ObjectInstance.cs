@@ -154,7 +154,9 @@ namespace Jint.Native.Object
                 return Undefined;
             }
 
-            if (desc.IsDataDescriptor())
+            // IsDataDescriptor inlined
+            if ((desc._flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0 
+                || !ReferenceEquals(desc.Value, null))
             {
                 var val = desc.Value;
                 return val ?? Undefined;

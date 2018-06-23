@@ -1049,7 +1049,7 @@ namespace Jint.Native.Array
 
                 public override uint GetSmallestIndex() => _array.GetSmallestIndex();
 
-                public override uint GetLength() => _array.GetLength();
+                public override uint GetLength() => (uint) ((JsNumber) _array._length._value)._value;
 
                 public override void SetLength(uint length) => _array.Put("length", length, true);
 

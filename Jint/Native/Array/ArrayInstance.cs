@@ -16,7 +16,7 @@ namespace Jint.Native.Array
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
 
-        private PropertyDescriptor _length;
+        internal PropertyDescriptor _length;
 
         private const int MaxDenseArrayLength = 1024 * 10;
 
@@ -295,7 +295,7 @@ namespace Jint.Native.Array
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public uint GetLength()
         {
-            return (uint) ((JsNumber) _length.Value)._value;
+            return (uint) ((JsNumber) _length._value)._value;
         }
 
         protected override void AddProperty(string propertyName, PropertyDescriptor descriptor)
