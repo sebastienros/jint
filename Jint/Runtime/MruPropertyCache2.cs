@@ -71,12 +71,12 @@ namespace Jint.Runtime
 
         public bool ContainsKey(string key)
         {
-            if (_set && key.Equals(_key))
+            if (_set && key == _key)
             {
                 return true;
             }
 
-            return _dictionary != null && _dictionary.ContainsKey(key);
+            return _dictionary?.ContainsKey(key) == true;
         }
 
         public IEnumerable<KeyValuePair<string, TValue>> GetEnumerator()
@@ -97,36 +97,28 @@ namespace Jint.Runtime
             }
         }
 
-        public bool Remove(string key)
+        public void Remove(string key)
         {
-            bool removed = false;
-            if (_set && key.Equals(_key))
+            if (_set && key == _key)
             {
                 _set = false;
                 _key = null;
                 _value = null;
-                removed = true;
             }
 
             _dictionary?.Remove(key);
-            return removed;
         }
 
         public bool TryGetValue(string key, out TValue value)
         {
-            if (_set && _key.Equals(key))
+            value = null;
+            if (_set && _key == key)
             {
                 value = _value;
                 return true;
             }
 
-            if (_dictionary == null)
-            {
-                value = null;
-                return false;
-            }
-
-            return _dictionary.TryGetValue(key, out value);
+            return _dictionary?.TryGetValue(key, out value) == true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

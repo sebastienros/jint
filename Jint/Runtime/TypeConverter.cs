@@ -122,19 +122,22 @@ namespace Jint.Runtime
                 ? StringPrototype.TrimEx(input)
                 : input;
 
-            if (string.IsNullOrEmpty(s))
+            if (s.Length == 0)
             {
                 return 0;
             }
 
-            if ("+Infinity".Equals(s) || "Infinity".Equals(s))
+            if (s.Length == 8 || s.Length == 9)
             {
-                return double.PositiveInfinity;
-            }
+                if ("+Infinity" == s || "Infinity" == s)
+                {
+                    return double.PositiveInfinity;
+                }
 
-            if ("-Infinity".Equals(s))
-            {
-                return double.NegativeInfinity;
+                if ("-Infinity" == s)
+                {
+                    return double.NegativeInfinity;
+                }
             }
 
             // todo: use a common implementation with JavascriptParser
@@ -148,11 +151,11 @@ namespace Jint.Runtime
                         return double.NaN;
                     }
 
-                    double n = Double.Parse(s,
+                    double n = double.Parse(s,
                         NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
                         NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
                         NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
-                    if (s.StartsWith("-") && n.Equals(0))
+                    if (s.StartsWith("-") && n == 0)
                     {
                         return -0.0;
                     }
@@ -188,7 +191,7 @@ namespace Jint.Runtime
                 return 0;
             }
 
-            if (number.Equals(0) || double.IsInfinity(number))
+            if (number == 0 || double.IsInfinity(number))
             {
                 return number;
             }
@@ -205,7 +208,7 @@ namespace Jint.Runtime
                 return 0;
             }
 
-            if (number.Equals(0) || double.IsInfinity(number))
+            if (number == 0 || double.IsInfinity(number))
             {
                 return number;
             }

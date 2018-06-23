@@ -395,18 +395,18 @@ namespace Jint.Native.String
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
             var start = TypeConverter.ToNumber(arguments.At(0));
-            if (double.NegativeInfinity.Equals(start))
+            if (double.IsNegativeInfinity(start))
             {
                 start = 0;
             }
-            if (double.PositiveInfinity.Equals(start))
+            if (double.IsPositiveInfinity(start))
             {
                 return string.Empty;
             }
 
             var s = TypeConverter.ToString(thisObj);
             var end = TypeConverter.ToNumber(arguments.At(1));
-            if (double.PositiveInfinity.Equals(end))
+            if (double.IsPositiveInfinity(end))
             {
                 end = s.Length;
             }

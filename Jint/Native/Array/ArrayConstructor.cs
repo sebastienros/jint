@@ -92,7 +92,7 @@ namespace Jint.Native.Array
             if (arguments.Length == 1 && arguments.At(0).IsNumber())
             {
                 var length = TypeConverter.ToUint32(arguments.At(0));
-                if (!TypeConverter.ToNumber(arguments[0]).Equals(length))
+                if (((JsNumber) arguments[0])._value != length)
                 {
                     ExceptionHelper.ThrowRangeError(_engine, "Invalid array length");
                 }

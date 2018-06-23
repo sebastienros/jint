@@ -179,7 +179,7 @@ namespace Jint.Runtime
                     return double.NaN;
                 }
 
-                if (double.IsInfinity(lN) && rN.Equals(0))
+                if (double.IsInfinity(lN) && rN == 0)
                 {
                     if (NumberInstance.IsNegativeZero(rN))
                     {
@@ -189,12 +189,12 @@ namespace Jint.Runtime
                     return lN;
                 }
 
-                if (lN.Equals(0) && rN.Equals(0))
+                if (lN == 0 && rN == 0)
                 {
                     return double.NaN;
                 }
 
-                if (rN.Equals(0))
+                if (rN == 0)
                 {
                     if (NumberInstance.IsNegativeZero(rN))
                     {
@@ -474,7 +474,7 @@ namespace Jint.Runtime
                 case Types.Number:
                     var nx = ((JsNumber) x)._value;
                     var ny = ((JsNumber) y)._value;
-                    return !double.IsNaN(nx) && !double.IsNaN(ny) && nx.Equals(ny);
+                    return !double.IsNaN(nx) && !double.IsNaN(ny) && nx == ny;
                 case Types.String:
                     return x.AsStringWithoutTypeCheck() == y.AsStringWithoutTypeCheck();
                 case Types.Boolean:
@@ -514,9 +514,9 @@ namespace Jint.Runtime
                     return true;
                 }
 
-                if (nx.Equals(ny))
+                if (nx == ny)
                 {
-                    if (nx.Equals(0))
+                    if (nx == 0)
                     {
                         // +0 !== -0
                         return NumberInstance.IsNegativeZero(nx) == NumberInstance.IsNegativeZero(ny);
@@ -563,7 +563,7 @@ namespace Jint.Runtime
                     return Undefined.Instance;
                 }
 
-                if (nx.Equals(ny))
+                if (nx == ny)
                 {
                     return false;
                 }

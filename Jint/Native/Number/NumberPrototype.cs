@@ -55,7 +55,7 @@ namespace Jint.Native.Number
                 return "NaN";
             }
 
-            if (m.Equals(0))
+            if (m == 0)
             {
                 return "0";
             }
@@ -188,7 +188,7 @@ namespace Jint.Native.Number
                 return "NaN";
             }
 
-            if (x.Equals(0))
+            if (x == 0)
             {
                 return "0";
             }
@@ -212,7 +212,7 @@ namespace Jint.Native.Number
             var fraction = x -  integer;
 
             string result = ToBase(integer, radix);
-            if (!fraction.Equals(0))
+            if (fraction != 0)
             {
                 result += "." + ToFractionBase(fraction, radix);
             }
@@ -245,7 +245,7 @@ namespace Jint.Native.Number
             // http://www.mathpath.org/concepts/Num/frac.htm
 
             const string digits = "0123456789abcdefghijklmnopqrstuvwxyz";
-            if (n.Equals(0))
+            if (n == 0)
             {
                 return "0";
             }
@@ -270,7 +270,7 @@ namespace Jint.Native.Number
                 return "NaN";
             }
 
-            if (m.Equals(0))
+            if (m == 0)
             {
                 return "0";
             }
