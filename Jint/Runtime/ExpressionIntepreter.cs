@@ -55,8 +55,8 @@ namespace Jint.Runtime
 
         public JsValue EvaluateAssignmentExpression(AssignmentExpression assignmentExpression)
         {
-            var lref = EvaluateExpression((Expression) assignmentExpression.Left) as Reference;
-            JsValue rval = _engine.GetValue(EvaluateExpression(assignmentExpression.Right), true);
+            var lref = _engine.EvaluateExpression((Expression) assignmentExpression.Left) as Reference;
+            JsValue rval = _engine.GetValue(_engine.EvaluateExpression(assignmentExpression.Right), true);
 
             if (lref == null)
             {
@@ -217,7 +217,7 @@ namespace Jint.Runtime
             }
             else
             {
-                left = _engine.GetValue(EvaluateExpression(expression.Left), true);
+                left = _engine.GetValue(_engine.EvaluateExpression(expression.Left), true);
             }
 
             JsValue right;
@@ -227,7 +227,7 @@ namespace Jint.Runtime
             }
             else
             {
-                right = _engine.GetValue(EvaluateExpression(expression.Right), true);
+                right = _engine.GetValue(_engine.EvaluateExpression(expression.Right), true);
             }
 
             JsValue value;
@@ -377,7 +377,7 @@ namespace Jint.Runtime
 
         public JsValue EvaluateLogicalExpression(BinaryExpression binaryExpression)
         {
-            var left = _engine.GetValue(EvaluateExpression(binaryExpression.Left), true);
+            var left = _engine.GetValue(_engine.EvaluateExpression(binaryExpression.Left), true);
 
             switch (binaryExpression.Operator)
             {
@@ -387,7 +387,7 @@ namespace Jint.Runtime
                         return left;
                     }
 
-                    return _engine.GetValue(EvaluateExpression(binaryExpression.Right), true);
+                    return _engine.GetValue(_engine.EvaluateExpression(binaryExpression.Right), true);
 
                 case BinaryOperator.LogicalOr:
                     if (TypeConverter.ToBoolean(left))
@@ -395,7 +395,7 @@ namespace Jint.Runtime
                         return left;
                     }
 
-                    return _engine.GetValue(EvaluateExpression(binaryExpression.Right), true);
+                    return _engine.GetValue(_engine.EvaluateExpression(binaryExpression.Right), true);
 
                 default:
                     ExceptionHelper.ThrowNotImplementedException();
@@ -749,7 +749,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Reference EvaluateMemberExpression(MemberExpression memberExpression)
         {
-            var baseReference = EvaluateExpression(memberExpression.Object);
+            var baseReference = _engine.EvaluateExpression(memberExpression.Object);
             var baseValue = _engine.GetValue(baseReference);
 
             string propertyNameString;
@@ -760,7 +760,7 @@ namespace Jint.Runtime
             }
             else
             {
-                var propertyNameReference = EvaluateExpression(memberExpression.Property);
+                var propertyNameReference = _engine.EvaluateExpression(memberExpression.Property);
                 var propertyNameValue = _engine.GetValue(propertyNameReference, true);
                 propertyNameString = TypeConverter.ToString(propertyNameValue);
             }
@@ -796,14 +796,13 @@ namespace Jint.Runtime
 
         public JsValue EvaluateCallExpression(CallExpression callExpression)
         {
-            var callee = EvaluateExpression(callExpression.Callee);
+            var callee = _engine.EvaluateExpression(callExpression.Callee);
             
             if (_isDebugMode)
             {
                 _engine.DebugHandler.AddToDebugCallStack(callExpression);
             }
 
-            JsValue thisObject;
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
 
             var arguments = Array.Empty<JsValue>();
@@ -838,10 +837,9 @@ namespace Jint.Runtime
             var func = _engine.GetValue(callee);
 
             var r = callee as Reference;
-
             if (_maxRecursionDepth >= 0)
             {
-                var stackItem = new CallStackElement(callExpression, func, r != null ? r.GetReferencedName() : "anonymous function");
+                var stackItem = new CallStackElement(callExpression, func, r?._name ?? "anonymous function");
 
                 var recursionDepth = _engine.CallStack.Push(stackItem);
 
@@ -852,12 +850,12 @@ namespace Jint.Runtime
                 }
             }
 
-            if (func.IsUndefined())
+            if (func._type == Types.Undefined)
             {
                 ExceptionHelper.ThrowTypeError(_engine, r == null ? "" : $"Object has no method '{r.GetReferencedName()}'");
             }
 
-            if (!func.IsObject())
+            if (func._type != Types.Object)
             {
                 if (_referenceResolver == null || !_referenceResolver.TryGetCallable(_engine, callee, out func))
                 {
@@ -866,35 +864,32 @@ namespace Jint.Runtime
                 }
             }
 
-            var callable = func.TryCast<ICallable>();
+            var callable = func as ICallable;
             if (callable == null)
             {
                 ExceptionHelper.ThrowTypeError(_engine);
             }
 
+            var thisObject = Undefined.Instance;
             if (r != null)
             {
                 if (r.IsPropertyReference())
                 {
-                    thisObject = r.GetBase();
+                    thisObject = r._baseValue;
                 }
                 else
                 {
-                    var env = r.GetBase().TryCast<EnvironmentRecord>();
+                    var env = (EnvironmentRecord) r._baseValue;
                     thisObject = env.ImplicitThisValue();
                 }
-            }
-            else
-            {
-                thisObject = Undefined.Instance;
-            }
-
-            // is it a direct call to eval ? http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.1.1
-            if (r != null && r.GetReferencedName() == "eval" && callable is EvalFunctionInstance instance)
-            {
-                var value = instance.Call(thisObject, arguments, true);
-                _referencePool.Return(r);
-                return value;
+                
+                // is it a direct call to eval ? http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.1.1
+                if (r._name == "eval" && callable is EvalFunctionInstance instance)
+                {
+                    var value = instance.Call(thisObject, arguments, true);
+                    _referencePool.Return(r);
+                    return value;
+                }
             }
 
             var result = callable.Call(thisObject, arguments);
@@ -969,7 +964,7 @@ namespace Jint.Runtime
             BuildArguments(newExpression.Arguments, arguments, out _);
 
             // todo: optimize by defining a common abstract class or interface
-            var callee = _engine.GetValue(EvaluateExpression(newExpression.Callee), true).TryCast<IConstructor>();
+            var callee = _engine.GetValue(_engine.EvaluateExpression(newExpression.Callee), true).TryCast<IConstructor>();
 
             if (callee == null)
             {
@@ -998,7 +993,7 @@ namespace Jint.Runtime
                 var expr = elements[n];
                 if (expr != null)
                 {
-                    var value = _engine.GetValue(EvaluateExpression((Expression) expr), true);
+                    var value = _engine.GetValue(_engine.EvaluateExpression((Expression) expr), true);
                     a.SetIndexValue((uint) n, value, updateLength: false);
                 }
             }
@@ -1115,7 +1110,7 @@ namespace Jint.Runtime
             for (var i = 0; i < count; i++)
             {
                 var argument = (Expression) expressionArguments[i];
-                targetArray[i] = _engine.GetValue(EvaluateExpression(argument), true);
+                targetArray[i] = _engine.GetValue(_engine.EvaluateExpression(argument), true);
                 cacheable &= argument is Literal;
             }
         }

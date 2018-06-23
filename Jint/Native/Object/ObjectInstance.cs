@@ -185,12 +185,9 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            if (_properties != null && _properties.TryGetValue(propertyName, out var x))
-            {
-                return x;
-            }
-
-            return PropertyDescriptor.Undefined;
+            PropertyDescriptor descriptor = null;
+            _properties?.TryGetValue(propertyName, out descriptor);
+            return descriptor ?? PropertyDescriptor.Undefined;
         }
 
         protected internal virtual void SetOwnProperty(string propertyName, PropertyDescriptor desc)
@@ -220,12 +217,7 @@ namespace Jint.Native.Object
                 return prop;
             }
 
-            if (ReferenceEquals(Prototype, null))
-            {
-                return PropertyDescriptor.Undefined;
-            }
-
-            return Prototype.GetProperty(propertyName);
+            return Prototype?.GetProperty(propertyName) ?? PropertyDescriptor.Undefined;
         }
 
         public bool TryGetValue(string propertyName, out JsValue value)

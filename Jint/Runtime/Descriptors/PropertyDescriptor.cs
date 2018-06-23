@@ -354,12 +354,6 @@ namespace Jint.Runtime.Descriptors
         {
             value = JsValue.Undefined;
 
-            if (this == Undefined)
-            {
-                value = JsValue.Undefined;
-                return false;
-            }
-
             // IsDataDescriptor logic inlined
             if ((_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0)
             {
@@ -373,7 +367,12 @@ namespace Jint.Runtime.Descriptors
                     return true;
                 }
             }
-
+            
+            if (this == Undefined)
+            {
+                return false;
+            }
+            
             var getter = Get;
             if (!ReferenceEquals(getter, null) && !getter.IsUndefined())
             {

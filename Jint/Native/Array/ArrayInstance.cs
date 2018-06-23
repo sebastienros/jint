@@ -526,21 +526,9 @@ namespace Jint.Native.Array
         {
             value = Undefined;
 
-            if (!TryGetDescriptor(index, out var desc)
-                || desc == null
-                || desc == PropertyDescriptor.Undefined
-                || (ReferenceEquals(desc.Value, null) && ReferenceEquals(desc.Get, null)))
-            {
-                desc = GetProperty(TypeConverter.ToString(index));
-            }
-
-            if (desc != null && desc != PropertyDescriptor.Undefined)
-            {
-                bool success = desc.TryGetValue(this, out value);
-                return success;
-            }
-
-            return false;
+            TryGetDescriptor(index, out var desc);
+            desc = desc ?? GetProperty(TypeConverter.ToString(index)) ?? PropertyDescriptor.Undefined; 
+            return desc.TryGetValue(this, out value);
         }
 
         internal bool DeleteAt(uint index)
