@@ -18,8 +18,8 @@ namespace Jint.Native.Object
 {
     public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
-        private MruPropertyCache2<PropertyDescriptor> _intrinsicProperties;
-        private MruPropertyCache2<PropertyDescriptor> _properties;
+        private Dictionary<string, PropertyDescriptor> _intrinsicProperties;
+        private Dictionary<string, PropertyDescriptor> _properties;
         
         private readonly string _class;
         protected readonly Engine _engine;
@@ -63,7 +63,7 @@ namespace Jint.Native.Object
         {
             if (_intrinsicProperties == null)
             {
-                _intrinsicProperties = new MruPropertyCache2<PropertyDescriptor>();
+                _intrinsicProperties = new Dictionary<string, PropertyDescriptor>(StringComparer.Ordinal);
             }
 
             _intrinsicProperties[symbol.AsSymbol()] = new PropertyDescriptor(value, writable, enumerable, configurable);
@@ -92,7 +92,7 @@ namespace Jint.Native.Object
 
             if (_properties != null)
             {
-                foreach (var pair in _properties.GetEnumerator())
+                foreach (var pair in _properties)
                 {
                     yield return pair;
                 }
@@ -103,7 +103,7 @@ namespace Jint.Native.Object
         {
             if (_properties == null)
             {
-                _properties = new MruPropertyCache2<PropertyDescriptor>();
+                _properties = new Dictionary<string, PropertyDescriptor>(StringComparer.Ordinal);
             }
 
             _properties.Add(propertyName, descriptor);
@@ -196,7 +196,7 @@ namespace Jint.Native.Object
 
             if (_properties == null)
             {
-                _properties = new MruPropertyCache2<PropertyDescriptor>();
+                _properties = new Dictionary<string, PropertyDescriptor>();
             }
 
             _properties[propertyName] = desc;
