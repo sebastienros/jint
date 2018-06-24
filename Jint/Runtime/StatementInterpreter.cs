@@ -419,33 +419,16 @@ namespace Jint.Runtime
 
         public Completion ExecuteStatementList(List<StatementListItem> statementList)
         {
-            // optimize common case with unrolled loop
-            var c = new Completion(CompletionType.Normal, null, null);
-            Statement s = null;
-            if (statementList.Count == 1)
-            {
-                try
-                {
-                    s = (Statement) statementList[0];
-                    c = _engine.ExecuteStatement(s);
-                    if (c.Type != CompletionType.Normal)
-                    {
-                        var executeStatementList = new Completion(
-                            c.Type,
-                            c.Value,
-                            c.Identifier,
-                            c.Location);
+            // optimize common case without loop
+            return statementList.Count == 1 
+                ? ExecuteSingleStatement((Statement) statementList[0]) 
+                : ExecuteMultipleStatements(statementList);
+        }
 
-                        return executeStatementList;
-                    }
-                    return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
-                }
-                catch (JavaScriptException v)
-                {
-                    return new Completion(CompletionType.Throw, v.Error, null, v.Location ?? s?.Location);
-                }
-            }
-            
+        private Completion ExecuteMultipleStatements(List<StatementListItem> statementList)
+        {
+            Statement s = null;
+            var c = new Completion(CompletionType.Normal, null, null);
             Completion sl = c;
             try
             {
@@ -475,6 +458,30 @@ namespace Jint.Runtime
             }
 
             return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
+        }
+
+        private Completion ExecuteSingleStatement(Statement s)
+        {
+            try
+            {
+                var c = _engine.ExecuteStatement(s);
+                if (c.Type != CompletionType.Normal)
+                {
+                    var completion = new Completion(
+                        c.Type,
+                        c.Value,
+                        c.Identifier,
+                        c.Location);
+
+                    return completion;
+                }
+
+                return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
+            }
+            catch (JavaScriptException v)
+            {
+                return new Completion(CompletionType.Throw, v.Error, null, v.Location ?? s?.Location);
+            }
         }
 
         /// <summary>
