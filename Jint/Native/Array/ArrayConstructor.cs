@@ -97,7 +97,7 @@ namespace Jint.Native.Array
                     ExceptionHelper.ThrowRangeError(_engine, "Invalid array length");
                 }
 
-                instance.SetOwnProperty("length", new PropertyDescriptor(length, PropertyFlag.OnlyWritable));
+                instance._length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
             }
             else if (arguments.Length == 1 && arguments[0] is ObjectWrapper objectWrapper)
             {
@@ -117,7 +117,7 @@ namespace Jint.Native.Array
             }
             else
             {
-                instance.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
+                instance._length = new PropertyDescriptor(0, PropertyFlag.OnlyWritable);
                 if (arguments.Length > 0)
                 {
                     PrototypeObject.Push(instance, arguments);
@@ -132,7 +132,7 @@ namespace Jint.Native.Array
             var instance = new ArrayInstance(Engine, length);
             instance.Prototype = PrototypeObject;
             instance.Extensible = true;
-            instance.SetOwnProperty("length", new PropertyDescriptor(length, PropertyFlag.OnlyWritable));
+            instance._length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
             return instance;
         }
     }

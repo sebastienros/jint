@@ -10,11 +10,11 @@ namespace Jint.Native.Function
     {
         private const string PropertyNamePrototype = "prototype";
         private const int PropertyNamePrototypeLength = 9;
-        private PropertyDescriptor _prototype;
+        protected PropertyDescriptor _prototype;
 
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
-        private PropertyDescriptor _length;
+        protected PropertyDescriptor _length;
         
         protected FunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict)
             : this(engine, parameters, scope, strict, objectClass: "Function")

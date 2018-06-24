@@ -26,10 +26,9 @@ namespace Jint.Native.Object
         
         public ObjectInstance(Engine engine) : this(engine, "Object")
         {
-            _engine = engine;
         }
         
-        protected ObjectInstance(Engine engine, in string objectClass) : base(Types.Object)
+        protected ObjectInstance(Engine engine, string objectClass) : base(Types.Object)
         {
             _engine = engine;
             _class = objectClass;
@@ -84,7 +83,7 @@ namespace Jint.Native.Object
         /// A String value indicating a specification defined
         /// classification of objects.
         /// </summary>
-        public ref readonly string Class => ref _class;
+        public string Class => _class;
 
         public virtual IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {
@@ -124,7 +123,7 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            return _properties?.ContainsKey(propertyName) ?? false;
+            return _properties?.ContainsKey(propertyName) == true;
         }
 
         public virtual void RemoveOwnProperty(string propertyName)

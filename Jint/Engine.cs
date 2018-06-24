@@ -594,27 +594,9 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetValue(object value)
         {
-            if (value is JsValue jsValue)
-            {
-                return jsValue;
-            }
-
-            return GetValueFromReference(value, false);
+            return GetValue(value, false);
         }
         
-        
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal JsValue GetValue(in Completion completion)
-        {
-            var value = completion.Value;
-            if (value is JsValue jsValue)
-            {
-                return jsValue;
-            }
-            return GetValueFromReference(completion.Value, false);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal JsValue GetValue(object value, bool returnReferenceToPool)
         {
             if (value is JsValue jsValue)
@@ -622,18 +604,9 @@ namespace Jint
                 return jsValue;
             }
 
-            return GetValueFromReference(value, returnReferenceToPool);
-        }
-       
-        internal JsValue GetValueFromReference(object value, bool returnReferenceToPool)
-        {
-            var reference = value as Reference;
-            if (reference == null)
+            if (!(value is Reference reference))
             {
-                if (value is Completion completion)
-                {
-                    return GetValue(completion.Value, returnReferenceToPool);
-                }
+                return ((Completion) value).Value;
             }
 
             if (reference._baseValue._type == Types.Undefined)
