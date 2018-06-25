@@ -984,10 +984,7 @@ namespace Jint.Runtime
             var elements = arrayExpression.Elements;
             var count = elements.Count;
             
-            var jsValues = _engine.JsValueArrayPool.RentArray(1);
-            jsValues[0] = count;
-            
-            var a = _engine.Array.Construct(jsValues, (uint) count);
+            var a = _engine.Array.ConstructFast((uint) count);
             for (var n = 0; n < count; n++)
             {
                 var expr = elements[n];
@@ -997,9 +994,6 @@ namespace Jint.Runtime
                     a.SetIndexValue((uint) n, value, updateLength: false);
                 }
             }
-            a.SetLength((uint) count);
-            _engine.JsValueArrayPool.ReturnArray(jsValues);
-
             return a;
         }
 

@@ -213,11 +213,7 @@ namespace Jint.Native.Array
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
 
-            var jsValues = Engine.JsValueArrayPool.RentArray(1);
-            jsValues[0] = len;
-            var a = Engine.Array.Construct(jsValues, len);
-            Engine.JsValueArrayPool.ReturnArray(jsValues);
-            
+            var a = Engine.Array.ConstructFast(len);
             var args = Engine.JsValueArrayPool.RentArray(3);
             for (uint k = 0; k < len; k++)
             {
@@ -230,10 +226,7 @@ namespace Jint.Native.Array
                     a.SetIndexValue(k, mappedValue, updateLength: false);
                 }
             }
-
-            a.SetLength(len);
             Engine.JsValueArrayPool.ReturnArray(args);
-
             return a;
         }
 

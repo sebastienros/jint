@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Runtime.CompilerServices;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -127,12 +128,15 @@ namespace Jint.Native.Array
             return instance;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ArrayInstance ConstructFast(uint length)
         {
-            var instance = new ArrayInstance(Engine, length);
-            instance.Prototype = PrototypeObject;
-            instance.Extensible = true;
-            instance._length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
+            var instance = new ArrayInstance(Engine, length)
+            {
+                Prototype = PrototypeObject,
+                Extensible = true,
+                _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable)
+            };
             return instance;
         }
     }
