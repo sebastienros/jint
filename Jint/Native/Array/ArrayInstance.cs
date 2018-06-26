@@ -554,13 +554,12 @@ namespace Jint.Native.Array
         {
             if (_dense != null)
             {
-                if (index >= _dense.Length)
+                descriptor = null;
+                if (index < _dense.Length)
                 {
-                    descriptor = null;
-                    return false;
+                    descriptor = _dense[index];
                 }
 
-                descriptor = _dense[index];
                 return descriptor != null;
             }
 

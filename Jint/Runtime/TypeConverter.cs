@@ -266,7 +266,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(uint i)
         {
-            return i >= 0 && i < intToString.Length
+            return i < intToString.Length
                 ? intToString[i]
                 : i.ToString();
         }
