@@ -18,18 +18,17 @@ namespace Jint.Native.Object
 {
     public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
-        private MruPropertyCache2<PropertyDescriptor> _intrinsicProperties;
-        private MruPropertyCache2<PropertyDescriptor> _properties;
+        private Dictionary<string, PropertyDescriptor> _intrinsicProperties;
+        private Dictionary<string, PropertyDescriptor> _properties;
         
         private readonly string _class;
         protected readonly Engine _engine;
         
         public ObjectInstance(Engine engine) : this(engine, "Object")
         {
-            _engine = engine;
         }
         
-        protected ObjectInstance(Engine engine, in string objectClass) : base(Types.Object)
+        protected ObjectInstance(Engine engine, string objectClass) : base(Types.Object)
         {
             _engine = engine;
             _class = objectClass;
@@ -63,7 +62,7 @@ namespace Jint.Native.Object
         {
             if (_intrinsicProperties == null)
             {
-                _intrinsicProperties = new MruPropertyCache2<PropertyDescriptor>();
+                _intrinsicProperties = new Dictionary<string, PropertyDescriptor>(StringComparer.Ordinal);
             }
 
             _intrinsicProperties[symbol.AsSymbol()] = new PropertyDescriptor(value, writable, enumerable, configurable);
@@ -84,7 +83,7 @@ namespace Jint.Native.Object
         /// A String value indicating a specification defined
         /// classification of objects.
         /// </summary>
-        public ref readonly string Class => ref _class;
+        public string Class => _class;
 
         public virtual IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
         {
@@ -92,7 +91,7 @@ namespace Jint.Native.Object
 
             if (_properties != null)
             {
-                foreach (var pair in _properties.GetEnumerator())
+                foreach (var pair in _properties)
                 {
                     yield return pair;
                 }
@@ -103,7 +102,7 @@ namespace Jint.Native.Object
         {
             if (_properties == null)
             {
-                _properties = new MruPropertyCache2<PropertyDescriptor>();
+                _properties = new Dictionary<string, PropertyDescriptor>(StringComparer.Ordinal);
             }
 
             _properties.Add(propertyName, descriptor);
@@ -124,7 +123,7 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            return _properties?.ContainsKey(propertyName) ?? false;
+            return _properties?.ContainsKey(propertyName) == true;
         }
 
         public virtual void RemoveOwnProperty(string propertyName)
@@ -154,7 +153,9 @@ namespace Jint.Native.Object
                 return Undefined;
             }
 
-            if (desc.IsDataDescriptor())
+            // IsDataDescriptor inlined
+            if ((desc._flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0 
+                || !ReferenceEquals(desc.Value, null))
             {
                 var val = desc.Value;
                 return val ?? Undefined;
@@ -183,12 +184,9 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            if (_properties != null && _properties.TryGetValue(propertyName, out var x))
-            {
-                return x;
-            }
-
-            return PropertyDescriptor.Undefined;
+            PropertyDescriptor descriptor = null;
+            _properties?.TryGetValue(propertyName, out descriptor);
+            return descriptor ?? PropertyDescriptor.Undefined;
         }
 
         protected internal virtual void SetOwnProperty(string propertyName, PropertyDescriptor desc)
@@ -197,7 +195,7 @@ namespace Jint.Native.Object
 
             if (_properties == null)
             {
-                _properties = new MruPropertyCache2<PropertyDescriptor>();
+                _properties = new Dictionary<string, PropertyDescriptor>();
             }
 
             _properties[propertyName] = desc;
@@ -218,12 +216,7 @@ namespace Jint.Native.Object
                 return prop;
             }
 
-            if (ReferenceEquals(Prototype, null))
-            {
-                return PropertyDescriptor.Undefined;
-            }
-
-            return Prototype.GetProperty(propertyName);
+            return Prototype?.GetProperty(propertyName) ?? PropertyDescriptor.Undefined;
         }
 
         public bool TryGetValue(string propertyName, out JsValue value)

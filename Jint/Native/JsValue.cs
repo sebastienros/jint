@@ -181,7 +181,7 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T TryCast<T>(Action<JsValue> fail = null) where T : class
         {
-            if (IsObject())
+            if (_type == Types.Object)
             {
                 if (this is T o)
                 {

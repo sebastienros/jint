@@ -145,7 +145,7 @@ namespace Jint.Native.Object
             if (o is StringInstance s)
             {
                 var length = s.PrimitiveValue.AsStringWithoutTypeCheck().Length;
-                array = Engine.Array.Construct(ownProperties.Count + length);
+                array = Engine.Array.ConstructFast((uint) (ownProperties.Count + length));
                 for (var i = 0; i < length; i++)
                 {
                     array.SetIndexValue(n, TypeConverter.ToString(i), updateLength: false);
@@ -402,11 +402,7 @@ namespace Jint.Native.Object
                 .ToArray();
             var n = enumerableProperties.Length;
 
-            var args = _engine.JsValueArrayPool.RentArray(1);
-            args[0] = n;
-            var array = Engine.Array.Construct(args, (uint) n);
-            _engine.JsValueArrayPool.ReturnArray(args);
-
+            var array = Engine.Array.ConstructFast((uint) n);
             uint index = 0;
             foreach (var prop in enumerableProperties)
             {
@@ -414,7 +410,6 @@ namespace Jint.Native.Object
                 array.SetIndexValue(index, p, updateLength: false);
                 index++;
             }
-            array.SetLength(index);
             return array;
         }
     }

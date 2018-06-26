@@ -4,7 +4,7 @@ using Jint.Runtime;
 
 namespace Jint.Native.Function
 {
-    public class BindFunctionInstance : FunctionInstance, IConstructor
+    public sealed class BindFunctionInstance : FunctionInstance, IConstructor
     {
         public BindFunctionInstance(Engine engine) : base(engine, System.Array.Empty<string>(), null, false)
         {

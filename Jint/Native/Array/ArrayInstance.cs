@@ -16,7 +16,7 @@ namespace Jint.Native.Array
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
 
-        private PropertyDescriptor _length;
+        internal PropertyDescriptor _length;
 
         private const int MaxDenseArrayLength = 1024 * 10;
 
@@ -295,7 +295,7 @@ namespace Jint.Native.Array
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public uint GetLength()
         {
-            return (uint) ((JsNumber) _length.Value)._value;
+            return (uint) ((JsNumber) _length._value)._value;
         }
 
         protected override void AddProperty(string propertyName, PropertyDescriptor descriptor)
@@ -526,21 +526,9 @@ namespace Jint.Native.Array
         {
             value = Undefined;
 
-            if (!TryGetDescriptor(index, out var desc)
-                || desc == null
-                || desc == PropertyDescriptor.Undefined
-                || (ReferenceEquals(desc.Value, null) && ReferenceEquals(desc.Get, null)))
-            {
-                desc = GetProperty(TypeConverter.ToString(index));
-            }
-
-            if (desc != null && desc != PropertyDescriptor.Undefined)
-            {
-                bool success = desc.TryGetValue(this, out value);
-                return success;
-            }
-
-            return false;
+            TryGetDescriptor(index, out var desc);
+            desc = desc ?? GetProperty(TypeConverter.ToString(index)) ?? PropertyDescriptor.Undefined; 
+            return desc.TryGetValue(this, out value);
         }
 
         internal bool DeleteAt(uint index)
@@ -566,13 +554,12 @@ namespace Jint.Native.Array
         {
             if (_dense != null)
             {
-                if (index >= _dense.Length)
+                descriptor = null;
+                if (index < _dense.Length)
                 {
-                    descriptor = null;
-                    return false;
+                    descriptor = _dense[index];
                 }
 
-                descriptor = _dense[index];
                 return descriptor != null;
             }
 

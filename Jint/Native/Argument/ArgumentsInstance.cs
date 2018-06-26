@@ -12,7 +12,7 @@ namespace Jint.Native.Argument
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.6
     /// </summary>
-    public class ArgumentsInstance : ObjectInstance
+    public sealed class ArgumentsInstance : ObjectInstance
     {
         // cache key container for array iteration for less allocations
         private static readonly ThreadLocal<HashSet<string>> _mappedNamed = new ThreadLocal<HashSet<string>>(() => new HashSet<string>());

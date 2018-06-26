@@ -28,7 +28,7 @@ using Jint.Runtime.References;
 
 namespace Jint
 {
-    public class Engine
+    public sealed class Engine
     {
         private static readonly ParserOptions DefaultParserOptions = new ParserOptions
         {
@@ -50,6 +50,8 @@ namespace Jint
         private readonly bool _isDebugMode;
         private readonly bool _isStrict;
         private readonly int _maxStatements;
+        private readonly long _memoryLimit;
+        private readonly bool _runBeforeStatementChecks;
         private readonly IReferenceResolver _referenceResolver;
         
         public ITypeConverter ClrTypeConverter;
@@ -176,6 +178,11 @@ namespace Jint
             _isStrict = Options.IsStrict;
             _maxStatements = Options._MaxStatements;
             _referenceResolver = Options.ReferenceResolver;
+            _memoryLimit = Options._MemoryLimit;
+            _runBeforeStatementChecks = (_maxStatements > 0 &&_maxStatements < int.MaxValue) 
+                                        || Options._TimeoutInterval.Ticks > 0
+                                        || _memoryLimit > 0 
+                                        || _isDebugMode;
 
             ReferencePool = new ReferencePool();
             ArgumentsInstancePool = new ArgumentsInstancePool(this);
@@ -364,7 +371,7 @@ namespace Jint
         {
             ResetStatementsCount();
             
-            if (Options._MemoryLimit > 0)
+            if (_memoryLimit > 0)
             {
                 ResetMemoryUsage();
             }
@@ -405,15 +412,24 @@ namespace Jint
 
         public Completion ExecuteStatement(Statement statement)
         {
-            BeforeExecuteStatement(statement);
+            _lastSyntaxNode = statement;
+
+            if (_runBeforeStatementChecks)
+            {
+                BeforeExecuteStatement(statement);
+            }
 
             switch (statement.Type)
             {
                 case Nodes.BlockStatement:
-                    return _statements.ExecuteBlockStatement((BlockStatement) statement);
+                    return _statements.ExecuteStatementList(((BlockStatement) statement).Body);
 
                 case Nodes.ReturnStatement:
-                    return _statements.ExecuteReturnStatement((ReturnStatement) statement);
+                    var jsValue = ((ReturnStatement) statement).Argument == null
+                        ? Undefined.Instance
+                        : GetValue(EvaluateExpression(((ReturnStatement) statement).Argument), true);
+
+                    return new Completion(CompletionType.Return, jsValue, null);
 
                 case Nodes.VariableDeclaration:
                     return _statements.ExecuteVariableDeclaration((VariableDeclaration) statement);
@@ -428,10 +444,13 @@ namespace Jint
                     return _statements.ExecuteDoWhileStatement((DoWhileStatement) statement);
 
                 case Nodes.EmptyStatement:
-                    return _statements.ExecuteEmptyStatement((EmptyStatement) statement);
+                    return new Completion(CompletionType.Normal, null, null);
 
                 case Nodes.ExpressionStatement:
-                    return _statements.ExecuteExpressionStatement((ExpressionStatement) statement);
+                    return new Completion(
+                        CompletionType.Normal, 
+                        GetValue(EvaluateExpression(((ExpressionStatement) statement).Expression), true),
+                        null);
 
                 case Nodes.ForStatement:
                     return _statements.ExecuteForStatement((ForStatement) statement);
@@ -487,14 +506,14 @@ namespace Jint
                 ExceptionHelper.ThrowTimeoutException();
             }
 
-            if (Options._MemoryLimit > 0)
+            if (_memoryLimit > 0)
             {
                 if (GetAllocatedBytesForCurrentThread != null)
                 {
                     var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
-                    if (memoryUsage > Options._MemoryLimit)
+                    if (memoryUsage > _memoryLimit)
                     {
-                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {Options._MemoryLimit}");
+                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {_memoryLimit}");
                     }
                 }
                 else
@@ -502,8 +521,6 @@ namespace Jint
                     ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
                 }
             }
-
-            _lastSyntaxNode = statement;
 
             if (_isDebugMode)
             {
@@ -577,27 +594,9 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetValue(object value)
         {
-            if (value is JsValue jsValue)
-            {
-                return jsValue;
-            }
-
-            return GetValueFromReference(value, false);
+            return GetValue(value, false);
         }
         
-        
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal JsValue GetValue(in Completion completion)
-        {
-            var value = completion.Value;
-            if (value is JsValue jsValue)
-            {
-                return jsValue;
-            }
-            return GetValueFromReference(completion.Value, false);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal JsValue GetValue(object value, bool returnReferenceToPool)
         {
             if (value is JsValue jsValue)
@@ -605,21 +604,12 @@ namespace Jint
                 return jsValue;
             }
 
-            return GetValueFromReference(value, returnReferenceToPool);
-        }
-       
-        internal JsValue GetValueFromReference(object value, bool returnReferenceToPool)
-        {
-            var reference = value as Reference;
-            if (reference == null)
+            if (!(value is Reference reference))
             {
-                if (value is Completion completion)
-                {
-                    return GetValue(completion.Value, returnReferenceToPool);
-                }
+                return ((Completion) value).Value;
             }
 
-            if (reference.IsUnresolvableReference())
+            if (reference._baseValue._type == Types.Undefined)
             {
                 if (_referenceResolver != null &&
                     _referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
@@ -629,7 +619,7 @@ namespace Jint
                 ExceptionHelper.ThrowReferenceError(this, reference.GetReferencedName() + " is not defined");
             }
 
-            var baseValue = reference.GetBase();
+            var baseValue = reference._baseValue;
 
             if (reference.IsPropertyReference())
             {
@@ -639,12 +629,12 @@ namespace Jint
                     return baseValue;
                 }
 
-                var referencedName = reference.GetReferencedName();
+                var referencedName = reference._name;
                 if (returnReferenceToPool)
                 {
                     ReferencePool.Return(reference);
                 }
-                if (reference.HasPrimitiveBase() == false)
+                if (!(reference._baseValue._type != Types.Object && reference._baseValue._type != Types.None))
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
                     var v = o.Get(referencedName);
@@ -681,7 +671,7 @@ namespace Jint
                 ExceptionHelper.ThrowArgumentException();
             }
 
-            var bindingValue = record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
+            var bindingValue = record.GetBindingValue(reference._name, reference._strict);
 
             if (returnReferenceToPool)
             {
@@ -700,7 +690,7 @@ namespace Jint
         {
             if (reference.IsUnresolvableReference())
             {
-                if (reference.IsStrict())
+                if (reference._strict)
                 {
                     ExceptionHelper.ThrowReferenceError(this);
                 }
@@ -709,20 +699,20 @@ namespace Jint
             }
             else if (reference.IsPropertyReference())
             {
-                var baseValue = reference.GetBase();
+                var baseValue = reference._baseValue;
                 if (!reference.HasPrimitiveBase())
                 {
-                    baseValue.AsObject().Put(reference.GetReferencedName(), value, reference.IsStrict());
+                    baseValue.AsObject().Put(reference._name, value, reference._strict);
                 }
                 else
                 {
-                    PutPrimitiveBase(baseValue, reference.GetReferencedName(), value, reference.IsStrict());
+                    PutPrimitiveBase(baseValue, reference._name, value, reference._strict);
                 }
             }
             else
             {
-                var baseValue = reference.GetBase();
-                ((EnvironmentRecord) baseValue).SetMutableBinding(reference.GetReferencedName(), value, reference.IsStrict());
+                var baseValue = reference._baseValue;
+                ((EnvironmentRecord) baseValue).SetMutableBinding(reference.GetReferencedName(), value, reference._strict);
             }
         }
 
@@ -871,20 +861,34 @@ namespace Jint
             bool configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
             var strict = StrictModeScope.IsStrictModeCode;
 
+            var der = env as DeclarativeEnvironmentRecord;
+            bool canReleaseArgumentsInstance = false;
             if (declarationBindingType == DeclarationBindingType.FunctionCode)
             {
-                var parameters = functionInstance.FormalParameters;
-                for (var i = 0; i < parameters.Length; i++)
-                {
-                    var argName = parameters[i];
-                    var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
-                    var argAlreadyDeclared = env.HasBinding(argName);
-                    if (!argAlreadyDeclared)
-                    {
-                        env.CreateMutableBinding(argName, v);
-                    }
+                var argsObj = ArgumentsInstancePool.Rent(functionInstance, functionInstance.FormalParameters, arguments, env, strict);
+                canReleaseArgumentsInstance = true;
 
-                    env.SetMutableBinding(argName, v, strict);
+                if (!ReferenceEquals(der, null))
+                {
+                    der.AddFunctionParameters(functionInstance, arguments, argsObj);
+                }
+                else
+                {
+                    // slow path
+                    var parameters = functionInstance.FormalParameters;
+                    for (var i = 0; i < parameters.Length; i++)
+                    {
+                        var argName = parameters[i];
+                        var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
+                        var argAlreadyDeclared = env.HasBinding(argName);
+                        if (!argAlreadyDeclared)
+                        {
+                            env.CreateMutableBinding(argName, v);
+                        }
+
+                        env.SetMutableBinding(argName, v, strict);
+                    }
+                    env.CreateMutableBinding("arguments", argsObj);
                 }
             }
 
@@ -929,43 +933,28 @@ namespace Jint
                 env.SetMutableBinding(fn, fo, strict);
             }
 
-            bool canReleaseArgumentsInstance = false;
-            if (declarationBindingType == DeclarationBindingType.FunctionCode && !env.HasBinding("arguments"))
-            {
-                var argsObj = ArgumentsInstancePool.Rent(functionInstance, functionInstance.FormalParameters, arguments, env, strict);
-                canReleaseArgumentsInstance = true;
-
-                if (strict)
-                {
-                    var declEnv = env as DeclarativeEnvironmentRecord;
-
-                    if (ReferenceEquals(declEnv, null))
-                    {
-                        ExceptionHelper.ThrowArgumentException();
-                    }
-
-                    declEnv.CreateImmutableBinding("arguments", argsObj);
-                }
-                else
-                {
-                    env.CreateMutableBinding("arguments", argsObj);
-                }
-            }
-
             // process all variable declarations in the current parser scope
-            var variableDeclarationsCount = variableDeclarations.Count;
-            for (var i = 0; i < variableDeclarationsCount; i++)
+            if (!ReferenceEquals(der, null))
             {
-                var variableDeclaration = variableDeclarations[i];
-                var declarationsCount = variableDeclaration.Declarations.Count;
-                for (var j = 0; j < declarationsCount; j++)
+                der.AddVariableDeclarations(variableDeclarations);
+            }
+            else
+            {
+                // slow path
+                var variableDeclarationsCount = variableDeclarations.Count;
+                for (var i = 0; i < variableDeclarationsCount; i++)
                 {
-                    var d = variableDeclaration.Declarations[j];
-                    var dn = ((Identifier) d.Id).Name;
-                    var varAlreadyDeclared = env.HasBinding(dn);
-                    if (!varAlreadyDeclared)
+                    var variableDeclaration = variableDeclarations[i];
+                    var declarationsCount = variableDeclaration.Declarations.Count;
+                    for (var j = 0; j < declarationsCount; j++)
                     {
-                        env.CreateMutableBinding(dn, Undefined.Instance);
+                        var d = variableDeclaration.Declarations[j];
+                        var dn = ((Identifier) d.Id).Name;
+                        var varAlreadyDeclared = env.HasBinding(dn);
+                        if (!varAlreadyDeclared)
+                        {
+                            env.CreateMutableBinding(dn, Undefined.Instance);
+                        }
                     }
                 }
             }

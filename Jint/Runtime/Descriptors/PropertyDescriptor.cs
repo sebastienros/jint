@@ -9,8 +9,8 @@ namespace Jint.Runtime.Descriptors
     {
         public static readonly PropertyDescriptor Undefined = new PropertyDescriptor(PropertyFlag.None);
 
-        private PropertyFlag _flags;
-        private JsValue _value;
+        internal PropertyFlag _flags;
+        internal JsValue _value;
 
         protected PropertyDescriptor(PropertyFlag flags)
         {
@@ -19,12 +19,20 @@ namespace Jint.Runtime.Descriptors
         
         protected internal PropertyDescriptor(JsValue value, PropertyFlag flags) : this(flags)
         {
-            Value = value;
+            if ((_flags & PropertyFlag.CustomJsValue) != 0)
+            {
+                CustomValue = value;
+            }
+            _value = value;
         }
 
         public PropertyDescriptor(JsValue value, bool? writable, bool? enumerable, bool? configurable)
         {
-            Value = value;
+            if ((_flags & PropertyFlag.CustomJsValue) != 0)
+            {
+                CustomValue = value;
+            }
+            _value = value;  
 
             if (writable != null)
             {
@@ -326,7 +334,9 @@ namespace Jint.Runtime.Descriptors
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsDataDescriptor()
         {
-            return WritableSet || !ReferenceEquals(Value, null);
+            return (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0 
+                   || (_flags & PropertyFlag.CustomJsValue) != 0 && !ReferenceEquals(CustomValue, null)
+                   || !ReferenceEquals(_value, null);
         }
 
         /// <summary>
@@ -344,22 +354,25 @@ namespace Jint.Runtime.Descriptors
         {
             value = JsValue.Undefined;
 
-            if (this == Undefined)
+            // IsDataDescriptor logic inlined
+            if ((_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0)
             {
-                value = JsValue.Undefined;
-                return false;
-            }
-
-            if (IsDataDescriptor())
-            {
-                var val = Value;
+                var val = (_flags & PropertyFlag.CustomJsValue) != 0
+                    ? CustomValue
+                    : _value;
+                
                 if (!ReferenceEquals(val, null))
                 {
                     value = val;
                     return true;
                 }
             }
-
+            
+            if (this == Undefined)
+            {
+                return false;
+            }
+            
             var getter = Get;
             if (!ReferenceEquals(getter, null) && !getter.IsUndefined())
             {

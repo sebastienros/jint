@@ -191,7 +191,7 @@ namespace Jint.Native
                         return false;
                     }
 
-                    return ToString().Equals(otherString);
+                    return ToString() == otherString;
                 }
 
                 return base.Equals(other);
