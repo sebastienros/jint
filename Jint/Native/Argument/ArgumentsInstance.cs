@@ -29,20 +29,24 @@ namespace Jint.Native.Argument
         {
         }
 
-        internal void Prepare(FunctionInstance func, string[] names, JsValue[] args, EnvironmentRecord env, bool strict)
+        internal void Prepare(
+            FunctionInstance func, 
+            string[] names, 
+            JsValue[] args, 
+            EnvironmentRecord env, 
+            bool strict)
         {
-            Clear();
-
             _func = func;
             _names = names;
             _args = args;
             _env = env;
             _strict = strict;
 
+            _properties?.Clear();
+            _intrinsicProperties?.Clear();
+
             _initialized = false;
         }
-
-        public bool Strict { get; set; }
 
         protected override void EnsureInitialized()
         {
@@ -105,7 +109,7 @@ namespace Jint.Native.Argument
         {
             EnsureInitialized();
 
-            if (!Strict && !ReferenceEquals(ParameterMap, null))
+            if (!_strict && !ReferenceEquals(ParameterMap, null))
             {
                 var desc = base.GetOwnProperty(propertyName);
                 if (desc == PropertyDescriptor.Undefined)
@@ -170,7 +174,7 @@ namespace Jint.Native.Argument
         {
             EnsureInitialized();
 
-            if (!Strict && !ReferenceEquals(ParameterMap, null))
+            if (!_strict && !ReferenceEquals(ParameterMap, null))
             {
                 var map = ParameterMap;
                 var isMapped = map.GetOwnProperty(propertyName);
@@ -214,7 +218,7 @@ namespace Jint.Native.Argument
         {
             EnsureInitialized();
 
-            if (!Strict && !ReferenceEquals(ParameterMap, null))
+            if (!_strict && !ReferenceEquals(ParameterMap, null))
             {
                 var map = ParameterMap;
                 var isMapped = map.GetOwnProperty(propertyName);

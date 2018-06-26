@@ -19,7 +19,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             Writable = propertyInfo.CanWrite;
         }
 
-        protected override JsValue CustomValue
+        protected internal override JsValue CustomValue
         {
             get => JsValue.FromObject(_engine, _propertyInfo.GetValue(_item, null));
             set

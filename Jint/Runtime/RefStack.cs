@@ -7,7 +7,7 @@ namespace Jint.Runtime
     internal sealed class ExecutionContextStack
     {
         private ExecutionContext[] _array;
-        private int _size;
+        private uint _size;
 
         private const int DefaultCapacity = 4;
 
@@ -40,7 +40,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Push(in ExecutionContext item)
         {
-            if (_size == _array.Length)
+            if (_size == (uint) _array.Length)
             {
                 var newSize = 2 * _array.Length;
                 var newArray = new ExecutionContext[newSize];

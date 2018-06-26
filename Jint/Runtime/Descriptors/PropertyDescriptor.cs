@@ -204,7 +204,7 @@ namespace Jint.Runtime.Descriptors
             }
         }
 
-        protected virtual JsValue CustomValue
+        protected internal virtual JsValue CustomValue
         {
             get => null;
             set => ExceptionHelper.ThrowNotImplementedException();

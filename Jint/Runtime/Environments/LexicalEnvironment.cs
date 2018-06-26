@@ -13,7 +13,7 @@ namespace Jint.Runtime.Environments
     public sealed class LexicalEnvironment
     {
         private readonly Engine _engine;
-        private readonly EnvironmentRecord _record;
+        internal readonly EnvironmentRecord _record;
         private readonly LexicalEnvironment _outer;
 
         public LexicalEnvironment(Engine engine, EnvironmentRecord record, LexicalEnvironment outer)
@@ -52,7 +52,7 @@ namespace Jint.Runtime.Environments
         {
             while (true)
             {
-                if (lex.Record.HasBinding(name))
+                if (lex._record.HasBinding(name))
                 {
                     return lex._engine.ReferencePool.Rent(lex._record, name, strict);
                 }

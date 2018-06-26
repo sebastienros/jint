@@ -2,10 +2,17 @@
 
 namespace Jint.Runtime.Environments
 {
-    public sealed class Binding
+    public struct Binding
     {
-        public JsValue Value;
-        public bool CanBeDeleted;
-        public bool Mutable;
+        public Binding(JsValue value, bool canBeDeleted, bool mutable)
+        {
+            Value = value;
+            CanBeDeleted = canBeDeleted;
+            Mutable = mutable;
+        }
+
+        public readonly JsValue Value;
+        public readonly bool CanBeDeleted;
+        public readonly bool Mutable;
     }
 }

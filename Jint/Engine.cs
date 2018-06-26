@@ -53,6 +53,7 @@ namespace Jint
         private readonly long _memoryLimit;
         private readonly bool _runBeforeStatementChecks;
         private readonly IReferenceResolver _referenceResolver;
+        internal readonly ArgumentsInstancePool _argumentsInstancePool;
         
         public ITypeConverter ClrTypeConverter;
 
@@ -185,7 +186,7 @@ namespace Jint
                                         || _isDebugMode;
 
             ReferencePool = new ReferencePool();
-            ArgumentsInstancePool = new ArgumentsInstancePool(this);
+            _argumentsInstancePool = new ArgumentsInstancePool(this);
             JsValueArrayPool = new JsValueArrayPool();
 
             Eval = new EvalFunctionInstance(this, System.Array.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
@@ -247,7 +248,6 @@ namespace Jint
             get;
         }
 
-        internal ArgumentsInstancePool ArgumentsInstancePool { get; }
         internal JsValueArrayPool JsValueArrayPool { get; }
 
         #region Debugger
@@ -591,7 +591,6 @@ namespace Jint
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.1
         /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetValue(object value)
         {
             return GetValue(value, false);
@@ -844,7 +843,7 @@ namespace Jint
             AssertNotNullOrEmpty(nameof(propertyName), propertyName);
 
             var reference = ReferencePool.Rent(scope, propertyName, _isStrict);
-            var jsValue = GetValue(reference);
+            var jsValue = GetValue(reference, false);
             ReferencePool.Return(reference);
             return jsValue;
         }
@@ -857,7 +856,7 @@ namespace Jint
             FunctionInstance functionInstance,
             JsValue[] arguments)
         {
-            var env = ExecutionContext.VariableEnvironment.Record;
+            var env = ExecutionContext.VariableEnvironment._record;
             bool configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
             var strict = StrictModeScope.IsStrictModeCode;
 
@@ -865,7 +864,7 @@ namespace Jint
             bool canReleaseArgumentsInstance = false;
             if (declarationBindingType == DeclarationBindingType.FunctionCode)
             {
-                var argsObj = ArgumentsInstancePool.Rent(functionInstance, functionInstance.FormalParameters, arguments, env, strict);
+                var argsObj = _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, env, strict);
                 canReleaseArgumentsInstance = true;
 
                 if (!ReferenceEquals(der, null))
@@ -875,7 +874,7 @@ namespace Jint
                 else
                 {
                     // slow path
-                    var parameters = functionInstance.FormalParameters;
+                    var parameters = functionInstance._formalParameters;
                     for (var i = 0; i < parameters.Length; i++)
                     {
                         var argName = parameters[i];
@@ -892,45 +891,14 @@ namespace Jint
                 }
             }
 
-            var functionDeclarationsCount = functionDeclarations.Count;
-            for (var i = 0; i < functionDeclarationsCount; i++)
+            if (functionDeclarations.Count > 0)
             {
-                var f = functionDeclarations[i];
-                var fn = f.Id.Name;
-                var fo = Function.CreateFunctionObject(f);
-                var funcAlreadyDeclared = env.HasBinding(fn);
-                if (!funcAlreadyDeclared)
-                {
-                    env.CreateMutableBinding(fn, configurableBindings);
-                }
-                else
-                {
-                    if (ReferenceEquals(env, GlobalEnvironment.Record))
-                    {
-                        var go = Global;
-                        var existingProp = go.GetProperty(fn);
-                        if (existingProp.Configurable)
-                        {
-                            var flags = PropertyFlag.Writable | PropertyFlag.Enumerable;
-                            if (configurableBindings)
-                            {
-                                flags |= PropertyFlag.Configurable;
-                            }
+                AddFunctionDeclarations(functionDeclarations, env, configurableBindings, strict);
+            }
 
-                            var descriptor = new PropertyDescriptor(Undefined.Instance, flags);
-                            go.DefineOwnProperty(fn, descriptor, true);
-                        }
-                        else
-                        {
-                            if (existingProp.IsAccessorDescriptor() || !existingProp.Enumerable)
-                            {
-                                ExceptionHelper.ThrowTypeError(this);
-                            }
-                        }
-                    }
-                }
-
-                env.SetMutableBinding(fn, fo, strict);
+            if (variableDeclarations.Count == 0)
+            {
+                return canReleaseArgumentsInstance;
             }
 
             // process all variable declarations in the current parser scope
@@ -960,6 +928,50 @@ namespace Jint
             }
 
             return canReleaseArgumentsInstance;
+        }
+
+        private void AddFunctionDeclarations(List<FunctionDeclaration> functionDeclarations, EnvironmentRecord env, bool configurableBindings, bool strict)
+        {
+            var functionDeclarationsCount = functionDeclarations.Count;
+            for (var i = 0; i < functionDeclarationsCount; i++)
+            {
+                var f = functionDeclarations[i];
+                var fn = f.Id.Name;
+                var fo = Function.CreateFunctionObject(f);
+                var funcAlreadyDeclared = env.HasBinding(fn);
+                if (!funcAlreadyDeclared)
+                {
+                    env.CreateMutableBinding(fn, configurableBindings);
+                }
+                else
+                {
+                    if (ReferenceEquals(env, GlobalEnvironment._record))
+                    {
+                        var go = Global;
+                        var existingProp = go.GetProperty(fn);
+                        if (existingProp.Configurable)
+                        {
+                            var flags = PropertyFlag.Writable | PropertyFlag.Enumerable;
+                            if (configurableBindings)
+                            {
+                                flags |= PropertyFlag.Configurable;
+                            }
+
+                            var descriptor = new PropertyDescriptor(Undefined.Instance, flags);
+                            go.DefineOwnProperty(fn, descriptor, true);
+                        }
+                        else
+                        {
+                            if (existingProp.IsAccessorDescriptor() || !existingProp.Enumerable)
+                            {
+                                ExceptionHelper.ThrowTypeError(this);
+                            }
+                        }
+                    }
+                }
+
+                env.SetMutableBinding(fn, fo, strict);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

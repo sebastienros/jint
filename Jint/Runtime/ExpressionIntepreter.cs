@@ -72,7 +72,7 @@ namespace Jint.Runtime
                 return rval;
             }
 
-            JsValue lval = _engine.GetValue(lref);
+            JsValue lval = _engine.GetValue(lref, false);
 
             switch (assignmentExpression.Operator)
             {
@@ -750,7 +750,7 @@ namespace Jint.Runtime
         public Reference EvaluateMemberExpression(MemberExpression memberExpression)
         {
             var baseReference = _engine.EvaluateExpression(memberExpression.Object);
-            var baseValue = _engine.GetValue(baseReference);
+            var baseValue = _engine.GetValue(baseReference, false);
 
             string propertyNameString;
             if (!memberExpression.Computed) // index accessor ?
@@ -777,7 +777,7 @@ namespace Jint.Runtime
         public JsValue EvaluateFunctionExpression(IFunction functionExpression)
         {
             var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
-            var envRec = (DeclarativeEnvironmentRecord)funcEnv.Record;
+            var envRec = (DeclarativeEnvironmentRecord) funcEnv._record;
 
             var closure = new ScriptFunctionInstance(
                 _engine,
@@ -834,7 +834,7 @@ namespace Jint.Runtime
                 }
             }
 
-            var func = _engine.GetValue(callee);
+            var func = _engine.GetValue(callee, false);
 
             var r = callee as Reference;
             if (_maxRecursionDepth >= 0)
@@ -933,7 +933,7 @@ namespace Jint.Runtime
             var r = (Reference) value;
             r.AssertValid(_engine);
 
-            var oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
+            var oldValue = TypeConverter.ToNumber(_engine.GetValue(value, false));
             double newValue = 0;
             if (updateExpression.Operator == UnaryOperator.Increment)
             {
@@ -1051,7 +1051,7 @@ namespace Jint.Runtime
                     return bindings.DeleteBinding(referencedName);
 
                 case UnaryOperator.Void:
-                    _engine.GetValue(value);
+                    _engine.GetValue(value, true);
                     return Undefined.Instance;
 
                 case UnaryOperator.TypeOf:

@@ -177,13 +177,13 @@ namespace Jint.Native.Array
 
             uint to = 0;
             var args = Engine.JsValueArrayPool.RentArray(3);
+            args[2] = o.Target;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
                     args[0] = kvalue;
                     args[1] = k;
-                    args[2] = o.Target;
                     var selected = callable.Call(thisArg, args);
                     if (TypeConverter.ToBoolean(selected))
                     {
@@ -215,13 +215,13 @@ namespace Jint.Native.Array
 
             var a = Engine.Array.ConstructFast(len);
             var args = Engine.JsValueArrayPool.RentArray(3);
+            args[2] = o.Target;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
                     args[0] = kvalue;
                     args[1] = k;
-                    args[2] = o.Target;
                     var mappedValue = callable.Call(thisArg, args);
                     a.SetIndexValue(k, mappedValue, updateLength: false);
                 }
@@ -241,13 +241,13 @@ namespace Jint.Native.Array
             var callable = GetCallable(callbackfn);
 
             var args = Engine.JsValueArrayPool.RentArray(3);
+            args[2] = o.Target;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
                     args[0] = kvalue;
                     args[1] = k;
-                    args[2] = o.Target;
                     callable.Call(thisArg, args);
                 }
             }
@@ -273,13 +273,13 @@ namespace Jint.Native.Array
             var callable = GetCallable(callbackfn);
 
             var args = Engine.JsValueArrayPool.RentArray(3);
+            args[2] = o.Target;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
                     args[0] = kvalue;
                     args[1] = k;
-                    args[2] = o.Target;
                     var testResult = callable.Call(thisArg, args);
                     if (false == TypeConverter.ToBoolean(testResult))
                     {

@@ -36,7 +36,7 @@ namespace Jint.Native.Function
             Extensible = true;
             Prototype = _engine.Function.PrototypeObject;
 
-            _length = new PropertyDescriptor(JsNumber.Create(FormalParameters.Length), PropertyFlag.AllForbidden);
+            _length = new PropertyDescriptor(JsNumber.Create(_formalParameters.Length), PropertyFlag.AllForbidden);
 
             var proto = new ObjectInstanceWithConstructor(engine, this)
             {
@@ -163,7 +163,7 @@ namespace Jint.Native.Function
                     thisBinding = thisArg;
                 }
 
-                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, Scope);
+                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
 
                 _engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
@@ -182,7 +182,7 @@ namespace Jint.Native.Function
                     
                     // we can safely release arguments if they don't escape the scope
                     if (argumentInstanceRented
-                        && _engine.ExecutionContext.LexicalEnvironment?.Record is DeclarativeEnvironmentRecord der
+                        && _engine.ExecutionContext.LexicalEnvironment?._record is DeclarativeEnvironmentRecord der
                         && !(result.Value is ArgumentsInstance))
                     {
                         der.ReleaseArguments();

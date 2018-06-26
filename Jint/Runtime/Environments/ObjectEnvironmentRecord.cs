@@ -51,7 +51,7 @@ namespace Jint.Runtime.Environments
                 ExceptionHelper.ThrowReferenceError(_engine);
             }
 
-            return UnwrapJsValue(desc);
+            return ObjectInstance.UnwrapJsValue(desc, this);
         }
 
         public override bool DeleteBinding(string name)
