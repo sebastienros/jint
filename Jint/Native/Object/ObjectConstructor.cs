@@ -181,11 +181,11 @@ namespace Jint.Native.Object
             var properties = arguments.At(1);
             if (!properties.IsUndefined())
             {
-                var jsValues = _engine.JsValueArrayPool.RentArray(2);
+                var jsValues = _engine._jsValueArrayPool.RentArray(2);
                 jsValues[0] = obj;
                 jsValues[1] = properties;
                 DefineProperties(thisObject, jsValues);
-               _engine.JsValueArrayPool.ReturnArray(jsValues);
+                _engine._jsValueArrayPool.ReturnArray(jsValues);
             }
 
             return obj;

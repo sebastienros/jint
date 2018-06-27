@@ -1,6 +1,5 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Argument;
@@ -14,7 +13,7 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private Dictionary<string, Binding> _dictionary;
+        private StructDictionary<Binding> _dictionary;
         private bool _set;
         private string _key;
         private Binding _value;
@@ -25,59 +24,46 @@ namespace Jint.Runtime.Environments
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
         }
-        
-        private Binding this[string key]
+
+        private void SetItem(string key, in Binding value)
         {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get
+            if (_set && _key != key)
             {
-                if (_set && _key == key)
+                if (_dictionary == null)
                 {
-                    return _value;
-                }
-                if (key.Length == 9 && key == BindingNameArguments)
-                {
-                    return _argumentsBinding;
+                    _dictionary = new StructDictionary<Binding>();
                 }
 
-                return _dictionary?[key] ?? default;
+                _dictionary.TryInsert(_key, _value, InsertionBehavior.OverwriteExisting);
             }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            set
-            {
-                EnsureInitialized(key);
-                _set = true;
-                _key = key;
-                _value = value;
 
-                if (_dictionary != null)
-                {
-                    _dictionary[key] = value;
-                }
-            }
-        }
-
-        private void Add(string key, in Binding value)
-        {
-            if (key.Length == 9 && key == BindingNameArguments)
-            {
-                _argumentsBinding = value;
-                return;
-            }
-            
-            EnsureInitialized(key);
             _set = true;
             _key = key;
             _value = value;
 
-            _dictionary?.Add(key, value);
+            _dictionary?.TryInsert(key, value, InsertionBehavior.OverwriteExisting);
+        }
+
+        private ref Binding GetExistingItem(string key)
+        {
+            if (_set && _key == key)
+            {
+                return ref _value;
+            }
+
+            if (key.Length == 9 && key == BindingNameArguments)
+            {
+                return ref _argumentsBinding;
+            }
+
+            return ref _dictionary.GetItem(key);
         }
 
         private bool ContainsKey(string key)
         {
             if (key.Length == 9 && key == BindingNameArguments)
             {
-                return _argumentsBinding.Value != null;
+                return !ReferenceEquals(_argumentsBinding.Value, null);
             }
 
             if (_set && key == _key)
@@ -88,7 +74,6 @@ namespace Jint.Runtime.Environments
             return _dictionary?.ContainsKey(key) == true;
         }
 
-
         private void Remove(string key)
         {
             if (_set && key == _key)
@@ -97,8 +82,16 @@ namespace Jint.Runtime.Environments
                 _key = null;
                 _value = default;
             }
+            
+            if (key == BindingNameArguments)
+            {
+                _argumentsBinding.Value = null;
+            }
+            else
+            {
+                _dictionary?.Remove(key);
+            }
 
-            _dictionary?.Remove(key);
         }
 
         private bool TryGetValue(string key, out Binding value)
@@ -113,20 +106,6 @@ namespace Jint.Runtime.Environments
             return _dictionary?.TryGetValue(key, out value) == true;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void EnsureInitialized(string key)
-        {
-            if (_set && _key != key)
-            {
-                if (_dictionary == null)
-                {
-                    _dictionary = new Dictionary<string, Binding>();
-                }
-
-                _dictionary[_key] = _value;
-            }
-        }
-
         public override bool HasBinding(string name)
         {
             return ContainsKey(name);
@@ -134,17 +113,16 @@ namespace Jint.Runtime.Environments
 
         public override void CreateMutableBinding(string name, JsValue value, bool canBeDeleted = false)
         {
-            var binding = new Binding(value, canBeDeleted, mutable: true);
-            Add(name, binding);
+            SetItem(name, new Binding(value, canBeDeleted, mutable: true));
         }
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
-            var binding = this[name];
+            ref var binding = ref GetExistingItem(name);
 
             if (binding.Mutable)
             {
-                this[name] = new Binding(value, binding.CanBeDeleted, mutable: true);
+                binding.Value = value;
             }
             else
             {
@@ -157,9 +135,9 @@ namespace Jint.Runtime.Environments
 
         public override JsValue GetBindingValue(string name, bool strict)
         {
-            var binding = this[name];
+            ref var binding = ref GetExistingItem(name);
 
-            if (!binding.Mutable && binding.Value.IsUndefined())
+            if (!binding.Mutable && binding.Value._type == Types.Undefined)
             {
                 if (strict)
                 {
@@ -174,17 +152,9 @@ namespace Jint.Runtime.Environments
 
         public override bool DeleteBinding(string name)
         {
-            Binding binding;
-            if (name == BindingNameArguments)
-            {
-                binding = _argumentsBinding;
-            }
-            else
-            {
-                TryGetValue(name, out binding);
-            }
+            ref Binding binding = ref GetExistingItem(name);
 
-            if (binding.Value == null)
+            if (ReferenceEquals(binding.Value, null))
             {
                 return true;
             }
@@ -194,14 +164,7 @@ namespace Jint.Runtime.Environments
                 return false;
             }
 
-            if (name == BindingNameArguments)
-            {
-                _argumentsBinding = default;
-            }
-            else
-            {
-                Remove(name);
-            }
+            Remove(name);
 
             return true;
         }
@@ -215,10 +178,11 @@ namespace Jint.Runtime.Environments
         public override string[] GetAllBindingNames()
         {
             int size = _set ? 1 : 0;
-            if (_argumentsBinding.Value != null)
+            if (!ReferenceEquals(_argumentsBinding.Value, null))
             {
                 size += 1;
             }
+
             if (_dictionary != null)
             {
                 size += _dictionary.Count;
@@ -230,10 +194,12 @@ namespace Jint.Runtime.Environments
             {
                 keys[n++] = _key;
             }
-            if (_argumentsBinding.Value != null)
+
+            if (!ReferenceEquals(_argumentsBinding.Value, null))
             {
                 keys[n++] = BindingNameArguments;
             }
+
             if (_dictionary != null)
             {
                 foreach (var key in _dictionary.Keys)
@@ -255,8 +221,8 @@ namespace Jint.Runtime.Environments
         /// Optimized version for function calls.
         /// </summary>
         internal void AddFunctionParameters(
-            FunctionInstance functionInstance, 
-            JsValue[] arguments, 
+            FunctionInstance functionInstance,
+            JsValue[] arguments,
             ArgumentsInstance argumentsInstance)
         {
             var parameters = functionInstance._formalParameters;
@@ -274,7 +240,7 @@ namespace Jint.Runtime.Environments
                 AddMultipleParameters(arguments, parameters);
             }
 
-            if (_argumentsBinding.Value == null)
+            if (ReferenceEquals(_argumentsBinding.Value, null))
             {
                 _argumentsBinding = new Binding(argumentsInstance, canBeDeleted: false, mutable: true);
             }
@@ -297,14 +263,15 @@ namespace Jint.Runtime.Environments
                     }
                     else
                     {
-                        this[argName] = binding;
+                        SetItem(argName, binding);
                     }
                 }
                 else
                 {
                     if (existing.Mutable)
                     {
-                        this[argName] = new Binding(jsValue, existing.CanBeDeleted, mutable: true);
+                        ref var b = ref GetExistingItem(argName);
+                        b.Value = jsValue;
                     }
                     else
                     {
@@ -329,7 +296,7 @@ namespace Jint.Runtime.Environments
                     if (!ContainsKey(dn))
                     {
                         var binding = new Binding(Undefined, canBeDeleted: false, mutable: true);
-                        Add(dn, binding);
+                        SetItem(dn, binding);
                     }
                 }
             }

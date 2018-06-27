@@ -62,7 +62,7 @@ namespace Jint.Native.Object
         {
             if (_intrinsicProperties == null)
             {
-                _intrinsicProperties = new Dictionary<string, PropertyDescriptor>(StringComparer.Ordinal);
+                _intrinsicProperties = new Dictionary<string, PropertyDescriptor>();
             }
 
             _intrinsicProperties[symbol.AsSymbol()] = new PropertyDescriptor(value, writable, enumerable, configurable);
@@ -102,7 +102,7 @@ namespace Jint.Native.Object
         {
             if (_properties == null)
             {
-                _properties = new Dictionary<string, PropertyDescriptor>(StringComparer.Ordinal);
+                _properties = new Dictionary<string, PropertyDescriptor>();
             }
 
             _properties.Add(propertyName, descriptor);
@@ -899,7 +899,7 @@ namespace Jint.Native.Object
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
 
-            var args = Engine.JsValueArrayPool.RentArray(3);
+            var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
             for (uint k = 0; k < len; k++)
             {
@@ -917,7 +917,7 @@ namespace Jint.Native.Object
                 }
             }
 
-            Engine.JsValueArrayPool.ReturnArray(args);
+            _engine._jsValueArrayPool.ReturnArray(args);
 
             index = 0;
             value = Undefined;

@@ -55,13 +55,8 @@ namespace Jint.Runtime.References
         public bool IsPropertyReference()
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
-            if (_baseValue._type != Types.Object && _baseValue._type != Types.None)
-            {
-                // primitive
-                return true;
-            }
-            
-            return _baseValue._type == Types.Object && !(_baseValue is EnvironmentRecord);
+            return _baseValue._type != Types.Object && _baseValue._type != Types.None
+                   || _baseValue._type == Types.Object && !(_baseValue is EnvironmentRecord);
         }
 
         internal Reference Reassign(JsValue baseValue, string name, bool strict)

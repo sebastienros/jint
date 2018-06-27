@@ -552,7 +552,7 @@ namespace Jint.Runtime
 
                     var value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init), true);
                     _engine.PutValue(lhs, value);
-                    _engine.ReferencePool.Return(lhs);
+                    _engine._referencePool.Return(lhs);
                 }
             }
 

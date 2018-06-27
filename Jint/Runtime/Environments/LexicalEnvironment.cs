@@ -37,7 +37,7 @@ namespace Jint.Runtime.Environments
             // optimize for common case where result is in one of the nearest scopes
             if (lex._record.HasBinding(name))
             {
-                return lex._engine.ReferencePool.Rent(lex._record, name, strict);
+                return lex._engine._referencePool.Rent(lex._record, name, strict);
             }
 
             if (lex._outer == null)
@@ -54,12 +54,12 @@ namespace Jint.Runtime.Environments
             {
                 if (lex._record.HasBinding(name))
                 {
-                    return lex._engine.ReferencePool.Rent(lex._record, name, strict);
+                    return lex._engine._referencePool.Rent(lex._record, name, strict);
                 }
 
                 if (lex._outer == null)
                 {
-                    return lex._engine.ReferencePool.Rent(Undefined.Instance, name, strict);
+                    return lex._engine._referencePool.Rent(Undefined.Instance, name, strict);
                 }
 
                 lex = lex._outer;

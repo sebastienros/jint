@@ -176,7 +176,7 @@ namespace Jint.Native.Array
             var a = Engine.Array.ConstructFast(0);
 
             uint to = 0;
-            var args = Engine.JsValueArrayPool.RentArray(3);
+            var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o.Target;
             for (uint k = 0; k < len; k++)
             {
@@ -194,7 +194,7 @@ namespace Jint.Native.Array
             }
 
             a.SetLength(to);
-            Engine.JsValueArrayPool.ReturnArray(args);
+            _engine._jsValueArrayPool.ReturnArray(args);
 
             return a;
         }
@@ -214,7 +214,7 @@ namespace Jint.Native.Array
             var callable = GetCallable(callbackfn);
 
             var a = Engine.Array.ConstructFast(len);
-            var args = Engine.JsValueArrayPool.RentArray(3);
+            var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o.Target;
             for (uint k = 0; k < len; k++)
             {
@@ -226,7 +226,7 @@ namespace Jint.Native.Array
                     a.SetIndexValue(k, mappedValue, updateLength: false);
                 }
             }
-            Engine.JsValueArrayPool.ReturnArray(args);
+            _engine._jsValueArrayPool.ReturnArray(args);
             return a;
         }
 
@@ -240,7 +240,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var args = Engine.JsValueArrayPool.RentArray(3);
+            var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o.Target;
             for (uint k = 0; k < len; k++)
             {
@@ -251,7 +251,7 @@ namespace Jint.Native.Array
                     callable.Call(thisArg, args);
                 }
             }
-            Engine.JsValueArrayPool.ReturnArray(args);
+            _engine._jsValueArrayPool.ReturnArray(args);
 
             return Undefined;
         }
@@ -272,7 +272,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var args = Engine.JsValueArrayPool.RentArray(3);
+            var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o.Target;
             for (uint k = 0; k < len; k++)
             {
@@ -287,7 +287,7 @@ namespace Jint.Native.Array
                     }
                 }
             }
-            Engine.JsValueArrayPool.ReturnArray(args);
+            _engine._jsValueArrayPool.ReturnArray(args);
 
             return JsBoolean.True;
         }

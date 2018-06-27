@@ -11,7 +11,7 @@ namespace Jint.Runtime.Environments
             Mutable = mutable;
         }
 
-        public readonly JsValue Value;
+        public JsValue Value;
         public readonly bool CanBeDeleted;
         public readonly bool Mutable;
     }

@@ -53,7 +53,9 @@ namespace Jint
         private readonly long _memoryLimit;
         private readonly bool _runBeforeStatementChecks;
         private readonly IReferenceResolver _referenceResolver;
+        internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
+        internal readonly JsValueArrayPool _jsValueArrayPool;
         
         public ITypeConverter ClrTypeConverter;
 
@@ -185,9 +187,9 @@ namespace Jint
                                         || _memoryLimit > 0 
                                         || _isDebugMode;
 
-            ReferencePool = new ReferencePool();
+            _referencePool = new ReferencePool();
             _argumentsInstancePool = new ArgumentsInstancePool(this);
-            JsValueArrayPool = new JsValueArrayPool();
+            _jsValueArrayPool = new JsValueArrayPool();
 
             Eval = new EvalFunctionInstance(this, System.Array.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
@@ -241,14 +243,6 @@ namespace Jint
         public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
 
         internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; }
-
-        internal ReferencePool ReferencePool
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get;
-        }
-
-        internal JsValueArrayPool JsValueArrayPool { get; }
 
         #region Debugger
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
@@ -631,7 +625,7 @@ namespace Jint
                 var referencedName = reference._name;
                 if (returnReferenceToPool)
                 {
-                    ReferencePool.Return(reference);
+                    _referencePool.Return(reference);
                 }
                 if (!(reference._baseValue._type != Types.Object && reference._baseValue._type != Types.None))
                 {
@@ -674,7 +668,7 @@ namespace Jint
 
             if (returnReferenceToPool)
             {
-                ReferencePool.Return(reference);
+                _referencePool.Return(reference);
             }
 
             return bindingValue;
@@ -687,21 +681,21 @@ namespace Jint
         /// <param name="value"></param>
         public void PutValue(Reference reference, JsValue value)
         {
-            if (reference.IsUnresolvableReference())
+            if (reference._baseValue._type == Types.Undefined)
             {
                 if (reference._strict)
                 {
                     ExceptionHelper.ThrowReferenceError(this);
                 }
 
-                Global.Put(reference.GetReferencedName(), value, false);
+                Global.Put(reference._name, value, false);
             }
             else if (reference.IsPropertyReference())
             {
                 var baseValue = reference._baseValue;
-                if (!reference.HasPrimitiveBase())
+                if (reference._baseValue._type == Types.Object || reference._baseValue._type == Types.None)
                 {
-                    baseValue.AsObject().Put(reference._name, value, reference._strict);
+                    ((ObjectInstance) baseValue).Put(reference._name, value, reference._strict);
                 }
                 else
                 {
@@ -711,7 +705,7 @@ namespace Jint
             else
             {
                 var baseValue = reference._baseValue;
-                ((EnvironmentRecord) baseValue).SetMutableBinding(reference.GetReferencedName(), value, reference._strict);
+                ((EnvironmentRecord) baseValue).SetMutableBinding(reference._name, value, reference._strict);
             }
         }
 
@@ -804,14 +798,14 @@ namespace Jint
         {
             var callable = value as ICallable ?? ExceptionHelper.ThrowArgumentException<ICallable>("Can only invoke functions");
 
-            var items = JsValueArrayPool.RentArray(arguments.Length);
+            var items = _jsValueArrayPool.RentArray(arguments.Length);
             for (int i = 0; i < arguments.Length; ++i)
             {
                 items[i] = JsValue.FromObject(this, arguments[i]);
             }
 
             var result = callable.Call(JsValue.FromObject(this, thisObj), items);
-            JsValueArrayPool.ReturnArray(items);
+            _jsValueArrayPool.ReturnArray(items);
 
             return result;
         }
@@ -842,9 +836,9 @@ namespace Jint
         {
             AssertNotNullOrEmpty(nameof(propertyName), propertyName);
 
-            var reference = ReferencePool.Rent(scope, propertyName, _isStrict);
+            var reference = _referencePool.Rent(scope, propertyName, _isStrict);
             var jsValue = GetValue(reference, false);
-            ReferencePool.Return(reference);
+            _referencePool.Return(reference);
             return jsValue;
         }
 

@@ -105,14 +105,14 @@ namespace Jint.Native.Array
                 if (objectWrapper.Target is IEnumerable enumerable)
                 {
                     var jsArray = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
-                    var tempArray = Engine.JsValueArrayPool.RentArray(1);
+                    var tempArray = _engine._jsValueArrayPool.RentArray(1);
                     foreach (var item in enumerable)
                     {
                         var jsItem = FromObject(Engine, item);
                         tempArray[0] = jsItem;
                         Engine.Array.PrototypeObject.Push(jsArray, tempArray);
                     }
-                    Engine.JsValueArrayPool.ReturnArray(tempArray);
+                    _engine._jsValueArrayPool.ReturnArray(tempArray);
                     return jsArray;
                 }
             }

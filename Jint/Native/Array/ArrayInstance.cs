@@ -698,7 +698,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
             var a = Engine.Array.ConstructFast(len);
-            var args = Engine.JsValueArrayPool.RentArray(3);
+            var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
             for (uint k = 0; k < len; k++)
             {
@@ -719,7 +719,7 @@ namespace Jint.Native.Array
                 }
             }
 
-            Engine.JsValueArrayPool.ReturnArray(args);
+            _engine._jsValueArrayPool.ReturnArray(args);
             return a;
         }
         
@@ -741,7 +741,7 @@ namespace Jint.Native.Array
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
 
-            var args = Engine.JsValueArrayPool.RentArray(3);
+            var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
             for (uint k = 0; k < len; k++)
             {
@@ -759,7 +759,7 @@ namespace Jint.Native.Array
                 }
             }
 
-            Engine.JsValueArrayPool.ReturnArray(args);
+            _engine._jsValueArrayPool.ReturnArray(args);
 
             index = 0;
             value = Undefined;
