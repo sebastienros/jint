@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Native;
@@ -13,59 +13,112 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
+        private StructDictionary<Binding> _dictionary;
+        private bool _set;
+        private string _key;
+        private Binding _value;
+
         private const string BindingNameArguments = "arguments";
         private Binding _argumentsBinding;
-
-        private MruPropertyCache2<Binding> _bindings;
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
         }
 
-        public override bool HasBinding(string name)
+        private void SetItem(string key, in Binding value)
         {
-            if (name.Length == 9 && name == BindingNameArguments)
+            if (_set && _key != key)
             {
-                return _argumentsBinding != null;
+                if (_dictionary == null)
+                {
+                    _dictionary = new StructDictionary<Binding>();
+                }
+
+                _dictionary.TryInsert(_key, _value, InsertionBehavior.OverwriteExisting);
             }
 
-            return _bindings?.ContainsKey(name) == true;
+            _set = true;
+            _key = key;
+            _value = value;
+
+            _dictionary?.TryInsert(key, value, InsertionBehavior.OverwriteExisting);
+        }
+
+        private ref Binding GetExistingItem(string key)
+        {
+            if (_set && _key == key)
+            {
+                return ref _value;
+            }
+
+            if (key.Length == 9 && key == BindingNameArguments)
+            {
+                return ref _argumentsBinding;
+            }
+
+            return ref _dictionary.GetItem(key);
+        }
+
+        private bool ContainsKey(string key)
+        {
+            if (key.Length == 9 && key == BindingNameArguments)
+            {
+                return !ReferenceEquals(_argumentsBinding.Value, null);
+            }
+
+            if (_set && key == _key)
+            {
+                return true;
+            }
+
+            return _dictionary?.ContainsKey(key) == true;
+        }
+
+        private void Remove(string key)
+        {
+            if (_set && key == _key)
+            {
+                _set = false;
+                _key = null;
+                _value = default;
+            }
+            
+            if (key == BindingNameArguments)
+            {
+                _argumentsBinding.Value = null;
+            }
+            else
+            {
+                _dictionary?.Remove(key);
+            }
+
+        }
+
+        private bool TryGetValue(string key, out Binding value)
+        {
+            value = default;
+            if (_set && _key == key)
+            {
+                value = _value;
+                return true;
+            }
+
+            return _dictionary?.TryGetValue(key, out value) == true;
+        }
+
+        public override bool HasBinding(string name)
+        {
+            return ContainsKey(name);
         }
 
         public override void CreateMutableBinding(string name, JsValue value, bool canBeDeleted = false)
         {
-            var binding = new Binding
-            {
-                Value = value,
-                CanBeDeleted = canBeDeleted,
-                Mutable = true
-            };
-
-            if (name.Length == 9 && name == BindingNameArguments)
-            {
-                _argumentsBinding = binding;
-            }
-            else
-            {
-                if (_bindings == null)
-                {
-                    _bindings = new MruPropertyCache2<Binding>();
-                }
-
-                _bindings.Add(name, binding);
-            }
+            SetItem(name, new Binding(value, canBeDeleted, mutable: true));
         }
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
-            if (_bindings == null)
-            {
-                _bindings = new MruPropertyCache2<Binding>();
-            }
-
-            var binding = name.Length == 9 && name == BindingNameArguments
-                ? _argumentsBinding 
-                : _bindings[name];
+            ref var binding = ref GetExistingItem(name);
 
             if (binding.Mutable)
             {
@@ -82,11 +135,9 @@ namespace Jint.Runtime.Environments
 
         public override JsValue GetBindingValue(string name, bool strict)
         {
-            var binding = name.Length == 9 && name == BindingNameArguments
-                ? _argumentsBinding 
-                : _bindings[name];
+            ref var binding = ref GetExistingItem(name);
 
-            if (!binding.Mutable && binding.Value.IsUndefined())
+            if (!binding.Mutable && binding.Value._type == Types.Undefined)
             {
                 if (strict)
                 {
@@ -101,17 +152,9 @@ namespace Jint.Runtime.Environments
 
         public override bool DeleteBinding(string name)
         {
-            Binding binding = null;
-            if (name == BindingNameArguments)
-            {
-                binding = _argumentsBinding;
-            }
-            else
-            {
-                _bindings?.TryGetValue(name, out binding);
-            }
+            ref Binding binding = ref GetExistingItem(name);
 
-            if (binding == null)
+            if (ReferenceEquals(binding.Value, null))
             {
                 return true;
             }
@@ -121,14 +164,7 @@ namespace Jint.Runtime.Environments
                 return false;
             }
 
-            if (name == BindingNameArguments)
-            {
-                _argumentsBinding = null;
-            }
-            else
-            {
-                _bindings.Remove(name);
-            }
+            Remove(name);
 
             return true;
         }
@@ -138,101 +174,110 @@ namespace Jint.Runtime.Environments
             return Undefined;
         }
 
-        /// <summary>
-        /// Creates a new immutable binding in an environment record.
-        /// </summary>
-        /// <param name="name">The identifier of the binding.</param>
-        /// <param name="value">The value  of the binding.</param>
-        public void CreateImmutableBinding(string name, JsValue value)
-        {
-            var binding = new Binding
-            {
-                Value = value,
-                Mutable = false,
-                CanBeDeleted = false
-            };
-
-            if (name == BindingNameArguments)
-            {
-                _argumentsBinding = binding;
-            }
-            else
-            {
-                if (_bindings == null)
-                {
-                    _bindings = new MruPropertyCache2<Binding>();
-                }
-
-                _bindings.Add(name, binding);
-            }
-        }
-
-        /// <summary>
-        /// Returns an array of all the defined binding names
-        /// </summary>
-        /// <returns>The array of all defined bindings</returns>
+        /// <inheritdoc />
         public override string[] GetAllBindingNames()
         {
-            return _bindings?.GetKeys() ?? Array.Empty<string>();
+            int size = _set ? 1 : 0;
+            if (!ReferenceEquals(_argumentsBinding.Value, null))
+            {
+                size += 1;
+            }
+
+            if (_dictionary != null)
+            {
+                size += _dictionary.Count;
+            }
+
+            var keys = size > 0 ? new string[size] : Array.Empty<string>();
+            int n = 0;
+            if (_set)
+            {
+                keys[n++] = _key;
+            }
+
+            if (!ReferenceEquals(_argumentsBinding.Value, null))
+            {
+                keys[n++] = BindingNameArguments;
+            }
+
+            if (_dictionary != null)
+            {
+                foreach (var key in _dictionary.Keys)
+                {
+                    keys[n++] = key;
+                }
+            }
+
+            return keys;
         }
 
         internal void ReleaseArguments()
         {
-            _engine.ArgumentsInstancePool.Return(_argumentsBinding?.Value as ArgumentsInstance);
-            _argumentsBinding = null;
+            _engine._argumentsInstancePool.Return(_argumentsBinding.Value as ArgumentsInstance);
+            _argumentsBinding = default;
         }
 
         /// <summary>
         /// Optimized version for function calls.
         /// </summary>
-        internal void AddFunctionParameters(FunctionInstance functionInstance, JsValue[] arguments, ArgumentsInstance strict)
+        internal void AddFunctionParameters(
+            FunctionInstance functionInstance,
+            JsValue[] arguments,
+            ArgumentsInstance argumentsInstance)
         {
-            var parameters = functionInstance.FormalParameters;
-            bool empty = _bindings == null;
-            if (empty)
+            var parameters = functionInstance._formalParameters;
+            bool empty = _dictionary == null && !_set;
+            if (empty && parameters.Length == 1 && parameters[0].Length != BindingNameArguments.Length)
             {
-                _bindings = new MruPropertyCache2<Binding>();
+                var jsValue = arguments.Length == 0 ? Undefined : arguments[0];
+                var binding = new Binding(jsValue, false, true);
+                _set = true;
+                _key = parameters[0];
+                _value = binding;
+            }
+            else
+            {
+                AddMultipleParameters(arguments, parameters);
             }
 
+            if (ReferenceEquals(_argumentsBinding.Value, null))
+            {
+                _argumentsBinding = new Binding(argumentsInstance, canBeDeleted: false, mutable: true);
+            }
+        }
+
+        private void AddMultipleParameters(JsValue[] arguments, string[] parameters)
+        {
+            bool empty = _dictionary == null && !_set;
             for (var i = 0; i < parameters.Length; i++)
             {
                 var argName = parameters[i];
                 var jsValue = i + 1 > arguments.Length ? Undefined : arguments[i];
 
-                if (empty || !_bindings.TryGetValue(argName, out var existing))
+                if (empty || !TryGetValue(argName, out var existing))
                 {
-                    var binding = new Binding
-                    {
-                        Value = jsValue,
-                        CanBeDeleted = false,
-                        Mutable = true
-                    };
-
+                    var binding = new Binding(jsValue, false, true);
                     if (argName.Length == 9 && argName == BindingNameArguments)
                     {
                         _argumentsBinding = binding;
                     }
                     else
                     {
-                        _bindings[argName] = binding;
+                        SetItem(argName, binding);
                     }
                 }
                 else
                 {
                     if (existing.Mutable)
                     {
-                        existing.Value = jsValue;
+                        ref var b = ref GetExistingItem(argName);
+                        b.Value = jsValue;
                     }
                     else
                     {
                         ExceptionHelper.ThrowTypeError(_engine, "Can't update the value of an immutable binding.");
                     }
                 }
-            }
-
-            if (_argumentsBinding == null)
-            {
-                _argumentsBinding = new Binding {Value = strict, Mutable = true};
             }
         }
 
@@ -245,23 +290,13 @@ namespace Jint.Runtime.Environments
                 var declarationsCount = variableDeclaration.Declarations.Count;
                 for (var j = 0; j < declarationsCount; j++)
                 {
-                    if (_bindings == null)
-                    {
-                        _bindings = new MruPropertyCache2<Binding>();
-                    }
-                    
                     var d = variableDeclaration.Declarations[j];
                     var dn = ((Identifier) d.Id).Name;
 
-                    if (!_bindings.ContainsKey(dn))
+                    if (!ContainsKey(dn))
                     {
-                        var binding = new Binding
-                        {
-                            Value = Undefined,
-                            CanBeDeleted = false,
-                            Mutable = true
-                        };
-                        _bindings.Add(dn, binding);
+                        var binding = new Binding(Undefined, canBeDeleted: false, mutable: true);
+                        SetItem(dn, binding);
                     }
                 }
             }

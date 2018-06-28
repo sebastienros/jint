@@ -15,7 +15,10 @@ namespace Jint.Native.Function
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
         protected PropertyDescriptor _length;
-        
+        protected readonly LexicalEnvironment _scope;
+        protected internal readonly string[] _formalParameters;
+        private readonly bool _strict;
+
         protected FunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict)
             : this(engine, parameters, scope, strict, objectClass: "Function")
         {
@@ -29,9 +32,9 @@ namespace Jint.Native.Function
             in string objectClass)
             : base(engine, objectClass)
         {
-            FormalParameters = parameters;
-            Scope = scope;
-            Strict = strict;
+            _formalParameters = parameters;
+            _scope = scope;
+            _strict = strict;
         }
 
         /// <summary>
@@ -42,10 +45,11 @@ namespace Jint.Native.Function
         /// <returns></returns>
         public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
 
-        public LexicalEnvironment Scope { get; }
+        public LexicalEnvironment Scope => _scope;
 
-        public string[] FormalParameters { get; }
-        public bool Strict { get; }
+        public string[] FormalParameters => _formalParameters;
+
+        public bool Strict => _strict;
 
         public virtual bool HasInstance(JsValue v)
         {
@@ -95,7 +99,7 @@ namespace Jint.Native.Function
 
             if (propertyName.Length == 6
                 && propertyName == "caller"
-                && ((v.As<FunctionInstance>()?.Strict).GetValueOrDefault()))
+                && ((v.As<FunctionInstance>()?._strict).GetValueOrDefault()))
             {
                 ExceptionHelper.ThrowTypeError(_engine);
             }

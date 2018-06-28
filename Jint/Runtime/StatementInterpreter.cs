@@ -509,10 +509,10 @@ namespace Jint.Runtime
                 var catchClause = tryStatement.Handler;
                 if (catchClause != null)
                 {
-                    var c = _engine.GetValue(b);
+                    var c = b.Value;
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                    catchEnv.Record.CreateMutableBinding(((Identifier) catchClause.Param).Name, c);
+                    catchEnv._record.CreateMutableBinding(((Identifier) catchClause.Param).Name, c);
 
                     _engine.UpdateLexicalEnvironment(catchEnv);
                     b = _engine.ExecuteStatement(catchClause.Body);
@@ -552,7 +552,7 @@ namespace Jint.Runtime
 
                     var value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init), true);
                     _engine.PutValue(lhs, value);
-                    _engine.ReferencePool.Return(lhs);
+                    _engine._referencePool.Return(lhs);
                 }
             }
 

@@ -108,10 +108,7 @@ namespace Jint.Native.Function
             var len = ((JsNumber) argArrayObj.Get("length"))._value;
             uint n = TypeConverter.ToUint32(len);
 
-            var argList = n < 10 
-                ? Engine.JsValueArrayPool.RentArray((int) n)
-                : new JsValue[n];
-            
+            var argList = _engine._jsValueArrayPool.RentArray((int) n);
             for (int index = 0; index < n; index++)
             {
                 string indexName = TypeConverter.ToString(index);
@@ -120,7 +117,7 @@ namespace Jint.Native.Function
             }
 
             var result = func.Call(thisArg, argList);
-            Engine.JsValueArrayPool.ReturnArray(argList);
+            _engine._jsValueArrayPool.ReturnArray(argList);
             
             return result;
         }

@@ -5,7 +5,6 @@ using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Number;
-using Jint.Pooling;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
@@ -20,7 +19,6 @@ namespace Jint.Runtime
         private readonly bool _isDebugMode;
         private readonly int _maxRecursionDepth;
         private readonly IReferenceResolver _referenceResolver;
-        private readonly ReferencePool _referencePool;
 
         public ExpressionInterpreter(Engine engine)
         {
@@ -30,7 +28,6 @@ namespace Jint.Runtime
             _isDebugMode = engine.Options.IsDebugMode;
             _maxRecursionDepth = engine.Options.MaxRecursionDepth;
             _referenceResolver = engine.Options.ReferenceResolver;
-            _referencePool = engine.ReferencePool;
         }
 
         private object EvaluateExpression(Expression expression)
@@ -68,11 +65,11 @@ namespace Jint.Runtime
                 lref.AssertValid(_engine);
 
                 _engine.PutValue(lref, rval);
-                _referencePool.Return(lref);
+                _engine._referencePool.Return(lref);
                 return rval;
             }
 
-            JsValue lval = _engine.GetValue(lref);
+            JsValue lval = _engine.GetValue(lref, false);
 
             switch (assignmentExpression.Operator)
             {
@@ -154,7 +151,7 @@ namespace Jint.Runtime
 
             _engine.PutValue(lref, lval);
 
-            _referencePool.Return(lref);
+            _engine._referencePool.Return(lref);
             return lval;
         }
 
@@ -750,7 +747,7 @@ namespace Jint.Runtime
         public Reference EvaluateMemberExpression(MemberExpression memberExpression)
         {
             var baseReference = _engine.EvaluateExpression(memberExpression.Object);
-            var baseValue = _engine.GetValue(baseReference);
+            var baseValue = _engine.GetValue(baseReference, false);
 
             string propertyNameString;
             if (!memberExpression.Computed) // index accessor ?
@@ -769,15 +766,15 @@ namespace Jint.Runtime
 
             if (baseReference is Reference r)
             {
-                _referencePool.Return(r);
+                _engine._referencePool.Return(r);
             }
-            return _referencePool.Rent(baseValue, propertyNameString, StrictModeScope.IsStrictModeCode);
+            return _engine._referencePool.Rent(baseValue, propertyNameString, StrictModeScope.IsStrictModeCode);
         }
 
         public JsValue EvaluateFunctionExpression(IFunction functionExpression)
         {
             var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
-            var envRec = (DeclarativeEnvironmentRecord)funcEnv.Record;
+            var envRec = (DeclarativeEnvironmentRecord) funcEnv._record;
 
             var closure = new ScriptFunctionInstance(
                 _engine,
@@ -815,7 +812,7 @@ namespace Jint.Runtime
                 var allLiteral = true;
                 if (callExpression.Arguments.Count > 0)
                 {
-                    arguments = _engine.JsValueArrayPool.RentArray(callExpression.Arguments.Count);
+                    arguments = _engine._jsValueArrayPool.RentArray(callExpression.Arguments.Count);
                     BuildArguments(callExpression.Arguments, arguments, out allLiteral);
                 }
 
@@ -834,7 +831,7 @@ namespace Jint.Runtime
                 }
             }
 
-            var func = _engine.GetValue(callee);
+            var func = _engine.GetValue(callee, false);
 
             var r = callee as Reference;
             if (_maxRecursionDepth >= 0)
@@ -887,7 +884,7 @@ namespace Jint.Runtime
                 if (r._name == "eval" && callable is EvalFunctionInstance instance)
                 {
                     var value = instance.Call(thisObject, arguments, true);
-                    _referencePool.Return(r);
+                    _engine._referencePool.Return(r);
                     return value;
                 }
             }
@@ -906,10 +903,10 @@ namespace Jint.Runtime
 
             if (!callExpression.Cached && arguments.Length > 0)
             {
-                _engine.JsValueArrayPool.ReturnArray(arguments);
+                _engine._jsValueArrayPool.ReturnArray(arguments);
             }
 
-            _referencePool.Return(r);
+            _engine._referencePool.Return(r);
             return result;
         }
 
@@ -933,7 +930,7 @@ namespace Jint.Runtime
             var r = (Reference) value;
             r.AssertValid(_engine);
 
-            var oldValue = TypeConverter.ToNumber(_engine.GetValue(value));
+            var oldValue = TypeConverter.ToNumber(_engine.GetValue(value, false));
             double newValue = 0;
             if (updateExpression.Operator == UnaryOperator.Increment)
             {
@@ -949,7 +946,7 @@ namespace Jint.Runtime
             }
 
             _engine.PutValue(r, newValue);
-            _referencePool.Return(r);
+            _engine._referencePool.Return(r);
             return updateExpression.Prefix ? newValue : oldValue;
         }
 
@@ -960,7 +957,7 @@ namespace Jint.Runtime
 
         public JsValue EvaluateNewExpression(NewExpression newExpression)
         {
-            var arguments = _engine.JsValueArrayPool.RentArray(newExpression.Arguments.Count);
+            var arguments = _engine._jsValueArrayPool.RentArray(newExpression.Arguments.Count);
             BuildArguments(newExpression.Arguments, arguments, out _);
 
             // todo: optimize by defining a common abstract class or interface
@@ -974,7 +971,7 @@ namespace Jint.Runtime
             // construct the new instance using the Function's constructor method
             var instance = callee.Construct(arguments);
 
-            _engine.JsValueArrayPool.ReturnArray(arguments);
+            _engine._jsValueArrayPool.ReturnArray(arguments);
 
             return instance;
         }
@@ -1029,14 +1026,14 @@ namespace Jint.Runtime
                             ExceptionHelper.ThrowSyntaxError(_engine);
                         }
 
-                        _referencePool.Return(r);
+                        _engine._referencePool.Return(r);
                         return true;
                     }
                     if (r.IsPropertyReference())
                     {
                         var o = TypeConverter.ToObject(_engine, r.GetBase());
                         var jsValue = o.Delete(r._name, r._strict);
-                        _referencePool.Return(r);
+                        _engine._referencePool.Return(r);
                         return jsValue;
                     }
                     if (r._strict)
@@ -1046,12 +1043,12 @@ namespace Jint.Runtime
 
                     var bindings = r.GetBase().TryCast<EnvironmentRecord>();
                     var referencedName = r.GetReferencedName();
-                    _referencePool.Return(r);
+                    _engine._referencePool.Return(r);
 
                     return bindings.DeleteBinding(referencedName);
 
                 case UnaryOperator.Void:
-                    _engine.GetValue(value);
+                    _engine.GetValue(value, true);
                     return Undefined.Instance;
 
                 case UnaryOperator.TypeOf:
@@ -1060,7 +1057,7 @@ namespace Jint.Runtime
                     {
                         if (r.IsUnresolvableReference())
                         {
-                            _referencePool.Return(r);
+                            _engine._referencePool.Return(r);
                             return "undefined";
                         }
                     }

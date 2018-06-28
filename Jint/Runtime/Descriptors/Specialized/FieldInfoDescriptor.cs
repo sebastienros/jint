@@ -19,7 +19,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             Writable = !fieldInfo.Attributes.HasFlag(FieldAttributes.InitOnly); // don't write to fields marked as readonly
         }
 
-        protected override JsValue CustomValue
+        protected internal override JsValue CustomValue
         {
             get => JsValue.FromObject(_engine, _fieldInfo.GetValue(_item));
             set

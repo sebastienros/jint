@@ -48,9 +48,10 @@ namespace Jint.Native.Function
                                 Engine.EnterExecutionContext(Engine.GlobalEnvironment, Engine.GlobalEnvironment, Engine.Global);
                             }
 
+                            var lexicalEnvironment = Engine.ExecutionContext.LexicalEnvironment;
                             if (StrictModeScope.IsStrictModeCode)
                             {
-                                strictVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment);
+                                strictVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, lexicalEnvironment);
                                 Engine.EnterExecutionContext(strictVarEnv, strictVarEnv, Engine.ExecutionContext.ThisBinding);
                             }
 
@@ -66,7 +67,7 @@ namespace Jint.Native.Function
 
                             // we can safely release arguments if they don't escape the scope
                             if (argumentInstanceRented
-                                && Engine.ExecutionContext.LexicalEnvironment?.Record is DeclarativeEnvironmentRecord der
+                                && lexicalEnvironment?._record is DeclarativeEnvironmentRecord der
                                 && !(result.Value is ArgumentsInstance))
                             {
                                 der.ReleaseArguments();
