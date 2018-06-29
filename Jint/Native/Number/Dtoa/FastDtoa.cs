@@ -349,9 +349,10 @@ namespace Jint.Native.Number.Dtoa
         // represent 'w' we can stop. Everything inside the interval low - high
         // represents w. However we have to pay attention to low, high and w's
         // imprecision.
-        private static bool DigitGen(DiyFp low,
-            DiyFp w,
-            DiyFp high,
+        private static bool DigitGen(
+            in DiyFp low,
+            in DiyFp w,
+            in DiyFp high,
             FastDtoaBuilder buffer,
             int mk)
         {

@@ -1,6 +1,5 @@
 using System;
 using System.Globalization;
-using System.Linq;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Function;
@@ -25,7 +24,16 @@ namespace Jint.Runtime.Interop
         {
             var parameterInfos = _d.GetMethodInfo().GetParameters();
 
-            bool delegateContainsParamsArgument = parameterInfos.Any(p => p.HasAttribute<ParamArrayAttribute>());
+            bool delegateContainsParamsArgument = false;
+            foreach (var p in parameterInfos)
+            {
+                if (p.HasAttribute<ParamArrayAttribute>())
+                {
+                    delegateContainsParamsArgument = true;
+                    break;
+                }
+            }
+
             int delegateArgumentsCount = parameterInfos.Length;
             int delegateNonParamsArgumentsCount = delegateContainsParamsArgument ? delegateArgumentsCount - 1 : delegateArgumentsCount;
 

@@ -1,11 +1,11 @@
-﻿namespace Jint.Runtime
-{
-    using Esprima.Ast;
-    using Jint.Native;
+﻿using Esprima.Ast;
+using Jint.Native;
 
+namespace Jint.Runtime
+{
     public class CallStackElement
     {
-        private string _shortDescription;
+        private readonly string _shortDescription;
 
         public CallStackElement(CallExpression callExpression, JsValue function, string shortDescription)
         {
@@ -14,9 +14,9 @@
             Function = function;
         }
 
-        public CallExpression CallExpression { get; private set; }
+        public CallExpression CallExpression { get; }
 
-        public JsValue Function { get; private set; }
+        public JsValue Function { get; }
 
         public override string ToString()
         {

@@ -28,7 +28,7 @@ namespace Jint.Runtime.Interop
             var arguments = ProcessParamsArrays(jsArguments, methodInfos);
             var converter = Engine.ClrTypeConverter;
 
-            foreach (var method in TypeConverter.FindBestMatch(Engine, methodInfos, arguments))
+            foreach (var method in TypeConverter.FindBestMatch(methodInfos, arguments))
             {
                 var parameters = new object[arguments.Length];
                 var argumentsMatch = true;
@@ -62,8 +62,7 @@ namespace Jint.Runtime.Interop
                             break;
                         }
 
-                        var lambdaExpression = parameters[i] as LambdaExpression;
-                        if (lambdaExpression != null)
+                        if (parameters[i] is LambdaExpression lambdaExpression)
                         {
                             parameters[i] = lambdaExpression.Compile();
                         }
@@ -78,7 +77,7 @@ namespace Jint.Runtime.Interop
                 // todo: cache method info
                 try
                 {
-                    return JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters));
+                    return FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters));
                 }
                 catch (TargetInvocationException exception)
                 {

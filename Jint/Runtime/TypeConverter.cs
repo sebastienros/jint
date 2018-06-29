@@ -395,7 +395,7 @@ namespace Jint.Runtime
             }
         }
 
-        public static IEnumerable<MethodBase> FindBestMatch(Engine engine, MethodBase[] methods, JsValue[] arguments)
+        public static IEnumerable<MethodBase> FindBestMatch<T>(T[] methods, JsValue[] arguments) where T : MethodBase
         {
             methods = methods
                 .Where(m => m.GetParameters().Length == arguments.Length)

@@ -1,6 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Function;
@@ -54,7 +54,7 @@ namespace Jint.Runtime.Interop
 
             var constructors = ReferenceType.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
 
-            var methods = TypeConverter.FindBestMatch(Engine, constructors, arguments).ToList();
+            var methods = TypeConverter.FindBestMatch(constructors, arguments);
 
             foreach (var method in methods)
             {
@@ -79,7 +79,7 @@ namespace Jint.Runtime.Interop
                     }
 
                     var constructor = (ConstructorInfo)method;
-                    var instance = constructor.Invoke(parameters.ToArray());
+                    var instance = constructor.Invoke(parameters);
                     var result = TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, instance));
 
                     // todo: cache method info
@@ -188,17 +188,22 @@ namespace Jint.Runtime.Interop
                 return new FieldInfoDescriptor(Engine, fieldInfo, Type);
             }
 
-            var methodInfo = ReferenceType
-                .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(mi => mi.Name == propertyName)
-                .ToArray();
+            List<MethodInfo> methodInfo = null;
+            foreach (var mi in ReferenceType.GetMethods(BindingFlags.Public | BindingFlags.Static))
+            {
+                if (mi.Name == propertyName)
+                {
+                    methodInfo = methodInfo ?? new List<MethodInfo>();
+                    methodInfo.Add(mi);
+                }
+            }
 
-            if (methodInfo.Length == 0)
+            if (methodInfo?.Count == 0)
             {
                 return PropertyDescriptor.Undefined;
             }
 
-            return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methodInfo), PropertyFlag.AllForbidden);
+            return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methodInfo.ToArray()), PropertyFlag.AllForbidden);
         }
 
         public object Target => ReferenceType;
