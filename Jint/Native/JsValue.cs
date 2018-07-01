@@ -280,7 +280,7 @@ namespace Jint.Native
                 return new DelegateWrapper(engine, d);
             }
 
-            if (value.GetType().IsEnum())
+            if (value.GetType().IsEnum)
             {
                 return JsNumber.Create((int) value);
             }

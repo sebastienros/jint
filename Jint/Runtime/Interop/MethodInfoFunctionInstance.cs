@@ -31,11 +31,12 @@ namespace Jint.Runtime.Interop
             foreach (var method in TypeConverter.FindBestMatch(methodInfos, arguments))
             {
                 var parameters = new object[arguments.Length];
+                var methodParameters = method.GetParameters();
                 var argumentsMatch = true;
 
                 for (var i = 0; i < arguments.Length; i++)
                 {
-                    var parameterType = method.GetParameters()[i].ParameterType;
+                    var parameterType = methodParameters[i].ParameterType;
 
                     if (typeof(JsValue).IsAssignableFrom(parameterType))
                     {
@@ -102,15 +103,14 @@ namespace Jint.Runtime.Interop
         /// </summary>
         private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, MethodInfo[] methodInfos)
         {
-            for (var i = 0; i < methodInfos.Length; i++)
+            foreach (var methodInfo in methodInfos)
             {
-                var methodInfo = methodInfos[i];
                 var parameters = methodInfo.GetParameters();
 
                 bool hasParamArrayAttribute = false;
-                for (int j = 0; j < parameters.Length; ++j)
+                foreach (var parameter in parameters)
                 {
-                    if (parameters[j].HasAttribute<ParamArrayAttribute>())
+                    if (Attribute.IsDefined(parameter, typeof(ParamArrayAttribute)))
                     {
                         hasParamArrayAttribute = true;
                         break;
