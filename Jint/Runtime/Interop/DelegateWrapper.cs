@@ -13,29 +13,31 @@ namespace Jint.Runtime.Interop
     public sealed class DelegateWrapper : FunctionInstance
     {
         private readonly Delegate _d;
+        private readonly bool _delegateContainsParamsArgument;
 
         public DelegateWrapper(Engine engine, Delegate d) : base(engine, null, null, false)
         {
             _d = d;
             Prototype = engine.Function.PrototypeObject;
+
+            var parameterInfos = _d.Method.GetParameters();
+
+            _delegateContainsParamsArgument = false;
+            foreach (var p in parameterInfos)
+            {
+                if (Attribute.IsDefined(p, typeof(ParamArrayAttribute)))
+                {
+                    _delegateContainsParamsArgument = true;
+                    break;
+                }
+            }
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
         {
             var parameterInfos = _d.Method.GetParameters();
-
-            bool delegateContainsParamsArgument = false;
-            foreach (var p in parameterInfos)
-            {
-                if (Attribute.IsDefined(p, typeof(ParamArrayAttribute)))
-                {
-                    delegateContainsParamsArgument = true;
-                    break;
-                }
-            }
-
             int delegateArgumentsCount = parameterInfos.Length;
-            int delegateNonParamsArgumentsCount = delegateContainsParamsArgument ? delegateArgumentsCount - 1 : delegateArgumentsCount;
+            int delegateNonParamsArgumentsCount = _delegateContainsParamsArgument ? delegateArgumentsCount - 1 : delegateArgumentsCount;
 
             int jsArgumentsCount = jsArguments.Length;
             int jsArgumentsWithoutParamsCount = Math.Min(jsArgumentsCount, delegateNonParamsArgumentsCount);
@@ -74,7 +76,7 @@ namespace Jint.Runtime.Interop
             }
 
             // assign params to array and converts each objet to expected type
-            if(delegateContainsParamsArgument)
+            if(_delegateContainsParamsArgument)
             {
                 int paramsArgumentIndex = delegateArgumentsCount - 1;
                 int paramsCount = Math.Max(0, jsArgumentsCount - delegateNonParamsArgumentsCount);
@@ -114,7 +116,7 @@ namespace Jint.Runtime.Interop
                     ExceptionHelper.ThrowError(_engine, meaningfulException.Message);
                 }
 
-                throw meaningfulException;         
+                throw meaningfulException;
             }
         }
     }
