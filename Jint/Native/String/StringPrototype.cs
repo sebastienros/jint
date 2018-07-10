@@ -25,7 +25,7 @@ namespace Jint.Native.String
         {
             var obj = new StringPrototype(engine);
             obj.Prototype = engine.Object.PrototypeObject;
-            obj.PrimitiveValue = "";
+            obj.PrimitiveValue = JsString.Empty;
             obj.Extensible = true;
             obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
             obj.SetOwnProperty("constructor", new PropertyDescriptor(stringConstructor, PropertyFlag.NonEnumerable));

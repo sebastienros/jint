@@ -19,7 +19,7 @@ namespace Jint.Native.Object
     public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         protected Dictionary<string, PropertyDescriptor> _intrinsicProperties;
-        protected Dictionary<string, PropertyDescriptor> _properties;
+        protected internal Dictionary<string, PropertyDescriptor> _properties;
         
         private readonly string _class;
         protected readonly Engine _engine;
@@ -780,7 +780,7 @@ namespace Jint.Native.Object
                 case "String":
                     if (this is StringInstance stringInstance)
                     {
-                        return stringInstance.PrimitiveValue.AsStringWithoutTypeCheck();
+                        return stringInstance.PrimitiveValue.ToString();
                     }
 
                     break;
@@ -814,7 +814,7 @@ namespace Jint.Native.Object
                 case "Number":
                     if (this is NumberInstance numberInstance)
                     {
-                        return ((JsNumber) numberInstance.NumberData)._value;
+                        return numberInstance.NumberData._value;
                     }
 
                     break;

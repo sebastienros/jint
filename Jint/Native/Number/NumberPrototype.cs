@@ -21,10 +21,12 @@ namespace Jint.Native.Number
 
         public static NumberPrototype CreatePrototypeObject(Engine engine, NumberConstructor numberConstructor)
         {
-            var obj = new NumberPrototype(engine);
-            obj.Prototype = engine.Object.PrototypeObject;
-            obj.NumberData = 0;
-            obj.Extensible = true;
+            var obj = new NumberPrototype(engine)
+            {
+                Prototype = engine.Object.PrototypeObject,
+                NumberData = JsNumber.Create(0),
+                Extensible = true
+            };
 
             obj.FastAddProperty("constructor", numberConstructor, true, false, true);
 

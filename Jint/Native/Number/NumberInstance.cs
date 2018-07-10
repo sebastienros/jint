@@ -18,7 +18,7 @@ namespace Jint.Native.Number
 
         JsValue IPrimitiveInstance.PrimitiveValue => NumberData;
 
-        public JsValue NumberData { get; set; }
+        public JsNumber NumberData { get; set; }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsNegativeZero(double x)
