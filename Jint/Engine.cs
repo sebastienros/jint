@@ -83,6 +83,9 @@ namespace Jint
             { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "") }
         };
 
+        internal readonly Dictionary<(Type, string), Func<Engine, object, PropertyDescriptor>> ClrPropertyDescriptorFactories =
+            new Dictionary<(Type, string), Func<Engine, object, PropertyDescriptor>>();
+
         internal JintCallStack CallStack = new JintCallStack();
 
         static Engine()

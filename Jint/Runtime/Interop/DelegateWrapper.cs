@@ -1,6 +1,5 @@
 using System;
 using System.Globalization;
-using System.Linq;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Function;
@@ -14,20 +13,31 @@ namespace Jint.Runtime.Interop
     public sealed class DelegateWrapper : FunctionInstance
     {
         private readonly Delegate _d;
+        private readonly bool _delegateContainsParamsArgument;
 
         public DelegateWrapper(Engine engine, Delegate d) : base(engine, null, null, false)
         {
             _d = d;
             Prototype = engine.Function.PrototypeObject;
+
+            var parameterInfos = _d.Method.GetParameters();
+
+            _delegateContainsParamsArgument = false;
+            foreach (var p in parameterInfos)
+            {
+                if (Attribute.IsDefined(p, typeof(ParamArrayAttribute)))
+                {
+                    _delegateContainsParamsArgument = true;
+                    break;
+                }
+            }
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
         {
-            var parameterInfos = _d.GetMethodInfo().GetParameters();
-
-            bool delegateContainsParamsArgument = parameterInfos.Any(p => p.HasAttribute<ParamArrayAttribute>());
+            var parameterInfos = _d.Method.GetParameters();
             int delegateArgumentsCount = parameterInfos.Length;
-            int delegateNonParamsArgumentsCount = delegateContainsParamsArgument ? delegateArgumentsCount - 1 : delegateArgumentsCount;
+            int delegateNonParamsArgumentsCount = _delegateContainsParamsArgument ? delegateArgumentsCount - 1 : delegateArgumentsCount;
 
             int jsArgumentsCount = jsArguments.Length;
             int jsArgumentsWithoutParamsCount = Math.Min(jsArgumentsCount, delegateNonParamsArgumentsCount);
@@ -55,7 +65,7 @@ namespace Jint.Runtime.Interop
             // assign null to parameters not provided
             for (var i = jsArgumentsWithoutParamsCount; i < delegateNonParamsArgumentsCount; i++)
             {
-                if (parameterInfos[i].ParameterType.IsValueType())
+                if (parameterInfos[i].ParameterType.IsValueType)
                 {
                     parameters[i] = Activator.CreateInstance(parameterInfos[i].ParameterType);
                 }
@@ -66,7 +76,7 @@ namespace Jint.Runtime.Interop
             }
 
             // assign params to array and converts each objet to expected type
-            if(delegateContainsParamsArgument)
+            if(_delegateContainsParamsArgument)
             {
                 int paramsArgumentIndex = delegateArgumentsCount - 1;
                 int paramsCount = Math.Max(0, jsArgumentsCount - delegateNonParamsArgumentsCount);
@@ -106,7 +116,7 @@ namespace Jint.Runtime.Interop
                     ExceptionHelper.ThrowError(_engine, meaningfulException.Message);
                 }
 
-                throw meaningfulException;         
+                throw meaningfulException;
             }
         }
     }

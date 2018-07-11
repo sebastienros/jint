@@ -1,15 +1,15 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Jint.Runtime.CallStack
 {
-    using System.Collections.Generic;
-    using System.Linq;
 
     public class JintCallStack : IEnumerable<CallStackElement>
     {
-        private Stack<CallStackElement> _stack = new Stack<CallStackElement>();
+        private readonly Stack<CallStackElement> _stack = new Stack<CallStackElement>();
 
-        private Dictionary<CallStackElement, int> _statistics =
+        private readonly Dictionary<CallStackElement, int> _statistics =
             new Dictionary<CallStackElement, int>(new CallStackElementComparer());
 
         public int Push(CallStackElement item)

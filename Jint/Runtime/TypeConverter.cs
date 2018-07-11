@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
@@ -395,26 +394,30 @@ namespace Jint.Runtime
             }
         }
 
-        public static IEnumerable<MethodBase> FindBestMatch(Engine engine, MethodBase[] methods, JsValue[] arguments)
+        public static IEnumerable<MethodBase> FindBestMatch<T>(T[] methods, JsValue[] arguments) where T : MethodBase
         {
-            methods = methods
-                .Where(m => m.GetParameters().Length == arguments.Length)
-                .ToArray();
-
-            if (methods.Length == 1 && !methods[0].GetParameters().Any())
+            var matchingByParameterCount = new List<T>();
+            foreach (var m in methods)
             {
-                yield return methods[0];
+                if (m.GetParameters().Length == arguments.Length)
+                {
+                    matchingByParameterCount.Add(m);
+                }
+            }
+
+            if (matchingByParameterCount.Count == 1 && arguments.Length == 0)
+            {
+                yield return matchingByParameterCount[0];
                 yield break;
             }
 
-            var objectArguments = arguments.Select(x => x.ToObject()).ToArray();
-            foreach (var method in methods)
+            foreach (var method in matchingByParameterCount)
             {
                 var perfectMatch = true;
                 var parameters = method.GetParameters();
                 for (var i = 0; i < arguments.Length; i++)
                 {
-                    var arg = objectArguments[i];
+                    var arg = arguments[i].ToObject();
                     var paramType = parameters[i].ParameterType;
 
                     if (arg == null)
@@ -439,9 +442,9 @@ namespace Jint.Runtime
                 }
             }
 
-            foreach (var method in methods)
+            for (var i = 0; i < matchingByParameterCount.Count; i++)
             {
-                yield return method;
+                yield return matchingByParameterCount[i];
             }
         }
 

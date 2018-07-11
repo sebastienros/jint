@@ -40,7 +40,7 @@ namespace Jint.Runtime.Interop
                 return value;
             }
 
-            if (type.IsEnum())
+            if (type.IsEnum)
             {
                 var integer = System.Convert.ChangeType(value, typeof(int), formatProvider);
                 if (integer == null)
@@ -57,7 +57,7 @@ namespace Jint.Runtime.Interop
             {
                 var function = (Func<JsValue, JsValue[], JsValue>)value;
 
-                if (type.IsGenericType())
+                if (type.IsGenericType)
                 {
                     var genericType = type.GetGenericTypeDefinition();
 
@@ -75,7 +75,7 @@ namespace Jint.Runtime.Interop
                         for (var i = 0; i < @params.Length; i++)
                         {
                             var param = @params[i];
-                            if (param.Type.IsValueType())
+                            if (param.Type.IsValueType)
                             {
                                 var boxing = Expression.Convert(param, typeof(object));
                                 tmpVars[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, typeof(Engine)), boxing);
@@ -89,7 +89,7 @@ namespace Jint.Runtime.Interop
 
                         var callExpresion = Expression.Block(Expression.Call(
                                                 Expression.Call(Expression.Constant(function.Target),
-                                                    function.GetMethodInfo(),
+                                                    function.Method,
                                                     Expression.Constant(JsValue.Undefined, typeof(JsValue)),
                                                     @vars),
                                                 jsValueToObject), Expression.Empty());
@@ -123,7 +123,7 @@ namespace Jint.Runtime.Interop
                                                     convertChangeType,
                                                     Expression.Call(
                                                             Expression.Call(Expression.Constant(function.Target),
-                                                                    function.GetMethodInfo(),
+                                                                    function.Method,
                                                                     Expression.Constant(JsValue.Undefined, typeof(JsValue)),
                                                                     @vars),
                                                             jsValueToObject),
@@ -163,7 +163,7 @@ namespace Jint.Runtime.Interop
                         var callExpression = Expression.Block(
                                                 Expression.Call(
                                                     Expression.Call(Expression.Constant(function.Target),
-                                                        function.GetMethodInfo(),
+                                                        function.Method,
                                                         Expression.Constant(JsValue.Undefined, typeof(JsValue)),
                                                         @vars),
                                                     typeof(JsValue).GetMethod("ToObject")),
@@ -196,7 +196,7 @@ namespace Jint.Runtime.Interop
                 return result;
             }
 
-            if (type.IsGenericType() && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
             {
                 type = Nullable.GetUnderlyingType(type);
             }

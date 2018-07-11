@@ -49,7 +49,7 @@ namespace Jint.Runtime.Interop
             var genericTypes = new Type[arguments.Length];
             for (int i = 0; i < arguments.Length; i++)
             {
-                var genericTypeReference = arguments.At(i);
+                var genericTypeReference = arguments[i];
                 if (genericTypeReference.IsUndefined()
                     || !genericTypeReference.IsObject() 
                     || genericTypeReference.AsObject().Class != "TypeReference")
@@ -57,7 +57,7 @@ namespace Jint.Runtime.Interop
                     ExceptionHelper.ThrowTypeError(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
                 }
 
-                genericTypes[i] = arguments.At(i).As<TypeReference>().ReferenceType;
+                genericTypes[i] = ((TypeReference) genericTypeReference).ReferenceType;
             }
 
             var typeReference = GetPath(_path + "`" + arguments.Length.ToString(CultureInfo.InvariantCulture)).As<TypeReference>();
@@ -89,14 +89,14 @@ namespace Jint.Runtime.Interop
 
         public JsValue GetPath(string path)
         {
-            if (Engine.TypeCache.TryGetValue(path, out var type))
+            if (_engine.TypeCache.TryGetValue(path, out var type))
             {
                 if (type == null)
                 {
-                    return new NamespaceReference(Engine, path);
+                    return new NamespaceReference(_engine, path);
                 }
 
-                return TypeReference.CreateTypeReference(Engine, type);
+                return TypeReference.CreateTypeReference(_engine, type);
             }
 
             // in CoreCLR, for example, classes that used to be in
@@ -107,54 +107,55 @@ namespace Jint.Runtime.Interop
             // search in loaded assemblies
             var lookupAssemblies = new[] {Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly()};
 
-            var lookupAssembliesLength = lookupAssemblies.Length;
-            for (var i = 0; i < lookupAssembliesLength; i++)
+            foreach (var assembly in lookupAssemblies)
             {
-                var assembly = lookupAssemblies[i];
                 type = assembly.GetType(path);
                 if (type != null)
                 {
-                    Engine.TypeCache.Add(path, type);
-                    return TypeReference.CreateTypeReference(Engine, type);
+                    _engine.TypeCache.Add(path, type);
+                    return TypeReference.CreateTypeReference(_engine, type);
                 }
             }
 
             // search in lookup assemblies
-            foreach (var assembly in Engine.Options._LookupAssemblies)
+            var comparedPath = path.Replace("+", ".");
+            foreach (var assembly in _engine.Options._LookupAssemblies)
             {
                 type = assembly.GetType(path);
                 if (type != null)
                 {
-                    Engine.TypeCache.Add(path, type);
-                    return TypeReference.CreateTypeReference(Engine, type);
+                    _engine.TypeCache.Add(path, type);
+                    return TypeReference.CreateTypeReference(_engine, type);
                 }
 
                 var lastPeriodPos = path.LastIndexOf(".", StringComparison.Ordinal);
                 var trimPath = path.Substring(0, lastPeriodPos);
                 type = GetType(assembly, trimPath);
                 if (type != null)
+                {
                     foreach (Type nType in GetAllNestedTypes(type))
                     {
-                        if (nType.FullName.Replace("+", ".").Equals(path.Replace("+", ".")))
+                        if (nType.FullName.Replace("+", ".").Equals(comparedPath))
                         {
-                            Engine.TypeCache.Add(path.Replace("+", "."), nType);
-                            return TypeReference.CreateTypeReference(Engine, nType);
+                            _engine.TypeCache.Add(comparedPath, nType);
+                            return TypeReference.CreateTypeReference(_engine, nType);
                         }
                     }
+                }
             }
 
             // search for type in mscorlib
             type = System.Type.GetType(path);
             if (type != null)
             {
-                Engine.TypeCache.Add(path, type);
-                return TypeReference.CreateTypeReference(Engine, type);
+                _engine.TypeCache.Add(path, type);
+                return TypeReference.CreateTypeReference(_engine, type);
             }
 
             // the new path doesn't represent a known class, thus return a new namespace instance
 
-            Engine.TypeCache.Add(path, null);
-            return new NamespaceReference(Engine, path);
+            _engine.TypeCache.Add(path, null);
+            return new NamespaceReference(_engine, path);
         }
 
         /// <summary>   Gets a type. </summary>
@@ -165,10 +166,11 @@ namespace Jint.Runtime.Interop
         /// <returns>   The type. </returns>
         private static Type GetType(Assembly assembly, string typeName)
         {
+            var compared = typeName.Replace("+", ".");
             Type[] types = assembly.GetTypes();
             foreach (Type t in types)
             {
-                if (t.FullName.Replace("+", ".") == typeName.Replace("+", "."))
+                if (t.FullName.Replace("+", ".") == compared)
                 {
                     return t;
                 }
@@ -177,7 +179,7 @@ namespace Jint.Runtime.Interop
             return null;
         }
 
-        private static IEnumerable<Type> GetAllNestedTypes(Type type)
+        private static Type[] GetAllNestedTypes(Type type)
         {
             var types = new List<Type>();
             AddNestedTypesRecursively(types, type);

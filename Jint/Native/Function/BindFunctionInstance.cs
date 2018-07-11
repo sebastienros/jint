@@ -23,7 +23,7 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowTypeError(Engine);
             });
 
-            return f.Call(BoundThis, BoundArgs.Union(arguments).ToArray());
+            return f.Call(BoundThis, CreateArguments(arguments));
         }
 
         public ObjectInstance Construct(JsValue[] arguments)
@@ -33,7 +33,7 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowTypeError(Engine);
             });
 
-            return target.Construct(BoundArgs.Union(arguments).ToArray());
+            return target.Construct(CreateArguments(arguments));
         }
 
         public override bool HasInstance(JsValue v)
@@ -44,6 +44,11 @@ namespace Jint.Native.Function
             });
 
             return f.HasInstance(v);
+        }
+
+        private JsValue[] CreateArguments(JsValue[] arguments)
+        {
+            return Enumerable.Union(BoundArgs, arguments).ToArray();
         }
     }
 }
