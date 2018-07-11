@@ -100,6 +100,18 @@ namespace Jint.Native.Object
 
             return obj;
         }
+        
+        internal ObjectInstance Construct(int propertyCount)
+        {
+            var obj = new ObjectInstance(_engine)
+            {
+                Extensible = true,
+                Prototype = Engine.Object.PrototypeObject,
+                _properties =  propertyCount > 0 ? new Dictionary<string, PropertyDescriptor>(propertyCount) : null
+            };
+
+            return obj;
+        }
 
         public JsValue GetPrototypeOf(JsValue thisObject, JsValue[] arguments)
         {
@@ -144,7 +156,7 @@ namespace Jint.Native.Object
             var ownProperties = o.GetOwnProperties().ToList();
             if (o is StringInstance s)
             {
-                var length = s.PrimitiveValue.AsStringWithoutTypeCheck().Length;
+                var length = s.PrimitiveValue.Length;
                 array = Engine.Array.ConstructFast((uint) (ownProperties.Count + length));
                 for (var i = 0; i < length; i++)
                 {

@@ -10,7 +10,7 @@ namespace Jint.Native.String
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
 
-        private PropertyDescriptor _length;
+        internal PropertyDescriptor _length;
 
         public StringInstance(Engine engine)
             : base(engine, objectClass: "String")
@@ -21,7 +21,7 @@ namespace Jint.Native.String
 
         JsValue IPrimitiveInstance.PrimitiveValue => PrimitiveValue;
 
-        public JsValue PrimitiveValue { get; set; }
+        public JsString PrimitiveValue { get; set; }
 
         private static bool IsInt(double d)
         {

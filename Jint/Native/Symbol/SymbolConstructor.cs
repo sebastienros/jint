@@ -115,10 +115,17 @@ namespace Jint.Native.Symbol
 
         public SymbolInstance Construct(string description)
         {
-            var instance = new SymbolInstance(Engine);
-            instance.Prototype = PrototypeObject;
-            instance.SymbolData = new JsSymbol(description);
-            instance.Extensible = true;
+            return Construct(new JsSymbol(description));
+        }
+
+        public SymbolInstance Construct(JsSymbol symbol)
+        {
+            var instance = new SymbolInstance(Engine)
+            {
+                Prototype = PrototypeObject,
+                SymbolData = symbol, 
+                Extensible = true
+            };
 
             return instance;
         }
