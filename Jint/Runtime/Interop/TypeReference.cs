@@ -1,6 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Function;
@@ -10,7 +10,7 @@ using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime.Interop
 {
-    public class TypeReference : FunctionInstance, IConstructor, IObjectWrapper
+    public sealed class TypeReference : FunctionInstance, IConstructor, IObjectWrapper
     {
         private TypeReference(Engine engine)
             : base(engine, null, null, false, "TypeReference")
@@ -27,11 +27,10 @@ namespace Jint.Runtime.Interop
 
             // The value of the [[Prototype]] internal property of the TypeReference constructor is the Function prototype object
             obj.Prototype = engine.Function.PrototypeObject;
-
-            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
+            obj._length = new PropertyDescriptor(0, PropertyFlag.AllForbidden);
 
             // The initial value of Boolean.prototype is the Boolean prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(engine.Object.PrototypeObject, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(engine.Object.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
@@ -44,7 +43,7 @@ namespace Jint.Runtime.Interop
 
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            if (arguments.Length == 0 && ReferenceType.IsValueType())
+            if (arguments.Length == 0 && ReferenceType.IsValueType)
             {
                 var instance = Activator.CreateInstance(ReferenceType);
                 var result = TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, instance));
@@ -54,16 +53,15 @@ namespace Jint.Runtime.Interop
 
             var constructors = ReferenceType.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
 
-            var methods = TypeConverter.FindBestMatch(Engine, constructors, arguments).ToList();
-
-            foreach (var method in methods)
+            foreach (var method in TypeConverter.FindBestMatch(constructors, arguments))
             {
                 var parameters = new object[arguments.Length];
+                var methodParameters = method.GetParameters();
                 try
                 {
                     for (var i = 0; i < arguments.Length; i++)
                     {
-                        var parameterType = method.GetParameters()[i].ParameterType;
+                        var parameterType = methodParameters[i].ParameterType;
 
                         if (typeof(JsValue).IsAssignableFrom(parameterType))
                         {
@@ -79,7 +77,7 @@ namespace Jint.Runtime.Interop
                     }
 
                     var constructor = (ConstructorInfo)method;
-                    var instance = constructor.Invoke(parameters.ToArray());
+                    var instance = constructor.Invoke(parameters);
                     var result = TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, instance));
 
                     // todo: cache method info
@@ -92,8 +90,8 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
-
+            ExceptionHelper.ThrowTypeError(_engine, "No public methods with the specified arguments were found.");
+            return null;
         }
 
         public override bool HasInstance(JsValue v)
@@ -112,7 +110,7 @@ namespace Jint.Runtime.Interop
         {
             if (throwOnError)
             {
-                throw new JavaScriptException(Engine.TypeError, "Can't define a property of a TypeReference");
+                ExceptionHelper.ThrowTypeError(_engine, "Can't define a property of a TypeReference");
             }
 
             return false;
@@ -122,7 +120,7 @@ namespace Jint.Runtime.Interop
         {
             if (throwOnError)
             {
-                throw new JavaScriptException(Engine.TypeError, "Can't delete a property of a TypeReference");
+                ExceptionHelper.ThrowTypeError(_engine, "Can't delete a property of a TypeReference");
             }
 
             return false;
@@ -134,7 +132,7 @@ namespace Jint.Runtime.Interop
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(Engine.TypeError);
+                    ExceptionHelper.ThrowTypeError(Engine);
                 }
 
                 return;
@@ -146,7 +144,7 @@ namespace Jint.Runtime.Interop
             {
                 if (throwOnError)
                 {
-                    throw new JavaScriptException(Engine.TypeError, "Unknown member: " + propertyName);
+                    ExceptionHelper.ThrowTypeError(_engine, "Unknown member: " + propertyName);
                 }
                 else
                 {
@@ -161,7 +159,7 @@ namespace Jint.Runtime.Interop
         {
             // todo: cache members locally
 
-            if (ReferenceType.IsEnum())
+            if (ReferenceType.IsEnum)
             {
                 Array enumValues = Enum.GetValues(ReferenceType);
                 Array enumNames = Enum.GetNames(ReferenceType);
@@ -188,17 +186,22 @@ namespace Jint.Runtime.Interop
                 return new FieldInfoDescriptor(Engine, fieldInfo, Type);
             }
 
-            var methodInfo = ReferenceType
-                .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(mi => mi.Name == propertyName)
-                .ToArray();
+            List<MethodInfo> methodInfo = null;
+            foreach (var mi in ReferenceType.GetMethods(BindingFlags.Public | BindingFlags.Static))
+            {
+                if (mi.Name == propertyName)
+                {
+                    methodInfo = methodInfo ?? new List<MethodInfo>();
+                    methodInfo.Add(mi);
+                }
+            }
 
-            if (methodInfo.Length == 0)
+            if (methodInfo?.Count == 0)
             {
                 return PropertyDescriptor.Undefined;
             }
 
-            return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methodInfo), PropertyFlag.AllForbidden);
+            return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methodInfo.ToArray()), PropertyFlag.AllForbidden);
         }
 
         public object Target => ReferenceType;

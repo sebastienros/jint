@@ -414,7 +414,7 @@ namespace Jint.Native.Global
                 {
                     if (c >= 0xDC00 && c <= 0xDBFF)
                     {
-                        throw new JavaScriptException(Engine.UriError);
+                        ExceptionHelper.ThrowUriError(_engine);
                     }
 
                     int v;
@@ -427,19 +427,19 @@ namespace Jint.Native.Global
                         k++;
                         if (k == strLen)
                         {
-                            throw new JavaScriptException(Engine.UriError);
+                            ExceptionHelper.ThrowUriError(_engine);
                         }
 
                         var kChar = (int)uriString[k];
                         if (kChar < 0xDC00 || kChar > 0xDFFF)
                         {
-                            throw new JavaScriptException(Engine.UriError);
+                            ExceptionHelper.ThrowUriError(_engine);
                         }
 
                         v = (c - 0xD800) * 0x400 + (kChar - 0xDC00) + 0x10000;
                     }
 
-                    byte[] octets;
+                    byte[] octets = System.Array.Empty<byte>();
 
                     if (v >= 0 && v <= 0x007F)
                     {
@@ -467,7 +467,7 @@ namespace Jint.Native.Global
                     }
                     else if (v <= 0xDFFF)
                     {
-                        throw new JavaScriptException(Engine.UriError);
+                        ExceptionHelper.ThrowUriError(_engine);
                     }
                     else if (v <= 0xFFFF)
                     {
@@ -536,12 +536,12 @@ namespace Jint.Native.Global
                     var start = k;
                     if (k + 2 >= strLen)
                     {
-                        throw new JavaScriptException(Engine.UriError);
+                        ExceptionHelper.ThrowUriError(_engine);
                     }
 
                     if (!IsValidHexaChar(uriString[k + 1]) || !IsValidHexaChar(uriString[k + 2]))
                     {
-                        throw new JavaScriptException(Engine.UriError);
+                        ExceptionHelper.ThrowUriError(_engine);
                     }
 
                     var B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
@@ -566,7 +566,7 @@ namespace Jint.Native.Global
 
                         if (n == 1 || n > 4)
                         {
-                            throw new JavaScriptException(Engine.UriError);
+                            ExceptionHelper.ThrowUriError(_engine);
                         }
 
                         var Octets = new byte[n];
@@ -574,7 +574,7 @@ namespace Jint.Native.Global
 
                         if (k + (3 * (n - 1)) >= strLen)
                         {
-                            throw new JavaScriptException(Engine.UriError);
+                            ExceptionHelper.ThrowUriError(_engine);
                         }
 
                         for (var j = 1; j < n; j++)
@@ -582,12 +582,12 @@ namespace Jint.Native.Global
                             k++;
                             if (uriString[k] != '%')
                             {
-                                throw new JavaScriptException(Engine.UriError);
+                                ExceptionHelper.ThrowUriError(_engine);
                             }
 
                             if (!IsValidHexaChar(uriString[k + 1]) || !IsValidHexaChar(uriString[k + 2]))
                             {
-                                throw new JavaScriptException(Engine.UriError);
+                                ExceptionHelper.ThrowUriError(_engine);
                             }
 
                             B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
@@ -595,7 +595,7 @@ namespace Jint.Native.Global
                             // B & 11000000 != 10000000
                             if ((B & 0xC0) != 0x80)
                             {
-                                throw new JavaScriptException(Engine.UriError);
+                                ExceptionHelper.ThrowUriError(_engine);
                             }
 
                             k += 2;
@@ -633,11 +633,11 @@ namespace Jint.Native.Global
                 }
                 else if (c < 256)
                 {
-                    _stringBuilder.Append(string.Format("%{0}", ((int)c).ToString("X2")));
+                    _stringBuilder.Append($"%{((int) c):X2}");
                 }
                 else
                 {
-                    _stringBuilder.Append(string.Format("%u{0}", ((int)c).ToString("X4")));
+                    _stringBuilder.Append($"%u{((int) c):X4}");
                 }
             }
 

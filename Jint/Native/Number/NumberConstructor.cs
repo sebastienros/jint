@@ -63,10 +63,17 @@ namespace Jint.Native.Number
 
         public NumberInstance Construct(double value)
         {
-            var instance = new NumberInstance(Engine);
-            instance.Prototype = PrototypeObject;
-            instance.NumberData = value;
-            instance.Extensible = true;
+            return Construct(JsNumber.Create(value));
+        }
+
+        public NumberInstance Construct(JsNumber value)
+        {
+            var instance = new NumberInstance(Engine)
+            {
+                Prototype = PrototypeObject,
+                NumberData = value,
+                Extensible = true
+            };
 
             return instance;
         }

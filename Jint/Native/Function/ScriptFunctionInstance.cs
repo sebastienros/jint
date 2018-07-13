@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native.Argument;
 using Jint.Native.Object;
@@ -37,7 +36,7 @@ namespace Jint.Native.Function
             Extensible = true;
             Prototype = _engine.Function.PrototypeObject;
 
-            DefineOwnProperty("length", new PropertyDescriptor(JsNumber.Create(FormalParameters.Length), PropertyFlag.AllForbidden), false);
+            _length = new PropertyDescriptor(JsNumber.Create(_formalParameters.Length), PropertyFlag.AllForbidden);
 
             var proto = new ObjectInstanceWithConstructor(engine, this)
             {
@@ -45,7 +44,7 @@ namespace Jint.Native.Function
                 Prototype = _engine.Object.PrototypeObject
             };
 
-            SetOwnProperty("prototype", new PropertyDescriptor(proto, PropertyFlag.OnlyWritable));
+            _prototype = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
             if (_functionDeclaration.Id != null)
             {
@@ -151,11 +150,11 @@ namespace Jint.Native.Function
                 {
                     thisBinding = thisArg;
                 }
-                else if (thisArg.IsUndefined() || thisArg.IsNull())
+                else if (thisArg._type == Types.Undefined || thisArg._type == Types.Null)
                 {
                     thisBinding = _engine.Global;
                 }
-                else if (!thisArg.IsObject())
+                else if (thisArg._type != Types.Object)
                 {
                     thisBinding = TypeConverter.ToObject(_engine, thisArg);
                 }
@@ -164,7 +163,7 @@ namespace Jint.Native.Function
                     thisBinding = thisArg;
                 }
 
-                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, Scope);
+                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
 
                 _engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
@@ -183,7 +182,7 @@ namespace Jint.Native.Function
                     
                     // we can safely release arguments if they don't escape the scope
                     if (argumentInstanceRented
-                        && _engine.ExecutionContext.LexicalEnvironment?.Record is DeclarativeEnvironmentRecord der
+                        && _engine.ExecutionContext.LexicalEnvironment?._record is DeclarativeEnvironmentRecord der
                         && !(result.Value is ArgumentsInstance))
                     {
                         der.ReleaseArguments();

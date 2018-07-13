@@ -134,7 +134,7 @@ namespace Jint.Pooling
             // We will interlock only when we have a candidate. in a worst case we may miss some
             // recently returned objects. Not a big deal.
             T inst = _firstItem;
-            if (inst != null)
+            if (!ReferenceEquals(inst, null))
             {
                 _firstItem = null;
                 return inst;
@@ -161,7 +161,7 @@ namespace Jint.Pooling
             for (int i = 0; i < items.Length; i++)
             {
                 T inst = items[i].Value;
-                if (inst != null)
+                if (!ReferenceEquals(inst, null))
                 {
                     items[i].Value = null;
                     return inst;
@@ -184,7 +184,7 @@ namespace Jint.Pooling
             Validate(obj);
             ForgetTrackedObject(obj);
  
-            if (_firstItem == null)
+            if (ReferenceEquals(_firstItem, null))
             {
                 // Intentionally not using interlocked here. 
                 // In a worst case scenario two objects may be stored into same slot.
@@ -202,7 +202,7 @@ namespace Jint.Pooling
             var items = _items;
             for (int i = 0; i < items.Length; i++)
             {
-                if (items[i].Value == null)
+                if (ReferenceEquals(items[i].Value, null))
                 {
                     // Intentionally not using interlocked here. 
                     // In a worst case scenario two objects may be stored into same slot.
@@ -265,7 +265,7 @@ namespace Jint.Pooling
             for (int i = 0; i < items.Length; i++)
             {
                 var value = items[i].Value;
-                if (value == null)
+                if (ReferenceEquals(value, null))
                 {
                     return;
                 }

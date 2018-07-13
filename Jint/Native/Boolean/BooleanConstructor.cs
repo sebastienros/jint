@@ -57,10 +57,17 @@ namespace Jint.Native.Boolean
 
         public BooleanInstance Construct(bool value)
         {
-            var instance = new BooleanInstance(Engine);
-            instance.Prototype = PrototypeObject;
-            instance.PrimitiveValue = value;
-            instance.Extensible = true;
+            return Construct(value ? JsBoolean.True : JsBoolean.False);
+        }
+        
+        public BooleanInstance Construct(JsBoolean value)
+        {
+            var instance = new BooleanInstance(Engine)
+            {
+                Prototype = PrototypeObject,
+                PrimitiveValue = value,
+                Extensible = true
+            };
 
             return instance;
         }

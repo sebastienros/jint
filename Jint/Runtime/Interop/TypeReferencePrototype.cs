@@ -31,7 +31,7 @@
 //            var typeReference = thisObj.As<TypeReference>();
 //            if (typeReference == null)
 //            {
-//                throw new JavaScriptException(Engine.TypeError);
+//                ExceptionHelper.ThrowTypeError(Engine);
 //            }
 
 //            return typeReference.Type.FullName;

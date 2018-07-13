@@ -20,20 +20,27 @@ namespace Jint.Runtime.Descriptors.Specialized
 
             // get all instance indexers with exactly 1 argument
             var indexers = targetType.GetProperties();
+            var paramTypeArray = new Type[1];
 
             // try to find first indexer having either public getter or setter with matching argument type
             foreach (var indexer in indexers)
             {
-                if (indexer.GetIndexParameters().Length != 1) continue;
+                var indexParameters = indexer.GetIndexParameters();
+                if (indexParameters.Length != 1)
+                {
+                    continue;
+                }
+
                 if (indexer.GetGetMethod() != null || indexer.GetSetMethod() != null)
                 {
-                    var paramType = indexer.GetIndexParameters()[0].ParameterType;
+                    var paramType = indexParameters[0].ParameterType;
 
                     if (_engine.ClrTypeConverter.TryConvert(key, paramType, CultureInfo.InvariantCulture, out _key))
                     {
                         _indexer = indexer;
                         // get contains key method to avoid index exception being thrown in dictionaries
-                        _containsKey = targetType.GetMethod("ContainsKey", new Type[] {paramType});
+                        paramTypeArray[0] = paramType;
+                        _containsKey = targetType.GetMethod("ContainsKey", paramTypeArray);
                         break;
                     }
                 }
@@ -42,7 +49,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             // throw if no indexer found
             if (_indexer == null)
             {
-                throw new InvalidOperationException("No matching indexer found.");
+                ExceptionHelper.ThrowInvalidOperationException("No matching indexer found.");
             }
 
             Writable = true;
@@ -53,7 +60,7 @@ namespace Jint.Runtime.Descriptors.Specialized
         {
         }
 
-        protected override JsValue CustomValue
+        protected internal override JsValue CustomValue
         {
             get
             {
@@ -61,7 +68,7 @@ namespace Jint.Runtime.Descriptors.Specialized
 
                 if (getter == null)
                 {
-                    throw new InvalidOperationException("Indexer has no public getter.");
+                    ExceptionHelper.ThrowInvalidOperationException("Indexer has no public getter.");
                 }
 
                 object[] parameters = {_key};
@@ -89,7 +96,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                 var setter = _indexer.GetSetMethod();
                 if (setter == null)
                 {
-                    throw new InvalidOperationException("Indexer has no public setter.");
+                    ExceptionHelper.ThrowInvalidOperationException("Indexer has no public setter.");
                 }
 
                 object[] parameters = {_key, value?.ToObject()};

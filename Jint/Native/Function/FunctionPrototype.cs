@@ -41,7 +41,7 @@ namespace Jint.Native.Function
         {
             var target = thisObj.TryCast<ICallable>(x =>
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             });
 
             var thisArg = arguments.At(0);
@@ -77,7 +77,7 @@ namespace Jint.Native.Function
 
             if (ReferenceEquals(func, null))
             {
-                throw new JavaScriptException(Engine.TypeError, "Function object expected.");
+                ExceptionHelper.ThrowTypeError(_engine, "Function object expected.");
             }
 
             return "function() {{ ... }}";
@@ -91,7 +91,7 @@ namespace Jint.Native.Function
 
             if (func == null)
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             if (argArray.IsNull() || argArray.IsUndefined())
@@ -102,16 +102,13 @@ namespace Jint.Native.Function
             var argArrayObj = argArray.TryCast<ObjectInstance>();
             if (ReferenceEquals(argArrayObj, null))
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             var len = ((JsNumber) argArrayObj.Get("length"))._value;
             uint n = TypeConverter.ToUint32(len);
 
-            var argList = n < 10 
-                ? Engine.JsValueArrayPool.RentArray((int) n)
-                : new JsValue[n];
-            
+            var argList = _engine._jsValueArrayPool.RentArray((int) n);
             for (int index = 0; index < n; index++)
             {
                 string indexName = TypeConverter.ToString(index);
@@ -120,7 +117,7 @@ namespace Jint.Native.Function
             }
 
             var result = func.Call(thisArg, argList);
-            Engine.JsValueArrayPool.ReturnArray(argList);
+            _engine._jsValueArrayPool.ReturnArray(argList);
             
             return result;
         }
@@ -130,7 +127,7 @@ namespace Jint.Native.Function
             var func = thisObject.TryCast<ICallable>();
             if (func == null)
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             return func.Call(arguments.At(0), arguments.Length == 0 ? arguments : arguments.Skip(1));

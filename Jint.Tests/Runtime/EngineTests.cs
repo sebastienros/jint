@@ -648,6 +648,14 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldThrowMemoryLimitExceeded()
+        {
+            Assert.Throws<MemoryLimitExceededException>(
+                () => new Engine(cfg => cfg.LimitMemory(2048)).Execute("a=[]; while(true){ a.push(0); }")
+            );
+        }
+
+        [Fact]
         public void ShouldThrowTimeout()
         {
             Assert.Throws<TimeoutException>(
@@ -1966,6 +1974,20 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldNotCompareClrInstancesWithObjects()
+        {
+            var engine = new Engine();
+
+            var guid1 = Guid.NewGuid();
+
+            engine.SetValue("guid1", guid1);
+
+            var result = engine.Execute("guid1 == {}").GetCompletionValue().AsBoolean();
+
+            Assert.False(result);
+        }
+
+        [Fact]
         public void ShouldStringifyNumWithoutV8DToA()
         {
             // 53.6841659 cannot be converted by V8's DToA => "old" DToA code will be used.
@@ -2446,5 +2468,21 @@ namespace Jint.Tests.Runtime
             var actualValue = engine.Execute(actual).GetCompletionValue().ToObject();
             Assert.Equal(expectedValue, actualValue);
         }
+
+        [Fact]
+        public void ShouldReturnCorrectConcatenatedStrings()
+        {
+            RunTest(@"
+                function concat(x, a, b) { 
+                    x += a;
+                    x += b;
+                    return x; 
+                }");
+
+            var concat = _engine.GetValue("concat");
+            var result = concat.Invoke("concat", "well", "done").ToObject() as string;
+            Assert.Equal("concatwelldone", result);
+        }
+
     }
 }

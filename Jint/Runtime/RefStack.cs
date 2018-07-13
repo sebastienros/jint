@@ -7,7 +7,7 @@ namespace Jint.Runtime
     internal sealed class ExecutionContextStack
     {
         private ExecutionContext[] _array;
-        private int _size;
+        private uint _size;
 
         private const int DefaultCapacity = 4;
 
@@ -22,7 +22,7 @@ namespace Jint.Runtime
         {
             if (_size == 0)
             {
-                ThrowEmptyStackException();
+                ExceptionHelper.ThrowInvalidOperationException("stack is empty");
             }
             return ref _array[_size - 1];
         }
@@ -32,7 +32,7 @@ namespace Jint.Runtime
         {
             if (_size == 0)
             {
-                ThrowEmptyStackException();
+                ExceptionHelper.ThrowInvalidOperationException("stack is empty");
             }
             _size--;
         }
@@ -40,7 +40,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Push(in ExecutionContext item)
         {
-            if (_size == _array.Length)
+            if (_size == (uint) _array.Length)
             {
                 var newSize = 2 * _array.Length;
                 var newArray = new ExecutionContext[newSize];
@@ -49,11 +49,6 @@ namespace Jint.Runtime
             }
 
             _array[_size++] = item;
-        }
-
-        private static void ThrowEmptyStackException()
-        {
-            throw new InvalidOperationException("stack is empty");
         }
 
         public void ReplaceTopLexicalEnvironment(LexicalEnvironment newEnv)

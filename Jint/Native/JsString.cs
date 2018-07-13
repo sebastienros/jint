@@ -10,7 +10,7 @@ namespace Jint.Native
         private static readonly JsString[] _charToJsValue;
         private static readonly JsString[] _charToStringJsValue;
 
-        private static readonly JsString Empty = new JsString("");
+        public static readonly JsString Empty = new JsString("");
         private static readonly JsString NullString = new JsString("null");
 
         internal string _value;
@@ -57,24 +57,23 @@ namespace Jint.Native
             return string.IsNullOrEmpty(_value);
         }
 
+        public virtual int Length => _value.Length;
+
         internal static JsString Create(string value)
         {
-            if (value.Length <= 1)
+            if (value.Length == 0)
             {
-                if (value == "")
+                return Empty;
+            }
+            if (value.Length == 1)
+            {
+                var i = (uint) value[0];
+                if (i < (uint) _charToStringJsValue.Length)
                 {
-                    return Empty;
-                }
-
-                if (value.Length == 1)
-                {
-                    if (value[0] >= 0 && value[0] <= AsciiMax)
-                    {
-                        return _charToStringJsValue[value[0]];
-                    }
+                    return _charToStringJsValue[i];
                 }
             }
-            else if (value == Native.Null.Text)
+            else if (value.Length == 4 && value == Native.Null.Text)
             {
                 return NullString;
             }
@@ -84,7 +83,7 @@ namespace Jint.Native
 
         internal static JsString Create(char value)
         {
-            if (value >= 0 && value <= AsciiMax)
+            if (value < (uint) _charToJsValue.Length)
             {
                 return _charToJsValue[value];
             }
@@ -181,6 +180,13 @@ namespace Jint.Native
                     || _stringBuilder != null && _stringBuilder.Length == 0;
             }
 
+            public override int Length => _stringBuilder?.Length ?? _value?.Length ?? 0;
+
+            public override object ToObject()
+            {
+                return _stringBuilder.ToString();
+            }
+
             public override bool Equals(JsValue other)
             {
                 if (other is ConcatenatedString cs)
@@ -188,15 +194,14 @@ namespace Jint.Native
                     return _stringBuilder.Equals(cs._stringBuilder);
                 }
 
-                if (other.Type == Types.String)
+                if (other is JsString jsString)
                 {
-                    var otherString = other.AsStringWithoutTypeCheck();
-                    if (otherString.Length != _stringBuilder.Length)
+                    if (jsString._value.Length != Length)
                     {
                         return false;
                     }
 
-                    return ToString().Equals(otherString);
+                    return ToString() == jsString._value;
                 }
 
                 return base.Equals(other);

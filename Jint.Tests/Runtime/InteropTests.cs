@@ -1335,6 +1335,7 @@ namespace Jint.Tests.Runtime
         public void ShouldReturnUndefinedProperty()
         {
             _engine.SetValue("uo", new { foo = "bar" });
+
             _engine.SetValue("ud", new Dictionary<string, object>() { { "foo", "bar" } });
             _engine.SetValue("ul", new List<string>() { "foo", "bar" });
 

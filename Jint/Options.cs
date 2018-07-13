@@ -8,7 +8,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint
 {
-    public class Options
+    public sealed class Options
     {
         private bool _discardGlobal;
         private bool _strict;
@@ -16,6 +16,7 @@ namespace Jint
         private bool _allowClr;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private int _maxStatements;
+        private long _memoryLimit;
         private int _maxRecursionDepth = -1;
         private TimeSpan _timeoutInterval;
         private CultureInfo _culture = CultureInfo.CurrentCulture;
@@ -112,6 +113,11 @@ namespace Jint
             _maxStatements = maxStatements;
             return this;
         }
+        public Options LimitMemory(long memoryLimit)
+        {
+            _memoryLimit = memoryLimit;
+            return this;
+        }
 
         public Options TimeoutInterval(TimeSpan timeoutInterval)
         {
@@ -168,7 +174,9 @@ namespace Jint
 
         internal List<IObjectConverter> _ObjectConverters => _objectConverters;
 
-        internal int MaxStatementCount => _maxStatements;
+        internal long _MemoryLimit => _memoryLimit;
+
+        internal int _MaxStatements => _maxStatements;
 
         internal int MaxRecursionDepth => _maxRecursionDepth;
 

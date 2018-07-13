@@ -6,7 +6,7 @@ using Jint.Runtime.Environments;
 
 namespace Jint.Native.Function
 {
-    public class EvalFunctionInstance: FunctionInstance
+    public sealed class EvalFunctionInstance : FunctionInstance
     {
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
 
@@ -23,12 +23,13 @@ namespace Jint.Native.Function
 
         public JsValue Call(JsValue thisObject, JsValue[] arguments, bool directCall)
         {
-            if (arguments.At(0).Type != Types.String)
+            var arg = arguments.At(0);
+            if (arg.Type != Types.String)
             {
-                return arguments.At(0);
+                return arg;
             }
 
-            var code = TypeConverter.ToString(arguments.At(0));
+            var code = TypeConverter.ToString(arg);
 
             try
             {
@@ -47,9 +48,10 @@ namespace Jint.Native.Function
                                 Engine.EnterExecutionContext(Engine.GlobalEnvironment, Engine.GlobalEnvironment, Engine.Global);
                             }
 
+                            var lexicalEnvironment = Engine.ExecutionContext.LexicalEnvironment;
                             if (StrictModeScope.IsStrictModeCode)
                             {
-                                strictVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment);
+                                strictVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, lexicalEnvironment);
                                 Engine.EnterExecutionContext(strictVarEnv, strictVarEnv, Engine.ExecutionContext.ThisBinding);
                             }
 
@@ -65,7 +67,7 @@ namespace Jint.Native.Function
 
                             // we can safely release arguments if they don't escape the scope
                             if (argumentInstanceRented
-                                && Engine.ExecutionContext.LexicalEnvironment?.Record is DeclarativeEnvironmentRecord der
+                                && lexicalEnvironment?._record is DeclarativeEnvironmentRecord der
                                 && !(result.Value is ArgumentsInstance))
                             {
                                 der.ReleaseArguments();
@@ -100,10 +102,11 @@ namespace Jint.Native.Function
             {
                 if (e.Description == Messages.InvalidLHSInAssignment)
                 {
-                    throw new JavaScriptException(Engine.ReferenceError);
+                    ExceptionHelper.ThrowReferenceError(_engine);
                 }
 
-                throw new JavaScriptException(Engine.SyntaxError);
+                ExceptionHelper.ThrowSyntaxError(_engine);
+                return null;
             }
         }
     }
