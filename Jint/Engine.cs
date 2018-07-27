@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -273,12 +274,47 @@ namespace Jint
             LexicalEnvironment variableEnvironment,
             JsValue thisBinding)
         {
-            var context = new ExecutionContext(
+            var context = new ExecutionContext(this, 
                 lexicalEnvironment,
                 variableEnvironment,
                 thisBinding);
 
             _executionContexts.Push(context);
+        }
+
+        public void AppendStack(StringBuilder builder)
+        {
+            if (_lastSyntaxNode != null)
+            {
+                AppendLocation(builder, _lastSyntaxNode.Location, _executionContexts.Peek().Name);
+            }
+            var stackEnumerator = _executionContexts.GetEnumerator();
+            var stopAfter = _executionContexts.Count;
+            stackEnumerator.MoveNext();
+            while ((--stopAfter) > 0)
+            {
+                var location = stackEnumerator.Current.Location;
+                // var location = stackEnumerator.Current != null ? stackEnumerator.Current.Location : null;
+                stackEnumerator.MoveNext();
+                // var name = stackEnumerator.Current != null ? stackEnumerator.Current.Name : "native frame";
+                AppendLocation(builder, location, stackEnumerator.Current.Name ?? "native frame");
+            }
+        }
+        private static void AppendLocation(StringBuilder builder, Location location, String name)
+        {
+            if (location != null)
+            {
+                builder
+                    .Append("\tat ").Append(name ?? "").Append(" (")
+                    .Append(location.Source ?? "unknown").Append(':')
+                    .Append(location.Start.Line).Append(':')
+                    .Append(location.Start.Column)
+                    .Append(")\n");
+            }
+            else
+            {
+                builder.Append("\tat ").Append(name ?? "").Append(" (unknown location)\n");
+            }
         }
 
         public Engine SetValue(string name, Delegate value)
@@ -974,7 +1010,7 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void UpdateLexicalEnvironment(LexicalEnvironment newEnv)
         {
-            _executionContexts.ReplaceTopLexicalEnvironment(newEnv);
+            _executionContexts.ReplaceTopLexicalEnvironment(this, newEnv);
         }
         
         private static void AssertNotNullOrEmpty(string propertyname, string propertyValue)

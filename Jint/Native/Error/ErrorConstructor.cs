@@ -2,6 +2,7 @@
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using System.Text;
 
 namespace Jint.Native.Error
 {
@@ -51,6 +52,21 @@ namespace Jint.Native.Error
             if (!jsValue.IsUndefined())
             {
                 instance.Put("message", TypeConverter.ToString(jsValue), false);
+
+                StringBuilder builder = new StringBuilder();
+                builder.Append(this._name);
+                if (!arguments.At(0).IsUndefined())
+                {
+                    var message = TypeConverter.ToString(arguments.At(0));
+                    builder.Append(": ").Append(message).Append('\n');
+                    instance.Put("message", message, false);
+                }
+                else
+                {
+                    builder.AppendLine();
+                }
+                Engine.AppendStack(builder);
+                instance.Put("stack", builder.ToString(), false);
             }
 
             return instance;

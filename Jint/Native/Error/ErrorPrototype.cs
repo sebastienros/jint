@@ -20,6 +20,7 @@ namespace Jint.Native.Error
             var obj = new ErrorPrototype(engine, name) { Extensible = true };
             obj.SetOwnProperty("constructor", new PropertyDescriptor(errorConstructor, PropertyFlag.NonEnumerable));
             obj.FastAddProperty("message", "", true, false, true);
+            obj.FastAddProperty("stack", "", true, true, true);
 
             if (name != "Error")
             {

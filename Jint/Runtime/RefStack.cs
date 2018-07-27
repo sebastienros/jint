@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Jint.Runtime.Environments;
 
@@ -40,7 +41,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Push(in ExecutionContext item)
         {
-            if (_size == (uint) _array.Length)
+            if (_size == (uint)_array.Length)
             {
                 var newSize = 2 * _array.Length;
                 var newArray = new ExecutionContext[newSize];
@@ -51,9 +52,19 @@ namespace Jint.Runtime
             _array[_size++] = item;
         }
 
-        public void ReplaceTopLexicalEnvironment(LexicalEnvironment newEnv)
+        public void ReplaceTopLexicalEnvironment(Engine engine, LexicalEnvironment newEnv)
         {
-            _array[_size - 1] = _array[_size - 1].UpdateLexicalEnvironment(newEnv);
+            _array[_size - 1] = _array[_size - 1].UpdateLexicalEnvironment(engine, newEnv);
+        }
+
+        public int Count { get => _array.Length; }
+
+        public IEnumerator<ExecutionContext> GetEnumerator()
+        {
+            foreach (var item in _array)
+            {
+                yield return item;
+            }
         }
     }
 }
