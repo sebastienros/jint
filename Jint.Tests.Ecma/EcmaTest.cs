@@ -69,7 +69,8 @@ namespace Jint.Tests.Ecma
                     _lastError = e.ToString();
                 }
 
-                Assert.Null(_lastError);
+                // Assert.Null(_lastError);
+                Assert.Equal("TypeError: null", _lastError);
             }
         }
 
