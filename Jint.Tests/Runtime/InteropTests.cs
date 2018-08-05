@@ -4,6 +4,7 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
@@ -1629,13 +1630,13 @@ namespace Jint.Tests.Runtime
 
             var objectWrapper = new ObjectWrapper(engine, new OptOutTestClass());
 
-            Assert.Null(objectWrapper.GetProperty(nameof(OptOutTestClass.TestRemovedField)));
-            Assert.Null(objectWrapper.GetProperty(nameof(OptOutTestClass.TestRemovedProperty)));
-            Assert.Null(objectWrapper.GetProperty(nameof(OptOutTestClass.TestRemovedMethod)));
+            Assert.Equal(PropertyDescriptor.Undefined, objectWrapper.GetProperty(nameof(OptOutTestClass.TestRemovedField)));
+            Assert.Equal(PropertyDescriptor.Undefined, objectWrapper.GetProperty(nameof(OptOutTestClass.TestRemovedProperty)));
+            Assert.Equal(PropertyDescriptor.Undefined, objectWrapper.GetProperty(nameof(OptOutTestClass.TestRemovedMethod)));
 
-            Assert.NotNull(objectWrapper.GetProperty(nameof(OptOutTestClass.TestField)));
-            Assert.NotNull(objectWrapper.GetProperty(nameof(OptOutTestClass.TestProperty)));
-            Assert.NotNull(objectWrapper.GetProperty(nameof(OptOutTestClass.TestMethod)));
+            Assert.NotEqual(PropertyDescriptor.Undefined, objectWrapper.GetProperty(nameof(OptOutTestClass.TestField)));
+            Assert.NotEqual(PropertyDescriptor.Undefined, objectWrapper.GetProperty(nameof(OptOutTestClass.TestProperty)));
+            Assert.NotEqual(PropertyDescriptor.Undefined, objectWrapper.GetProperty(nameof(OptOutTestClass.TestMethod)));
         }
 
         [Fact]
@@ -1645,13 +1646,13 @@ namespace Jint.Tests.Runtime
 
             var objectWrapper = new ObjectWrapper(engine, new OptInTestClass());
 
-            Assert.Null(objectWrapper.GetProperty(nameof(OptInTestClass.TestRemovedField)));
-            Assert.Null(objectWrapper.GetProperty(nameof(OptInTestClass.TestRemovedProperty)));
-            Assert.Null(objectWrapper.GetProperty(nameof(OptInTestClass.TestRemovedMethod)));
+            Assert.Equal(PropertyDescriptor.Undefined, objectWrapper.GetProperty(nameof(OptInTestClass.TestRemovedField)));
+            Assert.Equal(PropertyDescriptor.Undefined, objectWrapper.GetProperty(nameof(OptInTestClass.TestRemovedProperty)));
+            Assert.Equal(PropertyDescriptor.Undefined, objectWrapper.GetProperty(nameof(OptInTestClass.TestRemovedMethod)));
 
-            Assert.NotNull(objectWrapper.GetProperty(nameof(OptInTestClass.TestField)));
-            Assert.NotNull(objectWrapper.GetProperty(nameof(OptInTestClass.TestProperty)));
-            Assert.NotNull(objectWrapper.GetProperty(nameof(OptInTestClass.TestMethod)));
+            Assert.NotEqual(PropertyDescriptor.Undefined, objectWrapper.GetProperty(nameof(OptInTestClass.TestField)));
+            Assert.NotEqual(PropertyDescriptor.Undefined, objectWrapper.GetProperty(nameof(OptInTestClass.TestProperty)));
+            Assert.NotEqual(PropertyDescriptor.Undefined, objectWrapper.GetProperty(nameof(OptInTestClass.TestMethod)));
         }
     }
 }
