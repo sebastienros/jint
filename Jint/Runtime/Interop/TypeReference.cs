@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
@@ -51,7 +52,7 @@ namespace Jint.Runtime.Interop
                 return result;
             }
 
-            var constructors = ReferenceType.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
+            var constructors = TypeUtilities.GetConstructors(ReferenceType, BindingFlags.Public | BindingFlags.Instance).ToArray();
 
             foreach (var method in TypeConverter.FindBestMatch(constructors, arguments))
             {
@@ -174,20 +175,20 @@ namespace Jint.Runtime.Interop
                 return PropertyDescriptor.Undefined;
             }
 
-            var propertyInfo = ReferenceType.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Static);
+            var propertyInfo = TypeUtilities.GetProperty(ReferenceType, propertyName, BindingFlags.Public | BindingFlags.Static);
             if (propertyInfo != null)
             {
                 return new PropertyInfoDescriptor(Engine, propertyInfo, Type);
             }
 
-            var fieldInfo = ReferenceType.GetField(propertyName, BindingFlags.Public | BindingFlags.Static);
+            var fieldInfo = TypeUtilities.GetField(ReferenceType, propertyName, BindingFlags.Public | BindingFlags.Static);
             if (fieldInfo != null)
             {
                 return new FieldInfoDescriptor(Engine, fieldInfo, Type);
             }
 
             List<MethodInfo> methodInfo = null;
-            foreach (var mi in ReferenceType.GetMethods(BindingFlags.Public | BindingFlags.Static))
+            foreach (var mi in TypeUtilities.GetMethods(ReferenceType, BindingFlags.Public | BindingFlags.Static))
             {
                 if (mi.Name == propertyName)
                 {

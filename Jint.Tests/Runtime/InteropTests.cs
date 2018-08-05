@@ -4,6 +4,7 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
+using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
 using Shapes;
@@ -426,7 +427,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void PocosCanReturnObjectInstanceDirectly()
         {
-            var x = new ObjectInstance(_engine) { Extensible = true};
+            var x = new ObjectInstance(_engine) { Extensible = true };
             x.Put("foo", new JsString("bar"), false);
 
             var o = new
@@ -549,7 +550,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void CanUseTrim()
         {
-            var p = new Person { Name = "Mickey Mouse "};
+            var p = new Person { Name = "Mickey Mouse " };
             _engine.SetValue("p", p);
 
             RunTest(@"
@@ -1335,7 +1336,7 @@ namespace Jint.Tests.Runtime
         public void ShouldReturnUndefinedProperty()
         {
             _engine.SetValue("uo", new { foo = "bar" });
-            _engine.SetValue("ud", new Dictionary<string, object> { {"foo", "bar"} });
+            _engine.SetValue("ud", new Dictionary<string, object> { { "foo", "bar" } });
             _engine.SetValue("ul", new List<string> { "foo", "bar" });
 
             RunTest(@"
@@ -1365,7 +1366,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldImportNamespaceNestedType()
         {
-          RunTest(@"
+            RunTest(@"
                 var shapes = importNamespace('Shapes.Circle');
                 var kinds = shapes.Kind;
                 assert(kinds.Unit === 0);
@@ -1377,7 +1378,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldImportNamespaceNestedNestedType()
         {
-          RunTest(@"
+            RunTest(@"
                 var meta = importNamespace('Shapes.Circle.Meta');
                 var usages = meta.Usage;
                 assert(usages.Public === 0);
@@ -1619,6 +1620,38 @@ namespace Jint.Tests.Runtime
             Assert.Throws<ArgumentNullException>(() => engine.Invoke("throwException2"));
             Assert.Equal(engine.Invoke("throwException3").AsString(), exceptionMessage);
             Assert.Throws<ArgumentNullException>(() => engine.Invoke("throwException4"));
+        }
+
+        [Fact]
+        public void OptOutRemovesAllWithoutAttributes()
+        {
+            var engine = new Engine();
+
+            var objectWrapper = new ObjectWrapper(engine, new OptOutTestClass());
+
+            Assert.Null(objectWrapper.GetProperty(nameof(OptOutTestClass.TestRemovedField)));
+            Assert.Null(objectWrapper.GetProperty(nameof(OptOutTestClass.TestRemovedProperty)));
+            Assert.Null(objectWrapper.GetProperty(nameof(OptOutTestClass.TestRemovedMethod)));
+
+            Assert.NotNull(objectWrapper.GetProperty(nameof(OptOutTestClass.TestField)));
+            Assert.NotNull(objectWrapper.GetProperty(nameof(OptOutTestClass.TestProperty)));
+            Assert.NotNull(objectWrapper.GetProperty(nameof(OptOutTestClass.TestMethod)));
+        }
+
+        [Fact]
+        public void OptOutIncludesAllNonIgnored()
+        {
+            var engine = new Engine();
+
+            var objectWrapper = new ObjectWrapper(engine, new OptInTestClass());
+
+            Assert.Null(objectWrapper.GetProperty(nameof(OptInTestClass.TestRemovedField)));
+            Assert.Null(objectWrapper.GetProperty(nameof(OptInTestClass.TestRemovedProperty)));
+            Assert.Null(objectWrapper.GetProperty(nameof(OptInTestClass.TestRemovedMethod)));
+
+            Assert.NotNull(objectWrapper.GetProperty(nameof(OptInTestClass.TestField)));
+            Assert.NotNull(objectWrapper.GetProperty(nameof(OptInTestClass.TestProperty)));
+            Assert.NotNull(objectWrapper.GetProperty(nameof(OptInTestClass.TestMethod)));
         }
     }
 }

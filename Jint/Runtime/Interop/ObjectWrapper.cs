@@ -73,7 +73,7 @@ namespace Jint.Runtime.Interop
         {
             // look for a property
             PropertyInfo property = null;
-            foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+            foreach (var p in TypeUtilities.GetProperties(type, BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
             {
                 if (EqualsIgnoreCasing(p.Name, propertyName))
                 {
@@ -89,7 +89,7 @@ namespace Jint.Runtime.Interop
 
             // look for a field
             FieldInfo field = null;
-            foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+            foreach (var f in TypeUtilities.GetFields(type, BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
             {
                 if (EqualsIgnoreCasing(f.Name, propertyName))
                 {
@@ -105,7 +105,7 @@ namespace Jint.Runtime.Interop
 
             // if no properties were found then look for a method
             List<MethodInfo> methods = null;
-            foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+            foreach (var m in TypeUtilities.GetMethods(type, BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
             {
                 if (EqualsIgnoreCasing(m.Name, propertyName))
                 {
@@ -121,7 +121,7 @@ namespace Jint.Runtime.Interop
 
             // if no methods are found check if target implemented indexing
             PropertyInfo first = null;
-            foreach (var p in type.GetProperties())
+            foreach (var p in TypeUtilities.GetProperties(type))
             {
                 if (p.GetIndexParameters().Length != 0)
                 {
@@ -139,7 +139,7 @@ namespace Jint.Runtime.Interop
             List<PropertyInfo> list = null;
             foreach (Type iface in type.GetInterfaces())
             {
-                foreach (var iprop in iface.GetProperties())
+                foreach (var iprop in TypeUtilities.GetProperties(iface))
                 {
                     if (EqualsIgnoreCasing(iprop.Name, propertyName))
                     {
@@ -158,7 +158,7 @@ namespace Jint.Runtime.Interop
             List<MethodInfo> explicitMethods = null;
             foreach (Type iface in type.GetInterfaces())
             {
-                foreach (var imethod in iface.GetMethods())
+                foreach (var imethod in TypeUtilities.GetMethods(iface))
                 {
                     if (EqualsIgnoreCasing(imethod.Name, propertyName))
                     {
@@ -177,7 +177,7 @@ namespace Jint.Runtime.Interop
             List<PropertyInfo> explicitIndexers = null;
             foreach (Type iface in type.GetInterfaces())
             {
-                foreach (var iprop in iface.GetProperties())
+                foreach (var iprop in TypeUtilities.GetProperties(iface))
                 {
                     if (iprop.GetIndexParameters().Length != 0)
                     {
