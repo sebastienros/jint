@@ -28,14 +28,15 @@ namespace Jint.Runtime.Interop
             var arguments = ProcessParamsArrays(jsArguments, methodInfos);
             var converter = Engine.ClrTypeConverter;
 
-            foreach (var method in TypeConverter.FindBestMatch(Engine, methodInfos, arguments))
+            foreach (var method in TypeConverter.FindBestMatch(methodInfos, arguments))
             {
                 var parameters = new object[arguments.Length];
+                var methodParameters = method.GetParameters();
                 var argumentsMatch = true;
 
                 for (var i = 0; i < arguments.Length; i++)
                 {
-                    var parameterType = method.GetParameters()[i].ParameterType;
+                    var parameterType = methodParameters[i].ParameterType;
 
                     if (typeof(JsValue).IsAssignableFrom(parameterType))
                     {
@@ -62,8 +63,7 @@ namespace Jint.Runtime.Interop
                             break;
                         }
 
-                        var lambdaExpression = parameters[i] as LambdaExpression;
-                        if (lambdaExpression != null)
+                        if (parameters[i] is LambdaExpression lambdaExpression)
                         {
                             parameters[i] = lambdaExpression.Compile();
                         }
@@ -78,7 +78,7 @@ namespace Jint.Runtime.Interop
                 // todo: cache method info
                 try
                 {
-                    return JsValue.FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters));
+                    return FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters));
                 }
                 catch (TargetInvocationException exception)
                 {
@@ -87,14 +87,15 @@ namespace Jint.Runtime.Interop
 
                     if (handler != null && handler(meaningfulException))
                     {
-                        throw new JavaScriptException(Engine.Error, meaningfulException.Message);
+                        ExceptionHelper.ThrowError(_engine, meaningfulException.Message);
                     }
 
                     throw meaningfulException;
                 }
             }
 
-            throw new JavaScriptException(Engine.TypeError, "No public methods with the specified arguments were found.");
+            ExceptionHelper.ThrowTypeError(_engine, "No public methods with the specified arguments were found.");
+            return null;
         }
 
         /// <summary>
@@ -102,15 +103,14 @@ namespace Jint.Runtime.Interop
         /// </summary>
         private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, MethodInfo[] methodInfos)
         {
-            for (var i = 0; i < methodInfos.Length; i++)
+            foreach (var methodInfo in methodInfos)
             {
-                var methodInfo = methodInfos[i];
                 var parameters = methodInfo.GetParameters();
 
                 bool hasParamArrayAttribute = false;
-                for (int j = 0; j < parameters.Length; ++j)
+                foreach (var parameter in parameters)
                 {
-                    if (parameters[j].HasAttribute<ParamArrayAttribute>())
+                    if (Attribute.IsDefined(parameter, typeof(ParamArrayAttribute)))
                     {
                         hasParamArrayAttribute = true;
                         break;

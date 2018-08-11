@@ -23,7 +23,11 @@ namespace Jint.Pooling
 
         private ArgumentsInstance Factory()
         {
-            return new ArgumentsInstance(_engine);
+            return new ArgumentsInstance(_engine)
+            {
+                Prototype = _engine.Object.PrototypeObject,
+                Extensible = true
+            };
         }
 
         public ArgumentsInstance Rent(
@@ -35,13 +39,6 @@ namespace Jint.Pooling
         {
             var obj = _pool.Allocate();
             obj.Prepare(func, names, args, env, strict);
-
-            // These properties are pre-initialized as their don't trigger
-            // the EnsureInitialized() event and are cheap
-            obj.Prototype = _engine.Object.PrototypeObject;
-            obj.Extensible = true;
-            obj.Strict = strict;
-
             return obj;
         }
 

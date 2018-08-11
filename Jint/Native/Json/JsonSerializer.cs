@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Jint.Native.Array;
 using Jint.Native.Global;
@@ -50,7 +49,7 @@ namespace Jint.Native.Json
 
                     foreach (var property in replacerObj.GetOwnProperties().Select(x => x.Value))
                     {
-                        JsValue v = _engine.GetValue(property);
+                        JsValue v = _engine.GetValue(property, false);
                         string item = null;
                         if (v.IsString())
                         {
@@ -297,12 +296,12 @@ namespace Jint.Native.Json
         {
             if (value == null)
             {
-                throw new ArgumentNullException("value");
+                ExceptionHelper.ThrowArgumentNullException(nameof(value));
             }
 
             if (_stack.Contains(value))
             {
-                throw new JavaScriptException(_engine.TypeError, "Cyclic reference detected.");
+                ExceptionHelper.ThrowTypeError(_engine, "Cyclic reference detected.");
             }
         }
 

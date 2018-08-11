@@ -86,7 +86,7 @@ namespace Jint.Native.Date
             if (!DateTime.TryParseExact(date, DefaultFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var result))
             {
                 if (!DateTime.TryParseExact(date, SecondaryFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
-                {
+            {
                     if (!DateTime.TryParse(date, Engine.Options._Culture, DateTimeStyles.AdjustToUniversal, out result))
                     {
                         if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
@@ -147,7 +147,7 @@ namespace Jint.Native.Date
         {
             if (arguments.Length < 2)
             {
-                throw new ArgumentOutOfRangeException(nameof(arguments), "There must be at least two arguments.");
+                ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(arguments), "There must be at least two arguments.");
             }
 
             var y = TypeConverter.ToNumber(arguments[0]);

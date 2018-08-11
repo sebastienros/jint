@@ -5,7 +5,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Error
 {
-    public class ErrorConstructor : FunctionInstance, IConstructor
+    public sealed class ErrorConstructor : FunctionInstance, IConstructor
     {
         private string _name;
 

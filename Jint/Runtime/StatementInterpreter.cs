@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Descriptors;
@@ -8,7 +7,7 @@ using Jint.Runtime.References;
 
 namespace Jint.Runtime
 {
-    public class StatementInterpreter
+    public sealed class StatementInterpreter
     {
         private readonly Engine _engine;
 
@@ -38,11 +37,11 @@ namespace Jint.Runtime
             Completion result;
             if (TypeConverter.ToBoolean(_engine.GetValue(_engine.EvaluateExpression(ifStatement.Test), true)))
             {
-                result = ExecuteStatement(ifStatement.Consequent);
+                result = _engine.ExecuteStatement(ifStatement.Consequent);
             }
             else if (ifStatement.Alternate != null)
             {
-                result = ExecuteStatement(ifStatement.Alternate);
+                result = _engine.ExecuteStatement(ifStatement.Alternate);
             }
             else
             {
@@ -57,7 +56,7 @@ namespace Jint.Runtime
             // TODO: Esprima added Statement.Label, maybe not necessary as this line is finding the
             // containing label and could keep a table per program with all the labels
             // labeledStatement.Body.LabelSet = labeledStatement.Label;
-            var result = ExecuteStatement(labeledStatement.Body);
+            var result = _engine.ExecuteStatement(labeledStatement.Body);
             if (result.Type == CompletionType.Break && result.Identifier == labeledStatement.Label.Name)
             {
                 var value = result.Value;
@@ -79,7 +78,7 @@ namespace Jint.Runtime
 
             do
             {
-                var stmt = ExecuteStatement(doWhileStatement.Body);
+                var stmt = _engine.ExecuteStatement(doWhileStatement.Body);
                 if (!ReferenceEquals(stmt.Value, null))
                 {
                     v = stmt.Value;
@@ -121,7 +120,7 @@ namespace Jint.Runtime
                     return new Completion(CompletionType.Normal, v, null);
                 }
 
-                var stmt = ExecuteStatement(whileStatement.Body);
+                var stmt = _engine.ExecuteStatement(whileStatement.Body);
 
                 if (!ReferenceEquals(stmt.Value, null))
                 {
@@ -155,7 +154,7 @@ namespace Jint.Runtime
             {
                 if (init.Type == Nodes.VariableDeclaration)
                 {
-                    var c = ExecuteStatement((Statement) init);
+                    var c = _engine.ExecuteStatement((Statement) init);
 
                 }
                 else
@@ -176,7 +175,7 @@ namespace Jint.Runtime
                     }
                 }
 
-                var stmt = ExecuteStatement(forStatement.Body);
+                var stmt = _engine.ExecuteStatement(forStatement.Body);
                 if (!ReferenceEquals(stmt.Value, null))
                 {
                     v = stmt.Value;
@@ -230,7 +229,8 @@ namespace Jint.Runtime
             {
                 var keys = _engine.Object.GetOwnPropertyNames(Undefined.Instance, Arguments.From(cursor)).AsArray();
 
-                for (var i = 0; i < keys.GetLength(); i++)
+                var length = keys.GetLength();
+                for (var i = 0; i < length; i++)
                 {
                     var p = keys.GetOwnProperty(TypeConverter.ToString(i)).Value.AsStringWithoutTypeCheck();
 
@@ -255,7 +255,7 @@ namespace Jint.Runtime
 
                     _engine.PutValue(varRef, p);
 
-                    var stmt = ExecuteStatement(forInStatement.Body);
+                    var stmt = _engine.ExecuteStatement(forInStatement.Body);
                     if (!ReferenceEquals(stmt.Value, null))
                     {
                         v = stmt.Value;
@@ -337,7 +337,7 @@ namespace Jint.Runtime
             Completion c;
             try
             {
-                c = ExecuteStatement(withStatement.Body);
+                c = _engine.ExecuteStatement(withStatement.Body);
             }
             catch (JavaScriptException e)
             {
@@ -419,17 +419,24 @@ namespace Jint.Runtime
 
         public Completion ExecuteStatementList(List<StatementListItem> statementList)
         {
+            // optimize common case without loop
+            return statementList.Count == 1 
+                ? ExecuteSingleStatement((Statement) statementList[0]) 
+                : ExecuteMultipleStatements(statementList);
+        }
+
+        private Completion ExecuteMultipleStatements(List<StatementListItem> statementList)
+        {
+            Statement s = null;
             var c = new Completion(CompletionType.Normal, null, null);
             Completion sl = c;
-            Statement s = null;
-
             try
             {
                 var statementListCount = statementList.Count;
                 for (var i = 0; i < statementListCount; i++)
                 {
                     s = (Statement) statementList[i];
-                    c = ExecuteStatement(s);
+                    c = _engine.ExecuteStatement(s);
                     if (c.Type != CompletionType.Normal)
                     {
                         var executeStatementList = new Completion(
@@ -446,11 +453,35 @@ namespace Jint.Runtime
             }
             catch (JavaScriptException v)
             {
-                var completion = new Completion(CompletionType.Throw, v.Error, null, v.Location ?? s.Location);
+                var completion = new Completion(CompletionType.Throw, v.Error, null, v.Location ?? s?.Location);
                 return completion;
             }
 
             return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
+        }
+
+        private Completion ExecuteSingleStatement(Statement s)
+        {
+            try
+            {
+                var c = _engine.ExecuteStatement(s);
+                if (c.Type != CompletionType.Normal)
+                {
+                    var completion = new Completion(
+                        c.Type,
+                        c.Value,
+                        c.Identifier,
+                        c.Location);
+
+                    return completion;
+                }
+
+                return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
+            }
+            catch (JavaScriptException v)
+            {
+                return new Completion(CompletionType.Throw, v.Error, null, v.Location ?? s?.Location);
+            }
         }
 
         /// <summary>
@@ -471,27 +502,27 @@ namespace Jint.Runtime
         /// <returns></returns>
         public Completion ExecuteTryStatement(TryStatement tryStatement)
         {
-            var b = ExecuteStatement(tryStatement.Block);
+            var b = _engine.ExecuteStatement(tryStatement.Block);
             if (b.Type == CompletionType.Throw)
             {
                 // execute catch
                 var catchClause = tryStatement.Handler;
                 if (catchClause != null)
                 {
-                    var c = _engine.GetValue(b);
+                    var c = b.Value;
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                    catchEnv.Record.CreateMutableBinding(((Identifier) catchClause.Param).Name, c);
+                    catchEnv._record.CreateMutableBinding(((Identifier) catchClause.Param).Name, c);
 
                     _engine.UpdateLexicalEnvironment(catchEnv);
-                    b = ExecuteStatement(catchClause.Body);
+                    b = _engine.ExecuteStatement(catchClause.Body);
                     _engine.UpdateLexicalEnvironment(oldEnv);
                 }
             }
 
             if (tryStatement.Finalizer != null)
             {
-                var f = ExecuteStatement(tryStatement.Finalizer);
+                var f = _engine.ExecuteStatement(tryStatement.Finalizer);
                 if (f.Type == CompletionType.Normal)
                 {
                     return b;
@@ -516,21 +547,12 @@ namespace Jint.Runtime
                 var declaration = statement.Declarations[i];
                 if (declaration.Init != null)
                 {
-                    if (!(_engine.EvaluateExpression(declaration.Id) is Reference lhs))
-                    {
-                        throw new ArgumentException();
-                    }
-
-                    if (lhs.IsStrict()
-                        && lhs.GetBase() is EnvironmentRecord
-                        && (lhs.GetReferencedName() == "eval" || lhs.GetReferencedName() == "arguments"))
-                    {
-                        throw new JavaScriptException(_engine.SyntaxError);
-                    }
+                    var lhs = (Reference) _engine.EvaluateExpression(declaration.Id);
+                    lhs.AssertValid(_engine);
 
                     var value = _engine.GetValue(_engine.EvaluateExpression(declaration.Init), true);
                     _engine.PutValue(lhs, value);
-                    _engine.ReferencePool.Return(lhs);
+                    _engine._referencePool.Return(lhs);
                 }
             }
 

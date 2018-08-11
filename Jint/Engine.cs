@@ -28,7 +28,7 @@ using Jint.Runtime.References;
 
 namespace Jint
 {
-    public class Engine
+    public sealed class Engine
     {
         private static readonly ParserOptions DefaultParserOptions = new ParserOptions
         {
@@ -50,7 +50,12 @@ namespace Jint
         private readonly bool _isDebugMode;
         private readonly bool _isStrict;
         private readonly int _maxStatements;
+        private readonly long _memoryLimit;
+        private readonly bool _runBeforeStatementChecks;
         private readonly IReferenceResolver _referenceResolver;
+        internal readonly ReferencePool _referencePool;
+        internal readonly ArgumentsInstancePool _argumentsInstancePool;
+        internal readonly JsValueArrayPool _jsValueArrayPool;
         
         public ITypeConverter ClrTypeConverter;
 
@@ -77,6 +82,9 @@ namespace Jint
             { typeof(UInt64), (Engine engine, object v) => JsNumber.Create((UInt64)v) },
             { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "") }
         };
+
+        internal readonly Dictionary<(Type, string), Func<Engine, object, PropertyDescriptor>> ClrPropertyDescriptorFactories =
+            new Dictionary<(Type, string), Func<Engine, object, PropertyDescriptor>>();
 
         internal JintCallStack CallStack = new JintCallStack();
 
@@ -176,10 +184,15 @@ namespace Jint
             _isStrict = Options.IsStrict;
             _maxStatements = Options._MaxStatements;
             _referenceResolver = Options.ReferenceResolver;
+            _memoryLimit = Options._MemoryLimit;
+            _runBeforeStatementChecks = (_maxStatements > 0 &&_maxStatements < int.MaxValue) 
+                                        || Options._TimeoutInterval.Ticks > 0
+                                        || _memoryLimit > 0 
+                                        || _isDebugMode;
 
-            ReferencePool = new ReferencePool();
-            ArgumentsInstancePool = new ArgumentsInstancePool(this);
-            JsValueArrayPool = new JsValueArrayPool();
+            _referencePool = new ReferencePool();
+            _argumentsInstancePool = new ArgumentsInstancePool(this);
+            _jsValueArrayPool = new JsValueArrayPool();
 
             Eval = new EvalFunctionInstance(this, System.Array.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
@@ -233,15 +246,6 @@ namespace Jint
         public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
 
         internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; }
-
-        internal ReferencePool ReferencePool
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get;
-        }
-
-        internal ArgumentsInstancePool ArgumentsInstancePool { get; }
-        internal JsValueArrayPool JsValueArrayPool { get; }
 
         #region Debugger
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
@@ -364,7 +368,7 @@ namespace Jint
         {
             ResetStatementsCount();
             
-            if (Options._MemoryLimit > 0)
+            if (_memoryLimit > 0)
             {
                 ResetMemoryUsage();
             }
@@ -405,46 +409,24 @@ namespace Jint
 
         public Completion ExecuteStatement(Statement statement)
         {
-            if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
-            {
-                ThrowStatementsCountOverflowException();
-            }
-
-            if (_timeoutTicks > 0 && _timeoutTicks < DateTime.UtcNow.Ticks)
-            {
-                ThrowTimeoutException();
-            }
-
-            if (Options._MemoryLimit > 0)
-            {
-                if (GetAllocatedBytesForCurrentThread != null)
-                {
-                    var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
-                    if (memoryUsage > Options._MemoryLimit)
-                    {
-                        throw new MemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {Options._MemoryLimit}");
-                    }
-                }
-                else
-                {
-                    throw new PlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
-                }
-            }
-
             _lastSyntaxNode = statement;
 
-            if (_isDebugMode)
+            if (_runBeforeStatementChecks)
             {
-                DebugHandler.OnStep(statement);
+                BeforeExecuteStatement(statement);
             }
 
             switch (statement.Type)
             {
                 case Nodes.BlockStatement:
-                    return _statements.ExecuteBlockStatement((BlockStatement) statement);
+                    return _statements.ExecuteStatementList(((BlockStatement) statement).Body);
 
                 case Nodes.ReturnStatement:
-                    return _statements.ExecuteReturnStatement((ReturnStatement) statement);
+                    var jsValue = ((ReturnStatement) statement).Argument == null
+                        ? Undefined.Instance
+                        : GetValue(EvaluateExpression(((ReturnStatement) statement).Argument), true);
+
+                    return new Completion(CompletionType.Return, jsValue, null);
 
                 case Nodes.VariableDeclaration:
                     return _statements.ExecuteVariableDeclaration((VariableDeclaration) statement);
@@ -459,10 +441,13 @@ namespace Jint
                     return _statements.ExecuteDoWhileStatement((DoWhileStatement) statement);
 
                 case Nodes.EmptyStatement:
-                    return _statements.ExecuteEmptyStatement((EmptyStatement) statement);
+                    return new Completion(CompletionType.Normal, null, null);
 
                 case Nodes.ExpressionStatement:
-                    return _statements.ExecuteExpressionStatement((ExpressionStatement) statement);
+                    return new Completion(
+                        CompletionType.Normal, 
+                        GetValue(EvaluateExpression(((ExpressionStatement) statement).Expression), true),
+                        null);
 
                 case Nodes.ForStatement:
                     return _statements.ExecuteForStatement((ForStatement) statement);
@@ -501,8 +486,42 @@ namespace Jint
                     return _statements.ExecuteProgram((Program) statement);
 
                 default:
-                    ThrowArgumentOutOfRange();
+                    ExceptionHelper.ThrowArgumentOutOfRangeException();
                     return new Completion(CompletionType.Normal, null, null);
+            }
+        }
+
+        private void BeforeExecuteStatement(Statement statement)
+        {
+            if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
+            {
+                ExceptionHelper.ThrowStatementsCountOverflowException();
+            }
+
+            if (_timeoutTicks > 0 && _timeoutTicks < DateTime.UtcNow.Ticks)
+            {
+                ExceptionHelper.ThrowTimeoutException();
+            }
+
+            if (_memoryLimit > 0)
+            {
+                if (GetAllocatedBytesForCurrentThread != null)
+                {
+                    var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
+                    if (memoryUsage > _memoryLimit)
+                    {
+                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {_memoryLimit}");
+                    }
+                }
+                else
+                {
+                    ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
+                }
+            }
+
+            if (_isDebugMode)
+            {
+                DebugHandler.OnStep(statement);
             }
         }
 
@@ -561,7 +580,7 @@ namespace Jint
                     return _expressions.EvaluateUnaryExpression((UnaryExpression) expression);
 
                 default:
-                    ThrowArgumentOutOfRange();
+                    ExceptionHelper.ThrowArgumentOutOfRangeException();
                     return null;
             }
         }
@@ -569,30 +588,11 @@ namespace Jint
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.1
         /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetValue(object value)
         {
-            if (value is JsValue jsValue)
-            {
-                return jsValue;
-            }
-
-            return GetValueFromReference(value, false);
+            return GetValue(value, false);
         }
         
-        
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal JsValue GetValue(in Completion completion)
-        {
-            var value = completion.Value;
-            if (value is JsValue jsValue)
-            {
-                return jsValue;
-            }
-            return GetValueFromReference(completion.Value, false);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal JsValue GetValue(object value, bool returnReferenceToPool)
         {
             if (value is JsValue jsValue)
@@ -600,31 +600,22 @@ namespace Jint
                 return jsValue;
             }
 
-            return GetValueFromReference(value, returnReferenceToPool);
-        }
-       
-        internal JsValue GetValueFromReference(object value, bool returnReferenceToPool)
-        {
-            var reference = value as Reference;
-            if (reference == null)
+            if (!(value is Reference reference))
             {
-                if (value is Completion completion)
-                {
-                    return GetValue(completion.Value, returnReferenceToPool);
-                }
+                return ((Completion) value).Value;
             }
 
-            if (reference.IsUnresolvableReference())
+            if (reference._baseValue._type == Types.Undefined)
             {
                 if (_referenceResolver != null &&
                     _referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
                 {
                     return val;
                 }
-                throw new JavaScriptException(ReferenceError, reference.GetReferencedName() + " is not defined");
+                ExceptionHelper.ThrowReferenceError(this, reference.GetReferencedName() + " is not defined");
             }
 
-            var baseValue = reference.GetBase();
+            var baseValue = reference._baseValue;
 
             if (reference.IsPropertyReference())
             {
@@ -634,12 +625,12 @@ namespace Jint
                     return baseValue;
                 }
 
-                var referencedName = reference.GetReferencedName();
+                var referencedName = reference._name;
                 if (returnReferenceToPool)
                 {
-                    ReferencePool.Return(reference);
+                    _referencePool.Return(reference);
                 }
-                if (reference.HasPrimitiveBase() == false)
+                if (!(reference._baseValue._type != Types.Object && reference._baseValue._type != Types.None))
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
                     var v = o.Get(referencedName);
@@ -673,14 +664,14 @@ namespace Jint
             var record = (EnvironmentRecord) baseValue;
             if (ReferenceEquals(record, null))
             {
-                throw new ArgumentException();
+                ExceptionHelper.ThrowArgumentException();
             }
 
-            var bindingValue = record.GetBindingValue(reference.GetReferencedName(), reference.IsStrict());
+            var bindingValue = record.GetBindingValue(reference._name, reference._strict);
 
             if (returnReferenceToPool)
             {
-                ReferencePool.Return(reference);
+                _referencePool.Return(reference);
             }
 
             return bindingValue;
@@ -693,37 +684,31 @@ namespace Jint
         /// <param name="value"></param>
         public void PutValue(Reference reference, JsValue value)
         {
-            if (reference.IsUnresolvableReference())
+            if (reference._baseValue._type == Types.Undefined)
             {
-                if (reference.IsStrict())
+                if (reference._strict)
                 {
-                    ThrowReferenceError();
+                    ExceptionHelper.ThrowReferenceError(this);
                 }
 
-                Global.Put(reference.GetReferencedName(), value, false);
+                Global.Put(reference._name, value, false);
             }
             else if (reference.IsPropertyReference())
             {
-                var baseValue = reference.GetBase();
-                if (!reference.HasPrimitiveBase())
+                var baseValue = reference._baseValue;
+                if (reference._baseValue._type == Types.Object || reference._baseValue._type == Types.None)
                 {
-                    baseValue.AsObject().Put(reference.GetReferencedName(), value, reference.IsStrict());
+                    ((ObjectInstance) baseValue).Put(reference._name, value, reference._strict);
                 }
                 else
                 {
-                    PutPrimitiveBase(baseValue, reference.GetReferencedName(), value, reference.IsStrict());
+                    PutPrimitiveBase(baseValue, reference._name, value, reference._strict);
                 }
             }
             else
             {
-                var baseValue = reference.GetBase();
-                if (!(baseValue is EnvironmentRecord record))
-                {
-                    ThrowArgumentNullException();
-                    return;
-                }
-
-                record.SetMutableBinding(reference.GetReferencedName(), value, reference.IsStrict());
+                var baseValue = reference._baseValue;
+                ((EnvironmentRecord) baseValue).SetMutableBinding(reference._name, value, reference._strict);
             }
         }
 
@@ -737,7 +722,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    ThrowTypeError();
+                    ExceptionHelper.ThrowTypeError(this);
                 }
                 return;
             }
@@ -748,7 +733,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    ThrowTypeError();
+                    ExceptionHelper.ThrowTypeError(this);
                 }
                 return;
             }
@@ -764,7 +749,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    ThrowTypeError();
+                    ExceptionHelper.ThrowTypeError(this);
                 }
             }
         }
@@ -814,21 +799,16 @@ namespace Jint
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(JsValue value, object thisObj, object[] arguments)
         {
-            var callable = value.TryCast<ICallable>();
+            var callable = value as ICallable ?? ExceptionHelper.ThrowArgumentException<ICallable>("Can only invoke functions");
 
-            if (callable == null)
-            {
-                throw new ArgumentException("Can only invoke functions");
-            }
-
-            var items = JsValueArrayPool.RentArray(arguments.Length);
+            var items = _jsValueArrayPool.RentArray(arguments.Length);
             for (int i = 0; i < arguments.Length; ++i)
             {
                 items[i] = JsValue.FromObject(this, arguments[i]);
             }
 
             var result = callable.Call(JsValue.FromObject(this, thisObj), items);
-            JsValueArrayPool.ReturnArray(items);
+            _jsValueArrayPool.ReturnArray(items);
 
             return result;
         }
@@ -859,9 +839,9 @@ namespace Jint
         {
             AssertNotNullOrEmpty(nameof(propertyName), propertyName);
 
-            var reference = ReferencePool.Rent(scope, propertyName, _isStrict);
-            var jsValue = GetValue(reference);
-            ReferencePool.Return(reference);
+            var reference = _referencePool.Rent(scope, propertyName, _isStrict);
+            var jsValue = GetValue(reference, false);
+            _referencePool.Return(reference);
             return jsValue;
         }
 
@@ -873,27 +853,82 @@ namespace Jint
             FunctionInstance functionInstance,
             JsValue[] arguments)
         {
-            var env = ExecutionContext.VariableEnvironment.Record;
+            var env = ExecutionContext.VariableEnvironment._record;
             bool configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
             var strict = StrictModeScope.IsStrictModeCode;
 
+            var der = env as DeclarativeEnvironmentRecord;
+            bool canReleaseArgumentsInstance = false;
             if (declarationBindingType == DeclarationBindingType.FunctionCode)
             {
-                var parameters = functionInstance.FormalParameters;
-                for (var i = 0; i < parameters.Length; i++)
-                {
-                    var argName = parameters[i];
-                    var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
-                    var argAlreadyDeclared = env.HasBinding(argName);
-                    if (!argAlreadyDeclared)
-                    {
-                        env.CreateMutableBinding(argName, v);
-                    }
+                var argsObj = _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, env, strict);
+                canReleaseArgumentsInstance = true;
 
-                    env.SetMutableBinding(argName, v, strict);
+                if (!ReferenceEquals(der, null))
+                {
+                    der.AddFunctionParameters(functionInstance, arguments, argsObj);
+                }
+                else
+                {
+                    // slow path
+                    var parameters = functionInstance._formalParameters;
+                    for (var i = 0; i < parameters.Length; i++)
+                    {
+                        var argName = parameters[i];
+                        var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
+                        var argAlreadyDeclared = env.HasBinding(argName);
+                        if (!argAlreadyDeclared)
+                        {
+                            env.CreateMutableBinding(argName, v);
+                        }
+
+                        env.SetMutableBinding(argName, v, strict);
+                    }
+                    env.CreateMutableBinding("arguments", argsObj);
                 }
             }
 
+            if (functionDeclarations.Count > 0)
+            {
+                AddFunctionDeclarations(functionDeclarations, env, configurableBindings, strict);
+            }
+
+            if (variableDeclarations.Count == 0)
+            {
+                return canReleaseArgumentsInstance;
+            }
+
+            // process all variable declarations in the current parser scope
+            if (!ReferenceEquals(der, null))
+            {
+                der.AddVariableDeclarations(variableDeclarations);
+            }
+            else
+            {
+                // slow path
+                var variableDeclarationsCount = variableDeclarations.Count;
+                for (var i = 0; i < variableDeclarationsCount; i++)
+                {
+                    var variableDeclaration = variableDeclarations[i];
+                    var declarationsCount = variableDeclaration.Declarations.Count;
+                    for (var j = 0; j < declarationsCount; j++)
+                    {
+                        var d = variableDeclaration.Declarations[j];
+                        var dn = ((Identifier) d.Id).Name;
+                        var varAlreadyDeclared = env.HasBinding(dn);
+                        if (!varAlreadyDeclared)
+                        {
+                            env.CreateMutableBinding(dn, Undefined.Instance);
+                        }
+                    }
+                }
+            }
+
+            return canReleaseArgumentsInstance;
+        }
+
+        private void AddFunctionDeclarations(List<FunctionDeclaration> functionDeclarations, EnvironmentRecord env, bool configurableBindings, bool strict)
+        {
             var functionDeclarationsCount = functionDeclarations.Count;
             for (var i = 0; i < functionDeclarationsCount; i++)
             {
@@ -907,7 +942,7 @@ namespace Jint
                 }
                 else
                 {
-                    if (ReferenceEquals(env, GlobalEnvironment.Record))
+                    if (ReferenceEquals(env, GlobalEnvironment._record))
                     {
                         var go = Global;
                         var existingProp = go.GetProperty(fn);
@@ -926,7 +961,7 @@ namespace Jint
                         {
                             if (existingProp.IsAccessorDescriptor() || !existingProp.Enumerable)
                             {
-                                throw new JavaScriptException(TypeError);
+                                ExceptionHelper.ThrowTypeError(this);
                             }
                         }
                     }
@@ -934,49 +969,6 @@ namespace Jint
 
                 env.SetMutableBinding(fn, fo, strict);
             }
-
-            bool canReleaseArgumentsInstance = false;
-            if (declarationBindingType == DeclarationBindingType.FunctionCode && !env.HasBinding("arguments"))
-            {
-                var argsObj = ArgumentsInstancePool.Rent(functionInstance, functionInstance.FormalParameters, arguments, env, strict);
-                canReleaseArgumentsInstance = true;
-
-                if (strict)
-                {
-                    var declEnv = env as DeclarativeEnvironmentRecord;
-
-                    if (ReferenceEquals(declEnv, null))
-                    {
-                        throw new ArgumentException();
-                    }
-
-                    declEnv.CreateImmutableBinding("arguments", argsObj);
-                }
-                else
-                {
-                    env.CreateMutableBinding("arguments", argsObj);
-                }
-            }
-
-            // process all variable declarations in the current parser scope
-            var variableDeclarationsCount = variableDeclarations.Count;
-            for (var i = 0; i < variableDeclarationsCount; i++)
-            {
-                var variableDeclaration = variableDeclarations[i];
-                var declarationsCount = variableDeclaration.Declarations.Count;
-                for (var j = 0; j < declarationsCount; j++)
-                {
-                    var d = variableDeclaration.Declarations[j];
-                    var dn = ((Identifier) d.Id).Name;
-                    var varAlreadyDeclared = env.HasBinding(dn);
-                    if (!varAlreadyDeclared)
-                    {
-                        env.CreateMutableBinding(dn, Undefined.Instance);
-                    }
-                }
-            }
-
-            return canReleaseArgumentsInstance;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -984,43 +976,13 @@ namespace Jint
         {
             _executionContexts.ReplaceTopLexicalEnvironment(newEnv);
         }
-
-        private static void ThrowTimeoutException()
-        {
-            throw new TimeoutException();
-        }
-
-        private static void ThrowStatementsCountOverflowException()
-        {
-            throw new StatementsCountOverflowException();
-        }
-
-        private static void ThrowArgumentOutOfRange()
-        {
-            throw new ArgumentOutOfRangeException();
-        }
-        
-        private static void ThrowArgumentNullException()
-        {
-            throw new ArgumentNullException();
-        }
-        
-        private void ThrowReferenceError()
-        {
-            throw new JavaScriptException(ReferenceError);
-        }
         
         private static void AssertNotNullOrEmpty(string propertyname, string propertyValue)
         {
             if (string.IsNullOrEmpty(propertyValue))
             {
-                throw new ArgumentException(propertyname);
+                ExceptionHelper.ThrowArgumentException(propertyname);
             }
-        }
-        
-        private void ThrowTypeError()
-        {
-            throw new JavaScriptException(TypeError);
         }
     }
 }

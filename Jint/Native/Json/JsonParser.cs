@@ -98,7 +98,7 @@ namespace Jint.Native.Json
                 }
                 else
                 {
-                    throw new JavaScriptException(_engine.SyntaxError, string.Format("Expected hexadecimal digit:{0}", _source));
+                    ExceptionHelper.ThrowSyntaxError(_engine, $"Expected hexadecimal digit:{_source}");
                 }
             }
             return (char)code;
@@ -152,7 +152,9 @@ namespace Jint.Native.Json
                             Range = new[] {start, _index}
                         };
             }
-            throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, code));
+
+            ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, code));
+            return null;
         }
 
         private Token ScanNumericLiteral()
@@ -181,7 +183,7 @@ namespace Jint.Native.Json
                     // decimal number starts with '0' such as '09' is illegal.
                     if (ch > 0 && IsDecimalDigit(ch))
                     {
-                        throw new Exception(Messages.UnexpectedToken);
+                        ExceptionHelper.ThrowArgumentException(Messages.UnexpectedToken);
                     }
                 }
 
@@ -220,7 +222,7 @@ namespace Jint.Native.Json
                 }
                 else
                 {
-                    throw new Exception(Messages.UnexpectedToken);
+                    ExceptionHelper.ThrowArgumentException(Messages.UnexpectedToken);
                 }
             }
 
@@ -255,10 +257,9 @@ namespace Jint.Native.Json
                     Range = new[] { start, _index }
                 };
             }
-            else
-            {
-                throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, s));
-            }
+
+            ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, s));
+            return null;
         }
 
         private Token ScanNullLiteral()
@@ -282,10 +283,9 @@ namespace Jint.Native.Json
                     Range = new[] { start, _index }
                 };
             }
-            else
-            {
-                throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, s));
-            }
+
+            ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, s));
+            return null;
         }
 
         private Token ScanStringLiteral()
@@ -309,7 +309,7 @@ namespace Jint.Native.Json
 
                 if (ch <= 31)
                 {
-                    throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character '{0}', position:{1}, string:{2}", ch, _index, _source));
+                    ExceptionHelper.ThrowSyntaxError(_engine, $"Invalid character '{ch}', position:{_index}, string:{_source}");
                 }
 
                 if (ch == '\\')
@@ -401,7 +401,7 @@ namespace Jint.Native.Json
 
             if (quote != 0)
             {
-                throw new JavaScriptException(_engine.SyntaxError, string.Format(Messages.UnexpectedToken, _source));
+                ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, _source));
             }
 
             return new Token
@@ -738,7 +738,7 @@ namespace Jint.Native.Json
                 var name = Lex().Value.ToString();
                 if (PropertyNameContainsInvalidChar0To31(name))
                 {
-                    throw new JavaScriptException(_engine.SyntaxError, string.Format("Invalid character in property name '{0}'", name));
+                    ExceptionHelper.ThrowSyntaxError(_engine, $"Invalid character in property name '{name}'");
                 }
 
                 Expect(":");
@@ -864,7 +864,7 @@ namespace Jint.Native.Json
                 object value = _lookahead.Value;
                 if(_lookahead.Type != Tokens.EOF)
                 {
-                    throw new JavaScriptException(_engine.SyntaxError, string.Format("Unexpected {0} {1}", _lookahead.Type, _lookahead.Value));
+                    ExceptionHelper.ThrowSyntaxError(_engine, $"Unexpected {_lookahead.Type} {_lookahead.Value}");
                 }
                 return jsv;
             }

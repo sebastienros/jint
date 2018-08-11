@@ -80,7 +80,7 @@ namespace Jint.Native.Object
             var o = TypeConverter.ToObject(Engine, thisObject);
             var toString = o.Get("toString").TryCast<ICallable>(x =>
             {
-                throw new JavaScriptException(Engine.TypeError);
+                ExceptionHelper.ThrowTypeError(Engine);
             });
 
             return toString.Call(o, Arguments.Empty);

@@ -38,7 +38,7 @@ namespace Jint.Native.Number.Dtoa
 // have the most significant bit of the significand set.
 // Multiplication and Subtraction do not normalize their results.
 // DiyFp are not designed to contain special doubles (NaN and Infinity).
-    internal struct DiyFp
+    internal readonly struct DiyFp
     {
         internal const int KSignificandSize = 64;
         private const ulong KUint64MSB = 0x8000000000000000L;
@@ -49,8 +49,8 @@ namespace Jint.Native.Number.Dtoa
             E = e;
         }
 
-        public long F { get; }
-        public int E { get; }
+        public readonly long F;
+        public readonly int E;
 
         private static bool Uint64Gte(long a, long b)
         {
@@ -61,7 +61,7 @@ namespace Jint.Native.Number.Dtoa
         // Returns a - b.
         // The exponents of both numbers must be the same and this must be bigger
         // than other. The result will not be normalized.
-        internal static DiyFp Minus(DiyFp a, DiyFp b)
+        internal static DiyFp Minus(in DiyFp a, in DiyFp b)
         {
             Debug.Assert(a.E == b.E);
             Debug.Assert(Uint64Gte(a.F, b.F));
@@ -72,7 +72,7 @@ namespace Jint.Native.Number.Dtoa
         // this = this * other.
 
         // returns a * b;
-        internal static DiyFp Times(DiyFp a, DiyFp b)
+        internal static DiyFp Times(in DiyFp a, in DiyFp b)
         {
             DiyFp result = new DiyFp(a.F, a.E);
             // Simply "emulates" a 128 bit multiplication.

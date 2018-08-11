@@ -11,9 +11,9 @@ namespace Jint.Runtime.References
     /// </summary>
     public sealed class Reference
     {
-        private JsValue _baseValue;
-        private string _name;
-        private bool _strict;
+        internal JsValue _baseValue;
+        internal string _name;
+        internal bool _strict;
 
         public Reference(JsValue baseValue, string name, bool strict)
         {
@@ -42,20 +42,21 @@ namespace Jint.Runtime.References
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasPrimitiveBase()
         {
-            return _baseValue.IsPrimitive();
+            return _baseValue._type != Types.Object && _baseValue._type != Types.None;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsUnresolvableReference()
         {
-            return _baseValue.IsUndefined();
+            return _baseValue._type == Types.Undefined;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPropertyReference()
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
-            return _baseValue.IsPrimitive() || (_baseValue.IsObject() && !(_baseValue is EnvironmentRecord));
+            return _baseValue._type != Types.Object && _baseValue._type != Types.None
+                   || _baseValue._type == Types.Object && !(_baseValue is EnvironmentRecord);
         }
 
         internal Reference Reassign(JsValue baseValue, string name, bool strict)
@@ -65,6 +66,14 @@ namespace Jint.Runtime.References
             _strict = strict;
 
             return this;
+        }
+
+        internal void AssertValid(Engine engine)
+        {
+            if(_strict && (_name == "eval" || _name == "arguments") && _baseValue is EnvironmentRecord)
+            {
+                ExceptionHelper.ThrowSyntaxError(engine);
+            }
         }
     }
 }

@@ -10,9 +10,9 @@ build_script:
   - dotnet --version
   - dotnet pack -c Release
 test_script:
-  - dotnet test .\Jint.Tests\Jint.Tests.csproj -c Release -f netcoreapp2.0
-  - dotnet test .\Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj -c Release -f netcoreapp2.0
-  - dotnet test .\Jint.Tests.Ecma\Jint.Tests.Ecma.csproj -c Release -f netcoreapp2.0
+  - dotnet test .\Jint.Tests\Jint.Tests.csproj -c Release -f netcoreapp2.1
+  - dotnet test .\Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj -c Release -f netcoreapp2.1
+  - dotnet test .\Jint.Tests.Ecma\Jint.Tests.Ecma.csproj -c Release -f netcoreapp2.1
 artifacts:
   - path: 'Jint\**\*.nupkg'
 deploy:  
@@ -29,7 +29,7 @@ deploy:
       branch: rel/3.0-beta
     server: https://www.nuget.org/api/v2/package
     api_key:
-      secure: uSwY6pjuXvfqDxmODdEjabmByaHFCibtCGhEbjmDbEBx2TG5/zRYW8E+6qts+NX5
+      secure: JxLWXrsmfG8K7ECxi5dYFsPZERpRLdi3u5W8RSS/auJ5tzqv+PLCZzUB+yeY1V38
     skip_symbols: true
     artifact: /.*\.nupkg/  
   - provider: NuGet
@@ -37,6 +37,6 @@ deploy:
       branch: master
     server: https://www.nuget.org/api/v2/package
     api_key:
-      secure: uSwY6pjuXvfqDxmODdEjabmByaHFCibtCGhEbjmDbEBx2TG5/zRYW8E+6qts+NX5
+      secure: JxLWXrsmfG8K7ECxi5dYFsPZERpRLdi3u5W8RSS/auJ5tzqv+PLCZzUB+yeY1V38
     skip_symbols: true
     artifact: /.*\.nupkg/  

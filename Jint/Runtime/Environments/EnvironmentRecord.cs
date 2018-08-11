@@ -1,5 +1,4 @@
 ﻿using Jint.Native;
-using Jint.Native.Object;
 
 namespace Jint.Runtime.Environments
 {
@@ -7,10 +6,13 @@ namespace Jint.Runtime.Environments
     /// Base implementation of an Environment Record
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1
     /// </summary>
-    public abstract class EnvironmentRecord : ObjectInstance
+    public abstract class EnvironmentRecord : JsValue
     {
-        protected EnvironmentRecord(Engine engine) : base(engine)
+        protected readonly Engine _engine;
+
+        protected EnvironmentRecord(Engine engine) : base(Types.Object)
         {
+            _engine = engine;
         }
 
         /// <summary>
@@ -62,5 +64,19 @@ namespace Jint.Runtime.Environments
         /// </summary>
         /// <returns>The array of all defined bindings</returns>
         public abstract string[] GetAllBindingNames();
+        
+        public override object ToObject()
+        {
+            ExceptionHelper.ThrowNotSupportedException();
+            return null;
+        }
+
+        public override bool Equals(JsValue other)
+        {
+            ExceptionHelper.ThrowNotSupportedException();
+            return false;
+        }
+
     }
 }
+

@@ -1,5 +1,5 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
+using System.Runtime.CompilerServices;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -74,7 +74,7 @@ namespace Jint.Native.Array
         {
             if (capacity < 0)
             {
-                throw new ArgumentException("invalid array length", nameof(capacity));
+                ExceptionHelper.ThrowArgumentException("invalid array length", nameof(capacity));
             }
             return Construct(System.Array.Empty<JsValue>(), (uint) capacity);
         }
@@ -93,32 +93,32 @@ namespace Jint.Native.Array
             if (arguments.Length == 1 && arguments.At(0).IsNumber())
             {
                 var length = TypeConverter.ToUint32(arguments.At(0));
-                if (!TypeConverter.ToNumber(arguments[0]).Equals(length))
+                if (((JsNumber) arguments[0])._value != length)
                 {
-                    throw new JavaScriptException(Engine.RangeError, "Invalid array length");
+                    ExceptionHelper.ThrowRangeError(_engine, "Invalid array length");
                 }
 
-                instance.SetOwnProperty("length", new PropertyDescriptor(length, PropertyFlag.OnlyWritable));
+                instance._length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
             }
             else if (arguments.Length == 1 && arguments[0] is ObjectWrapper objectWrapper)
             {
                 if (objectWrapper.Target is IEnumerable enumerable)
                 {
                     var jsArray = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
-                    var tempArray = Engine.JsValueArrayPool.RentArray(1);
+                    var tempArray = _engine._jsValueArrayPool.RentArray(1);
                     foreach (var item in enumerable)
                     {
                         var jsItem = FromObject(Engine, item);
                         tempArray[0] = jsItem;
                         Engine.Array.PrototypeObject.Push(jsArray, tempArray);
                     }
-                    Engine.JsValueArrayPool.ReturnArray(tempArray);
+                    _engine._jsValueArrayPool.ReturnArray(tempArray);
                     return jsArray;
                 }
             }
             else
             {
-                instance.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
+                instance._length = new PropertyDescriptor(0, PropertyFlag.OnlyWritable);
                 if (arguments.Length > 0)
                 {
                     PrototypeObject.Push(instance, arguments);
@@ -128,12 +128,15 @@ namespace Jint.Native.Array
             return instance;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ArrayInstance ConstructFast(uint length)
         {
-            var instance = new ArrayInstance(Engine, length);
-            instance.Prototype = PrototypeObject;
-            instance.Extensible = true;
-            instance.SetOwnProperty("length", new PropertyDescriptor(length, PropertyFlag.OnlyWritable));
+            var instance = new ArrayInstance(Engine, length)
+            {
+                Prototype = PrototypeObject,
+                Extensible = true,
+                _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable)
+            };
             return instance;
         }
     }

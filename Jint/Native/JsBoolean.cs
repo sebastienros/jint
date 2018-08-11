@@ -5,8 +5,8 @@ namespace Jint.Native
 {
     public sealed class JsBoolean : JsValue, IEquatable<JsBoolean>
     {
-        public static readonly JsValue False = new JsBoolean(false);
-        public static readonly JsValue True = new JsBoolean(true);
+        public static readonly JsBoolean False = new JsBoolean(false);
+        public static readonly JsBoolean True = new JsBoolean(true);
 
         internal static readonly object BoxedTrue = true;
         internal static readonly object BoxedFalse = false;
