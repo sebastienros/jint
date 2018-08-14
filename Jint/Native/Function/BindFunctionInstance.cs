@@ -6,7 +6,8 @@ namespace Jint.Native.Function
 {
     public sealed class BindFunctionInstance : FunctionInstance, IConstructor
     {
-        public BindFunctionInstance(Engine engine) : base(engine, System.Array.Empty<string>(), null, false)
+        public BindFunctionInstance(Engine engine)
+            : base(engine, "bind", System.Array.Empty<string>(), null, false)
         {
         }
 

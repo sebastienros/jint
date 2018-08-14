@@ -35,29 +35,29 @@ namespace Jint.Native.String
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToStringString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf), true, false, true);
-            FastAddProperty("charAt", new ClrFunctionInstance(Engine, CharAt, 1), true, false, true);
-            FastAddProperty("charCodeAt", new ClrFunctionInstance(Engine, CharCodeAt, 1), true, false, true);
-            FastAddProperty("concat", new ClrFunctionInstance(Engine, Concat, 1), true, false, true);
-            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, IndexOf, 1), true, false, true);
-            FastAddProperty("startsWith", new ClrFunctionInstance(Engine, StartsWith, 1), true, false, true);
-            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, LastIndexOf, 1), true, false, true);
-            FastAddProperty("localeCompare", new ClrFunctionInstance(Engine, LocaleCompare, 1), true, false, true);
-            FastAddProperty("match", new ClrFunctionInstance(Engine, Match, 1), true, false, true);
-            FastAddProperty("replace", new ClrFunctionInstance(Engine, Replace, 2), true, false, true);
-            FastAddProperty("search", new ClrFunctionInstance(Engine, Search, 1), true, false, true);
-            FastAddProperty("slice", new ClrFunctionInstance(Engine, Slice, 2), true, false, true);
-            FastAddProperty("split", new ClrFunctionInstance(Engine, Split, 2), true, false, true);
-            FastAddProperty("substr", new ClrFunctionInstance(Engine, Substr, 2), true, false, true);
-            FastAddProperty("substring", new ClrFunctionInstance(Engine, Substring, 2), true, false, true);
-            FastAddProperty("toLowerCase", new ClrFunctionInstance(Engine, ToLowerCase), true, false, true);
-            FastAddProperty("toLocaleLowerCase", new ClrFunctionInstance(Engine, ToLocaleLowerCase), true, false, true);
-            FastAddProperty("toUpperCase", new ClrFunctionInstance(Engine, ToUpperCase), true, false, true);
-            FastAddProperty("toLocaleUpperCase", new ClrFunctionInstance(Engine, ToLocaleUpperCase), true, false, true);
-            FastAddProperty("trim", new ClrFunctionInstance(Engine, Trim), true, false, true);
-            FastAddProperty("padStart", new ClrFunctionInstance(Engine, PadStart), true, false, true);
-            FastAddProperty("padEnd", new ClrFunctionInstance(Engine, PadEnd), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToStringString), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOF", ValueOf), true, false, true);
+            FastAddProperty("charAt", new ClrFunctionInstance(Engine, "charAt", CharAt, 1), true, false, true);
+            FastAddProperty("charCodeAt", new ClrFunctionInstance(Engine, "charCodeAt", CharCodeAt, 1), true, false, true);
+            FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1), true, false, true);
+            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1), true, false, true);
+            FastAddProperty("startsWith", new ClrFunctionInstance(Engine, "startsWith", StartsWith, 1), true, false, true);
+            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1), true, false, true);
+            FastAddProperty("localeCompare", new ClrFunctionInstance(Engine, "localeCompare", LocaleCompare, 1), true, false, true);
+            FastAddProperty("match", new ClrFunctionInstance(Engine, "match", Match, 1), true, false, true);
+            FastAddProperty("replace", new ClrFunctionInstance(Engine, "replace", Replace, 2), true, false, true);
+            FastAddProperty("search", new ClrFunctionInstance(Engine, "search", Search, 1), true, false, true);
+            FastAddProperty("slice", new ClrFunctionInstance(Engine, "slice", Slice, 2), true, false, true);
+            FastAddProperty("split", new ClrFunctionInstance(Engine, "split", Split, 2), true, false, true);
+            FastAddProperty("substr", new ClrFunctionInstance(Engine, "substr", Substr, 2), true, false, true);
+            FastAddProperty("substring", new ClrFunctionInstance(Engine, "substring", Substring, 2), true, false, true);
+            FastAddProperty("toLowerCase", new ClrFunctionInstance(Engine, "toLowerCase", ToLowerCase), true, false, true);
+            FastAddProperty("toLocaleLowerCase", new ClrFunctionInstance(Engine, "toLocaleLowerCase", ToLocaleLowerCase), true, false, true);
+            FastAddProperty("toUpperCase", new ClrFunctionInstance(Engine, "toUpperCase", ToUpperCase), true, false, true);
+            FastAddProperty("toLocaleUpperCase", new ClrFunctionInstance(Engine, "toLocaleUpperCase", ToLocaleUpperCase), true, false, true);
+            FastAddProperty("trim", new ClrFunctionInstance(Engine, "trim", Trim), true, false, true);
+            FastAddProperty("padStart", new ClrFunctionInstance(Engine, "padStart", PadStart), true, false, true);
+            FastAddProperty("padEnd", new ClrFunctionInstance(Engine, "padEnd", PadEnd), true, false, true);
         }
 
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
@@ -470,7 +470,7 @@ namespace Jint.Native.String
             var replaceFunction = replaceValue.TryCast<FunctionInstance>();
             if (ReferenceEquals(replaceFunction, null))
             {
-                replaceFunction = new ClrFunctionInstance(Engine, (self, args) =>
+                replaceFunction = new ClrFunctionInstance(Engine, "anonymous", (self, args) =>
                 {
                     var replaceString = TypeConverter.ToString(replaceValue);
                     var matchValue = TypeConverter.ToString(args.At(0));
@@ -603,7 +603,7 @@ namespace Jint.Native.String
                 args[2] = thisString;
 
                 var replaceString = TypeConverter.ToString(replaceFunction.Call(Undefined, args));
-                
+
                 _engine._jsValueArrayPool.ReturnArray(args);
 
                 // Replace only the first match.

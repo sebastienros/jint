@@ -16,7 +16,7 @@ namespace Jint.Runtime.Descriptors
         {
             _flags = flags;
         }
-        
+
         protected internal PropertyDescriptor(JsValue value, PropertyFlag flags) : this(flags)
         {
             if ((_flags & PropertyFlag.CustomJsValue) != 0)
@@ -32,7 +32,7 @@ namespace Jint.Runtime.Descriptors
             {
                 CustomValue = value;
             }
-            _value = value;  
+            _value = value;
 
             if (writable != null)
             {
@@ -59,7 +59,7 @@ namespace Jint.Runtime.Descriptors
 
             Enumerable = descriptor.Enumerable;
             EnumerableSet = descriptor.EnumerableSet;
-            
+
             Configurable = descriptor.Configurable;
             ConfigurableSet = descriptor.ConfigurableSet;
 
@@ -88,7 +88,7 @@ namespace Jint.Runtime.Descriptors
                 }
             }
         }
-                
+
         public bool EnumerableSet
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -162,7 +162,7 @@ namespace Jint.Runtime.Descriptors
                 }
             }
         }
-        
+
         public bool ConfigurableSet
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -190,7 +190,7 @@ namespace Jint.Runtime.Descriptors
                 {
                     return CustomValue;
                 }
-                
+
                 return _value;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -228,7 +228,7 @@ namespace Jint.Runtime.Descriptors
             var hasGetProperty = getProperty != Undefined;
             var setProperty = obj.GetProperty("set");
             var hasSetProperty = setProperty != Undefined;
-            
+
             if ((obj.HasProperty("value") || obj.HasProperty("writable")) &&
                 (hasGetProperty || hasSetProperty))
             {
@@ -305,7 +305,7 @@ namespace Jint.Runtime.Descriptors
             {
                 return Native.Undefined.Instance;
             }
-            
+
             var obj = engine.Object.Construct(Arguments.Empty);
 
             if (desc.IsDataDescriptor())
@@ -324,7 +324,7 @@ namespace Jint.Runtime.Descriptors
 
             return obj;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsAccessorDescriptor()
         {
@@ -334,7 +334,7 @@ namespace Jint.Runtime.Descriptors
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsDataDescriptor()
         {
-            return (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0 
+            return (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0
                    || (_flags & PropertyFlag.CustomJsValue) != 0 && !ReferenceEquals(CustomValue, null)
                    || !ReferenceEquals(_value, null);
         }
@@ -360,19 +360,19 @@ namespace Jint.Runtime.Descriptors
                 var val = (_flags & PropertyFlag.CustomJsValue) != 0
                     ? CustomValue
                     : _value;
-                
+
                 if (!ReferenceEquals(val, null))
                 {
                     value = val;
                     return true;
                 }
             }
-            
+
             if (this == Undefined)
             {
                 return false;
             }
-            
+
             var getter = Get;
             if (!ReferenceEquals(getter, null) && !getter.IsUndefined())
             {

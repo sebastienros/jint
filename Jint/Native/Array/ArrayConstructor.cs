@@ -10,7 +10,7 @@ namespace Jint.Native.Array
 {
     public sealed class ArrayConstructor : FunctionInstance, IConstructor
     {
-        private ArrayConstructor(Engine engine) :  base(engine, null, null, false)
+        private ArrayConstructor(Engine engine) :  base(engine, "Array", null, null, false)
         {
         }
 
@@ -35,7 +35,7 @@ namespace Jint.Native.Array
 
         public void Configure()
         {
-            SetOwnProperty("isArray", new PropertyDescriptor(new ClrFunctionInstance(Engine, IsArray, 1), PropertyFlag.NonEnumerable));
+            SetOwnProperty("isArray", new PropertyDescriptor(new ClrFunctionInstance(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable));
         }
 
         private static JsValue IsArray(JsValue thisObj, JsValue[] arguments)

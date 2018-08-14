@@ -34,6 +34,7 @@ namespace Jint.Native.Global
             FastAddProperty("Function", Engine.Function, true, false, true);
             FastAddProperty("Symbol", Engine.Symbol, true, false, true);
             FastAddProperty("Array", Engine.Array, true, false, true);
+            FastAddProperty("Map", Engine.Map, true, false, true);
             FastAddProperty("String", Engine.String, true, false, true);
             FastAddProperty("RegExp", Engine.RegExp, true, false, true);
             FastAddProperty("Number", Engine.Number, true, false, true);
@@ -55,16 +56,16 @@ namespace Jint.Native.Global
             FastAddProperty("undefined", Undefined, false, false, false);
 
             // Global object functions
-            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, ParseInt, 2), true, false, true);
-            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, ParseFloat, 1), true, false, true);
-            FastAddProperty("isNaN", new ClrFunctionInstance(Engine, IsNaN, 1), true, false, true);
-            FastAddProperty("isFinite", new ClrFunctionInstance(Engine, IsFinite, 1), true, false, true);
-            FastAddProperty("decodeURI", new ClrFunctionInstance(Engine, DecodeUri, 1), true, false, true);
-            FastAddProperty("decodeURIComponent", new ClrFunctionInstance(Engine, DecodeUriComponent, 1), true, false, true);
-            FastAddProperty("encodeURI", new ClrFunctionInstance(Engine, EncodeUri, 1), true, false, true);
-            FastAddProperty("encodeURIComponent", new ClrFunctionInstance(Engine, EncodeUriComponent, 1), true, false, true);
-            FastAddProperty("escape", new ClrFunctionInstance(Engine, Escape, 1), true, false, true);
-            FastAddProperty("unescape", new ClrFunctionInstance(Engine, Unescape, 1), true, false, true);
+            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, "parseInt", ParseInt, 2), true, false, true);
+            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, "parseFloat", ParseFloat, 1), true, false, true);
+            FastAddProperty("isNaN", new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1), true, false, true);
+            FastAddProperty("isFinite", new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1), true, false, true);
+            FastAddProperty("decodeURI", new ClrFunctionInstance(Engine, "decodeURI", DecodeUri, 1), true, false, true);
+            FastAddProperty("decodeURIComponent", new ClrFunctionInstance(Engine, "decodeURIComponent", DecodeUriComponent, 1), true, false, true);
+            FastAddProperty("encodeURI", new ClrFunctionInstance(Engine, "encodeURI", EncodeUri, 1), true, false, true);
+            FastAddProperty("encodeURIComponent", new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1), true, false, true);
+            FastAddProperty("escape", new ClrFunctionInstance(Engine, "escape", Escape, 1), true, false, true);
+            FastAddProperty("unescape", new ClrFunctionInstance(Engine, "unescape", Unescape, 1), true, false, true);
         }
 
         /// <summary>

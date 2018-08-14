@@ -24,8 +24,8 @@ namespace Jint.Native.Json
 
         public void Configure()
         {
-            FastAddProperty("parse", new ClrFunctionInstance(Engine, Parse, 2), true, false, true);
-            FastAddProperty("stringify", new ClrFunctionInstance(Engine, Stringify, 3), true, false, true);
+            FastAddProperty("parse", new ClrFunctionInstance(Engine, "parse", Parse, 2), true, false, true);
+            FastAddProperty("stringify", new ClrFunctionInstance(Engine, "stringify", Stringify, 3), true, false, true);
         }
 
         private JsValue AbstractWalkOperation(ObjectInstance thisObject, string prop)

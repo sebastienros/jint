@@ -21,12 +21,12 @@ namespace Jint.Native.Object
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToObjectString), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, ToLocaleString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf), true, false, true);
-            FastAddProperty("hasOwnProperty", new ClrFunctionInstance(Engine, HasOwnProperty, 1), true, false, true);
-            FastAddProperty("isPrototypeOf", new ClrFunctionInstance(Engine, IsPrototypeOf, 1), true, false, true);
-            FastAddProperty("propertyIsEnumerable", new ClrFunctionInstance(Engine, PropertyIsEnumerable, 1), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToObjectString), true, false, true);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOF", ValueOf), true, false, true);
+            FastAddProperty("hasOwnProperty", new ClrFunctionInstance(Engine, "hasOwnProperty", HasOwnProperty, 1), true, false, true);
+            FastAddProperty("isPrototypeOf", new ClrFunctionInstance(Engine, "isPrototypeOf", IsPrototypeOf, 1), true, false, true);
+            FastAddProperty("propertyIsEnumerable", new ClrFunctionInstance(Engine, "propertyIsEnumerable", PropertyIsEnumerable, 1), true, false, true);
         }
 
         private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue[] arguments)
