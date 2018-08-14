@@ -39,6 +39,11 @@ namespace Jint.Runtime.Interop
             {
                 return value;
             }
+            
+            if (type == typeof(string))
+            {
+                return value.ToString();
+            }
 
             if (type.IsEnum)
             {
