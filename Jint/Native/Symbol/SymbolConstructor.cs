@@ -37,8 +37,8 @@ namespace Jint.Native.Symbol
 
         public void Configure()
         {
-            FastAddProperty("for", new ClrFunctionInstance(Engine, For, 1), true, false, true);
-            FastAddProperty("keyFor", new ClrFunctionInstance(Engine, KeyFor, 1), true, false, true);
+            FastAddProperty("for", new ClrFunctionInstance(Engine, "for", For, 1), true, false, true);
+            FastAddProperty("keyFor", new ClrFunctionInstance(Engine, "keyFor", KeyFor, 1), true, false, true);
 
             FastAddProperty("hasInstance", GlobalSymbolRegistry.HasInstance, false, false, false);
             FastAddProperty("isConcatSpreadable", GlobalSymbolRegistry.IsConcatSpreadable, false, false, false);
@@ -64,13 +64,12 @@ namespace Jint.Native.Symbol
                 ? Undefined
                 : TypeConverter.ToString(description);
 
-            var value = new JsSymbol(description.AsString());
-
             if (ReturnOnAbruptCompletion(ref descString))
             {
                 return descString;
             }
 
+            var value = new JsSymbol(TypeConverter.ToString(description));
             return value;
         }
 
@@ -123,7 +122,7 @@ namespace Jint.Native.Symbol
             var instance = new SymbolInstance(Engine)
             {
                 Prototype = PrototypeObject,
-                SymbolData = symbol, 
+                SymbolData = symbol,
                 Extensible = true
             };
 

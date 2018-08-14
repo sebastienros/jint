@@ -32,7 +32,7 @@ namespace Jint.Native.String
 
         public void Configure()
         {
-            SetOwnProperty("fromCharCode", new PropertyDescriptor(new ClrFunctionInstance(Engine, FromCharCode, 1), PropertyFlag.NonEnumerable));
+            SetOwnProperty("fromCharCode", new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCharCode", FromCharCode, 1), PropertyFlag.NonEnumerable));
         }
 
         private static JsValue FromCharCode(JsValue thisObj, JsValue[] arguments)

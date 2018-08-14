@@ -32,29 +32,29 @@ namespace Jint.Native.Array
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToString, 0), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, ToLocaleString), true, false, true);
-            FastAddProperty("concat", new ClrFunctionInstance(Engine, Concat, 1), true, false, true);
-            FastAddProperty("join", new ClrFunctionInstance(Engine, Join, 1), true, false, true);
-            FastAddProperty("pop", new ClrFunctionInstance(Engine, Pop), true, false, true);
-            FastAddProperty("push", new ClrFunctionInstance(Engine, Push, 1), true, false, true);
-            FastAddProperty("reverse", new ClrFunctionInstance(Engine, Reverse), true, false, true);
-            FastAddProperty("shift", new ClrFunctionInstance(Engine, Shift), true, false, true);
-            FastAddProperty("slice", new ClrFunctionInstance(Engine, Slice, 2), true, false, true);
-            FastAddProperty("sort", new ClrFunctionInstance(Engine, Sort, 1), true, false, true);
-            FastAddProperty("splice", new ClrFunctionInstance(Engine, Splice, 2), true, false, true);
-            FastAddProperty("unshift", new ClrFunctionInstance(Engine, Unshift, 1), true, false, true);
-            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, IndexOf, 1), true, false, true);
-            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, LastIndexOf, 1), true, false, true);
-            FastAddProperty("every", new ClrFunctionInstance(Engine, Every, 1), true, false, true);
-            FastAddProperty("some", new ClrFunctionInstance(Engine, Some, 1), true, false, true);
-            FastAddProperty("forEach", new ClrFunctionInstance(Engine, ForEach, 1), true, false, true);
-            FastAddProperty("map", new ClrFunctionInstance(Engine, Map, 1), true, false, true);
-            FastAddProperty("filter", new ClrFunctionInstance(Engine, Filter, 1), true, false, true);
-            FastAddProperty("reduce", new ClrFunctionInstance(Engine, Reduce, 1), true, false, true);
-            FastAddProperty("reduceRight", new ClrFunctionInstance(Engine, ReduceRight, 1), true, false, true);
-            FastAddProperty("find", new ClrFunctionInstance(Engine, Find, 1), true, false, true);
-            FastAddProperty("findIndex", new ClrFunctionInstance(Engine, FindIndex, 1), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString, 0), true, false, true);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), true, false, true);
+            FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1), true, false, true);
+            FastAddProperty("join", new ClrFunctionInstance(Engine, "join", Join, 1), true, false, true);
+            FastAddProperty("pop", new ClrFunctionInstance(Engine, "pop", Pop), true, false, true);
+            FastAddProperty("push", new ClrFunctionInstance(Engine, "push", Push, 1), true, false, true);
+            FastAddProperty("reverse", new ClrFunctionInstance(Engine, "reverse", Reverse), true, false, true);
+            FastAddProperty("shift", new ClrFunctionInstance(Engine, "shift", Shift), true, false, true);
+            FastAddProperty("slice", new ClrFunctionInstance(Engine, "slice", Slice, 2), true, false, true);
+            FastAddProperty("sort", new ClrFunctionInstance(Engine, "sort", Sort, 1), true, false, true);
+            FastAddProperty("splice", new ClrFunctionInstance(Engine, "splice", Splice, 2), true, false, true);
+            FastAddProperty("unshift", new ClrFunctionInstance(Engine, "unshift", Unshift, 1), true, false, true);
+            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1), true, false, true);
+            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1), true, false, true);
+            FastAddProperty("every", new ClrFunctionInstance(Engine, "every", Every, 1), true, false, true);
+            FastAddProperty("some", new ClrFunctionInstance(Engine, "some", Some, 1), true, false, true);
+            FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1), true, false, true);
+            FastAddProperty("map", new ClrFunctionInstance(Engine, "map", Map, 1), true, false, true);
+            FastAddProperty("filter", new ClrFunctionInstance(Engine, "filter", Filter, 1), true, false, true);
+            FastAddProperty("reduce", new ClrFunctionInstance(Engine, "reduce", Reduce, 1), true, false, true);
+            FastAddProperty("reduceRight", new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1), true, false, true);
+            FastAddProperty("find", new ClrFunctionInstance(Engine, "find", Find, 1), true, false, true);
+            FastAddProperty("findIndex", new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1), true, false, true);
         }
 
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
@@ -351,14 +351,14 @@ namespace Jint.Native.Array
 
             return -1;
         }
-        
+
         private JsValue Find(JsValue thisObj, JsValue[] arguments)
         {
             var target = TypeConverter.ToObject(Engine, thisObj);
             target.FindWithCallback(arguments, out _, out var value);
             return value;
         }
-        
+
         private JsValue FindIndex(JsValue thisObj, JsValue[] arguments)
         {
             var target = TypeConverter.ToObject(Engine, thisObj);
@@ -937,7 +937,7 @@ namespace Jint.Native.Array
             o.Target.Put("length", len, true);
             return element;
         }
-        
+
         /// <summary>
         /// Adapter to use optimized array operations when possible.
         /// Gaps the difference between ArgumensInstance and ArrayInstance.

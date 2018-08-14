@@ -19,16 +19,20 @@ namespace Jint.Native.Function
         protected internal readonly string[] _formalParameters;
         private readonly bool _strict;
 
-        protected FunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict)
+        protected FunctionInstance(
+            Engine engine,
+            string[] parameters,
+            LexicalEnvironment scope,
+            bool strict)
             : this(engine, parameters, scope, strict, objectClass: "Function")
         {
         }
 
         protected FunctionInstance(
-            Engine engine, 
-            string[] parameters, 
-            LexicalEnvironment scope, 
-            bool strict, 
+            Engine engine,
+            string[] parameters,
+            LexicalEnvironment scope,
+            bool strict,
             in string objectClass)
             : base(engine, objectClass)
         {

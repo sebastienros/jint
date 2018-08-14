@@ -10,7 +10,9 @@ using Jint.Native.Date;
 using Jint.Native.Error;
 using Jint.Native.Function;
 using Jint.Native.Global;
+using Jint.Native.Iterator;
 using Jint.Native.Json;
+using Jint.Native.Map;
 using Jint.Native.Math;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -56,7 +58,7 @@ namespace Jint
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
-        
+
         public ITypeConverter ClrTypeConverter;
 
         // cache of types used when resolving CLR type names
@@ -113,6 +115,8 @@ namespace Jint
 
             Symbol = SymbolConstructor.CreateSymbolConstructor(this);
             Array = ArrayConstructor.CreateArrayConstructor(this);
+            Map = MapConstructor.CreateMapConstructor(this);
+            Iterator= IteratorConstructor.CreateIteratorConstructor(this);
             String = StringConstructor.CreateStringConstructor(this);
             RegExp = RegExpConstructor.CreateRegExpConstructor(this);
             Number = NumberConstructor.CreateNumberConstructor(this);
@@ -148,6 +152,12 @@ namespace Jint
             Array.Configure();
             Array.PrototypeObject.Configure();
 
+            Map.Configure();
+            Map.PrototypeObject.Configure();
+
+            Iterator.Configure();
+            Iterator.PrototypeObject.Configure();
+
             String.Configure();
             String.PrototypeObject.Configure();
 
@@ -178,16 +188,16 @@ namespace Jint
             Options = new Options();
 
             options?.Invoke(Options);
-            
+
             // gather some options as fields for faster checks
             _isDebugMode = Options.IsDebugMode;
             _isStrict = Options.IsStrict;
             _maxStatements = Options._MaxStatements;
             _referenceResolver = Options.ReferenceResolver;
             _memoryLimit = Options._MemoryLimit;
-            _runBeforeStatementChecks = (_maxStatements > 0 &&_maxStatements < int.MaxValue) 
+            _runBeforeStatementChecks = (_maxStatements > 0 &&_maxStatements < int.MaxValue)
                                         || Options._TimeoutInterval.Ticks > 0
-                                        || _memoryLimit > 0 
+                                        || _memoryLimit > 0
                                         || _isDebugMode;
 
             _referencePool = new ReferencePool();
@@ -203,10 +213,10 @@ namespace Jint
             if (Options._IsClrAllowed)
             {
                 Global.FastAddProperty("System", new NamespaceReference(this, "System"), false, false, false);
-                Global.FastAddProperty("importNamespace", new ClrFunctionInstance(this, (thisObj, arguments) =>
-                {
-                    return new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)));
-                }), false, false, false);
+                Global.FastAddProperty("importNamespace", new ClrFunctionInstance(
+                    this,
+                    "importNamespace",
+                    (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)))), false, false, false);
             }
 
             ClrTypeConverter = new DefaultTypeConverter(this);
@@ -219,6 +229,8 @@ namespace Jint
         public ObjectConstructor Object { get; }
         public FunctionConstructor Function { get; }
         public ArrayConstructor Array { get; }
+        public MapConstructor Map { get; }
+        public IteratorConstructor Iterator { get; }
         public StringConstructor String { get; }
         public RegExpConstructor RegExp { get; }
         public BooleanConstructor Boolean { get; }
@@ -367,12 +379,12 @@ namespace Jint
         public Engine Execute(Program program)
         {
             ResetStatementsCount();
-            
+
             if (_memoryLimit > 0)
             {
                 ResetMemoryUsage();
             }
-            
+
             ResetTimeoutTicks();
             ResetLastStatement();
             ResetCallStack();
@@ -445,7 +457,7 @@ namespace Jint
 
                 case Nodes.ExpressionStatement:
                     return new Completion(
-                        CompletionType.Normal, 
+                        CompletionType.Normal,
                         GetValue(EvaluateExpression(((ExpressionStatement) statement).Expression), true),
                         null);
 
@@ -592,7 +604,7 @@ namespace Jint
         {
             return GetValue(value, false);
         }
-        
+
         internal JsValue GetValue(object value, bool returnReferenceToPool)
         {
             if (value is JsValue jsValue)
@@ -976,7 +988,7 @@ namespace Jint
         {
             _executionContexts.ReplaceTopLexicalEnvironment(newEnv);
         }
-        
+
         private static void AssertNotNullOrEmpty(string propertyname, string propertyValue)
         {
             if (string.IsNullOrEmpty(propertyValue))

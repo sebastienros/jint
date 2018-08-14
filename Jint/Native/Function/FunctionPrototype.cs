@@ -31,10 +31,10 @@ namespace Jint.Native.Function
         public void Configure()
         {
             SetOwnProperty("constructor", new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable));
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToString), true, false, true);
-            FastAddProperty("apply", new ClrFunctionInstance(Engine, Apply, 2), true, false, true);
-            FastAddProperty("call", new ClrFunctionInstance(Engine, CallImpl, 1), true, false, true);
-            FastAddProperty("bind", new ClrFunctionInstance(Engine, Bind, 1), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString), true, false, true);
+            FastAddProperty("apply", new ClrFunctionInstance(Engine, "apply", Apply, 2), true, false, true);
+            FastAddProperty("call", new ClrFunctionInstance(Engine, "call", CallImpl, 1), true, false, true);
+            FastAddProperty("bind", new ClrFunctionInstance(Engine, "bind", Bind, 1), true, false, true);
         }
 
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)
@@ -118,7 +118,7 @@ namespace Jint.Native.Function
 
             var result = func.Call(thisArg, argList);
             _engine._jsValueArrayPool.ReturnArray(argList);
-            
+
             return result;
         }
 

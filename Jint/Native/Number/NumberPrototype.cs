@@ -35,12 +35,12 @@ namespace Jint.Native.Number
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToNumberString), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, ToLocaleString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf), true, false, true);
-            FastAddProperty("toFixed", new ClrFunctionInstance(Engine, ToFixed, 1), true, false, true);
-            FastAddProperty("toExponential", new ClrFunctionInstance(Engine, ToExponential), true, false, true);
-            FastAddProperty("toPrecision", new ClrFunctionInstance(Engine, ToPrecision), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToNumberString), true, false, true);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf), true, false, true);
+            FastAddProperty("toFixed", new ClrFunctionInstance(Engine, "toFixed", ToFixed, 1), true, false, true);
+            FastAddProperty("toExponential", new ClrFunctionInstance(Engine, "toExponential", ToExponential), true, false, true);
+            FastAddProperty("toPrecision", new ClrFunctionInstance(Engine, "toPrecision", ToPrecision), true, false, true);
         }
 
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
@@ -174,8 +174,8 @@ namespace Jint.Native.Number
                 ExceptionHelper.ThrowTypeError(_engine);
             }
 
-            var radix = arguments.At(0).IsUndefined() 
-                ? 10 
+            var radix = arguments.At(0).IsUndefined()
+                ? 10
                 : (int) TypeConverter.ToInteger(arguments.At(0));
 
             if (radix < 2 || radix > 36)

@@ -28,11 +28,11 @@ namespace Jint.Native.Symbol
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToSymbolString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, ValueOf), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToSymbolString), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf), true, false, true);
             FastAddProperty("toStringTag", new JsString("Symbol"), false, false, true);
 
-            SetIntrinsicValue(GlobalSymbolRegistry.ToPrimitive, new ClrFunctionInstance(Engine, ToPrimitive), false, false, true);
+            SetIntrinsicValue(GlobalSymbolRegistry.ToPrimitive, new ClrFunctionInstance(Engine, "toPrimitive", ToPrimitive), false, false, true);
             SetIntrinsicValue(GlobalSymbolRegistry.ToStringTag, new JsString("Symbol"), false, false, true);
         }
 
