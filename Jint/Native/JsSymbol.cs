@@ -9,6 +9,8 @@ namespace Jint.Native
     /// </summary>
     public sealed class JsSymbol : JsValue, IEquatable<JsSymbol>
     {
+        internal static readonly JsSymbol species = new JsSymbol("Symbol.species");
+
         internal readonly string _value;
 
         public JsSymbol(string value) : base(Types.Symbol)
@@ -23,7 +25,7 @@ namespace Jint.Native
 
         public override string ToString()
         {
-            return _value;
+            return "Symbol(" + _value + ")";
         }
 
         public override bool Equals(JsValue obj)

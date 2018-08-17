@@ -10,7 +10,7 @@ namespace Jint.Native.Array
 {
     public sealed class ArrayConstructor : FunctionInstance, IConstructor
     {
-        private ArrayConstructor(Engine engine) :  base(engine, null, null, false)
+        private ArrayConstructor(Engine engine) :  base(engine, "Array", null, null, false)
         {
         }
 

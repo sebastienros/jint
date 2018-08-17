@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Jint.Native.Function;
+using Jint.Native.Map;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 
@@ -8,7 +9,8 @@ namespace Jint.Native.Iterator
 {
     public sealed class IteratorConstructor : FunctionInstance, IConstructor
     {
-        private IteratorConstructor(Engine engine) :  base(engine, null, null, false)
+        private IteratorConstructor(Engine engine)
+            : base(engine, "iterator", null, null, false)
         {
         }
 
@@ -56,5 +58,15 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
+        public ObjectInstance Construct(MapInstance mapInstance)
+        {
+            var instance = new IteratorInstance.MapIterator(Engine, mapInstance)
+            {
+                Prototype = PrototypeObject,
+                Extensible = true
+            };
+
+            return instance;
+        }
     }
 }

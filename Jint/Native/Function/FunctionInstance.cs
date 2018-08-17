@@ -15,27 +15,35 @@ namespace Jint.Native.Function
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
         protected PropertyDescriptor _length;
+
+        private const string PropertyNameName = "name";
+        private const int PropertyNameNameLength = 4;
+        private PropertyDescriptor _name;
+
         protected readonly LexicalEnvironment _scope;
         protected internal readonly string[] _formalParameters;
         private readonly bool _strict;
 
         protected FunctionInstance(
             Engine engine,
+            string name,
             string[] parameters,
             LexicalEnvironment scope,
             bool strict)
-            : this(engine, parameters, scope, strict, objectClass: "Function")
+            : this(engine, name, parameters, scope, strict, objectClass: "Function")
         {
         }
 
         protected FunctionInstance(
             Engine engine,
+            string name,
             string[] parameters,
             LexicalEnvironment scope,
             bool strict,
             in string objectClass)
             : base(engine, objectClass)
         {
+            _name = new PropertyDescriptor(name, PropertyFlag.Configurable);
             _formalParameters = parameters;
             _scope = scope;
             _strict = strict;
@@ -121,6 +129,10 @@ namespace Jint.Native.Function
             {
                 yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameLength, _length);
             }
+            if (_name != null)
+            {
+                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameName, _name);
+            }
 
             foreach (var entry in base.GetOwnProperties())
             {
@@ -138,6 +150,10 @@ namespace Jint.Native.Function
             {
                 return _length ?? PropertyDescriptor.Undefined;
             }
+            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
+            {
+                return _name ?? PropertyDescriptor.Undefined;
+            }
 
             return base.GetOwnProperty(propertyName);
         }
@@ -151,6 +167,10 @@ namespace Jint.Native.Function
             else if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
             {
                 _length = desc;
+            }
+            else if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
+            {
+                _name = desc;
             }
             else
             {
@@ -168,6 +188,10 @@ namespace Jint.Native.Function
             {
                 return _length != null;
             }
+            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
+            {
+                return _name != null;
+            }
 
             return base.HasOwnProperty(propertyName);
         }
@@ -180,7 +204,11 @@ namespace Jint.Native.Function
             }
             if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
             {
-                _prototype = null;
+                _length = null;
+            }
+            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
+            {
+                _name = null;
             }
 
             base.RemoveOwnProperty(propertyName);

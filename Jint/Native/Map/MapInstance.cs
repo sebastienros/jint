@@ -1,4 +1,8 @@
-﻿using Jint.Native.Object;
+﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Jint.Native.Array;
+using Jint.Native.Iterator;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -8,9 +12,38 @@ namespace Jint.Native.Map
     {
         private readonly OrderedDictionary<JsValue, JsValue> _map;
 
-        public MapInstance(Engine engine) : base(engine, objectClass: "Map")
+        public MapInstance(Engine engine) : this(engine, null)
+        {
+        }
+
+        public MapInstance(Engine engine, IIterable items)
+            : base(engine, objectClass: "Map")
         {
             _map = new OrderedDictionary<JsValue, JsValue>();
+
+            if (items != null)
+            {
+                var iterator = items.Iterator();
+                do
+                {
+                    var item = iterator.Next();
+                    if (item.TryGetValue("done", out var done) && done.AsBoolean())
+                    {
+                        break;
+                    }
+
+                    if (!item.TryGetValue("value", out var currentValue)
+                        || !(currentValue is ArrayInstance pairArray))
+                    {
+                        break;
+                    }
+
+
+                    pairArray.TryGetValue(0, out var key);
+                    pairArray.TryGetValue(1, out var value);
+                    _map.Add(key, value);
+                } while (true);
+            }
         }
 
         /// Implementation from ObjectInstance official specs as the one
@@ -56,7 +89,7 @@ namespace Jint.Native.Map
         {
             if (propertyName.Length == 4 && propertyName == "size")
             {
-                return new PropertyDescriptor(_map.Count, PropertyFlag.AllForbidden);
+                return new PropertyDescriptor(_map.Count, PropertyFlag.None);
             }
 
             return base.GetOwnProperty(propertyName);
@@ -66,7 +99,7 @@ namespace Jint.Native.Map
         {
             if (propertyName.Length == 4 && propertyName == "size")
             {
-                descriptor = new PropertyDescriptor(_map.Count, PropertyFlag.AllForbidden);
+                descriptor = new PropertyDescriptor(_map.Count, PropertyFlag.None);
                 return true;
             }
 
@@ -120,12 +153,12 @@ namespace Jint.Native.Map
 
         public ObjectInstance Entries()
         {
-            return _engine.Iterator.Construct(System.Array.Empty<JsValue>());
+            return _engine.Iterator.Construct(this);
         }
 
         public ObjectInstance Iterator()
         {
-            return _engine.Iterator.Construct(System.Array.Empty<JsValue>());
+            return _engine.Iterator.Construct(this);
         }
 
         public ObjectInstance Keys()
@@ -137,5 +170,20 @@ namespace Jint.Native.Map
         {
             return _engine.Iterator.Construct(_map.Values);
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal uint GetSize()
+        {
+            return (uint) _map.Count;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal KeyValuePair<JsValue, JsValue> GetEntry(int index)
+        {
+            var key = _map.GetKey(index);
+            var value = _map[key];
+            return new KeyValuePair<JsValue, JsValue>(key, value);
+        }
+
     }
 }

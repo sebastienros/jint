@@ -51,7 +51,7 @@ namespace Jint.Native.Date
             "THHK"
         };
 
-        public DateConstructor(Engine engine) : base(engine, null, null, false)
+        public DateConstructor(Engine engine) : base(engine, "Date", null, null, false)
         {
         }
 

@@ -9,7 +9,7 @@ namespace Jint.Native.Error
     {
         private string _name;
 
-        public ErrorConstructor(Engine engine) : base(engine, null, null, false)
+        public ErrorConstructor(Engine engine) : base(engine, "Error", null, null, false)
         {
         }
 

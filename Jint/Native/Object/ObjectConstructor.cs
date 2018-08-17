@@ -11,7 +11,8 @@ namespace Jint.Native.Object
 {
     public sealed class ObjectConstructor : FunctionInstance, IConstructor
     {
-        private ObjectConstructor(Engine engine) : base(engine, null, null, false)
+        private ObjectConstructor(Engine engine)
+            : base(engine, "Object", null, null, false)
         {
         }
 

@@ -11,7 +11,8 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class FunctionPrototype : FunctionInstance
     {
-        private FunctionPrototype(Engine engine) : base(engine, null, null, false)
+        private FunctionPrototype(Engine engine)
+            : base(engine, "Function", null, null, false)
         {
         }
 

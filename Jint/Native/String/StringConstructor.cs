@@ -9,7 +9,7 @@ namespace Jint.Native.String
     public sealed class StringConstructor : FunctionInstance, IConstructor
     {
         public StringConstructor(Engine engine)
-            : base(engine, null, null, false)
+            : base(engine, "String", null, null, false)
         {
         }
 

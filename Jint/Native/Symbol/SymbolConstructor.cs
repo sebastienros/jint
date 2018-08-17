@@ -13,7 +13,7 @@ namespace Jint.Native.Symbol
     public sealed class SymbolConstructor : FunctionInstance, IConstructor
     {
         public SymbolConstructor(Engine engine)
-            : base(engine, null, null, false)
+            : base(engine, "Symbol", null, null, false)
         {
         }
 
@@ -31,6 +31,8 @@ namespace Jint.Native.Symbol
             // The initial value of String.prototype is the String prototype object
             obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
+
+            obj.SetOwnProperty("species", new PropertyDescriptor(JsSymbol.species, PropertyFlag.AllForbidden));
 
             return obj;
         }

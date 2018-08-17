@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interop
         private readonly MethodInfo[] _methods;
 
         public MethodInfoFunctionInstance(Engine engine, MethodInfo[] methods)
-            : base(engine, null, null, false)
+            : base(engine, "Function", null, null, false)
         {
             _methods = methods;
             Prototype = engine.Function.PrototypeObject;
