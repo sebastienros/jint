@@ -39,7 +39,7 @@ namespace Jint.Native.Map
             obj.SetOwnProperty(JsSymbol.species._value, new GetSetPropertyDescriptor(
                 get: CreateMapConstructorTemplate("get [Symbol.species]"),
                 set: Undefined,
-                PropertyFlag.None));
+                PropertyFlag.Configurable));
 
             return obj;
         }

@@ -1,56 +1,23 @@
-﻿using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using Jint.Native.Array;
+﻿using System.Runtime.CompilerServices;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
-namespace Jint.Native.Map
+namespace Jint.Native.Set
 {
-    public class MapInstance : ObjectInstance
+    public class SetInstance : ObjectInstance
     {
-        private readonly OrderedDictionary<JsValue, JsValue> _map;
+        internal readonly OrderedSet<JsValue> _set;
 
-        public MapInstance(Engine engine) : this(engine, null)
+        public SetInstance(Engine engine) : this(engine, null)
         {
         }
 
-        public MapInstance(Engine engine, IIterable items)
+        public SetInstance(Engine engine, IIterable items)
             : base(engine, objectClass: "Map")
         {
-            _map = new OrderedDictionary<JsValue, JsValue>();
-
-            if (items != null)
-            {
-                var iterator = items.Iterator();
-                do
-                {
-                    var item = iterator.Next();
-                    if (item.TryGetValue("done", out var done) && done.AsBoolean())
-                    {
-                        break;
-                    }
-
-                    if (!item.TryGetValue("value", out var currentValue))
-                    {
-                        break;
-                    }
-
-                    if (!currentValue.IsObject())
-                    {
-                        ExceptionHelper.ThrowTypeError(_engine);
-                    }
-
-                    if (currentValue is ArrayInstance pairArray)
-                    {
-                        pairArray.TryGetValue(0, out var key);
-                        pairArray.TryGetValue(1, out var value);
-                        _map.Add(key, value);
-                    }
-                    
-                } while (true);
-            }
+            _set = new OrderedSet<JsValue>();
         }
 
         /// Implementation from ObjectInstance official specs as the one
@@ -96,7 +63,7 @@ namespace Jint.Native.Map
         {
             if (propertyName.Length == 4 && propertyName == "size")
             {
-                return new PropertyDescriptor(_map.Count, PropertyFlag.None);
+                return new PropertyDescriptor(_set.Count, PropertyFlag.None);
             }
 
             return base.GetOwnProperty(propertyName);
@@ -106,31 +73,31 @@ namespace Jint.Native.Map
         {
             if (propertyName.Length == 4 && propertyName == "size")
             {
-                descriptor = new PropertyDescriptor(_map.Count, PropertyFlag.None);
+                descriptor = new PropertyDescriptor(_set.Count, PropertyFlag.None);
                 return true;
             }
 
             return base.TryGetProperty(propertyName, out descriptor);
         }
 
+        public void Add(JsValue value)
+        {
+            _set.Add(value);
+        }
+
         public void Clear()
         {
-            _map.Clear();
+            _set.Clear();
         }
 
         public bool Has(JsValue key)
         {
-            return _map.ContainsKey(key);
+            return _set.Contains(key);
         }
 
         public bool Delete(JsValue key)
         {
-            return _map.Remove(key);
-        }
-
-        public void Set(JsValue key, JsValue value)
-        {
-            _map[key] = value;
+            return _set.Remove(key);
         }
 
         public void ForEach(ICallable callable, JsValue thisArg)
@@ -138,24 +105,15 @@ namespace Jint.Native.Map
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
 
-            for (var i = 0; i < _map.Count; i++)
+            for (var i = 0; i < _set._list.Count; i++)
             {
-                args[0] = _map[i];
-                args[1] = _map.GetKey(i);
+                var value = _set._list[i];
+                args[0] = value;
+                args[1] = value;
                 callable.Call(thisArg, args);
             }
 
             _engine._jsValueArrayPool.ReturnArray(args);
-        }
-
-        public JsValue Get(JsValue key)
-        {
-            if (!_map.TryGetValue(key, out var value))
-            {
-                return Undefined;
-            }
-
-            return value;
         }
 
         public ObjectInstance Entries()
@@ -168,29 +126,15 @@ namespace Jint.Native.Map
             return _engine.Iterator.Construct(this);
         }
 
-        public ObjectInstance Keys()
-        {
-            return _engine.Iterator.Construct(_map.Keys);
-        }
-
         public ObjectInstance Values()
         {
-            return _engine.Iterator.Construct(_map.Values);
+            return _engine.Iterator.Construct(_set._list);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal uint GetSize()
         {
-            return (uint) _map.Count;
+            return (uint) _set.Count;
         }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal KeyValuePair<JsValue, JsValue> GetEntry(int index)
-        {
-            var key = _map.GetKey(index);
-            var value = _map[key];
-            return new KeyValuePair<JsValue, JsValue>(key, value);
-        }
-
     }
 }
