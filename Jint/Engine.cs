@@ -17,6 +17,7 @@ using Jint.Native.Math;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
+using Jint.Native.Set;
 using Jint.Native.String;
 using Jint.Native.Symbol;
 using Jint.Pooling;
@@ -116,6 +117,7 @@ namespace Jint
             Symbol = SymbolConstructor.CreateSymbolConstructor(this);
             Array = ArrayConstructor.CreateArrayConstructor(this);
             Map = MapConstructor.CreateMapConstructor(this);
+            Set = SetConstructor.CreateSetConstructor(this);
             Iterator= IteratorConstructor.CreateIteratorConstructor(this);
             String = StringConstructor.CreateStringConstructor(this);
             RegExp = RegExpConstructor.CreateRegExpConstructor(this);
@@ -154,6 +156,9 @@ namespace Jint
 
             Map.Configure();
             Map.PrototypeObject.Configure();
+
+            Set.Configure();
+            Set.PrototypeObject.Configure();
 
             Iterator.Configure();
             Iterator.PrototypeObject.Configure();
@@ -230,6 +235,7 @@ namespace Jint
         public FunctionConstructor Function { get; }
         public ArrayConstructor Array { get; }
         public MapConstructor Map { get; }
+        public SetConstructor Set { get; }
         public IteratorConstructor Iterator { get; }
         public StringConstructor String { get; }
         public RegExpConstructor RegExp { get; }

@@ -3,6 +3,7 @@ using System.Linq;
 using Jint.Native.Function;
 using Jint.Native.Map;
 using Jint.Native.Object;
+using Jint.Native.Set;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Iterator
@@ -58,9 +59,20 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        public ObjectInstance Construct(MapInstance mapInstance)
+        public ObjectInstance Construct(MapInstance map)
         {
-            var instance = new IteratorInstance.MapIterator(Engine, mapInstance)
+            var instance = new IteratorInstance.MapIterator(Engine, map)
+            {
+                Prototype = PrototypeObject,
+                Extensible = true
+            };
+
+            return instance;
+        }
+
+        public ObjectInstance Construct(SetInstance set)
+        {
+            var instance = new IteratorInstance.SetIterator(Engine, set)
             {
                 Prototype = PrototypeObject,
                 Extensible = true

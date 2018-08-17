@@ -3,6 +3,7 @@ using System.Linq;
 using Jint.Native.Array;
 using Jint.Native.Map;
 using Jint.Native.Object;
+using Jint.Native.Set;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Iterator
@@ -116,6 +117,30 @@ namespace Jint.Native.Iterator
                 if (_position < _array.GetLength())
                 {
                     _array.TryGetValue(_position, out var value);
+                    _position++;
+                    return new  ValueIteratorPosition(_engine, value);
+                }
+
+                return KeyValueIteratorPosition.Done;
+            }
+        }
+
+        public class SetIterator : IteratorInstance
+        {
+            private readonly SetInstance _set;
+            private int _position;
+
+            public SetIterator(Engine engine, SetInstance set) : base(engine)
+            {
+                _set = set;
+                _position = 0;
+            }
+
+            public override ObjectInstance Next()
+            {
+                if (_position < _set._set._list.Count)
+                {
+                    var value = _set._set[_position];
                     _position++;
                     return new  ValueIteratorPosition(_engine, value);
                 }
