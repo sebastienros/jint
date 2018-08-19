@@ -15,7 +15,7 @@ namespace Jint.Native.Iterator
         {
         }
 
-        public IteratorPrototype PrototypeObject { get; private set; }
+        internal IteratorPrototype PrototypeObject { get; private set; }
 
         public static IteratorConstructor CreateIteratorConstructor(Engine engine)
         {
@@ -48,7 +48,7 @@ namespace Jint.Native.Iterator
             return Construct(Enumerable.Empty<JsValue>());
         }
 
-        public ObjectInstance Construct(IEnumerable<JsValue> enumerable)
+        internal ObjectInstance Construct(IEnumerable<JsValue> enumerable)
         {
             var instance = new IteratorInstance(Engine, enumerable)
             {
@@ -58,8 +58,19 @@ namespace Jint.Native.Iterator
 
             return instance;
         }
+        
+        internal ObjectInstance Construct(List<JsValue> enumerable)
+        {
+            var instance = new IteratorInstance.ListIterator(Engine, enumerable)
+            {
+                Prototype = PrototypeObject,
+                Extensible = true
+            };
 
-        public ObjectInstance Construct(MapInstance map)
+            return instance;
+        }
+
+        internal ObjectInstance Construct(MapInstance map)
         {
             var instance = new IteratorInstance.MapIterator(Engine, map)
             {
@@ -70,9 +81,20 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        public ObjectInstance Construct(SetInstance set)
+        internal ObjectInstance Construct(SetInstance set)
         {
             var instance = new IteratorInstance.SetIterator(Engine, set)
+            {
+                Prototype = PrototypeObject,
+                Extensible = true
+            };
+
+            return instance;
+        }
+        
+        internal ObjectInstance ConstructEntryIterator(SetInstance set)
+        {
+            var instance = new IteratorInstance.SetEntryIterator(Engine, set)
             {
                 Prototype = PrototypeObject,
                 Extensible = true

@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interop
     /// <summary>
     /// Wraps a Clr method into a FunctionInstance
     /// </summary>
-    public sealed class ClrFunctionInstance : FunctionInstance
+    public sealed class ClrFunctionInstance : FunctionInstance, IEquatable<ClrFunctionInstance>
     {
         private readonly Func<JsValue, JsValue[], JsValue> _func;
 
@@ -46,6 +46,41 @@ namespace Jint.Runtime.Interop
                 ExceptionHelper.ThrowTypeError(Engine);
                 return null;
             }
+        }
+        
+        public override bool Equals(JsValue obj)
+        {
+            if (ReferenceEquals(null, obj))
+            {
+                return false;
+            }
+
+            if (!(obj is ClrFunctionInstance s))
+            {
+                return false;
+            }
+
+            return Equals(s);
+        }
+
+        public bool Equals(ClrFunctionInstance other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            if (_func == other._func)
+            {
+                return true;
+            }
+            
+            return false;
         }
     }
 }

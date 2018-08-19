@@ -1,7 +1,9 @@
-﻿using Jint.Native.Object;
+﻿using Jint.Native.Function;
+using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Map
@@ -9,7 +11,7 @@ namespace Jint.Native.Map
     /// <summary>
     /// https://www.ecma-international.org/ecma-262/6.0/#sec-map-objects
     /// </summary>
-    public sealed class MapPrototype : MapInstance
+    public sealed class MapPrototype : ObjectInstance
     {
         private MapPrototype(Engine engine) : base(engine)
         {
@@ -19,7 +21,8 @@ namespace Jint.Native.Map
         {
             var obj = new MapPrototype(engine)
             {
-                Extensible = true, Prototype = engine.Object.PrototypeObject
+                Extensible = true,
+                Prototype = engine.Object.PrototypeObject
             };
 
             obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
@@ -30,21 +33,36 @@ namespace Jint.Native.Map
 
         public void Configure()
         {
-            var iterator = new ClrFunctionInstance(Engine, "iterator", Iterator, 1);
-            FastAddProperty(GlobalSymbolRegistry.Iterator._value, iterator, true, false, true);
+            FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Iterator, 1), true, false, true);
             FastAddProperty(GlobalSymbolRegistry.ToStringTag._value, "Map", false, false, true);
 
             FastAddProperty("clear", new ClrFunctionInstance(Engine, "clear", Clear, 0), true, false, true);
             FastAddProperty("delete", new ClrFunctionInstance(Engine, "delete", Delete, 1), true, false, true);
-            FastAddProperty("entries", iterator, true, false, true);
+            FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Iterator, 0), true, false, true);
             FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1), true, false, true);
             FastAddProperty("get", new ClrFunctionInstance(Engine, "get", Get, 1), true, false, true);
             FastAddProperty("has", new ClrFunctionInstance(Engine, "has", Has, 1), true, false, true);
             FastAddProperty("keys", new ClrFunctionInstance(Engine, "keys", Keys, 0), true, false, true);
             FastAddProperty("set", new ClrFunctionInstance(Engine, "set", Set, 2), true, false, true);
             FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Values, 0), true, false, true);
+            
+            AddProperty(
+                "size", 
+                new GetSetPropertyDescriptor(
+                    get: new ClrFunctionInstance(Engine, "get size", Size, 0), 
+                    set: null,
+                    PropertyFlag.Configurable));
         }
 
+        private JsValue Size(JsValue thisObj, JsValue[] arguments)
+        {
+            if (!thisObj.IsObject())
+            {
+                ExceptionHelper.ThrowTypeError(_engine);
+            }
+            return JsNumber.Create(0);
+        }
+        
         private JsValue Get(JsValue thisObj, JsValue[] arguments)
         {
             return ((MapInstance) thisObj).Get(arguments.At(0));

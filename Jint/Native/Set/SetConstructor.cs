@@ -66,32 +66,53 @@ namespace Jint.Native.Set
                 Prototype = PrototypeObject,
                 Extensible = true
             };
-            if (arguments.Length > 0)
+            if (arguments.Length > 0
+                && !arguments[0].IsUndefined()
+                && !arguments[0].IsNull())
             {
-                if (arguments.At(0) is IIterable it)
+                var iterator = arguments.At(0).GetIterator();
+                if (iterator != null)
                 {
-                    var adder = instance.GetProperty("add")?.Value as ICallable
-                                ?? ExceptionHelper.ThrowTypeError<FunctionInstance>(_engine);
+                    var setterProperty = instance.GetProperty("add");
 
-                    var iterator = it.Iterator();
-                    var array = _engine._jsValueArrayPool.RentArray(1);
-                    do
+                    ICallable adder = null;
+                    if (setterProperty == null
+                        || !setterProperty.TryGetValue(instance, out var setterValue)
+                        || (adder = setterValue as ICallable) == null)
                     {
-                        var item = iterator.Next();
-                        if (item.TryGetValue("done", out var done) && done.AsBoolean())
+                        ExceptionHelper.ThrowTypeError(_engine, "add must be callable");
+                    }
+                    
+                    var args = _engine._jsValueArrayPool.RentArray(1);
+                    try
+                    {
+                        do
                         {
-                            break;
-                        }
+                            var item = iterator.Next();
+                            if (item.TryGetValue("done", out var done) && done.AsBoolean())
+                            {
+                                break;
+                            }
 
-                        if (!item.TryGetValue("value", out var currentValue))
-                        {
-                            break;
-                        }
+                            if (!item.TryGetValue("value", out var currentValue))
+                            {
+                                break;
+                            }
 
-                        array[0] = currentValue;
-                        adder.Call(instance, array);
-                    } while (true);
-                    _engine._jsValueArrayPool.ReturnArray(array);
+                            args[0] = currentValue;
+
+                            adder.Call(instance, args);
+                        } while (true);
+                    }
+                    catch
+                    {
+                        iterator.Return();
+                        throw;
+                    }
+                    finally
+                    {
+                        _engine._jsValueArrayPool.ReturnArray(args);
+                    }
                 }
             }
 

@@ -118,12 +118,7 @@ namespace Jint.Native.Set
 
         public ObjectInstance Entries()
         {
-            return _engine.Iterator.Construct(this);
-        }
-
-        public ObjectInstance Iterator()
-        {
-            return _engine.Iterator.Construct(this);
+            return _engine.Iterator.ConstructEntryIterator(this);
         }
 
         public ObjectInstance Values()

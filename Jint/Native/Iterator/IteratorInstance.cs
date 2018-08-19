@@ -9,7 +9,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Iterator
 {
-    public class IteratorInstance : ObjectInstance, IIterator
+    internal class IteratorInstance : ObjectInstance, IIterator
     {
         private readonly IEnumerator<JsValue> _enumerable;
 
@@ -146,6 +146,54 @@ namespace Jint.Native.Iterator
                 if (_position < _set._set._list.Count)
                 {
                     var value = _set._set[_position];
+                    _position++;
+                    return new  ValueIteratorPosition(_engine, value);
+                }
+
+                return KeyValueIteratorPosition.Done;
+            }
+        }
+        
+        public class SetEntryIterator : IteratorInstance
+        {
+            private readonly SetInstance _set;
+            private int _position;
+
+            public SetEntryIterator(Engine engine, SetInstance set) : base(engine)
+            {
+                _set = set;
+                _position = 0;
+            }
+
+            public override ObjectInstance Next()
+            {
+                if (_position < _set._set._list.Count)
+                {
+                    var value = _set._set[_position];
+                    _position++;
+                    return new  KeyValueIteratorPosition(_engine, value, value);
+                }
+
+                return KeyValueIteratorPosition.Done;
+            }
+        }
+        
+        public class ListIterator : IteratorInstance
+        {
+            private readonly List<JsValue> _values;
+            private int _position;
+
+            public ListIterator(Engine engine, List<JsValue> values) : base(engine)
+            {
+                _values = values;
+                _position = 0;
+            }
+
+            public override ObjectInstance Next()
+            {
+                if (_position < _values.Count)
+                {
+                    var value = _values[_position];
                     _position++;
                     return new  ValueIteratorPosition(_engine, value);
                 }
