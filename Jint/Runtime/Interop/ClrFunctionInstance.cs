@@ -16,22 +16,15 @@ namespace Jint.Runtime.Interop
             Engine engine,
             string name,
             Func<JsValue, JsValue[], JsValue> func,
-            int length) : base(engine, name, null, null, false)
+            int length = 0,
+            PropertyFlag lengthFlags = PropertyFlag.AllForbidden) : base(engine, name, null, null, false)
         {
             _func = func;
 
             Prototype = engine.Function.PrototypeObject;
             Extensible = true;
 
-            _length = new PropertyDescriptor(length, PropertyFlag.Configurable);
-        }
-
-        public ClrFunctionInstance(
-            Engine engine,
-            string name,
-            Func<JsValue, JsValue[], JsValue> func)
-            : this(engine, name, func, 0)
-        {
+            _length = new PropertyDescriptor(length, lengthFlags);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

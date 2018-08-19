@@ -1,11 +1,10 @@
-﻿using Jint.Native.Array;
-using Jint.Native.Function;
-using Jint.Native.Iterator;
+﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Map
 {
@@ -37,17 +36,22 @@ namespace Jint.Native.Map
             // The initial value of Map.prototype is the Map prototype object
             obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
-            // TODO fix
-            obj.SetOwnProperty(GlobalSymbolRegistry.Species._value, new GetSetPropertyDescriptor(
-                get: CreateMapConstructorTemplate("get [Symbol.species]"),
-                set: Undefined,
-                PropertyFlag.Configurable));
+            obj.SetOwnProperty(GlobalSymbolRegistry.Species._value,
+                new GetSetPropertyDescriptor(
+                    get: new ClrFunctionInstance(engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable),
+                    set: Undefined,
+                    PropertyFlag.Configurable));
 
             return obj;
         }
 
         public void Configure()
         {
+        }
+
+        private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+        {
+            return thisObject;
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

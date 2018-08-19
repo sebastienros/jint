@@ -32,22 +32,22 @@ namespace Jint.Native.Set
 
         public void Configure()
         {
-            FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Values, 1), true, false, true);
+            FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Values, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty(GlobalSymbolRegistry.ToStringTag._value, "Set", false, false, true);
 
-            FastAddProperty("add", new ClrFunctionInstance(Engine, "add", Add, 1), true, false, true);
-            FastAddProperty("clear", new ClrFunctionInstance(Engine, "clear", Clear, 0), true, false, true);
-            FastAddProperty("delete", new ClrFunctionInstance(Engine, "delete", Delete, 1), true, false, true);
-            FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Entries, 0), true, false, true);
-            FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1), true, false, true);
-            FastAddProperty("has", new ClrFunctionInstance(Engine, "has", Has, 1), true, false, true);
-            FastAddProperty("keys", new ClrFunctionInstance(Engine, "keys", Values, 0), true, false, true);
-            FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Values, 0), true, false, true);
+            FastAddProperty("add", new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("clear", new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("delete", new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("has", new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("keys", new ClrFunctionInstance(Engine, "keys", Values, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true);
 
             AddProperty(
                 "size", 
                 new GetSetPropertyDescriptor(
-                    get: new ClrFunctionInstance(Engine, "get size", Size, 0), 
+                    get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable), 
                     set: null,
                     PropertyFlag.Configurable));
         }
