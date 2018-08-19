@@ -51,7 +51,7 @@ namespace Jint
 
         // cached access
         private readonly bool _isDebugMode;
-        internal readonly bool _isStrict;
+        private readonly bool _isStrict;
         private readonly int _maxStatements;
         private readonly long _memoryLimit;
         private readonly bool _runBeforeStatementChecks;
