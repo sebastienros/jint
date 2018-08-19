@@ -9,8 +9,6 @@ namespace Jint.Native
     /// </summary>
     public sealed class JsSymbol : JsValue, IEquatable<JsSymbol>
     {
-        internal static readonly JsSymbol species = new JsSymbol("Symbol.species");
-
         internal readonly string _value;
 
         public JsSymbol(string value) : base(Types.Symbol)

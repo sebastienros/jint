@@ -3,7 +3,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Iterator
 {
-    public sealed class IteratorPrototype : IteratorInstance
+    internal sealed class IteratorPrototype : IteratorInstance
     {
         private IteratorPrototype(Engine engine) : base(engine)
         {

@@ -1,9 +1,11 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Set
 {
@@ -19,15 +21,15 @@ namespace Jint.Native.Set
         {
             SetConstructor CreateSetConstructorTemplate(string name)
             {
-                var mapConstructor = new SetConstructor(engine, name);
-                mapConstructor.Extensible = true;
+                var ctr = new SetConstructor(engine, name);
+                ctr.Extensible = true;
 
                 // The value of the [[Prototype]] internal property of the Set constructor is the Function prototype object
-                mapConstructor.Prototype = engine.Function.PrototypeObject;
-                mapConstructor.PrototypeObject = SetPrototype.CreatePrototypeObject(engine, mapConstructor);
+                ctr.Prototype = engine.Function.PrototypeObject;
+                ctr.PrototypeObject = SetPrototype.CreatePrototypeObject(engine, ctr);
 
-                mapConstructor.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
-                return mapConstructor;
+                ctr.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
+                return ctr;
             }
 
             var obj = CreateSetConstructorTemplate("Set");
@@ -35,11 +37,11 @@ namespace Jint.Native.Set
             // The initial value of Set.prototype is the Set prototype object
             obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
-            // TODO fix
-            obj.SetOwnProperty(JsSymbol.species._value, new GetSetPropertyDescriptor(
-                get: CreateSetConstructorTemplate("get [Symbol.species]"),
-                set: Undefined,
-                PropertyFlag.Configurable));
+            obj.SetOwnProperty(GlobalSymbolRegistry.Species._value,
+                new GetSetPropertyDescriptor(
+                    get: new ClrFunctionInstance(engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable),
+                    set: Undefined,
+                    PropertyFlag.Configurable));
 
             return obj;
         }
@@ -48,41 +50,75 @@ namespace Jint.Native.Set
         {
         }
 
+        private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+        {
+            return thisObject;
+        }
+
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
+            if (thisObject.IsUndefined())
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "Constructor Set requires 'new'");
+            }
+
             return Construct(arguments);
         }
 
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            var instance = _engine.Set.Construct(System.Array.Empty<JsValue>());
-
-            if (arguments.Length > 0)
+            var instance = new SetInstance(Engine)
             {
-                if (arguments.At(0) is IIterable it)
+                Prototype = PrototypeObject,
+                Extensible = true
+            };
+            if (arguments.Length > 0
+                && !arguments[0].IsUndefined()
+                && !arguments[0].IsNull())
+            {
+                var iterator = arguments.At(0).GetIterator();
+                if (iterator != null)
                 {
-                    var adder = instance.GetProperty("add")?.Value as ICallable
-                                ?? ExceptionHelper.ThrowTypeError<FunctionInstance>(_engine);
+                    var setterProperty = instance.GetProperty("add");
 
-                    var iterator = it.Iterator();
-                    var array = _engine._jsValueArrayPool.RentArray(1);
-                    do
+                    ICallable adder = null;
+                    if (setterProperty == null
+                        || !setterProperty.TryGetValue(instance, out var setterValue)
+                        || (adder = setterValue as ICallable) == null)
                     {
-                        var item = iterator.Next();
-                        if (item.TryGetValue("done", out var done) && done.AsBoolean())
+                        ExceptionHelper.ThrowTypeError(_engine, "add must be callable");
+                    }
+                    
+                    var args = _engine._jsValueArrayPool.RentArray(1);
+                    try
+                    {
+                        do
                         {
-                            break;
-                        }
+                            var item = iterator.Next();
+                            if (item.TryGetValue("done", out var done) && done.AsBoolean())
+                            {
+                                break;
+                            }
 
-                        if (!item.TryGetValue("value", out var currentValue))
-                        {
-                            break;
-                        }
+                            if (!item.TryGetValue("value", out var currentValue))
+                            {
+                                break;
+                            }
 
-                        array[0] = currentValue;
-                        adder.Call(instance, array);
-                    } while (true);
-                    _engine._jsValueArrayPool.ReturnArray(array);
+                            args[0] = currentValue;
+
+                            adder.Call(instance, args);
+                        } while (true);
+                    }
+                    catch
+                    {
+                        iterator.Return();
+                        throw;
+                    }
+                    finally
+                    {
+                        _engine._jsValueArrayPool.ReturnArray(args);
+                    }
                 }
             }
 

@@ -14,11 +14,6 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        private const string PropertyNameName = "name";
-        private const int PropertyNameNameLength = 4;
-
-        private PropertyDescriptor _name;
-
         private readonly IFunction _functionDeclaration;
 
         /// <summary>
@@ -48,7 +43,7 @@ namespace Jint.Native.Function
 
             if (_functionDeclaration.Id != null)
             {
-                _name = new PropertyDescriptor(_functionDeclaration.Id.Name, PropertyFlag.None);
+                DefineOwnProperty("name", new PropertyDescriptor(_functionDeclaration.Id.Name, PropertyFlag.None), false);
             }
 
             if (strict)
@@ -58,61 +53,6 @@ namespace Jint.Native.Function
                 DefineOwnProperty("caller", new GetSetPropertyDescriptor(thrower, thrower, flags), false);
                 DefineOwnProperty("arguments", new GetSetPropertyDescriptor(thrower, thrower, flags), false);
             }
-        }
-
-        public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
-        {
-            if (_name != null)
-            {
-                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameName, _name);
-            }
-
-            foreach (var entry in base.GetOwnProperties())
-            {
-                yield return entry;
-            }
-        }
-
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
-        {
-            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
-            {
-                return _name ?? PropertyDescriptor.Undefined;
-            }
-
-            return base.GetOwnProperty(propertyName);
-        }
-
-        protected internal override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
-        {
-            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
-            {
-                _name = desc;
-            }
-            else
-            {
-                base.SetOwnProperty(propertyName, desc);
-            }
-        }
-
-        public override bool HasOwnProperty(string propertyName)
-        {
-            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
-            {
-                return _name != null;
-            }
-
-            return base.HasOwnProperty(propertyName);
-        }
-
-        public override void RemoveOwnProperty(string propertyName)
-        {
-            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
-            {
-                _name = null;
-            }
-
-            base.RemoveOwnProperty(propertyName);
         }
 
         private static string[] GetParameterNames(IFunction functionDeclaration)

@@ -1,14 +1,16 @@
 ﻿using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Set
 {
     /// <summary>
-    /// https://www.ecma-international.org/ecma-262/6.0/#sec-map-objects
+    /// https://www.ecma-international.org/ecma-262/6.0/#sec-set-objects
     /// </summary>
-    public sealed class SetPrototype : SetInstance
+    public sealed class SetPrototype : ObjectInstance
     {
         private SetPrototype(Engine engine) : base(engine)
         {
@@ -18,7 +20,8 @@ namespace Jint.Native.Set
         {
             var obj = new SetPrototype(engine)
             {
-                Extensible = true, Prototype = engine.Object.PrototypeObject
+                Extensible = true, 
+                Prototype = engine.Object.PrototypeObject
             };
 
             obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
@@ -29,14 +32,33 @@ namespace Jint.Native.Set
 
         public void Configure()
         {
-            FastAddProperty("add", new ClrFunctionInstance(Engine, "add", Add, 0), true, false, true);
-            FastAddProperty("clear", new ClrFunctionInstance(Engine, "clear", Clear, 0), true, false, true);
-            FastAddProperty("delete", new ClrFunctionInstance(Engine, "delete", Delete, 1), true, false, true);
-            FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Entries, 0), true, false, true);
-            FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1), true, false, true);
-            FastAddProperty("has", new ClrFunctionInstance(Engine, "has", Has, 1), true, false, true);
-            FastAddProperty("iterator", new ClrFunctionInstance(Engine, "iterator", Iterator, 1), true, false, true);
-            FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Values, 0), true, false, true);
+            FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Values, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty(GlobalSymbolRegistry.ToStringTag._value, "Set", false, false, true);
+
+            FastAddProperty("add", new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("clear", new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("delete", new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("has", new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("keys", new ClrFunctionInstance(Engine, "keys", Values, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true);
+
+            AddProperty(
+                "size", 
+                new GetSetPropertyDescriptor(
+                    get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable), 
+                    set: null,
+                    PropertyFlag.Configurable));
+        }
+        
+        private JsValue Size(JsValue thisObj, JsValue[] arguments)
+        {
+            if (!thisObj.IsObject())
+            {
+                ExceptionHelper.ThrowTypeError(_engine);
+            }
+            return JsNumber.Create(0);
         }
 
         private JsValue Add(JsValue thisObj, JsValue[] arguments)
@@ -91,11 +113,6 @@ namespace Jint.Native.Set
             map.ForEach(callable, thisArg);
 
             return Undefined;
-        }
-
-        private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)
-        {
-            return ((SetInstance) thisObj).Iterator();
         }
 
         private ObjectInstance Values(JsValue thisObj, JsValue[] arguments)
