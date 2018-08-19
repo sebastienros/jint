@@ -12,45 +12,10 @@ namespace Jint.Native.Map
     {
         private readonly OrderedDictionary<JsValue, JsValue> _map;
 
-        public MapInstance(Engine engine) : this(engine, null)
-        {
-        }
-
-        public MapInstance(Engine engine, IIterable items)
+        public MapInstance(Engine engine)
             : base(engine, objectClass: "Map")
         {
             _map = new OrderedDictionary<JsValue, JsValue>();
-
-            if (items != null)
-            {
-                var iterator = items.Iterator();
-                do
-                {
-                    var item = iterator.Next();
-                    if (item.TryGetValue("done", out var done) && done.AsBoolean())
-                    {
-                        break;
-                    }
-
-                    if (!item.TryGetValue("value", out var currentValue))
-                    {
-                        break;
-                    }
-
-                    if (!currentValue.IsObject())
-                    {
-                        ExceptionHelper.ThrowTypeError(_engine);
-                    }
-
-                    if (currentValue is ArrayInstance pairArray)
-                    {
-                        pairArray.TryGetValue(0, out var key);
-                        pairArray.TryGetValue(1, out var value);
-                        _map.Add(key, value);
-                    }
-                    
-                } while (true);
-            }
         }
 
         /// Implementation from ObjectInstance official specs as the one
@@ -156,11 +121,6 @@ namespace Jint.Native.Map
             }
 
             return value;
-        }
-
-        public ObjectInstance Entries()
-        {
-            return _engine.Iterator.Construct(this);
         }
 
         public ObjectInstance Iterator()

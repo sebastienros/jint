@@ -4,6 +4,7 @@ using Jint.Native.Array;
 using Jint.Native.Map;
 using Jint.Native.Object;
 using Jint.Native.Set;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Iterator
@@ -42,6 +43,10 @@ namespace Jint.Native.Iterator
             }
 
             return ValueIteratorPosition.Done;
+        }
+
+        public void Return()
+        {
         }
 
         private class KeyValueIteratorPosition : ObjectInstance
@@ -146,6 +151,31 @@ namespace Jint.Native.Iterator
                 }
 
                 return KeyValueIteratorPosition.Done;
+            }
+        }
+
+        internal class ObjectWrapper : IIterator
+        {
+            private readonly ObjectInstance _target;
+            private readonly ICallable _callable;
+
+            public ObjectWrapper(ObjectInstance target)
+            {
+                _target = target;
+                _callable = (ICallable) target.Get("next");
+            }
+
+            public ObjectInstance Next()
+            {
+                return (ObjectInstance) _callable.Call(_target, System.Array.Empty<JsValue>());
+            }
+
+            public void Return()
+            {
+                if (_target.TryGetValue("return", out var func))
+                {
+                    ((ICallable) func).Call(_target, System.Array.Empty<JsValue>());
+                }
             }
         }
     }

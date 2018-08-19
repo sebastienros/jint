@@ -1,6 +1,7 @@
 ﻿using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -19,15 +20,15 @@ namespace Jint.Native.Set
         {
             SetConstructor CreateSetConstructorTemplate(string name)
             {
-                var mapConstructor = new SetConstructor(engine, name);
-                mapConstructor.Extensible = true;
+                var ctr = new SetConstructor(engine, name);
+                ctr.Extensible = true;
 
                 // The value of the [[Prototype]] internal property of the Set constructor is the Function prototype object
-                mapConstructor.Prototype = engine.Function.PrototypeObject;
-                mapConstructor.PrototypeObject = SetPrototype.CreatePrototypeObject(engine, mapConstructor);
+                ctr.Prototype = engine.Function.PrototypeObject;
+                ctr.PrototypeObject = SetPrototype.CreatePrototypeObject(engine, ctr);
 
-                mapConstructor.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
-                return mapConstructor;
+                ctr.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
+                return ctr;
             }
 
             var obj = CreateSetConstructorTemplate("Set");
@@ -36,7 +37,7 @@ namespace Jint.Native.Set
             obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
             // TODO fix
-            obj.SetOwnProperty(JsSymbol.species._value, new GetSetPropertyDescriptor(
+            obj.SetOwnProperty(GlobalSymbolRegistry.Species._value, new GetSetPropertyDescriptor(
                 get: CreateSetConstructorTemplate("get [Symbol.species]"),
                 set: Undefined,
                 PropertyFlag.Configurable));
@@ -50,13 +51,21 @@ namespace Jint.Native.Set
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
+            if (thisObject.IsUndefined())
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "Constructor Set requires 'new'");
+            }
+
             return Construct(arguments);
         }
 
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            var instance = _engine.Set.Construct(System.Array.Empty<JsValue>());
-
+            var instance = new SetInstance(Engine)
+            {
+                Prototype = PrototypeObject,
+                Extensible = true
+            };
             if (arguments.Length > 0)
             {
                 if (arguments.At(0) is IIterable it)

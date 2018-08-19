@@ -32,7 +32,7 @@ namespace Jint.Native.Symbol
             obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
 
-            obj.SetOwnProperty("species", new PropertyDescriptor(JsSymbol.species, PropertyFlag.AllForbidden));
+            obj.SetOwnProperty("species", new PropertyDescriptor(GlobalSymbolRegistry.Species, PropertyFlag.AllForbidden));
 
             return obj;
         }

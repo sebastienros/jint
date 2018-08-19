@@ -1,6 +1,8 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Native.Array;
+using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -36,7 +38,7 @@ namespace Jint.Native.Map
             obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
             // TODO fix
-            obj.SetOwnProperty(JsSymbol.species._value, new GetSetPropertyDescriptor(
+            obj.SetOwnProperty(GlobalSymbolRegistry.Species._value, new GetSetPropertyDescriptor(
                 get: CreateMapConstructorTemplate("get [Symbol.species]"),
                 set: Undefined,
                 PropertyFlag.Configurable));
@@ -50,25 +52,81 @@ namespace Jint.Native.Map
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
+            if (thisObject.IsUndefined())
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "Constructor Map requires 'new'");
+            }
+
             return Construct(arguments);
         }
 
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            IIterable iterable = null;
-            if (arguments.Length > 0)
-            {
-                if (arguments.At(0) is IIterable it)
-                {
-                    iterable = it;
-                }
-            }
-
-            var instance = new MapInstance(Engine, iterable)
+            var instance = new MapInstance(Engine)
             {
                 Prototype = PrototypeObject,
                 Extensible = true
             };
+
+            if (arguments.Length > 0
+                && !arguments[0].IsUndefined()
+                && !arguments[0].IsNull())
+            {
+                var iterator = arguments.At(0).GetIterator();
+                if (iterator != null)
+                {
+                    var setterProperty = instance.GetProperty("set");
+
+                    ICallable setter = null;
+                    if (setterProperty == null
+                        || !setterProperty.TryGetValue(instance, out var setterValue)
+                        || (setter = setterValue as ICallable) == null)
+                    {
+                        ExceptionHelper.ThrowTypeError(_engine, "set must be callable");
+                    }
+                    
+                    var args = _engine._jsValueArrayPool.RentArray(2);
+                    try
+                    {
+                        do
+                        {
+                            var item = iterator.Next();
+                            if (item.TryGetValue("done", out var done) && done.AsBoolean())
+                            {
+                                break;
+                            }
+
+                            if (!item.TryGetValue("value", out var currentValue))
+                            {
+                                break;
+                            }
+
+                            if (!(currentValue is ObjectInstance oi))
+                            {
+                                ExceptionHelper.ThrowTypeError(_engine, "iterator's value must be an object");
+                                break;
+                            }
+
+                            oi.TryGetValue("0", out var key);
+                            oi.TryGetValue("1", out var value);
+
+                            args[0] = key;
+                            args[1] = value;
+
+                            setter.Call(instance, args);
+                        } while (true);
+                    }
+                    catch
+                    {
+                        iterator.Return();
+                        throw;
+                    }
+                    finally
+                    {
+                        _engine._jsValueArrayPool.ReturnArray(args);
+                    }
+                }
+            }
 
             return instance;
         }

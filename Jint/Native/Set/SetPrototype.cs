@@ -18,7 +18,8 @@ namespace Jint.Native.Set
         {
             var obj = new SetPrototype(engine)
             {
-                Extensible = true, Prototype = engine.Object.PrototypeObject
+                Extensible = true, 
+                Prototype = engine.Object.PrototypeObject
             };
 
             obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));

@@ -1,4 +1,5 @@
 ﻿using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -29,13 +30,16 @@ namespace Jint.Native.Map
 
         public void Configure()
         {
+            var iterator = new ClrFunctionInstance(Engine, "iterator", Iterator, 1);
+            FastAddProperty(GlobalSymbolRegistry.Iterator._value, iterator, true, false, true);
+            FastAddProperty(GlobalSymbolRegistry.ToStringTag._value, "Map", false, false, true);
+
             FastAddProperty("clear", new ClrFunctionInstance(Engine, "clear", Clear, 0), true, false, true);
             FastAddProperty("delete", new ClrFunctionInstance(Engine, "delete", Delete, 1), true, false, true);
-            FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Entries, 0), true, false, true);
+            FastAddProperty("entries", iterator, true, false, true);
             FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1), true, false, true);
             FastAddProperty("get", new ClrFunctionInstance(Engine, "get", Get, 1), true, false, true);
             FastAddProperty("has", new ClrFunctionInstance(Engine, "has", Has, 1), true, false, true);
-            FastAddProperty("iterator", new ClrFunctionInstance(Engine, "iterator", Iterator, 1), true, false, true);
             FastAddProperty("keys", new ClrFunctionInstance(Engine, "keys", Keys, 0), true, false, true);
             FastAddProperty("set", new ClrFunctionInstance(Engine, "set", Set, 2), true, false, true);
             FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Values, 0), true, false, true);
@@ -76,14 +80,6 @@ namespace Jint.Native.Map
             return ((MapInstance) thisObj).Has(arguments[0])
                 ? JsBoolean.True
                 : JsBoolean.False;
-        }
-
-        private JsValue Entries(JsValue thisObj, JsValue[] arguments)
-        {
-            var map = thisObj as MapInstance
-                      ?? ExceptionHelper.ThrowTypeError<MapInstance>(_engine, "object must be a Map");
-
-            return map.Entries();
         }
 
         private JsValue ForEach(JsValue thisObj, JsValue[] arguments)

@@ -6,8 +6,10 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native.Array;
 using Jint.Native.Date;
+using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -141,6 +143,37 @@ namespace Jint.Native
                 ExceptionHelper.ThrowArgumentException("The value is not an array");
             }
             return this as ArrayInstance;
+        }
+        
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal IIterator GetIterator()
+        {
+            if (!(this is ObjectInstance oi))
+            {
+                ExceptionHelper.ThrowArgumentException("The value is not iterable");
+                return null;
+            }
+
+            // TODO
+            if (!oi.TryGetValue(GlobalSymbolRegistry.Iterator._value, out var value))
+            {
+                ExceptionHelper.ThrowArgumentException("The value is not iterable");
+                return null;
+            }
+
+            if (!(value is ICallable callable))
+            {
+                ExceptionHelper.ThrowArgumentException("The value is not iterable");
+                return null;
+            }
+
+            var obj = (ObjectInstance) callable.Call(this, System.Array.Empty<JsValue>());
+            if (obj is IIterator iterator)
+            {
+                return iterator;
+            }
+            return new IteratorInstance.ObjectWrapper(obj);
         }
 
         [Pure]

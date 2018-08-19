@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using Jint.Native.Iterator;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -55,6 +57,13 @@ namespace Jint.Native.Array
             FastAddProperty("reduceRight", new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1), true, false, true);
             FastAddProperty("find", new ClrFunctionInstance(Engine, "find", Find, 1), true, false, true);
             FastAddProperty("findIndex", new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1), true, false, true);
+            
+            FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Iterator, 1), true, false, true);
+        }
+        
+        private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)
+        {
+            return (ObjectInstance) ((IIterable) thisObj).Iterator();
         }
 
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
