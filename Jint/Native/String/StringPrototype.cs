@@ -77,13 +77,13 @@ namespace Jint.Native.String
         const char MONGOLIAN_VOWEL_SEPARATOR = '\u180E';
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool IsWhiteSpaceEx(char c)
+        internal static bool IsWhiteSpaceEx(char c, bool acceptMongolianVowelSeparator = true)
         {
             return
                 char.IsWhiteSpace(c) ||
                 c == BOM_CHAR ||
                 // In .NET 4.6 this was removed from WS based on Unicode 6.3 changes
-                c == MONGOLIAN_VOWEL_SEPARATOR;
+                (acceptMongolianVowelSeparator && c == MONGOLIAN_VOWEL_SEPARATOR);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -113,12 +113,12 @@ namespace Jint.Native.String
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string TrimStartEx(string s)
+        public static string TrimStartEx(string s, bool acceptMongolianVowelSeparator = true)
         {
             if (s.Length == 0)
                 return string.Empty;
 
-            if (!IsWhiteSpaceEx(s[0]))
+            if (!IsWhiteSpaceEx(s[0], acceptMongolianVowelSeparator))
                 return s;
 
             return TrimStart(s);
@@ -139,9 +139,9 @@ namespace Jint.Native.String
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string TrimEx(string s)
+        public static string TrimEx(string s, bool acceptMongolianVowelSeparator = true)
         {
-            return TrimEndEx(TrimStartEx(s));
+            return TrimEndEx(TrimStartEx(s, acceptMongolianVowelSeparator));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

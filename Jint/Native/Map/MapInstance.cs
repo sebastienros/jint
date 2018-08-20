@@ -10,7 +10,7 @@ namespace Jint.Native.Map
 {
     public class MapInstance : ObjectInstance
     {
-        private readonly OrderedDictionary<JsValue, JsValue> _map;
+        internal readonly OrderedDictionary<JsValue, JsValue> _map;
 
         public MapInstance(Engine engine)
             : base(engine, objectClass: "Map")
@@ -143,14 +143,5 @@ namespace Jint.Native.Map
         {
             return (uint) _map.Count;
         }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal KeyValuePair<JsValue, JsValue> GetEntry(int index)
-        {
-            var key = _map.GetKey(index);
-            var value = _map[key];
-            return new KeyValuePair<JsValue, JsValue>(key, value);
-        }
-
     }
 }

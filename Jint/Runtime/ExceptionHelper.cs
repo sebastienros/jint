@@ -102,6 +102,11 @@ namespace Jint.Runtime
             throw new ArgumentNullException(paramName);
         }
 
+        public static T ThrowArgumentNullException<T>(string paramName)
+        {
+            throw new ArgumentNullException(paramName);
+        }
+
         public static void ThrowError(Engine engine, string message)
         {
             throw new JavaScriptException(engine.Error, message);
