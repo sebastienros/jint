@@ -185,6 +185,7 @@ namespace Jint.Native.Iterator
         {
             private readonly List<JsValue> _values;
             private int _position;
+            private bool _closed;
 
             public ListIterator(Engine engine, List<JsValue> values) : base(engine)
             {
@@ -194,14 +195,15 @@ namespace Jint.Native.Iterator
 
             public override ObjectInstance Next()
             {
-                if (_position < _values.Count)
+                if (!_closed && _position < _values.Count)
                 {
                     var value = _values[_position];
                     _position++;
                     return new  ValueIteratorPosition(_engine, value);
                 }
 
-                return KeyValueIteratorPosition.Done;
+                _closed = true;
+                return ValueIteratorPosition.Done;
             }
         }
 
