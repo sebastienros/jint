@@ -446,7 +446,7 @@ namespace Jint.Native.Global
                         v = (c - 0xD800) * 0x400 + (kChar - 0xDC00) + 0x10000;
                     }
 
-                    byte[] octets = System.Array.Empty<byte>();
+                    byte[] octets = System.ArrayExt.Empty<byte>();
 
                     if (v >= 0 && v <= 0x007F)
                     {

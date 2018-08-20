@@ -469,7 +469,7 @@ namespace Jint.Native.Array
             }
             a.SetLength(actualDeleteCount);
 
-            var items = System.Array.Empty<JsValue>();
+            var items = System.ArrayExt.Empty<JsValue>();
             if (arguments.Length > 2)
             {
                 items = new JsValue[arguments.Length - 2];

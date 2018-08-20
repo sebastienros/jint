@@ -139,7 +139,7 @@ namespace Jint.Runtime.Interop
                 {
                     if (type == typeof(Action))
                     {
-                        return (Action)(() => function(JsValue.Undefined, Array.Empty<JsValue>()));
+                        return (Action)(() => function(JsValue.Undefined, ArrayExt.Empty<JsValue>()));
                     }
                     else if (typeof(MulticastDelegate).IsAssignableFrom(type))
                     {

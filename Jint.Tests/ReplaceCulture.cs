@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Threading;
 using System.Globalization;
 using System.Reflection;
 using Xunit.Sdk;
@@ -33,7 +34,7 @@ namespace Jint.Tests
             UICulture = new CultureInfo(currentUICulture);
         }
 
-#if NET451
+#if NET451 || NET452
         /// <summary>
         /// The <see cref="Thread.CurrentCulture"/> for the test. Defaults to en-GB.
         /// </summary>
@@ -54,7 +55,7 @@ namespace Jint.Tests
 #endif
         public CultureInfo Culture { get; }
 
-#if NET451
+#if NET451 || NET452
         /// <summary>
         /// The <see cref="Thread.CurrentUICulture"/> for the test. Defaults to en-US.
         /// </summary>
@@ -70,7 +71,7 @@ namespace Jint.Tests
             _originalCulture = CultureInfo.CurrentCulture;
             _originalUICulture = CultureInfo.CurrentUICulture;
 
-#if NET451
+#if NET451 || NET452
             Thread.CurrentThread.CurrentCulture = Culture;
             Thread.CurrentThread.CurrentUICulture = UICulture;
 #else
@@ -82,7 +83,7 @@ namespace Jint.Tests
 
         public override void After(MethodInfo methodUnderTest)
         {
-#if NET451
+#if NET451 || NET452
             Thread.CurrentThread.CurrentCulture = _originalCulture;
             Thread.CurrentThread.CurrentUICulture = _originalUICulture;
 #else

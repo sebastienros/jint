@@ -1,12 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <NeutralLanguage>en-US</NeutralLanguage>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;net45</TargetFrameworks>
     <AssemblyOriginatorKeyFile>Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Esprima" Version="1.0.0-beta-1036" />
+    <PackageReference Include="Esprima" Version="1.0.0-beta-1049" />
+    <PackageReference Condition=" '$(TargetFramework)' == 'net45' " Include="System.ValueTuple" Version="4.5.0" />
   </ItemGroup>
 </Project>

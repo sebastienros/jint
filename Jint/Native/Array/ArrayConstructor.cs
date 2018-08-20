@@ -106,12 +106,12 @@ namespace Jint.Native.Array
             {
                 ExceptionHelper.ThrowArgumentException("invalid array length", nameof(capacity));
             }
-            return Construct(System.Array.Empty<JsValue>(), (uint) capacity);
+            return Construct(System.ArrayExt.Empty<JsValue>(), (uint) capacity);
         }
 
         public ArrayInstance Construct(uint capacity)
         {
-            return Construct(System.Array.Empty<JsValue>(), capacity);
+            return Construct(System.ArrayExt.Empty<JsValue>(), capacity);
         }
 
         public ArrayInstance Construct(JsValue[] arguments, uint capacity)
