@@ -17975,8 +17975,8 @@
     source: "ch15/15.1/15.1.2/15.1.2.2/S15.1.2.2_A9.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Function.length is configurable in ES6",
     source: "ch15/15.1/15.1.2/15.1.2.2/S15.1.2.2_A9.2.js"
   },
   {
@@ -18175,8 +18175,8 @@
     source: "ch15/15.1/15.1.2/15.1.2.3/S15.1.2.3_A7.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Function.length is configurable in ES6",
     source: "ch15/15.1/15.1.2/15.1.2.3/S15.1.2.3_A7.2.js"
   },
   {

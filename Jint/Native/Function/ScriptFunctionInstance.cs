@@ -23,7 +23,11 @@ namespace Jint.Native.Function
         /// <param name="functionDeclaration"></param>
         /// <param name="scope"></param>
         /// <param name="strict"></param>
-        public ScriptFunctionInstance(Engine engine, IFunction functionDeclaration, LexicalEnvironment scope, bool strict)
+        public ScriptFunctionInstance(
+            Engine engine, 
+            IFunction functionDeclaration, 
+            LexicalEnvironment scope, 
+            bool strict)
             : base(engine, functionDeclaration.Id?.Name ?? "", GetParameterNames(functionDeclaration), scope, strict)
         {
             _functionDeclaration = functionDeclaration;

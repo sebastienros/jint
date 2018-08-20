@@ -5,6 +5,7 @@ using System.Text;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Global
@@ -57,8 +58,8 @@ namespace Jint.Native.Global
             FastAddProperty("undefined", Undefined, false, false, false);
 
             // Global object functions
-            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, "parseInt", ParseInt, 2), true, false, true);
-            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, "parseFloat", ParseFloat, 1), true, false, true);
+            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, "parseInt", ParseInt, 2, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, "parseFloat", ParseFloat, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("isNaN", new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1), true, false, true);
             FastAddProperty("isFinite", new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1), true, false, true);
             FastAddProperty("decodeURI", new ClrFunctionInstance(Engine, "decodeURI", DecodeUri, 1), true, false, true);
@@ -75,7 +76,7 @@ namespace Jint.Native.Global
         public static JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
         {
             string inputString = TypeConverter.ToString(arguments.At(0));
-            var s = StringPrototype.TrimEx(inputString);
+            var s = StringPrototype.TrimEx(inputString, acceptMongolianVowelSeparator: false);
 
             var sign = 1;
             if (!System.String.IsNullOrEmpty(s))
@@ -176,7 +177,7 @@ namespace Jint.Native.Global
         public static JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
         {
             var inputString = TypeConverter.ToString(arguments.At(0));
-            var trimmedString = StringPrototype.TrimStartEx(inputString);
+            var trimmedString = StringPrototype.TrimStartEx(inputString, acceptMongolianVowelSeparator: false);
 
             var sign = 1;
             if (trimmedString.Length > 0)

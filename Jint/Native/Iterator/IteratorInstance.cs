@@ -85,6 +85,7 @@ namespace Jint.Native.Iterator
         public class MapIterator : IteratorInstance
         {
             private readonly MapInstance _map;
+
             private int _position;
 
             public MapIterator(Engine engine, MapInstance map) : base(engine)
@@ -97,9 +98,11 @@ namespace Jint.Native.Iterator
             {
                 if (_position < _map.GetSize())
                 {
-                    var entry = _map.GetEntry(_position);
+                    var key  = _map._map.GetKey(_position);
+                    var value = _map._map[key];
+                    
                     _position++;
-                    return new  KeyValueIteratorPosition(_engine, entry.Key, entry.Value);
+                    return new KeyValueIteratorPosition(_engine, key, value);
                 }
 
                 return KeyValueIteratorPosition.Done;

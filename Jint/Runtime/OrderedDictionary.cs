@@ -23,7 +23,8 @@ namespace Jint.Runtime
     /// It can be costly to remove a key/value pair because other keys' indexes must be adjusted.
     /// </remarks>
     [DebuggerDisplay("Count = {Count}")]
-    internal sealed class OrderedDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IList<KeyValuePair<TKey, TValue>>
+    internal sealed class OrderedDictionary<TKey, TValue> 
+        : IDictionary<TKey, TValue>, IList<KeyValuePair<TKey, TValue>> where TKey : class where TValue : class
     {
         private readonly Dictionary<TKey, TValue> dictionary;
         private readonly List<TKey> keys;
@@ -75,14 +76,6 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// Gets the equality comparer used to compare keys.
-        /// </summary>
-        public IEqualityComparer<TKey> Comparer
-        {
-            get { return dictionary.Comparer; }
-        }
-
-        /// <summary>
         /// Adds the given key/value pair to the dictionary.
         /// </summary>
         /// <param name="key">The key to add to the dictionary.</param>
@@ -108,7 +101,7 @@ namespace Jint.Runtime
         {
             if (index < 0 || index > dictionary.Count)
             {
-                throw new ArgumentOutOfRangeException("index", index, IndexOutOfRange);
+                ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(index), IndexOutOfRange);
             }
             dictionary.Add(key, value);
             keys.Insert(index, key);
@@ -148,16 +141,22 @@ namespace Jint.Runtime
             {
                 return -1;
             }
-            return keys.FindIndex(item => dictionary.Comparer.Equals(item, key));
+            
+            var keysCount = keys.Count;
+            for (int i = 0; i < keysCount; ++i)
+            {
+                if (dictionary.Comparer.Equals(keys[i], key))
+                {
+                    return i;
+                }
+            }
+            return -1;
         }
 
         /// <summary>
         /// Gets the keys in the dictionary in the order they were added.
         /// </summary>
-        public KeyCollection Keys
-        {
-            get { return new KeyCollection(this); }
-        }
+        public KeyCollection Keys => new KeyCollection(this);
 
         /// <summary>
         /// Removes the key/value pair with the given key from the dictionary.
@@ -170,8 +169,15 @@ namespace Jint.Runtime
         {
             if (dictionary.Remove(key))
             {
-                int index = keys.FindIndex(item => dictionary.Comparer.Equals(item, key));
-                keys.RemoveAt(index);
+                var keysCount = keys.Count;
+                for (int i = 0; i < keysCount; ++i)
+                {
+                    if (dictionary.Comparer.Equals(keys[i], key))
+                    {
+                        keys.RemoveAt(i);
+                        break;
+                    }
+                }
                 return true;
             }
             return false;
@@ -206,10 +212,7 @@ namespace Jint.Runtime
         /// <summary>
         /// Gets the values in the dictionary.
         /// </summary>
-        public ValueCollection Values
-        {
-            get { return new ValueCollection(this); }
-        }
+        public ValueCollection Values => new ValueCollection(this);
 
         /// <summary>
         /// Gets or sets the value at the given index.
@@ -219,14 +222,8 @@ namespace Jint.Runtime
         /// <exception cref="System.ArgumentOutOfRangeException">The index is negative -or- beyond the length of the dictionary.</exception>
         public TValue this[int index]
         {
-            get
-            {
-                return dictionary[keys[index]];
-            }
-            set
-            {
-                dictionary[keys[index]] = value;
-            }
+            get => dictionary[keys[index]];
+            set => dictionary[keys[index]] = value;
         }
 
         /// <summary>
@@ -238,10 +235,7 @@ namespace Jint.Runtime
         /// <exception cref="System.Collections.Generic.KeyNotFoundException">The key is not in the dictionary.</exception>
         public TValue this[TKey key]
         {
-            get
-            {
-                return dictionary[key];
-            }
+            get => dictionary[key];
             set
             {
                 if (!dictionary.ContainsKey(key))
@@ -264,10 +258,7 @@ namespace Jint.Runtime
         /// <summary>
         /// Gets the number of key/value pairs in the dictionary.
         /// </summary>
-        public int Count
-        {
-            get { return dictionary.Count; }
-        }
+        public int Count => dictionary.Count;
 
         /// <summary>
         /// Gets the key/value pairs in the dictionary in the order they were added.
@@ -283,8 +274,7 @@ namespace Jint.Runtime
 
         int IList<KeyValuePair<TKey, TValue>>.IndexOf(KeyValuePair<TKey, TValue> item)
         {
-            TValue value;
-            if (!dictionary.TryGetValue(item.Key, out value))
+            if (!dictionary.TryGetValue(item.Key, out var value))
             {
                 return -1;
             }
@@ -292,16 +282,24 @@ namespace Jint.Runtime
             {
                 return -1;
             }
-            int index = keys.FindIndex(key => dictionary.Comparer.Equals(item.Key, key));
-            return index;
+            
+            var keysCount = keys.Count;
+            for (int i = 0; i < keysCount; ++i)
+            {
+                if (dictionary.Comparer.Equals(keys[i], item.Key))
+                {
+                    return i;
+                }
+            }
 
+            return -1;
         }
 
         void IList<KeyValuePair<TKey, TValue>>.Insert(int index, KeyValuePair<TKey, TValue> item)
         {
             if (index < 0 || index > dictionary.Count)
             {
-                throw new ArgumentOutOfRangeException("index", index, IndexOutOfRange);
+                ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(index), IndexOutOfRange);
             }
             dictionary.Add(item.Key, item.Value);
             keys.Insert(index, item.Key);
@@ -331,15 +329,9 @@ namespace Jint.Runtime
             }
         }
 
-        ICollection<TKey> IDictionary<TKey, TValue>.Keys
-        {
-            get { return Keys; }
-        }
+        ICollection<TKey> IDictionary<TKey, TValue>.Keys => Keys;
 
-        ICollection<TValue> IDictionary<TKey, TValue>.Values
-        {
-            get { return Values; }
-        }
+        ICollection<TValue> IDictionary<TKey, TValue>.Values => Values;
 
         void ICollection<KeyValuePair<TKey, TValue>>.Add(KeyValuePair<TKey, TValue> item)
         {
@@ -349,8 +341,7 @@ namespace Jint.Runtime
 
         bool ICollection<KeyValuePair<TKey, TValue>>.Contains(KeyValuePair<TKey, TValue> item)
         {
-            TValue value;
-            if (!dictionary.TryGetValue(item.Key, out value))
+            if (!dictionary.TryGetValue(item.Key, out var value))
             {
                 return false;
             }
@@ -361,15 +352,16 @@ namespace Jint.Runtime
         {
             if (array == null)
             {
-                throw new ArgumentNullException("array");
+                ExceptionHelper.ThrowArgumentNullException(nameof(array));
+                return;
             }
             if (arrayIndex < 0)
             {
-                throw new ArgumentOutOfRangeException("arrayIndex", arrayIndex, String.Format(CultureInfo.CurrentCulture, TooSmall, 0));
+                ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(arrayIndex), string.Format(CultureInfo.CurrentCulture, TooSmall, 0));
             }
             if (dictionary.Count > array.Length - arrayIndex)
             {
-                throw new ArgumentException(ArrayTooSmall, "array");
+                ExceptionHelper.ThrowArgumentException(ArrayTooSmall, nameof(array));
             }
             foreach (TKey key in keys)
             {
@@ -379,15 +371,11 @@ namespace Jint.Runtime
             }
         }
 
-        bool ICollection<KeyValuePair<TKey, TValue>>.IsReadOnly
-        {
-            get { return false; }
-        }
+        bool ICollection<KeyValuePair<TKey, TValue>>.IsReadOnly => false;
 
         bool ICollection<KeyValuePair<TKey, TValue>>.Remove(KeyValuePair<TKey, TValue> item)
         {
-            TValue value;
-            if (!dictionary.TryGetValue(item.Key, out value))
+            if (!dictionary.TryGetValue(item.Key, out var value))
             {
                 return false;
             }
@@ -397,8 +385,15 @@ namespace Jint.Runtime
             }
             // O(n)
             dictionary.Remove(item.Key);
-            int index = keys.FindIndex(key => dictionary.Comparer.Equals(item.Key, key));
-            keys.RemoveAt(index);
+
+            var keysCount = keys.Count;
+            for (int i = 0; i < keysCount; ++i)
+            {
+                if (dictionary.Comparer.Equals(keys[i], item.Key))
+                {
+                    keys.RemoveAt(i);
+                }
+            }
             return true;
         }
 
@@ -421,11 +416,8 @@ namespace Jint.Runtime
             /// <exception cref="System.ArgumentNullException">The dictionary is null.</exception>
             public KeyCollection(OrderedDictionary<TKey, TValue> dictionary)
             {
-                if (dictionary == null)
-                {
-                    throw new ArgumentNullException("dictionary");
-                }
-                parent = dictionary;
+                parent = dictionary 
+                         ?? ExceptionHelper.ThrowArgumentNullException<OrderedDictionary<TKey, TValue>>(nameof(dictionary));
             }
 
             /// <summary>
@@ -467,13 +459,13 @@ namespace Jint.Runtime
             [EditorBrowsable(EditorBrowsableState.Never)]
             void ICollection<TKey>.Add(TKey item)
             {
-                throw new NotSupportedException(EditReadOnlyList);
+                ExceptionHelper.ThrowNotSupportedException(EditReadOnlyList);
             }
 
             [EditorBrowsable(EditorBrowsableState.Never)]
             void ICollection<TKey>.Clear()
             {
-                throw new NotSupportedException(EditReadOnlyList);
+                ExceptionHelper.ThrowNotSupportedException(EditReadOnlyList);
             }
 
             [EditorBrowsable(EditorBrowsableState.Never)]
@@ -485,7 +477,8 @@ namespace Jint.Runtime
             [EditorBrowsable(EditorBrowsableState.Never)]
             bool ICollection<TKey>.Remove(TKey item)
             {
-                throw new NotSupportedException(EditReadOnlyList);
+                ExceptionHelper.ThrowNotSupportedException(EditReadOnlyList);
+                return false;
             }
 
             IEnumerator IEnumerable.GetEnumerator()
@@ -508,11 +501,8 @@ namespace Jint.Runtime
             /// <exception cref="System.ArgumentNullException">The dictionary is null.</exception>
             public ValueCollection(OrderedDictionary<TKey, TValue> dictionary)
             {
-                if (dictionary == null)
-                {
-                    throw new ArgumentNullException("dictionary");
-                }
-                parent = dictionary;
+                parent = dictionary 
+                         ?? ExceptionHelper.ThrowArgumentNullException<OrderedDictionary<TKey, TValue>>(nameof(dictionary));
             }
 
             /// <summary>
@@ -527,15 +517,16 @@ namespace Jint.Runtime
             {
                 if (array == null)
                 {
-                    throw new ArgumentNullException("array");
+                    ExceptionHelper.ThrowArgumentNullException(nameof(array));
+                    return;
                 }
                 if (arrayIndex < 0)
                 {
-                    throw new ArgumentOutOfRangeException("arrayIndex", arrayIndex, String.Format(TooSmall, 0));
+                    ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(arrayIndex), string.Format(TooSmall, 0));
                 }
                 if (parent.dictionary.Count > array.Length - arrayIndex)
                 {
-                    throw new ArgumentException(ArrayTooSmall, "array");
+                    ExceptionHelper.ThrowArgumentException(ArrayTooSmall, nameof(array));
                 }
                 foreach (TKey key in parent.keys)
                 {
@@ -548,10 +539,7 @@ namespace Jint.Runtime
             /// <summary>
             /// Gets the number of values in the OrderedDictionary.
             /// </summary>
-            public int Count
-            {
-                get { return parent.dictionary.Count; }
-            }
+            public int Count => parent.dictionary.Count;
 
             /// <summary>
             /// Gets an enumerator over the values in the OrderedDictionary.
@@ -575,25 +563,23 @@ namespace Jint.Runtime
             [EditorBrowsable(EditorBrowsableState.Never)]
             void ICollection<TValue>.Add(TValue item)
             {
-                throw new NotSupportedException(EditReadOnlyList);
+                ExceptionHelper.ThrowNotSupportedException(EditReadOnlyList);
             }
 
             [EditorBrowsable(EditorBrowsableState.Never)]
             void ICollection<TValue>.Clear()
             {
-                throw new NotSupportedException(EditReadOnlyList);
+                ExceptionHelper.ThrowNotSupportedException(EditReadOnlyList);
             }
 
             [EditorBrowsable(EditorBrowsableState.Never)]
-            bool ICollection<TValue>.IsReadOnly
-            {
-                get { return true; }
-            }
+            bool ICollection<TValue>.IsReadOnly => true;
 
             [EditorBrowsable(EditorBrowsableState.Never)]
             bool ICollection<TValue>.Remove(TValue item)
             {
-                throw new NotSupportedException(EditReadOnlyList);
+                ExceptionHelper.ThrowNotSupportedException(EditReadOnlyList);
+                return false;
             }
 
             IEnumerator IEnumerable.GetEnumerator()
