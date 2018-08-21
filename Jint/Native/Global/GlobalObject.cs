@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -62,10 +63,10 @@ namespace Jint.Native.Global
             FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, "parseFloat", ParseFloat, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("isNaN", new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1), true, false, true);
             FastAddProperty("isFinite", new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1), true, false, true);
-            FastAddProperty("decodeURI", new ClrFunctionInstance(Engine, "decodeURI", DecodeUri, 1), true, false, true);
-            FastAddProperty("decodeURIComponent", new ClrFunctionInstance(Engine, "decodeURIComponent", DecodeUriComponent, 1), true, false, true);
-            FastAddProperty("encodeURI", new ClrFunctionInstance(Engine, "encodeURI", EncodeUri, 1), true, false, true);
-            FastAddProperty("encodeURIComponent", new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1), true, false, true);
+            FastAddProperty("decodeURI", new ClrFunctionInstance(Engine, "decodeURI", DecodeUri, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("decodeURIComponent", new ClrFunctionInstance(Engine, "decodeURIComponent", DecodeUriComponent, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("encodeURI", new ClrFunctionInstance(Engine, "encodeURI", EncodeUri, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("encodeURIComponent", new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("escape", new ClrFunctionInstance(Engine, "escape", Escape, 1), true, false, true);
             FastAddProperty("unescape", new ClrFunctionInstance(Engine, "unescape", Unescape, 1), true, false, true);
         }
@@ -350,9 +351,12 @@ namespace Jint.Native.Global
             return true;
         }
 
-        private static readonly char[] UriReserved = { ';', '/', '?', ':', '@', '&', '=', '+', '$', ',' };
+        private static readonly HashSet<char> UriReserved = new HashSet<char>
+        {
+            ';', '/', '?', ':', '@', '&', '=', '+', '$', ','
+        };
 
-        private static readonly char[] UriUnescaped =
+        private static readonly HashSet<char> UriUnescaped = new HashSet<char>
         {
             'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
             'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
@@ -360,8 +364,8 @@ namespace Jint.Native.Global
             '~', '*', '\'', '(', ')'
         };
 
-        private static readonly char[] UnescapedUriSet = UriReserved.Concat(UriUnescaped).Concat(new[] { '#' }).ToArray();
-        private static readonly char[] ReservedUriSet = UriReserved.Concat(new[] { '#' }).ToArray();
+        private static readonly HashSet<char> UnescapedUriSet = new HashSet<char>(UriReserved.Concat(UriUnescaped).Concat(new[] { '#' }));
+        private static readonly HashSet<char> ReservedUriSet = new HashSet<char>(UriReserved.Concat(new[] { '#' }));
 
         private const string HexaMap = "0123456789ABCDEF";
 
@@ -399,7 +403,7 @@ namespace Jint.Native.Global
             return Encode(uriString, UriUnescaped);
         }
 
-        private string Encode(string uriString, char[] unescapedUriSet)
+        private string Encode(string uriString, HashSet<char> unescapedUriSet)
         {
             var strLen = uriString.Length;
 
@@ -409,7 +413,7 @@ namespace Jint.Native.Global
             for (var k = 0; k < strLen; k++)
             {
                 var c = uriString[k];
-                if (System.Array.IndexOf(unescapedUriSet, c) != -1)
+                if (unescapedUriSet != null && unescapedUriSet.Contains(c))
                 {
                     _stringBuilder.Append(c);
                 }
@@ -515,12 +519,11 @@ namespace Jint.Native.Global
         public JsValue DecodeUriComponent(JsValue thisObject, JsValue[] arguments)
         {
             var componentString = TypeConverter.ToString(arguments.At(0));
-            var reservedUriComponentSet = new char[0];
 
-            return Decode(componentString, reservedUriComponentSet);
+            return Decode(componentString, null);
         }
 
-        public string Decode(string uriString, char[] reservedSet)
+        private string Decode(string uriString, HashSet<char> reservedSet)
         {
             var strLen = uriString.Length;
 
@@ -553,7 +556,7 @@ namespace Jint.Native.Global
                     if ((B & 0x80) == 0)
                     {
                         C = (char)B;
-                        if (System.Array.IndexOf(reservedSet, C) == -1)
+                        if (reservedSet == null || !reservedSet.Contains(C))
                         {
                             _stringBuilder.Append(C);
                         }

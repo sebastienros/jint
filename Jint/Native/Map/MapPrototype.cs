@@ -1,5 +1,4 @@
-﻿using Jint.Native.Function;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -45,11 +44,11 @@ namespace Jint.Native.Map
             FastAddProperty("keys", new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("set", new ClrFunctionInstance(Engine, "set", Set, 2, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true);
-            
+
             AddProperty(
-                "size", 
+                "size",
                 new GetSetPropertyDescriptor(
-                    get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable), 
+                    get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable),
                     set: null,
                     PropertyFlag.Configurable));
         }
@@ -62,7 +61,7 @@ namespace Jint.Native.Map
             }
             return JsNumber.Create(0);
         }
-        
+
         private JsValue Get(JsValue thisObj, JsValue[] arguments)
         {
             return ((MapInstance) thisObj).Get(arguments.At(0));

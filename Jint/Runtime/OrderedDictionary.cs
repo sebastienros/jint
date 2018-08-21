@@ -2,7 +2,6 @@
 // https://github.com/jehugaleahsa/truncon.collections.OrderedDictionary/blob/master/UNLICENSE.txt
 
 
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -23,7 +22,7 @@ namespace Jint.Runtime
     /// It can be costly to remove a key/value pair because other keys' indexes must be adjusted.
     /// </remarks>
     [DebuggerDisplay("Count = {Count}")]
-    internal sealed class OrderedDictionary<TKey, TValue> 
+    internal sealed class OrderedDictionary<TKey, TValue>
         : IDictionary<TKey, TValue>, IList<KeyValuePair<TKey, TValue>> where TKey : class where TValue : class
     {
         private readonly Dictionary<TKey, TValue> dictionary;
@@ -141,7 +140,7 @@ namespace Jint.Runtime
             {
                 return -1;
             }
-            
+
             var keysCount = keys.Count;
             for (int i = 0; i < keysCount; ++i)
             {
@@ -282,7 +281,7 @@ namespace Jint.Runtime
             {
                 return -1;
             }
-            
+
             var keysCount = keys.Count;
             for (int i = 0; i < keysCount; ++i)
             {
@@ -416,7 +415,7 @@ namespace Jint.Runtime
             /// <exception cref="System.ArgumentNullException">The dictionary is null.</exception>
             public KeyCollection(OrderedDictionary<TKey, TValue> dictionary)
             {
-                parent = dictionary 
+                parent = dictionary
                          ?? ExceptionHelper.ThrowArgumentNullException<OrderedDictionary<TKey, TValue>>(nameof(dictionary));
             }
 
@@ -501,7 +500,7 @@ namespace Jint.Runtime
             /// <exception cref="System.ArgumentNullException">The dictionary is null.</exception>
             public ValueCollection(OrderedDictionary<TKey, TValue> dictionary)
             {
-                parent = dictionary 
+                parent = dictionary
                          ?? ExceptionHelper.ThrowArgumentNullException<OrderedDictionary<TKey, TValue>>(nameof(dictionary));
             }
 
