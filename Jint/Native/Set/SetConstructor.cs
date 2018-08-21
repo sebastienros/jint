@@ -1,5 +1,4 @@
 ﻿using Jint.Native.Function;
-using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -88,7 +87,7 @@ namespace Jint.Native.Set
                     {
                         ExceptionHelper.ThrowTypeError(_engine, "add must be callable");
                     }
-                    
+
                     var args = _engine._jsValueArrayPool.RentArray(1);
                     try
                     {

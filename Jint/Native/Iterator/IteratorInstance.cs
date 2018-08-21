@@ -4,7 +4,6 @@ using Jint.Native.Array;
 using Jint.Native.Map;
 using Jint.Native.Object;
 using Jint.Native.Set;
-using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Iterator
@@ -100,7 +99,7 @@ namespace Jint.Native.Iterator
                 {
                     var key  = _map._map.GetKey(_position);
                     var value = _map._map[key];
-                    
+
                     _position++;
                     return new KeyValueIteratorPosition(_engine, key, value);
                 }
@@ -156,7 +155,7 @@ namespace Jint.Native.Iterator
                 return KeyValueIteratorPosition.Done;
             }
         }
-        
+
         public class SetEntryIterator : IteratorInstance
         {
             private readonly SetInstance _set;
@@ -180,7 +179,7 @@ namespace Jint.Native.Iterator
                 return KeyValueIteratorPosition.Done;
             }
         }
-        
+
         public class ListIterator : IteratorInstance
         {
             private readonly List<JsValue> _values;
