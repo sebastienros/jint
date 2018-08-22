@@ -2,8 +2,10 @@
 using System.Runtime.CompilerServices;
 using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
@@ -30,12 +32,23 @@ namespace Jint.Native.Array
             // The initial value of Array.prototype is the Array prototype object
             obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
+            obj.SetOwnProperty(GlobalSymbolRegistry.Species._value,
+                new GetSetPropertyDescriptor(
+                    get: new ClrFunctionInstance(engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable),
+                    set: Undefined,
+                    PropertyFlag.Configurable));
+
             return obj;
         }
 
         public void Configure()
         {
             SetOwnProperty("isArray", new PropertyDescriptor(new ClrFunctionInstance(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable));
+        }
+
+        private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+        {
+            return thisObject;
         }
 
         private static JsValue IsArray(JsValue thisObj, JsValue[] arguments)

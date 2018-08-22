@@ -1,5 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
-using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -10,11 +9,7 @@ namespace Jint.Native.Set
     {
         internal readonly OrderedSet<JsValue> _set;
 
-        public SetInstance(Engine engine) : this(engine, null)
-        {
-        }
-
-        public SetInstance(Engine engine, IIterable items)
+        public SetInstance(Engine engine)
             : base(engine, objectClass: "Map")
         {
             _set = new OrderedSet<JsValue>();

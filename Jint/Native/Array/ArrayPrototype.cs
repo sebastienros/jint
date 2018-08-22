@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -37,6 +36,8 @@ namespace Jint.Native.Array
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString, 0), true, false, true);
             FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), true, false, true);
             FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1), true, false, true);
+            FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("fill", new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("join", new ClrFunctionInstance(Engine, "join", Join, 1), true, false, true);
             FastAddProperty("pop", new ClrFunctionInstance(Engine, "pop", Pop), true, false, true);
             FastAddProperty("push", new ClrFunctionInstance(Engine, "push", Push, 1), true, false, true);
@@ -48,22 +49,63 @@ namespace Jint.Native.Array
             FastAddProperty("unshift", new ClrFunctionInstance(Engine, "unshift", Unshift, 1), true, false, true);
             FastAddProperty("indexOf", new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1), true, false, true);
             FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1), true, false, true);
-            FastAddProperty("every", new ClrFunctionInstance(Engine, "every", Every, 1), true, false, true);
+            FastAddProperty("every", new ClrFunctionInstance(Engine, "every", Every, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("some", new ClrFunctionInstance(Engine, "some", Some, 1), true, false, true);
             FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1), true, false, true);
             FastAddProperty("map", new ClrFunctionInstance(Engine, "map", Map, 1), true, false, true);
-            FastAddProperty("filter", new ClrFunctionInstance(Engine, "filter", Filter, 1), true, false, true);
+            FastAddProperty("filter", new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("reduce", new ClrFunctionInstance(Engine, "reduce", Reduce, 1), true, false, true);
             FastAddProperty("reduceRight", new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1), true, false, true);
-            FastAddProperty("find", new ClrFunctionInstance(Engine, "find", Find, 1), true, false, true);
+            FastAddProperty("find", new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("findIndex", new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1), true, false, true);
-            
+
             FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Iterator, 1), true, false, true);
         }
-        
+
         private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)
         {
-            return (ObjectInstance) ((IIterable) thisObj).Iterator();
+            var array = thisObj as ArrayInstance;
+            return _engine.Iterator.Construct(array);
+        }
+
+        private JsValue Fill(JsValue thisObj, JsValue[] arguments)
+        {
+            var target = thisObj as ObjectInstance;
+            var operations = ArrayOperations.For(target);
+            var length = operations.GetLength();
+
+            var value = arguments.At(0);
+
+            var start = arguments.At(1, 0).AsNumber();
+            var relativeStart = TypeConverter.ToInteger(start);
+            uint actualStart;
+            if (relativeStart < 0)
+            {
+                actualStart = (uint) System.Math.Max(length + relativeStart, 0);
+            }
+            else
+            {
+                actualStart = (uint) System.Math.Min(relativeStart, length);
+            }
+
+            var end = arguments.At(2, length).AsNumber();
+            var relativeEnd = TypeConverter.ToInteger(end);
+            uint actualEnd;
+            if (relativeEnd < 0)
+            {
+                actualEnd = (uint) System.Math.Max(length + relativeEnd, 0);
+            }
+            else
+            {
+                actualEnd = (uint) System.Math.Min(relativeEnd, length);
+            }
+
+            for (var i = actualStart; i < actualEnd; ++i)
+            {
+                operations.Put(i, value, false);
+            }
+
+            return target;
         }
 
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)

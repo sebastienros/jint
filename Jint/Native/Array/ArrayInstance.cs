@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -10,7 +9,7 @@ using TypeConverter = Jint.Runtime.TypeConverter;
 
 namespace Jint.Native.Array
 {
-    public class ArrayInstance : ObjectInstance, IIterable
+    public class ArrayInstance : ObjectInstance
     {
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
@@ -637,11 +636,6 @@ namespace Jint.Native.Array
             };
         }
 
-        IIterator IIterable.Iterator()
-        {
-            return new IteratorInstance.ArrayIterator(_engine, this);
-        }
-
         internal uint Push(JsValue[] arguments)
         {
             var initialLength = GetLength();
@@ -728,6 +722,11 @@ namespace Jint.Native.Array
             out uint index,
             out JsValue value)
         {
+
+            var callbackfn = arguments.At(0);
+            var thisArg = arguments.At(1);
+            var callable = GetCallable(callbackfn);
+
             var len = GetLength();
             if (len == 0)
             {
@@ -736,25 +735,19 @@ namespace Jint.Native.Array
                 return false;
             }
 
-            var callbackfn = arguments.At(0);
-            var thisArg = arguments.At(1);
-            var callable = GetCallable(callbackfn);
-
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
             for (uint k = 0; k < len; k++)
             {
-                if (TryGetValue(k, out var kvalue))
+                TryGetValue(k, out var kvalue);
+                args[0] = kvalue;
+                args[1] = k;
+                var testResult = callable.Call(thisArg, args);
+                if (TypeConverter.ToBoolean(testResult))
                 {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
-                    {
-                        index = k;
-                        value = kvalue;
-                        return true;
-                    }
+                    index = k;
+                    value = kvalue;
+                    return true;
                 }
             }
 

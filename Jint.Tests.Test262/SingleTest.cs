@@ -24,7 +24,7 @@ namespace Jint.Tests.Test262
             var sourceFile = SourceFiles("built-ins", false)
                 .SelectMany(x => x)
                 .Cast<SourceFile>()
-                .First(x => x.Source == @"built-ins\Set\prototype\values\values-iteration-mutable.js");
+                .First(x => x.Source == @"built-ins/Array/prototype/fill/fill-values-relative-start.js");
 
             var code = File.ReadAllText(sourceFile.FullPath);
             RunTestCode(code, strict: true);
