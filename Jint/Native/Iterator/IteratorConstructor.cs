@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Map;
 using Jint.Native.Object;
@@ -58,10 +59,21 @@ namespace Jint.Native.Iterator
 
             return instance;
         }
-        
+
         internal ObjectInstance Construct(List<JsValue> enumerable)
         {
             var instance = new IteratorInstance.ListIterator(Engine, enumerable)
+            {
+                Prototype = PrototypeObject,
+                Extensible = true
+            };
+
+            return instance;
+        }
+
+        internal ObjectInstance Construct(ArrayInstance array)
+        {
+            var instance = new IteratorInstance.ArrayIterator(Engine, array)
             {
                 Prototype = PrototypeObject,
                 Extensible = true
@@ -91,7 +103,7 @@ namespace Jint.Native.Iterator
 
             return instance;
         }
-        
+
         internal ObjectInstance ConstructEntryIterator(SetInstance set)
         {
             var instance = new IteratorInstance.SetEntryIterator(Engine, set)
