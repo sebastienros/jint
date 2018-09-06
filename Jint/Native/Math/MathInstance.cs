@@ -20,7 +20,6 @@ namespace Jint.Native.Math
             math.Extensible = true;
             math.Prototype = engine.Object.PrototypeObject;
 
-            
             return math;
         }
 
@@ -44,6 +43,10 @@ namespace Jint.Native.Math
             FastAddProperty("sin", new ClrFunctionInstance(Engine, Sin), true, false, true);
             FastAddProperty("sqrt", new ClrFunctionInstance(Engine, Sqrt), true, false, true);
             FastAddProperty("tan", new ClrFunctionInstance(Engine, Tan), true, false, true);
+
+            FastAddProperty("trunc", new ClrFunctionInstance(Engine, Truncate), true, false, true);
+            FastAddProperty("sign", new ClrFunctionInstance(Engine, Sign), true, false, true);
+            FastAddProperty("cbrt", new ClrFunctionInstance(Engine, Cbrt), true, false, true);
 
             FastAddProperty("E", System.Math.E, false, false, false);
             FastAddProperty("LN10", System.Math.Log(10), false, false, false);
@@ -650,6 +653,91 @@ namespace Jint.Native.Math
             return System.Math.Tan(x);
         }
 
+        private static JsValue Truncate(JsValue thisObject, JsValue[] arguments)
+        {
+            var x = TypeConverter.ToNumber(arguments.At(0));
 
+            if (double.IsNaN(x))
+            {
+                return double.NaN;
+            }
+            else if (NumberInstance.IsPositiveZero(x))
+            {
+                return +0;
+            }
+            else if (NumberInstance.IsNegativeZero(x))
+            {
+                return -0;
+            }
+            else if (double.IsPositiveInfinity(x))
+            {
+                return double.PositiveInfinity;
+            }
+            else if (double.IsNegativeInfinity(x))
+            {
+                return double.NegativeInfinity;
+            }
+
+            return System.Math.Truncate(x);
+        }
+
+        private static JsValue Sign(JsValue thisObject, JsValue[] arguments)
+        {
+            var x = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(x))
+            {
+                return double.NaN;
+            }
+            else if (NumberInstance.IsPositiveZero(x))
+            {
+                return +0;
+            }
+            else if (NumberInstance.IsNegativeZero(x))
+            {
+                return -0;
+            }
+            else if (double.IsPositiveInfinity(x))
+            {
+                return double.PositiveInfinity;
+            }
+            else if (double.IsNegativeInfinity(x))
+            {
+                return double.NegativeInfinity;
+            }
+
+            return System.Math.Sign(x);
+        }
+
+        private static JsValue Cbrt(JsValue thisObject, JsValue[] arguments)
+        {
+            var x = TypeConverter.ToNumber(arguments.At(0));
+
+            if (double.IsNaN(x))
+            {
+                return double.NaN;
+            }
+            else if (NumberInstance.IsPositiveZero(x))
+            {
+                return +0;
+            }
+            else if (NumberInstance.IsNegativeZero(x))
+            {
+                return -0;
+            }
+            else if (double.IsPositiveInfinity(x))
+            {
+                return double.PositiveInfinity;
+            }
+            else if (double.IsNegativeInfinity(x))
+            {
+                return double.NegativeInfinity;
+            }
+
+            if (System.Math.Sign(x) >= 0)
+                return System.Math.Pow(x, 1.0/3.0);
+
+            return -1 * System.Math.Pow(System.Math.Abs(x), 1.0 / 3.0);
+        }
     }
 }
