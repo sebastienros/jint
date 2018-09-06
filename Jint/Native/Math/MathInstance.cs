@@ -661,19 +661,18 @@ namespace Jint.Native.Math
             {
                 return double.NaN;
             }
-            else if (NumberInstance.IsPositiveZero(x))
+
+            if (NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
             {
-                return +0;
+                return x;
             }
-            else if (NumberInstance.IsNegativeZero(x))
-            {
-                return -0;
-            }
-            else if (double.IsPositiveInfinity(x))
+
+            if (double.IsPositiveInfinity(x))
             {
                 return double.PositiveInfinity;
             }
-            else if (double.IsNegativeInfinity(x))
+
+            if (double.IsNegativeInfinity(x))
             {
                 return double.NegativeInfinity;
             }
@@ -689,21 +688,20 @@ namespace Jint.Native.Math
             {
                 return double.NaN;
             }
-            else if (NumberInstance.IsPositiveZero(x))
+
+            if (NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
             {
-                return +0;
+                return x;
             }
-            else if (NumberInstance.IsNegativeZero(x))
+
+            if (double.IsPositiveInfinity(x))
             {
-                return -0;
+                return 1;
             }
-            else if (double.IsPositiveInfinity(x))
+
+            if (double.IsNegativeInfinity(x))
             {
-                return double.PositiveInfinity;
-            }
-            else if (double.IsNegativeInfinity(x))
-            {
-                return double.NegativeInfinity;
+                return -1;
             }
 
             return System.Math.Sign(x);

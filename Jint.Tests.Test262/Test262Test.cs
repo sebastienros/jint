@@ -1,94 +1,87 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Enumeration;
 using System.Reflection;
 using Jint.Runtime;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace Jint.Tests.Test262
 {
-    public class Test262Test
+    public abstract class Test262Test
     {
-        private static string _lastError;
-        private static string[] sources;
-        protected Action<string> Error = s => { _lastError = s; };
-        protected string BasePath;
+        private static readonly string[] Sources;
 
-        public Test262Test()
+        private static readonly string BasePath;
+
+        private static readonly TimeZoneInfo _pacificTimeZone;
+
+        private static readonly Dictionary<string, string> _skipReasons =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+
+        static Test262Test()
         {
+            //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
+            _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+
             var assemblyPath = new Uri(typeof(Test262Test).GetTypeInfo().Assembly.CodeBase).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
 
             BasePath = assemblyDirectory.Parent.Parent.Parent.FullName;
+
+            string[] files =
+            {
+                @"harness\sta.js",
+                @"harness\assert.js",
+                @"harness\propertyHelper.js",
+                @"harness\compareArray.js",
+                @"harness\decimalToHexString.js",
+            };
+
+            Sources = new string[files.Length];
+            for (var i = 0; i < files.Length; i++)
+            {
+                Sources[i] = File.ReadAllText(Path.Combine(BasePath, files[i]));
+            }
+
+            var content = File.ReadAllText(Path.Combine(BasePath, "test/skipped.json"));
+            var doc = JArray.Parse(content);
+            foreach (var entry in doc.Values<JObject>())
+            {
+                _skipReasons[entry["source"].Value<string>()] = entry["reason"].Value<string>();
+            }
         }
 
-        protected void RunTestCode(string code, bool negative)
+        protected void RunTestCode(string code, bool strict)
         {
-            _lastError = null;
+            var engine = new Engine(cfg => cfg
+                .LocalTimeZone(_pacificTimeZone)
+                .Strict(strict));
 
-            //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
-            var pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
-            var engine = new Engine(cfg => cfg.LocalTimeZone(pacificTimeZone));
-
-            // loading driver
-            if (sources == null)
+            for (int i = 0; i < Sources.Length; ++i)
             {
-                string[] files =
-                {
-                    @"harness\sta.js",
-                    @"harness\assert.js",
-                    @"harness\propertyHelper.js",
-                };
-
-                sources = new string[files.Length];
-                for (var i = 0; i < files.Length; i++)
-                {
-                    sources[i] = File.ReadAllText(Path.Combine(BasePath, files[i]));
-                }
+                engine.Execute(Sources[i]);
             }
 
-            for (int i = 0; i < sources.Length; ++i)
+            string lastError = null;
+            try
             {
-                engine.Execute(sources[i]);
+                engine.Execute(code);
+            }
+            catch (JavaScriptException j)
+            {
+                lastError = TypeConverter.ToString(j.Error);
+            }
+            catch (Exception e)
+            {
+                lastError = e.ToString();
             }
 
-            if (negative)
-            {
-                try
-                {
-                    engine.Execute(code);
-                    Assert.True(_lastError != null);
-                    Assert.False(true);
-                }
-                catch
-                {
-                    // exception is expected
-                }
-            }
-            else
-            {
-                try
-                {
-                    engine.Execute(code);
-                }
-                catch (JavaScriptException j)
-                {
-                    _lastError = TypeConverter.ToString(j.Error);
-                }
-                catch (Exception e)
-                {
-                    _lastError = e.ToString();
-                }
-
-                Assert.Null(_lastError);
-            }
+            Assert.Null(lastError);
         }
 
-        [Theory(DisplayName = "Test256")]
-        [MemberData(nameof(SourceFiles), false)]
-        [MemberData(nameof(SourceFiles), true, Skip = "Skipped")]
-        protected void RunTest(SourceFile sourceFile)
+        protected void RunTestInternal(SourceFile sourceFile)
         {
             var fullName = sourceFile.FullPath;
             if (!File.Exists(fullName))
@@ -97,76 +90,76 @@ namespace Jint.Tests.Test262
             }
 
             string code = File.ReadAllText(fullName);
-            var negative = code.Contains("@negative");
-
-            RunTestCode(code, negative);
+            RunTestCode(code);
         }
 
-        public static IEnumerable<object[]> SourceFiles(bool skipped)
+        private void RunTestCode(string code)
         {
-            var assemblyPath = new Uri(typeof(Test262Test).GetTypeInfo().Assembly.CodeBase).LocalPath;
-            var assemblyDirectory = new FileInfo(assemblyPath).Directory;
-
-            var localPath = assemblyDirectory.Parent.Parent.Parent.FullName;
-
-            // which tests to include, narrower scope and selectively adding tests
-            var paths = new[]
+            if (code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0)
             {
-                "built-ins\\Map"
-            };
+                RunTestCode(code, strict: false);
+            }
 
+            if (code.IndexOf("noStrict", StringComparison.Ordinal) < 0)
+            {
+                RunTestCode(code, strict: true);
+            }
+        }
 
+        public static IEnumerable<object[]> SourceFiles(string pathPrefix, bool skipped)
+        {
             var results = new List<object[]>();
-            var fixturesPath = Path.Combine(localPath, "test");
-            foreach (var path in paths)
+            var fixturesPath = Path.Combine(BasePath, "test");
+            var searchPath = Path.Combine(fixturesPath, pathPrefix);
+            var files = Directory.GetFiles(searchPath, "*", SearchOption.AllDirectories);
+
+            foreach (var file in files)
             {
-                var searchPath = Path.Combine(fixturesPath, path);
-                var files = Directory.GetFiles(searchPath, "*", SearchOption.AllDirectories);
+                var name = file.Substring(fixturesPath.Length + 1).Replace("\\", "/");
+                bool skip = _skipReasons.TryGetValue(name, out var reason);
 
-                foreach (var file in files)
+                var sourceFile = new SourceFile(
+                    name,
+                    file,
+                    skip,
+                    reason);
+
+                if (skipped == sourceFile.Skip)
                 {
-                    var sourceFile = new SourceFile(
-                        path + file.Replace(searchPath, ""),
-                        file,
-                        skip: false,
-                        reason: "");
-
-                    if (skipped == sourceFile.Skip)
+                    results.Add(new object[]
                     {
-                        results.Add(new object[]
-                        {
-                            sourceFile
-                        });
-                    }
+                        sourceFile
+                    });
                 }
             }
 
             return results;
         }
+    }
 
-        public class SourceFile
+    public class SourceFile
+    {
+        public SourceFile(
+            string source,
+            string fullPath,
+            bool skip,
+            string reason)
         {
-            public SourceFile(
-                string source,
-                string fullPath,
-                bool skip,
-                string reason)
-            {
-                Skip = skip;
-                Source = source;
-                Reason = reason;
-                FullPath = fullPath;
-            }
+            Skip = skip;
+            Source = source;
+            Reason = reason;
+            FullPath = fullPath;
+        }
 
-            public string Source { get; set; }
-            public bool Skip { get; set; }
-            public string Reason { get; set; }
-            public string FullPath { get; }
+        public string Source { get; }
+        public bool Skip { get; }
+        public string Reason { get; }
+        public string FullPath { get; }
 
-            public override string ToString()
-            {
-                return Source;
-            }
+        public override string ToString()
+        {
+            return Source;
         }
     }
+
 }
