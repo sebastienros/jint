@@ -4,6 +4,7 @@ using Jint.Native.Array;
 using Jint.Native.Map;
 using Jint.Native.Object;
 using Jint.Native.Set;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Iterator
@@ -110,22 +111,33 @@ namespace Jint.Native.Iterator
 
         public class ArrayIterator : IteratorInstance
         {
-            private readonly ArrayInstance _array;
+            private readonly ArrayPrototype.ArrayOperations _array;
+            private uint? _end;
             private uint _position;
 
-            public ArrayIterator(Engine engine, ArrayInstance array) : base(engine)
+            public ArrayIterator(Engine engine, JsValue target) : base(engine)
             {
-                _array = array;
+                if (!(target is ObjectInstance objectInstance))
+                {
+                    ExceptionHelper.ThrowTypeError(engine, "Target must be an object");
+                    return;
+                }
+
+                _array = ArrayPrototype.ArrayOperations.For(objectInstance);
                 _position = 0;
             }
 
             public override ObjectInstance Next()
             {
-                if (_position < _array.GetLength())
+                if (_end == null)
+                {
+                    _end = _array.GetLength();
+                }
+
+                if (_position < _end.Value)
                 {
                     _array.TryGetValue(_position, out var value);
-                    _position++;
-                    return new  ValueIteratorPosition(_engine, value);
+                    return new KeyValueIteratorPosition(_engine, _position++, value);
                 }
 
                 return KeyValueIteratorPosition.Done;

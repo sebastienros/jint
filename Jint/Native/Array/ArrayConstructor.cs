@@ -43,7 +43,24 @@ namespace Jint.Native.Array
 
         public void Configure()
         {
+            SetOwnProperty("from",new PropertyDescriptor(new ClrFunctionInstance(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
             SetOwnProperty("isArray", new PropertyDescriptor(new ClrFunctionInstance(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable));
+            SetOwnProperty("of", new PropertyDescriptor(new ClrFunctionInstance(Engine, "of", Of, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
+        }
+
+        private JsValue From(JsValue thisObj, JsValue[] arguments)
+        {
+            var source = arguments.At(0);
+            if (source is IArrayLike arrayLike)
+            {
+                arrayLike.ToArray(_engine);
+            }
+            return Undefined;
+        }
+
+        private JsValue Of(JsValue thisObj, JsValue[] arguments)
+        {
+            return Undefined;
         }
 
         private static JsValue Species(JsValue thisObject, JsValue[] arguments)
