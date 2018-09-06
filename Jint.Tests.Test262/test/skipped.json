@@ -1,0 +1,18 @@
+[
+  {
+    "source": "built-ins/Math/sign/name.js",
+    "reason": "name not yet implemented"
+  },
+  {
+    "source": "built-ins/Math/sign/length.js",
+    "reason": "length not yet implemented"
+  },
+  {
+    "source": "built-ins/Math/trunc/name.js",
+    "reason": "name not yet implemented"
+  },
+  {
+    "source": "built-ins/Math/trunc/length.js",
+    "reason": "length not yet implemented"
+  }
+]
