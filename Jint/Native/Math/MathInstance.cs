@@ -715,13 +715,9 @@ namespace Jint.Native.Math
             {
                 return double.NaN;
             }
-            else if (NumberInstance.IsPositiveZero(x))
+            else if (NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
             {
-                return +0;
-            }
-            else if (NumberInstance.IsNegativeZero(x))
-            {
-                return -0;
+                return x;
             }
             else if (double.IsPositiveInfinity(x))
             {
@@ -733,7 +729,9 @@ namespace Jint.Native.Math
             }
 
             if (System.Math.Sign(x) >= 0)
+            {
                 return System.Math.Pow(x, 1.0/3.0);
+            }
 
             return -1 * System.Math.Pow(System.Math.Abs(x), 1.0 / 3.0);
         }
