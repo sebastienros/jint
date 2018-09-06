@@ -24,7 +24,7 @@ namespace Jint.Tests.Test262
             var sourceFile = SourceFiles("built-ins", false)
                 .SelectMany(x => x)
                 .Cast<SourceFile>()
-                .First(x => x.Source == @"built-ins/Array/prototype/fill/fill-values-relative-start.js");
+                .First(x => x.Source == @"built-ins/Array/prototype/every/15.4.4.16-3-12.js");
 
             var code = File.ReadAllText(sourceFile.FullPath);
             RunTestCode(code, strict: true);

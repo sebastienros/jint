@@ -36,6 +36,7 @@ namespace Jint.Native.Array
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString, 0), true, false, true);
             FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), true, false, true);
             FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1), true, false, true);
+            FastAddProperty("copyWithin", new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 1), true, false, true);
             FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("fill", new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("join", new ClrFunctionInstance(Engine, "join", Join, 1), true, false, true);
@@ -106,6 +107,11 @@ namespace Jint.Native.Array
             }
 
             return target;
+        }
+
+        private JsValue CopyWithin(JsValue thisObj, JsValue[] arguments)
+        {
+            return Undefined;
         }
 
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
@@ -315,12 +321,25 @@ namespace Jint.Native.Array
 
         private JsValue Every(JsValue thisObj, JsValue[] arguments)
         {
+            var o = ArrayOperations.For(Engine, thisObj);
+            uint len;
+            if (thisObj is ArrayInstance arrayInstance)
+            {
+                len = arrayInstance.GetLength();
+            }
+            else
+            {
+                var intValue = ((ArrayOperations.ObjectInstanceOperations) o).GetIntegerLength();
+                len = intValue < 0 ? 0 : (uint) intValue;
+            }
+
+            if (len == 0)
+            {
+                return JsBoolean.True;
+            }
+
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
-
-            var o = ArrayOperations.For(Engine, thisObj);
-            var len = o.GetLength();
-
             var callable = GetCallable(callbackfn);
 
             var args = _engine._jsValueArrayPool.RentArray(3);
@@ -993,7 +1012,7 @@ namespace Jint.Native.Array
         /// Adapter to use optimized array operations when possible.
         /// Gaps the difference between ArgumensInstance and ArrayInstance.
         /// </summary>
-        private abstract class ArrayOperations
+        internal abstract class ArrayOperations
         {
             public abstract ObjectInstance Target { get; }
 
@@ -1031,7 +1050,7 @@ namespace Jint.Native.Array
                 return new ObjectInstanceOperations(instance);
             }
 
-            private class ObjectInstanceOperations : ArrayOperations
+            internal class ObjectInstanceOperations : ArrayOperations
             {
                 private readonly ObjectInstance _instance;
 
@@ -1042,7 +1061,7 @@ namespace Jint.Native.Array
 
                 public override ObjectInstance Target => _instance;
 
-                public override uint GetLength()
+                internal double GetIntegerLength()
                 {
                     var desc = _instance.GetProperty("length");
                     var descValue = desc.Value;
@@ -1060,7 +1079,12 @@ namespace Jint.Native.Array
                     // if getter is not undefined it must be ICallable
                     var callable = (ICallable) getter;
                     var value = callable.Call(_instance, Arguments.Empty);
-                    return TypeConverter.ToUint32(value);
+                    return (uint) TypeConverter.ToInteger(value);
+                }
+
+                public override uint GetLength()
+                {
+                    return (uint) GetIntegerLength();
                 }
 
                 public override void SetLength(uint length) => _instance.Put("length", length, true);
