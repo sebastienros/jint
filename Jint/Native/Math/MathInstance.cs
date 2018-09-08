@@ -2,6 +2,7 @@
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Math
@@ -44,9 +45,9 @@ namespace Jint.Native.Math
             FastAddProperty("sqrt", new ClrFunctionInstance(Engine, "sqrt", Sqrt), true, false, true);
             FastAddProperty("tan", new ClrFunctionInstance(Engine, "tan", Tan), true, false, true);
 
-            FastAddProperty("trunc", new ClrFunctionInstance(Engine, Truncate), true, false, true);
-            FastAddProperty("sign", new ClrFunctionInstance(Engine, Sign), true, false, true);
-            FastAddProperty("cbrt", new ClrFunctionInstance(Engine, Cbrt), true, false, true);
+            FastAddProperty("trunc", new ClrFunctionInstance(Engine, "trunc", Truncate, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("sign", new ClrFunctionInstance(Engine, "sign", Sign, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("cbrt", new ClrFunctionInstance(Engine, "cbrt", Cbrt, 1, PropertyFlag.Configurable), true, false, true);
 
             FastAddProperty("E", System.Math.E, false, false, false);
             FastAddProperty("LN10", System.Math.Log(10), false, false, false);
