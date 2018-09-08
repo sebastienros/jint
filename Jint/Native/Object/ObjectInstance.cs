@@ -860,10 +860,6 @@ namespace Jint.Native.Object
             out uint index,
             out JsValue value)
         {
-            var callbackfn = arguments.At(0);
-            var thisArg = arguments.At(1);
-            var callable = GetCallable(callbackfn);
-
             uint GetLength()
             {
                 var desc = GetProperty("length");
@@ -891,17 +887,21 @@ namespace Jint.Native.Object
                 return kPresent;
             }
 
-            var len = GetLength();
-            if (len == 0)
+            if (GetLength() == 0)
             {
                 index = 0;
                 value = Undefined;
                 return false;
             }
+            
+            var callbackfn = arguments.At(0);
+            var thisArg = arguments.At(1);
+            var callable = GetCallable(callbackfn);
 
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
-            for (uint k = 0; k < len; k++)
+            var length = GetLength();
+            for (uint k = 0; k < length; k++)
             {
                 if (TryGetValue(k, out var kvalue))
                 {

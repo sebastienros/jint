@@ -13,25 +13,6 @@ namespace Jint.Runtime
             _set = new HashSet<T>();
         }
 
-        public int IndexOf(T item)
-        {
-            return _list.IndexOf(item);
-        }
-
-        public void Insert(int index, T item)
-        {
-            if (_set.Add(item))
-            {
-                _list.Insert(index, item);
-            }
-        }
-
-        public void RemoveAt(int index)
-        {
-            _set.Remove(_list[index]);
-            _list.RemoveAt(index);
-        }
-
         public T this[int index]
         {
             get => _list[index];

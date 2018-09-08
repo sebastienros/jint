@@ -1,4 +1,5 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Native.Array;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -87,6 +88,7 @@ namespace Jint.Native.Map
                         || (setter = setterValue as ICallable) == null)
                     {
                         ExceptionHelper.ThrowTypeError(_engine, "set must be callable");
+                        return null;
                     }
                     
                     var args = _engine._jsValueArrayPool.RentArray(2);
@@ -111,12 +113,25 @@ namespace Jint.Native.Map
                                 break;
                             }
 
-                            oi.TryGetValue("0", out var key);
-                            oi.TryGetValue("1", out var value);
+                            JsValue key = Undefined;
+                            JsValue value = Undefined;
+                            if (oi.TryGetValue("0", out var arrayIndex)
+                                && oi.TryGetValue("1", out var source))
+                            {
+                                if (source is ObjectInstance oi2)
+                                {
+                                    key = oi2.Get("0");
+                                    value = oi2.Get("1");
+                                }
+                                else
+                                {
+                                    ExceptionHelper.ThrowTypeError(_engine, "iterator's value must be an object");
+                                    break;
+                                }
+                            }
 
                             args[0] = key;
                             args[1] = value;
-
                             setter.Call(instance, args);
                         } while (true);
                     }

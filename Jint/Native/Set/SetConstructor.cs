@@ -1,4 +1,5 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Native.Array;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -86,6 +87,7 @@ namespace Jint.Native.Set
                         || (adder = setterValue as ICallable) == null)
                     {
                         ExceptionHelper.ThrowTypeError(_engine, "add must be callable");
+                        return null;
                     }
 
                     var args = _engine._jsValueArrayPool.RentArray(1);
@@ -104,7 +106,7 @@ namespace Jint.Native.Set
                                 break;
                             }
 
-                            args[0] = currentValue;
+                            args[0] = ExtractValueFromIteratorInstance(currentValue);
 
                             adder.Call(instance, args);
                         } while (true);
@@ -122,6 +124,22 @@ namespace Jint.Native.Set
             }
 
             return instance;
+        }
+
+        private static JsValue ExtractValueFromIteratorInstance(JsValue jsValue)
+        {
+            if (jsValue is ArrayInstance ai)
+            {
+                uint index = 0;
+                if (ai.GetLength() > 1)
+                {
+                    index = 1;
+                }
+                ai.TryGetValue(index, out var value);
+                return value;
+            }
+
+            return jsValue;
         }
     }
 }

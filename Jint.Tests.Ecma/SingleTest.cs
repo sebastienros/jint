@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using Xunit;
 
-namespace Jint.Tests.Test262
+namespace Jint.Tests.Ecma
 {
     public class RunnableInDebugOnlyAttribute : FactAttribute
     {
@@ -15,20 +15,20 @@ namespace Jint.Tests.Test262
             }
         }
     }
-    public class SingleTest : Test262Test
+    public class SingleTest : EcmaTest
     {
         // helper to test single test case
         [RunnableInDebugOnly]
         public void TestSingle()
         {
-            const string Target = @"built-ins/Map/iterator-close-after-set-failure.js";
-            var sourceFile = SourceFiles("built-ins", false)
+            const string Target = @"ch15/15.4/15.4.4/15.4.4.17/15.4.4.17-4-10.js";
+            var sourceFile = SourceFiles(Target, false)
                 .SelectMany(x => x)
                 .Cast<SourceFile>()
-                .First(x => x.Source == Target);
+                .Single();
 
-            var code = File.ReadAllText(sourceFile.FullPath);
-            RunTestCode(code, strict: true);
+            var code = File.ReadAllText(Path.Combine(@"..\..\..\TestCases", sourceFile.Source));
+            RunTestCode(code, negative: false);
         }
     }
 }
