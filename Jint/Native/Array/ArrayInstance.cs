@@ -1,7 +1,5 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -11,7 +9,7 @@ using TypeConverter = Jint.Runtime.TypeConverter;
 
 namespace Jint.Native.Array
 {
-    public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
+    public class ArrayInstance : ObjectInstance
     {
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
@@ -48,8 +46,8 @@ namespace Jint.Native.Array
             {
                 _dense = items;
                 length = items.Length;
-            }            
-            
+            }
+
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
@@ -454,7 +452,7 @@ namespace Jint.Native.Array
             {
                 return StringAsIndex(d, p);
             }
-            
+
             return (uint) d;
         }
 
@@ -527,7 +525,7 @@ namespace Jint.Native.Array
             value = Undefined;
 
             TryGetDescriptor(index, out var desc);
-            desc = desc ?? GetProperty(TypeConverter.ToString(index)) ?? PropertyDescriptor.Undefined; 
+            desc = desc ?? GetProperty(TypeConverter.ToString(index)) ?? PropertyDescriptor.Undefined;
             return desc.TryGetValue(this, out value);
         }
 
@@ -638,16 +636,11 @@ namespace Jint.Native.Array
             };
         }
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-
         internal uint Push(JsValue[] arguments)
         {
             var initialLength = GetLength();
             var newLength = initialLength + arguments.Length;
-            
+
             // if we see that we are bringing more than normal growth algorithm handles, ensure capacity eagerly
             if (_dense != null
                 && initialLength != 0
@@ -722,13 +715,18 @@ namespace Jint.Native.Array
             _engine._jsValueArrayPool.ReturnArray(args);
             return a;
         }
-        
+
         /// <inheritdoc />
         internal override bool FindWithCallback(
-            JsValue[] arguments, 
-            out uint index, 
+            JsValue[] arguments,
+            out uint index,
             out JsValue value)
         {
+
+            var callbackfn = arguments.At(0);
+            var thisArg = arguments.At(1);
+            var callable = GetCallable(callbackfn);
+
             var len = GetLength();
             if (len == 0)
             {
@@ -737,25 +735,19 @@ namespace Jint.Native.Array
                 return false;
             }
 
-            var callbackfn = arguments.At(0);
-            var thisArg = arguments.At(1);
-            var callable = GetCallable(callbackfn);
-
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
             for (uint k = 0; k < len; k++)
             {
-                if (TryGetValue(k, out var kvalue))
+                TryGetValue(k, out var kvalue);
+                args[0] = kvalue;
+                args[1] = k;
+                var testResult = callable.Call(thisArg, args);
+                if (TypeConverter.ToBoolean(testResult))
                 {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
-                    {
-                        index = k;
-                        value = kvalue;
-                        return true;
-                    }
+                    index = k;
+                    value = kvalue;
+                    return true;
                 }
             }
 

@@ -51,7 +51,7 @@ namespace Jint.Native.Date
             "THHK"
         };
 
-        public DateConstructor(Engine engine) : base(engine, null, null, false)
+        public DateConstructor(Engine engine) : base(engine, "Date", null, null, false)
         {
         }
 
@@ -74,9 +74,9 @@ namespace Jint.Native.Date
 
         public void Configure()
         {
-            FastAddProperty("parse", new ClrFunctionInstance(Engine, Parse, 1), true, false, true);
-            FastAddProperty("UTC", new ClrFunctionInstance(Engine, Utc, 7), true, false, true);
-            FastAddProperty("now", new ClrFunctionInstance(Engine, Now, 0), true, false, true);
+            FastAddProperty("parse", new ClrFunctionInstance(Engine, "parse", Parse, 1), true, false, true);
+            FastAddProperty("UTC", new ClrFunctionInstance(Engine, "utc", Utc, 7), true, false, true);
+            FastAddProperty("now", new ClrFunctionInstance(Engine, "now", Now, 0), true, false, true);
         }
 
         private JsValue Parse(JsValue thisObj, JsValue[] arguments)

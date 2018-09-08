@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using Jint.Runtime;
 
 namespace Jint.Native
@@ -20,39 +21,24 @@ namespace Jint.Native
             return _value;
         }
 
+        public override string ToString()
+        {
+            return "Symbol(" + _value + ")";
+        }
+
         public override bool Equals(JsValue obj)
         {
-            if (ReferenceEquals(null, obj))
-            {
-                return false;
-            }
-
-            if (!(obj is JsBoolean number))
-            {
-                return false;
-            }
-
-            return Equals(number);
+            return ReferenceEquals(this, obj);
         }
 
         public bool Equals(JsSymbol other)
         {
-            if (ReferenceEquals(null, other))
-            {
-                return false;
-            }
-
-            if (ReferenceEquals(this, other))
-            {
-                return true;
-            }
-
-            return _value == other._value;
+            return ReferenceEquals(this, other);
         }
 
         public override int GetHashCode()
         {
-            return _value.GetHashCode();
+            return RuntimeHelpers.GetHashCode(this);
         }
     }
 }

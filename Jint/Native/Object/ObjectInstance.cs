@@ -20,14 +20,14 @@ namespace Jint.Native.Object
     {
         protected Dictionary<string, PropertyDescriptor> _intrinsicProperties;
         protected internal Dictionary<string, PropertyDescriptor> _properties;
-        
+
         private readonly string _class;
         protected readonly Engine _engine;
-        
+
         public ObjectInstance(Engine engine) : this(engine, "Object")
         {
         }
-        
+
         protected ObjectInstance(Engine engine, string objectClass) : base(Types.Object)
         {
             _engine = engine;
@@ -543,7 +543,7 @@ namespace Jint.Native.Object
             var currentGet = current.Get;
             var currentSet = current.Set;
             var currentValue = current.Value;
-            
+
             if ((current._flags & PropertyFlag.ConfigurableSet | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet) == 0 &&
                 ReferenceEquals(currentGet, null) &&
                 ReferenceEquals(currentSet, null) &&
@@ -703,7 +703,7 @@ namespace Jint.Native.Object
             }
 
             if (mutable != null)
-            { 
+            {
                 // replace old with new type that supports get and set
                 FastSetProperty(propertyName, mutable);
             }
@@ -851,15 +851,19 @@ namespace Jint.Native.Object
 
             return this;
         }
-        
+
         /// <summary>
         /// Handles the generic find of (callback[, thisArg])
         /// </summary>
         internal virtual bool FindWithCallback(
-            JsValue[] arguments, 
-            out uint index, 
+            JsValue[] arguments,
+            out uint index,
             out JsValue value)
         {
+            var callbackfn = arguments.At(0);
+            var thisArg = arguments.At(1);
+            var callable = GetCallable(callbackfn);
+
             uint GetLength()
             {
                 var desc = GetProperty("length");
@@ -878,7 +882,7 @@ namespace Jint.Native.Object
                 // if getter is not undefined it must be ICallable
                 return TypeConverter.ToUint32(((ICallable) getter).Call(this, Arguments.Empty));
             }
-           
+
             bool TryGetValue(uint idx, out JsValue jsValue)
             {
                 var property = TypeConverter.ToString(idx);
@@ -894,10 +898,6 @@ namespace Jint.Native.Object
                 value = Undefined;
                 return false;
             }
-
-            var callbackfn = arguments.At(0);
-            var thisArg = arguments.At(1);
-            var callable = GetCallable(callbackfn);
 
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
