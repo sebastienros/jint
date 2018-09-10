@@ -8,7 +8,7 @@ namespace Jint.Native.Number
     public sealed class NumberConstructor : FunctionInstance, IConstructor
     {
         public NumberConstructor(Engine engine)
-            : base(engine, null, null, false)
+            : base(engine, "Number", null, null, false)
         {
 
         }
@@ -37,6 +37,7 @@ namespace Jint.Native.Number
             SetOwnProperty("NaN", new PropertyDescriptor(double.NaN, PropertyFlag.AllForbidden));
             SetOwnProperty("NEGATIVE_INFINITY", new PropertyDescriptor(double.NegativeInfinity, PropertyFlag.AllForbidden));
             SetOwnProperty("POSITIVE_INFINITY", new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.AllForbidden));
+            SetOwnProperty("EPSILON", new PropertyDescriptor(double.Epsilon, PropertyFlag.AllForbidden));
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

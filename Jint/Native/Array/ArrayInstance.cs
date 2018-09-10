@@ -1,7 +1,5 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -11,7 +9,7 @@ using TypeConverter = Jint.Runtime.TypeConverter;
 
 namespace Jint.Native.Array
 {
-    public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
+    public class ArrayInstance : ObjectInstance
     {
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
@@ -28,7 +26,7 @@ namespace Jint.Native.Array
         {
             if (capacity < MaxDenseArrayLength)
             {
-                _dense = capacity > 0 ? new PropertyDescriptor[capacity] : System.Array.Empty<PropertyDescriptor>();
+                _dense = capacity > 0 ? new PropertyDescriptor[capacity] : System.ArrayExt.Empty<PropertyDescriptor>();
             }
             else
             {
@@ -41,15 +39,15 @@ namespace Jint.Native.Array
             int length = 0;
             if (items == null || items.Length == 0)
             {
-                _dense = System.Array.Empty<PropertyDescriptor>();
+                _dense = System.ArrayExt.Empty<PropertyDescriptor>();
                 length = 0;
             }
             else
             {
                 _dense = items;
                 length = items.Length;
-            }            
-            
+            }
+
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
@@ -454,7 +452,7 @@ namespace Jint.Native.Array
             {
                 return StringAsIndex(d, p);
             }
-            
+
             return (uint) d;
         }
 
@@ -527,7 +525,7 @@ namespace Jint.Native.Array
             value = Undefined;
 
             TryGetDescriptor(index, out var desc);
-            desc = desc ?? GetProperty(TypeConverter.ToString(index)) ?? PropertyDescriptor.Undefined; 
+            desc = desc ?? GetProperty(TypeConverter.ToString(index)) ?? PropertyDescriptor.Undefined;
             return desc.TryGetValue(this, out value);
         }
 
@@ -638,16 +636,11 @@ namespace Jint.Native.Array
             };
         }
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-
         internal uint Push(JsValue[] arguments)
         {
             var initialLength = GetLength();
             var newLength = initialLength + arguments.Length;
-            
+
             // if we see that we are bringing more than normal growth algorithm handles, ensure capacity eagerly
             if (_dense != null
                 && initialLength != 0
@@ -722,11 +715,11 @@ namespace Jint.Native.Array
             _engine._jsValueArrayPool.ReturnArray(args);
             return a;
         }
-        
+
         /// <inheritdoc />
         internal override bool FindWithCallback(
-            JsValue[] arguments, 
-            out uint index, 
+            JsValue[] arguments,
+            out uint index,
             out JsValue value)
         {
             var len = GetLength();

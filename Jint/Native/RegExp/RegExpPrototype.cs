@@ -25,9 +25,9 @@ namespace Jint.Native.RegExp
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToRegExpString), true, false, true);
-            FastAddProperty("exec", new ClrFunctionInstance(Engine, Exec, 1), true, false, true);
-            FastAddProperty("test", new ClrFunctionInstance(Engine, Test, 1), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToRegExpString), true, false, true);
+            FastAddProperty("exec", new ClrFunctionInstance(Engine, "exec", Exec, 1), true, false, true);
+            FastAddProperty("test", new ClrFunctionInstance(Engine, "test", Test, 1), true, false, true);
 
             FastAddProperty("global", false, false, false, false);
             FastAddProperty("ignoreCase", false, false, false, false);

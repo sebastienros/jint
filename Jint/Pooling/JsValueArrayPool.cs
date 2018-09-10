@@ -41,7 +41,7 @@ namespace Jint.Pooling
         {
             if (size == 0)
             {
-                return Array.Empty<JsValue>();
+                return ArrayExt.Empty<JsValue>();
             }
             if (size == 1)
             {

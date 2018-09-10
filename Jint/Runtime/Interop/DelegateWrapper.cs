@@ -15,7 +15,8 @@ namespace Jint.Runtime.Interop
         private readonly Delegate _d;
         private readonly bool _delegateContainsParamsArgument;
 
-        public DelegateWrapper(Engine engine, Delegate d) : base(engine, null, null, false)
+        public DelegateWrapper(Engine engine, Delegate d)
+            : base(engine, "delegate", null, null, false)
         {
             _d = d;
             Prototype = engine.Function.PrototypeObject;

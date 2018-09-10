@@ -8,7 +8,117 @@ using Xunit;
 
 namespace Jint.Tests.Ecma
 {
-    public class EcmaTest
+    public class Chapter6 : EcmaTest
+    {
+        [Theory(DisplayName = "Ecma Chapter 6")]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch06", false })]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch06", true }, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+    }
+
+    public class Chapter7 : EcmaTest
+    {
+        [Theory(DisplayName = "Ecma Chapter 7")]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch07", false })]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch07", true }, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+    }
+
+    public class Chapter8 : EcmaTest
+    {
+        [Theory(DisplayName = "Ecma Chapter 8")]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch08", false })]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch08", true }, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+    }
+
+    public class Chapter9 : EcmaTest
+    {
+        [Theory(DisplayName = "Ecma Chapter 9")]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch09", false })]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch09", true }, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+    }
+
+    public class Chapter10 : EcmaTest
+    {
+        [Theory(DisplayName = "Ecma Chapter 10")]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch10", false })]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch10", true }, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+    }
+
+    public class Chapter11 : EcmaTest
+    {
+        [Theory(DisplayName = "Ecma Chapter 11")]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch11", false })]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch11", true }, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+    }
+
+    public class Chapter12 : EcmaTest
+    {
+        [Theory(DisplayName = "Ecma Chapter 12")]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch12", false })]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch12", true }, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+    }
+
+    public class Chapter13 : EcmaTest
+    {
+        [Theory(DisplayName = "Ecma Chapter 13")]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch13", false })]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch13", true }, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+    }
+
+    public class Chapter14 : EcmaTest
+    {
+        [Theory(DisplayName = "Ecma Chapter 14")]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch14", false })]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch14", true }, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+    }
+
+    public class Chapter15 : EcmaTest
+    {
+        [Theory(DisplayName = "Ecma Chapter 15")]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch15", false })]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {"ch15", true }, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+    }
+
+    public abstract class EcmaTest
     {
         private static string _lastError;
         private static string staSource;
@@ -21,6 +131,20 @@ namespace Jint.Tests.Ecma
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
 
             BasePath = assemblyDirectory.Parent.Parent.Parent.FullName;
+        }
+
+        protected void RunTestInternal(SourceFile sourceFile)
+        {
+            var fullName = Path.Combine(BasePath, sourceFile.BasePath, sourceFile.Source);
+            if (!File.Exists(fullName))
+            {
+                throw new ArgumentException("Could not find source file: " + fullName);
+            }
+
+            string code = File.ReadAllText(fullName);
+            var negative = code.Contains("@negative");
+
+            RunTestCode(code, negative);
         }
 
         protected void RunTestCode(string code, bool negative)
@@ -73,25 +197,7 @@ namespace Jint.Tests.Ecma
             }
         }
 
-        [Theory(DisplayName = "Ecma")]
-        [MemberData(nameof(SourceFiles), false)]
-        [MemberData(nameof(SourceFiles), true, Skip = "Skipped")]
-        protected void RunTest(SourceFile sourceFile)
-        {
-            var fullName = Path.Combine(BasePath, sourceFile.BasePath, sourceFile.Source);
-            if (!File.Exists(fullName))
-            {
-                throw new ArgumentException("Could not find source file: " + fullName);
-            }
-
-            string code = File.ReadAllText(fullName);
-            var negative = code.Contains("@negative");
-
-            RunTestCode(code, negative);
-
-        }
-
-        public static IEnumerable<object[]> SourceFiles(bool skipped)
+        public static IEnumerable<object[]> SourceFiles(string prefix, bool skipped)
         {
             var assemblyPath = new Uri(typeof(EcmaTest).GetTypeInfo().Assembly.CodeBase).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
@@ -100,29 +206,27 @@ namespace Jint.Tests.Ecma
 
             var fixturesPath = Path.Combine(localPath, @"TestCases\alltests.json");
 
-            try
-            {
-                var content = File.ReadAllText(fixturesPath);
-                var doc = JArray.Parse(content);
-                var results = new List<object[]>();
-                var path = Path.Combine(localPath, "TestCases");
+            var content = File.ReadAllText(fixturesPath);
+            var doc = JArray.Parse(content);
+            var results = new List<object[]>();
+            var path = Path.Combine(localPath, "TestCases");
 
-                foreach(JObject entry in doc)
+            foreach(JObject entry in doc)
+            {
+                var sourceFile = new SourceFile(entry, path);
+
+                if (prefix != null && !sourceFile.Source.StartsWith(prefix))
                 {
-                    var sourceFile = new SourceFile(entry, path);
-                    
-                    if (skipped == sourceFile.Skip)
-                    {
-                        results.Add(new object [] { sourceFile });
-                    }
+                    continue;
                 }
 
-                return results;
+                if (skipped == sourceFile.Skip)
+                {
+                    results.Add(new object [] { sourceFile });
+                }
             }
-            catch
-            {
-                throw;
-            }
+
+            return results;
         }
 
         public class SourceFile
@@ -145,6 +249,6 @@ namespace Jint.Tests.Ecma
                 return Source;
             }
         }
-        
+
     }
 }

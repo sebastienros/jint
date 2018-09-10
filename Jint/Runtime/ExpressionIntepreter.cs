@@ -787,7 +787,7 @@ namespace Jint.Runtime
 
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
 
-            var arguments = Array.Empty<JsValue>();
+            var arguments = ArrayExt.Empty<JsValue>();
             if (callExpression.Cached)
             {
                 arguments = (JsValue[]) callExpression.CachedArguments;

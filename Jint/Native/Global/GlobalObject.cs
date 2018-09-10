@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Global
@@ -34,6 +36,8 @@ namespace Jint.Native.Global
             FastAddProperty("Function", Engine.Function, true, false, true);
             FastAddProperty("Symbol", Engine.Symbol, true, false, true);
             FastAddProperty("Array", Engine.Array, true, false, true);
+            FastAddProperty("Map", Engine.Map, true, false, true);
+            FastAddProperty("Set", Engine.Set, true, false, true);
             FastAddProperty("String", Engine.String, true, false, true);
             FastAddProperty("RegExp", Engine.RegExp, true, false, true);
             FastAddProperty("Number", Engine.Number, true, false, true);
@@ -55,16 +59,16 @@ namespace Jint.Native.Global
             FastAddProperty("undefined", Undefined, false, false, false);
 
             // Global object functions
-            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, ParseInt, 2), true, false, true);
-            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, ParseFloat, 1), true, false, true);
-            FastAddProperty("isNaN", new ClrFunctionInstance(Engine, IsNaN, 1), true, false, true);
-            FastAddProperty("isFinite", new ClrFunctionInstance(Engine, IsFinite, 1), true, false, true);
-            FastAddProperty("decodeURI", new ClrFunctionInstance(Engine, DecodeUri, 1), true, false, true);
-            FastAddProperty("decodeURIComponent", new ClrFunctionInstance(Engine, DecodeUriComponent, 1), true, false, true);
-            FastAddProperty("encodeURI", new ClrFunctionInstance(Engine, EncodeUri, 1), true, false, true);
-            FastAddProperty("encodeURIComponent", new ClrFunctionInstance(Engine, EncodeUriComponent, 1), true, false, true);
-            FastAddProperty("escape", new ClrFunctionInstance(Engine, Escape, 1), true, false, true);
-            FastAddProperty("unescape", new ClrFunctionInstance(Engine, Unescape, 1), true, false, true);
+            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, "parseInt", ParseInt, 2, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, "parseFloat", ParseFloat, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("isNaN", new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1), true, false, true);
+            FastAddProperty("isFinite", new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1), true, false, true);
+            FastAddProperty("decodeURI", new ClrFunctionInstance(Engine, "decodeURI", DecodeUri, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("decodeURIComponent", new ClrFunctionInstance(Engine, "decodeURIComponent", DecodeUriComponent, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("encodeURI", new ClrFunctionInstance(Engine, "encodeURI", EncodeUri, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("encodeURIComponent", new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("escape", new ClrFunctionInstance(Engine, "escape", Escape, 1), true, false, true);
+            FastAddProperty("unescape", new ClrFunctionInstance(Engine, "unescape", Unescape, 1), true, false, true);
         }
 
         /// <summary>
@@ -73,7 +77,7 @@ namespace Jint.Native.Global
         public static JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
         {
             string inputString = TypeConverter.ToString(arguments.At(0));
-            var s = StringPrototype.TrimEx(inputString);
+            var s = StringPrototype.TrimEx(inputString, acceptMongolianVowelSeparator: false);
 
             var sign = 1;
             if (!System.String.IsNullOrEmpty(s))
@@ -174,7 +178,7 @@ namespace Jint.Native.Global
         public static JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
         {
             var inputString = TypeConverter.ToString(arguments.At(0));
-            var trimmedString = StringPrototype.TrimStartEx(inputString);
+            var trimmedString = StringPrototype.TrimStartEx(inputString, acceptMongolianVowelSeparator: false);
 
             var sign = 1;
             if (trimmedString.Length > 0)
@@ -347,9 +351,12 @@ namespace Jint.Native.Global
             return true;
         }
 
-        private static readonly char[] UriReserved = { ';', '/', '?', ':', '@', '&', '=', '+', '$', ',' };
+        private static readonly HashSet<char> UriReserved = new HashSet<char>
+        {
+            ';', '/', '?', ':', '@', '&', '=', '+', '$', ','
+        };
 
-        private static readonly char[] UriUnescaped =
+        private static readonly HashSet<char> UriUnescaped = new HashSet<char>
         {
             'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
             'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
@@ -357,8 +364,8 @@ namespace Jint.Native.Global
             '~', '*', '\'', '(', ')'
         };
 
-        private static readonly char[] UnescapedUriSet = UriReserved.Concat(UriUnescaped).Concat(new[] { '#' }).ToArray();
-        private static readonly char[] ReservedUriSet = UriReserved.Concat(new[] { '#' }).ToArray();
+        private static readonly HashSet<char> UnescapedUriSet = new HashSet<char>(UriReserved.Concat(UriUnescaped).Concat(new[] { '#' }));
+        private static readonly HashSet<char> ReservedUriSet = new HashSet<char>(UriReserved.Concat(new[] { '#' }));
 
         private const string HexaMap = "0123456789ABCDEF";
 
@@ -396,7 +403,7 @@ namespace Jint.Native.Global
             return Encode(uriString, UriUnescaped);
         }
 
-        private string Encode(string uriString, char[] unescapedUriSet)
+        private string Encode(string uriString, HashSet<char> unescapedUriSet)
         {
             var strLen = uriString.Length;
 
@@ -406,7 +413,7 @@ namespace Jint.Native.Global
             for (var k = 0; k < strLen; k++)
             {
                 var c = uriString[k];
-                if (System.Array.IndexOf(unescapedUriSet, c) != -1)
+                if (unescapedUriSet != null && unescapedUriSet.Contains(c))
                 {
                     _stringBuilder.Append(c);
                 }
@@ -439,7 +446,7 @@ namespace Jint.Native.Global
                         v = (c - 0xD800) * 0x400 + (kChar - 0xDC00) + 0x10000;
                     }
 
-                    byte[] octets = System.Array.Empty<byte>();
+                    byte[] octets = System.ArrayExt.Empty<byte>();
 
                     if (v >= 0 && v <= 0x007F)
                     {
@@ -512,12 +519,11 @@ namespace Jint.Native.Global
         public JsValue DecodeUriComponent(JsValue thisObject, JsValue[] arguments)
         {
             var componentString = TypeConverter.ToString(arguments.At(0));
-            var reservedUriComponentSet = new char[0];
 
-            return Decode(componentString, reservedUriComponentSet);
+            return Decode(componentString, null);
         }
 
-        public string Decode(string uriString, char[] reservedSet)
+        private string Decode(string uriString, HashSet<char> reservedSet)
         {
             var strLen = uriString.Length;
 
@@ -550,7 +556,7 @@ namespace Jint.Native.Global
                     if ((B & 0x80) == 0)
                     {
                         C = (char)B;
-                        if (System.Array.IndexOf(reservedSet, C) == -1)
+                        if (reservedSet == null || !reservedSet.Contains(C))
                         {
                             _stringBuilder.Append(C);
                         }

@@ -2,15 +2,17 @@
 using System.Runtime.CompilerServices;
 using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
 {
     public sealed class ArrayConstructor : FunctionInstance, IConstructor
     {
-        private ArrayConstructor(Engine engine) :  base(engine, null, null, false)
+        private ArrayConstructor(Engine engine) :  base(engine, "Array", null, null, false)
         {
         }
 
@@ -30,12 +32,40 @@ namespace Jint.Native.Array
             // The initial value of Array.prototype is the Array prototype object
             obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
 
+            obj.SetOwnProperty(GlobalSymbolRegistry.Species._value,
+                new GetSetPropertyDescriptor(
+                    get: new ClrFunctionInstance(engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable),
+                    set: Undefined,
+                    PropertyFlag.Configurable));
+
             return obj;
         }
 
         public void Configure()
         {
-            SetOwnProperty("isArray", new PropertyDescriptor(new ClrFunctionInstance(Engine, IsArray, 1), PropertyFlag.NonEnumerable));
+            SetOwnProperty("from",new PropertyDescriptor(new ClrFunctionInstance(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
+            SetOwnProperty("isArray", new PropertyDescriptor(new ClrFunctionInstance(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable));
+            SetOwnProperty("of", new PropertyDescriptor(new ClrFunctionInstance(Engine, "of", Of, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
+        }
+
+        private JsValue From(JsValue thisObj, JsValue[] arguments)
+        {
+            var source = arguments.At(0);
+            if (source is IArrayLike arrayLike)
+            {
+                arrayLike.ToArray(_engine);
+            }
+            return Undefined;
+        }
+
+        private JsValue Of(JsValue thisObj, JsValue[] arguments)
+        {
+            return Undefined;
+        }
+
+        private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+        {
+            return thisObject;
         }
 
         private static JsValue IsArray(JsValue thisObj, JsValue[] arguments)
@@ -76,12 +106,12 @@ namespace Jint.Native.Array
             {
                 ExceptionHelper.ThrowArgumentException("invalid array length", nameof(capacity));
             }
-            return Construct(System.Array.Empty<JsValue>(), (uint) capacity);
+            return Construct(System.ArrayExt.Empty<JsValue>(), (uint) capacity);
         }
 
         public ArrayInstance Construct(uint capacity)
         {
-            return Construct(System.Array.Empty<JsValue>(), capacity);
+            return Construct(System.ArrayExt.Empty<JsValue>(), capacity);
         }
 
         public ArrayInstance Construct(JsValue[] arguments, uint capacity)

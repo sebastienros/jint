@@ -5,7 +5,8 @@ namespace Jint.Native.Function
 {
     public sealed class ThrowTypeError : FunctionInstance
     {
-        public ThrowTypeError(Engine engine): base(engine, System.Array.Empty<string>(), engine.GlobalEnvironment, false)
+        public ThrowTypeError(Engine engine)
+            : base(engine, "throwTypeError", System.ArrayExt.Empty<string>(), engine.GlobalEnvironment, false)
         {
             DefineOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden), false);
             Extensible = false;

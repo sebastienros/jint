@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -32,29 +33,85 @@ namespace Jint.Native.Array
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToString, 0), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, ToLocaleString), true, false, true);
-            FastAddProperty("concat", new ClrFunctionInstance(Engine, Concat, 1), true, false, true);
-            FastAddProperty("join", new ClrFunctionInstance(Engine, Join, 1), true, false, true);
-            FastAddProperty("pop", new ClrFunctionInstance(Engine, Pop), true, false, true);
-            FastAddProperty("push", new ClrFunctionInstance(Engine, Push, 1), true, false, true);
-            FastAddProperty("reverse", new ClrFunctionInstance(Engine, Reverse), true, false, true);
-            FastAddProperty("shift", new ClrFunctionInstance(Engine, Shift), true, false, true);
-            FastAddProperty("slice", new ClrFunctionInstance(Engine, Slice, 2), true, false, true);
-            FastAddProperty("sort", new ClrFunctionInstance(Engine, Sort, 1), true, false, true);
-            FastAddProperty("splice", new ClrFunctionInstance(Engine, Splice, 2), true, false, true);
-            FastAddProperty("unshift", new ClrFunctionInstance(Engine, Unshift, 1), true, false, true);
-            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, IndexOf, 1), true, false, true);
-            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, LastIndexOf, 1), true, false, true);
-            FastAddProperty("every", new ClrFunctionInstance(Engine, Every, 1), true, false, true);
-            FastAddProperty("some", new ClrFunctionInstance(Engine, Some, 1), true, false, true);
-            FastAddProperty("forEach", new ClrFunctionInstance(Engine, ForEach, 1), true, false, true);
-            FastAddProperty("map", new ClrFunctionInstance(Engine, Map, 1), true, false, true);
-            FastAddProperty("filter", new ClrFunctionInstance(Engine, Filter, 1), true, false, true);
-            FastAddProperty("reduce", new ClrFunctionInstance(Engine, Reduce, 1), true, false, true);
-            FastAddProperty("reduceRight", new ClrFunctionInstance(Engine, ReduceRight, 1), true, false, true);
-            FastAddProperty("find", new ClrFunctionInstance(Engine, Find, 1), true, false, true);
-            FastAddProperty("findIndex", new ClrFunctionInstance(Engine, FindIndex, 1), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString, 0), true, false, true);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), true, false, true);
+            FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1), true, false, true);
+            FastAddProperty("copyWithin", new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 1), true, false, true);
+            FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("fill", new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("join", new ClrFunctionInstance(Engine, "join", Join, 1), true, false, true);
+            FastAddProperty("pop", new ClrFunctionInstance(Engine, "pop", Pop), true, false, true);
+            FastAddProperty("push", new ClrFunctionInstance(Engine, "push", Push, 1), true, false, true);
+            FastAddProperty("reverse", new ClrFunctionInstance(Engine, "reverse", Reverse), true, false, true);
+            FastAddProperty("shift", new ClrFunctionInstance(Engine, "shift", Shift), true, false, true);
+            FastAddProperty("slice", new ClrFunctionInstance(Engine, "slice", Slice, 2), true, false, true);
+            FastAddProperty("sort", new ClrFunctionInstance(Engine, "sort", Sort, 1), true, false, true);
+            FastAddProperty("splice", new ClrFunctionInstance(Engine, "splice", Splice, 2), true, false, true);
+            FastAddProperty("unshift", new ClrFunctionInstance(Engine, "unshift", Unshift, 1), true, false, true);
+            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1), true, false, true);
+            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1), true, false, true);
+            FastAddProperty("every", new ClrFunctionInstance(Engine, "every", Every, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("some", new ClrFunctionInstance(Engine, "some", Some, 1), true, false, true);
+            FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1), true, false, true);
+            FastAddProperty("map", new ClrFunctionInstance(Engine, "map", Map, 1), true, false, true);
+            FastAddProperty("filter", new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("reduce", new ClrFunctionInstance(Engine, "reduce", Reduce, 1), true, false, true);
+            FastAddProperty("reduceRight", new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1), true, false, true);
+            FastAddProperty("find", new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("findIndex", new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1), true, false, true);
+
+            FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Iterator, 1), true, false, true);
+        }
+
+        private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)
+        {
+            var array = thisObj as ArrayInstance;
+            return _engine.Iterator.Construct(array);
+        }
+
+        private JsValue Fill(JsValue thisObj, JsValue[] arguments)
+        {
+            var target = thisObj as ObjectInstance;
+            var operations = ArrayOperations.For(target);
+            var length = operations.GetLength();
+
+            var value = arguments.At(0);
+
+            var start = arguments.At(1, 0).AsNumber();
+            var relativeStart = TypeConverter.ToInteger(start);
+            uint actualStart;
+            if (relativeStart < 0)
+            {
+                actualStart = (uint) System.Math.Max(length + relativeStart, 0);
+            }
+            else
+            {
+                actualStart = (uint) System.Math.Min(relativeStart, length);
+            }
+
+            var end = arguments.At(2, length).AsNumber();
+            var relativeEnd = TypeConverter.ToInteger(end);
+            uint actualEnd;
+            if (relativeEnd < 0)
+            {
+                actualEnd = (uint) System.Math.Max(length + relativeEnd, 0);
+            }
+            else
+            {
+                actualEnd = (uint) System.Math.Min(relativeEnd, length);
+            }
+
+            for (var i = actualStart; i < actualEnd; ++i)
+            {
+                operations.Put(i, value, false);
+            }
+
+            return target;
+        }
+
+        private JsValue CopyWithin(JsValue thisObj, JsValue[] arguments)
+        {
+            return Undefined;
         }
 
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
@@ -264,12 +321,25 @@ namespace Jint.Native.Array
 
         private JsValue Every(JsValue thisObj, JsValue[] arguments)
         {
+            var o = ArrayOperations.For(Engine, thisObj);
+            uint len;
+            if (thisObj is ArrayInstance arrayInstance)
+            {
+                len = arrayInstance.GetLength();
+            }
+            else
+            {
+                var intValue = ((ArrayOperations.ObjectInstanceOperations) o).GetIntegerLength();
+                len = intValue < 0 ? 0 : (uint) intValue;
+            }
+
+            if (len == 0)
+            {
+                return JsBoolean.True;
+            }
+
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
-
-            var o = ArrayOperations.For(Engine, thisObj);
-            var len = o.GetLength();
-
             var callable = GetCallable(callbackfn);
 
             var args = _engine._jsValueArrayPool.RentArray(3);
@@ -351,14 +421,14 @@ namespace Jint.Native.Array
 
             return -1;
         }
-        
+
         private JsValue Find(JsValue thisObj, JsValue[] arguments)
         {
             var target = TypeConverter.ToObject(Engine, thisObj);
             target.FindWithCallback(arguments, out _, out var value);
             return value;
         }
-        
+
         private JsValue FindIndex(JsValue thisObj, JsValue[] arguments)
         {
             var target = TypeConverter.ToObject(Engine, thisObj);
@@ -399,7 +469,7 @@ namespace Jint.Native.Array
             }
             a.SetLength(actualDeleteCount);
 
-            var items = System.Array.Empty<JsValue>();
+            var items = System.ArrayExt.Empty<JsValue>();
             if (arguments.Length > 2)
             {
                 items = new JsValue[arguments.Length - 2];
@@ -937,12 +1007,12 @@ namespace Jint.Native.Array
             o.Target.Put("length", len, true);
             return element;
         }
-        
+
         /// <summary>
         /// Adapter to use optimized array operations when possible.
         /// Gaps the difference between ArgumensInstance and ArrayInstance.
         /// </summary>
-        private abstract class ArrayOperations
+        internal abstract class ArrayOperations
         {
             public abstract ObjectInstance Target { get; }
 
@@ -980,7 +1050,7 @@ namespace Jint.Native.Array
                 return new ObjectInstanceOperations(instance);
             }
 
-            private class ObjectInstanceOperations : ArrayOperations
+            internal class ObjectInstanceOperations : ArrayOperations
             {
                 private readonly ObjectInstance _instance;
 
@@ -991,7 +1061,7 @@ namespace Jint.Native.Array
 
                 public override ObjectInstance Target => _instance;
 
-                public override uint GetLength()
+                internal double GetIntegerLength()
                 {
                     var desc = _instance.GetProperty("length");
                     var descValue = desc.Value;
@@ -1009,7 +1079,12 @@ namespace Jint.Native.Array
                     // if getter is not undefined it must be ICallable
                     var callable = (ICallable) getter;
                     var value = callable.Call(_instance, Arguments.Empty);
-                    return TypeConverter.ToUint32(value);
+                    return (uint) TypeConverter.ToInteger(value);
+                }
+
+                public override uint GetLength()
+                {
+                    return (uint) GetIntegerLength();
                 }
 
                 public override void SetLength(uint length) => _instance.Put("length", length, true);

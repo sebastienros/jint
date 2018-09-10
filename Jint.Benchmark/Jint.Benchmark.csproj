@@ -19,7 +19,7 @@
     <None Include="..\Jint.Tests.CommonScripts\Scripts\**" CopyToOutputDirectory="PreserveNewest" LinkBase="SunSpider" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.10.14" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.11.0" />
     <ProjectReference Include="..\Jint\Jint.csproj" />
     <PackageReference Include="Jurassic" Version="3.0.0-alpha2" />
     <PackageReference Include="NiL.JS.NetCore" Version="2.5.1200" />

@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Text;
+using Jint.Native.Array;
 using Jint.Runtime;
 
 namespace Jint.Native
 {
-    public class JsString : JsValue, IEquatable<JsString>
+    public class JsString : JsValue, IEquatable<JsString>, IArrayLike
     {
         private const int AsciiMax = 126;
         private static readonly JsString[] _charToJsValue;
@@ -94,6 +95,17 @@ namespace Jint.Native
         public override string ToString()
         {
             return _value;
+        }
+
+        public ArrayInstance ToArray(Engine engine)
+        {
+            var array = engine.Array.ConstructFast((uint) this._value.Length);
+            for (uint i = 0; i < _value.Length; ++i)
+            {
+                array.SetIndexValue(i, this._value[0], updateLength: false);
+            }
+
+            return array;
         }
 
         public override bool Equals(JsValue obj)

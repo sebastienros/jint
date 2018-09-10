@@ -647,6 +647,15 @@ namespace Jint.Tests.Runtime
             );
         }
 
+#if NET452
+        [Fact]
+        public void ShouldThrowMemoryLimitExceeded()
+        {
+            Assert.Throws<PlatformNotSupportedException>(
+                () => new Engine(cfg => cfg.LimitMemory(2048)).Execute("a=[]; while(true){ a.push(0); }")
+            );
+        }
+#else
         [Fact]
         public void ShouldThrowMemoryLimitExceeded()
         {
@@ -654,6 +663,7 @@ namespace Jint.Tests.Runtime
                 () => new Engine(cfg => cfg.LimitMemory(2048)).Execute("a=[]; while(true){ a.push(0); }")
             );
         }
+#endif
 
         [Fact]
         public void ShouldThrowTimeout()
@@ -1230,7 +1240,7 @@ namespace Jint.Tests.Runtime
             var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
             engine.Execute(
                 string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
-            Assert.Equal(testDateTimeOffset.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"), engine.Execute("d.toISOString();").GetCompletionValue().ToString());
+            Assert.Equal(testDateTimeOffset.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture), engine.Execute("d.toISOString();").GetCompletionValue().ToString());
         }
 
         [Theory, MemberData("TestDates")]
@@ -1243,7 +1253,7 @@ namespace Jint.Tests.Runtime
             engine.Execute(
                 string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
 
-            var expected = testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz");
+            var expected = testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz", CultureInfo.InvariantCulture);
             var actual = engine.Execute("d.toString();").GetCompletionValue().ToString();
 
             Assert.Equal(expected, actual);
@@ -2473,10 +2483,10 @@ namespace Jint.Tests.Runtime
         public void ShouldReturnCorrectConcatenatedStrings()
         {
             RunTest(@"
-                function concat(x, a, b) { 
+                function concat(x, a, b) {
                     x += a;
                     x += b;
-                    return x; 
+                    return x;
                 }");
 
             var concat = _engine.GetValue("concat");
