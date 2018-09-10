@@ -8,7 +8,7 @@ namespace Jint.Native.Number
     public sealed class NumberConstructor : FunctionInstance, IConstructor
     {
         public NumberConstructor(Engine engine)
-            : base(engine, null, null, false)
+            : base(engine, "Number", null, null, false)
         {
 
         }

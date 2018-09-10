@@ -11,7 +11,7 @@ namespace Jint.Native.Function
     {
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
 
-        private FunctionConstructor(Engine engine):base(engine, null, null, false)
+        private FunctionConstructor(Engine engine):base(engine, "Function", null, null, false)
         {
         }
 

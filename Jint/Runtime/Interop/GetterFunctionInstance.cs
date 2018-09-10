@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interop
         private readonly Func<JsValue, JsValue> _getter;
 
         public GetterFunctionInstance(Engine engine, Func<JsValue, JsValue> getter)
-            : base(engine,  null, null, false)
+            : base(engine, "get", null, null, false)
         {
             _getter = getter;
         }

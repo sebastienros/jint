@@ -7,7 +7,7 @@ namespace Jint.Native.Boolean
 {
     public sealed class BooleanConstructor : FunctionInstance, IConstructor
     {
-        private BooleanConstructor(Engine engine): base(engine, null, null, false)
+        private BooleanConstructor(Engine engine): base(engine, "Boolean", null, null, false)
         {
         }
 

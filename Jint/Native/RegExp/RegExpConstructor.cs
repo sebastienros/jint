@@ -11,7 +11,7 @@ namespace Jint.Native.RegExp
     public sealed class RegExpConstructor : FunctionInstance, IConstructor
     {
         public RegExpConstructor(Engine engine)
-            : base(engine, null, null, false)
+            : base(engine, "RegExp", null, null, false)
         {
         }
 

@@ -36,7 +36,7 @@ namespace Jint.Native.Error
         public void Configure()
         {
             // Error prototype functions
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToString), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString), true, false, true);
         }
 
         public JsValue ToString(JsValue thisObject, JsValue[] arguments)

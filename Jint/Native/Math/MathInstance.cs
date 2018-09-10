@@ -2,6 +2,7 @@
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Math
@@ -25,28 +26,28 @@ namespace Jint.Native.Math
 
         public void Configure()
         {
-            FastAddProperty("abs", new ClrFunctionInstance(Engine, Abs), true, false, true);
-            FastAddProperty("acos", new ClrFunctionInstance(Engine, Acos), true, false, true);
-            FastAddProperty("asin", new ClrFunctionInstance(Engine, Asin), true, false, true);
-            FastAddProperty("atan", new ClrFunctionInstance(Engine, Atan), true, false, true);
-            FastAddProperty("atan2", new ClrFunctionInstance(Engine, Atan2), true, false, true);
-            FastAddProperty("ceil", new ClrFunctionInstance(Engine, Ceil), true, false, true);
-            FastAddProperty("cos", new ClrFunctionInstance(Engine, Cos), true, false, true);
-            FastAddProperty("exp", new ClrFunctionInstance(Engine, Exp), true, false, true);
-            FastAddProperty("floor", new ClrFunctionInstance(Engine, Floor), true, false, true);
-            FastAddProperty("log", new ClrFunctionInstance(Engine, Log), true, false, true);
-            FastAddProperty("max", new ClrFunctionInstance(Engine, Max, 2), true, false, true);
-            FastAddProperty("min", new ClrFunctionInstance(Engine, Min, 2), true, false, true);
-            FastAddProperty("pow", new ClrFunctionInstance(Engine, Pow, 2), true, false, true);
-            FastAddProperty("random", new ClrFunctionInstance(Engine, Random), true, false, true);
-            FastAddProperty("round", new ClrFunctionInstance(Engine, Round), true, false, true);
-            FastAddProperty("sin", new ClrFunctionInstance(Engine, Sin), true, false, true);
-            FastAddProperty("sqrt", new ClrFunctionInstance(Engine, Sqrt), true, false, true);
-            FastAddProperty("tan", new ClrFunctionInstance(Engine, Tan), true, false, true);
+            FastAddProperty("abs", new ClrFunctionInstance(Engine, "abs", Abs), true, false, true);
+            FastAddProperty("acos", new ClrFunctionInstance(Engine, "acos", Acos), true, false, true);
+            FastAddProperty("asin", new ClrFunctionInstance(Engine, "asin", Asin), true, false, true);
+            FastAddProperty("atan", new ClrFunctionInstance(Engine, "atan", Atan), true, false, true);
+            FastAddProperty("atan2", new ClrFunctionInstance(Engine, "atan2", Atan2), true, false, true);
+            FastAddProperty("ceil", new ClrFunctionInstance(Engine, "ceil", Ceil), true, false, true);
+            FastAddProperty("cos", new ClrFunctionInstance(Engine, "cos", Cos), true, false, true);
+            FastAddProperty("exp", new ClrFunctionInstance(Engine, "exp", Exp), true, false, true);
+            FastAddProperty("floor", new ClrFunctionInstance(Engine, "floor", Floor), true, false, true);
+            FastAddProperty("log", new ClrFunctionInstance(Engine, "log", Log), true, false, true);
+            FastAddProperty("max", new ClrFunctionInstance(Engine, "max", Max, 2), true, false, true);
+            FastAddProperty("min", new ClrFunctionInstance(Engine, "min", Min, 2), true, false, true);
+            FastAddProperty("pow", new ClrFunctionInstance(Engine, "pow", Pow, 2), true, false, true);
+            FastAddProperty("random", new ClrFunctionInstance(Engine, "random", Random), true, false, true);
+            FastAddProperty("round", new ClrFunctionInstance(Engine, "round", Round), true, false, true);
+            FastAddProperty("sin", new ClrFunctionInstance(Engine, "sin", Sin), true, false, true);
+            FastAddProperty("sqrt", new ClrFunctionInstance(Engine, "sqrt", Sqrt), true, false, true);
+            FastAddProperty("tan", new ClrFunctionInstance(Engine, "tan", Tan), true, false, true);
 
-            FastAddProperty("trunc", new ClrFunctionInstance(Engine, Truncate), true, false, true);
-            FastAddProperty("sign", new ClrFunctionInstance(Engine, Sign), true, false, true);
-            FastAddProperty("cbrt", new ClrFunctionInstance(Engine, Cbrt), true, false, true);
+            FastAddProperty("trunc", new ClrFunctionInstance(Engine, "trunc", Truncate, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("sign", new ClrFunctionInstance(Engine, "sign", Sign, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("cbrt", new ClrFunctionInstance(Engine, "cbrt", Cbrt, 1, PropertyFlag.Configurable), true, false, true);
 
             FastAddProperty("E", System.Math.E, false, false, false);
             FastAddProperty("LN10", System.Math.Log(10), false, false, false);
@@ -150,7 +151,7 @@ namespace Jint.Native.Math
             {
                 return System.Math.PI/2;
             }
-            
+
             if (NumberInstance.IsPositiveZero(y))
             {
                 // If y is +0 and x>0, the result is +0.
@@ -170,7 +171,7 @@ namespace Jint.Native.Math
                 {
                     return System.Math.PI;
                 }
-                
+
                 // If y is +0 and x<0, the result is an implementation-dependent approximation to +π.
                 if (x < 0)
                 {
@@ -243,7 +244,7 @@ namespace Jint.Native.Math
                     return -System.Math.PI;
                 }
             }
-            
+
             // If y is +∞ and x is finite, the result is an implementation-dependent approximation to +π/2.
             if (double.IsPositiveInfinity(y) && !double.IsInfinity(x))
             {
@@ -261,25 +262,25 @@ namespace Jint.Native.Math
             {
                 return System.Math.PI/4;
             }
-            
+
             // If y is +∞ and x is −∞, the result is an implementation-dependent approximation to +3π/4.
             if (double.IsPositiveInfinity(y) && double.IsNegativeInfinity(x))
             {
                 return 3 * System.Math.PI / 4;
             }
-            
+
             // If y is −∞ and x is +∞, the result is an implementation-dependent approximation to −π/4.
             if (double.IsNegativeInfinity(y) && double.IsPositiveInfinity(x))
             {
                 return -System.Math.PI / 4;
             }
-            
+
             // If y is −∞ and x is −∞, the result is an implementation-dependent approximation to −3π/4.
             if (double.IsNegativeInfinity(y) && double.IsNegativeInfinity(x))
             {
                 return - 3 * System.Math.PI / 4;
             }
-            
+
             return System.Math.Atan2(y, x);
         }
 

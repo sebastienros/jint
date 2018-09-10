@@ -13,7 +13,7 @@ namespace Jint.Runtime.Interop
     public sealed class TypeReference : FunctionInstance, IConstructor, IObjectWrapper
     {
         private TypeReference(Engine engine)
-            : base(engine, null, null, false, "TypeReference")
+            : base(engine, "typereference", null, null, false, "TypeReference")
         {
         }
 
