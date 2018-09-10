@@ -231,14 +231,14 @@ namespace Jint.Native.Iterator
 
             public ObjectInstance Next()
             {
-                return (ObjectInstance) _callable.Call(_target, System.Array.Empty<JsValue>());
+                return (ObjectInstance) _callable.Call(_target, Arguments.Empty);
             }
 
             public void Return()
             {
                 if (_target.TryGetValue("return", out var func))
                 {
-                    ((ICallable) func).Call(_target, System.Array.Empty<JsValue>());
+                    ((ICallable) func).Call(_target, Arguments.Empty);
                 }
             }
         }

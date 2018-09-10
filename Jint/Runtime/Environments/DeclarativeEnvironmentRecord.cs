@@ -188,7 +188,7 @@ namespace Jint.Runtime.Environments
                 size += _dictionary.Count;
             }
 
-            var keys = size > 0 ? new string[size] : Array.Empty<string>();
+            var keys = size > 0 ? new string[size] : ArrayExt.Empty<string>();
             int n = 0;
             if (_set)
             {

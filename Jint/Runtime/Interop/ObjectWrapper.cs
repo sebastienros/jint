@@ -56,7 +56,7 @@ namespace Jint.Runtime.Interop
             }
 
             var type = Target.GetType();
-            var key = (type, propertyName);
+            var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, propertyName);
 
             if (!_engine.ClrPropertyDescriptorFactories.TryGetValue(key, out var factory))
             {

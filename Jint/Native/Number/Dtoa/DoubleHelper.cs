@@ -101,10 +101,22 @@ namespace Jint.Native.Number.Dtoa
             return (d64 & KExponentMask) == KExponentMask;
         }
 
+        internal readonly struct NormalizedBoundariesResult
+        {
+            public NormalizedBoundariesResult(DiyFp minus, DiyFp plus)
+            {
+                Minus = minus;
+                Plus = plus;
+            }
+
+            internal readonly DiyFp Minus;
+            internal readonly DiyFp Plus;
+        }
+
         // Returns the two boundaries of first argument.
         // The bigger boundary (m_plus) is normalized. The lower boundary has the same
         // exponent as m_plus.
-        internal static (DiyFp, DiyFp) NormalizedBoundaries(long d64)
+        internal static NormalizedBoundariesResult NormalizedBoundaries(long d64)
         {
             DiyFp v = AsDiyFp(d64);
             bool significandIsZero = (v.F == KHiddenBit);
@@ -125,7 +137,7 @@ namespace Jint.Native.Number.Dtoa
                 mMinus = new DiyFp((v.F << 1) - 1, v.E - 1);
             }
             mMinus = new DiyFp(mMinus.F << (mMinus.E - mPlus.E), mPlus.E);
-            return (mMinus, mPlus);
+            return new NormalizedBoundariesResult(mMinus, mPlus);
         }
 
         private const int KSignificandSize = 52; // Excludes the hidden bit.
