@@ -50,8 +50,19 @@ namespace Jint.Native.Number.Dtoa
             }
         }
 
+        internal readonly struct GetCachedPowerResult
+        {
+            public GetCachedPowerResult(short decimalExponent, DiyFp cMk)
+            {
+                this.decimalExponent = decimalExponent;
+                this.cMk = cMk;
+            }
 
-        internal static (short, DiyFp) GetCachedPower(int e, int alpha, int gamma)
+            internal readonly short decimalExponent;
+            internal readonly DiyFp cMk;
+        }
+
+        internal static GetCachedPowerResult GetCachedPower(int e, int alpha, int gamma)
         {
             const int kQ = DiyFp.KSignificandSize;
             double k = System.Math.Ceiling((alpha - e + kQ - 1) * Kd1Log210);
@@ -60,7 +71,7 @@ namespace Jint.Native.Number.Dtoa
 
             var cMk = new DiyFp(cachedPower.Significand, cachedPower.BinaryExponent);
             Debug.Assert((alpha <= cMk.E + e) && (cMk.E + e <= gamma));
-            return (cachedPower.DecimalExponent, cMk);
+            return new GetCachedPowerResult(cachedPower.DecimalExponent, cMk);
         }
 
         // Code below is converted from GRISU_CACHE_NAME(8) in file "powers-ten.h"

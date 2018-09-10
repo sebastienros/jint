@@ -86,8 +86,42 @@ namespace Jint
             { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "") }
         };
 
-        internal readonly Dictionary<(Type, string), Func<Engine, object, PropertyDescriptor>> ClrPropertyDescriptorFactories =
-            new Dictionary<(Type, string), Func<Engine, object, PropertyDescriptor>>();
+        internal struct ClrPropertyDescriptorFactoriesKey : IEquatable<ClrPropertyDescriptorFactoriesKey>
+        {
+            public ClrPropertyDescriptorFactoriesKey(Type type, string propertyName)
+            {
+                Type = type;
+                PropertyName = propertyName;
+            }
+
+            internal readonly Type Type;
+            internal readonly string PropertyName;
+
+            public bool Equals(ClrPropertyDescriptorFactoriesKey other)
+            {
+                return Type == other.Type && PropertyName == other.PropertyName;
+            }
+
+            public override bool Equals(object obj)
+            {
+                if (ReferenceEquals(null, obj))
+                {
+                    return false;
+                }
+                return obj is ClrPropertyDescriptorFactoriesKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return (Type.GetHashCode() * 397) ^ PropertyName.GetHashCode();
+                }
+            }
+        }
+
+        internal readonly Dictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>> ClrPropertyDescriptorFactories =
+            new Dictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>>();
 
         internal JintCallStack CallStack = new JintCallStack();
 

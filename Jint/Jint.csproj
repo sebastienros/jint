@@ -8,6 +8,5 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Esprima" Version="1.0.0-beta-1049" />
-    <PackageReference Condition=" '$(TargetFramework)' == 'net45' " Include="System.ValueTuple" Version="4.5.0" />
   </ItemGroup>
 </Project>
