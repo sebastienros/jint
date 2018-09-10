@@ -1,5 +1,4 @@
-﻿using Jint.Native.Array;
-using Jint.Native.Function;
+﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;

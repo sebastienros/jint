@@ -168,7 +168,7 @@ namespace Jint.Native
                 return null;
             }
 
-            var obj = (ObjectInstance) callable.Call(this, System.Array.Empty<JsValue>());
+            var obj = (ObjectInstance) callable.Call(this, Arguments.Empty);
             if (obj is IIterator iterator)
             {
                 return iterator;
