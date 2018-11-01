@@ -1259,6 +1259,22 @@ namespace Jint.Tests.Runtime
             Assert.Equal(expected, actual);
         }
 
+        [Theory]
+        [InlineData("new Date(2019, 0, 1)", 1, 12, 2018)]
+        [InlineData("new Date(1970, 0, 1)", 1, 12, 1969)]
+        [InlineData("new Date(1958, 0, 1)", 1, 12, 1957)]
+        public void ShouldSetMonthToPreviousYear(string startDate, int day, int month, int year)
+        {
+            var code = $"var myDate = {startDate}; myDate.setMonth(-1);";
+
+            var engine = new Engine();
+            var result = engine.Execute(code).GetValue("myDate").AsDate().ToDateTime();
+
+            Assert.Equal(day, result.Day);
+            Assert.Equal(month, result.Month);
+            Assert.Equal(year, result.Year);
+        }
+
         #endregion
 
         //DateParsingAndStrings
