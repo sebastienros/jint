@@ -1107,6 +1107,17 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void TimeWithinDayShouldHandleNegativeValues()
+        {
+            RunTest(@"
+                // using a date < 1970 so that the primitive value is negative
+                var d = new Date(1958, 0, 1);
+                d.setMonth(-1);
+                assert(d.getDate() == 1);
+            ");
+        }
+
+        [Fact]
         public void LocalDateTimeShouldNotLoseTimezone()
         {
             var date = new DateTime(2016, 1, 1, 13, 0, 0, DateTimeKind.Local);
