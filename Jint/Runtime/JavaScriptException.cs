@@ -49,7 +49,7 @@ namespace Jint.Runtime
                     if (index != 0)
                         sb.Append(", ");
                     var arg = cse.CallExpression.Arguments[index];
-                    if (arg is PropertyKey pke)
+                    if (arg is Expression pke)
                         sb.Append(pke.GetKey());
                     else
                         sb.Append(arg);

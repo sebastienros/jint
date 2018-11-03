@@ -1,9 +1,5 @@
 [
   {
-    "source": "built-ins/Map/iterator-is-undefined-throws.js",
-    "reason": "Esprima problem"
-  },
-  {
     "source": "built-ins/Boolean/proto-from-ctor-realm.js",
     "reason": "realms not implemented"
   },

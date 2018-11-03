@@ -76,12 +76,12 @@ namespace Jint.Native.Set
                 && !arguments[0].IsUndefined()
                 && !arguments[0].IsNull())
             {
-                var iterator = arguments.At(0).GetIterator();
+                var iterator = arguments.At(0).GetIterator(_engine);
                 if (iterator != null)
                 {
                     var setterProperty = instance.GetProperty("add");
 
-                    ICallable adder = null;
+                    ICallable adder;
                     if (setterProperty == null
                         || !setterProperty.TryGetValue(instance, out var setterValue)
                         || (adder = setterValue as ICallable) == null)
