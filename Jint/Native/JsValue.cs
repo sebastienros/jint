@@ -147,24 +147,13 @@ namespace Jint.Native
         
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal IIterator GetIterator()
+        internal IIterator GetIterator(Engine engine)
         {
-            if (!(this is ObjectInstance oi))
+            if (!(this is ObjectInstance oi)
+                || !oi.TryGetValue(GlobalSymbolRegistry.Iterator._value, out var value)
+                || !(value is ICallable callable))
             {
-                ExceptionHelper.ThrowArgumentException("The value is not iterable");
-                return null;
-            }
-
-            // TODO
-            if (!oi.TryGetValue(GlobalSymbolRegistry.Iterator._value, out var value))
-            {
-                ExceptionHelper.ThrowArgumentException("The value is not iterable");
-                return null;
-            }
-
-            if (!(value is ICallable callable))
-            {
-                ExceptionHelper.ThrowArgumentException("The value is not iterable");
+                ExceptionHelper.ThrowTypeError(engine, "The value is not iterable");
                 return null;
             }
 
