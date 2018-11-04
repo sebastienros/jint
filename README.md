@@ -53,8 +53,9 @@ You can also directly pass POCOs or anonymous objects and use them from JavaScri
 
     var engine = new Engine()
         .SetValue("p", p)
-        .Execute("p.Name === 'Mickey Mouse'")
+        .Execute("p.Name = 'Minnie'")
         ;
+    Assert.AreEqual("Minnie", p.Name);
 ```
 You can invoke JavaScript function reference
 ```c#
