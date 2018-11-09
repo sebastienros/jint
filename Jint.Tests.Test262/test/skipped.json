@@ -1,5 +1,37 @@
 [
   {
+    "source": "built-ins/Array/prototype/concat/create-proxy.js",
+    "reason": "proxies not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/create-revoked-proxy.js",
+    "reason": "proxies not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/is-concat-spreadable-is-array-proxy-revoked.js",
+    "reason": "proxies not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/is-concat-spreadable-proxy-revoked.js",
+    "reason": "proxies not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/is-concat-spreadable-proxy.js",
+    "reason": "proxies not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_non-array.js",
+    "reason": "class keyword not implemented"
+  },
+  {
+    "source": "built-ins/Array/isArray/proxy-revoked.js",
+    "reason": "proxies not implemented"
+  },
+  {
+    "source": "built-ins/Array/isArray/proxy.js",
+    "reason": "proxies not implemented"
+  },
+  {
     "source": "built-ins/Boolean/proto-from-ctor-realm.js",
     "reason": "realms not implemented"
   },

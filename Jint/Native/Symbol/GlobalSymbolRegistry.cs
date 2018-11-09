@@ -4,16 +4,16 @@ namespace Jint.Native.Symbol
 {
     public class GlobalSymbolRegistry : Dictionary<string, JsSymbol>
     {
-        public static JsSymbol HasInstance { get; } = new JsSymbol("Symbol.hasInstance");
-        public static JsSymbol IsConcatSpreadable { get; } = new JsSymbol("Symbol.isConcatSpreadable");
-        public static JsSymbol Iterator { get; } = new JsSymbol("Symbol.iterator");
-        public static JsSymbol Match { get; } = new JsSymbol("Symbol.match");
-        public static JsSymbol Replace { get; } = new JsSymbol("Symbol.replace");
-        public static JsSymbol Search { get; } = new JsSymbol("Symbol.search");
-        public static JsSymbol Species { get; } = new JsSymbol("Symbol.species");
-        public static JsSymbol Split { get; } = new JsSymbol("Symbol.split");
-        public static JsSymbol ToPrimitive { get; } = new JsSymbol("Symbol.toPrimitive");
-        public static JsSymbol ToStringTag { get; } = new JsSymbol("Symbol.toStringTag");
-        public static JsSymbol Unscopables { get; } = new JsSymbol("Symbol.unscopables");
+        public static readonly JsSymbol HasInstance = new JsSymbol("Symbol.hasInstance");
+        public static readonly JsSymbol IsConcatSpreadable = new JsSymbol("Symbol.isConcatSpreadable");
+        public static readonly JsSymbol Iterator = new JsSymbol("Symbol.iterator");
+        public static readonly JsSymbol Match = new JsSymbol("Symbol.match");
+        public static readonly JsSymbol Replace = new JsSymbol("Symbol.replace");
+        public static readonly JsSymbol Search = new JsSymbol("Symbol.search");
+        public static readonly JsSymbol Species = new JsSymbol("Symbol.species");
+        public static readonly JsSymbol Split = new JsSymbol("Symbol.split");
+        public static readonly JsSymbol ToPrimitive = new JsSymbol("Symbol.toPrimitive");
+        public static readonly JsSymbol ToStringTag = new JsSymbol("Symbol.toStringTag");
+        public static readonly JsSymbol Unscopables = new JsSymbol("Symbol.unscopables");
     }
 }

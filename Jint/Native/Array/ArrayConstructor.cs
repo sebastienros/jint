@@ -51,9 +51,51 @@ namespace Jint.Native.Array
         private JsValue From(JsValue thisObj, JsValue[] arguments)
         {
             var source = arguments.At(0);
-            if (source is IArrayLike arrayLike)
+            var mapFunction = arguments.At(1);
+            var callable = mapFunction != null ? GetCallable(mapFunction) : null;
+            var thisArg = arguments.At(2) ?? source;
+
+            if (thisObj.IsNull())
             {
-                arrayLike.ToArray(_engine);
+                return _engine.Array.ConstructFast(0);
+            }
+
+            if (source is ObjectInstance objectInstance
+                && objectInstance.TryGetValue("length", out var lengthValue)
+                && lengthValue.IsNumber()
+                && ((JsNumber) lengthValue)._value >= 0)
+            {
+                var length = (uint) ((JsNumber) lengthValue)._value;
+                var a = _engine.Array.ConstructFast(length);
+                var args = mapFunction != null
+                    ? _engine._jsValueArrayPool.RentArray(2)
+                    : null;
+
+                var operations = ArrayPrototype.ArrayOperations.For(objectInstance);
+
+                for (uint i = 0; i < length; i++)
+                {
+                    JsValue jsValue;
+                    operations.TryGetValue(i, out var value);
+                    if (mapFunction != null)
+                    {
+                        args[0] = value;
+                        args[1] = thisArg;
+                        jsValue = callable.Call(thisArg, args);
+                    }
+                    else
+                    {
+                        jsValue = value;
+                    }
+                    a.SetIndexValue(i, jsValue, updateLength: false);
+                }
+
+                if (mapFunction != null)
+                {
+                    _engine._jsValueArrayPool.ReturnArray(args);
+                }
+                a.SetLength(length);
+                return a;
             }
             return Undefined;
         }

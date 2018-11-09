@@ -10,6 +10,7 @@ using Jint.Native.Function;
 using Jint.Native.Number;
 using Jint.Native.RegExp;
 using Jint.Native.String;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -901,6 +902,22 @@ namespace Jint.Native.Object
 
             ExceptionHelper.ThrowTypeError(_engine, "Argument must be callable");
             return null;
+        }
+
+        internal virtual bool IsConcatSpreadable => TryGetIsConcatSpreadable(out var isConcatSpreadable) && isConcatSpreadable;
+
+        protected bool TryGetIsConcatSpreadable(out bool isConcatSpreadable)
+        {
+            isConcatSpreadable = false;
+            if (TryGetValue(GlobalSymbolRegistry.IsConcatSpreadable._value, out var isConcatSpreadableValue)
+                && !ReferenceEquals(isConcatSpreadableValue, null)
+                && !isConcatSpreadableValue.IsUndefined())
+            {
+                isConcatSpreadable = TypeConverter.ToBoolean(isConcatSpreadableValue);
+                return true;
+            }
+
+            return false;
         }
 
         public override bool Equals(JsValue obj)

@@ -58,6 +58,8 @@ namespace Jint.Native.Array
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
+        internal override bool IsConcatSpreadable => !TryGetIsConcatSpreadable(out var isConcatSpreadable) || isConcatSpreadable;
+
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
@@ -757,6 +759,31 @@ namespace Jint.Native.Array
             index = 0;
             value = Undefined;
             return false;
+        }
+        
+        public uint Length => GetLength();
+
+        public JsValue this[uint index]
+        {
+            get
+            {
+                TryGetValue(index, out var kValue);
+                return kValue;
+            }
+        }
+
+        internal ArrayInstance ToArray(Engine engine)
+        {
+            var length = GetLength();
+            var array = _engine.Array.ConstructFast(length);
+            for (uint i = 0; i < length; i++)
+            {
+                if (TryGetValue(i, out var kValue))
+                {
+                    array.SetIndexValue(i, kValue, updateLength: false);
+                }
+            }
+            return array;
         }
     }
 }

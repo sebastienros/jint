@@ -25,7 +25,7 @@ namespace Jint.Native.Array
                 Prototype = engine.Object.PrototypeObject
             };
 
-            obj.FastAddProperty("length", 0, true, false, false);
+            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Writable));
             obj.SetOwnProperty("constructor", new PropertyDescriptor(arrayConstructor, PropertyFlag.NonEnumerable));
 
             return obj;
@@ -35,8 +35,8 @@ namespace Jint.Native.Array
         {
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString, 0), true, false, true);
             FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), true, false, true);
-            FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1), true, false, true);
-            FastAddProperty("copyWithin", new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 1), true, false, true);
+            FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("copyWithin", new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("fill", new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("join", new ClrFunctionInstance(Engine, "join", Join, 1), true, false, true);
@@ -60,6 +60,7 @@ namespace Jint.Native.Array
             FastAddProperty("find", new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("findIndex", new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1), true, false, true);
 
+            FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Iterator, 1), true, false, true);
             FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Iterator, 1), true, false, true);
         }
 
@@ -111,7 +112,69 @@ namespace Jint.Native.Array
 
         private JsValue CopyWithin(JsValue thisObj, JsValue[] arguments)
         {
-            return Undefined;
+            // Steps 1-2.
+            if (thisObj.IsNull() || thisObj.IsUndefined() || !(thisObj is ArrayInstance array))
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "this is null or not defined");
+            }
+
+            JsValue target = arguments.At(0);
+            JsValue start = arguments.At(1);
+            JsValue end = arguments.At(2);
+            
+            var initialLength = ArrayOperations.For(array).GetLength();
+            var len = initialLength >> 0;
+
+            var relativeTarget = target.IsUndefined()
+                ? 0
+                : (int) TypeConverter.ToNumber(target) >> 0;
+
+            var to = relativeTarget < 0 ?
+                (uint) System.Math.Max(len + relativeTarget, 0) :
+                (uint) System.Math.Min(relativeTarget, len);
+
+            var relativeStart = start.IsUndefined() 
+                ? 0
+                : (int) TypeConverter.ToNumber(start) >> 0;
+
+            var from = relativeStart < 0 ?
+                (uint) System.Math.Max(len + relativeStart, 0) :
+                (uint) System.Math.Min(relativeStart, len);
+
+            var relativeEnd = end.IsUndefined()
+                ? (int) len 
+                : (int) TypeConverter.ToNumber(end) >> 0;
+
+            var final = relativeEnd < 0 ?
+                System.Math.Max(len + relativeEnd, 0) :
+                System.Math.Min(relativeEnd, len);
+
+            var count = (uint) System.Math.Min(final - from, len - to);
+
+            var direction = 1;
+
+            if (from < to && to < from + count) {
+                direction = -1;
+                from += count - 1;
+                to += count - 1;
+            }
+
+            while (count > 0)
+            {
+                if (array.TryGetValue(from, out var value))
+                {
+                    array.SetIndexValue(to, value, false);
+                }
+                else
+                {
+                    array.RemoveOwnProperty(TypeConverter.ToString(to));
+                }
+                from = (uint) (from + direction);
+                to = (uint) (to + direction);
+                count--;
+            }
+
+            return thisObj;
         }
 
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
@@ -854,18 +917,31 @@ namespace Jint.Native.Array
             items.AddRange(arguments);
 
             // try to find best capacity
+            bool hasNonSpreadables = false;
             uint capacity = 0;
             for (var i = 0; i < items.Count; i++)
             {
-                var eArray = items[i] as ArrayInstance;
-                capacity += eArray?.GetLength() ?? (uint) 1;
+                uint increment;
+                var objectInstance = items[i] as ObjectInstance;
+                if (objectInstance == null
+                    || (hasNonSpreadables |= objectInstance.IsConcatSpreadable) == false)
+                {
+                    increment = 1;
+                }
+                else
+                {
+                    var operations = ArrayOperations.For(objectInstance);
+                    increment = operations.GetLength();
+                }
+                capacity += increment;
             }
 
             var a = Engine.Array.ConstructFast(capacity);
             for (var i = 0; i < items.Count; i++)
             {
                 var e = items[i];
-                if (e is ArrayInstance eArray)
+                if (e is ArrayInstance eArray
+                    && (!hasNonSpreadables || eArray.IsConcatSpreadable))
                 {
                     var len = eArray.GetLength();
                     for (uint k = 0; k < len; k++)
@@ -875,6 +951,19 @@ namespace Jint.Native.Array
                             a.SetIndexValue(n, subElement, updateLength: false);
                         }
 
+                        n++;
+                    }
+                }
+                else if (hasNonSpreadables
+                         && e is ObjectInstance oi 
+                         && oi.IsConcatSpreadable)
+                {
+                    var operations = ArrayOperations.For(oi);
+                    var len = operations.GetLength();
+                    for (uint k = 0; k < len; k++)
+                    {
+                        operations.TryGetValue(k, out var subElement);
+                        a.SetIndexValue(n, subElement, updateLength: false);
                         n++;
                     }
                 }
@@ -1067,7 +1156,7 @@ namespace Jint.Native.Array
                     var descValue = desc.Value;
                     if (desc.IsDataDescriptor() && !ReferenceEquals(descValue, null))
                     {
-                        return TypeConverter.ToUint32(descValue);
+                        return TypeConverter.ToInteger(descValue);
                     }
 
                     var getter = desc.Get ?? Undefined;
@@ -1084,7 +1173,8 @@ namespace Jint.Native.Array
 
                 public override uint GetLength()
                 {
-                    return (uint) GetIntegerLength();
+                    var integerLength = GetIntegerLength();
+                    return (uint) (integerLength >= 0 ? integerLength : 0);
                 }
 
                 public override void SetLength(uint length) => _instance.Put("length", length, true);
@@ -1117,7 +1207,10 @@ namespace Jint.Native.Array
 
                 public override uint GetSmallestIndex() => _array.GetSmallestIndex();
 
-                public override uint GetLength() => (uint) ((JsNumber) _array._length._value)._value;
+                public override uint GetLength()
+                {
+                    return (uint) ((JsNumber) _array._length._value)._value;
+                }
 
                 public override void SetLength(uint length) => _array.Put("length", length, true);
 
