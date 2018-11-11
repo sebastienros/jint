@@ -113,7 +113,7 @@ namespace Jint.Native.Array
         private JsValue CopyWithin(JsValue thisObj, JsValue[] arguments)
         {
             // Steps 1-2.
-            if (thisObj.IsNull() || thisObj.IsUndefined() || !(thisObj is ArrayInstance array))
+            if (thisObj.IsNullOrUndefined() || !(thisObj is ArrayInstance array))
             {
                 return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "this is null or not defined");
             }
@@ -706,7 +706,7 @@ namespace Jint.Native.Array
             return obj.Target;
         }
 
-        private JsValue Slice(JsValue thisObj, JsValue[] arguments)
+        internal JsValue Slice(JsValue thisObj, JsValue[] arguments)
         {
             var start = arguments.At(0);
             var end = arguments.At(1);
@@ -843,7 +843,7 @@ namespace Jint.Native.Array
 
             string StringFromJsValue(JsValue value)
             {
-                return value.IsUndefined() || value.IsNull()
+                return value.IsNullOrUndefined()
                     ? ""
                     : TypeConverter.ToString(value);
             }

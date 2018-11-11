@@ -846,10 +846,9 @@ namespace Jint.Runtime
                 }
             }
 
-            var callable = func as ICallable;
-            if (callable == null)
+            if (!(func is ICallable callable))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
             }
 
             var thisObject = Undefined.Instance;

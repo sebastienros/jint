@@ -39100,8 +39100,8 @@
     source: "ch15/15.4/15.4.3/S15.4.3_A2.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "length for array is configurable in ES6",
     source: "ch15/15.4/15.4.3/S15.4.3_A2.2.js"
   },
   {

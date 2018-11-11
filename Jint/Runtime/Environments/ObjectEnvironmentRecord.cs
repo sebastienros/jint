@@ -78,5 +78,9 @@ namespace Jint.Runtime.Environments
 
             return ArrayExt.Empty<string>();
         }
+
+        internal override void FunctionWasCalled()
+        {
+        }
     }
 }

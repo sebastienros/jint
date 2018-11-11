@@ -22,6 +22,9 @@ namespace Jint.Runtime.Environments
         private const string BindingNameArguments = "arguments";
         private Binding _argumentsBinding;
 
+        // false = not accessed, true = accessed, null = values copied
+        private bool? _argumentsBindingWasAccessed = false;
+
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
         }
@@ -57,6 +60,7 @@ namespace Jint.Runtime.Environments
 
             if (key.Length == 9 && key == BindingNameArguments)
             {
+                _argumentsBindingWasAccessed = true;
                 return ref _argumentsBinding;
             }
 
@@ -95,7 +99,6 @@ namespace Jint.Runtime.Environments
             {
                 _dictionary?.Remove(key);
             }
-
         }
 
         private bool TryGetValue(string key, out Binding value)
@@ -209,12 +212,6 @@ namespace Jint.Runtime.Environments
             return keys;
         }
 
-        internal void ReleaseArguments()
-        {
-            _engine._argumentsInstancePool.Return(_argumentsBinding.Value as ArgumentsInstance);
-            _argumentsBinding = default;
-        }
-
         /// <summary>
         /// Optimized version for function calls.
         /// </summary>
@@ -297,6 +294,28 @@ namespace Jint.Runtime.Environments
                         SetItem(dn, binding);
                     }
                 }
+            }
+        }
+        
+        internal override void FunctionWasCalled()
+        {
+            // we can safely release arguments only if it doesn't have possibility to escape the scope
+            // so check if someone ever accessed it
+            if (!(_argumentsBinding.Value is ArgumentsInstance argumentsInstance))
+            {
+                return;
+            }
+            
+            if (!argumentsInstance._initialized && _argumentsBindingWasAccessed == false)
+            {
+                _engine._argumentsInstancePool.Return(argumentsInstance);
+                _argumentsBinding = default;
+            }
+            else if (_argumentsBindingWasAccessed != null && argumentsInstance._args.Length > 0)
+            {
+                // we need to ensure we hold on to arguments given
+                argumentsInstance.PersistArguments();
+                _argumentsBindingWasAccessed = null;
             }
         }
     }

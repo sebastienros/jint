@@ -44,6 +44,13 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool IsNullOrUndefined()
+        {
+            return _type < Types.Boolean;
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsArray()
         {
             return this is ArrayInstance;
@@ -153,8 +160,7 @@ namespace Jint.Native
                 || !oi.TryGetValue(GlobalSymbolRegistry.Iterator._value, out var value)
                 || !(value is ICallable callable))
             {
-                ExceptionHelper.ThrowTypeError(engine, "The value is not iterable");
-                return null;
+                return ExceptionHelper.ThrowTypeError<IIterator>(engine, "The value is not iterable");
             }
 
             var obj = (ObjectInstance) callable.Call(this, Arguments.Empty);

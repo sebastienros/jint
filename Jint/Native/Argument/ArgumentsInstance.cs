@@ -19,11 +19,11 @@ namespace Jint.Native.Argument
 
         private FunctionInstance _func;
         private string[] _names;
-        private JsValue[] _args;
+        internal JsValue[] _args;
         private EnvironmentRecord _env;
         private bool _strict;
 
-        private bool _initialized;
+        internal bool _initialized;
 
         internal ArgumentsInstance(Engine engine) : base(engine, objectClass: "Arguments")
         {
@@ -231,6 +231,14 @@ namespace Jint.Native.Argument
             }
 
             return base.Delete(propertyName, throwOnError);
+        }
+
+        internal void PersistArguments()
+        {
+            EnsureInitialized();
+            var copiedArgs = new JsValue[_args.Length];
+            System.Array.Copy(_args, copiedArgs, _args.Length);
+            _args = copiedArgs;
         }
     }
 }

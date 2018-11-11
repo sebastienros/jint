@@ -21,7 +21,8 @@ namespace Jint.Tests.Test262
         [RunnableInDebugOnly]
         public void TestSingle()
         {
-            const string Target = @"built-ins/Array/from/calling-from-valid-2.js";
+            const string Target = @"built-ins/Array/from/Array.from_forwards-length-for-array-likes.js";
+            //const string Target = @"built-ins/Array/from/calling-from-valid-2.js";
             var sourceFile = SourceFiles("built-ins", false)
                 .SelectMany(x => x)
                 .Cast<SourceFile>()

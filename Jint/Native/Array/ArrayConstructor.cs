@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Runtime.CompilerServices;
 using Jint.Native.Function;
+using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -27,7 +28,7 @@ namespace Jint.Native.Array
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = ArrayPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
+            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.Configurable));
 
             // The initial value of Array.prototype is the Array prototype object
             obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
@@ -45,64 +46,129 @@ namespace Jint.Native.Array
         {
             SetOwnProperty("from",new PropertyDescriptor(new ClrFunctionInstance(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
             SetOwnProperty("isArray", new PropertyDescriptor(new ClrFunctionInstance(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable));
-            SetOwnProperty("of", new PropertyDescriptor(new ClrFunctionInstance(Engine, "of", Of, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
+            SetOwnProperty("of", new PropertyDescriptor(new ClrFunctionInstance(Engine, "of", Of, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
         }
 
         private JsValue From(JsValue thisObj, JsValue[] arguments)
         {
             var source = arguments.At(0);
             var mapFunction = arguments.At(1);
-            var callable = mapFunction != null ? GetCallable(mapFunction) : null;
-            var thisArg = arguments.At(2) ?? source;
+            var callable = !mapFunction.IsUndefined() ? GetCallable(mapFunction) : null;
+            var thisArg = arguments.At(2);
 
-            if (thisObj.IsNull())
+            if (source.IsNullOrUndefined())
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "Cannot convert undefined or null to object");
+            }
+
+            if (source is JsString jsString)
+            {
+                var a = _engine.Array.ConstructFast((uint) jsString.Length);
+                for (int i = 0; i < jsString._value.Length; i++)
+                {
+                    a.SetIndexValue((uint) i, JsString.Create(jsString._value[i]), updateLength: false);
+                }
+                return a;
+            }
+
+            if (thisObj.IsNull() || !(source is ObjectInstance objectInstance))
             {
                 return _engine.Array.ConstructFast(0);
             }
 
-            if (source is ObjectInstance objectInstance
-                && objectInstance.TryGetValue("length", out var lengthValue)
-                && lengthValue.IsNumber()
-                && ((JsNumber) lengthValue)._value >= 0)
+            if (objectInstance.IsArrayLike)
             {
-                var length = (uint) ((JsNumber) lengthValue)._value;
+                var operations = ArrayPrototype.ArrayOperations.For(objectInstance);
+
+                var length = operations.GetLength();
+
                 var a = _engine.Array.ConstructFast(length);
-                var args = mapFunction != null
+                var args = !ReferenceEquals(callable, null)
                     ? _engine._jsValueArrayPool.RentArray(2)
                     : null;
 
-                var operations = ArrayPrototype.ArrayOperations.For(objectInstance);
-
+                uint n = 0;
                 for (uint i = 0; i < length; i++)
                 {
                     JsValue jsValue;
                     operations.TryGetValue(i, out var value);
-                    if (mapFunction != null)
+                    if (!ReferenceEquals(callable, null))
                     {
                         args[0] = value;
-                        args[1] = thisArg;
+                        args[1] = i;
                         jsValue = callable.Call(thisArg, args);
+
+                        // function can alter data
+                        length = operations.GetLength();
                     }
                     else
                     {
                         jsValue = value;
                     }
                     a.SetIndexValue(i, jsValue, updateLength: false);
+                    n++;
                 }
 
-                if (mapFunction != null)
+                if (!ReferenceEquals(callable, null))
                 {
                     _engine._jsValueArrayPool.ReturnArray(args);
                 }
-                a.SetLength(length);
+
+                a.SetLength(n);
                 return a;
             }
-            return Undefined;
+
+            var iterator = objectInstance.GetIterator(_engine);
+            var instance = _engine.Array.ConstructFast(0);
+            var protocol = new ArrayProtocol(_engine, instance, iterator, callable);
+            protocol.Execute();
+
+            return instance;
+        }
+
+        private sealed class ArrayProtocol : IteratorProtocol
+        {
+            private readonly ArrayInstance _instance;
+            private readonly ICallable _callable;
+            private uint _index;
+
+            public ArrayProtocol(
+                Engine engine, 
+                ArrayInstance instance,
+                IIterator iterator,
+                ICallable callable) : base(engine, iterator, 2)
+            {
+                _instance = instance;
+                _callable = callable;
+            }
+
+            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+            {
+                var sourceValue = ExtractValueFromIteratorInstance(currentValue);
+                JsValue jsValue;
+                if (!ReferenceEquals(_callable, null))
+                {
+                    args[0] = sourceValue;
+                    args[1] = _index; 
+                    jsValue = _callable.Call(_instance, args);
+                }
+                else
+                {
+                    jsValue = sourceValue;
+                }
+
+                _instance.SetIndexValue(_index++, jsValue, updateLength: false);
+            }
+
+            protected override void IterationEnd()
+            {
+                _instance.SetLength(_index + 1);
+            }
         }
 
         private JsValue Of(JsValue thisObj, JsValue[] arguments)
         {
-            return Undefined;
+            return _engine.Array.Construct(arguments);
         }
 
         private static JsValue Species(JsValue thisObject, JsValue[] arguments)

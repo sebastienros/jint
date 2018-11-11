@@ -906,6 +906,10 @@ namespace Jint.Native.Object
 
         internal virtual bool IsConcatSpreadable => TryGetIsConcatSpreadable(out var isConcatSpreadable) && isConcatSpreadable;
 
+        internal virtual bool IsArrayLike => TryGetValue("length", out var lengthValue)
+                                             && lengthValue.IsNumber()
+                                             && ((JsNumber) lengthValue)._value >= 0;
+
         protected bool TryGetIsConcatSpreadable(out bool isConcatSpreadable)
         {
             isConcatSpreadable = false;
