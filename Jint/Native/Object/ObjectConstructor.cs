@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.String;
@@ -108,7 +109,9 @@ namespace Jint.Native.Object
             {
                 Extensible = true,
                 Prototype = Engine.Object.PrototypeObject,
-                _properties =  propertyCount > 0 ? new Dictionary<string, PropertyDescriptor>(propertyCount) : null
+                _properties =  propertyCount > 0
+                    ? new StringDictionarySlim<PropertyDescriptor>(System.Math.Max(2, propertyCount))
+                    : null
             };
 
             return obj;
@@ -298,14 +301,14 @@ namespace Jint.Native.Object
                 {
                     if (desc.Writable)
                     {
-                        var mutable = desc as PropertyDescriptor ?? new PropertyDescriptor(desc);
+                        var mutable = desc;
                         mutable.Writable = false;
                         desc = mutable;
                     }
                 }
                 if (desc.Configurable)
                 {
-                    var mutable = desc as PropertyDescriptor ?? new PropertyDescriptor(desc);
+                    var mutable = desc;
                     mutable.Configurable = false;
                     desc = mutable;
                 }

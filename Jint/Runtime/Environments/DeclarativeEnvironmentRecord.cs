@@ -1,6 +1,7 @@
 ﻿﻿using System;
 using System.Collections.Generic;
 using Esprima.Ast;
+using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Argument;
 using Jint.Native.Function;
@@ -13,7 +14,7 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private StructDictionary<Binding> _dictionary;
+        private StringDictionarySlim<Binding> _dictionary;
         private bool _set;
         private string _key;
         private Binding _value;
@@ -31,17 +32,20 @@ namespace Jint.Runtime.Environments
             {
                 if (_dictionary == null)
                 {
-                    _dictionary = new StructDictionary<Binding>();
+                    _dictionary = new StringDictionarySlim<Binding>();
                 }
 
-                _dictionary.TryInsert(_key, _value, InsertionBehavior.OverwriteExisting);
+                _dictionary[_key] = _value;
             }
 
             _set = true;
             _key = key;
             _value = value;
 
-            _dictionary?.TryInsert(key, value, InsertionBehavior.OverwriteExisting);
+            if (_dictionary != null)
+            {
+                _dictionary[key] = value;
+            }
         }
 
         private ref Binding GetExistingItem(string key)
@@ -56,7 +60,7 @@ namespace Jint.Runtime.Environments
                 return ref _argumentsBinding;
             }
 
-            return ref _dictionary.GetItem(key);
+            return ref _dictionary[key];
         }
 
         private bool ContainsKey(string key)
@@ -103,7 +107,7 @@ namespace Jint.Runtime.Environments
                 return true;
             }
 
-            return _dictionary?.TryGetValue(key, out value) == true;
+            return _dictionary != null && _dictionary.TryGetValue(key, out value);
         }
 
         public override bool HasBinding(string name)
@@ -200,13 +204,7 @@ namespace Jint.Runtime.Environments
                 keys[n++] = BindingNameArguments;
             }
 
-            if (_dictionary != null)
-            {
-                foreach (var key in _dictionary.Keys)
-                {
-                    keys[n++] = key;
-                }
-            }
+            _dictionary?.Keys.CopyTo(keys, n);
 
             return keys;
         }
