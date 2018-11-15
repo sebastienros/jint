@@ -42,7 +42,7 @@ namespace Jint.Native.Argument
             _env = env;
             _strict = strict;
 
-            _properties = null;
+            _properties?.Clear();
             
             _initialized = false;
         }

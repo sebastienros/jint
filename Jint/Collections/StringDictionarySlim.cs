@@ -148,6 +148,17 @@ namespace Jint.Collections
             return false;
         }
 
+        public void Clear()
+        {
+            int count = _count;
+            if (count > 0)
+            {
+                Array.Clear(_buckets, 0, _buckets.Length);
+                _count = 0;
+                Array.Clear(_entries, 0, count);
+            }
+        }
+
         public ref TValue this[string key]
         {
             get
