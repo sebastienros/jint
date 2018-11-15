@@ -410,25 +410,38 @@ namespace Jint.Collections
                 }
             }
         }
-    }
 
-    internal sealed class DictionarySlimDebugView<V>
-    {
-        private readonly StringDictionarySlim<V> _dictionary;
-
-        public DictionarySlimDebugView(StringDictionarySlim<V> dictionary)
+        internal static class HashHelpers
         {
-            _dictionary = dictionary ?? throw new ArgumentNullException(nameof(dictionary));
+            internal static readonly int[] DictionarySlimSizeOneIntArray = new int[1];
+
+            internal static int PowerOf2(int v)
+            {
+                if ((v & (v - 1)) == 0) return v;
+                int i = 2;
+                while (i < v) i <<= 1;
+                return i;
+            }
         }
 
-        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-        public KeyValuePair<string, V>[] Items
+        internal sealed class DictionarySlimDebugView<V>
         {
-            get
+            private readonly StringDictionarySlim<V> _dictionary;
+
+            public DictionarySlimDebugView(StringDictionarySlim<V> dictionary)
             {
-                var array = new KeyValuePair<string, V>[_dictionary.Count];
-                _dictionary.CopyTo(array, 0);
-                return array;
+                _dictionary = dictionary ?? throw new ArgumentNullException(nameof(dictionary));
+            }
+
+            [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+            public KeyValuePair<string, V>[] Items
+            {
+                get
+                {
+                    var array = new KeyValuePair<string, V>[_dictionary.Count];
+                    _dictionary.CopyTo(array, 0);
+                    return array;
+                }
             }
         }
     }
