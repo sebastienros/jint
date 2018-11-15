@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
+using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -18,8 +19,7 @@ namespace Jint.Native.Object
 {
     public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
-        protected Dictionary<string, PropertyDescriptor> _intrinsicProperties;
-        protected internal Dictionary<string, PropertyDescriptor> _properties;
+        internal StringDictionarySlim<PropertyDescriptor> _properties;
 
         private readonly string _class;
         protected readonly Engine _engine;
@@ -35,38 +35,6 @@ namespace Jint.Native.Object
         }
 
         public Engine Engine => _engine;
-
-        protected bool TryGetIntrinsicValue(JsSymbol symbol, out JsValue value)
-        {
-            if (_intrinsicProperties != null && _intrinsicProperties.TryGetValue(symbol.AsSymbol(), out var descriptor))
-            {
-                value = descriptor.Value;
-                return true;
-            }
-
-            if (ReferenceEquals(Prototype, null))
-            {
-                value = Undefined;
-                return false;
-            }
-
-            return Prototype.TryGetIntrinsicValue(symbol, out value);
-        }
-
-        public void SetIntrinsicValue(string name, JsValue value, bool writable, bool enumerable, bool configurable)
-        {
-            SetOwnProperty(name, new PropertyDescriptor(value, writable, enumerable, configurable));
-        }
-
-        protected void SetIntrinsicValue(JsSymbol symbol, JsValue value, bool writable, bool enumerable, bool configurable)
-        {
-            if (_intrinsicProperties == null)
-            {
-                _intrinsicProperties = new Dictionary<string, PropertyDescriptor>();
-            }
-
-            _intrinsicProperties[symbol.AsSymbol()] = new PropertyDescriptor(value, writable, enumerable, configurable);
-        }
 
         /// <summary>
         /// The prototype of this object.
@@ -102,10 +70,10 @@ namespace Jint.Native.Object
         {
             if (_properties == null)
             {
-                _properties = new Dictionary<string, PropertyDescriptor>();
+                _properties = new StringDictionarySlim<PropertyDescriptor>();
             }
 
-            _properties.Add(propertyName, descriptor);
+            _properties[propertyName] = descriptor;
         }
 
         protected virtual bool TryGetProperty(string propertyName, out PropertyDescriptor descriptor)
@@ -204,7 +172,7 @@ namespace Jint.Native.Object
 
             if (_properties == null)
             {
-                _properties = new Dictionary<string, PropertyDescriptor>();
+                _properties = new StringDictionarySlim<PropertyDescriptor>();
             }
 
             _properties[propertyName] = desc;
@@ -830,7 +798,7 @@ namespace Jint.Native.Object
                 case "Arguments":
                 case "Object":
 #if __IOS__
-                                IDictionary<string, object> o = new Dictionary<string, object>();
+                                IDictionary<string, object> o = new DictionarySlim<string, object>();
 #else
                     IDictionary<string, object> o = new ExpandoObject();
 #endif

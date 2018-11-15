@@ -77,6 +77,11 @@ namespace Jint.Runtime
             throw new ArgumentOutOfRangeException();
         }
 
+        public static T ThrowNotSupportedException<T>(string message = null)
+        {
+            throw new NotSupportedException(message);
+        }
+
         public static void ThrowNotSupportedException(string message = null)
         {
             throw new NotSupportedException(message);

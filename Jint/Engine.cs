@@ -713,10 +713,9 @@ namespace Jint
                 }
             }
 
-            var record = (EnvironmentRecord) baseValue;
-            if (ReferenceEquals(record, null))
+            if (!(baseValue is EnvironmentRecord record))
             {
-                ExceptionHelper.ThrowArgumentException();
+                return ExceptionHelper.ThrowArgumentException<JsValue>();
             }
 
             var bindingValue = record.GetBindingValue(reference._name, reference._strict);

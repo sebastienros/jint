@@ -43,8 +43,7 @@ namespace Jint.Native.Argument
             _strict = strict;
 
             _properties?.Clear();
-            _intrinsicProperties?.Clear();
-
+            
             _initialized = false;
         }
 
