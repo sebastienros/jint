@@ -114,14 +114,16 @@ namespace Jint.Native.Array
                     _engine._jsValueArrayPool.ReturnArray(args);
                 }
 
-                a.SetLength(n);
+                a.SetLength(length);
                 return a;
             }
 
-            var iterator = objectInstance.GetIterator(_engine);
             var instance = _engine.Array.ConstructFast(0);
-            var protocol = new ArrayProtocol(_engine, instance, iterator, callable);
-            protocol.Execute();
+            if (objectInstance.TryGetIterator(_engine, out var iterator))
+            {
+                var protocol = new ArrayProtocol(_engine, instance, iterator, callable);
+                protocol.Execute();
+            }
 
             return instance;
         }
@@ -130,7 +132,7 @@ namespace Jint.Native.Array
         {
             private readonly ArrayInstance _instance;
             private readonly ICallable _callable;
-            private uint _index;
+            private long _index = -1;
 
             public ArrayProtocol(
                 Engine engine, 
@@ -144,6 +146,7 @@ namespace Jint.Native.Array
 
             protected override void ProcessItem(JsValue[] args, JsValue currentValue)
             {
+                _index++;
                 var sourceValue = ExtractValueFromIteratorInstance(currentValue);
                 JsValue jsValue;
                 if (!ReferenceEquals(_callable, null))
@@ -157,12 +160,12 @@ namespace Jint.Native.Array
                     jsValue = sourceValue;
                 }
 
-                _instance.SetIndexValue(_index++, jsValue, updateLength: false);
+                _instance.SetIndexValue((uint) _index, jsValue, updateLength: false);
             }
 
             protected override void IterationEnd()
             {
-                _instance.SetLength(_index + 1);
+                _instance.SetLength((uint) (_index + 1));
             }
         }
 

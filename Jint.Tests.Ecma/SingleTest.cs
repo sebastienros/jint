@@ -21,7 +21,7 @@ namespace Jint.Tests.Ecma
         [RunnableInDebugOnly]
         public void TestSingle()
         {
-            const string Target = @"ch15/15.4/15.4.4/15.4.4.17/15.4.4.17-4-10.js";
+            const string Target = @"ch15/15.4/15.4.4/15.4.4.10/S15.4.4.10_A3_T3.js";
             var sourceFile = SourceFiles(Target, false)
                 .SelectMany(x => x)
                 .Cast<SourceFile>()

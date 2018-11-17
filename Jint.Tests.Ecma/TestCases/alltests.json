@@ -42160,8 +42160,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.16/15.4.4.16-3-11.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.16/15.4.4.16-3-12.js"
   },
   {
@@ -42230,8 +42230,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.16/15.4.4.16-3-24.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.16/15.4.4.16-3-25.js"
   },
   {
@@ -42265,8 +42265,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.16/15.4.4.16-3-6.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.16/15.4.4.16-3-7.js"
   },
   {
@@ -49870,8 +49870,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.4/S15.4.4.4_A4.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Array.concat is configurable in ES6",
     source: "ch15/15.4/15.4.4/15.4.4.4/S15.4.4.4_A4.2.js"
   },
   {

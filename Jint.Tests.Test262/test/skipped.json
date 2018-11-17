@@ -1,7 +1,75 @@
 [
   {
+    "source": "built-ins/Array/prototype/concat/create-ctor-non-object.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/of/construct-this-with-the-number-of-arguments.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/iter-set-length-err",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/create-species-abrupt.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/create-species-non-ctor.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/create-species-null.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/create-species-poisoned.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/create-species-undef.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/create-species.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/Array.from_forwards-length-for-array-likes.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/iter-cstm-ctor.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/iter-cstm-ctor-err.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/source-object-constructor.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/of/return-abrupt-from-contructor.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/create-ctor-poisoned.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/of/return-a-custom-instance.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
     "source": "built-ins/Array/from/items-is-arraybuffer.js",
     "reason": "ArrayBuffer not implemented"
+  },
+  {
+    "source": "built-ins/Array/of/return-abrupt-from-data-property-using-proxy.js",
+    "reason": "proxies not implemented"
   },
   {
     "source": "built-ins/Array/prototype/concat/create-proxy.js",
@@ -42,6 +110,18 @@
   {
     "source": "built-ins/Array/prototype/concat/Array.prototype.concat_small-typed-array.js",
     "reason": "Uint8Array not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/create-proto-from-ctor-realm-array.js",
+    "reason": "realms not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/create-proto-from-ctor-realm-non-array.js",
+    "reason": "realms not implemented"
+  },
+  {
+    "source": "built-ins/Array/length/define-own-prop-length-overflow-realm.js",
+    "reason": "realms not implemented"
   },
   {
     "source": "built-ins/Array/proto-from-ctor-realm.js",
