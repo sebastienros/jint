@@ -39505,8 +39505,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.10/S15.4.4.10_A3_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.10/S15.4.4.10_A3_T3.js"
   },
   {
@@ -39635,8 +39635,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.11/S15.4.4.11_A4_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.11/S15.4.4.11_A4_T3.js"
   },
   {
@@ -39900,8 +39900,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.12/S15.4.4.12_A3_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.12/S15.4.4.12_A3_T3.js"
   },
   {
@@ -39985,8 +39985,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.13/S15.4.4.13_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.13/S15.4.4.13_A3_T2.js"
   },
   {
@@ -40245,8 +40245,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-11.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-12.js"
   },
   {
@@ -40315,8 +40315,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-24.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-25.js"
   },
   {
@@ -40350,8 +40350,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-6.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-7.js"
   },
   {
@@ -41200,8 +41200,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.15/15.4.4.15-3-11.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.15/15.4.4.15-3-12.js"
   },
   {
@@ -41270,8 +41270,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.15/15.4.4.15-3-24.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.15/15.4.4.15-3-25.js"
   },
   {
@@ -41305,8 +41305,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.15/15.4.4.15-3-6.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.15/15.4.4.15-3-7.js"
   },
   {
@@ -44295,8 +44295,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.18/15.4.4.18-3-11.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.18/15.4.4.18-3-12.js"
   },
   {
@@ -44365,8 +44365,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.18/15.4.4.18-3-24.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.18/15.4.4.18-3-25.js"
   },
   {
@@ -44400,8 +44400,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.18/15.4.4.18-3-6.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.18/15.4.4.18-3-7.js"
   },
   {
@@ -45235,8 +45235,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.19/15.4.4.19-3-11.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.19/15.4.4.19-3-12.js"
   },
   {
@@ -45305,8 +45305,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.19/15.4.4.19-3-24.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.19/15.4.4.19-3-25.js"
   },
   {
@@ -45340,8 +45340,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.19/15.4.4.19-3-6.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.19/15.4.4.19-3-7.js"
   },
   {
@@ -46280,8 +46280,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.20/15.4.4.20-3-11.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.20/15.4.4.20-3-12.js"
   },
   {
@@ -46350,8 +46350,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.20/15.4.4.20-3-24.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.20/15.4.4.20-3-25.js"
   },
   {
@@ -46385,8 +46385,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.20/15.4.4.20-3-6.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.20/15.4.4.20-3-7.js"
   },
   {
@@ -47420,8 +47420,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.21/15.4.4.21-3-11.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.21/15.4.4.21-3-12.js"
   },
   {
@@ -47490,8 +47490,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.21/15.4.4.21-3-24.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.21/15.4.4.21-3-25.js"
   },
   {
@@ -47525,8 +47525,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.21/15.4.4.21-3-6.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.21/15.4.4.21-3-7.js"
   },
   {
@@ -49970,8 +49970,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.5/S15.4.4.5_A4_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.5/S15.4.4.5_A4_T3.js"
   },
   {
@@ -50225,8 +50225,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.8/S15.4.4.8_A3_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.8/S15.4.4.8_A3_T3.js"
   },
   {
@@ -50320,8 +50320,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.9/S15.4.4.9_A3_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec seems to have changed, checked against Chrome",
     source: "ch15/15.4/15.4.4/15.4.4.9/S15.4.4.9_A3_T3.js"
   },
   {

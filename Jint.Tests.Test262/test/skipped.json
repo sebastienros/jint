@@ -12,30 +12,6 @@
     "reason": "Constructor functions not implemented"
   },
   {
-    "source": "built-ins/Array/prototype/concat/create-species-abrupt.js",
-    "reason": "Constructor functions not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/create-species-non-ctor.js",
-    "reason": "Constructor functions not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/create-species-null.js",
-    "reason": "Constructor functions not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/create-species-poisoned.js",
-    "reason": "Constructor functions not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/create-species-undef.js",
-    "reason": "Constructor functions not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/create-species.js",
-    "reason": "Constructor functions not implemented"
-  },
-  {
     "source": "built-ins/Array/from/Array.from_forwards-length-for-array-likes.js",
     "reason": "Constructor functions not implemented"
   },
@@ -68,48 +44,8 @@
     "reason": "ArrayBuffer not implemented"
   },
   {
-    "source": "built-ins/Array/of/return-abrupt-from-data-property-using-proxy.js",
-    "reason": "proxies not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/includes/get-prop.js",
-    "reason": "proxies not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/copyWithin/return-abrupt-from-delete-proxy-target.js",
-    "reason": "proxies not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/create-proxy.js",
-    "reason": "proxies not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/create-revoked-proxy.js",
-    "reason": "proxies not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/is-concat-spreadable-is-array-proxy-revoked.js",
-    "reason": "proxies not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/is-concat-spreadable-proxy-revoked.js",
-    "reason": "proxies not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/is-concat-spreadable-proxy.js",
-    "reason": "proxies not implemented"
-  },
-  {
     "source": "built-ins/Array/prototype/concat/Array.prototype.concat_non-array.js",
     "reason": "class keyword not implemented"
-  },
-  {
-    "source": "built-ins/Array/isArray/proxy-revoked.js",
-    "reason": "proxies not implemented"
-  },
-  {
-    "source": "built-ins/Array/isArray/proxy.js",
-    "reason": "proxies not implemented"
   },
   {
     "source": "built-ins/Array/prototype/concat/Array.prototype.concat_large-typed-array.js",
@@ -118,38 +54,6 @@
   {
     "source": "built-ins/Array/prototype/concat/Array.prototype.concat_small-typed-array.js",
     "reason": "Uint8Array not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/create-proto-from-ctor-realm-array.js",
-    "reason": "realms not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/create-proto-from-ctor-realm-non-array.js",
-    "reason": "realms not implemented"
-  },
-  {
-    "source": "built-ins/Array/length/define-own-prop-length-overflow-realm.js",
-    "reason": "realms not implemented"
-  },
-  {
-    "source": "built-ins/Array/proto-from-ctor-realm.js",
-    "reason": "realms not implemented"
-  },
-  {
-    "source": "built-ins/Array/from/proto-from-ctor-realm.js",
-    "reason": "realms not implemented"
-  },
-  {
-    "source": "built-ins/Array/of/proto-from-ctor-realm.js",
-    "reason": "realms not implemented"
-  },
-  {
-    "source": "built-ins/Boolean/proto-from-ctor-realm.js",
-    "reason": "realms not implemented"
-  },
-  {
-    "source": "built-ins/Map/proto-from-ctor-realm.js",
-    "reason": "realms not implemented"
   },
   {
     "source": "built-ins/Map/prototype/clear/context-is-weakmap-object-throws.js",
