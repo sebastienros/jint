@@ -72,6 +72,14 @@
     "reason": "proxies not implemented"
   },
   {
+    "source": "built-ins/Array/prototype/includes/get-prop.js",
+    "reason": "proxies not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/copyWithin/return-abrupt-from-delete-proxy-target.js",
+    "reason": "proxies not implemented"
+  },
+  {
     "source": "built-ins/Array/prototype/concat/create-proxy.js",
     "reason": "proxies not implemented"
   },

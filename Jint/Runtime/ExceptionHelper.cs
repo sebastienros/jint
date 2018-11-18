@@ -31,6 +31,11 @@ namespace Jint.Runtime
             throw new JavaScriptException(engine.ReferenceError, message);
         }
 
+        public static T ThrowTypeErrorNoEngine<T>(string message = null, Exception exception = null)
+        {
+            throw new TypeErrorException(message);
+        }
+
         public static T ThrowTypeError<T>(Engine engine, string message = null, Exception exception = null)
         {
             ThrowTypeError(engine, message, exception);

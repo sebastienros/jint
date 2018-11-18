@@ -181,7 +181,10 @@ namespace Jint.Native
             {
                 iterator = i;
             }
-            iterator = new IteratorInstance.ObjectWrapper(obj);
+            else
+            {
+                iterator = new IteratorInstance.ObjectWrapper(obj);
+            }
             return true;
         }
 

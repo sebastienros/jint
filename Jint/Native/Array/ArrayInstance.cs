@@ -724,6 +724,10 @@ namespace Jint.Native.Array
             out uint index,
             out JsValue value)
         {
+            var thisArg = arguments.At(1);
+            var callbackfn = arguments.At(0);
+            var callable = GetCallable(callbackfn);
+
             var len = GetLength();
             if (len == 0)
             {
@@ -731,10 +735,6 @@ namespace Jint.Native.Array
                 value = Undefined;
                 return false;
             }
-
-            var callbackfn = arguments.At(0);
-            var thisArg = arguments.At(1);
-            var callable = GetCallable(callbackfn);
 
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;

@@ -109,13 +109,13 @@ namespace Jint.Native.Iterator
             }
         }
 
-        public class ArrayIterator : IteratorInstance
+        public class ArrayLikeIterator : IteratorInstance
         {
             private readonly ArrayPrototype.ArrayOperations _array;
             private uint? _end;
             private uint _position;
 
-            public ArrayIterator(Engine engine, JsValue target) : base(engine)
+            public ArrayLikeIterator(Engine engine, JsValue target) : base(engine)
             {
                 if (!(target is ObjectInstance objectInstance))
                 {
