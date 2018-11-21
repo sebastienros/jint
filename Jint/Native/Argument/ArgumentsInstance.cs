@@ -56,49 +56,51 @@ namespace Jint.Native.Argument
 
             _initialized = true;
 
-            var self = this;
-            var len = _args.Length;
-            self.SetOwnProperty("length", new PropertyDescriptor(len, PropertyFlag.NonEnumerable));
-            if (_args.Length > 0)
+            BuildProperties();
+        }
+
+        private void BuildProperties()
+        {
+            var args = _args;
+            SetOwnProperty("length", new PropertyDescriptor(args.Length, PropertyFlag.NonEnumerable));
+
+            ObjectInstance map = null;
+            if (args.Length > 0)
             {
-                var map = Engine.Object.Construct(Arguments.Empty);
                 var mappedNamed = _mappedNamed.Value;
                 mappedNamed.Clear();
-                for (var indx = 0; indx < len; indx++)
+                for (var i = 0; i < (uint) args.Length; i++)
                 {
-                    var indxStr = TypeConverter.ToString(indx);
-                    var val = _args[indx];
-                    self.SetOwnProperty(indxStr, new PropertyDescriptor(val, PropertyFlag.ConfigurableEnumerableWritable));
-                    if (indx < _names.Length)
+                    var indxStr = TypeConverter.ToString(i);
+                    var val = args[i];
+                    SetOwnProperty(indxStr, new PropertyDescriptor(val, PropertyFlag.ConfigurableEnumerableWritable));
+                    if (i < _names.Length)
                     {
-                        var name = _names[indx];
+                        var name = _names[i];
                         if (!_strict && !mappedNamed.Contains(name))
                         {
+                            map = map ?? Engine.Object.Construct(Arguments.Empty);
                             mappedNamed.Add(name);
                             map.SetOwnProperty(indxStr, new ClrAccessDescriptor(_env, Engine, name));
                         }
                     }
                 }
-
-                // step 12
-                if (mappedNamed.Count > 0)
-                {
-                    self.ParameterMap = map;
-                }
             }
+
+            ParameterMap = map;
 
             // step 13
             if (!_strict)
             {
-                self.SetOwnProperty("callee", new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
+                SetOwnProperty("callee", new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
             }
             // step 14
             else
             {
                 var thrower = Engine.Function.ThrowTypeError;
                 const PropertyFlag flags = PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet;
-                self.DefineOwnProperty("caller", new GetSetPropertyDescriptor(get: thrower, set: thrower, flags), false);
-                self.DefineOwnProperty("callee", new GetSetPropertyDescriptor(get: thrower, set: thrower, flags), false);
+                DefineOwnProperty("caller", new GetSetPropertyDescriptor(get: thrower, set: thrower, flags), false);
+                DefineOwnProperty("callee", new GetSetPropertyDescriptor(get: thrower, set: thrower, flags), false);
             }
         }
 
@@ -236,9 +238,14 @@ namespace Jint.Native.Argument
         internal void PersistArguments()
         {
             EnsureInitialized();
-            var copiedArgs = new JsValue[_args.Length];
-            System.Array.Copy(_args, copiedArgs, _args.Length);
+
+            var args = _args;
+            var copiedArgs = new JsValue[args.Length];
+            System.Array.Copy(args, copiedArgs, args.Length);
             _args = copiedArgs;
+
+            // should no longer expose arguments which is special name
+            ParameterMap = null;
         }
     }
 }

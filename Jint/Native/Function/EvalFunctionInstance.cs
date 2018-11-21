@@ -1,5 +1,4 @@
 ﻿using Esprima;
-using Jint.Native.Argument;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;

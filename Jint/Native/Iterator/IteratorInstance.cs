@@ -216,6 +216,57 @@ namespace Jint.Native.Iterator
                 _closed = true;
                 return ValueIteratorPosition.Done;
             }
+        } 
+
+        public class ArrayLikeKeyIterator : IteratorInstance
+        {
+            private readonly ArrayPrototype.ArrayOperations _operations;
+            private uint _position;
+            private bool _closed;
+
+            public ArrayLikeKeyIterator(Engine engine, ObjectInstance objectInstance) : base(engine)
+            {
+                _operations = ArrayPrototype.ArrayOperations.For(objectInstance);
+                _position = 0;
+            }
+
+            public override ObjectInstance Next()
+            {
+                var length = _operations.GetLength();
+                if (!_closed && _position < length)
+                {
+                    return new  ValueIteratorPosition(_engine, _position++);
+                }
+
+                _closed = true;
+                return ValueIteratorPosition.Done;
+            }
+        }
+
+        public class ArrayLikeValueIterator : IteratorInstance
+        {
+            private readonly ArrayPrototype.ArrayOperations _operations;
+            private uint _position;
+            private bool _closed;
+
+            public ArrayLikeValueIterator(Engine engine, ObjectInstance objectInstance) : base(engine)
+            {
+                _operations = ArrayPrototype.ArrayOperations.For(objectInstance);
+                _position = 0;
+            }
+
+            public override ObjectInstance Next()
+            {
+                var length = _operations.GetLength();
+                if (!_closed && _position < length)
+                {
+                    _operations.TryGetValue(_position++, out var value);
+                    return new  ValueIteratorPosition(_engine, value);
+                }
+
+                _closed = true;
+                return ValueIteratorPosition.Done;
+            }
         }
 
         internal class ObjectWrapper : IIterator

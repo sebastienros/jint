@@ -60,6 +60,8 @@ namespace Jint.Native.Array
 
         internal override bool IsConcatSpreadable => !TryGetIsConcatSpreadable(out var isConcatSpreadable) || isConcatSpreadable;
 
+        internal override bool IsArrayLike => true;
+
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays

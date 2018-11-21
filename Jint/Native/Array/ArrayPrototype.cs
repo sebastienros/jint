@@ -61,8 +61,29 @@ namespace Jint.Native.Array
             FastAddProperty("find", new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("findIndex", new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), true, false, true);
 
-            FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Iterator, 1), true, false, true);
+            FastAddProperty("keys", new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Iterator, 1), true, false, true);
+        }
+        
+        private ObjectInstance Keys(JsValue thisObj, JsValue[] arguments)
+        {
+            if (thisObj is ObjectInstance oi && oi.IsArrayLike)
+            {
+                return _engine.Iterator.ConstructArrayLikeKeyIterator(oi);
+            }
+
+            return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "cannot construct iterator");
+        }
+        
+        private ObjectInstance Values(JsValue thisObj, JsValue[] arguments)
+        {
+            if (thisObj is ObjectInstance oi && oi.IsArrayLike)
+            {
+                return _engine.Iterator.ConstructArrayLikeValueIterator(oi);
+            }
+
+            return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "cannot construct iterator");
         }
 
         private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)
