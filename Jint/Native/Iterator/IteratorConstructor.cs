@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Map;
 using Jint.Native.Object;

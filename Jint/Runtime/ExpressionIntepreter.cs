@@ -346,6 +346,9 @@ namespace Jint.Runtime
                 case BinaryOperator.UnsignedRightShift:
                     return (uint)TypeConverter.ToInt32(left) >> (int)(TypeConverter.ToUint32(right) & 0x1F);
 
+                case BinaryOperator.Exponentiation:
+                    return Math.Pow(TypeConverter.ToNumber(left), TypeConverter.ToNumber(right));
+
                 case BinaryOperator.InstanceOf:
                     var f = right.TryCast<FunctionInstance>();
                     if (ReferenceEquals(f, null))
