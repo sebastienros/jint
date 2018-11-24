@@ -4,6 +4,18 @@
     "reason": "Constructor functions not implemented"
   },
   {
+    "source": "built-ins/Array/prototype/map/create-ctor-non-object.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/slice/create-ctor-non-object.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/splice/create-ctor-non-object.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
     "source": "built-ins/Array/of/construct-this-with-the-number-of-arguments.js",
     "reason": "Constructor functions not implemented"
   },
@@ -33,6 +45,18 @@
   },
   {
     "source": "built-ins/Array/prototype/concat/create-ctor-poisoned.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/map/create-ctor-poisoned.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/slice/create-ctor-poisoned.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/splice/create-ctor-poisoned.js",
     "reason": "Constructor functions not implemented"
   },
   {
@@ -146,5 +170,13 @@
   {
     "source": "built-ins/Set/prototype/forEach/this-arg-explicit-cannot-override-lexical-this-arrow.js",
     "reason": "arrow functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/reverse/length-exceeding-integer-limit-with-proxy.js",
+    "reason": "proxies not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/slice/length-exceeding-integer-limit-proxied-array.js",
+    "reason": "proxies not implemented"
   }
 ]

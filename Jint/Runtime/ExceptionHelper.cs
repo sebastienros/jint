@@ -47,6 +47,11 @@ namespace Jint.Runtime
             throw new JavaScriptException(engine.TypeError, message, exception);
         }
 
+        public static T ThrowRangeError<T>(Engine engine, string message = null)
+        {
+            throw new JavaScriptException(engine.RangeError, message);
+        }
+
         public static void ThrowRangeError(Engine engine, string message = null)
         {
             throw new JavaScriptException(engine.RangeError, message);

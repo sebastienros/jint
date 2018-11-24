@@ -1059,7 +1059,8 @@ namespace Jint.Runtime
                     {
                         return "object";
                     }
-                    switch (v.Type)
+
+                    switch (v._type)
                     {
                         case Types.Boolean: return "boolean";
                         case Types.Number: return "number";

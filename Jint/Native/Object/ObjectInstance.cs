@@ -829,23 +829,32 @@ namespace Jint.Native.Object
             out uint index,
             out JsValue value)
         {
-            uint GetLength()
+            long GetLength()
             {
                 var desc = GetProperty("length");
                 var descValue = desc.Value;
+                double len;
                 if (desc.IsDataDescriptor() && !ReferenceEquals(descValue, null))
                 {
-                    return TypeConverter.ToUint32(descValue);
+                    len = TypeConverter.ToNumber(descValue);
                 }
-
-                var getter = desc.Get ?? Undefined;
-                if (getter.IsUndefined())
+                else
                 {
-                    return 0;
+                    var getter = desc.Get ?? Undefined;
+                    if (getter.IsUndefined())
+                    {
+                        len = 0;
+                    }
+                    else
+                    {
+                        // if getter is not undefined it must be ICallable
+                        len = TypeConverter.ToNumber(((ICallable) getter).Call(this, Arguments.Empty));
+                    }
                 }
 
-                // if getter is not undefined it must be ICallable
-                return TypeConverter.ToUint32(((ICallable) getter).Call(this, Arguments.Empty));
+                return (long) System.Math.Max(
+                    0, 
+                    System.Math.Min(len, ArrayPrototype.ArrayOperations.MaxArrayLikeLength));
             }
 
             bool TryGetValue(uint idx, out JsValue jsValue)

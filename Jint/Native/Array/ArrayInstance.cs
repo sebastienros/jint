@@ -524,6 +524,27 @@ namespace Jint.Native.Array
             return smallest;
         }
 
+        internal uint GetLargestIndex()
+        {
+            if (_dense != null)
+            {
+                return (uint) (_dense.Length - 1);
+            }
+
+            uint largest = uint.MaxValue;
+            // only try to help if collection reasonable small
+            if (_sparse.Count > 0 && _sparse.Count < 100)
+            {
+                largest = 0;
+                foreach (var key in _sparse.Keys)
+                {
+                    largest = System.Math.Max(key, largest);
+                }
+            }
+
+            return largest;
+        }
+
         public bool TryGetValue(uint index, out JsValue value)
         {
             value = Undefined;
@@ -619,7 +640,7 @@ namespace Jint.Native.Array
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void EnsureCapacity(uint capacity)
         {
-            if (capacity > (uint) _dense.Length)
+            if (capacity <= MaxDenseArrayLength && capacity > (uint) _dense.Length)
             {
                 // need to grow
                 var newArray = new PropertyDescriptor[capacity];
@@ -660,7 +681,7 @@ namespace Jint.Native.Array
                 var desc = new PropertyDescriptor(arguments[i], PropertyFlag.ConfigurableEnumerableWritable);
                 if (_dense != null && n < _dense.Length)
                 {
-                    _dense[(int) n] = desc;
+                    _dense[(uint) n] = desc;
                 }
                 else if (n < uint.MaxValue)
                 {

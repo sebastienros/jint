@@ -39495,18 +39495,18 @@
     source: "ch15/15.4/15.4.4/15.4.4.10/S15.4.4.10_A2_T6.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "array length checks are now stricter",
     source: "ch15/15.4/15.4.4/15.4.4.10/S15.4.4.10_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "array length checks are now stricter",
     source: "ch15/15.4/15.4.4/15.4.4.10/S15.4.4.10_A3_T2.js"
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.10/S15.4.4.10_A3_T3.js"
   },
   {
@@ -39520,8 +39520,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.10/S15.4.4.10_A5.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "length now configurable",
     source: "ch15/15.4/15.4.4/15.4.4.10/S15.4.4.10_A5.2.js"
   },
   {
@@ -39636,7 +39636,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.11/S15.4.4.11_A4_T3.js"
   },
   {
@@ -39655,8 +39655,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.11/S15.4.4.11_A7.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "length is now configurable",
     source: "ch15/15.4/15.4.4/15.4.4.11/S15.4.4.11_A7.2.js"
   },
   {
@@ -39890,18 +39890,18 @@
     source: "ch15/15.4/15.4.4/15.4.4.12/S15.4.4.12_A2_T4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.12/S15.4.4.12_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.12/S15.4.4.12_A3_T2.js"
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.12/S15.4.4.12_A3_T3.js"
   },
   {
@@ -39925,8 +39925,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.12/S15.4.4.12_A5.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "length now configurable",
     source: "ch15/15.4/15.4.4/15.4.4.12/S15.4.4.12_A5.2.js"
   },
   {
@@ -39970,8 +39970,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.13/S15.4.4.13_A2_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "array range checks are now stricter",
     source: "ch15/15.4/15.4.4/15.4.4.13/S15.4.4.13_A2_T2.js"
   },
   {
@@ -39980,18 +39980,18 @@
     source: "ch15/15.4/15.4.4/15.4.4.13/S15.4.4.13_A2_T3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "objects can have larger length",
     source: "ch15/15.4/15.4.4/15.4.4.13/S15.4.4.13_A3_T1.js"
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.13/S15.4.4.13_A3_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.13/S15.4.4.13_A3_T3.js"
   },
   {
@@ -40010,8 +40010,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.13/S15.4.4.13_A5.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "unshift is now configurable",
     source: "ch15/15.4/15.4.4/15.4.4.13/S15.4.4.13_A5.2.js"
   },
   {
@@ -40246,7 +40246,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-12.js"
   },
   {
@@ -40255,8 +40255,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-13.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "refined test part of new suite",
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-14.js"
   },
   {
@@ -40316,17 +40316,17 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-25.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-28.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-29.js"
   },
   {
@@ -40351,12 +40351,12 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-7.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "infinity is now translated as length",
     source: "ch15/15.4/15.4.4/15.4.4.14/15.4.4.14-3-8.js"
   },
   {
@@ -41201,7 +41201,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.15/15.4.4.15-3-12.js"
   },
   {
@@ -41271,17 +41271,17 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.15/15.4.4.15-3-25.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.15/15.4.4.15-3-28.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "new ECMA spec allows large, traversal hangs both Jint and browser",
     source: "ch15/15.4/15.4.4/15.4.4.15/15.4.4.15-3-29.js"
   },
   {
@@ -41306,7 +41306,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.15/15.4.4.15-3-7.js"
   },
   {
@@ -42161,7 +42161,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.16/15.4.4.16-3-12.js"
   },
   {
@@ -42231,12 +42231,12 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.16/15.4.4.16-3-25.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.16/15.4.4.16-3-28.js"
   },
   {
@@ -43295,8 +43295,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.17/15.4.4.17-3-24.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "new ECMA spec allows larger arrays, slow and invalid",
     source: "ch15/15.4/15.4.4/15.4.4.17/15.4.4.17-3-25.js"
   },
   {
@@ -44296,7 +44296,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.18/15.4.4.18-3-12.js"
   },
   {
@@ -44366,7 +44366,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.18/15.4.4.18-3-25.js"
   },
   {
@@ -44401,7 +44401,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.18/15.4.4.18-3-7.js"
   },
   {
@@ -45236,7 +45236,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.19/15.4.4.19-3-12.js"
   },
   {
@@ -45306,7 +45306,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.19/15.4.4.19-3-25.js"
   },
   {
@@ -45341,7 +45341,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.19/15.4.4.19-3-7.js"
   },
   {
@@ -46281,7 +46281,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.20/15.4.4.20-3-12.js"
   },
   {
@@ -46351,7 +46351,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.20/15.4.4.20-3-25.js"
   },
   {
@@ -46386,7 +46386,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.20/15.4.4.20-3-7.js"
   },
   {
@@ -47421,7 +47421,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.21/15.4.4.21-3-12.js"
   },
   {
@@ -47491,7 +47491,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.21/15.4.4.21-3-25.js"
   },
   {
@@ -47526,7 +47526,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.21/15.4.4.21-3-7.js"
   },
   {
@@ -48725,8 +48725,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.22/15.4.4.22-3-13.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "new ECMA spec allows large, traversal hangs both Jint and browser",
     source: "ch15/15.4/15.4.4/15.4.4.22/15.4.4.22-3-14.js"
   },
   {
@@ -48790,13 +48790,13 @@
     source: "ch15/15.4/15.4.4/15.4.4.22/15.4.4.22-3-25.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "large length is now allowed and this hangs both Jint and the browser",
     source: "ch15/15.4/15.4.4/15.4.4.22/15.4.4.22-3-28.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "large length is now allowed and this hangs both Jint and the browser",
     source: "ch15/15.4/15.4.4/15.4.4.22/15.4.4.22-3-29.js"
   },
   {
@@ -48825,8 +48825,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.22/15.4.4.22-3-7.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "large length is now allowed and this hangs both Jint and the browser",
     source: "ch15/15.4/15.4.4/15.4.4.22/15.4.4.22-3-8.js"
   },
   {
@@ -49971,7 +49971,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.5/S15.4.4.5_A4_T3.js"
   },
   {
@@ -50075,8 +50075,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.6/S15.4.4.6_A5.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "pop is now configurable",
     source: "ch15/15.4/15.4.4/15.4.4.6/S15.4.4.6_A5.2.js"
   },
   {
@@ -50135,8 +50135,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.7/S15.4.4.7_A3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.7/S15.4.4.7_A4_T1.js"
   },
   {
@@ -50145,8 +50145,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.7/S15.4.4.7_A4_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "length values can now be larger",
     source: "ch15/15.4/15.4.4/15.4.4.7/S15.4.4.7_A4_T3.js"
   },
   {
@@ -50160,8 +50160,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.7/S15.4.4.7_A6.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "push is now configurable",
     source: "ch15/15.4/15.4.4/15.4.4.7/S15.4.4.7_A6.2.js"
   },
   {
@@ -50215,18 +50215,18 @@
     source: "ch15/15.4/15.4.4/15.4.4.8/S15.4.4.8_A2_T3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "new ECMA spec allows large, traversal hangs both Jint and browser",
     source: "ch15/15.4/15.4.4/15.4.4.8/S15.4.4.8_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "new ECMA spec allows large, traversal hangs both Jint and browser",
     source: "ch15/15.4/15.4.4/15.4.4.8/S15.4.4.8_A3_T2.js"
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.8/S15.4.4.8_A3_T3.js"
   },
   {
@@ -50245,8 +50245,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.8/S15.4.4.8_A5.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "reverse is now configurable",
     source: "ch15/15.4/15.4.4/15.4.4.8/S15.4.4.8_A5.2.js"
   },
   {
@@ -50321,7 +50321,7 @@
   },
   {
     skip: true,
-    reason: "spec seems to have changed, checked against Chrome",
+    reason: "objects can have length larger than uint.MaxValue",
     source: "ch15/15.4/15.4.4/15.4.4.9/S15.4.4.9_A3_T3.js"
   },
   {
@@ -50340,8 +50340,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.9/S15.4.4.9_A5.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "shift is now configurable",
     source: "ch15/15.4/15.4.4/15.4.4.9/S15.4.4.9_A5.2.js"
   },
   {

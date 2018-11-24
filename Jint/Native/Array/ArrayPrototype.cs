@@ -5,6 +5,7 @@ using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using static System.String;
 
 namespace Jint.Native.Array
 {
@@ -34,30 +35,30 @@ namespace Jint.Native.Array
         public void Configure()
         {
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString, 0), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), true, false, true);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("copyWithin", new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("fill", new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("join", new ClrFunctionInstance(Engine, "join", Join, 1), true, false, true);
-            FastAddProperty("pop", new ClrFunctionInstance(Engine, "pop", Pop), true, false, true);
-            FastAddProperty("push", new ClrFunctionInstance(Engine, "push", Push, 1), true, false, true);
-            FastAddProperty("reverse", new ClrFunctionInstance(Engine, "reverse", Reverse), true, false, true);
-            FastAddProperty("shift", new ClrFunctionInstance(Engine, "shift", Shift), true, false, true);
-            FastAddProperty("slice", new ClrFunctionInstance(Engine, "slice", Slice, 2), true, false, true);
-            FastAddProperty("sort", new ClrFunctionInstance(Engine, "sort", Sort, 1), true, false, true);
-            FastAddProperty("splice", new ClrFunctionInstance(Engine, "splice", Splice, 2), true, false, true);
-            FastAddProperty("unshift", new ClrFunctionInstance(Engine, "unshift", Unshift, 1), true, false, true);
+            FastAddProperty("join", new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("pop", new ClrFunctionInstance(Engine, "pop", Pop, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("push", new ClrFunctionInstance(Engine, "push", Push, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("reverse", new ClrFunctionInstance(Engine, "reverse", Reverse, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("shift", new ClrFunctionInstance(Engine, "shift", Shift, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("slice", new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("sort", new ClrFunctionInstance(Engine, "sort", Sort, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("splice", new ClrFunctionInstance(Engine, "splice", Splice, 2, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("unshift", new ClrFunctionInstance(Engine, "unshift", Unshift, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("includes", new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1), true, false, true);
-            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1), true, false, true);
+            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("every", new ClrFunctionInstance(Engine, "every", Every, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("some", new ClrFunctionInstance(Engine, "some", Some, 1), true, false, true);
-            FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1), true, false, true);
-            FastAddProperty("map", new ClrFunctionInstance(Engine, "map", Map, 1), true, false, true);
+            FastAddProperty("some", new ClrFunctionInstance(Engine, "some", Some, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("map", new ClrFunctionInstance(Engine, "map", Map, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("filter", new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("reduce", new ClrFunctionInstance(Engine, "reduce", Reduce, 1), true, false, true);
-            FastAddProperty("reduceRight", new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1), true, false, true);
+            FastAddProperty("reduce", new ClrFunctionInstance(Engine, "reduce", Reduce, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("reduceRight", new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("find", new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("findIndex", new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), true, false, true);
 
@@ -98,8 +99,12 @@ namespace Jint.Native.Array
 
         private JsValue Fill(JsValue thisObj, JsValue[] arguments)
         {
-            var target = thisObj as ObjectInstance;
-            var operations = ArrayOperations.For(target);
+            if (thisObj.IsNullOrUndefined())
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "Cannot convert undefined or null to object");
+            }
+
+            var operations = ArrayOperations.For(thisObj as ObjectInstance);
             var length = operations.GetLength();
 
             var value = arguments.At(0);
@@ -134,13 +139,13 @@ namespace Jint.Native.Array
                 operations.Put(i, value, false);
             }
 
-            return target;
+            return thisObj;
         }
 
         private JsValue CopyWithin(JsValue thisObj, JsValue[] arguments)
         {
             // Steps 1-2.
-            if (thisObj.IsNullOrUndefined() || !(thisObj is ArrayInstance array))
+            if (thisObj.IsNullOrUndefined())
             {
                 return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "this is null or not defined");
             }
@@ -148,9 +153,10 @@ namespace Jint.Native.Array
             JsValue target = arguments.At(0);
             JsValue start = arguments.At(1);
             JsValue end = arguments.At(2);
-            
-            var initialLength = ArrayOperations.For(array).GetLength();
-            var len = initialLength >> 0;
+
+            var operations = ArrayOperations.For(thisObj as ObjectInstance);
+            var initialLength = operations.GetLength();
+            var len = ConvertAndCheckForInfinity(initialLength, 0);
 
             var relativeTarget = ConvertAndCheckForInfinity(target, 0);
 
@@ -164,7 +170,7 @@ namespace Jint.Native.Array
                 (uint) System.Math.Max(len + relativeStart, 0) :
                 (uint) System.Math.Min(relativeStart, len);
 
-            var relativeEnd = ConvertAndCheckForInfinity(end, len);
+            var relativeEnd = ConvertAndCheckForInfinity(end, (uint) len);
 
             var final = relativeEnd < 0 ?
                 System.Math.Max(len + relativeEnd, 0) :
@@ -182,13 +188,13 @@ namespace Jint.Native.Array
 
             while (count > 0)
             {
-                if (array.TryGetValue(from, out var value))
+                if (operations.TryGetValue(from, out var value))
                 {
-                    array.SetIndexValue(to, value, false);
+                    operations.Put(to, value, false);
                 }
                 else
                 {
-                    array.RemoveOwnProperty(TypeConverter.ToString(to));
+                    operations.DeleteAt(to);
                 }
                 from = (uint) (from + direction);
                 to = (uint) (to + direction);
@@ -206,7 +212,8 @@ namespace Jint.Native.Array
             }
 
             var num = TypeConverter.ToNumber(jsValue);
-            if (double.IsInfinity(num))
+
+            if (double.IsPositiveInfinity(num))
             {
                 return defaultValue;
             }
@@ -217,13 +224,15 @@ namespace Jint.Native.Array
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
         {
             var o = ArrayOperations.For(Engine, thisObj);
-            var len = o.GetLength();
+            var len = o.GetLongLength();
             if (len == 0)
             {
                 return -1;
             }
 
-            var n = arguments.Length > 1 ? TypeConverter.ToInteger(arguments[1]) : len - 1;
+            var n = arguments.Length > 1 
+                ? TypeConverter.ToInteger(arguments[1]) 
+                : len - 1;
             double k;
             if (n >= 0)
             {
@@ -364,13 +373,18 @@ namespace Jint.Native.Array
             }
 
             var o = ArrayOperations.For(Engine, thisObj);
-            var len = o.GetLength();
+            var len = o.GetLongLength();
+
+            if (len > ArrayOperations.MaxArrayLength)
+            {
+                ExceptionHelper.ThrowRangeError(_engine, "Invalid array length");;
+            }
 
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
 
-            var a = Engine.Array.ConstructFast(len);
+            var a = Engine.Array.ConstructFast((uint) len);
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o.Target;
             for (uint k = 0; k < len; k++)
@@ -427,8 +441,8 @@ namespace Jint.Native.Array
             var fromIndex = arguments.At(1, 0);
             
             var n = TypeConverter.ToNumber(fromIndex);
-            n = n > ArrayOperations.MaxObjectLength
-                ? ArrayOperations.MaxObjectLength
+            n = n > ArrayOperations.MaxArrayLikeLength
+                ? ArrayOperations.MaxArrayLikeLength
                 : n;
 
             var k = (ulong) System.Math.Max(
@@ -462,16 +476,7 @@ namespace Jint.Native.Array
         private JsValue Every(JsValue thisObj, JsValue[] arguments)
         {
             var o = ArrayOperations.For(Engine, thisObj);
-            uint len;
-            if (thisObj is ArrayInstance arrayInstance)
-            {
-                len = arrayInstance.GetLength();
-            }
-            else
-            {
-                var intValue = ((ArrayOperations.ObjectInstanceOperations) o).GetIntegerLength();
-                len = intValue < 0 ? 0 : (uint) intValue;
-            }
+            ulong len = o.GetLongLength();
 
             if (len == 0)
             {
@@ -505,34 +510,36 @@ namespace Jint.Native.Array
         private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)
         {
             var o = ArrayOperations.For(Engine, thisObj);
-            var len = o.GetLength();
+            var len = o.GetLongLength();
             if (len == 0)
             {
                 return -1;
             }
 
-            var startIndex = arguments.Length > 1 ? TypeConverter.ToInteger(arguments[1]) : 0;
+            var startIndex = arguments.Length > 1
+                ? TypeConverter.ToNumber(arguments[1]) 
+                : 0;
 
             if (startIndex > uint.MaxValue)
             {
                 return -1;
             }
 
-            uint k;
+            ulong k;
             if (startIndex < 0)
             {
                 var abs = System.Math.Abs(startIndex);
-                long temp = len - (uint) abs;
+                ulong temp = len - (uint) abs;
                 if (abs > len || temp < 0)
                 {
                     temp = 0;
                 }
 
-                k = (uint) temp;
+                k = temp;
             }
             else
             {
-                k = (uint) startIndex;
+                k = (ulong) startIndex;
             }
 
             if (k >= len)
@@ -540,7 +547,7 @@ namespace Jint.Native.Array
                 return -1;
             }
 
-            uint smallestIndex = o.GetSmallestIndex();
+            ulong smallestIndex = o.GetSmallestIndex(len);
             if (smallestIndex > k)
             {
                 k = smallestIndex;
@@ -585,21 +592,28 @@ namespace Jint.Native.Array
             var deleteCount = arguments.At(1);
 
             var o = ArrayOperations.For(Engine, thisObj);
-            var len = o.GetLength();
+            var len = o.GetLongLength();
             var relativeStart = TypeConverter.ToInteger(start);
 
-            uint actualStart;
+            ulong actualStart;
             if (relativeStart < 0)
             {
-                actualStart = (uint) System.Math.Max(len + relativeStart, 0);
+                actualStart = (ulong) System.Math.Max(len + relativeStart, 0);
             }
             else
             {
-                actualStart = (uint) System.Math.Min(relativeStart, len);
+                actualStart = (ulong) System.Math.Min(relativeStart, len);
             }
 
-            var actualDeleteCount = (uint) System.Math.Min(System.Math.Max(TypeConverter.ToInteger(deleteCount), 0), len - actualStart);
-            var a = Engine.Array.ConstructFast(actualDeleteCount);
+            var actualDeleteCount = (ulong) System.Math.Min(System.Math.Max(TypeConverter.ToNumber(deleteCount), 0), len - actualStart);
+            var insertCount = System.Math.Max(arguments.Length - 2, 0);
+
+            if (len + (ulong) insertCount - actualDeleteCount > ArrayOperations.MaxArrayLikeLength)
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid array length");
+            }
+            
+            var a = Engine.Array.ConstructFast((uint) actualDeleteCount);
             for (uint k = 0; k < actualDeleteCount; k++)
             {
                 if (o.TryGetValue(actualStart + k, out var fromValue))
@@ -607,9 +621,9 @@ namespace Jint.Native.Array
                     a.SetIndexValue(k, fromValue, updateLength: false);
                 }
             }
-            a.SetLength(actualDeleteCount);
+            a.SetLength((uint) actualDeleteCount);
 
-            var items = System.ArrayExt.Empty<JsValue>();
+            var items = ArrayExt.Empty<JsValue>();
             if (arguments.Length > 2)
             {
                 items = new JsValue[arguments.Length - 2];
@@ -618,12 +632,12 @@ namespace Jint.Native.Array
 
             var length = len - actualDeleteCount + (uint) items.Length;
             o.EnsureCapacity(length);
-            if (items.Length < actualDeleteCount)
+            if ((ulong) items.Length < actualDeleteCount)
             {
-                for (uint k = actualStart; k < len - actualDeleteCount; k++)
+                for (ulong k = actualStart; k < len - actualDeleteCount; k++)
                 {
                     var from = k + actualDeleteCount;
-                    var to = (uint) (k + items.Length);
+                    var to = k + (ulong) items.Length;
                     if (o.TryGetValue(from, out var fromValue))
                     {
                         o.Put(to, fromValue, true);
@@ -634,17 +648,17 @@ namespace Jint.Native.Array
                     }
                 }
 
-                for (var k = len; k > len - actualDeleteCount + items.Length; k--)
+                for (var k = len; k > len - actualDeleteCount + (ulong) items.Length; k--)
                 {
                     o.DeleteAt(k - 1);
                 }
             }
-            else if (items.Length > actualDeleteCount)
+            else if ((ulong) items.Length > actualDeleteCount)
             {
                 for (var k = len - actualDeleteCount; k > actualStart; k--)
                 {
                     var from = k + actualDeleteCount - 1;
-                    uint to = (uint) (k + items.Length - 1);
+                    uint to = (uint) (k + (ulong) items.Length - 1);
                     if (o.TryGetValue(from, out var fromValue))
                     {
                         o.Put(to, fromValue, true);
@@ -669,10 +683,17 @@ namespace Jint.Native.Array
         private JsValue Unshift(JsValue thisObj, JsValue[] arguments)
         {
             var o = ArrayOperations.For(Engine, thisObj);
-            var len = o.GetLength();
+            var len = o.GetLongLength();
             var argCount = (uint) arguments.Length;
+
+            if (len + argCount > ArrayOperations.MaxArrayLikeLength)
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid array length");
+            }
+
             o.EnsureCapacity(len + argCount);
-            for (var k = len; k > 0; k--)
+            var minIndex = o.GetSmallestIndex(len);
+            for (var k = len; k > minIndex; k--)
             {
                 var from = k - 1;
                 var to = k + argCount - 1;
@@ -704,21 +725,36 @@ namespace Jint.Native.Array
 
             var obj = ArrayOperations.For(thisObj.AsObject());
 
+            var compareArg = arguments.At(0);
+            ICallable compareFn = null;
+            if (!compareArg.IsUndefined())
+            {
+                if (compareArg.IsNull() || !(compareArg is ICallable))
+                {
+                    ExceptionHelper.ThrowTypeError(_engine, "The comparison function must be either a function or undefined");
+                }
+
+                compareFn = (ICallable) compareArg;
+            }
+
             var len = obj.GetLength();
             if (len <= 1)
             {
                 return obj.Target;
             }
 
-            var compareArg = arguments.At(0);
-            ICallable compareFn = null;
-            if (!compareArg.IsUndefined())
-            {
-                compareFn = compareArg.TryCast<ICallable>(x => ExceptionHelper.ThrowTypeError(_engine, "The sort argument must be a function"));
-            }
-
             int Comparer(JsValue x, JsValue y)
             {
+                if (ReferenceEquals(x, null))
+                {
+                    return 1;
+                }
+
+                if (ReferenceEquals(y, null))
+                {
+                    return -1;
+                }
+
                 var xUndefined = x.IsUndefined();
                 var yUndefined = y.IsUndefined();
                 if (xUndefined && yUndefined)
@@ -755,14 +791,17 @@ namespace Jint.Native.Array
                 var xString = TypeConverter.ToString(x);
                 var yString = TypeConverter.ToString(y);
 
-                var r = System.String.CompareOrdinal(xString, yString);
+                var r = CompareOrdinal(xString, yString);
                 return r;
             }
 
             var array = new JsValue[len];
-            for (uint i = 0; i < len; ++i)
+            for (uint i = 0; i < (uint) array.Length; ++i)
             {
-                array[i] = obj.Get(i);
+                var value = obj.TryGetValue(i, out var temp)
+                    ? temp
+                    : null;
+                array[i] = value;
             }
 
             // don't eat inner exceptions
@@ -775,9 +814,16 @@ namespace Jint.Native.Array
                 throw e.InnerException;
             }
 
-            for (uint i = 0; i < len; ++i)
+            for (uint i = 0; i < (uint) array.Length; ++i)
             {
-                obj.Put(i, array[i], false);
+                if (!ReferenceEquals(array[i], null))
+                {
+                    obj.Put(i, array[i], false);
+                }
+                else
+                {
+                    obj.DeleteAt(i);
+                }
             }
 
             return obj.Target;
@@ -789,7 +835,12 @@ namespace Jint.Native.Array
             var end = arguments.At(1);
 
             var o = ArrayOperations.For(Engine, thisObj);
-            var len = o.GetLength();
+            var len = o.GetLongLength();
+
+            if (len > ArrayOperations.MaxArrayLength)
+            {
+                ExceptionHelper.ThrowRangeError(_engine, "Invalid array length");;
+            }
 
             var relativeStart = TypeConverter.ToInteger(start);
             uint k;
@@ -868,8 +919,8 @@ namespace Jint.Native.Array
         private JsValue Reverse(JsValue thisObj, JsValue[] arguments)
         {
             var o = ArrayOperations.For(Engine, thisObj);
-            var len = o.GetLength();
-            var middle = (uint) System.Math.Floor(len / 2.0);
+            var len = o.GetLongLength();
+            var middle = (ulong) System.Math.Floor(len / 2.0);
             uint lower = 0;
             while (lower != middle)
             {
@@ -1075,9 +1126,8 @@ namespace Jint.Native.Array
             var callbackfn = arguments.At(0);
             var initialValue = arguments.At(1);
 
-            var o = TypeConverter.ToObject(Engine, thisObj);
-            var lenValue = o.Get("length");
-            var len = TypeConverter.ToUint32(lenValue);
+            var o = ArrayOperations.For(TypeConverter.ToObject(_engine, thisObj));
+            var len = o.GetLongLength();
 
             var callable = GetCallable(callbackfn);
 
@@ -1086,7 +1136,7 @@ namespace Jint.Native.Array
                 ExceptionHelper.ThrowTypeError(Engine);
             }
 
-            int k = (int) len - 1;
+            long k = (long) (len - 1);
             JsValue accumulator = Undefined;
             if (arguments.Length > 1)
             {
@@ -1097,11 +1147,9 @@ namespace Jint.Native.Array
                 var kPresent = false;
                 while (kPresent == false && k >= 0)
                 {
-                    var pk = TypeConverter.ToString(k);
-                    kPresent = o.HasProperty(pk);
-                    if (kPresent)
+                    if ((kPresent = o.TryGetValue((ulong) k, out var temp)))
                     {
-                        accumulator = o.Get(pk);
+                        accumulator = temp;
                     }
 
                     k--;
@@ -1114,17 +1162,14 @@ namespace Jint.Native.Array
             }
 
             var jsValues = new JsValue[4];
+            jsValues[3] = o.Target;
             for (; k >= 0; k--)
             {
-                var pk = TypeConverter.ToString(k);
-                var kPresent = o.HasProperty(pk);
-                if (kPresent)
+                if (o.TryGetValue((ulong) k, out var kvalue))
                 {
-                    var kvalue = o.Get(pk);
                     jsValues[0] = accumulator;
                     jsValues[1] = kvalue;
                     jsValues[2] = k;
-                    jsValues[3] = o;
                     accumulator = callable.Call(Undefined, jsValues);
                 }
             }
@@ -1139,27 +1184,29 @@ namespace Jint.Native.Array
                 return arrayInstance.Push(arguments);
             }
 
-            var o = TypeConverter.ToObject(Engine, thisObject);
-            var lenVal = TypeConverter.ToNumber(o.Get("length"));
+            var o = ArrayOperations.For(thisObject as ObjectInstance);
+            var n = o.GetLongLength();
+
+            if (n + (ulong) arguments.Length > ArrayOperations.MaxArrayLikeLength)
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid array length");
+            }
 
             // cast to double as we need to prevent an overflow
-            double n = TypeConverter.ToUint32(lenVal);
             for (var i = 0; i < arguments.Length; i++)
             {
-                o.Put(TypeConverter.ToString(n), arguments[i], true);
+                o.Put(n, arguments[i], true);
                 n++;
             }
 
-            o.Put("length", n, true);
+            o.SetLength(n);
             return n;
         }
 
         public JsValue Pop(JsValue thisObject, JsValue[] arguments)
         {
             var o = ArrayOperations.For(Engine, thisObject);
-            var lenVal = TypeConverter.ToNumber(o.Target.Get("length"));
-
-            uint len = TypeConverter.ToUint32(lenVal);
+            ulong len = o.GetLongLength();
             if (len == 0)
             {
                 o.SetLength(0);
@@ -1167,10 +1214,9 @@ namespace Jint.Native.Array
             }
 
             len = len - 1;
-            string indx = TypeConverter.ToString(len);
-            JsValue element = o.Target.Get(indx);
-            o.Target.Delete(indx, true);
-            o.Target.Put("length", len, true);
+            JsValue element = o.Get(len);
+            o.DeleteAt(len);
+            o.SetLength(len);
             return element;
         }
 
@@ -1180,31 +1226,30 @@ namespace Jint.Native.Array
         /// </summary>
         internal abstract class ArrayOperations
         {
-            protected internal const long MaxObjectLength = 9007199254740991;
+            protected internal const ulong MaxArrayLength = 4294967295;
+            protected internal const ulong MaxArrayLikeLength = 9007199254740991;
 
             public abstract ObjectInstance Target { get; }
 
-            public virtual uint GetSmallestIndex() => 0;
+            public abstract ulong GetSmallestIndex(ulong length);
+
+            public abstract ulong GetLargestIndex();
 
             public abstract uint GetLength();
 
             public abstract ulong GetLongLength();
 
-            public abstract void SetLength(uint length);
+            public abstract void SetLength(ulong length);
 
-            public virtual void EnsureCapacity(uint capacity)
-            {
-            }
+            public abstract void EnsureCapacity(ulong capacity);
 
-            public abstract JsValue Get(uint index);
-
-            public abstract bool TryGetValue(uint index, out JsValue value);
+            public abstract JsValue Get(ulong index);
 
             public abstract bool TryGetValue(ulong index, out JsValue value);
 
-            public abstract void Put(uint index, JsValue value, bool throwOnError);
+            public abstract void Put(ulong index, JsValue value, bool throwOnError);
 
-            public abstract void DeleteAt(uint index);
+            public abstract void DeleteAt(ulong index);
 
             public static ArrayOperations For(Engine engine, JsValue thisObj)
             {
@@ -1251,7 +1296,70 @@ namespace Jint.Native.Array
                     // if getter is not undefined it must be ICallable
                     var callable = (ICallable) getter;
                     var value = callable.Call(_instance, Arguments.Empty);
-                    return (uint) TypeConverter.ToInteger(value);
+                    return TypeConverter.ToInteger(value);
+                }
+
+                public override ulong GetSmallestIndex(ulong length)
+                {
+                    // there are some evil tests that iterate a lot with unshift..
+                    if (_instance._properties == null)
+                    {
+                        return 0;
+                    }
+
+                    ulong min = length;
+                    foreach (var key in _instance._properties.Keys)
+                    {
+                        if (ulong.TryParse(key, out var index))
+                        {
+                            min = System.Math.Min(index, min);
+                        }
+                    }
+
+                    if (_instance.Prototype?._properties != null)
+                    {
+                        foreach (var key in _instance.Prototype._properties.Keys)
+                        {
+                            if (ulong.TryParse(key, out var index))
+                            {
+                                min = System.Math.Min(index, min);
+                            }
+                        }
+                    }
+
+                    return min;
+                }
+
+                public override ulong GetLargestIndex()
+                {
+                    if (_instance._properties == null)
+                    {
+                        return 0;
+                    }
+
+                    long? max = null;
+                    foreach (var key in _instance._properties.Keys)
+                    {
+                        max = max ?? long.MinValue;
+                        if (ulong.TryParse(key, out var index))
+                        {
+                            max = System.Math.Max((long) index, max.Value);
+                        }
+                    }
+
+                    if (_instance.Prototype?._properties != null)
+                    {
+                        max = max ?? long.MinValue;
+                        foreach (var key in _instance.Prototype._properties.Keys)
+                        {
+                            if (ulong.TryParse(key, out var index))
+                            {
+                                max = System.Math.Max((long) index, max.Value);
+                            }
+                        }
+                    }
+
+                    return (ulong) (max ?? 0);
                 }
 
                 public override uint GetLength()
@@ -1267,17 +1375,16 @@ namespace Jint.Native.Array
                     {
                         return 0;
                     }
-                    return (ulong) System.Math.Min(integerLength, MaxObjectLength);
+                    return (ulong) System.Math.Min(integerLength, MaxArrayLikeLength);
                 }
 
-                public override void SetLength(uint length) => _instance.Put("length", length, true);
+                public override void SetLength(ulong length) => _instance.Put("length", length, true);
 
-                public override JsValue Get(uint index) => _instance.Get(TypeConverter.ToString(index));
-
-                public override bool TryGetValue(uint index, out JsValue value)
+                public override void EnsureCapacity(ulong capacity)
                 {
-                    return TryGetValue((ulong) index, out value);
                 }
+
+                public override JsValue Get(ulong index) => _instance.Get(TypeConverter.ToString(index));
 
                 public override bool TryGetValue(ulong index, out JsValue value)
                 {
@@ -1287,9 +1394,9 @@ namespace Jint.Native.Array
                     return kPresent;
                 }
 
-                public override void Put(uint index, JsValue value, bool throwOnError) => _instance.Put(TypeConverter.ToString(index), value, throwOnError);
+                public override void Put(ulong index, JsValue value, bool throwOnError) => _instance.Put(TypeConverter.ToString(index), value, throwOnError);
 
-                public override void DeleteAt(uint index) => _instance.Delete(TypeConverter.ToString(index), true);
+                public override void DeleteAt(ulong index) => _instance.Delete(TypeConverter.ToString(index), true);
             }
 
             private sealed class ArrayInstanceOperations : ArrayOperations
@@ -1303,7 +1410,9 @@ namespace Jint.Native.Array
 
                 public override ObjectInstance Target => _array;
 
-                public override uint GetSmallestIndex() => _array.GetSmallestIndex();
+                public override ulong GetSmallestIndex(ulong length) => _array.GetSmallestIndex();
+
+                public override ulong GetLargestIndex() => _array.GetLargestIndex();
 
                 public override uint GetLength()
                 {
@@ -1315,16 +1424,11 @@ namespace Jint.Native.Array
                     return (ulong) ((JsNumber) _array._length._value)._value;
                 }
 
-                public override void SetLength(uint length) => _array.Put("length", length, true);
+                public override void SetLength(ulong length) => _array.Put("length", length, true);
 
-                public override void EnsureCapacity(uint capacity)
+                public override void EnsureCapacity(ulong capacity)
                 {
-                    _array.EnsureCapacity(capacity);
-                }
-
-                public override bool TryGetValue(uint index, out JsValue value)
-                {
-                    return _array.TryGetValue(index, out value);
+                    _array.EnsureCapacity((uint) capacity);
                 }
 
                 public override bool TryGetValue(ulong index, out JsValue value)
@@ -1333,11 +1437,11 @@ namespace Jint.Native.Array
                     return _array.TryGetValue((uint) index, out value);
                 }
 
-                public override JsValue Get(uint index) => _array.Get(TypeConverter.ToString(index));
+                public override JsValue Get(ulong index) => _array.Get(TypeConverter.ToString(index));
 
-                public override void DeleteAt(uint index) => _array.DeleteAt(index);
+                public override void DeleteAt(ulong index) => _array.DeleteAt((uint) index);
 
-                public override void Put(uint index, JsValue value, bool throwOnError) => _array.SetIndexValue(index, value, throwOnError);
+                public override void Put(ulong index, JsValue value, bool throwOnError) => _array.SetIndexValue((uint) index, value, throwOnError);
             }
         }
     }
