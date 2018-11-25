@@ -261,7 +261,7 @@ namespace Jint.Native.Iterator
                 if (!_closed && _position < length)
                 {
                     _operations.TryGetValue(_position++, out var value);
-                    return new  ValueIteratorPosition(_engine, value);
+                    return new ValueIteratorPosition(_engine, value);
                 }
 
                 _closed = true;

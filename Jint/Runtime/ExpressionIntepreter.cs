@@ -660,7 +660,7 @@ namespace Jint.Runtime
 
                     if (function == null)
                     {
-                        ExceptionHelper.ThrowSyntaxError(_engine);
+                        return ExceptionHelper.ThrowSyntaxError<JsValue>(_engine);
                     }
 
                     ScriptFunctionInstance functionInstance;
@@ -768,8 +768,7 @@ namespace Jint.Runtime
                 _engine,
                 functionExpression,
                 funcEnv,
-                functionExpression.Strict
-                );
+                functionExpression.Strict);
 
             if (!string.IsNullOrEmpty(functionExpression.Id?.Name))
             {

@@ -112,22 +112,8 @@ namespace Jint.Native.Map
                     return;
                 }
 
-                JsValue key = Undefined;
-                JsValue value = Undefined;
-                if (oi.TryGetValue("0", out _)
-                    && oi.TryGetValue("1", out var source))
-                {
-                    if (source is ObjectInstance oi2)
-                    {
-                        key = oi2.Get("0");
-                        value = oi2.Get("1");
-                    }
-                    else
-                    {
-                        ExceptionHelper.ThrowTypeError(_engine, "iterator's value must be an object");
-                        return;
-                    }
-                }
+                oi.TryGetValue("0", out var key);
+                oi.TryGetValue("1", out var value);
 
                 args[0] = key;
                 args[1] = value;

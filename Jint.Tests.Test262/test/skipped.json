@@ -80,6 +80,14 @@
     "reason": "Constructor functions not implemented"
   },
   {
+    "source": "built-ins/Array/prototype/filter/create-ctor-non-object.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/filter/create-ctor-poisoned.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
     "source": "built-ins/Array/from/items-is-arraybuffer.js",
     "reason": "ArrayBuffer not implemented"
   },
@@ -202,5 +210,72 @@
   {
     "source": "built-ins/Array/prototype/slice/length-exceeding-integer-limit-proxied-array.js",
     "reason": "proxies not implemented"
-  }
+  },
+  
+  
+  // experimenta
+  {
+    "source": "built-ins/Array/prototype/flat/array-like-objects.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/bound-function-call.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/empty-array-elements.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/empty-object-elements.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/length.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/name.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/non-numeric-depth-should-not-throw.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/null-undefined-elements.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/positive-infinity.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/prop-desc.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flatMap/array-like-objects.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flatMap/bound-function-argument.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flatMap/depth-always-one.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flatMap/length.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flatMap/name.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flatMap/thisArg-argument.js",
+    "reason": "experimental"
+  },
 ]

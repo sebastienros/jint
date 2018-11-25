@@ -54,7 +54,7 @@ namespace Jint.Native.Array
             var source = arguments.At(0);
             var mapFunction = arguments.At(1);
             var callable = !mapFunction.IsUndefined() ? GetCallable(mapFunction) : null;
-            var thisArg = arguments.At(2);
+            var thisArg = arguments.At(2, thisObj);
 
             if (source.IsNullOrUndefined())
             {
@@ -121,7 +121,7 @@ namespace Jint.Native.Array
             var instance = _engine.Array.ConstructFast(0);
             if (objectInstance.TryGetIterator(_engine, out var iterator))
             {
-                var protocol = new ArrayProtocol(_engine, instance, iterator, callable);
+                var protocol = new ArrayProtocol(_engine, thisArg, instance, iterator, callable);
                 protocol.Execute();
             }
 
@@ -130,16 +130,19 @@ namespace Jint.Native.Array
 
         private sealed class ArrayProtocol : IteratorProtocol
         {
+            private readonly JsValue _thisArg;
             private readonly ArrayInstance _instance;
             private readonly ICallable _callable;
             private long _index = -1;
 
             public ArrayProtocol(
                 Engine engine, 
+                JsValue thisArg,
                 ArrayInstance instance,
                 IIterator iterator,
                 ICallable callable) : base(engine, iterator, 2)
             {
+                _thisArg = thisArg;
                 _instance = instance;
                 _callable = callable;
             }
@@ -153,7 +156,7 @@ namespace Jint.Native.Array
                 {
                     args[0] = sourceValue;
                     args[1] = _index; 
-                    jsValue = _callable.Call(_instance, args);
+                    jsValue = _callable.Call(_thisArg, args);
                 }
                 else
                 {

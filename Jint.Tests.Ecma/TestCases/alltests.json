@@ -46040,8 +46040,8 @@
     source: "ch15/15.4/15.4.4/15.4.4.2/S15.4.4.2_A4.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "toString is now configurable",
     source: "ch15/15.4/15.4.4/15.4.4.2/S15.4.4.2_A4.2.js"
   },
   {

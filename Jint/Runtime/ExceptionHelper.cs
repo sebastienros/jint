@@ -5,6 +5,12 @@ namespace Jint.Runtime
 {
     internal static class ExceptionHelper
     {
+        public static T ThrowSyntaxError<T>(Engine engine, string message = null)
+        {
+            ThrowSyntaxError(engine, message);
+            return default;
+        }
+
         public static void ThrowSyntaxError(Engine engine, string message = null)
         {
             throw new JavaScriptException(engine.SyntaxError, message);

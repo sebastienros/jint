@@ -34,7 +34,7 @@ namespace Jint.Native.Array
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString, 0), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("copyWithin", new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), true, false, true);
@@ -64,7 +64,7 @@ namespace Jint.Native.Array
 
             FastAddProperty("keys", new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Iterator, 1), true, false, true);
+            FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Values, 1), true, false, true);
         }
         
         private ObjectInstance Keys(JsValue thisObj, JsValue[] arguments)

@@ -136,6 +136,11 @@ namespace Jint.Tests.Test262
                             skip = true;
                             reason = "Proxies not implemented";
                         }
+                        else if (item == "Symbol.unscopables")
+                        {
+                            skip = true;
+                            reason = "Symbol.unscopables not implemented";
+                        }
                     }
                 }
                 
