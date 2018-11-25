@@ -470,7 +470,7 @@ namespace Jint.Native.Array
         private JsValue Some(JsValue thisObj, JsValue[] arguments)
         {
             var target = TypeConverter.ToObject(Engine, thisObj);
-            return target.FindWithCallback(arguments, out _, out _);
+            return target.FindWithCallback(arguments, out _, out _, false);
         }
 
         private JsValue Every(JsValue thisObj, JsValue[] arguments)
@@ -572,14 +572,14 @@ namespace Jint.Native.Array
         private JsValue Find(JsValue thisObj, JsValue[] arguments)
         {
             var target = TypeConverter.ToObject(Engine, thisObj);
-            target.FindWithCallback(arguments, out _, out var value);
+            target.FindWithCallback(arguments, out _, out var value, true);
             return value;
         }
 
         private JsValue FindIndex(JsValue thisObj, JsValue[] arguments)
         {
             var target = TypeConverter.ToObject(Engine, thisObj);
-            if (target.FindWithCallback(arguments, out var index, out _))
+            if (target.FindWithCallback(arguments, out var index, out _, true))
             {
                 return index;
             }

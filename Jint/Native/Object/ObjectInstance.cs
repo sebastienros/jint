@@ -827,7 +827,8 @@ namespace Jint.Native.Object
         internal virtual bool FindWithCallback(
             JsValue[] arguments,
             out uint index,
-            out JsValue value)
+            out JsValue value,
+            bool visitUnassigned)
         {
             long GetLength()
             {
@@ -881,7 +882,7 @@ namespace Jint.Native.Object
             var length = GetLength();
             for (uint k = 0; k < length; k++)
             {
-                if (TryGetValue(k, out var kvalue))
+                if (TryGetValue(k, out var kvalue) || visitUnassigned)
                 {
                     args[0] = kvalue;
                     args[1] = k;

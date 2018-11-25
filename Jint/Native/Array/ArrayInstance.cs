@@ -745,7 +745,8 @@ namespace Jint.Native.Array
         internal override bool FindWithCallback(
             JsValue[] arguments,
             out uint index,
-            out JsValue value)
+            out JsValue value,
+            bool visitUnassigned)
         {
             var thisArg = arguments.At(1);
             var callbackfn = arguments.At(0);
@@ -763,7 +764,7 @@ namespace Jint.Native.Array
             args[2] = this;
             for (uint k = 0; k < len; k++)
             {
-                if (TryGetValue(k, out var kvalue))
+                if (TryGetValue(k, out var kvalue) || visitUnassigned)
                 {
                     args[0] = kvalue;
                     args[1] = k;

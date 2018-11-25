@@ -64,6 +64,22 @@
     "reason": "Constructor functions not implemented"
   },
   {
+    "source": "built-ins/Array/of/return-abrupt-from-data-property.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/of/return-abrupt-from-setting-length.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/of/sets-length.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/iter-set-length-err.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
     "source": "built-ins/Array/from/items-is-arraybuffer.js",
     "reason": "ArrayBuffer not implemented"
   },
@@ -157,6 +173,14 @@
   },
   {
     "source": "built-ins/Set/prototype/forEach/this-strict.js",
+    "reason": "global strict mode not working as expected"
+  },
+  {
+    "source": "built-ins/Array/prototype/find/predicate-call-this-strict.js",
+    "reason": "global strict mode not working as expected"
+  },
+  {
+    "source": "built-ins/Array/prototype/findIndex/predicate-call-this-strict.js",
     "reason": "global strict mode not working as expected"
   },
   {
