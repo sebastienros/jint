@@ -54,7 +54,7 @@ namespace Jint.Native.Array
             var source = arguments.At(0);
             var mapFunction = arguments.At(1);
             var callable = !mapFunction.IsUndefined() ? GetCallable(mapFunction) : null;
-            var thisArg = arguments.At(2, thisObj);
+            var thisArg = arguments.At(2);
 
             if (source.IsNullOrUndefined())
             {

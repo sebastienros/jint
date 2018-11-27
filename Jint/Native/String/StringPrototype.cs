@@ -815,13 +815,17 @@ namespace Jint.Native.String
 
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
         {
-            var s = thisObj.TryCast<StringInstance>();
-            if (ReferenceEquals(s, null))
+            if (thisObj is StringInstance si)
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                return si.PrimitiveValue;
             }
 
-            return s.PrimitiveValue;
+            if (thisObj is JsString)
+            {
+                return thisObj;
+            }
+
+            return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
         }
 
         /// <summary>

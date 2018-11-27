@@ -161,16 +161,16 @@ namespace Jint.Native.Array
             var relativeTarget = ConvertAndCheckForInfinity(target, 0);
 
             var to = relativeTarget < 0 ?
-                (uint) System.Math.Max(len + relativeTarget, 0) :
-                (uint) System.Math.Min(relativeTarget, len);
+                System.Math.Max(len + relativeTarget, 0) :
+                System.Math.Min(relativeTarget, len);
 
             var relativeStart = ConvertAndCheckForInfinity(start, 0);
 
             var from = relativeStart < 0 ?
-                (uint) System.Math.Max(len + relativeStart, 0) :
-                (uint) System.Math.Min(relativeStart, len);
+                System.Math.Max(len + relativeStart, 0) :
+                System.Math.Min(relativeStart, len);
 
-            var relativeEnd = ConvertAndCheckForInfinity(end, (uint) len);
+            var relativeEnd = ConvertAndCheckForInfinity(end, len);
 
             var final = relativeEnd < 0 ?
                 System.Math.Max(len + relativeEnd, 0) :
@@ -188,13 +188,13 @@ namespace Jint.Native.Array
 
             while (count > 0)
             {
-                if (operations.TryGetValue(from, out var value))
+                if (operations.TryGetValue((ulong) from, out var value))
                 {
-                    operations.Put(to, value, false);
+                    operations.Put((ulong) to, value, false);
                 }
                 else
                 {
-                    operations.DeleteAt(to);
+                    operations.DeleteAt((ulong) to);
                 }
                 from = (uint) (from + direction);
                 to = (uint) (to + direction);
@@ -204,7 +204,7 @@ namespace Jint.Native.Array
             return thisObj;
         }
 
-        long ConvertAndCheckForInfinity(JsValue jsValue, uint defaultValue)
+        long ConvertAndCheckForInfinity(JsValue jsValue, long defaultValue)
         {
             if (jsValue.IsUndefined())
             {
@@ -215,7 +215,7 @@ namespace Jint.Native.Array
 
             if (double.IsPositiveInfinity(num))
             {
-                return defaultValue;
+                return long.MaxValue;
             }
 
             return (long) num;
@@ -605,10 +605,35 @@ namespace Jint.Native.Array
                 actualStart = (ulong) System.Math.Min(relativeStart, len);
             }
 
-            var actualDeleteCount = (ulong) System.Math.Min(System.Math.Max(TypeConverter.ToNumber(deleteCount), 0), len - actualStart);
-            var insertCount = System.Math.Max(arguments.Length - 2, 0);
+            var items = ArrayExt.Empty<JsValue>();
+            ulong insertCount;
+            ulong actualDeleteCount;
+            if (arguments.Length == 0)
+            {
+                insertCount = 0;
+                actualDeleteCount = 0;
+            }
+            else if (arguments.Length == 1)
+            {
+                insertCount = 0;
+                actualDeleteCount = len - actualStart;
+            }
+            else
+            {
+                insertCount = (ulong) (arguments.Length - 2);
+                var dc = TypeConverter.ToInteger(deleteCount);
+                actualDeleteCount = (ulong) System.Math.Min(System.Math.Max(dc,0), len - actualStart);
 
-            if (len + (ulong) insertCount - actualDeleteCount > ArrayOperations.MaxArrayLikeLength)
+                items = new JsValue[arguments.Length - 2];
+                System.Array.Copy(arguments, 2, items, 0, items.Length);
+            }
+
+            if (len + insertCount - actualDeleteCount > ArrayOperations.MaxArrayLikeLength)
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid array length");
+            }
+
+            if (actualDeleteCount > ArrayOperations.MaxArrayLength)
             {
                 return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid array length");
             }
@@ -622,13 +647,6 @@ namespace Jint.Native.Array
                 }
             }
             a.SetLength((uint) actualDeleteCount);
-
-            var items = ArrayExt.Empty<JsValue>();
-            if (arguments.Length > 2)
-            {
-                items = new JsValue[arguments.Length - 2];
-                System.Array.Copy(arguments, 2, items, 0, items.Length);
-            }
 
             var length = len - actualDeleteCount + (uint) items.Length;
             o.EnsureCapacity(length);
@@ -658,7 +676,7 @@ namespace Jint.Native.Array
                 for (var k = len - actualDeleteCount; k > actualStart; k--)
                 {
                     var from = k + actualDeleteCount - 1;
-                    uint to = (uint) (k + (ulong) items.Length - 1);
+                    var to =  k + (ulong) items.Length - 1;
                     if (o.TryGetValue(from, out var fromValue))
                     {
                         o.Put(to, fromValue, true);
@@ -837,41 +855,41 @@ namespace Jint.Native.Array
             var o = ArrayOperations.For(Engine, thisObj);
             var len = o.GetLongLength();
 
-            if (len > ArrayOperations.MaxArrayLength)
-            {
-                ExceptionHelper.ThrowRangeError(_engine, "Invalid array length");;
-            }
-
             var relativeStart = TypeConverter.ToInteger(start);
-            uint k;
+            ulong k;
             if (relativeStart < 0)
             {
-                k = (uint) System.Math.Max(len + relativeStart, 0);
+                k = (ulong) System.Math.Max(len + relativeStart, 0);
             }
             else
             {
-                k = (uint) System.Math.Min(TypeConverter.ToInteger(start), len);
+                k = (ulong) System.Math.Min(TypeConverter.ToInteger(start), len);
             }
 
-            uint final;
+            ulong final;
             if (end.IsUndefined())
             {
-                final = TypeConverter.ToUint32(len);
+                final = (ulong) TypeConverter.ToNumber(len);
             }
             else
             {
                 double relativeEnd = TypeConverter.ToInteger(end);
                 if (relativeEnd < 0)
                 {
-                    final = (uint) System.Math.Max(len + relativeEnd, 0);
+                    final = (ulong) System.Math.Max(len + relativeEnd, 0);
                 }
                 else
                 {
-                    final = (uint) System.Math.Min(TypeConverter.ToInteger(relativeEnd), len);
+                    final = (ulong) System.Math.Min(TypeConverter.ToInteger(relativeEnd), len);
                 }
             }
 
-            var a = Engine.Array.Construct(final - k);
+            if (k < final && final - k > ArrayOperations.MaxArrayLength)
+            {
+                ExceptionHelper.ThrowRangeError(_engine, "Invalid array length");;
+            }
+
+            var a = Engine.Array.Construct((uint) (final - k));
             uint n = 0;
             for (; k < final; k++)
             {

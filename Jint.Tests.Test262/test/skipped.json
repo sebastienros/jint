@@ -278,4 +278,20 @@
     "source": "built-ins/Array/prototype/flatMap/thisArg-argument.js",
     "reason": "experimental"
   },
+  {
+    "source": "built-ins/Array/prototype/splice/create-non-array-invalid-len.js",
+    "reason": "requires constructor functions"
+  },
+  {
+    "source": "built-ins/Array/from/iter-set-elem-prop-err.js",
+    "reason": "requires constructor functions"
+  },
+  {
+    "source": "built-ins/Array/prototype/toLocaleString/primitive_this_value.js",
+    "reason": "requires toLocaleString changes"
+  },
+  {
+    "source": "built-ins/Array/prototype/toLocaleString/primitive_this_value_getter.js",
+    "reason": "requires toLocaleString changes"
+  },
 ]

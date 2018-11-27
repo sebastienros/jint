@@ -82,13 +82,17 @@ namespace Jint.Native.Number
 
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
         {
-            var number = thisObj.TryCast<NumberInstance>();
-            if (ReferenceEquals(number, null))
+            if (thisObj is NumberInstance ni)
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                return ni.NumberData;
             }
 
-            return number.NumberData;
+            if (thisObj is JsNumber)
+            {
+                return thisObj;
+            }
+
+            return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
         }
 
         private const double Ten21 = 1e21;

@@ -85,7 +85,8 @@ namespace Jint.Native.Function
         /// <returns></returns>
         public override JsValue Call(JsValue thisArg, JsValue[] arguments)
         {
-            using (new StrictModeScope(Strict, true))
+            var strict = Strict || _engine._isStrict;
+            using (new StrictModeScope(strict, true))
             {
                 // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
                 JsValue thisBinding;
