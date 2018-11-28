@@ -14,6 +14,7 @@ namespace Jint.Native.Function
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
         private readonly IFunction _functionDeclaration;
+        private JintStatement _functionBody;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
@@ -30,6 +31,7 @@ namespace Jint.Native.Function
             : base(engine, functionDeclaration.Id?.Name ?? "", GetParameterNames(functionDeclaration), scope, strict)
         {
             _functionDeclaration = functionDeclaration;
+            _functionBody = JintStatement.Build(engine, functionDeclaration.Body);
 
             Extensible = true;
             Prototype = _engine.Function.PrototypeObject;
@@ -120,7 +122,7 @@ namespace Jint.Native.Function
                         this,
                         arguments);
 
-                    var result = _engine.ExecuteStatement(_functionDeclaration.Body);
+                    var result = _functionBody.Execute();
                     
                     var value = result.GetValueOrDefault();
                     

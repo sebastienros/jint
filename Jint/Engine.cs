@@ -41,7 +41,6 @@ namespace Jint
         };
 
         private readonly ExpressionInterpreter _expressions;
-        private readonly StatementInterpreter _statements;
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
@@ -246,7 +245,6 @@ namespace Jint
             Eval = new EvalFunctionInstance(this, System.ArrayExt.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
 
-            _statements = new StatementInterpreter(this);
             _expressions = new ExpressionInterpreter(this);
 
             if (Options._IsClrAllowed)
@@ -433,7 +431,8 @@ namespace Jint
             {
                 DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.HoistingScope.FunctionDeclarations, program.HoistingScope.VariableDeclarations, null, null);
 
-                var result = _statements.ExecuteProgram(program);
+                var list = new JintStatementList(this, program.Body);
+                var result = list.Execute();
                 if (result.Type == CompletionType.Throw)
                 {
                     var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
@@ -461,89 +460,22 @@ namespace Jint
 
         public Completion ExecuteStatement(Statement statement)
         {
-            _lastSyntaxNode = statement;
+            return ExecuteStatement(JintStatement.Build(this, statement), statement);
+        }
+
+        internal Completion ExecuteStatement(JintStatement statement, Statement original)
+        {
+            _lastSyntaxNode = original;
 
             if (_runBeforeStatementChecks)
             {
-                BeforeExecuteStatement(statement);
+                BeforeExecuteStatement(statement, original);
             }
 
-            switch (statement.Type)
-            {
-                case Nodes.BlockStatement:
-                    return _statements.ExecuteStatementList(((BlockStatement) statement).Body);
-
-                case Nodes.ReturnStatement:
-                    var jsValue = ((ReturnStatement) statement).Argument == null
-                        ? Undefined.Instance
-                        : GetValue(EvaluateExpression(((ReturnStatement) statement).Argument), true);
-
-                    return new Completion(CompletionType.Return, jsValue, null);
-
-                case Nodes.VariableDeclaration:
-                    return _statements.ExecuteVariableDeclaration((VariableDeclaration) statement);
-
-                case Nodes.BreakStatement:
-                    return _statements.ExecuteBreakStatement((BreakStatement) statement);
-
-                case Nodes.ContinueStatement:
-                    return _statements.ExecuteContinueStatement((ContinueStatement) statement);
-
-                case Nodes.DoWhileStatement:
-                    return _statements.ExecuteDoWhileStatement((DoWhileStatement) statement);
-
-                case Nodes.EmptyStatement:
-                    return new Completion(CompletionType.Normal, null, null);
-
-                case Nodes.ExpressionStatement:
-                    return new Completion(
-                        CompletionType.Normal,
-                        GetValue(EvaluateExpression(((ExpressionStatement) statement).Expression), true),
-                        null);
-
-                case Nodes.ForStatement:
-                    return _statements.ExecuteForStatement((ForStatement) statement);
-
-                case Nodes.ForInStatement:
-                    return _statements.ExecuteForInStatement((ForInStatement) statement);
-
-                case Nodes.IfStatement:
-                    return _statements.ExecuteIfStatement((IfStatement) statement);
-
-                case Nodes.LabeledStatement:
-                    return _statements.ExecuteLabeledStatement((LabeledStatement) statement);
-
-                case Nodes.SwitchStatement:
-                    return _statements.ExecuteSwitchStatement((SwitchStatement) statement);
-
-                case Nodes.FunctionDeclaration:
-                    return new Completion(CompletionType.Normal, null, null);
-
-                case Nodes.ThrowStatement:
-                    return _statements.ExecuteThrowStatement((ThrowStatement) statement);
-
-                case Nodes.TryStatement:
-                    return _statements.ExecuteTryStatement((TryStatement) statement);
-
-                case Nodes.WhileStatement:
-                    return _statements.ExecuteWhileStatement((WhileStatement) statement);
-
-                case Nodes.WithStatement:
-                    return _statements.ExecuteWithStatement((WithStatement) statement);
-
-                case Nodes.DebuggerStatement:
-                    return _statements.ExecuteDebuggerStatement((DebuggerStatement) statement);
-
-                case Nodes.Program:
-                    return _statements.ExecuteProgram((Program) statement);
-
-                default:
-                    ExceptionHelper.ThrowArgumentOutOfRangeException();
-                    return new Completion(CompletionType.Normal, null, null);
-            }
+            return statement.Execute();
         }
 
-        private void BeforeExecuteStatement(Statement statement)
+        private void BeforeExecuteStatement(JintStatement statement, Statement original)
         {
             if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
             {
@@ -573,7 +505,7 @@ namespace Jint
 
             if (_isDebugMode)
             {
-                DebugHandler.OnStep(statement);
+                DebugHandler.OnStep(original);
             }
         }
 
