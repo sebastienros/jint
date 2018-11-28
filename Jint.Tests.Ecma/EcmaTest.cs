@@ -251,6 +251,14 @@ namespace Jint.Tests.Ecma
                     continue;
                 }
 
+                if (sourceFile.Skip
+                    && (sourceFile.Reason == "part of new test suite"
+                        || sourceFile.Reason.IndexOf("configurable", StringComparison.OrdinalIgnoreCase) > -1))
+                {
+                    // we consider this obsolete and we don't need to process at all
+                    continue;
+                }
+
                 if (skipped == sourceFile.Skip)
                 {
                     results.Add(new object [] { sourceFile });
