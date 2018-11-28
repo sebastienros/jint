@@ -10,6 +10,7 @@ using Jint.Native.Function;
 using Jint.Native.Number;
 using Jint.Native.RegExp;
 using Jint.Native.String;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -826,25 +827,35 @@ namespace Jint.Native.Object
         internal virtual bool FindWithCallback(
             JsValue[] arguments,
             out uint index,
-            out JsValue value)
+            out JsValue value,
+            bool visitUnassigned)
         {
-            uint GetLength()
+            long GetLength()
             {
                 var desc = GetProperty("length");
                 var descValue = desc.Value;
+                double len;
                 if (desc.IsDataDescriptor() && !ReferenceEquals(descValue, null))
                 {
-                    return TypeConverter.ToUint32(descValue);
+                    len = TypeConverter.ToNumber(descValue);
                 }
-
-                var getter = desc.Get ?? Undefined;
-                if (getter.IsUndefined())
+                else
                 {
-                    return 0;
+                    var getter = desc.Get ?? Undefined;
+                    if (getter.IsUndefined())
+                    {
+                        len = 0;
+                    }
+                    else
+                    {
+                        // if getter is not undefined it must be ICallable
+                        len = TypeConverter.ToNumber(((ICallable) getter).Call(this, Arguments.Empty));
+                    }
                 }
 
-                // if getter is not undefined it must be ICallable
-                return TypeConverter.ToUint32(((ICallable) getter).Call(this, Arguments.Empty));
+                return (long) System.Math.Max(
+                    0, 
+                    System.Math.Min(len, ArrayPrototype.ArrayOperations.MaxArrayLikeLength));
             }
 
             bool TryGetValue(uint idx, out JsValue jsValue)
@@ -871,7 +882,7 @@ namespace Jint.Native.Object
             var length = GetLength();
             for (uint k = 0; k < length; k++)
             {
-                if (TryGetValue(k, out var kvalue))
+                if (TryGetValue(k, out var kvalue) || visitUnassigned)
                 {
                     args[0] = kvalue;
                     args[1] = k;
@@ -901,6 +912,26 @@ namespace Jint.Native.Object
 
             ExceptionHelper.ThrowTypeError(_engine, "Argument must be callable");
             return null;
+        }
+
+        internal virtual bool IsConcatSpreadable => TryGetIsConcatSpreadable(out var isConcatSpreadable) && isConcatSpreadable;
+
+        internal virtual bool IsArrayLike => TryGetValue("length", out var lengthValue)
+                                             && lengthValue.IsNumber()
+                                             && ((JsNumber) lengthValue)._value >= 0;
+
+        protected bool TryGetIsConcatSpreadable(out bool isConcatSpreadable)
+        {
+            isConcatSpreadable = false;
+            if (TryGetValue(GlobalSymbolRegistry.IsConcatSpreadable._value, out var isConcatSpreadableValue)
+                && !ReferenceEquals(isConcatSpreadableValue, null)
+                && !isConcatSpreadableValue.IsUndefined())
+            {
+                isConcatSpreadable = TypeConverter.ToBoolean(isConcatSpreadableValue);
+                return true;
+            }
+
+            return false;
         }
 
         public override bool Equals(JsValue obj)

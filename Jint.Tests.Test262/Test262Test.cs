@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Jint.Runtime;
 using Newtonsoft.Json.Linq;
 using Xunit;
@@ -83,14 +84,7 @@ namespace Jint.Tests.Test262
 
         protected void RunTestInternal(SourceFile sourceFile)
         {
-            var fullName = sourceFile.FullPath;
-            if (!File.Exists(fullName))
-            {
-                throw new ArgumentException("Could not find source file: " + fullName);
-            }
-
-            string code = File.ReadAllText(fullName);
-            RunTestCode(code);
+            RunTestCode(sourceFile.Code);
         }
 
         private void RunTestCode(string code)
@@ -118,11 +112,44 @@ namespace Jint.Tests.Test262
                 var name = file.Substring(fixturesPath.Length + 1).Replace("\\", "/");
                 bool skip = _skipReasons.TryGetValue(name, out var reason);
 
+                var code = skip ? "" : File.ReadAllText(file);
+
+                var features = Regex.Match(code, "features: \\[(.+?)\\]");
+                if (features.Success)
+                {
+                    var items = features.Groups[1].Captures[0].Value.Split(",");
+                    foreach (var item in items)
+                    {
+                        // TODO implement
+                        if (item == "cross-realm")
+                        {
+                            skip = true;
+                            reason = "realms not implemented";
+                        }
+                        else if (item == "Symbol.species")
+                        {
+                            skip = true;
+                            reason = "Symbol.species not implemented";
+                        }
+                        else if (item == "Proxy")
+                        {
+                            skip = true;
+                            reason = "Proxies not implemented";
+                        }
+                        else if (item == "Symbol.unscopables")
+                        {
+                            skip = true;
+                            reason = "Symbol.unscopables not implemented";
+                        }
+                    }
+                }
+                
                 var sourceFile = new SourceFile(
                     name,
                     file,
                     skip,
-                    reason);
+                    reason,
+                    code);
 
                 if (skipped == sourceFile.Skip)
                 {
@@ -143,23 +170,25 @@ namespace Jint.Tests.Test262
             string source,
             string fullPath,
             bool skip,
-            string reason)
+            string reason,
+            string code)
         {
             Skip = skip;
             Source = source;
             Reason = reason;
             FullPath = fullPath;
+            Code = code;
         }
 
         public string Source { get; }
         public bool Skip { get; }
         public string Reason { get; }
         public string FullPath { get; }
+        public string Code { get; }
 
         public override string ToString()
         {
             return Source;
         }
     }
-
 }

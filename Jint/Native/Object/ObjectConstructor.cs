@@ -64,7 +64,7 @@ namespace Jint.Native.Object
                 return Construct(arguments);
             }
 
-            if(arguments[0].IsNull() || arguments[0].IsUndefined())
+            if(arguments[0].IsNullOrUndefined())
             {
                 return Construct(arguments);
             }

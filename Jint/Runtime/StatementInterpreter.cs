@@ -213,7 +213,7 @@ namespace Jint.Runtime
 
             var varRef = _engine.EvaluateExpression(identifier) as Reference;
             var experValue = _engine.GetValue(_engine.EvaluateExpression(forInStatement.Right), true);
-            if (experValue.IsUndefined() || experValue.IsNull())
+            if (experValue.IsNullOrUndefined())
             {
                 return new Completion(CompletionType.Normal, null, null);
             }
@@ -343,6 +343,11 @@ namespace Jint.Runtime
             {
                 c = new Completion(CompletionType.Throw, e.Error, null, withStatement.Location);
             }
+            catch (TypeErrorException e)
+            {
+                var error = _engine.TypeError.Construct(new JsValue[] {e.Message});
+                c = new Completion(CompletionType.Throw, error, null, withStatement.Location);
+            }
             finally
             {
                 _engine.UpdateLexicalEnvironment(oldEnv);
@@ -456,6 +461,11 @@ namespace Jint.Runtime
                 var completion = new Completion(CompletionType.Throw, v.Error, null, v.Location ?? s?.Location);
                 return completion;
             }
+            catch (TypeErrorException e)
+            {
+                var error = _engine.TypeError.Construct(new JsValue[] {e.Message});
+                c = new Completion(CompletionType.Throw, error, null, s?.Location);
+            }
 
             return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
         }
@@ -481,6 +491,11 @@ namespace Jint.Runtime
             catch (JavaScriptException v)
             {
                 return new Completion(CompletionType.Throw, v.Error, null, v.Location ?? s?.Location);
+            }
+            catch (TypeErrorException e)
+            {
+                var error = _engine.TypeError.Construct(new JsValue[] {e.Message});
+                return new Completion(CompletionType.Throw, error, null, s?.Location);
             }
         }
 

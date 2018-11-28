@@ -127,7 +127,5 @@ namespace Jint.Native.Map
         {
             return ((MapInstance) thisObj).Values();
         }
-
-
     }
 }

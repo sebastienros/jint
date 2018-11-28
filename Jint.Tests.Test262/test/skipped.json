@@ -1,11 +1,107 @@
 [
   {
-    "source": "built-ins/Boolean/proto-from-ctor-realm.js",
-    "reason": "realms not implemented"
+    "source": "built-ins/Array/prototype/concat/create-ctor-non-object.js",
+    "reason": "Constructor functions not implemented"
   },
   {
-    "source": "built-ins/Map/proto-from-ctor-realm.js",
-    "reason": "realms not implemented"
+    "source": "built-ins/Array/prototype/map/create-ctor-non-object.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/slice/create-ctor-non-object.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/splice/create-ctor-non-object.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/of/construct-this-with-the-number-of-arguments.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/iter-set-length-err",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/Array.from_forwards-length-for-array-likes.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/iter-cstm-ctor.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/iter-cstm-ctor-err.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/source-object-constructor.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/of/return-abrupt-from-contructor.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/create-ctor-poisoned.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/map/create-ctor-poisoned.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/slice/create-ctor-poisoned.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/splice/create-ctor-poisoned.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/of/return-a-custom-instance.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/of/return-abrupt-from-data-property.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/of/return-abrupt-from-setting-length.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/of/sets-length.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/iter-set-length-err.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/filter/create-ctor-non-object.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/filter/create-ctor-poisoned.js",
+    "reason": "Constructor functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/from/items-is-arraybuffer.js",
+    "reason": "ArrayBuffer not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_non-array.js",
+    "reason": "class keyword not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_large-typed-array.js",
+    "reason": "Uint8Array not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_small-typed-array.js",
+    "reason": "Uint8Array not implemented"
   },
   {
     "source": "built-ins/Map/prototype/clear/context-is-weakmap-object-throws.js",
@@ -22,10 +118,6 @@
   {
     "source": "built-ins/Map/prototype/forEach/does-not-have-mapdata-internal-slot-weakmap.js",
     "reason": "WeakMap not implemented"
-  },
-  {
-    "source": "built-ins/Map/prototype/forEach/callback-this-strict.js",
-    "reason": "global strict mode not working as expected"
   },
   {
     "source": "built-ins/Map/prototype/forEach/iterates-values-deleted-then-readded.js",
@@ -84,10 +176,6 @@
     "reason": "delete/add detection not implemented for set iterator during iteration"
   },
   {
-    "source": "built-ins/Set/prototype/forEach/this-strict.js",
-    "reason": "global strict mode not working as expected"
-  },
-  {
     "source": "built-ins/Set/prototype/has/does-not-have-setdata-internal-slot-weakset.js",
     "reason": "WeakSet not implemented"
   },
@@ -98,5 +186,96 @@
   {
     "source": "built-ins/Set/prototype/forEach/this-arg-explicit-cannot-override-lexical-this-arrow.js",
     "reason": "arrow functions not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/reverse/length-exceeding-integer-limit-with-proxy.js",
+    "reason": "proxies not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/slice/length-exceeding-integer-limit-proxied-array.js",
+    "reason": "proxies not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/splice/create-non-array-invalid-len.js",
+    "reason": "requires constructor functions"
+  },
+  {
+    "source": "built-ins/Array/from/iter-set-elem-prop-err.js",
+    "reason": "requires constructor functions"
+  },
+  {
+    "source": "built-ins/Array/prototype/toLocaleString/primitive_this_value.js",
+    "reason": "requires toLocaleString changes"
+  },
+  {
+    "source": "built-ins/Array/prototype/toLocaleString/primitive_this_value_getter.js",
+    "reason": "requires toLocaleString changes"
+  },
+
+  // experimenta
+
+  {
+    "source": "built-ins/Array/prototype/flat/array-like-objects.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/bound-function-call.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/empty-array-elements.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/empty-object-elements.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/length.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/name.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/non-numeric-depth-should-not-throw.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/null-undefined-elements.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/positive-infinity.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flat/prop-desc.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flatMap/array-like-objects.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flatMap/bound-function-argument.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flatMap/depth-always-one.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flatMap/length.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flatMap/name.js",
+    "reason": "experimental"
+  },
+  {
+    "source": "built-ins/Array/prototype/flatMap/thisArg-argument.js",
+    "reason": "experimental"
   }
 ]

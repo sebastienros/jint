@@ -58,6 +58,10 @@ namespace Jint.Native.Array
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
+        internal override bool IsConcatSpreadable => !TryGetIsConcatSpreadable(out var isConcatSpreadable) || isConcatSpreadable;
+
+        internal override bool IsArrayLike => true;
+
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
@@ -520,6 +524,27 @@ namespace Jint.Native.Array
             return smallest;
         }
 
+        internal uint GetLargestIndex()
+        {
+            if (_dense != null)
+            {
+                return (uint) (_dense.Length - 1);
+            }
+
+            uint largest = uint.MaxValue;
+            // only try to help if collection reasonable small
+            if (_sparse.Count > 0 && _sparse.Count < 100)
+            {
+                largest = 0;
+                foreach (var key in _sparse.Keys)
+                {
+                    largest = System.Math.Max(key, largest);
+                }
+            }
+
+            return largest;
+        }
+
         public bool TryGetValue(uint index, out JsValue value)
         {
             value = Undefined;
@@ -615,7 +640,7 @@ namespace Jint.Native.Array
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void EnsureCapacity(uint capacity)
         {
-            if (capacity > (uint) _dense.Length)
+            if (capacity <= MaxDenseArrayLength && capacity > (uint) _dense.Length)
             {
                 // need to grow
                 var newArray = new PropertyDescriptor[capacity];
@@ -656,7 +681,7 @@ namespace Jint.Native.Array
                 var desc = new PropertyDescriptor(arguments[i], PropertyFlag.ConfigurableEnumerableWritable);
                 if (_dense != null && n < _dense.Length)
                 {
-                    _dense[(int) n] = desc;
+                    _dense[(uint) n] = desc;
                 }
                 else if (n < uint.MaxValue)
                 {
@@ -720,8 +745,13 @@ namespace Jint.Native.Array
         internal override bool FindWithCallback(
             JsValue[] arguments,
             out uint index,
-            out JsValue value)
+            out JsValue value,
+            bool visitUnassigned)
         {
+            var thisArg = arguments.At(1);
+            var callbackfn = arguments.At(0);
+            var callable = GetCallable(callbackfn);
+
             var len = GetLength();
             if (len == 0)
             {
@@ -730,15 +760,11 @@ namespace Jint.Native.Array
                 return false;
             }
 
-            var callbackfn = arguments.At(0);
-            var thisArg = arguments.At(1);
-            var callable = GetCallable(callbackfn);
-
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
             for (uint k = 0; k < len; k++)
             {
-                if (TryGetValue(k, out var kvalue))
+                if (TryGetValue(k, out var kvalue) || visitUnassigned)
                 {
                     args[0] = kvalue;
                     args[1] = k;
@@ -757,6 +783,31 @@ namespace Jint.Native.Array
             index = 0;
             value = Undefined;
             return false;
+        }
+        
+        public uint Length => GetLength();
+
+        public JsValue this[uint index]
+        {
+            get
+            {
+                TryGetValue(index, out var kValue);
+                return kValue;
+            }
+        }
+
+        internal ArrayInstance ToArray(Engine engine)
+        {
+            var length = GetLength();
+            var array = _engine.Array.ConstructFast(length);
+            for (uint i = 0; i < length; i++)
+            {
+                if (TryGetValue(i, out var kValue))
+                {
+                    array.SetIndexValue(i, kValue, updateLength: false);
+                }
+            }
+            return array;
         }
     }
 }

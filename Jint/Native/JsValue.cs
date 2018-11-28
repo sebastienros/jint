@@ -44,6 +44,13 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool IsNullOrUndefined()
+        {
+            return _type < Types.Boolean;
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsArray()
         {
             return this is ArrayInstance;
@@ -144,25 +151,41 @@ namespace Jint.Native
             }
             return this as ArrayInstance;
         }
-        
+
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal IIterator GetIterator(Engine engine)
+        {
+            if (!TryGetIterator(engine, out var iterator))
+            {
+                return ExceptionHelper.ThrowTypeError<IIterator>(engine, "The value is not iterable");
+            }
+
+            return iterator;
+        }
+        
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool TryGetIterator(Engine engine, out IIterator iterator)
         {
             if (!(this is ObjectInstance oi)
                 || !oi.TryGetValue(GlobalSymbolRegistry.Iterator._value, out var value)
                 || !(value is ICallable callable))
             {
-                ExceptionHelper.ThrowTypeError(engine, "The value is not iterable");
-                return null;
+                iterator = null;
+                return false;
             }
 
             var obj = (ObjectInstance) callable.Call(this, Arguments.Empty);
-            if (obj is IIterator iterator)
+            if (obj is IIterator i)
             {
-                return iterator;
+                iterator = i;
             }
-            return new IteratorInstance.ObjectWrapper(obj);
+            else
+            {
+                iterator = new IteratorInstance.ObjectWrapper(obj);
+            }
+            return true;
         }
 
         [Pure]

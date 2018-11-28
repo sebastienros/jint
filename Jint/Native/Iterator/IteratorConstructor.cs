@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Map;
 using Jint.Native.Object;
@@ -71,9 +70,9 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance Construct(ArrayInstance array)
+        internal ObjectInstance Construct(ObjectInstance array)
         {
-            var instance = new IteratorInstance.ArrayIterator(Engine, array)
+            var instance = new IteratorInstance.ArrayLikeIterator(Engine, array)
             {
                 Prototype = PrototypeObject,
                 Extensible = true
@@ -107,6 +106,28 @@ namespace Jint.Native.Iterator
         internal ObjectInstance ConstructEntryIterator(SetInstance set)
         {
             var instance = new IteratorInstance.SetEntryIterator(Engine, set)
+            {
+                Prototype = PrototypeObject,
+                Extensible = true
+            };
+
+            return instance;
+        }
+
+        internal ObjectInstance ConstructArrayLikeKeyIterator(ObjectInstance array)
+        {
+            var instance = new IteratorInstance.ArrayLikeKeyIterator(Engine, array)
+            {
+                Prototype = PrototypeObject,
+                Extensible = true
+            };
+
+            return instance;
+        }
+
+        internal ObjectInstance ConstructArrayLikeValueIterator(ObjectInstance array)
+        {
+            var instance = new IteratorInstance.ArrayLikeValueIterator(Engine, array)
             {
                 Prototype = PrototypeObject,
                 Extensible = true

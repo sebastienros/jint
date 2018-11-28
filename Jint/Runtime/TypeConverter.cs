@@ -104,6 +104,9 @@ namespace Jint.Runtime
                     return ((JsBoolean) o)._value ? 1 : 0;
                 case Types.String:
                     return ToNumber(o.AsStringWithoutTypeCheck());
+                case Types.Symbol:
+                    // TODO proper TypeError would require Engine instance and a lot of API changes
+                    return ExceptionHelper.ThrowTypeErrorNoEngine<double>("Cannot convert a Symbol value to a number");
                 default:
                     return ToNumber(ToPrimitive(o, Types.Number));
             }
