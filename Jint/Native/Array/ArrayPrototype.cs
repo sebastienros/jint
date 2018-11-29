@@ -5,6 +5,8 @@ using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interpreter.Expressions;
+
 using static System.String;
 
 namespace Jint.Native.Array
@@ -254,7 +256,7 @@ namespace Jint.Native.Array
             {
                 if (o.TryGetValue(i, out var value))
                 {
-                    var same = ExpressionInterpreter.StrictlyEqual(value, searchElement);
+                    var same = JintBinaryExpression.StrictlyEqual(value, searchElement);
                     if (same)
                     {
                         return i;
@@ -558,7 +560,7 @@ namespace Jint.Native.Array
             {
                 if (o.TryGetValue(k, out var elementK))
                 {
-                    var same = ExpressionInterpreter.StrictlyEqual(elementK, searchElement);
+                    var same = JintBinaryExpression.StrictlyEqual(elementK, searchElement);
                     if (same)
                     {
                         return k;

@@ -27,6 +27,9 @@ using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interpreter;
+using Jint.Runtime.Interpreter.Expressions;
+using Jint.Runtime.Interpreter.Statements;
 using Jint.Runtime.References;
 
 namespace Jint
@@ -40,7 +43,6 @@ namespace Jint
             Loc = true
         };
 
-        private readonly ExpressionInterpreter _expressions;
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
@@ -54,7 +56,7 @@ namespace Jint
         private readonly int _maxStatements;
         private readonly long _memoryLimit;
         private readonly bool _runBeforeStatementChecks;
-        private readonly IReferenceResolver _referenceResolver;
+        internal readonly IReferenceResolver _referenceResolver;
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
@@ -244,8 +246,6 @@ namespace Jint
 
             Eval = new EvalFunctionInstance(this, System.ArrayExt.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
-
-            _expressions = new ExpressionInterpreter(this);
 
             if (Options._IsClrAllowed)
             {
@@ -512,61 +512,7 @@ namespace Jint
         public object EvaluateExpression(INode expression)
         {
             _lastSyntaxNode = expression;
-
-            switch (expression.Type)
-            {
-                case Nodes.AssignmentExpression:
-                    return _expressions.EvaluateAssignmentExpression((AssignmentExpression) expression);
-
-                case Nodes.ArrayExpression:
-                    return _expressions.EvaluateArrayExpression((ArrayExpression) expression);
-
-                case Nodes.BinaryExpression:
-                    return _expressions.EvaluateBinaryExpression((BinaryExpression) expression);
-
-                case Nodes.CallExpression:
-                    return _expressions.EvaluateCallExpression((CallExpression) expression);
-
-                case Nodes.ConditionalExpression:
-                    return _expressions.EvaluateConditionalExpression((ConditionalExpression) expression);
-
-                case Nodes.FunctionExpression:
-                    return _expressions.EvaluateFunctionExpression((IFunction) expression);
-
-                case Nodes.Identifier:
-                    return _expressions.EvaluateIdentifier((Identifier) expression);
-
-                case Nodes.Literal:
-                    return _expressions.EvaluateLiteral((Literal) expression);
-
-                case Nodes.LogicalExpression:
-                    return _expressions.EvaluateLogicalExpression((BinaryExpression) expression);
-
-                case Nodes.MemberExpression:
-                    return _expressions.EvaluateMemberExpression((MemberExpression) expression);
-
-                case Nodes.NewExpression:
-                    return _expressions.EvaluateNewExpression((NewExpression) expression);
-
-                case Nodes.ObjectExpression:
-                    return _expressions.EvaluateObjectExpression((ObjectExpression) expression);
-
-                case Nodes.SequenceExpression:
-                    return _expressions.EvaluateSequenceExpression((SequenceExpression) expression);
-
-                case Nodes.ThisExpression:
-                    return _expressions.EvaluateThisExpression((ThisExpression) expression);
-
-                case Nodes.UpdateExpression:
-                    return _expressions.EvaluateUpdateExpression((UpdateExpression) expression);
-
-                case Nodes.UnaryExpression:
-                    return _expressions.EvaluateUnaryExpression((UnaryExpression) expression);
-
-                default:
-                    ExceptionHelper.ThrowArgumentOutOfRangeException();
-                    return null;
-            }
+            return JintExpression.Build(this, (Expression) expression).Evaluate();
         }
 
         /// <summary>

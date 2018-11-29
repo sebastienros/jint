@@ -78,6 +78,11 @@ namespace Jint.Runtime
             throw new NotImplementedException();
         }
 
+        public static T ThrowNotImplementedException<T>()
+        {
+            throw new NotImplementedException();
+        }
+
         public static T ThrowArgumentOutOfRangeException<T>()
         {
             throw new ArgumentOutOfRangeException();

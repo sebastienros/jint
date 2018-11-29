@@ -5,28 +5,22 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Native.Function
 {
-    /// <summary>
-    ///
-    /// </summary>
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
         private readonly IFunction _functionDeclaration;
-        private JintStatement _functionBody;
+        private readonly JintStatement _functionBody;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
         /// </summary>
-        /// <param name="engine"></param>
-        /// <param name="functionDeclaration"></param>
-        /// <param name="scope"></param>
-        /// <param name="strict"></param>
-        public ScriptFunctionInstance(
+        internal ScriptFunctionInstance(
             Engine engine, 
-            IFunction functionDeclaration, 
-            LexicalEnvironment scope, 
+            IFunction functionDeclaration,
+            LexicalEnvironment scope,
             bool strict)
             : base(engine, functionDeclaration.Id?.Name ?? "", GetParameterNames(functionDeclaration), scope, strict)
         {
