@@ -14,7 +14,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _argument = Build(engine, _expression.Argument);
         }
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             var value = _argument.Evaluate();
 

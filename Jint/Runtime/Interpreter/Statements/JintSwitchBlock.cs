@@ -76,7 +76,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 if (switchCase.Consequent != null)
                 {
-                    _consequent = new JintStatementList(engine, switchCase.Consequent);
+                    _consequent = new JintStatementList(engine, null, switchCase.Consequent);
                 }
 
                 if (switchCase.Test != null)

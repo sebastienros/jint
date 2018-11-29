@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _declarations = new Pair[statement.Declarations.Count];
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             var declarationsCount = _statement.Declarations.Count;
             for (var i = 0; i < declarationsCount; i++)

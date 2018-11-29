@@ -18,7 +18,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 : null;
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             var jsValue = _argument == null
                 ? Undefined.Instance

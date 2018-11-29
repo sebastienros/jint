@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _functionStatements = new JintStatement[_expression.Properties.Count];
         }
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             var propertiesCount = _expression.Properties.Count;
             var obj = _engine.Object.Construct(propertiesCount);

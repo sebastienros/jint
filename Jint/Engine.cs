@@ -28,8 +28,6 @@ using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
-using Jint.Runtime.Interpreter.Expressions;
-using Jint.Runtime.Interpreter.Statements;
 using Jint.Runtime.References;
 
 namespace Jint
@@ -48,14 +46,14 @@ namespace Jint
         private int _statementsCount;
         private long _initialMemoryUsage;
         private long _timeoutTicks;
-        private INode _lastSyntaxNode;
+        internal INode _lastSyntaxNode;
 
         // cached access
         private readonly bool _isDebugMode;
         internal readonly bool _isStrict;
         private readonly int _maxStatements;
         private readonly long _memoryLimit;
-        private readonly bool _runBeforeStatementChecks;
+        internal readonly bool _runBeforeStatementChecks;
         internal readonly IReferenceResolver _referenceResolver;
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
@@ -431,7 +429,7 @@ namespace Jint
             {
                 DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.HoistingScope.FunctionDeclarations, program.HoistingScope.VariableDeclarations, null, null);
 
-                var list = new JintStatementList(this, program.Body);
+                var list = new JintStatementList(this, null, program.Body);
                 var result = list.Execute();
                 if (result.Type == CompletionType.Throw)
                 {
@@ -458,24 +456,7 @@ namespace Jint
             return _completionValue;
         }
 
-        public Completion ExecuteStatement(Statement statement)
-        {
-            return ExecuteStatement(JintStatement.Build(this, statement), statement);
-        }
-
-        internal Completion ExecuteStatement(JintStatement statement, Statement original)
-        {
-            _lastSyntaxNode = original;
-
-            if (_runBeforeStatementChecks)
-            {
-                BeforeExecuteStatement(statement, original);
-            }
-
-            return statement.Execute();
-        }
-
-        private void BeforeExecuteStatement(JintStatement statement, Statement original)
+        internal void RunBeforeExecuteStatementChecks(Statement statement)
         {
             if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
             {
@@ -505,14 +486,8 @@ namespace Jint
 
             if (_isDebugMode)
             {
-                DebugHandler.OnStep(original);
+                DebugHandler.OnStep(statement);
             }
-        }
-
-        public object EvaluateExpression(INode expression)
-        {
-            _lastSyntaxNode = expression;
-            return JintExpression.Build(this, (Expression) expression).Evaluate();
         }
 
         /// <summary>

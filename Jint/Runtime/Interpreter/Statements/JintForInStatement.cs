@@ -26,7 +26,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _right = JintExpression.Build(engine, statement.Right);
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             var varRef = _identifier.Evaluate() as Reference;
             var experValue = _engine.GetValue(_right.Evaluate(), true);

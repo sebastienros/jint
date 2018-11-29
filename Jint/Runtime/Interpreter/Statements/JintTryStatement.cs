@@ -28,7 +28,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             var b = _block.Execute();
             if (b.Type == CompletionType.Throw)

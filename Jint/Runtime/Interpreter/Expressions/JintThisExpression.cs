@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
         }
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             return _engine.ExecutionContext.ThisBinding;
         }

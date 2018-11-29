@@ -48,7 +48,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _expression.CachedArguments = cachedArgumentsHolder;
         }
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             var callee = _calleeExpression.Evaluate();
 

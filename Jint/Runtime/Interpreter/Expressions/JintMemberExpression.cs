@@ -26,7 +26,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             var baseReference = _objectExpression.Evaluate();
             var baseValue = _engine.GetValue(baseReference, false);

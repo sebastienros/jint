@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _labelSetName = statement.LabelSet?.Name;
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             JsValue v = Undefined.Instance;
             bool iterating;

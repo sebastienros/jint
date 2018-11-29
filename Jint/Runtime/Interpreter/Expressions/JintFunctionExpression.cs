@@ -6,33 +6,31 @@ using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintFunctionExpression : JintExpression
+    internal sealed class JintFunctionExpression : JintExpression<Expression>
     {
-        private readonly Engine _engine;
-        private readonly IFunction _expression;
+        private readonly IFunction _function;
         private readonly JintStatement _functionBody;
         private readonly string _name;
 
-        public JintFunctionExpression(Engine engine, IFunction expression)
+        public JintFunctionExpression(Engine engine, IFunction function) : base(engine, ArrowParameterPlaceHolder.Empty)
         {
-            _engine = engine;
-            _expression = expression;
-            _functionBody = JintStatement.Build(engine, expression.Body);
-            _name = !string.IsNullOrEmpty(_expression.Id?.Name) ? _expression.Id.Name : null;
+            _function = function;
+            _functionBody = JintStatement.Build(engine, function.Body);
+            _name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id.Name : null;
         }
 
         public override Location Location => ExceptionHelper.ThrowNotImplementedException<Location>();
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
             var envRec = (DeclarativeEnvironmentRecord) funcEnv._record;
 
             var closure = new ScriptFunctionInstance(
                 _engine,
-                _expression,
+                _function,
                 funcEnv,
-                _expression.Strict
+                _function.Strict
             );
 
             if (_name != null)

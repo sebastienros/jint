@@ -9,7 +9,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
         }
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             var left = _leftLiteral ?? _engine.GetValue(_left.Evaluate(), true);
             var right = _rightLiteral ?? _engine.GetValue(_right.Evaluate(), true);

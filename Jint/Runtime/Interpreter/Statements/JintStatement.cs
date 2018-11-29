@@ -14,6 +14,18 @@ namespace Jint.Runtime.Interpreter.Statements
             _statement = statement;
         }
 
+        public sealed override Completion Execute()
+        {
+            _engine._lastSyntaxNode = _statement;
+
+            if (_engine._runBeforeStatementChecks)
+            {
+                _engine.RunBeforeExecuteStatementChecks(_statement);
+            }
+
+            return ExecuteInternal();
+        }
+
         public override Location Location => _statement.Location;
     }
 
@@ -23,20 +35,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         public abstract Completion Execute();
 
-        public static JintStatement Build(Engine engine, IFunction function)
-        {
-            if (function is Statement s)
-            {
-                return Build(engine, s);
-            }
-
-            if (function is Expression e)
-            {
-                return Build(engine, new ExpressionStatement(e));
-            }
-
-            return ExceptionHelper.ThrowArgumentOutOfRangeException<JintStatement>();
-        }
+        protected abstract Completion ExecuteInternal();
 
         protected internal static JintStatement Build(Engine engine, Statement statement)
         {
@@ -44,7 +43,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 case Nodes.BlockStatement:
                     var statementListItems = ((BlockStatement) statement).Body;
-                    return new JintBlockStatement(engine, new JintStatementList(engine, statementListItems));
+                    return new JintBlockStatement(engine, new JintStatementList(engine, statement, statementListItems));
 
                 case Nodes.ReturnStatement:
                     return new JintReturnStatement(engine, (ReturnStatement) statement);

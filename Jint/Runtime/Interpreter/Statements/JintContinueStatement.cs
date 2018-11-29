@@ -14,7 +14,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _labelName = _statement.Label?.Name;
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             return new Completion(CompletionType.Continue, null, _labelName);
         }

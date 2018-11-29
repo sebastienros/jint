@@ -18,7 +18,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _object = JintExpression.Build(engine, _statement.Object);
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             var jsValue = _engine.GetValue(_object.Evaluate(), true);
             var obj = TypeConverter.ToObject(_engine, jsValue);

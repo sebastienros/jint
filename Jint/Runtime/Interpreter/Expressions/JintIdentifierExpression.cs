@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _expressionName = _expression.Name;
         }
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             var env = _engine.ExecutionContext.LexicalEnvironment;
             var strict = StrictModeScope.IsStrictModeCode;

@@ -17,7 +17,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _discriminant = JintExpression.Build(engine, _statement.Discriminant);
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             var jsValue = _engine.GetValue(_discriminant.Evaluate(), true);
             var r = _switchBlock.Execute(jsValue);

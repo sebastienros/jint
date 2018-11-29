@@ -7,26 +7,38 @@ namespace Jint.Runtime.Interpreter
     public class JintStatementList
     {
         private readonly Engine _engine;
+        private readonly Statement _statement;
         private readonly List<StatementListItem> _statements;
         private readonly JintStatement[] _jintStatements;
 
-        public JintStatementList(Engine engine, List<StatementListItem> statements)
+        public JintStatementList(Engine engine, Statement statement, List<StatementListItem> statements)
         {
             _engine = engine;
+            _statement = statement;
             _statements = statements;
             _jintStatements = new JintStatement[_statements.Count];
         }
 
         public Completion Execute()
         {
+            if (_statement != null)
+            {
+                _engine._lastSyntaxNode = _statement;
+                if (_engine._runBeforeStatementChecks)
+                {
+                    _engine.RunBeforeExecuteStatementChecks(_statement);
+                }
+            }
+
             JintStatement s = null;
             var c = new Completion(CompletionType.Normal, null, null);
             Completion sl = c;
             try
             {
-                for (var i = 0; i < _statements.Count; i++)
+                var statements = _jintStatements;
+                for (var i = 0; i < (uint) statements.Length; i++)
                 {
-                    s = _jintStatements[i] ?? (_jintStatements[i] = JintStatement.Build(_engine, (Statement) _statements[i]));
+                    s = statements[i] ?? (statements[i] = JintStatement.Build(_engine, (Statement) _statements[i]));
                     c = s.Execute();
                     if (c.Type != CompletionType.Normal)
                     {

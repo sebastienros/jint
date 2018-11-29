@@ -42,7 +42,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             _initStatement?.Execute();
             if (_initExpression != null)

@@ -8,10 +8,10 @@ namespace Jint.Runtime.Interpreter.Statements
 
         public JintProgram(Engine engine, Program statement) : base(engine, statement)
         {
-            _list = new JintStatementList(_engine, _statement.Body);
+            _list = new JintStatementList(_engine, null, _statement.Body);
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             return _list.Execute();
         }

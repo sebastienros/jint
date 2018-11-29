@@ -11,7 +11,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _expressions = new JintExpression[expression.Elements.Count];
         }
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             var elements = _expression.Elements;
             var count = elements.Count;

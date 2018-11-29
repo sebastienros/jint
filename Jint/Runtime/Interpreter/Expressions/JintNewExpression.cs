@@ -18,7 +18,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             var arguments = _engine._jsValueArrayPool.RentArray(_expression.Arguments.Count);
 

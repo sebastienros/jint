@@ -11,6 +11,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public abstract object Evaluate();
 
+        protected abstract object EvaluateInternal();
+
         protected internal static JintExpression Build(Engine engine, Expression expression)
         {
             switch (expression.Type)
@@ -284,7 +286,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         }    
     }
 
-    internal abstract class JintExpression<T> : JintExpression where T : Expression
+    internal abstract class JintExpression<T> : JintExpression where T : class, Expression, INode
     {
         protected readonly Engine _engine;
         protected readonly T _expression;
@@ -296,6 +298,26 @@ namespace Jint.Runtime.Interpreter.Expressions
         }
 
         public override Location Location => _expression.Location;
+
+        public sealed override object Evaluate()
+        {
+            _engine._lastSyntaxNode = _expression;
+            return EvaluateInternal();
+        }
+
+        /// <summary>
+        /// Helper that can be used when preparing expressions, null return value
+        /// mean that engine resolution is required.
+        /// </summary>
+        protected static JsValue FastResolve(JintExpression expression)
+        {
+            if (expression is JintLiteralExpression literalExpression)
+            {
+                return literalExpression._cachedValue;
+            }
+
+            return null;
+        }
 
         protected void BuildArguments(JintExpression[] jintExpressions, JsValue[] targetArray)
         {

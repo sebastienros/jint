@@ -13,7 +13,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _right = Build(engine, _expression.Right);
         }
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             var left = _engine.GetValue(_left.Evaluate(), true);
 

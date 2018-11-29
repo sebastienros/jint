@@ -12,12 +12,9 @@ namespace Jint.Runtime.Interpreter.Statements
             _expression = JintExpression.Build(engine, statement.Expression);
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
-            return new Completion(
-                CompletionType.Normal,
-                _engine.GetValue(_expression.Evaluate(), true),
-                null);
+            return new Completion(CompletionType.Normal, _engine.GetValue(_expression.Evaluate(), true), null);
         }
     }
 }

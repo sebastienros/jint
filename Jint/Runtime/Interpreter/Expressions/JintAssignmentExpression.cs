@@ -8,17 +8,19 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly JintExpression _left;
         private readonly JintExpression _right;
+        private readonly JsValue _rightValue;
 
         public JintAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
         {
             _left = Build(engine, (Expression) expression.Left);
             _right = Build(engine, expression.Right);
+            _rightValue = FastResolve(_right);
         }
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             var lref = _left.Evaluate() as Reference;
-            JsValue rval = _engine.GetValue(_right.Evaluate(), true);
+            JsValue rval = _rightValue ?? _engine.GetValue(_right.Evaluate(), true);
 
             if (lref == null)
             {

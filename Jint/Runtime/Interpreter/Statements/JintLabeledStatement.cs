@@ -13,7 +13,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _labelName = statement.Label.Name;
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             // TODO: Esprima added Statement.Label, maybe not necessary as this line is finding the
             // containing label and could keep a table per program with all the labels

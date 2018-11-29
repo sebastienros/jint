@@ -16,7 +16,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _alternate = _statement.Alternate != null ? Build(engine, _statement.Alternate) : null;
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             Completion result;
             if (TypeConverter.ToBoolean(_engine.GetValue(_test.Evaluate(), true)))

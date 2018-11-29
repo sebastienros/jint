@@ -15,7 +15,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _alternate = Build(engine, expression.Alternate);
         }
 
-        public override object Evaluate()
+        protected override object EvaluateInternal()
         {
             var lref = _test.Evaluate();
             if (TypeConverter.ToBoolean(_engine.GetValue(lref, true)))

@@ -6,36 +6,45 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintLiteralExpression : JintExpression<Literal>
     {
-        public JintLiteralExpression(Engine engine, Literal expression) : base(engine, expression)
-        {
-        }
+        internal readonly JsValue _cachedValue;
 
-        public override object Evaluate()
+        public JintLiteralExpression(Engine engine, Literal expression) : base(engine, expression)
         {
             switch (_expression.TokenType)
             {
                 case TokenType.BooleanLiteral:
                     // bool is fast enough
-                    return _expression.NumericValue > 0.0 ? JsBoolean.True : JsBoolean.False;
+                    _cachedValue = _expression.NumericValue > 0.0 ? JsBoolean.True : JsBoolean.False;
+                    break;
 
                 case TokenType.NullLiteral:
                     // and so is null
-                    return JsValue.Null;
+                    _cachedValue = JsValue.Null;
+                    break;
 
                 case TokenType.NumericLiteral:
-                    return (JsValue) (_expression.CachedValue = _expression.CachedValue ?? JsNumber.Create(_expression.NumericValue));
+                    _cachedValue = JsNumber.Create(_expression.NumericValue);
+                    break;
 
                 case TokenType.StringLiteral:
-                    return (JsValue) (_expression.CachedValue = _expression.CachedValue ?? JsString.Create((string) _expression.Value));
-
-                case TokenType.RegularExpression:
-                    // should not cache
-                    return _engine.RegExp.Construct((System.Text.RegularExpressions.Regex) _expression.Value, _expression.Regex.Flags);
-
-                default:
-                    // a rare case, above types should cover all
-                    return JsValue.FromObject(_engine, _expression.Value);
+                    _cachedValue = JsString.Create((string) _expression.Value);
+                    break;
             }
+        }
+
+        protected override object EvaluateInternal()
+        {
+            return _cachedValue ?? ResolveValue();
+        }
+
+        private object ResolveValue()
+        {
+            if (_expression.TokenType == TokenType.RegularExpression)
+            {
+                return _engine.RegExp.Construct((System.Text.RegularExpressions.Regex) _expression.Value, _expression.Regex.Flags);
+            }
+
+            return JsValue.FromObject(_engine, _expression.Value);
         }
     }
 }

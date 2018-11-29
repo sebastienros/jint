@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _test = JintExpression.Build(engine, statement.Test);
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             var v = Undefined.Instance;
             while (true)

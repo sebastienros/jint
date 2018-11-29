@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
         }
 
-        public override Completion Execute()
+        protected override Completion ExecuteInternal()
         {
             if (_engine.Options._IsDebuggerStatementAllowed)
             {
