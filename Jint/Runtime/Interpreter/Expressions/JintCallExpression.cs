@@ -19,16 +19,19 @@ namespace Jint.Runtime.Interpreter.Expressions
             _isDebugMode = engine.Options.IsDebugMode;
             _maxRecursionDepth = engine.Options.MaxRecursionDepth;
             _calleeExpression = Build(engine, _expression.Callee);
+        }
 
+        protected override void Initialize()
+        {
             var cachedArgumentsHolder = new CachedArgumentsHolder
             {
-                JintArguments = new JintExpression[expression.Arguments.Count]
+                JintArguments = new JintExpression[_expression.Arguments.Count]
             };
 
             bool cacheable = true;
-            for (var i = 0; i < expression.Arguments.Count; i++)
+            for (var i = 0; i < _expression.Arguments.Count; i++)
             {
-                var expressionArgument = (Expression) expression.Arguments[i];
+                var expressionArgument = (Expression) _expression.Arguments[i];
                 cachedArgumentsHolder.JintArguments[i] = Build(_engine, expressionArgument);
                 cacheable &= (expressionArgument is Literal || expressionArgument is FunctionExpression);
             }
@@ -42,6 +45,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     arguments = _engine._jsValueArrayPool.RentArray(cachedArgumentsHolder.JintArguments.Length);
                     BuildArguments(cachedArgumentsHolder.JintArguments, arguments);
                 }
+
                 cachedArgumentsHolder.CachedArguments = arguments;
             }
 

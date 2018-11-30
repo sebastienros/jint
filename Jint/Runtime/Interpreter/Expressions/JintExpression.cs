@@ -1,4 +1,3 @@
-using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Number;
@@ -7,8 +6,6 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal abstract class JintExpression
     {
-        public abstract Location Location { get; }
-
         public abstract object Evaluate();
 
         protected abstract object EvaluateInternal();
@@ -18,7 +15,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             switch (expression.Type)
             {
                 case Nodes.AssignmentExpression:
-                    return new JintAssignmentExpression(engine, (AssignmentExpression) expression);
+                    return JintAssignmentExpression.Build(engine, (AssignmentExpression) expression);
 
                 case Nodes.ArrayExpression:
                     return new JintArrayExpression(engine, (ArrayExpression) expression);
@@ -283,33 +280,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 return string.CompareOrdinal(TypeConverter.ToString(x), TypeConverter.ToString(y)) < 0;
             }
-        }    
-    }
-
-    internal abstract class JintExpression<T> : JintExpression where T : class, Expression, INode
-    {
-        protected readonly Engine _engine;
-        protected readonly T _expression;
-
-        protected JintExpression(Engine engine, T expression)
-        {
-            _engine = engine;
-            _expression = expression;
-        }
-
-        public override Location Location => _expression.Location;
-
-        public sealed override object Evaluate()
-        {
-            _engine._lastSyntaxNode = _expression;
-            return EvaluateInternal();
         }
 
         /// <summary>
         /// Helper that can be used when preparing expressions, null return value
         /// mean that engine resolution is required.
         /// </summary>
-        protected static JsValue FastResolve(JintExpression expression)
+        protected internal static JsValue FastResolve(JintExpression expression)
         {
             if (expression is JintLiteralExpression literalExpression)
             {
@@ -318,6 +295,38 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             return null;
         }
+    }
+
+    internal abstract class JintExpression<T> : JintExpression where T : class, Expression, INode
+    {
+        protected readonly Engine _engine;
+        protected readonly T _expression;
+        private bool _initialized;
+
+        protected JintExpression(Engine engine, T expression)
+        {
+            _engine = engine;
+            _expression = expression;
+        }
+
+        public sealed override object Evaluate()
+        {
+            _engine._lastSyntaxNode = _expression;
+            if (!_initialized)
+            {
+                Initialize();
+                _initialized = true;
+            }
+            return EvaluateInternal();
+        }
+
+        /// <summary>
+        /// Opportunity to build one-time structures and caching based on lexical context.
+        /// </summary>
+        protected virtual void Initialize()
+        {
+        }
+
 
         protected void BuildArguments(JintExpression[] jintExpressions, JsValue[] targetArray)
         {

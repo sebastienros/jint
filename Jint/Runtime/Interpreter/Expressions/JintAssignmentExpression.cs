@@ -10,31 +10,27 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _right;
         private readonly JsValue _rightValue;
 
-        public JintAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
+        private JintAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
         {
             _left = Build(engine, (Expression) expression.Left);
             _right = Build(engine, expression.Right);
             _rightValue = FastResolve(_right);
         }
 
+        internal static JintExpression Build(Engine engine, AssignmentExpression expression)
+        {
+            if (expression.Operator == AssignmentOperator.Assign)
+            {
+                return new Assignment(engine, expression);
+            }
+
+            return new JintAssignmentExpression(engine, expression);
+        }
+
         protected override object EvaluateInternal()
         {
-            var lref = _left.Evaluate() as Reference;
+            var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
             JsValue rval = _rightValue ?? _engine.GetValue(_right.Evaluate(), true);
-
-            if (lref == null)
-            {
-                ExceptionHelper.ThrowReferenceError(_engine);
-            }
-
-            if (_expression.Operator == AssignmentOperator.Assign) // "="
-            {
-                lref.AssertValid(_engine);
-
-                _engine.PutValue(lref, rval);
-                _engine._referencePool.Return(lref);
-                return rval;
-            }
 
             JsValue lval = _engine.GetValue(lref, false);
 
@@ -124,6 +120,32 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             _engine._referencePool.Return(lref);
             return lval;
+        }
+
+        private class Assignment : JintExpression<AssignmentExpression>
+        {
+            private readonly JintExpression _left;
+            private readonly JintExpression _right;
+            private readonly JsValue _rightValue;
+
+            public Assignment(Engine engine, AssignmentExpression expression) : base(engine, expression)
+            {
+                _left = Build(engine, (Expression) expression.Left);
+                _right = Build(engine, expression.Right);
+                _rightValue = FastResolve(_right);
+            }
+
+            protected override object EvaluateInternal()
+            {
+                var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
+                JsValue rval = _rightValue ?? _engine.GetValue(_right.Evaluate(), true);
+
+                lref.AssertValid(_engine);
+
+                _engine.PutValue(lref, rval);
+                _engine._referencePool.Return(lref);
+                return rval;
+            }
         }
     }
 }

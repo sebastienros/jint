@@ -1,4 +1,3 @@
-using Esprima;
 using Esprima.Ast;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
@@ -19,8 +18,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             _name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id.Name : null;
         }
 
-        public override Location Location => ExceptionHelper.ThrowNotImplementedException<Location>();
-
         protected override object EvaluateInternal()
         {
             var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
@@ -30,8 +27,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _engine,
                 _function,
                 funcEnv,
-                _function.Strict
-            );
+                _function.Strict);
 
             if (_name != null)
             {

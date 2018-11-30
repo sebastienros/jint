@@ -6,12 +6,16 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintNewExpression : JintExpression<NewExpression>
     {
         private readonly JintExpression _calleeExpression;
-        private readonly JintExpression[] _jintArguments;
+        private JintExpression[] _jintArguments;
 
         public JintNewExpression(Engine engine, NewExpression expression) : base(engine, expression)
         {
             _calleeExpression = Build(engine, expression.Callee);
-            _jintArguments = new JintExpression[expression.Arguments.Count];
+        }
+
+        protected override void Initialize()
+        {
+            _jintArguments = new JintExpression[_expression.Arguments.Count];
             for (var i = 0; i < _jintArguments.Length; i++)
             {
                 _jintArguments[i] = Build(_engine, (Expression) _expression.Arguments[i]);

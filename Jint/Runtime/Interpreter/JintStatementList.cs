@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Esprima.Ast;
+using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter
@@ -61,6 +62,19 @@ namespace Jint.Runtime.Interpreter
             }
 
             return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
+        }
+
+        internal Completion? FastResolve()
+        {
+            if (_statements.Count == 1
+                && _statements[0] is ReturnStatement rs
+                && rs.Argument is Literal l)
+            {
+                var jsValue = JintLiteralExpression.ConvertToJsValue(l);
+                return new Completion(CompletionType.Return, jsValue, null);
+            }
+
+            return null;
         }
     }
 }

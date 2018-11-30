@@ -1,8 +1,8 @@
 using Esprima.Ast;
 using Jint.Native.Function;
+using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
-using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -11,23 +11,42 @@ namespace Jint.Runtime.Interpreter.Expressions
     /// </summary>
     internal sealed class JintObjectExpression : JintExpression<ObjectExpression>
     {
-        private readonly JintExpression[] _valueExpressions;
-        private readonly JintStatement[] _functionStatements;
+        private JintExpression[] _valueExpressions;
+        private ObjectProperty[] _properties;
+
+        private class ObjectProperty
+        {
+            internal string _name;
+            internal Property _value;
+        }
 
         public JintObjectExpression(Engine engine, ObjectExpression expression) : base(engine, expression)
         {
+        }
+
+        protected override void Initialize()
+        {
             _valueExpressions = new JintExpression[_expression.Properties.Count];
-            _functionStatements = new JintStatement[_expression.Properties.Count];
+            _properties = new ObjectProperty[_expression.Properties.Count];
+            for (var i = 0; i < _properties.Length; i++)
+            {
+                var property = _expression.Properties[i];
+                var propName = property.Key.GetKey();
+                _properties[i] = new ObjectProperty
+                {
+                    _name = propName, _value = property
+                };
+            }
         }
 
         protected override object EvaluateInternal()
         {
-            var propertiesCount = _expression.Properties.Count;
-            var obj = _engine.Object.Construct(propertiesCount);
-            for (var i = 0; i < propertiesCount; i++)
+            var obj = _engine.Object.Construct(_properties.Length);
+            for (var i = 0; i < _properties.Length; i++)
             {
-                var property = _expression.Properties[i];
-                var propName = property.Key.GetKey();
+                var objectProperty = _properties[i];
+                var property = objectProperty._value;
+                var propName = objectProperty._name;
                 if (!obj._properties.TryGetValue(propName, out var previous))
                 {
                     previous = PropertyDescriptor.Undefined;
@@ -75,35 +94,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (previous != PropertyDescriptor.Undefined)
                 {
-                    if (StrictModeScope.IsStrictModeCode && previous.IsDataDescriptor() && propDesc.IsDataDescriptor())
-                    {
-                        ExceptionHelper.ThrowSyntaxError(_engine);
-                    }
-
-                    if (previous.IsDataDescriptor() && propDesc.IsAccessorDescriptor())
-                    {
-                        ExceptionHelper.ThrowSyntaxError(_engine);
-                    }
-
-                    if (previous.IsAccessorDescriptor() && propDesc.IsDataDescriptor())
-                    {
-                        ExceptionHelper.ThrowSyntaxError(_engine);
-                    }
-
-                    if (previous.IsAccessorDescriptor() && propDesc.IsAccessorDescriptor())
-                    {
-                        if (!ReferenceEquals(propDesc.Set, null) && !ReferenceEquals(previous.Set, null))
-                        {
-                            ExceptionHelper.ThrowSyntaxError(_engine);
-                        }
-
-                        if (!ReferenceEquals(propDesc.Get, null) && !ReferenceEquals(previous.Get, null))
-                        {
-                            ExceptionHelper.ThrowSyntaxError(_engine);
-                        }
-                    }
-
-                    obj.DefineOwnProperty(propName, propDesc, false);
+                    DefinePropertySlow(previous, propDesc, obj, propName);
                 }
                 else
                 {
@@ -113,6 +104,39 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             return obj;
+        }
+
+        private void DefinePropertySlow(PropertyDescriptor previous, PropertyDescriptor propDesc, ObjectInstance obj, string propName)
+        {
+            if (StrictModeScope.IsStrictModeCode && previous.IsDataDescriptor() && propDesc.IsDataDescriptor())
+            {
+                ExceptionHelper.ThrowSyntaxError(_engine);
+            }
+
+            if (previous.IsDataDescriptor() && propDesc.IsAccessorDescriptor())
+            {
+                ExceptionHelper.ThrowSyntaxError(_engine);
+            }
+
+            if (previous.IsAccessorDescriptor() && propDesc.IsDataDescriptor())
+            {
+                ExceptionHelper.ThrowSyntaxError(_engine);
+            }
+
+            if (previous.IsAccessorDescriptor() && propDesc.IsAccessorDescriptor())
+            {
+                if (!ReferenceEquals(propDesc.Set, null) && !ReferenceEquals(previous.Set, null))
+                {
+                    ExceptionHelper.ThrowSyntaxError(_engine);
+                }
+
+                if (!ReferenceEquals(propDesc.Get, null) && !ReferenceEquals(previous.Get, null))
+                {
+                    ExceptionHelper.ThrowSyntaxError(_engine);
+                }
+            }
+
+            obj.DefineOwnProperty(propName, propDesc, false);
         }
     }
 }

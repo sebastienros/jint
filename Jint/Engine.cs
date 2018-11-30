@@ -510,6 +510,11 @@ namespace Jint
                 return ((Completion) value).Value;
             }
 
+            return GetValue(reference, returnReferenceToPool);
+        }
+
+        internal JsValue GetValue(Reference reference, bool returnReferenceToPool)
+        {
             if (reference._baseValue._type == Types.Undefined)
             {
                 if (_referenceResolver != null &&
@@ -517,6 +522,7 @@ namespace Jint
                 {
                     return val;
                 }
+
                 ExceptionHelper.ThrowReferenceError(this, reference.GetReferencedName() + " is not defined");
             }
 
@@ -535,6 +541,7 @@ namespace Jint
                 {
                     _referencePool.Return(reference);
                 }
+
                 if (!(reference._baseValue._type != Types.Object && reference._baseValue._type != Types.None))
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
@@ -561,7 +568,7 @@ namespace Jint
                         return Undefined.Instance;
                     }
 
-                    var callable = (ICallable)getter.AsObject();
+                    var callable = (ICallable) getter.AsObject();
                     return callable.Call(baseValue, Arguments.Empty);
                 }
             }

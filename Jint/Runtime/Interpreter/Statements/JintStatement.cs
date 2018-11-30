@@ -7,6 +7,7 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         protected readonly Engine _engine;
         protected readonly T _statement;
+        private bool _initialized;
 
         protected JintStatement(Engine engine, T statement)
         {
@@ -23,10 +24,23 @@ namespace Jint.Runtime.Interpreter.Statements
                 _engine.RunBeforeExecuteStatementChecks(_statement);
             }
 
+            if (!_initialized)
+            {
+                Initialize();
+                _initialized = true;
+            }
+
             return ExecuteInternal();
         }
 
         public override Location Location => _statement.Location;
+
+        /// <summary>
+        /// Opportunity to build one-time structures and caching based on lexical context.
+        /// </summary>
+        protected virtual void Initialize()
+        {
+        }
     }
 
     internal abstract class JintStatement

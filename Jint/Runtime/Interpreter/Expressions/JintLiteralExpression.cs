@@ -10,25 +10,28 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public JintLiteralExpression(Engine engine, Literal expression) : base(engine, expression)
         {
-            switch (_expression.TokenType)
+            _cachedValue = ConvertToJsValue(expression);
+        }
+
+        internal static JsValue ConvertToJsValue(Literal literal)
+        {
+            switch (literal.TokenType)
             {
                 case TokenType.BooleanLiteral:
-                    // bool is fast enough
-                    _cachedValue = _expression.NumericValue > 0.0 ? JsBoolean.True : JsBoolean.False;
-                    break;
+                    return literal.NumericValue > 0.0 ? JsBoolean.True : JsBoolean.False;
 
                 case TokenType.NullLiteral:
                     // and so is null
-                    _cachedValue = JsValue.Null;
-                    break;
+                    return  JsValue.Null;
 
                 case TokenType.NumericLiteral:
-                    _cachedValue = JsNumber.Create(_expression.NumericValue);
-                    break;
+                    return JsNumber.Create(literal.NumericValue);
 
                 case TokenType.StringLiteral:
-                    _cachedValue = JsString.Create((string) _expression.Value);
-                    break;
+                    return JsString.Create((string) literal.Value);
+
+                default:
+                    return null;
             }
         }
 

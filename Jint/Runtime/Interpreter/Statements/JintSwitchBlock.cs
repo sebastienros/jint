@@ -9,40 +9,55 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         private readonly Engine _engine;
         private readonly List<SwitchCase> _switchBlock;
-        private readonly JintSwitchCase[] _jintSwitchBlock;
+        private JintSwitchCase[] _jintSwitchBlock;
+        private bool _initialized;
 
         public JintSwitchBlock(Engine engine, List<SwitchCase> switchBlock)
         {
             _engine = engine;
             _switchBlock = switchBlock;
-            _jintSwitchBlock = new JintSwitchCase[switchBlock.Count];
+        }
+
+        private void Initialize()
+        {
+            _jintSwitchBlock = new JintSwitchCase[_switchBlock.Count];
+            for (var i = 0; i < _jintSwitchBlock.Length; i++)
+            {
+                _jintSwitchBlock[i] = new JintSwitchCase(_engine, _switchBlock[i]);
+            }
         }
 
         public Completion Execute(JsValue input)
         {
+            if (!_initialized)
+            {
+                Initialize();
+                _initialized = true;
+            }
+
             JsValue v = Undefined.Instance;
             JintSwitchCase defaultCase = null;
             bool hit = false;
 
-            for (var i = 0; i < _jintSwitchBlock.Length; i++)
+            for (var i = 0; i < (uint) _jintSwitchBlock.Length; i++)
             {
-                var clause = _jintSwitchBlock[i] ?? (_jintSwitchBlock[i] = new JintSwitchCase(_engine, _switchBlock[i]));
-                if (clause._test == null)
+                var clause = _jintSwitchBlock[i];
+                if (clause.Test == null)
                 {
                     defaultCase = clause;
                 }
                 else
                 {
-                    var clauseSelector = _engine.GetValue(clause._test.Evaluate(), true);
+                    var clauseSelector = clause.TestValue ?? _engine.GetValue(clause.Test.Evaluate(), true);
                     if (JintBinaryExpression.StrictlyEqual(clauseSelector, input))
                     {
                         hit = true;
                     }
                 }
 
-                if (hit && clause._consequent != null)
+                if (hit && clause.Consequent != null)
                 {
-                    var r = clause._consequent.Execute();
+                    var r = clause.ConsequentValue ?? clause.Consequent.Execute();
                     if (r.Type != CompletionType.Normal)
                     {
                         return r;
@@ -55,7 +70,7 @@ namespace Jint.Runtime.Interpreter.Statements
             // do we need to execute the default case ?
             if (hit == false && defaultCase != null)
             {
-                var r = defaultCase._consequent.Execute();
+                var r = defaultCase.Consequent.Execute();
                 if (r.Type != CompletionType.Normal)
                 {
                     return r;
@@ -69,19 +84,23 @@ namespace Jint.Runtime.Interpreter.Statements
 
         private sealed class JintSwitchCase
         {
-            internal readonly JintStatementList _consequent;
-            internal readonly JintExpression _test;
+            internal readonly JintStatementList Consequent;
+            internal readonly JintExpression Test;
+            public readonly JsValue TestValue;
+            public readonly Completion? ConsequentValue;
 
             public JintSwitchCase(Engine engine, SwitchCase switchCase)
             {
                 if (switchCase.Consequent != null)
                 {
-                    _consequent = new JintStatementList(engine, null, switchCase.Consequent);
+                    Consequent = new JintStatementList(engine, null, switchCase.Consequent);
+                    ConsequentValue = Consequent.FastResolve();
                 }
 
                 if (switchCase.Test != null)
                 {
-                    _test = JintExpression.Build(engine, switchCase.Test);
+                    Test = JintExpression.Build(engine, switchCase.Test);
+                    TestValue = JintExpression.FastResolve(Test);
                 }
             }
         }
