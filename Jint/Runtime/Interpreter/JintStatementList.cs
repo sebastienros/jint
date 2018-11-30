@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.Interpreter.Statements;
 
@@ -60,7 +61,14 @@ namespace Jint.Runtime.Interpreter
                 var completion = new Completion(CompletionType.Throw, v.Error, null, v.Location ?? s?.Location);
                 return completion;
             }
-
+            catch (TypeErrorException e)
+            {
+                var error = _engine.TypeError.Construct(new JsValue[]
+                {
+                    e.Message
+                });
+                return new Completion(CompletionType.Throw, error, null, s?.Location);
+            }
             return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
         }
 

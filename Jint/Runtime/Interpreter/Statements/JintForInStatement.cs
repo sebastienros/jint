@@ -30,7 +30,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             var varRef = _identifier.Evaluate() as Reference;
             var experValue = _engine.GetValue(_right.Evaluate(), true);
-            if (experValue.IsUndefined() || experValue.IsNull())
+            if (experValue.IsNullOrUndefined())
             {
                 return new Completion(CompletionType.Normal, null, null);
             }

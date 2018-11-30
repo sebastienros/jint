@@ -224,6 +224,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                         _operator = (left, right) => JsNumber.Create((uint) TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
                         break;
 
+                    case BinaryOperator.Exponentiation:
+                        _operator = (left, right) => JsNumber.Create(Math.Pow(TypeConverter.ToNumber(left), TypeConverter.ToNumber(right)));
+                        break;
+
                     case BinaryOperator.InstanceOf:
                         _operator = (left, right) =>
                         {
