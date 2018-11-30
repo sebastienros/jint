@@ -1,28 +1,54 @@
 ﻿using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter
 {
     public class JintStatementList
     {
+        private class Pair
+        {
+            internal JintStatement Statement;
+            internal Completion? Value;
+        }
+
         private readonly Engine _engine;
         private readonly Statement _statement;
         private readonly List<StatementListItem> _statements;
-        private readonly JintStatement[] _jintStatements;
+
+        private Pair[] _jintStatements;
+        private bool _initialized;
 
         public JintStatementList(Engine engine, Statement statement, List<StatementListItem> statements)
         {
             _engine = engine;
             _statement = statement;
             _statements = statements;
-            _jintStatements = new JintStatement[_statements.Count];
+        }
+
+        private void Initialize()
+        {
+            _jintStatements = new Pair[_statements.Count];
+            for (var i = 0; i < _jintStatements.Length; i++)
+            {
+                var statement = JintStatement.Build(_engine, (Statement) _statements[i]);
+                _jintStatements[i] = new Pair
+                {
+                    Statement = statement,
+                    Value = JintStatement.FastResolve(_statements[i])
+                };
+            }
         }
 
         public Completion Execute()
         {
+            if (!_initialized)
+            {
+                Initialize();
+                _initialized = true;
+            }
+
             if (_statement != null)
             {
                 _engine._lastSyntaxNode = _statement;
@@ -40,8 +66,9 @@ namespace Jint.Runtime.Interpreter
                 var statements = _jintStatements;
                 for (var i = 0; i < (uint) statements.Length; i++)
                 {
-                    s = statements[i] ?? (statements[i] = JintStatement.Build(_engine, (Statement) _statements[i]));
-                    c = s.Execute();
+                    var pair = statements[i];
+                    s = pair.Statement;
+                    c = pair.Value ?? s.Execute();
                     if (c.Type != CompletionType.Normal)
                     {
                         var executeStatementList = new Completion(
@@ -74,15 +101,7 @@ namespace Jint.Runtime.Interpreter
 
         internal Completion? FastResolve()
         {
-            if (_statements.Count == 1
-                && _statements[0] is ReturnStatement rs
-                && rs.Argument is Literal l)
-            {
-                var jsValue = JintLiteralExpression.ConvertToJsValue(l);
-                return new Completion(CompletionType.Return, jsValue, null);
-            }
-
-            return null;
+            return _statements.Count == 1 ? JintStatement.FastResolve(_statements[0]) : null;
         }
     }
 }

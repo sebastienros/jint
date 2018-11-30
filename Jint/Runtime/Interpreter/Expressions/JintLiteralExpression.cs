@@ -4,7 +4,7 @@ using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintLiteralExpression : JintExpression<Literal>
+    internal class JintLiteralExpression : JintExpression<Literal>
     {
         internal readonly JsValue _cachedValue;
 
@@ -13,26 +13,34 @@ namespace Jint.Runtime.Interpreter.Expressions
             _cachedValue = ConvertToJsValue(expression);
         }
 
+        protected JintLiteralExpression(Engine engine, JsValue cachedValue) : base(engine, null)
+        {
+            _cachedValue = cachedValue;
+        }
+
         internal static JsValue ConvertToJsValue(Literal literal)
         {
-            switch (literal.TokenType)
+            if (literal.TokenType == TokenType.BooleanLiteral)
             {
-                case TokenType.BooleanLiteral:
-                    return literal.NumericValue > 0.0 ? JsBoolean.True : JsBoolean.False;
-
-                case TokenType.NullLiteral:
-                    // and so is null
-                    return  JsValue.Null;
-
-                case TokenType.NumericLiteral:
-                    return JsNumber.Create(literal.NumericValue);
-
-                case TokenType.StringLiteral:
-                    return JsString.Create((string) literal.Value);
-
-                default:
-                    return null;
+                return literal.NumericValue > 0.0 ? JsBoolean.True : JsBoolean.False;
             }
+
+            if (literal.TokenType == TokenType.NullLiteral)
+            {
+                return JsValue.Null;
+            }
+
+            if (literal.TokenType == TokenType.NumericLiteral)
+            {
+                return JsNumber.Create(literal.NumericValue);
+            }
+
+            if (literal.TokenType == TokenType.StringLiteral)
+            {
+                return JsString.Create((string) literal.Value);
+            }
+
+            return null;
         }
 
         protected override object EvaluateInternal()

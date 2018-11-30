@@ -7,9 +7,9 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaration>
     {
-        private Pair[] _declarations;
+        private ResolvedDeclaration[] _declarations;
 
-        private sealed class Pair
+        private sealed class ResolvedDeclaration
         {
             internal JintExpression Left;
             internal JintExpression Init;
@@ -22,7 +22,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override void Initialize()
         {
-            _declarations = new Pair[_statement.Declarations.Count];
+            _declarations = new ResolvedDeclaration[_statement.Declarations.Count];
             for (var i = 0; i < _declarations.Length; i++)
             {
                 var declaration = _statement.Declarations[i];
@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     ? JintExpression.Build(_engine, declaration.Init)
                     : null;
 
-                _declarations[i] = new Pair
+                _declarations[i] = new ResolvedDeclaration
                 {
                     Left = left,
                     Init = init,

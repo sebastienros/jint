@@ -19,8 +19,6 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             _left = Build(engine, _expression.Left);
             _right = Build(engine, _expression.Right);
-
-            Initialize();
         }
 
         protected override void Initialize()
@@ -38,15 +36,30 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal static JintExpression Build(Engine engine, BinaryExpression expression)
         {
+            JintExpression result;
             switch (expression.Operator)
             {
                 case BinaryOperator.StrictlyEqual:
-                    return new StrictlyEqualBinaryExpression(engine, expression);
+                    result = new StrictlyEqualBinaryExpression(engine, expression);
+                    break;
                 case BinaryOperator.StricltyNotEqual:
-                    return new StrictlyNotEqualBinaryExpression(engine, expression);
+                    result = new StrictlyNotEqualBinaryExpression(engine, expression);
+                    break;
                 default:
-                    return new JintGenericBinaryExpression(engine, expression);
+                    result = new JintGenericBinaryExpression(engine, expression);
+                    break;
             }
+
+            if (expression.Left.Type == Nodes.Literal
+                && expression.Right.Type == Nodes.Literal
+                && expression.Operator != BinaryOperator.InstanceOf
+                && expression.Operator != BinaryOperator.In)
+            {
+                // calculate eagerly
+                result = new JintConstantExpression(engine, (JsValue) result.Evaluate());
+            }
+
+            return result;
         }
 
         public static bool StrictlyEqual(JsValue x, JsValue y)

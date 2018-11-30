@@ -1,5 +1,6 @@
 ﻿using Esprima;
 using Esprima.Ast;
+using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -119,6 +120,20 @@ namespace Jint.Runtime.Interpreter.Statements
                 default:
                     return ExceptionHelper.ThrowArgumentOutOfRangeException<JintStatement>();
             }
+        }
+
+        internal static Completion? FastResolve(StatementListItem statement)
+        {
+            if (statement is ReturnStatement rs && rs.Argument is Literal l)
+            {
+                var jsValue = JintLiteralExpression.ConvertToJsValue(l);
+                if (jsValue != null)
+                {
+                    return new Completion(CompletionType.Return, jsValue, null);
+                }
+            }
+
+            return null;
         }
     }
 }
