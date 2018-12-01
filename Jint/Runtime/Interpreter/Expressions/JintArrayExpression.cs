@@ -1,17 +1,10 @@
 using Esprima.Ast;
-using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintArrayExpression : JintExpression<ArrayExpression>
+    internal sealed class JintArrayExpression : JintExpression
     {
-        private class Pair
-        {
-            internal JintExpression Expression;
-            internal JsValue Value;
-        }
-
-        private Pair[] _expressions;
+        private JintExpression[] _expressions;
 
         public JintArrayExpression(Engine engine, ArrayExpression expression) : base(engine, expression)
         {
@@ -19,18 +12,15 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize()
         {
-            _expressions = new Pair[_expression.Elements.Count];
+            var node = (ArrayExpression) _expression;
+            _expressions = new JintExpression[node.Elements.Count];
             for (var n = 0; n < _expressions.Length; n++)
             {
-                var expr = _expression.Elements[n];
+                var expr = node.Elements[n];
                 if (expr != null)
                 {
                     var expression = Build(_engine, (Expression) expr);
-                    _expressions[n] = new Pair
-                    {
-                        Expression = expression,
-                        Value = FastResolve(expression)
-                    };
+                    _expressions[n] = expression;
                 }
             }
         }
@@ -44,7 +34,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var expr = expressions[i];
                 if (expr != null)
                 {
-                    var value = expr.Value ?? _engine.GetValue(expr.Expression.Evaluate(), true);
+                    var value = expr.GetValue();
                     a.SetIndexValue(i, value, updateLength: false);
                 }
             }

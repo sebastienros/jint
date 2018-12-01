@@ -13,7 +13,6 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             internal JintExpression Left;
             internal JintExpression Init;
-            internal JsValue Value;
         }
 
         public JintVariableDeclaration(Engine engine, VariableDeclaration statement) : base(engine, statement)
@@ -36,8 +35,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 _declarations[i] = new ResolvedDeclaration
                 {
                     Left = left,
-                    Init = init,
-                    Value = JintExpression.FastResolve(init)
+                    Init = init
                 };
             }
         }
@@ -53,7 +51,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     var lhs = (Reference) declaration.Left.Evaluate();
                     lhs.AssertValid(_engine);
 
-                    var value = declaration.Value ?? _engine.GetValue(declaration.Init.Evaluate(), true);
+                    var value = declaration.Init.GetValue();
                     _engine.PutValue(lhs, value);
                     _engine._referencePool.Return(lhs);
                 }

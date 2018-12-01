@@ -9,7 +9,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-11.1.5
     /// </summary>
-    internal sealed class JintObjectExpression : JintExpression<ObjectExpression>
+    internal sealed class JintObjectExpression : JintExpression
     {
         private JintExpression[] _valueExpressions;
         private ObjectProperty[] _properties;
@@ -26,11 +26,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize()
         {
-            _valueExpressions = new JintExpression[_expression.Properties.Count];
-            _properties = new ObjectProperty[_expression.Properties.Count];
+            var expression = (ObjectExpression) _expression;
+            _valueExpressions = new JintExpression[expression.Properties.Count];
+            _properties = new ObjectProperty[expression.Properties.Count];
             for (var i = 0; i < _properties.Length; i++)
             {
-                var property = _expression.Properties[i];
+                var property = expression.Properties[i];
                 var propName = property.Key.GetKey();
                 _properties[i] = new ObjectProperty
                 {

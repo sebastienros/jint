@@ -6,23 +6,23 @@ namespace Jint.Runtime.Interpreter.Expressions
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.1
     /// </summary>
-    internal sealed class JintMemberExpression : JintExpression<MemberExpression>
+    internal sealed class JintMemberExpression : JintExpression
     {
-        public readonly JintExpression _objectExpression;
+        private readonly JintExpression _objectExpression;
         private readonly JintExpression _propertyExpression;
         private readonly string _determinedPropertyNameString;
 
         public JintMemberExpression(Engine engine, MemberExpression expression) : base(engine, expression)
         {
             _objectExpression = Build(engine, expression.Object);
-            if (!_expression.Computed)
+            if (!expression.Computed)
             {
-                _determinedPropertyNameString = ((Identifier) _expression.Property).Name;
+                _determinedPropertyNameString = ((Identifier) expression.Property).Name;
             }
             else
             {
                 _determinedPropertyNameString = null;
-                _propertyExpression = Build(engine, _expression.Property);
+                _propertyExpression = Build(engine, expression.Property);
             }
         }
 
@@ -39,7 +39,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 propertyNameString = TypeConverter.ToString(propertyNameValue);
             }
 
-            TypeConverter.CheckObjectCoercible(_engine, baseValue, _expression, baseReference);
+            TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, baseReference);
 
             if (baseReference is Reference r)
             {

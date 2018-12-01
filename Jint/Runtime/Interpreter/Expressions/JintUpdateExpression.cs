@@ -4,19 +4,21 @@ using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintUpdateExpression : JintExpression<UpdateExpression>
+    internal sealed class JintUpdateExpression : JintExpression
     {
         private readonly JintExpression _argument;
         private readonly int _change;
+        private readonly bool _prefix;
 
         public JintUpdateExpression(Engine engine, UpdateExpression expression) : base(engine, expression)
         {
+            _prefix = expression.Prefix;
             _argument = Build(engine, expression.Argument);
-            if (_expression.Operator == UnaryOperator.Increment)
+            if (expression.Operator == UnaryOperator.Increment)
             {
                 _change = 1;
             }
-            else if (_expression.Operator == UnaryOperator.Decrement)
+            else if (expression.Operator == UnaryOperator.Decrement)
             {
                 _change = - 1;
             }
@@ -37,7 +39,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _engine.PutValue(value, newValue);
             _engine._referencePool.Return(value);
 
-            return JsNumber.Create(_expression.Prefix ? newValue : oldValue);
+            return JsNumber.Create(_prefix ? newValue : oldValue);
         }
     }
 }

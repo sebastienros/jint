@@ -4,17 +4,15 @@ using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintAssignmentExpression : JintExpression<AssignmentExpression>
+    internal sealed class JintAssignmentExpression : JintExpression
     {
         private readonly JintExpression _left;
         private readonly JintExpression _right;
-        private readonly JsValue _rightValue;
 
         private JintAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
         {
             _left = Build(engine, (Expression) expression.Left);
             _right = Build(engine, expression.Right);
-            _rightValue = FastResolve(_right);
         }
 
         internal static JintExpression Build(Engine engine, AssignmentExpression expression)
@@ -30,11 +28,12 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected override object EvaluateInternal()
         {
             var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
-            JsValue rval = _rightValue ?? _engine.GetValue(_right.Evaluate(), true);
+            JsValue rval = _right.GetValue();
 
             JsValue lval = _engine.GetValue(lref, false);
 
-            switch (_expression.Operator)
+            var expression = (AssignmentExpression) _expression;
+            switch (expression.Operator)
             {
                 case AssignmentOperator.PlusAssign:
                     var lprim = TypeConverter.ToPrimitive(lval);
@@ -122,23 +121,21 @@ namespace Jint.Runtime.Interpreter.Expressions
             return lval;
         }
 
-        private class Assignment : JintExpression<AssignmentExpression>
+        private class Assignment : JintExpression
         {
             private readonly JintExpression _left;
             private readonly JintExpression _right;
-            private readonly JsValue _rightValue;
 
             public Assignment(Engine engine, AssignmentExpression expression) : base(engine, expression)
             {
                 _left = Build(engine, (Expression) expression.Left);
                 _right = Build(engine, expression.Right);
-                _rightValue = FastResolve(_right);
             }
 
             protected override object EvaluateInternal()
             {
                 var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
-                JsValue rval = _rightValue ?? _engine.GetValue(_right.Evaluate(), true);
+                JsValue rval = _right.GetValue();
 
                 lref.AssertValid(_engine);
 

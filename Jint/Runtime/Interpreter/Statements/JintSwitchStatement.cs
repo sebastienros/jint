@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
-            var jsValue = _engine.GetValue(_discriminant.Evaluate(), true);
+            var jsValue = _discriminant.GetValue();
             var r = _switchBlock.Execute(jsValue);
             if (r.Type == CompletionType.Break && r.Identifier == _statement.LabelSet?.Name)
             {

@@ -5,20 +5,22 @@ using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintUnaryExpression : JintExpression<UnaryExpression>
+    internal sealed class JintUnaryExpression : JintExpression
     {
         private readonly JintExpression _argument;
+        private readonly UnaryOperator _operator;
 
         public JintUnaryExpression(Engine engine, UnaryExpression expression) : base(engine, expression)
         {
-            _argument = Build(engine, _expression.Argument);
+            _argument = Build(engine, expression.Argument);
+            _operator = expression.Operator;
         }
 
         protected override object EvaluateInternal()
         {
             var value = _argument.Evaluate();
 
-            switch (_expression.Operator)
+            switch (_operator)
             {
                 case UnaryOperator.Plus:
                     return JsNumber.Create(TypeConverter.ToNumber(_engine.GetValue(value, true)));

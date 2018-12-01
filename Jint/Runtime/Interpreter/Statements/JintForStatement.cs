@@ -45,10 +45,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override Completion ExecuteInternal()
         {
             _initStatement?.Execute();
-            if (_initExpression != null)
-            {
-                _engine.GetValue(_initExpression.Evaluate(), true);
-            }
+            _initExpression?.GetValue();
 
             JsValue v = Undefined.Instance;
             while (true)
@@ -82,10 +79,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                 }
 
-                if (_update != null)
-                {
-                    _engine.GetValue(_update.Evaluate(), true);
-                }
+                _update?.GetValue();
             }
         }
     }

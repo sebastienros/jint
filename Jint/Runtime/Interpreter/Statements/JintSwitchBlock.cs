@@ -48,7 +48,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
                 else
                 {
-                    var clauseSelector = clause.TestValue ?? _engine.GetValue(clause.Test.Evaluate(), true);
+                    var clauseSelector = clause.Test.GetValue();
                     if (JintBinaryExpression.StrictlyEqual(clauseSelector, input))
                     {
                         hit = true;
@@ -57,7 +57,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                 if (hit && clause.Consequent != null)
                 {
-                    var r = clause.ConsequentValue ?? clause.Consequent.Execute();
+                    var r = clause.Consequent.Execute();
                     if (r.Type != CompletionType.Normal)
                     {
                         return r;
@@ -86,21 +86,17 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             internal readonly JintStatementList Consequent;
             internal readonly JintExpression Test;
-            public readonly JsValue TestValue;
-            public readonly Completion? ConsequentValue;
 
             public JintSwitchCase(Engine engine, SwitchCase switchCase)
             {
                 if (switchCase.Consequent != null)
                 {
                     Consequent = new JintStatementList(engine, null, switchCase.Consequent);
-                    ConsequentValue = Consequent.FastResolve();
                 }
 
                 if (switchCase.Test != null)
                 {
                     Test = JintExpression.Build(engine, switchCase.Test);
-                    TestValue = JintExpression.FastResolve(Test);
                 }
             }
         }

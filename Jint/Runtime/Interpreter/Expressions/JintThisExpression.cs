@@ -2,7 +2,7 @@ using Esprima.Ast;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintThisExpression : JintExpression<ThisExpression>
+    internal sealed class JintThisExpression : JintExpression
     {
         public JintThisExpression(Engine engine, ThisExpression expression) : base(engine, expression)
         {

@@ -3,13 +3,13 @@ using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintIdentifierExpression : JintExpression<Identifier>
+    internal sealed class JintIdentifierExpression : JintExpression
     {
         private readonly string _expressionName;
 
         public JintIdentifierExpression(Engine engine, Identifier expression) : base(engine, expression)
         {
-            _expressionName = _expression.Name;
+            _expressionName = expression.Name;
         }
 
         protected override object EvaluateInternal()

@@ -4,18 +4,13 @@ using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal class JintLiteralExpression : JintExpression<Literal>
+    internal class JintLiteralExpression : JintExpression
     {
         internal readonly JsValue _cachedValue;
 
         public JintLiteralExpression(Engine engine, Literal expression) : base(engine, expression)
         {
             _cachedValue = ConvertToJsValue(expression);
-        }
-
-        protected JintLiteralExpression(Engine engine, JsValue cachedValue) : base(engine, null)
-        {
-            _cachedValue = cachedValue;
         }
 
         internal static JsValue ConvertToJsValue(Literal literal)
@@ -43,19 +38,27 @@ namespace Jint.Runtime.Interpreter.Expressions
             return null;
         }
 
-        protected override object EvaluateInternal()
+        public override JsValue GetValue()
         {
+            // need to notify correct node when taking shortcut
+            _engine._lastSyntaxNode = _expression;
             return _cachedValue ?? ResolveValue();
         }
 
-        private object ResolveValue()
+        protected override object EvaluateInternal()
         {
-            if (_expression.TokenType == TokenType.RegularExpression)
+            return GetValue();
+        }
+
+        private JsValue ResolveValue()
+        {
+            var expression = (Literal) _expression;
+            if (expression.TokenType == TokenType.RegularExpression)
             {
-                return _engine.RegExp.Construct((System.Text.RegularExpressions.Regex) _expression.Value, _expression.Regex.Flags);
+                return _engine.RegExp.Construct((System.Text.RegularExpressions.Regex) expression.Value, expression.Regex.Flags);
             }
 
-            return JsValue.FromObject(_engine, _expression.Value);
+            return JsValue.FromObject(_engine, expression.Value);
         }
     }
 }

@@ -7,7 +7,7 @@ using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintCallExpression : JintExpression<CallExpression>
+    internal sealed class JintCallExpression : JintExpression
     {
         private readonly bool _isDebugMode;
         private readonly int _maxRecursionDepth;
@@ -18,27 +18,28 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             _isDebugMode = engine.Options.IsDebugMode;
             _maxRecursionDepth = engine.Options.MaxRecursionDepth;
-            _calleeExpression = Build(engine, _expression.Callee);
+            _calleeExpression = Build(engine, expression.Callee);
         }
 
         protected override void Initialize()
         {
+            var expression = (CallExpression) _expression;
             var cachedArgumentsHolder = new CachedArgumentsHolder
             {
-                JintArguments = new JintExpression[_expression.Arguments.Count]
+                JintArguments = new JintExpression[expression.Arguments.Count]
             };
 
             bool cacheable = true;
-            for (var i = 0; i < _expression.Arguments.Count; i++)
+            for (var i = 0; i < expression.Arguments.Count; i++)
             {
-                var expressionArgument = (Expression) _expression.Arguments[i];
+                var expressionArgument = (Expression) expression.Arguments[i];
                 cachedArgumentsHolder.JintArguments[i] = Build(_engine, expressionArgument);
                 cacheable &= (expressionArgument is Literal || expressionArgument is FunctionExpression);
             }
 
             if (cacheable)
             {
-                _expression.Cached = true;
+                expression.Cached = true;
                 var arguments = ArrayExt.Empty<JsValue>();
                 if (cachedArgumentsHolder.JintArguments.Length > 0)
                 {
@@ -49,23 +50,24 @@ namespace Jint.Runtime.Interpreter.Expressions
                 cachedArgumentsHolder.CachedArguments = arguments;
             }
 
-            _expression.CachedArguments = cachedArgumentsHolder;
+            expression.CachedArguments = cachedArgumentsHolder;
         }
 
         protected override object EvaluateInternal()
         {
             var callee = _calleeExpression.Evaluate();
+            var expression = (CallExpression) _expression;
 
             if (_isDebugMode)
             {
-                _engine.DebugHandler.AddToDebugCallStack(_expression);
+                _engine.DebugHandler.AddToDebugCallStack(expression);
             }
 
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
 
-            var cachedArguments = (CachedArgumentsHolder) _expression.CachedArguments;
+            var cachedArguments = (CachedArgumentsHolder) expression.CachedArguments;
             var arguments = ArrayExt.Empty<JsValue>();
-            if (_expression.Cached)
+            if (expression.Cached)
             {
                 arguments = cachedArguments.CachedArguments;
             }
@@ -83,7 +85,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var r = callee as Reference;
             if (_maxRecursionDepth >= 0)
             {
-                var stackItem = new CallStackElement(_expression, func, r?._name ?? "anonymous function");
+                var stackItem = new CallStackElement(expression, func, r?._name ?? "anonymous function");
 
                 var recursionDepth = _engine.CallStack.Push(stackItem);
 
@@ -147,7 +149,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _engine.CallStack.Pop();
             }
 
-            if (!_expression.Cached && arguments.Length > 0)
+            if (!expression.Cached && arguments.Length > 0)
             {
                 _engine._jsValueArrayPool.ReturnArray(arguments);
             }

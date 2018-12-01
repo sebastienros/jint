@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override Completion ExecuteInternal()
         {
             Completion result;
-            if (TypeConverter.ToBoolean(_engine.GetValue(_test.Evaluate(), true)))
+            if (TypeConverter.ToBoolean(_test.GetValue()))
             {
                 result = _statementConsequent.Execute();
             }

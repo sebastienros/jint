@@ -29,7 +29,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override Completion ExecuteInternal()
         {
             var varRef = _identifier.Evaluate() as Reference;
-            var experValue = _engine.GetValue(_right.Evaluate(), true);
+            var experValue = _right.GetValue();
             if (experValue.IsNullOrUndefined())
             {
                 return new Completion(CompletionType.Normal, null, null);
