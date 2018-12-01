@@ -31,6 +31,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 case BinaryOperator.StricltyNotEqual:
                     result = new StrictlyNotEqualBinaryExpression(engine, expression);
                     break;
+                case BinaryOperator.Less:
+                    result = new LessBinaryExpression(engine, expression);
+                    break;
+                case BinaryOperator.Greater:
+                    result = new GreaterBinaryExpression(engine, expression);
+                    break;
                 default:
                     result = new JintGenericBinaryExpression(engine, expression);
                     break;
@@ -136,19 +142,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                         _operator = (left, right) => Equal(left, right) ? JsBoolean.False : JsBoolean.True;
                         break;
 
-                    case BinaryOperator.Greater:
-                        _operator = (left, right) =>
-                        {
-                            var value = Compare(right, left, false);
-                            if (value.IsUndefined())
-                            {
-                                value = JsBoolean.False;
-                            }
-
-                            return value;
-                        };
-                        break;
-
                     case BinaryOperator.GreaterOrEqual:
                         _operator = (left, right) =>
                         {
@@ -160,20 +153,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                             else
                             {
                                 value = JsBoolean.True;
-                            }
-
-                            return value;
-                        };
-
-                        break;
-
-                    case BinaryOperator.Less:
-                        _operator = (left, right) =>
-                        {
-                            var value = Compare(left, right);
-                            if (value.IsUndefined())
-                            {
-                                value = JsBoolean.False;
                             }
 
                             return value;
@@ -291,6 +270,46 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
                 return StrictlyEqual(left, right) ? JsBoolean.False : JsBoolean.True;
+            }
+        }
+
+        private sealed class LessBinaryExpression : JintBinaryExpression
+        {
+            public LessBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
+            {
+            }
+
+            protected override object EvaluateInternal()
+            {
+                var left = _left.GetValue();
+                var right = _right.GetValue();
+                var value = Compare(left, right);
+                if (value._type == Types.Undefined)
+                {
+                    value = JsBoolean.False;
+                }
+
+                return value;
+            }
+        }
+
+        private sealed class GreaterBinaryExpression : JintBinaryExpression
+        {
+            public GreaterBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
+            {
+            }
+
+            protected override object EvaluateInternal()
+            {
+                var left = _left.GetValue();
+                var right = _right.GetValue();
+                var value = Compare(right, left, false);
+                if (value._type == Types.Undefined)
+                {
+                    value = JsBoolean.False;
+                }
+
+                return value;
             }
         }
     }

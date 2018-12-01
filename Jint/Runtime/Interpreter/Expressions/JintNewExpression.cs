@@ -30,9 +30,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             BuildArguments(_jintArguments, arguments);
 
             // todo: optimize by defining a common abstract class or interface
-            var callee = _calleeExpression.GetValue().TryCast<IConstructor>();
-
-            if (callee == null)
+            if (!(_calleeExpression.GetValue() is IConstructor callee))
             {
                 return ExceptionHelper.ThrowTypeError<object>(_engine, "The object can't be used as constructor.");
             }

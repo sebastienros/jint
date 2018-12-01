@@ -14,7 +14,7 @@ namespace Jint.Runtime.Environments
     {
         private readonly Engine _engine;
         internal readonly EnvironmentRecord _record;
-        private readonly LexicalEnvironment _outer;
+        internal readonly LexicalEnvironment _outer;
 
         public LexicalEnvironment(Engine engine, EnvironmentRecord record, LexicalEnvironment outer)
         {
@@ -23,11 +23,7 @@ namespace Jint.Runtime.Environments
             _outer = outer;
         }
 
-        public EnvironmentRecord Record
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return _record; }
-        }
+        public EnvironmentRecord Record => _record;
 
         public LexicalEnvironment Outer => _outer;
 

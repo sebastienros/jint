@@ -52,12 +52,12 @@ namespace Jint.Native.String
                 return desc;
             }
 
-            var integer = TypeConverter.ToInteger(propertyName);
-            if (integer == 0 && propertyName != "0" || propertyName != System.Math.Abs(integer).ToString())
+            if (!TypeConverter.CanBeIndex(propertyName))
             {
                 return PropertyDescriptor.Undefined;
             }
 
+            var integer = TypeConverter.ToInteger(propertyName);
             var str = PrimitiveValue;
             var dIndex = integer;
             if (!IsInt(dIndex))

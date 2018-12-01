@@ -4,9 +4,6 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
-using PropertyDescriptor = Jint.Runtime.Descriptors.PropertyDescriptor;
-using TypeConverter = Jint.Runtime.TypeConverter;
-
 namespace Jint.Native.Array
 {
     public class ArrayInstance : ObjectInstance
