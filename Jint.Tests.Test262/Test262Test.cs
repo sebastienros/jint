@@ -141,6 +141,11 @@ namespace Jint.Tests.Test262
                             skip = true;
                             reason = "Symbol.unscopables not implemented";
                         }
+                        else if (item == "Symbol.match")
+                        {
+                            skip = true;
+                            reason = "Symbol.match not implemented";
+                        }
                     }
                 }
                 

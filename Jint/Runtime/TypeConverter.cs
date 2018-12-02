@@ -296,8 +296,6 @@ namespace Jint.Runtime
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.8
         /// </summary>
-        /// <param name="o"></param>
-        /// <returns></returns>
         public static string ToString(JsValue o)
         {
             switch (o._type)
@@ -309,7 +307,7 @@ namespace Jint.Runtime
                 case Types.Number:
                     return ToString(((JsNumber) o)._value);
                 case Types.Symbol:
-                    return o.AsSymbol();
+                    return ExceptionHelper.ThrowTypeErrorNoEngine<string>("Cannot convert a Symbol value to a string");
                 case Types.Undefined:
                     return Undefined.Text;
                 case Types.Null:

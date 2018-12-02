@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Xml;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -41,7 +42,8 @@ namespace Jint.Native.String
             FastAddProperty("charCodeAt", new ClrFunctionInstance(Engine, "charCodeAt", CharCodeAt, 1), true, false, true);
             FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1), true, false, true);
             FastAddProperty("indexOf", new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1), true, false, true);
-            FastAddProperty("startsWith", new ClrFunctionInstance(Engine, "startsWith", StartsWith, 1), true, false, true);
+            FastAddProperty("endsWith", new ClrFunctionInstance(Engine, "endsWith", EndsWith, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("startsWith", new ClrFunctionInstance(Engine, "startsWith", StartsWith, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1), true, false, true);
             FastAddProperty("localeCompare", new ClrFunctionInstance(Engine, "localeCompare", LocaleCompare, 1), true, false, true);
             FastAddProperty("match", new ClrFunctionInstance(Engine, "match", Match, 1), true, false, true);
@@ -880,9 +882,6 @@ namespace Jint.Native.String
         /// <summary>
         /// https://www.ecma-international.org/ecma-262/6.0/#sec-string.prototype.startswith
         /// </summary>
-        /// <param name="thisObj"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
         private JsValue StartsWith(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
@@ -910,6 +909,52 @@ namespace Jint.Native.String
             var start = System.Math.Min(System.Math.Max(pos, 0), len);
             var searchLength = searchStr.Length;
             if (searchLength + start > len)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < searchLength; i++)
+            {
+                if (s[start + i] != searchStr[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// https://www.ecma-international.org/ecma-262/6.0/#sec-string.prototype.endswith
+        /// </summary>
+        private JsValue EndsWith(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(Engine, thisObj);
+
+            var s = TypeConverter.ToString(thisObj);
+
+            var searchString = arguments.At(0);
+            if (ReferenceEquals(searchString, Null))
+            {
+                searchString = Native.Null.Text;
+            }
+            else
+            {
+                if (searchString.IsRegExp())
+                {
+                    ExceptionHelper.ThrowTypeError(Engine);
+                }
+            }
+
+            var searchStr = TypeConverter.ToString(searchString);
+
+            var len = s.Length;
+            var pos = TypeConverter.ToInt32(arguments.At(1, len));
+            var end = System.Math.Min(System.Math.Max(pos, 0), len);
+            var searchLength = searchStr.Length;
+            var start = end - searchLength;
+
+            if (start < 0)
             {
                 return false;
             }
