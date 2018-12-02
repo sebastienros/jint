@@ -40,6 +40,7 @@ namespace Jint.Native.String
             FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("charAt", new ClrFunctionInstance(Engine, "charAt", CharAt, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("charCodeAt", new ClrFunctionInstance(Engine, "charCodeAt", CharCodeAt, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("codePointAt", new ClrFunctionInstance(Engine, "codePointAt", CodePointAt, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("indexOf", new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("endsWith", new ClrFunctionInstance(Engine, "endsWith", EndsWith, 1, PropertyFlag.Configurable), true, false, true);
@@ -825,6 +826,30 @@ namespace Jint.Native.String
                 return double.NaN;
             }
             return (double) s[position];
+        }
+
+        private JsValue CodePointAt(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(Engine, thisObj);
+
+            JsValue pos = arguments.Length > 0 ? arguments[0] : 0;
+            var s = TypeConverter.ToString(thisObj);
+            var position = (int)TypeConverter.ToInteger(pos);
+            if (position < 0 || position >= s.Length)
+            {
+                return Undefined;
+            }
+
+            var first = (double) s[position];
+            if (first >= 0xD800 && first <= 0xDBFF && s.Length > position + 1)
+            {
+                double second = s[position + 1];
+                if (second >= 0xDC00 && second <= 0xDFFF)
+                {
+                    return (first - 0xD800) * 0x400 + second - 0xDC00 + 0x10000;
+                }
+            }
+            return first;
         }
 
         private JsValue CharAt(JsValue thisObj, JsValue[] arguments)

@@ -348,6 +348,11 @@ namespace Jint.Runtime
                 var error = _engine.TypeError.Construct(new JsValue[] {e.Message});
                 c = new Completion(CompletionType.Throw, error, null, withStatement.Location);
             }
+            catch (RangeErrorException e)
+            {
+                var error = _engine.RangeError.Construct(new JsValue[] {e.Message});
+                c = new Completion(CompletionType.Throw, error, null, withStatement.Location);
+            }
             finally
             {
                 _engine.UpdateLexicalEnvironment(oldEnv);
@@ -466,6 +471,11 @@ namespace Jint.Runtime
                 var error = _engine.TypeError.Construct(new JsValue[] {e.Message});
                 c = new Completion(CompletionType.Throw, error, null, s?.Location);
             }
+            catch (RangeErrorException e)
+            {
+                var error = _engine.RangeError.Construct(new JsValue[] {e.Message});
+                c = new Completion(CompletionType.Throw, error, null, s?.Location);
+            }
 
             return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
         }
@@ -495,6 +505,11 @@ namespace Jint.Runtime
             catch (TypeErrorException e)
             {
                 var error = _engine.TypeError.Construct(new JsValue[] {e.Message});
+                return new Completion(CompletionType.Throw, error, null, s?.Location);
+            }
+            catch (RangeErrorException e)
+            {
+                var error = _engine.RangeError.Construct(new JsValue[] {e.Message});
                 return new Completion(CompletionType.Throw, error, null, s?.Location);
             }
         }

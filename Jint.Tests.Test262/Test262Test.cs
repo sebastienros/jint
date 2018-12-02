@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Jint.Runtime;
@@ -118,7 +119,7 @@ namespace Jint.Tests.Test262
                 if (features.Success)
                 {
                     var items = features.Groups[1].Captures[0].Value.Split(",");
-                    foreach (var item in items)
+                    foreach (var item in items.Select(x => x.Trim()))
                     {
                         // TODO implement
                         if (item == "cross-realm")
@@ -146,7 +147,28 @@ namespace Jint.Tests.Test262
                             skip = true;
                             reason = "Symbol.match not implemented";
                         }
+                        else if (item == "Symbol.split")
+                        {
+                            skip = true;
+                            reason = "Symbol.split not implemented";
+                        }
+                        else if (item == "String.prototype.matchAll")
+                        {
+                            skip = true;
+                            reason = "proposal stage";
+                        }
+                        else if (item == "BigInt")
+                        {
+                            skip = true;
+                            reason = "BigInt not implemented";
+                        }
                     }
+                }
+
+                if (name.StartsWith("built-ins/String/raw/"))
+                {
+                    skip = true;
+                    reason = "requires template string";
                 }
                 
                 var sourceFile = new SourceFile(
