@@ -293,6 +293,9 @@ namespace Jint.Runtime
             return NumberPrototype.ToNumberString(d);
         }
 
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-topropertykey
+        /// </summary>
         public static string ToPropertyKey(JsValue o)
         {
             var key = ToPrimitive(o, Types.String);
@@ -305,7 +308,7 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.8
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-tostring
         /// </summary>
         public static string ToString(JsValue o)
         {

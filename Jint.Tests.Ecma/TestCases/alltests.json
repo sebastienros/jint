@@ -51025,8 +51025,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.10/S15.5.4.10_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.10/S15.5.4.10_A9.js"
   },
   {
@@ -51235,8 +51235,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.11/S15.5.4.11_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.11/S15.5.4.11_A9.js"
   },
   {
@@ -51380,8 +51380,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.12/S15.5.4.12_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.12/S15.5.4.12_A9.js"
   },
   {
@@ -51545,8 +51545,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.13/S15.5.4.13_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.13/S15.5.4.13_A9.js"
   },
   {
@@ -52060,8 +52060,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.14/S15.5.4.14_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.14/S15.5.4.14_A9.js"
   },
   {
@@ -52265,8 +52265,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.15/S15.5.4.15_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.15/S15.5.4.15_A9.js"
   },
   {
@@ -52370,8 +52370,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.16/S15.5.4.16_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.16/S15.5.4.16_A9.js"
   },
   {
@@ -52475,8 +52475,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.17/S15.5.4.17_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.17/S15.5.4.17_A9.js"
   },
   {
@@ -52580,8 +52580,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.18/S15.5.4.18_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.18/S15.5.4.18_A9.js"
   },
   {
@@ -52685,8 +52685,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.19/S15.5.4.19_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.19/S15.5.4.19_A9.js"
   },
   {
@@ -53425,8 +53425,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.4/S15.5.4.4_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.4/S15.5.4.4_A9.js"
   },
   {
@@ -53520,8 +53520,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.5/S15.5.4.5_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.5/S15.5.4.5_A9.js"
   },
   {
@@ -53615,8 +53615,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.6/S15.5.4.6_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.6/S15.5.4.6_A9.js"
   },
   {
@@ -53790,8 +53790,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.7/S15.5.4.7_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.7/S15.5.4.7_A9.js"
   },
   {
@@ -53895,8 +53895,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.8/S15.5.4.8_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.8/S15.5.4.8_A9.js"
   },
   {
@@ -53945,8 +53945,8 @@
     source: "ch15/15.5/15.5.4/15.5.4.9/S15.5.4.9_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now configurable",
     source: "ch15/15.5/15.5.4/15.5.4.9/S15.5.4.9_A9.js"
   },
   {

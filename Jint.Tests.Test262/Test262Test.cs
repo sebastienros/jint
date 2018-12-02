@@ -147,6 +147,11 @@ namespace Jint.Tests.Test262
                             skip = true;
                             reason = "Symbol.match not implemented";
                         }
+                        else if (item == "Symbol.matchAll")
+                        {
+                            skip = true;
+                            reason = "Symbol.matchAll not implemented";
+                        }
                         else if (item == "Symbol.split")
                         {
                             skip = true;
