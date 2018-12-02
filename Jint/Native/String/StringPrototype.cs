@@ -62,8 +62,8 @@ namespace Jint.Native.String
             FastAddProperty("trim", new ClrFunctionInstance(Engine, "trim", Trim, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("trimStart", new ClrFunctionInstance(Engine, "trimStart", TrimStart, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("trimEnd", new ClrFunctionInstance(Engine, "trimEnd", TrimEnd, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("padStart", new ClrFunctionInstance(Engine, "padStart", PadStart, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("padEnd", new ClrFunctionInstance(Engine, "padEnd", PadEnd, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("padStart", new ClrFunctionInstance(Engine, "padStart", PadStart, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("padEnd", new ClrFunctionInstance(Engine, "padEnd", PadEnd, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("includes", new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("normalize", new ClrFunctionInstance(Engine, "normalize", Normalize, 0, PropertyFlag.Configurable), true, false, true);
 
@@ -915,10 +915,14 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
             var targetLength = TypeConverter.ToInt32(arguments.At(0));
-            var padString = TypeConverter.ToString(arguments.At(1, " "));
+            var padStringValue = arguments.At(1);
+
+            var padString = padStringValue.IsUndefined()
+                ? " "
+                : TypeConverter.ToString(padStringValue);
 
             var s = TypeConverter.ToString(thisObj);
-            if (s.Length > targetLength)
+            if (s.Length > targetLength || padString.Length == 0)
             {
                 return s;
             }
@@ -929,7 +933,9 @@ namespace Jint.Native.String
                 padString = string.Join("", Enumerable.Repeat(padString, (targetLength / padString.Length) + 1));
             }
 
-            return padStart ? $"{padString.Substring(0, targetLength)}{s}" : $"{s}{padString.Substring(0, targetLength)}";
+            return padStart
+                ? $"{padString.Substring(0, targetLength)}{s}"
+                : $"{s}{padString.Substring(0, targetLength)}";
         }
 
         /// <summary>
