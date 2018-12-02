@@ -66,6 +66,7 @@ namespace Jint.Native.String
             FastAddProperty("padEnd", new ClrFunctionInstance(Engine, "padEnd", PadEnd, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("includes", new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("normalize", new ClrFunctionInstance(Engine, "normalize", Normalize, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("repeat", new ClrFunctionInstance(Engine, "repeat", Repeat, 1, PropertyFlag.Configurable), true, false, true);
 
             FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "[Symbol.iterator]", Iterator, 0, PropertyFlag.Configurable), true, false, true);
         }
@@ -1102,6 +1103,36 @@ namespace Jint.Native.String
             }
 
             return str.Normalize(nf);
+        }
+
+        private JsValue Repeat(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(Engine, thisObj);
+            var str = TypeConverter.ToString(thisObj);
+            var n = (int) TypeConverter.ToInteger(arguments.At(0));
+
+            if (n < 0)
+            {
+                return ExceptionHelper.ThrowRangeError<JsValue>(_engine, "Invalid count value");
+            }
+
+            if (n == 0 || str.Length == 0)
+            {
+                return JsString.Empty;
+            }
+
+            if (str.Length == 1)
+            {
+                return new string(str[0], n);
+            }
+
+            var sb = new StringBuilder(n * str.Length);
+            for (var i = 0; i < n; ++i)
+            {
+                sb.Append(str);
+            }
+
+            return sb.ToString();
         }
     }
 }
