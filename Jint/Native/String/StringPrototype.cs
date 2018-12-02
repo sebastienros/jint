@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Xml;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -36,30 +35,33 @@ namespace Jint.Native.String
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToStringString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOF", ValueOf), true, false, true);
-            FastAddProperty("charAt", new ClrFunctionInstance(Engine, "charAt", CharAt, 1), true, false, true);
-            FastAddProperty("charCodeAt", new ClrFunctionInstance(Engine, "charCodeAt", CharCodeAt, 1), true, false, true);
-            FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1), true, false, true);
-            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToStringString, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("charAt", new ClrFunctionInstance(Engine, "charAt", CharAt, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("charCodeAt", new ClrFunctionInstance(Engine, "charCodeAt", CharCodeAt, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("endsWith", new ClrFunctionInstance(Engine, "endsWith", EndsWith, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("startsWith", new ClrFunctionInstance(Engine, "startsWith", StartsWith, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1), true, false, true);
-            FastAddProperty("localeCompare", new ClrFunctionInstance(Engine, "localeCompare", LocaleCompare, 1), true, false, true);
-            FastAddProperty("match", new ClrFunctionInstance(Engine, "match", Match, 1), true, false, true);
-            FastAddProperty("replace", new ClrFunctionInstance(Engine, "replace", Replace, 2), true, false, true);
-            FastAddProperty("search", new ClrFunctionInstance(Engine, "search", Search, 1), true, false, true);
-            FastAddProperty("slice", new ClrFunctionInstance(Engine, "slice", Slice, 2), true, false, true);
-            FastAddProperty("split", new ClrFunctionInstance(Engine, "split", Split, 2), true, false, true);
+            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("localeCompare", new ClrFunctionInstance(Engine, "localeCompare", LocaleCompare, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("match", new ClrFunctionInstance(Engine, "match", Match, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("replace", new ClrFunctionInstance(Engine, "replace", Replace, 2, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("search", new ClrFunctionInstance(Engine, "search", Search, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("slice", new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("split", new ClrFunctionInstance(Engine, "split", Split, 2, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("substr", new ClrFunctionInstance(Engine, "substr", Substr, 2), true, false, true);
-            FastAddProperty("substring", new ClrFunctionInstance(Engine, "substring", Substring, 2), true, false, true);
-            FastAddProperty("toLowerCase", new ClrFunctionInstance(Engine, "toLowerCase", ToLowerCase), true, false, true);
-            FastAddProperty("toLocaleLowerCase", new ClrFunctionInstance(Engine, "toLocaleLowerCase", ToLocaleLowerCase), true, false, true);
-            FastAddProperty("toUpperCase", new ClrFunctionInstance(Engine, "toUpperCase", ToUpperCase), true, false, true);
-            FastAddProperty("toLocaleUpperCase", new ClrFunctionInstance(Engine, "toLocaleUpperCase", ToLocaleUpperCase), true, false, true);
-            FastAddProperty("trim", new ClrFunctionInstance(Engine, "trim", Trim), true, false, true);
-            FastAddProperty("padStart", new ClrFunctionInstance(Engine, "padStart", PadStart), true, false, true);
-            FastAddProperty("padEnd", new ClrFunctionInstance(Engine, "padEnd", PadEnd), true, false, true);
+            FastAddProperty("substring", new ClrFunctionInstance(Engine, "substring", Substring, 2, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("toLowerCase", new ClrFunctionInstance(Engine, "toLowerCase", ToLowerCase, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("toLocaleLowerCase", new ClrFunctionInstance(Engine, "toLocaleLowerCase", ToLocaleLowerCase, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("toUpperCase", new ClrFunctionInstance(Engine, "toUpperCase", ToUpperCase, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("toLocaleUpperCase", new ClrFunctionInstance(Engine, "toLocaleUpperCase", ToLocaleUpperCase, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("trim", new ClrFunctionInstance(Engine, "trim", Trim, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("trimStart", new ClrFunctionInstance(Engine, "trimStart", TrimStart, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("trimEnd", new ClrFunctionInstance(Engine, "trimEnd", TrimEnd, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("padStart", new ClrFunctionInstance(Engine, "padStart", PadStart, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("padEnd", new ClrFunctionInstance(Engine, "padEnd", PadEnd, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("includes", new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true);
         }
 
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
@@ -152,6 +154,20 @@ namespace Jint.Native.String
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
             var s = TypeConverter.ToString(thisObj);
             return TrimEx(s);
+        }
+
+        private JsValue TrimStart(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(Engine, thisObj);
+            var s = TypeConverter.ToString(thisObj);
+            return TrimStartEx(s);
+        }
+
+        private JsValue TrimEnd(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(Engine, thisObj);
+            var s = TypeConverter.ToString(thisObj);
+            return TrimEndEx(s);
         }
 
         private static JsValue ToLocaleUpperCase(JsValue thisObj, JsValue[] arguments)
@@ -968,6 +984,43 @@ namespace Jint.Native.String
             }
 
             return true;
+        }
+
+        private JsValue Includes(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(Engine, thisObj);
+
+            var s1 = TypeConverter.ToString(thisObj);
+            var searchString = arguments.At(0);
+
+            if (searchString.IsRegExp())
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "First argument to String.prototype.includes must not be a regular expression");
+            }
+
+            var searchStr = TypeConverter.ToString(searchString);
+            double pos = 0;
+            if (arguments.Length > 1 && !arguments[1].IsUndefined())
+            {
+                pos = TypeConverter.ToInteger(arguments[1]);
+            }
+
+            if (searchStr.Length == 0)
+            {
+                return true;
+            }
+
+            if (pos >= s1.Length)
+            {
+                return false;
+            }
+
+            if (pos < 0)
+            {
+                pos = 0;
+            }
+
+            return s1.IndexOf(searchStr, (int) pos, StringComparison.Ordinal) > -1;
         }
     }
 }

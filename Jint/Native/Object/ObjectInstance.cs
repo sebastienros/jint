@@ -399,6 +399,19 @@ namespace Jint.Native.Object
 
             if (hint == Types.String || (hint == Types.None && Class == "Date"))
             {
+                if (Get(GlobalSymbolRegistry.ToPrimitive._value) is ICallable toPrimitive)
+                {
+                    var str = toPrimitive.Call(this, Arguments.Empty);
+                    if (str.IsPrimitive())
+                    {
+                        return str;
+                    }
+
+                    if (str.IsObject())
+                    {
+                        return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Cannot convert object to primitive value");
+                    }
+                }
                 if (Get("toString") is ICallable toString)
                 {
                     var str = toString.Call(this, Arguments.Empty);

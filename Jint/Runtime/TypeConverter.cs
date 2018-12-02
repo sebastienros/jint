@@ -293,6 +293,17 @@ namespace Jint.Runtime
             return NumberPrototype.ToNumberString(d);
         }
 
+        public static string ToPropertyKey(JsValue o)
+        {
+            var key = ToPrimitive(o, Types.String);
+            if (key is JsSymbol s)
+            {
+                return s._value;
+            }
+
+            return ToString(key);
+        }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.8
         /// </summary>

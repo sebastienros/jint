@@ -43,17 +43,22 @@ namespace Jint.Native.String
                 chars[i] = (char)TypeConverter.ToUint16(arguments[i]);
             }
 
-            return new System.String(chars);
+            return JsString.Create(new string(chars));
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             if (arguments.Length == 0)
             {
-                return "";
+                return JsString.Empty;
             }
 
-            return TypeConverter.ToString(arguments[0]);
+            var arg = arguments[0];
+            var str = arg is JsSymbol s
+                ? s.ToString()
+                : TypeConverter.ToString(arg);
+
+            return JsString.Create(str);
         }
 
         /// <summary>
@@ -63,7 +68,12 @@ namespace Jint.Native.String
         /// <returns></returns>
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            return Construct(arguments.Length > 0 ? TypeConverter.ToString(arguments[0]) : "");
+            string value = "";
+            if (arguments.Length > 0)
+            {
+                value = TypeConverter.ToString(arguments[0]);
+            }
+            return Construct(value);
         }
 
         public StringPrototype PrototypeObject { get; private set; }

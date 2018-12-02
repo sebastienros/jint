@@ -24,9 +24,16 @@ namespace Jint
                 var obj = staticMemberExpression.Object.GetKey();
                 var property = staticMemberExpression.Property.GetKey();
 
-                if (obj == "Symbol" && property == "iterator")
+                if (obj == "Symbol")
                 {
-                    return GlobalSymbolRegistry.Iterator._value;
+                    if (property == "iterator")
+                    {
+                        return GlobalSymbolRegistry.Iterator._value;
+                    }
+                    if (property == "toPrimitive")
+                    {
+                        return GlobalSymbolRegistry.ToPrimitive._value;
+                    }
                 }
             }
 
