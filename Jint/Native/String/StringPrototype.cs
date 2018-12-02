@@ -92,16 +92,11 @@ namespace Jint.Native.String
         // http://msdn.microsoft.com/en-us/library/system.char.iswhitespace(v=vs.110).aspx
         // http://en.wikipedia.org/wiki/Byte_order_mark
         const char BOM_CHAR = '\uFEFF';
-        const char MONGOLIAN_VOWEL_SEPARATOR = '\u180E';
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool IsWhiteSpaceEx(char c, bool acceptMongolianVowelSeparator = true)
+        internal static bool IsWhiteSpaceEx(char c)
         {
-            return
-                char.IsWhiteSpace(c) ||
-                c == BOM_CHAR ||
-                // In .NET 4.6 this was removed from WS based on Unicode 6.3 changes
-                (acceptMongolianVowelSeparator && c == MONGOLIAN_VOWEL_SEPARATOR);
+            return char.IsWhiteSpace(c) || c == BOM_CHAR;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -131,12 +126,12 @@ namespace Jint.Native.String
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string TrimStartEx(string s, bool acceptMongolianVowelSeparator = true)
+        public static string TrimStartEx(string s)
         {
             if (s.Length == 0)
                 return string.Empty;
 
-            if (!IsWhiteSpaceEx(s[0], acceptMongolianVowelSeparator))
+            if (!IsWhiteSpaceEx(s[0]))
                 return s;
 
             return TrimStart(s);
@@ -157,9 +152,9 @@ namespace Jint.Native.String
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string TrimEx(string s, bool acceptMongolianVowelSeparator = true)
+        public static string TrimEx(string s)
         {
-            return TrimEndEx(TrimStartEx(s, acceptMongolianVowelSeparator));
+            return TrimEndEx(TrimStartEx(s));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -184,26 +179,30 @@ namespace Jint.Native.String
             return TrimEndEx(s);
         }
 
-        private static JsValue ToLocaleUpperCase(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToLocaleUpperCase(JsValue thisObj, JsValue[] arguments)
         {
+            TypeConverter.CheckObjectCoercible(_engine, thisObj);
             var s = TypeConverter.ToString(thisObj);
             return s.ToUpper();
         }
 
-        private static JsValue ToUpperCase(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToUpperCase(JsValue thisObj, JsValue[] arguments)
         {
+            TypeConverter.CheckObjectCoercible(_engine, thisObj);
             var s = TypeConverter.ToString(thisObj);
             return s.ToUpperInvariant();
         }
 
-        private static JsValue ToLocaleLowerCase(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToLocaleLowerCase(JsValue thisObj, JsValue[] arguments)
         {
+            TypeConverter.CheckObjectCoercible(_engine, thisObj);
             var s = TypeConverter.ToString(thisObj);
             return s.ToLower();
         }
 
-        private static JsValue ToLowerCase(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToLowerCase(JsValue thisObj, JsValue[] arguments)
         {
+            TypeConverter.CheckObjectCoercible(_engine, thisObj);
             var s = TypeConverter.ToString(thisObj);
             return s.ToLowerInvariant();
         }

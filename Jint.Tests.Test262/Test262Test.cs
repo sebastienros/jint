@@ -162,6 +162,21 @@ namespace Jint.Tests.Test262
                             skip = true;
                             reason = "proposal stage";
                         }
+                        else if (item == "Symbol.search")
+                        {
+                            skip = true;
+                            reason = "Symbol.search not implemented";
+                        }
+                        else if (item == "Symbol.replace")
+                        {
+                            skip = true;
+                            reason = "Symbol.replace not implemented";
+                        }
+                        else if (item == "Symbol.toStringTag")
+                        {
+                            skip = true;
+                            reason = "Symbol.toStringTag not implemented";
+                        }
                         else if (item == "BigInt")
                         {
                             skip = true;
@@ -175,7 +190,13 @@ namespace Jint.Tests.Test262
                     skip = true;
                     reason = "requires template string";
                 }
-                
+
+                if (code.IndexOf("SpecialCasing.txt") > -1)
+                {
+                    skip = true;
+                    reason = "SpecialCasing.txt not implemented";
+                }
+
                 var sourceFile = new SourceFile(
                     name,
                     file,
