@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -64,6 +65,7 @@ namespace Jint.Native.String
             FastAddProperty("padStart", new ClrFunctionInstance(Engine, "padStart", PadStart, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("padEnd", new ClrFunctionInstance(Engine, "padEnd", PadEnd, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("includes", new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("normalize", new ClrFunctionInstance(Engine, "normalize", Normalize, 0, PropertyFlag.Configurable), true, false, true);
 
             FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "[Symbol.iterator]", Iterator, 0, PropertyFlag.Configurable), true, false, true);
         }
@@ -1056,6 +1058,44 @@ namespace Jint.Native.String
             }
 
             return s1.IndexOf(searchStr, (int) pos, StringComparison.Ordinal) > -1;
+        }
+
+        private JsValue Normalize(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(Engine, thisObj);
+            var str = TypeConverter.ToString(thisObj);
+
+            var param = arguments.At(0);
+
+            var form = "NFC";
+           if (!param.IsUndefined())
+           {
+               form = TypeConverter.ToString(param);
+           }
+
+            var nf = NormalizationForm.FormC;
+            switch (form)
+            {
+                case "NFC":
+                    nf = NormalizationForm.FormC;
+                    break;
+                case "NFD":
+                    nf = NormalizationForm.FormD;
+                    break;
+                case "NFKC":
+                    nf = NormalizationForm.FormKC;
+                    break;
+                case "NFKD":
+                    nf = NormalizationForm.FormKD;
+                    break;
+                default:
+                    ExceptionHelper.ThrowRangeError(
+                        _engine,
+                        "The normalization form should be one of NFC, NFD, NFKC, NFKD.");
+                    break;
+            }
+
+            return str.Normalize(nf);
         }
     }
 }

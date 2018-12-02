@@ -23,7 +23,7 @@ namespace Jint.Tests.Test262
         [RunnableInDebugOnly]
         public void TestSingle()
         {
-            const string Target = @"built-ins/String/fromCodePoint/return-string-value.js";
+            const string Target = @"built-ins/String/prototype/normalize/return-normalized-string-using-default-parameter.js";
             //const string Target = @"built-ins/Array/from/calling-from-valid-2.js";
             var sourceFile = SourceFiles("built-ins", false)
                 .SelectMany(x => x)
