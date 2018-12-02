@@ -135,7 +135,7 @@ namespace Jint.Native
                 return true;
             }
 
-            return _value == other._value;
+            return _value == other.ToString();
         }
 
         internal sealed class ConcatenatedString : JsString
