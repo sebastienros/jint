@@ -23,7 +23,7 @@ namespace Jint.Tests.Test262
         [RunnableInDebugOnly]
         public void TestSingle()
         {
-            const string Target = @"built-ins/Array/prototype/map/length.js";
+            const string Target = @"built-ins/String/prototype/Symbol.iterator/prop-desc.js";
             //const string Target = @"built-ins/Array/from/calling-from-valid-2.js";
             var sourceFile = SourceFiles("built-ins", false)
                 .SelectMany(x => x)

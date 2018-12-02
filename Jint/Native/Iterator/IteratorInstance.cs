@@ -293,5 +293,30 @@ namespace Jint.Native.Iterator
                 }
             }
         }
+
+        internal class StringIterator : IteratorInstance
+        {
+            private readonly string _str;
+            private int _position;
+            private bool _closed;
+
+            public StringIterator(Engine engine, string str) : base(engine)
+            {
+                _str = str;
+                _position = 0;
+            }
+
+            public override ObjectInstance Next()
+            {
+                var length = _str.Length;
+                if (!_closed && _position < length)
+                {
+                    return new ValueIteratorPosition(_engine, _str[_position++]);
+                }
+
+                _closed = true;
+                return ValueIteratorPosition.Done;
+            }
+        }
     }
 }

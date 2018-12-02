@@ -31,7 +31,7 @@ namespace Jint.Native.Object
 
         private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue[] arguments)
         {
-            var p = TypeConverter.ToString(arguments[0]);
+            var p = TypeConverter.ToPropertyKey(arguments[0]);
             var o = TypeConverter.ToObject(Engine, thisObject);
             var desc = o.GetOwnProperty(p);
             if (desc == PropertyDescriptor.Undefined)
@@ -111,12 +111,9 @@ namespace Jint.Native.Object
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.4.5
         /// </summary>
-        /// <param name="thisObject"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
         public JsValue HasOwnProperty(JsValue thisObject, JsValue[] arguments)
         {
-            var p = TypeConverter.ToString(arguments[0]);
+            var p = TypeConverter.ToPropertyKey(arguments[0]);
             var o = TypeConverter.ToObject(Engine, thisObject);
             var desc = o.GetOwnProperty(p);
             return desc != PropertyDescriptor.Undefined;

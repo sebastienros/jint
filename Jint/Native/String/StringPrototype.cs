@@ -5,6 +5,7 @@ using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -62,6 +63,15 @@ namespace Jint.Native.String
             FastAddProperty("padStart", new ClrFunctionInstance(Engine, "padStart", PadStart, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("padEnd", new ClrFunctionInstance(Engine, "padEnd", PadEnd, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("includes", new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true);
+
+            FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "[Symbol.iterator]", Iterator, 0, PropertyFlag.Configurable), true, false, true);
+        }
+
+        private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(_engine, thisObj);
+            var str = TypeConverter.ToString(thisObj);
+            return _engine.Iterator.Construct(str);
         }
 
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
