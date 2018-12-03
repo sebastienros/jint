@@ -172,7 +172,7 @@ ES6 features which are being implemented:
 - [ ] [promises](https://github.com/lukehoban/es6features/blob/master/README.md#promises)
 - [ ] [math APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
 - [ ] [number APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
-- [ ] [string APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
+- [x] [string APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
 - [x] [array APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
 - [ ] [object APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
 - [x] [binary and octal literals](https://github.com/lukehoban/es6features/blob/master/README.md#binary-and-octal-literals)

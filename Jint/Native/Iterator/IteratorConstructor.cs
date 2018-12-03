@@ -52,8 +52,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance(Engine, enumerable)
             {
-                Prototype = PrototypeObject,
-                Extensible = true
+                Prototype = PrototypeObject, Extensible = true
             };
 
             return instance;
@@ -63,8 +62,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.ListIterator(Engine, enumerable)
             {
-                Prototype = PrototypeObject,
-                Extensible = true
+                Prototype = PrototypeObject, Extensible = true
             };
 
             return instance;
@@ -74,8 +72,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.ArrayLikeIterator(Engine, array)
             {
-                Prototype = PrototypeObject,
-                Extensible = true
+                Prototype = PrototypeObject, Extensible = true
             };
 
             return instance;
@@ -85,8 +82,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.MapIterator(Engine, map)
             {
-                Prototype = PrototypeObject,
-                Extensible = true
+                Prototype = PrototypeObject, Extensible = true
             };
 
             return instance;
@@ -96,8 +92,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.SetIterator(Engine, set)
             {
-                Prototype = PrototypeObject,
-                Extensible = true
+                Prototype = PrototypeObject, Extensible = true
             };
 
             return instance;
@@ -107,8 +102,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.SetEntryIterator(Engine, set)
             {
-                Prototype = PrototypeObject,
-                Extensible = true
+                Prototype = PrototypeObject, Extensible = true
             };
 
             return instance;
@@ -118,8 +112,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.ArrayLikeKeyIterator(Engine, array)
             {
-                Prototype = PrototypeObject,
-                Extensible = true
+                Prototype = PrototypeObject, Extensible = true
             };
 
             return instance;
@@ -129,8 +122,17 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.ArrayLikeValueIterator(Engine, array)
             {
-                Prototype = PrototypeObject,
-                Extensible = true
+                Prototype = PrototypeObject, Extensible = true
+            };
+
+            return instance;
+        }
+
+        public ObjectInstance Construct(string str)
+        {
+            var instance = new IteratorInstance.StringIterator(Engine, str)
+            {
+                Prototype = PrototypeObject, Extensible = true
             };
 
             return instance;

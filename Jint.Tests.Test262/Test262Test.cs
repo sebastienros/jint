@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Jint.Runtime;
@@ -118,7 +119,7 @@ namespace Jint.Tests.Test262
                 if (features.Success)
                 {
                     var items = features.Groups[1].Captures[0].Value.Split(",");
-                    foreach (var item in items)
+                    foreach (var item in items.Select(x => x.Trim()))
                     {
                         // TODO implement
                         if (item == "cross-realm")
@@ -141,9 +142,61 @@ namespace Jint.Tests.Test262
                             skip = true;
                             reason = "Symbol.unscopables not implemented";
                         }
+                        else if (item == "Symbol.match")
+                        {
+                            skip = true;
+                            reason = "Symbol.match not implemented";
+                        }
+                        else if (item == "Symbol.matchAll")
+                        {
+                            skip = true;
+                            reason = "Symbol.matchAll not implemented";
+                        }
+                        else if (item == "Symbol.split")
+                        {
+                            skip = true;
+                            reason = "Symbol.split not implemented";
+                        }
+                        else if (item == "String.prototype.matchAll")
+                        {
+                            skip = true;
+                            reason = "proposal stage";
+                        }
+                        else if (item == "Symbol.search")
+                        {
+                            skip = true;
+                            reason = "Symbol.search not implemented";
+                        }
+                        else if (item == "Symbol.replace")
+                        {
+                            skip = true;
+                            reason = "Symbol.replace not implemented";
+                        }
+                        else if (item == "Symbol.toStringTag")
+                        {
+                            skip = true;
+                            reason = "Symbol.toStringTag not implemented";
+                        }
+                        else if (item == "BigInt")
+                        {
+                            skip = true;
+                            reason = "BigInt not implemented";
+                        }
                     }
                 }
-                
+
+                if (name.StartsWith("built-ins/String/raw/"))
+                {
+                    skip = true;
+                    reason = "requires template string";
+                }
+
+                if (code.IndexOf("SpecialCasing.txt") > -1)
+                {
+                    skip = true;
+                    reason = "SpecialCasing.txt not implemented";
+                }
+
                 var sourceFile = new SourceFile(
                     name,
                     file,

@@ -747,7 +747,7 @@ namespace Jint.Runtime
             {
                 var propertyNameReference = _engine.EvaluateExpression(memberExpression.Property);
                 var propertyNameValue = _engine.GetValue(propertyNameReference, true);
-                propertyNameString = TypeConverter.ToString(propertyNameValue);
+                propertyNameString = TypeConverter.ToPropertyKey(propertyNameValue);
             }
 
             TypeConverter.CheckObjectCoercible(_engine, baseValue, memberExpression, baseReference);

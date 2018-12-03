@@ -277,5 +277,17 @@
   {
     "source": "built-ins/Array/prototype/flatMap/thisArg-argument.js",
     "reason": "experimental"
+  },
+  {
+    "source": "built-ins/String/prototype/padEnd/observable-operations.js",
+    "reason": "observables not implemetned"
+  },
+  {
+    "source": "built-ins/String/prototype/padStart/observable-operations.js",
+    "reason": "observables not implemetned"
+  },
+  {
+    "source": "built-ins/StringIteratorPrototype/next/next-iteration-surrogate-pairs.js",
+    "reason": "code point iteration not implemented"
   }
 ]

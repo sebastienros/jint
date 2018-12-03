@@ -23,7 +23,7 @@ namespace Jint.Native.Iterator
 
         public void Configure()
         {
-            FastAddProperty("next", new ClrFunctionInstance(Engine, "next", Next, 0), true, false, true);
+            FastAddProperty("next", new ClrFunctionInstance(Engine, "next", Next, 0, PropertyFlag.Configurable), true, false, true);
         }
 
         private JsValue Next(JsValue thisObj, JsValue[] arguments)

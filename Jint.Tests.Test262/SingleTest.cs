@@ -23,7 +23,7 @@ namespace Jint.Tests.Test262
         [RunnableInDebugOnly]
         public void TestSingle()
         {
-            const string Target = @"built-ins/Array/prototype/every/15.4.4.16-5-23.js";
+            const string Target = @"built-ins/String/prototype/repeat/repeat-string-n-times.js";
             //const string Target = @"built-ins/Array/from/calling-from-valid-2.js";
             var sourceFile = SourceFiles("built-ins", false)
                 .SelectMany(x => x)

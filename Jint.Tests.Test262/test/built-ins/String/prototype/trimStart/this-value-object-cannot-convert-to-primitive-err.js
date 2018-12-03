@@ -55,5 +55,5 @@ assert.throws(
   TypeError,
   function() {
     String.prototype.trimStart.call(thisVal);
-  },
+  }
 );

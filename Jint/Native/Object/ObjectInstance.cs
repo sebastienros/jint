@@ -20,6 +20,8 @@ namespace Jint.Native.Object
 {
     public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
+        private static readonly string ToPrimitiveSymbolName = GlobalSymbolRegistry.ToPrimitive._value;
+
         internal StringDictionarySlim<PropertyDescriptor> _properties;
 
         private readonly string _class;
@@ -388,17 +390,34 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// Hint is a String. Returns a default value for the
-        /// object.
+        /// Hint is a String. Returns a default value for the object.
         /// </summary>
-        /// <param name="hint"></param>
-        /// <returns></returns>
         public JsValue DefaultValue(Types hint)
         {
             EnsureInitialized();
 
             if (hint == Types.String || (hint == Types.None && Class == "Date"))
             {
+                var jsValue = Get(ToPrimitiveSymbolName);
+                if (!jsValue.IsNullOrUndefined())
+                {
+                    if (jsValue is ICallable toPrimitive)
+                    {
+                        var str = toPrimitive.Call(this, Arguments.Empty);
+                        if (str.IsPrimitive())
+                        {
+                            return str;
+                        }
+
+                        if (str.IsObject())
+                        {
+                            return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Cannot convert object to primitive value");
+                        }
+                    }
+
+                    const string message = "'Value returned for property 'Symbol(Symbol.toPrimitive)' of object is not a function";
+                    return ExceptionHelper.ThrowTypeError<JsValue>(_engine, message);
+                }
                 if (Get("toString") is ICallable toString)
                 {
                     var str = toString.Call(this, Arguments.Empty);
@@ -422,6 +441,27 @@ namespace Jint.Native.Object
 
             if (hint == Types.Number || hint == Types.None)
             {
+                var jsValue = Get(ToPrimitiveSymbolName);
+                if (!jsValue.IsNullOrUndefined())
+                {
+                    if (jsValue is ICallable toPrimitive)
+                    {
+                        var val = toPrimitive.Call(this, Arguments.Empty);
+                        if (val.IsPrimitive())
+                        {
+                            return val;
+                        }
+
+                        if (val.IsObject())
+                        {
+                            return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Cannot convert object to primitive value");
+                        }
+                    }
+
+                    const string message = "'Value returned for property 'Symbol(Symbol.toPrimitive)' of object is not a function";
+                    return ExceptionHelper.ThrowTypeError<JsValue>(_engine, message);
+                }
+
                 if (Get("valueOf") is ICallable valueOf)
                 {
                     var val = valueOf.Call(this, Arguments.Empty);
