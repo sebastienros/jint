@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Jint.Runtime;
 
 namespace Jint.Native
@@ -24,6 +25,10 @@ namespace Jint.Native
         private static readonly JsNumber DoublePositiveInfinity = new JsNumber(double.PositiveInfinity);
         private static readonly JsNumber DoubleNegativeInfinity = new JsNumber(double.NegativeInfinity);
         private static readonly JsNumber IntegerNegativeOne = new JsNumber(-1);
+        internal static readonly JsNumber NegativeZero = new JsNumber(-0);
+        internal static readonly JsNumber PositiveZero = new JsNumber(+0);
+
+        internal static readonly JsNumber PI = new JsNumber(System.Math.PI);
 
         static JsNumber()
         {
@@ -69,6 +74,17 @@ namespace Jint.Native
                 return DoubleNegativeOne;
             }
 
+            if (value <= double.MaxValue && value >= double.MinValue)
+            {
+                return new JsNumber(value);
+            }
+
+            return CreateNumberUnlikely(value);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static JsNumber CreateNumberUnlikely(double value)
+        {
             if (value == double.NegativeInfinity)
             {
                 return DoubleNegativeInfinity;

@@ -23,7 +23,7 @@ namespace Jint.Tests.Test262
         [RunnableInDebugOnly]
         public void TestSingle()
         {
-            const string Target = @"built-ins/String/prototype/repeat/repeat-string-n-times.js";
+            const string Target = @"built-ins/Math/pow/applying-the-exp-operator_A19.js";
             //const string Target = @"built-ins/Array/from/calling-from-valid-2.js";
             var sourceFile = SourceFiles("built-ins", false)
                 .SelectMany(x => x)

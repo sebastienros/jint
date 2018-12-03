@@ -26,24 +26,24 @@ namespace Jint.Native.Math
 
         public void Configure()
         {
-            FastAddProperty("abs", new ClrFunctionInstance(Engine, "abs", Abs), true, false, true);
-            FastAddProperty("acos", new ClrFunctionInstance(Engine, "acos", Acos), true, false, true);
-            FastAddProperty("asin", new ClrFunctionInstance(Engine, "asin", Asin), true, false, true);
+            FastAddProperty("abs", new ClrFunctionInstance(Engine, "abs", Abs, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("acos", new ClrFunctionInstance(Engine, "acos", Acos, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("asin", new ClrFunctionInstance(Engine, "asin", Asin, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("atan", new ClrFunctionInstance(Engine, "atan", Atan), true, false, true);
             FastAddProperty("atan2", new ClrFunctionInstance(Engine, "atan2", Atan2), true, false, true);
             FastAddProperty("ceil", new ClrFunctionInstance(Engine, "ceil", Ceil), true, false, true);
             FastAddProperty("cos", new ClrFunctionInstance(Engine, "cos", Cos), true, false, true);
             FastAddProperty("exp", new ClrFunctionInstance(Engine, "exp", Exp), true, false, true);
-            FastAddProperty("floor", new ClrFunctionInstance(Engine, "floor", Floor), true, false, true);
-            FastAddProperty("log", new ClrFunctionInstance(Engine, "log", Log), true, false, true);
-            FastAddProperty("max", new ClrFunctionInstance(Engine, "max", Max, 2), true, false, true);
-            FastAddProperty("min", new ClrFunctionInstance(Engine, "min", Min, 2), true, false, true);
-            FastAddProperty("pow", new ClrFunctionInstance(Engine, "pow", Pow, 2), true, false, true);
-            FastAddProperty("random", new ClrFunctionInstance(Engine, "random", Random), true, false, true);
-            FastAddProperty("round", new ClrFunctionInstance(Engine, "round", Round), true, false, true);
-            FastAddProperty("sin", new ClrFunctionInstance(Engine, "sin", Sin), true, false, true);
-            FastAddProperty("sqrt", new ClrFunctionInstance(Engine, "sqrt", Sqrt), true, false, true);
-            FastAddProperty("tan", new ClrFunctionInstance(Engine, "tan", Tan), true, false, true);
+            FastAddProperty("floor", new ClrFunctionInstance(Engine, "floor", Floor, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("log", new ClrFunctionInstance(Engine, "log", Log, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("max", new ClrFunctionInstance(Engine, "max", Max, 2, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("min", new ClrFunctionInstance(Engine, "min", Min, 2, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("pow", new ClrFunctionInstance(Engine, "pow", Pow, 2, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("random", new ClrFunctionInstance(Engine, "random", Random, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("round", new ClrFunctionInstance(Engine, "round", Round, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("sin", new ClrFunctionInstance(Engine, "sin", Sin, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("sqrt", new ClrFunctionInstance(Engine, "sqrt", Sqrt, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("tan", new ClrFunctionInstance(Engine, "tan", Tan, 1, PropertyFlag.Configurable), true, false, true);
 
             FastAddProperty("trunc", new ClrFunctionInstance(Engine, "trunc", Truncate, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("sign", new ClrFunctionInstance(Engine, "sign", Sign, 1, PropertyFlag.Configurable), true, false, true);
@@ -70,7 +70,7 @@ namespace Jint.Native.Math
             }
             else if (NumberInstance.IsNegativeZero(x))
             {
-                return +0;
+                return JsNumber.PositiveZero;
             }
             else if (double.IsInfinity(x))
             {
@@ -157,25 +157,25 @@ namespace Jint.Native.Math
                 // If y is +0 and x>0, the result is +0.
                 if (x > 0)
                 {
-                    return +0;
+                    return JsNumber.PositiveZero;
                 }
 
                 // If y is +0 and x is +0, the result is +0.
                 if (NumberInstance.IsPositiveZero(x))
                 {
-                    return +0;
+                    return JsNumber.PositiveZero;
                 }
 
                 // If y is +0 and x is −0, the result is an implementation-dependent approximation to +π.
                 if (NumberInstance.IsNegativeZero(x))
                 {
-                    return System.Math.PI;
+                    return JsNumber.PI;
                 }
 
                 // If y is +0 and x<0, the result is an implementation-dependent approximation to +π.
                 if (x < 0)
                 {
-                    return System.Math.PI;
+                    return JsNumber.PI;
                 }
             }
 
@@ -184,13 +184,13 @@ namespace Jint.Native.Math
                 // If y is −0 and x>0, the result is −0.
                 if (x > 0)
                 {
-                    return -0;
+                    return JsNumber.NegativeZero;
                 }
 
                 // If y is −0 and x is +0, the result is −0.
                 if (NumberInstance.IsPositiveZero(x))
                 {
-                    return -0;
+                    return JsNumber.NegativeZero;
                 }
 
                 // If y is −0 and x is −0, the result is an implementation-dependent approximation to −π.
@@ -218,13 +218,13 @@ namespace Jint.Native.Math
             {
                 if (double.IsPositiveInfinity(x))
                 {
-                    return +0;
+                    return JsNumber.PositiveZero;
                 }
 
                 // If y>0 and y is finite and x is −∞, the result if an implementation-dependent approximation to +π.
                 if (double.IsNegativeInfinity(x))
                 {
-                    return System.Math.PI;
+                    return JsNumber.PI;
                 }
             }
 
@@ -235,7 +235,7 @@ namespace Jint.Native.Math
             {
                 if (double.IsPositiveInfinity(x))
                 {
-                    return -0;
+                    return JsNumber.NegativeZero;
                 }
 
                 // If y>0 and y is finite and x is −∞, the result if an implementation-dependent approximation to +π.
@@ -294,11 +294,11 @@ namespace Jint.Native.Math
             }
             else if (NumberInstance.IsPositiveZero(x))
             {
-                return +0;
+                return JsNumber.PositiveZero;
             }
             else if (NumberInstance.IsNegativeZero(x))
             {
-                return -0;
+                return JsNumber.NegativeZero;
             }
             else if (double.IsPositiveInfinity(x))
             {
@@ -354,7 +354,7 @@ namespace Jint.Native.Math
             }
             else if (double.IsNegativeInfinity(x))
             {
-                return +0;
+                return JsNumber.PositiveZero;
             }
 
             return System.Math.Exp(x);
@@ -370,11 +370,11 @@ namespace Jint.Native.Math
             }
             else if (NumberInstance.IsPositiveZero(x))
             {
-                return +0;
+                return JsNumber.PositiveZero;
             }
             else if (NumberInstance.IsNegativeZero(x))
             {
-                return -0;
+                return JsNumber.NegativeZero;
             }
             else if (double.IsPositiveInfinity(x))
             {
@@ -410,7 +410,7 @@ namespace Jint.Native.Math
             }
             else if (x == 1)
             {
-                return +0;
+                return JsNumber.PositiveZero;
             }
 
             return System.Math.Log(x);
@@ -420,7 +420,7 @@ namespace Jint.Native.Math
         {
             if (arguments.Length == 0)
             {
-                return Double.NegativeInfinity;
+                return double.NegativeInfinity;
             }
 
             double max = TypeConverter.ToNumber(arguments.At(0));
@@ -439,7 +439,16 @@ namespace Jint.Native.Math
                     return double.NaN;
                 }
 
-                max = System.Math.Max(max, value);
+                if (max == 0 && value == 0)
+                {
+                    max = NumberInstance.IsNegativeZero(value)
+                        ? max
+                        : value;
+                }
+                else
+                {
+                    max = System.Math.Max(max, value);
+                }
             }
             return max;
         }
@@ -448,13 +457,23 @@ namespace Jint.Native.Math
         {
             if (arguments.Length == 0)
             {
-                return Double.PositiveInfinity;
+                return double.PositiveInfinity;
             }
 
             double min = TypeConverter.ToNumber(arguments.At(0));
             for (int i = 0; i < arguments.Length; i++)
             {
-                min = System.Math.Min(min, TypeConverter.ToNumber(arguments[i]));
+                var value = TypeConverter.ToNumber(arguments[i]);
+                if (min == 0 && value == 0)
+                {
+                    min = NumberInstance.IsNegativeZero(min)
+                        ? min
+                        : value;
+                }
+                else
+                {
+                    min = System.Math.Min(min, value);
+                }
             }
             return min;
         }
@@ -500,7 +519,7 @@ namespace Jint.Native.Math
 
                 if (double.IsNegativeInfinity(y))
                 {
-                    return +0;
+                    return JsNumber.PositiveZero;
                 }
             }
 
@@ -534,7 +553,7 @@ namespace Jint.Native.Math
 
                 if (y < 0)
                 {
-                    return +0;
+                    return JsNumber.PositiveZero;
                 }
             }
 
@@ -554,10 +573,10 @@ namespace Jint.Native.Math
                 {
                     if (System.Math.Abs(y % 2).Equals(1))
                     {
-                        return -0;
+                        return JsNumber.NegativeZero;
                     }
 
-                    return +0;
+                    return JsNumber.PositiveZero;
                 }
             }
 
@@ -584,11 +603,11 @@ namespace Jint.Native.Math
                     // If x is −0 and y>0 and y is an odd integer, the result is −0.
                     if (System.Math.Abs(y % 2).Equals(1))
                     {
-                        return -0;
+                        return JsNumber.NegativeZero;
                     }
 
                     // If x is −0 and y>0 and y is not an odd integer, the result is +0.
-                    return +0;
+                    return JsNumber.PositiveZero;
                 }
 
                 if (y < 0)
@@ -640,11 +659,11 @@ namespace Jint.Native.Math
             }
             else if (NumberInstance.IsPositiveZero(x))
             {
-                return +0;
+                return JsNumber.PositiveZero;
             }
             else if (NumberInstance.IsNegativeZero(x))
             {
-                return -0;
+                return JsNumber.NegativeZero;
             }
             else if (double.IsInfinity(x))
             {
