@@ -96,6 +96,14 @@ namespace Jint.Runtime.Interpreter
                 });
                 return new Completion(CompletionType.Throw, error, null, s?.Location);
             }
+            catch (RangeErrorException e)
+            {
+                var error = _engine.RangeError.Construct(new JsValue[]
+                {
+                    e.Message
+                });
+                c = new Completion(CompletionType.Throw, error, null, s?.Location);
+            }
             return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
         }
 
