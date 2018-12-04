@@ -591,8 +591,6 @@ namespace Jint
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.2
         /// </summary>
-        /// <param name="reference"></param>
-        /// <param name="value"></param>
         public void PutValue(Reference reference, JsValue value)
         {
             if (reference._baseValue._type == Types.Undefined)

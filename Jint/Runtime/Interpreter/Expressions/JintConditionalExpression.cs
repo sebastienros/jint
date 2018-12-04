@@ -17,17 +17,9 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            var lref = _test.Evaluate();
-            if (TypeConverter.ToBoolean(_engine.GetValue(lref, true)))
-            {
-                var trueRef = _consequent.Evaluate();
-                return _engine.GetValue(trueRef, true);
-            }
-            else
-            {
-                var falseRef = _alternate.Evaluate();
-                return _engine.GetValue(falseRef, true);
-            }
+            return TypeConverter.ToBoolean(_test.GetValue())
+                ? _consequent.GetValue()
+                : _alternate.GetValue();
         }
     }
 }

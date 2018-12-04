@@ -16,6 +16,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public JintCallExpression(Engine engine, CallExpression expression) : base(engine, expression)
         {
+            _initialized = false;
             _isDebugMode = engine.Options.IsDebugMode;
             _maxRecursionDepth = engine.Options.MaxRecursionDepth;
             _calleeExpression = Build(engine, expression.Callee);

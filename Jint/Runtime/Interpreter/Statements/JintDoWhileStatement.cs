@@ -46,8 +46,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                 }
 
-                var exprRef = _test.Evaluate();
-                iterating = TypeConverter.ToBoolean(_engine.GetValue(exprRef, true));
+                iterating = TypeConverter.ToBoolean(_test.GetValue());
             } while (iterating);
 
             return new Completion(CompletionType.Normal, v, null);

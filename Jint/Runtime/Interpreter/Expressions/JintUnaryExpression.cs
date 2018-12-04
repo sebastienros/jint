@@ -18,25 +18,23 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            var value = _argument.Evaluate();
-
             switch (_operator)
             {
                 case UnaryOperator.Plus:
-                    return JsNumber.Create(TypeConverter.ToNumber(_engine.GetValue(value, true)));
+                    return JsNumber.Create(TypeConverter.ToNumber(_argument.GetValue()));
 
                 case UnaryOperator.Minus:
-                    var n = TypeConverter.ToNumber(_engine.GetValue(value, true));
+                    var n = TypeConverter.ToNumber(_argument.GetValue());
                     return JsNumber.Create(double.IsNaN(n) ? double.NaN : n * -1);
 
                 case UnaryOperator.BitwiseNot:
-                    return JsNumber.Create(~TypeConverter.ToInt32(_engine.GetValue(value, true)));
+                    return JsNumber.Create(~TypeConverter.ToInt32(_argument.GetValue()));
 
                 case UnaryOperator.LogicalNot:
-                    return !TypeConverter.ToBoolean(_engine.GetValue(value, true)) ? JsBoolean.True : JsBoolean.False;
+                    return !TypeConverter.ToBoolean(_argument.GetValue()) ? JsBoolean.True : JsBoolean.False;
 
                 case UnaryOperator.Delete:
-                    var r = value as Reference;
+                    var r = _argument.Evaluate() as Reference;
                     if (r == null)
                     {
                         return JsBoolean.True;
@@ -73,10 +71,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return bindings.DeleteBinding(referencedName) ? JsBoolean.True : JsBoolean.False;
 
                 case UnaryOperator.Void:
-                    _engine.GetValue(value, true);
+                    _argument.GetValue();
                     return Undefined.Instance;
 
                 case UnaryOperator.TypeOf:
+                    var value = _argument.Evaluate();
                     r = value as Reference;
                     if (r != null)
                     {
@@ -87,7 +86,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                     }
 
-                    var v = _engine.GetValue(value, true);
+                    var v = _argument.GetValue();
 
                     if (v.IsUndefined())
                     {

@@ -22,6 +22,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public JintObjectExpression(Engine engine, ObjectExpression expression) : base(engine, expression)
         {
+            _initialized = false;
         }
 
         protected override void Initialize()
@@ -37,6 +38,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     _name = propName, _value = property
                 };
+
+                if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
+                {
+                    _valueExpressions[i] = Build(_engine, (Expression) property.Value);
+                }
             }
         }
 
@@ -57,9 +63,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
                 {
-                    var expr = _valueExpressions[i] ?? (_valueExpressions[i] = Build(_engine, (Expression) property.Value));
-                    var exprValue = expr.Evaluate();
-                    var propValue = _engine.GetValue(exprValue, true);
+                    var expr = _valueExpressions[i];
+                    var propValue = expr.GetValue();
                     propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
                 }
                 else if (property.Kind == PropertyKind.Get || property.Kind == PropertyKind.Set)

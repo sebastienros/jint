@@ -10,6 +10,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public JintNewExpression(Engine engine, NewExpression expression) : base(engine, expression)
         {
+            _initialized = false;
             _calleeExpression = Build(engine, expression.Callee);
         }
 

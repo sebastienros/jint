@@ -6,7 +6,9 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal abstract class JintExpression
     {
-        private bool _initialized;
+        // require sub-classes to set to false explicitly to skip virtual call
+        protected bool _initialized = true;
+
         protected internal readonly Engine _engine;
         protected internal readonly INode _expression;
 
@@ -16,6 +18,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             _expression = expression;
         }
 
+        /// <summary>
+        /// Resolves the underlying value for this expression.
+        /// By default uses the Engine for resolving.
+        /// </summary>
+        /// <seealso cref="JintLiteralExpression"/>
         public virtual JsValue GetValue()
         {
             return _engine.GetValue(Evaluate(), true);

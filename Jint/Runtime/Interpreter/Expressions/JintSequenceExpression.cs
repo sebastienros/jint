@@ -9,6 +9,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public JintSequenceExpression(Engine engine, SequenceExpression expression) : base(engine, expression)
         {
+            _initialized = false;
         }
 
         protected override void Initialize()

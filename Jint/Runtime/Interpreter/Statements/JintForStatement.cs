@@ -52,8 +52,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 if (_test != null)
                 {
-                    var testExprRef = _test.Evaluate();
-                    if (!TypeConverter.ToBoolean(_engine.GetValue(testExprRef, true)))
+                    if (!TypeConverter.ToBoolean(_test.GetValue()))
                     {
                         return new Completion(CompletionType.Normal, v, null);
                     }

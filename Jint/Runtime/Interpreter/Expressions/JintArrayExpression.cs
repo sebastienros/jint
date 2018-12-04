@@ -8,6 +8,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public JintArrayExpression(Engine engine, ArrayExpression expression) : base(engine, expression)
         {
+            _initialized = false;
         }
 
         protected override void Initialize()
