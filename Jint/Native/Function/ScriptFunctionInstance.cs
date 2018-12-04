@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using Esprima.Ast;
-using Jint.Native.Argument;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -86,7 +85,8 @@ namespace Jint.Native.Function
         /// <returns></returns>
         public override JsValue Call(JsValue thisArg, JsValue[] arguments)
         {
-            using (new StrictModeScope(Strict, true))
+            var strict = Strict || _engine._isStrict;
+            using (new StrictModeScope(strict, true))
             {
                 // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
                 JsValue thisBinding;
@@ -124,12 +124,10 @@ namespace Jint.Native.Function
                     
                     var value = result.GetValueOrDefault();
                     
-                    // we can safely release arguments if they don't escape the scope
-                    if (argumentInstanceRented
-                        && _engine.ExecutionContext.LexicalEnvironment?._record is DeclarativeEnvironmentRecord der
-                        && !(result.Value is ArgumentsInstance))
+                    if (argumentInstanceRented)
                     {
-                        der.ReleaseArguments();
+                        _engine.ExecutionContext.LexicalEnvironment?._record?.FunctionWasCalled();
+                        _engine.ExecutionContext.VariableEnvironment?._record?.FunctionWasCalled();
                     }
 
                     if (result.Type == CompletionType.Throw)

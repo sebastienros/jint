@@ -109,13 +109,13 @@ namespace Jint.Native.Iterator
             }
         }
 
-        public class ArrayIterator : IteratorInstance
+        public class ArrayLikeIterator : IteratorInstance
         {
             private readonly ArrayPrototype.ArrayOperations _array;
             private uint? _end;
             private uint _position;
 
-            public ArrayIterator(Engine engine, JsValue target) : base(engine)
+            public ArrayLikeIterator(Engine engine, JsValue target) : base(engine)
             {
                 if (!(target is ObjectInstance objectInstance))
                 {
@@ -216,6 +216,57 @@ namespace Jint.Native.Iterator
                 _closed = true;
                 return ValueIteratorPosition.Done;
             }
+        } 
+
+        public class ArrayLikeKeyIterator : IteratorInstance
+        {
+            private readonly ArrayPrototype.ArrayOperations _operations;
+            private uint _position;
+            private bool _closed;
+
+            public ArrayLikeKeyIterator(Engine engine, ObjectInstance objectInstance) : base(engine)
+            {
+                _operations = ArrayPrototype.ArrayOperations.For(objectInstance);
+                _position = 0;
+            }
+
+            public override ObjectInstance Next()
+            {
+                var length = _operations.GetLength();
+                if (!_closed && _position < length)
+                {
+                    return new  ValueIteratorPosition(_engine, _position++);
+                }
+
+                _closed = true;
+                return ValueIteratorPosition.Done;
+            }
+        }
+
+        public class ArrayLikeValueIterator : IteratorInstance
+        {
+            private readonly ArrayPrototype.ArrayOperations _operations;
+            private uint _position;
+            private bool _closed;
+
+            public ArrayLikeValueIterator(Engine engine, ObjectInstance objectInstance) : base(engine)
+            {
+                _operations = ArrayPrototype.ArrayOperations.For(objectInstance);
+                _position = 0;
+            }
+
+            public override ObjectInstance Next()
+            {
+                var length = _operations.GetLength();
+                if (!_closed && _position < length)
+                {
+                    _operations.TryGetValue(_position++, out var value);
+                    return new ValueIteratorPosition(_engine, value);
+                }
+
+                _closed = true;
+                return ValueIteratorPosition.Done;
+            }
         }
 
         internal class ObjectWrapper : IIterator
@@ -240,6 +291,31 @@ namespace Jint.Native.Iterator
                 {
                     ((ICallable) func).Call(_target, Arguments.Empty);
                 }
+            }
+        }
+
+        internal class StringIterator : IteratorInstance
+        {
+            private readonly string _str;
+            private int _position;
+            private bool _closed;
+
+            public StringIterator(Engine engine, string str) : base(engine)
+            {
+                _str = str;
+                _position = 0;
+            }
+
+            public override ObjectInstance Next()
+            {
+                var length = _str.Length;
+                if (!_closed && _position < length)
+                {
+                    return new ValueIteratorPosition(_engine, _str[_position++]);
+                }
+
+                _closed = true;
+                return ValueIteratorPosition.Done;
             }
         }
     }

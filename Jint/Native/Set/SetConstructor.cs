@@ -1,5 +1,5 @@
-﻿using Jint.Native.Array;
-using Jint.Native.Function;
+﻿using Jint.Native.Function;
+using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -11,7 +11,7 @@ namespace Jint.Native.Set
 {
     public sealed class SetConstructor : FunctionInstance, IConstructor
     {
-        private SetConstructor(Engine engine, string name) :  base(engine, name, null, null, false)
+        private SetConstructor(Engine engine, string name) : base(engine, name, null, null, false)
         {
         }
 
@@ -72,74 +72,42 @@ namespace Jint.Native.Set
                 Prototype = PrototypeObject,
                 Extensible = true
             };
-            if (arguments.Length > 0
-                && !arguments[0].IsUndefined()
-                && !arguments[0].IsNull())
+            if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
-                var iterator = arguments.At(0).GetIterator();
-                if (iterator != null)
-                {
-                    var setterProperty = instance.GetProperty("add");
-
-                    ICallable adder = null;
-                    if (setterProperty == null
-                        || !setterProperty.TryGetValue(instance, out var setterValue)
-                        || (adder = setterValue as ICallable) == null)
-                    {
-                        ExceptionHelper.ThrowTypeError(_engine, "add must be callable");
-                        return null;
-                    }
-
-                    var args = _engine._jsValueArrayPool.RentArray(1);
-                    try
-                    {
-                        do
-                        {
-                            var item = iterator.Next();
-                            if (item.TryGetValue("done", out var done) && done.AsBoolean())
-                            {
-                                break;
-                            }
-
-                            if (!item.TryGetValue("value", out var currentValue))
-                            {
-                                break;
-                            }
-
-                            args[0] = ExtractValueFromIteratorInstance(currentValue);
-
-                            adder.Call(instance, args);
-                        } while (true);
-                    }
-                    catch
-                    {
-                        iterator.Return();
-                        throw;
-                    }
-                    finally
-                    {
-                        _engine._jsValueArrayPool.ReturnArray(args);
-                    }
-                }
+                var iterator = arguments.At(0).GetIterator(_engine);
+                var protocol = new SetProtocol(_engine, instance, iterator);
+                protocol.Execute();
             }
 
             return instance;
         }
 
-        private static JsValue ExtractValueFromIteratorInstance(JsValue jsValue)
+        private sealed class SetProtocol : IteratorProtocol
         {
-            if (jsValue is ArrayInstance ai)
+            private readonly SetInstance _instance;
+            private readonly ICallable _adder;
+
+            public SetProtocol(
+                Engine engine,
+                SetInstance instance,
+                IIterator iterator) : base(engine, iterator, 1)
             {
-                uint index = 0;
-                if (ai.GetLength() > 1)
+                _instance = instance;
+                var setterProperty = instance.GetProperty("add");
+
+                if (setterProperty is null
+                    || !setterProperty.TryGetValue(instance, out var setterValue)
+                    || (_adder = setterValue as ICallable) is null)
                 {
-                    index = 1;
+                    ExceptionHelper.ThrowTypeError(_engine, "add must be callable");
                 }
-                ai.TryGetValue(index, out var value);
-                return value;
             }
 
-            return jsValue;
+            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+            {
+                args[0] = ExtractValueFromIteratorInstance(currentValue);
+                _adder.Call(_instance, args);
+            }
         }
     }
 }

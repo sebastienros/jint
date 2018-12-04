@@ -109,9 +109,40 @@ namespace Jint.Tests.Ecma
 
     public class Chapter15 : EcmaTest
     {
+        // couple of tests are really slow, run in parallel
+        internal const string SlowTest1 = "ch15/15.1/15.1.3/15.1.3.1/S15.1.3.1_A2.5_T1.js";
+        internal const string SlowTest2 = "ch15/15.1/15.1.3/15.1.3.1/S15.1.3.1_A2.5_T1.js";
+
         [Theory(DisplayName = "Ecma Chapter 15")]
         [MemberData(nameof(SourceFiles), parameters: new object[] {"ch15", false })]
         [MemberData(nameof(SourceFiles), parameters: new object[] {"ch15", true }, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
+        {
+            if (sourceFile.Source == SlowTest1 || sourceFile.Source == SlowTest2)
+            {
+                return;
+            }
+            
+            RunTestInternal(sourceFile);
+        }
+    }
+    
+    public class Chapter15_SlowTest1 : EcmaTest
+    {
+        [Theory(DisplayName = "Ecma Chapter 15 Slow Test 1")]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {Chapter15.SlowTest1, false })]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {Chapter15.SlowTest1, true }, Skip = "Skipped")]
+        protected void RunTest(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+    }
+        
+    public class Chapter15_SlowTest2 : EcmaTest
+    {
+        [Theory(DisplayName = "Ecma Chapter 15 Slow Test 2")]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {Chapter15.SlowTest2, false })]
+        [MemberData(nameof(SourceFiles), parameters: new object[] {Chapter15.SlowTest2, true }, Skip = "Skipped")]
         protected void RunTest(SourceFile sourceFile)
         {
             RunTestInternal(sourceFile);
@@ -217,6 +248,14 @@ namespace Jint.Tests.Ecma
 
                 if (prefix != null && !sourceFile.Source.StartsWith(prefix))
                 {
+                    continue;
+                }
+
+                if (sourceFile.Skip
+                    && (sourceFile.Reason == "part of new test suite"
+                        || sourceFile.Reason.IndexOf("configurable", StringComparison.OrdinalIgnoreCase) > -1))
+                {
+                    // we consider this obsolete and we don't need to process at all
                     continue;
                 }
 

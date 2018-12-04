@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
+using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -9,6 +10,7 @@ using Jint.Native.Function;
 using Jint.Native.Number;
 using Jint.Native.RegExp;
 using Jint.Native.String;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -18,8 +20,9 @@ namespace Jint.Native.Object
 {
     public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
-        protected Dictionary<string, PropertyDescriptor> _intrinsicProperties;
-        protected internal Dictionary<string, PropertyDescriptor> _properties;
+        private static readonly string ToPrimitiveSymbolName = GlobalSymbolRegistry.ToPrimitive._value;
+
+        internal StringDictionarySlim<PropertyDescriptor> _properties;
 
         private readonly string _class;
         protected readonly Engine _engine;
@@ -35,38 +38,6 @@ namespace Jint.Native.Object
         }
 
         public Engine Engine => _engine;
-
-        protected bool TryGetIntrinsicValue(JsSymbol symbol, out JsValue value)
-        {
-            if (_intrinsicProperties != null && _intrinsicProperties.TryGetValue(symbol.AsSymbol(), out var descriptor))
-            {
-                value = descriptor.Value;
-                return true;
-            }
-
-            if (ReferenceEquals(Prototype, null))
-            {
-                value = Undefined;
-                return false;
-            }
-
-            return Prototype.TryGetIntrinsicValue(symbol, out value);
-        }
-
-        public void SetIntrinsicValue(string name, JsValue value, bool writable, bool enumerable, bool configurable)
-        {
-            SetOwnProperty(name, new PropertyDescriptor(value, writable, enumerable, configurable));
-        }
-
-        protected void SetIntrinsicValue(JsSymbol symbol, JsValue value, bool writable, bool enumerable, bool configurable)
-        {
-            if (_intrinsicProperties == null)
-            {
-                _intrinsicProperties = new Dictionary<string, PropertyDescriptor>();
-            }
-
-            _intrinsicProperties[symbol.AsSymbol()] = new PropertyDescriptor(value, writable, enumerable, configurable);
-        }
 
         /// <summary>
         /// The prototype of this object.
@@ -102,10 +73,10 @@ namespace Jint.Native.Object
         {
             if (_properties == null)
             {
-                _properties = new Dictionary<string, PropertyDescriptor>();
+                _properties = new StringDictionarySlim<PropertyDescriptor>();
             }
 
-            _properties.Add(propertyName, descriptor);
+            _properties[propertyName] = descriptor;
         }
 
         protected virtual bool TryGetProperty(string propertyName, out PropertyDescriptor descriptor)
@@ -204,7 +175,7 @@ namespace Jint.Native.Object
 
             if (_properties == null)
             {
-                _properties = new Dictionary<string, PropertyDescriptor>();
+                _properties = new StringDictionarySlim<PropertyDescriptor>();
             }
 
             _properties[propertyName] = desc;
@@ -419,17 +390,34 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// Hint is a String. Returns a default value for the
-        /// object.
+        /// Hint is a String. Returns a default value for the object.
         /// </summary>
-        /// <param name="hint"></param>
-        /// <returns></returns>
         public JsValue DefaultValue(Types hint)
         {
             EnsureInitialized();
 
             if (hint == Types.String || (hint == Types.None && Class == "Date"))
             {
+                var jsValue = Get(ToPrimitiveSymbolName);
+                if (!jsValue.IsNullOrUndefined())
+                {
+                    if (jsValue is ICallable toPrimitive)
+                    {
+                        var str = toPrimitive.Call(this, Arguments.Empty);
+                        if (str.IsPrimitive())
+                        {
+                            return str;
+                        }
+
+                        if (str.IsObject())
+                        {
+                            return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Cannot convert object to primitive value");
+                        }
+                    }
+
+                    const string message = "'Value returned for property 'Symbol(Symbol.toPrimitive)' of object is not a function";
+                    return ExceptionHelper.ThrowTypeError<JsValue>(_engine, message);
+                }
                 if (Get("toString") is ICallable toString)
                 {
                     var str = toString.Call(this, Arguments.Empty);
@@ -453,6 +441,27 @@ namespace Jint.Native.Object
 
             if (hint == Types.Number || hint == Types.None)
             {
+                var jsValue = Get(ToPrimitiveSymbolName);
+                if (!jsValue.IsNullOrUndefined())
+                {
+                    if (jsValue is ICallable toPrimitive)
+                    {
+                        var val = toPrimitive.Call(this, Arguments.Empty);
+                        if (val.IsPrimitive())
+                        {
+                            return val;
+                        }
+
+                        if (val.IsObject())
+                        {
+                            return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Cannot convert object to primitive value");
+                        }
+                    }
+
+                    const string message = "'Value returned for property 'Symbol(Symbol.toPrimitive)' of object is not a function";
+                    return ExceptionHelper.ThrowTypeError<JsValue>(_engine, message);
+                }
+
                 if (Get("valueOf") is ICallable valueOf)
                 {
                     var val = valueOf.Call(this, Arguments.Empty);
@@ -830,7 +839,7 @@ namespace Jint.Native.Object
                 case "Arguments":
                 case "Object":
 #if __IOS__
-                                IDictionary<string, object> o = new Dictionary<string, object>();
+                                IDictionary<string, object> o = new DictionarySlim<string, object>();
 #else
                     IDictionary<string, object> o = new ExpandoObject();
 #endif
@@ -858,25 +867,35 @@ namespace Jint.Native.Object
         internal virtual bool FindWithCallback(
             JsValue[] arguments,
             out uint index,
-            out JsValue value)
+            out JsValue value,
+            bool visitUnassigned)
         {
-            uint GetLength()
+            long GetLength()
             {
                 var desc = GetProperty("length");
                 var descValue = desc.Value;
+                double len;
                 if (desc.IsDataDescriptor() && !ReferenceEquals(descValue, null))
                 {
-                    return TypeConverter.ToUint32(descValue);
+                    len = TypeConverter.ToNumber(descValue);
                 }
-
-                var getter = desc.Get ?? Undefined;
-                if (getter.IsUndefined())
+                else
                 {
-                    return 0;
+                    var getter = desc.Get ?? Undefined;
+                    if (getter.IsUndefined())
+                    {
+                        len = 0;
+                    }
+                    else
+                    {
+                        // if getter is not undefined it must be ICallable
+                        len = TypeConverter.ToNumber(((ICallable) getter).Call(this, Arguments.Empty));
+                    }
                 }
 
-                // if getter is not undefined it must be ICallable
-                return TypeConverter.ToUint32(((ICallable) getter).Call(this, Arguments.Empty));
+                return (long) System.Math.Max(
+                    0, 
+                    System.Math.Min(len, ArrayPrototype.ArrayOperations.MaxArrayLikeLength));
             }
 
             bool TryGetValue(uint idx, out JsValue jsValue)
@@ -903,7 +922,7 @@ namespace Jint.Native.Object
             var length = GetLength();
             for (uint k = 0; k < length; k++)
             {
-                if (TryGetValue(k, out var kvalue))
+                if (TryGetValue(k, out var kvalue) || visitUnassigned)
                 {
                     args[0] = kvalue;
                     args[1] = k;
@@ -933,6 +952,26 @@ namespace Jint.Native.Object
 
             ExceptionHelper.ThrowTypeError(_engine, "Argument must be callable");
             return null;
+        }
+
+        internal virtual bool IsConcatSpreadable => TryGetIsConcatSpreadable(out var isConcatSpreadable) && isConcatSpreadable;
+
+        internal virtual bool IsArrayLike => TryGetValue("length", out var lengthValue)
+                                             && lengthValue.IsNumber()
+                                             && ((JsNumber) lengthValue)._value >= 0;
+
+        protected bool TryGetIsConcatSpreadable(out bool isConcatSpreadable)
+        {
+            isConcatSpreadable = false;
+            if (TryGetValue(GlobalSymbolRegistry.IsConcatSpreadable._value, out var isConcatSpreadableValue)
+                && !ReferenceEquals(isConcatSpreadableValue, null)
+                && !isConcatSpreadableValue.IsUndefined())
+            {
+                isConcatSpreadable = TypeConverter.ToBoolean(isConcatSpreadableValue);
+                return true;
+            }
+
+            return false;
         }
 
         public override bool Equals(JsValue obj)

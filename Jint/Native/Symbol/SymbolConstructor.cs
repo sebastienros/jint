@@ -71,7 +71,7 @@ namespace Jint.Native.Symbol
                 return descString;
             }
 
-            var value = new JsSymbol(TypeConverter.ToString(description));
+            var value = new JsSymbol(description);
             return value;
         }
 

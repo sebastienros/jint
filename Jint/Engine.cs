@@ -51,7 +51,7 @@ namespace Jint
 
         // cached access
         private readonly bool _isDebugMode;
-        private readonly bool _isStrict;
+        internal readonly bool _isStrict;
         private readonly int _maxStatements;
         private readonly long _memoryLimit;
         private readonly bool _runBeforeStatementChecks;
@@ -713,10 +713,9 @@ namespace Jint
                 }
             }
 
-            var record = (EnvironmentRecord) baseValue;
-            if (ReferenceEquals(record, null))
+            if (!(baseValue is EnvironmentRecord record))
             {
-                ExceptionHelper.ThrowArgumentException();
+                return ExceptionHelper.ThrowArgumentException<JsValue>();
             }
 
             var bindingValue = record.GetBindingValue(reference._name, reference._strict);

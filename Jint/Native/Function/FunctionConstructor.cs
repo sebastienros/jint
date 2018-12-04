@@ -136,12 +136,12 @@ namespace Jint.Native.Function
             var thisArg = arguments[0];
             var argArray = arguments[1];
 
-            if (func == null)
+            if (func is null)
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                return ExceptionHelper.ThrowTypeError<object>(Engine);
             }
 
-            if (argArray.IsNull() || argArray.IsUndefined())
+            if (argArray.IsNullOrUndefined())
             {
                 return func.Call(thisArg, Arguments.Empty);
             }

@@ -1,5 +1,4 @@
 ﻿using Esprima;
-using Jint.Native.Argument;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -49,7 +48,7 @@ namespace Jint.Native.Function
                                 Engine.EnterExecutionContext(Engine.GlobalEnvironment, Engine.GlobalEnvironment, Engine.Global);
                             }
 
-                            var lexicalEnvironment = Engine.ExecutionContext.LexicalEnvironment;
+                            var lexicalEnvironment = _engine.ExecutionContext.LexicalEnvironment;
                             if (StrictModeScope.IsStrictModeCode)
                             {
                                 strictVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, lexicalEnvironment);
@@ -66,12 +65,10 @@ namespace Jint.Native.Function
                             var result = _engine.ExecuteStatement(program);
                             var value = result.GetValueOrDefault();
 
-                            // we can safely release arguments if they don't escape the scope
-                            if (argumentInstanceRented
-                                && lexicalEnvironment?._record is DeclarativeEnvironmentRecord der
-                                && !(result.Value is ArgumentsInstance))
+                            if (argumentInstanceRented)
                             {
-                                der.ReleaseArguments();
+                                lexicalEnvironment?._record?.FunctionWasCalled();
+                                _engine.ExecutionContext.VariableEnvironment?._record?.FunctionWasCalled();
                             }
 
                             if (result.Type == CompletionType.Throw)

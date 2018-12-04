@@ -53,8 +53,9 @@ You can also directly pass POCOs or anonymous objects and use them from JavaScri
 
     var engine = new Engine()
         .SetValue("p", p)
-        .Execute("p.Name === 'Mickey Mouse'")
+        .Execute("p.Name = 'Minnie'")
         ;
+    Assert.AreEqual("Minnie", p.Name);
 ```
 You can invoke JavaScript function reference
 ```c#
@@ -143,7 +144,43 @@ This example is using French as the default culture.
 
 ## Implemented features:
 
-- ECMAScript 5.1 test suite (http://test262.ecmascript.org/) 
+### ECMAScript 5.1
+
+- Complete implementation
+  - ECMAScript 5.1 test suite (http://test262.ecmascript.org/) 
+
+### ECMAScript 6.0
+
+ES6 features which are being implemented:
+- [ ] [arrows](https://github.com/lukehoban/es6features/blob/master/README.md#arrows)
+- [ ] [classes](https://github.com/lukehoban/es6features/blob/master/README.md#classes)
+- [ ] [enhanced object literals](https://github.com/lukehoban/es6features/blob/master/README.md#enhanced-object-literals)
+- [ ] [template strings](https://github.com/lukehoban/es6features/blob/master/README.md#template-strings)
+- [ ] [destructuring](https://github.com/lukehoban/es6features/blob/master/README.md#destructuring)
+- [ ] [default + rest + spread](https://github.com/lukehoban/es6features/blob/master/README.md#default--rest--spread)
+- [ ] [let + const](https://github.com/lukehoban/es6features/blob/master/README.md#let--const)
+- [x] [iterators + for..of](https://github.com/lukehoban/es6features/blob/master/README.md#iterators--forof)
+- [ ] [generators](https://github.com/lukehoban/es6features/blob/master/README.md#generators)
+- [ ] [unicode](https://github.com/lukehoban/es6features/blob/master/README.md#unicode)
+- [ ] [modules](https://github.com/lukehoban/es6features/blob/master/README.md#modules)
+- [ ] [module loaders](https://github.com/lukehoban/es6features/blob/master/README.md#module-loaders)
+- [x] [map + set](https://github.com/lukehoban/es6features/blob/master/README.md#map--set--weakmap--weakset)
+- [ ] [weakmap + weakset](https://github.com/lukehoban/es6features/blob/master/README.md#map--set--weakmap--weakset)
+- [ ] [proxies](https://github.com/lukehoban/es6features/blob/master/README.md#proxies)
+- [x] [symbols](https://github.com/lukehoban/es6features/blob/master/README.md#symbols)
+- [ ] [subclassable built-ins](https://github.com/lukehoban/es6features/blob/master/README.md#subclassable-built-ins)
+- [ ] [promises](https://github.com/lukehoban/es6features/blob/master/README.md#promises)
+- [ ] [math APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
+- [ ] [number APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
+- [x] [string APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
+- [x] [array APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
+- [ ] [object APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
+- [x] [binary and octal literals](https://github.com/lukehoban/es6features/blob/master/README.md#binary-and-octal-literals)
+- [ ] [reflect api](https://github.com/lukehoban/es6features/blob/master/README.md#reflect-api)
+- [ ] [tail calls](https://github.com/lukehoban/es6features/blob/master/README.md#tail-calls)
+
+### .NET Interoperability
+
 - Manipulate CLR objects from JavaScript, including:
   - Single values
   - Objects
@@ -161,6 +198,16 @@ This example is using French as the default culture.
   - boolean -> bool
   - Regex -> RegExp
   - Function -> Delegate
+
+### Security
+
+The following features provide you with a secure, sand-boxed environment to run user scripts.
+
+- Define memory limits, to prevent allocations from depleting the memory.
+- Enable/disable usage of BCL to prevent scripts from invoking .NET code.
+- Limit number of statements to prevent infinite loops.
+- Limit depth of calls to prevent deep recursion calls.
+- Define a timeout, to prevent scripts from taking too long to finish.
 
 Continuous Integration kindly provided by  [AppVeyor](https://www.appveyor.com)
 

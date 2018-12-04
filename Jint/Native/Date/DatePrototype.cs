@@ -590,14 +590,14 @@ namespace Jint.Native.Date
         /// </summary>
         public static double TimeWithinDay(double t)
         {
-            if (t < 0)
+            var result = t % MsPerDay;
+
+            if (result < 0)
             {
-                return ((t % MsPerDay) + MsPerDay);
+                result += MsPerDay;
             }
-            else
-            {
-                return (t % MsPerDay);
-            }
+
+            return result;
         }
 
         /// <summary>

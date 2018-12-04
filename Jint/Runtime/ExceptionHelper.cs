@@ -5,6 +5,12 @@ namespace Jint.Runtime
 {
     internal static class ExceptionHelper
     {
+        public static T ThrowSyntaxError<T>(Engine engine, string message = null)
+        {
+            ThrowSyntaxError(engine, message);
+            return default;
+        }
+
         public static void ThrowSyntaxError(Engine engine, string message = null)
         {
             throw new JavaScriptException(engine.SyntaxError, message);
@@ -31,6 +37,11 @@ namespace Jint.Runtime
             throw new JavaScriptException(engine.ReferenceError, message);
         }
 
+        public static T ThrowTypeErrorNoEngine<T>(string message = null, Exception exception = null)
+        {
+            throw new TypeErrorException(message);
+        }
+
         public static T ThrowTypeError<T>(Engine engine, string message = null, Exception exception = null)
         {
             ThrowTypeError(engine, message, exception);
@@ -40,6 +51,16 @@ namespace Jint.Runtime
         public static void ThrowTypeError(Engine engine, string message = null, Exception exception = null)
         {
             throw new JavaScriptException(engine.TypeError, message, exception);
+        }
+
+        public static T ThrowRangeError<T>(Engine engine, string message = null)
+        {
+            throw new JavaScriptException(engine.RangeError, message);
+        }
+
+        public static T ThrowRangeErrorNoEngine<T>(string message)
+        {
+            throw new RangeErrorException(message);
         }
 
         public static void ThrowRangeError(Engine engine, string message = null)
@@ -75,6 +96,11 @@ namespace Jint.Runtime
         public static void ThrowArgumentOutOfRangeException()
         {
             throw new ArgumentOutOfRangeException();
+        }
+
+        public static T ThrowNotSupportedException<T>(string message = null)
+        {
+            throw new NotSupportedException(message);
         }
 
         public static void ThrowNotSupportedException(string message = null)

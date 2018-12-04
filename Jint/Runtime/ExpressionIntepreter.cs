@@ -346,6 +346,9 @@ namespace Jint.Runtime
                 case BinaryOperator.UnsignedRightShift:
                     return (uint)TypeConverter.ToInt32(left) >> (int)(TypeConverter.ToUint32(right) & 0x1F);
 
+                case BinaryOperator.Exponentiation:
+                    return Math.Pow(TypeConverter.ToNumber(left), TypeConverter.ToNumber(right));
+
                 case BinaryOperator.InstanceOf:
                     var f = right.TryCast<FunctionInstance>();
                     if (ReferenceEquals(f, null))
@@ -657,7 +660,7 @@ namespace Jint.Runtime
 
                     if (function == null)
                     {
-                        ExceptionHelper.ThrowSyntaxError(_engine);
+                        return ExceptionHelper.ThrowSyntaxError<JsValue>(_engine);
                     }
 
                     ScriptFunctionInstance functionInstance;
@@ -744,7 +747,7 @@ namespace Jint.Runtime
             {
                 var propertyNameReference = _engine.EvaluateExpression(memberExpression.Property);
                 var propertyNameValue = _engine.GetValue(propertyNameReference, true);
-                propertyNameString = TypeConverter.ToString(propertyNameValue);
+                propertyNameString = TypeConverter.ToPropertyKey(propertyNameValue);
             }
 
             TypeConverter.CheckObjectCoercible(_engine, baseValue, memberExpression, baseReference);
@@ -765,8 +768,7 @@ namespace Jint.Runtime
                 _engine,
                 functionExpression,
                 funcEnv,
-                functionExpression.Strict
-                );
+                functionExpression.Strict);
 
             if (!string.IsNullOrEmpty(functionExpression.Id?.Name))
             {
@@ -846,10 +848,9 @@ namespace Jint.Runtime
                 }
             }
 
-            var callable = func as ICallable;
-            if (callable == null)
+            if (!(func is ICallable callable))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
             }
 
             var thisObject = Undefined.Instance;
@@ -1057,7 +1058,8 @@ namespace Jint.Runtime
                     {
                         return "object";
                     }
-                    switch (v.Type)
+
+                    switch (v._type)
                     {
                         case Types.Boolean: return "boolean";
                         case Types.Number: return "number";

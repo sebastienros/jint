@@ -1,4 +1,5 @@
 ﻿using Jint.Native.Function;
+using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -10,7 +11,7 @@ namespace Jint.Native.Map
 {
     public sealed class MapConstructor : FunctionInstance, IConstructor
     {
-        private MapConstructor(Engine engine, string name) :  base(engine, name, null, null, false)
+        private MapConstructor(Engine engine, string name) : base(engine, name, null, null, false)
         {
         }
 
@@ -72,81 +73,52 @@ namespace Jint.Native.Map
                 Extensible = true
             };
 
-            if (arguments.Length > 0
-                && !arguments[0].IsUndefined()
-                && !arguments[0].IsNull())
+            if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
-                var iterator = arguments.At(0).GetIterator();
-                if (iterator != null)
-                {
-                    var setterProperty = instance.GetProperty("set");
-
-                    ICallable setter = null;
-                    if (setterProperty == null
-                        || !setterProperty.TryGetValue(instance, out var setterValue)
-                        || (setter = setterValue as ICallable) == null)
-                    {
-                        ExceptionHelper.ThrowTypeError(_engine, "set must be callable");
-                        return null;
-                    }
-                    
-                    var args = _engine._jsValueArrayPool.RentArray(2);
-                    try
-                    {
-                        do
-                        {
-                            var item = iterator.Next();
-                            if (item.TryGetValue("done", out var done) && done.AsBoolean())
-                            {
-                                break;
-                            }
-
-                            if (!item.TryGetValue("value", out var currentValue))
-                            {
-                                break;
-                            }
-
-                            if (!(currentValue is ObjectInstance oi))
-                            {
-                                ExceptionHelper.ThrowTypeError(_engine, "iterator's value must be an object");
-                                break;
-                            }
-
-                            JsValue key = Undefined;
-                            JsValue value = Undefined;
-                            if (oi.TryGetValue("0", out var arrayIndex)
-                                && oi.TryGetValue("1", out var source))
-                            {
-                                if (source is ObjectInstance oi2)
-                                {
-                                    key = oi2.Get("0");
-                                    value = oi2.Get("1");
-                                }
-                                else
-                                {
-                                    ExceptionHelper.ThrowTypeError(_engine, "iterator's value must be an object");
-                                    break;
-                                }
-                            }
-
-                            args[0] = key;
-                            args[1] = value;
-                            setter.Call(instance, args);
-                        } while (true);
-                    }
-                    catch
-                    {
-                        iterator.Return();
-                        throw;
-                    }
-                    finally
-                    {
-                        _engine._jsValueArrayPool.ReturnArray(args);
-                    }
-                }
+                var iterator = arguments.At(0).GetIterator(_engine);
+                var mapProtocol = new MapProtocol(_engine, instance, iterator);
+                mapProtocol.Execute();
             }
 
             return instance;
+        }
+
+        private sealed class MapProtocol : IteratorProtocol
+        {
+            private readonly MapInstance _instance;
+            private readonly ICallable _setter;
+
+            public MapProtocol(
+                Engine engine,
+                MapInstance instance,
+                IIterator iterator) : base(engine, iterator, 2)
+            {
+                _instance = instance;
+                var setterProperty = instance.GetProperty("set");
+
+                if (setterProperty is null
+                    || !setterProperty.TryGetValue(instance, out var setterValue)
+                    || (_setter = setterValue as ICallable) is null)
+                {
+                    ExceptionHelper.ThrowTypeError(_engine, "set must be callable");
+                }
+            }
+
+            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+            {
+                if (!(currentValue is ObjectInstance oi))
+                {
+                    ExceptionHelper.ThrowTypeError(_engine, "iterator's value must be an object");
+                    return;
+                }
+
+                oi.TryGetValue("0", out var key);
+                oi.TryGetValue("1", out var value);
+
+                args[0] = key;
+                args[1] = value;
+                _setter.Call(_instance, args);
+            }
         }
     }
 }

@@ -90,20 +90,20 @@ namespace Jint.Native.Function
             var thisArg = arguments.At(0);
             var argArray = arguments.At(1);
 
-            if (func == null)
+            if (func is null)
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
             }
 
-            if (argArray.IsNull() || argArray.IsUndefined())
+            if (argArray.IsNullOrUndefined())
             {
                 return func.Call(thisArg, Arguments.Empty);
             }
 
             var argArrayObj = argArray.TryCast<ObjectInstance>();
-            if (ReferenceEquals(argArrayObj, null))
+            if (argArrayObj is null)
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
             }
 
             var len = ((JsNumber) argArrayObj.Get("length"))._value;
@@ -126,9 +126,9 @@ namespace Jint.Native.Function
         public JsValue CallImpl(JsValue thisObject, JsValue[] arguments)
         {
             var func = thisObject.TryCast<ICallable>();
-            if (func == null)
+            if (func is null)
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
             }
 
             return func.Call(arguments.At(0), arguments.Length == 0 ? arguments : arguments.Skip(1));
