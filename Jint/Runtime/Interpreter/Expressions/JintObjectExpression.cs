@@ -1,4 +1,7 @@
+using System.Collections.Generic;
+using System.Threading;
 using Esprima.Ast;
+using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
@@ -11,8 +14,15 @@ namespace Jint.Runtime.Interpreter.Expressions
     /// </summary>
     internal sealed class JintObjectExpression : JintExpression
     {
+        // cache key container for array iteration for less allocations
+        private static readonly ThreadLocal<HashSet<string>> _nameDuplicateChecks = new ThreadLocal<HashSet<string>>(() => new HashSet<string>());
+
         private JintExpression[] _valueExpressions;
         private ObjectProperty[] _properties;
+
+        // check if we can do a shortcut when all are object properties
+        // and don't require duplicate checking
+        private bool _canBuildFast;
 
         private class ObjectProperty
         {
@@ -30,6 +40,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             var expression = (ObjectExpression) _expression;
             _valueExpressions = new JintExpression[expression.Properties.Count];
             _properties = new ObjectProperty[expression.Properties.Count];
+
+            var propertyNames = _nameDuplicateChecks.Value;
+            propertyNames.Clear();
+
+            _canBuildFast = true;
             for (var i = 0; i < _properties.Length; i++)
             {
                 var property = expression.Properties[i];
@@ -43,12 +58,47 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     _valueExpressions[i] = Build(_engine, (Expression) property.Value);
                 }
+                else
+                {
+                    _canBuildFast = false;
+                }
+
+                _canBuildFast &= propertyNames.Add(propName);
             }
         }
 
         protected override object EvaluateInternal()
         {
-            var obj = _engine.Object.Construct(_properties.Length);
+            return _canBuildFast
+                ? BuildObjectFast()
+                : BuildObjectNormal();
+        }
+
+        /// <summary>
+        /// Version that can safely build plain object with only normal init/data fields fast.
+        /// </summary>
+        private object BuildObjectFast()
+        {
+            var obj = _engine.Object.Construct(0);
+            var properties = _properties.Length > 1
+                ? new StringDictionarySlim<PropertyDescriptor>(_properties.Length)
+                : new StringDictionarySlim<PropertyDescriptor>();
+
+            for (var i = 0; i < _properties.Length; i++)
+            {
+                var objectProperty = _properties[i];
+                var propValue = _valueExpressions[i].GetValue();
+                properties[objectProperty._name] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+            }
+
+            obj._properties = properties;
+            return obj;
+        }
+                                                
+        private object BuildObjectNormal()
+        {
+            var obj = _engine.Object.Construct(System.Math.Max(2, _properties.Length));
+            bool isStrictModeCode = StrictModeScope.IsStrictModeCode;
             for (var i = 0; i < _properties.Length; i++)
             {
                 var objectProperty = _properties[i];
@@ -69,12 +119,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else if (property.Kind == PropertyKind.Get || property.Kind == PropertyKind.Set)
                 {
-                    var function = property.Value as IFunction;
-
-                    if (function == null)
-                    {
-                        ExceptionHelper.ThrowSyntaxError(_engine);
-                    }
+                    var function = property.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(_engine);
 
                     ScriptFunctionInstance functionInstance;
                     using (new StrictModeScope(function.Strict))
@@ -83,7 +128,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             _engine,
                             function,
                             _engine.ExecutionContext.LexicalEnvironment,
-                            StrictModeScope.IsStrictModeCode
+                            isStrictModeCode
                         );
                     }
 
@@ -94,13 +139,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else
                 {
-                    ExceptionHelper.ThrowArgumentOutOfRangeException();
-                    return null;
+                    return ExceptionHelper.ThrowArgumentOutOfRangeException<object>();
                 }
 
                 if (previous != PropertyDescriptor.Undefined)
                 {
-                    DefinePropertySlow(previous, propDesc, obj, propName);
+                    DefinePropertySlow(isStrictModeCode, previous, propDesc, obj, propName);
                 }
                 else
                 {
@@ -112,14 +156,18 @@ namespace Jint.Runtime.Interpreter.Expressions
             return obj;
         }
 
-        private void DefinePropertySlow(PropertyDescriptor previous, PropertyDescriptor propDesc, ObjectInstance obj, string propName)
+        private void DefinePropertySlow(
+            bool isStrictModeCode,
+            PropertyDescriptor previous,
+            PropertyDescriptor propDesc, ObjectInstance obj, string propName)
         {
-            if (StrictModeScope.IsStrictModeCode && previous.IsDataDescriptor() && propDesc.IsDataDescriptor())
+            var previousIsDataDescriptor = previous.IsDataDescriptor();
+            if (isStrictModeCode && previousIsDataDescriptor && propDesc.IsDataDescriptor())
             {
                 ExceptionHelper.ThrowSyntaxError(_engine);
             }
 
-            if (previous.IsDataDescriptor() && propDesc.IsAccessorDescriptor())
+            if (previousIsDataDescriptor && propDesc.IsAccessorDescriptor())
             {
                 ExceptionHelper.ThrowSyntaxError(_engine);
             }

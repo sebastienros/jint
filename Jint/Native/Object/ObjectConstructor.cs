@@ -109,8 +109,8 @@ namespace Jint.Native.Object
             {
                 Extensible = true,
                 Prototype = Engine.Object.PrototypeObject,
-                _properties =  propertyCount > 0
-                    ? new StringDictionarySlim<PropertyDescriptor>(System.Math.Max(2, propertyCount))
+                _properties =  propertyCount > 1
+                    ? new StringDictionarySlim<PropertyDescriptor>(propertyCount)
                     : null
             };
 
