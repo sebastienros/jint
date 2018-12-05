@@ -17,7 +17,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
         /// </summary>
-        internal ScriptFunctionInstance(
+        public ScriptFunctionInstance(
             Engine engine, 
             IFunction functionDeclaration,
             LexicalEnvironment scope,
