@@ -6,7 +6,7 @@ using Jint.Runtime.References;
 namespace Jint.Runtime.Environments
 {
     /// <summary>
-    /// Represents a Liexical Environment (a.k.a Scope)
+    /// Represents a Lexical Environment (a.k.a Scope)
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.2
     /// </summary>
