@@ -1457,7 +1457,7 @@ namespace Jint.Native.Array
                     return _array.TryGetValue((uint) index, out value);
                 }
 
-                public override JsValue Get(ulong index) => _array.Get(TypeConverter.ToString(index));
+                public override JsValue Get(ulong index) => _array.Get((uint) index);
 
                 public override void DeleteAt(ulong index) => _array.DeleteAt((uint) index);
 

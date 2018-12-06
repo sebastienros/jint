@@ -374,6 +374,32 @@ namespace Jint.Native.Array
             return base.GetOwnProperty(propertyName);
         }
 
+        internal PropertyDescriptor GetOwnProperty(uint index)
+        {
+            if (TryGetDescriptor(index, out var result))
+            {
+                return result;
+            }
+
+            return PropertyDescriptor.Undefined;
+        }
+
+        internal JsValue Get(uint index)
+        {
+            var desc = GetProperty(index);
+            return UnwrapJsValue(desc);
+        }
+
+        internal PropertyDescriptor GetProperty(uint index)
+        {
+            var prop = GetOwnProperty(index);
+            if (prop != PropertyDescriptor.Undefined)
+            {
+                return prop;
+            }
+            return Prototype?.GetProperty(TypeConverter.ToString(index)) ?? PropertyDescriptor.Undefined;
+        }
+
         protected internal override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
         {
             if (IsArrayIndex(propertyName, out var index))
