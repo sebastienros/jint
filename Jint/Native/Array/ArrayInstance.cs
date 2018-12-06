@@ -31,6 +31,9 @@ namespace Jint.Native.Array
             }
         }
 
+        /// <summary>
+        /// Possibility to construct valid array fast, requires that supplied array does not have holes.
+        /// </summary>
         public ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine, objectClass: "Array")
         {
             int length = 0;
@@ -601,8 +604,7 @@ namespace Jint.Native.Array
 
             if (canUseDense)
             {
-                var temp = _dense;
-                if (index >= (uint) temp.Length)
+                if (index >= (uint) _dense.Length)
                 {
                     EnsureCapacity((uint) newSize);
                 }
@@ -805,6 +807,45 @@ namespace Jint.Native.Array
                 }
             }
             return array;
+        }
+
+        /// <summary>
+        /// Fast path for concatenating sane-sized arrays, we assume size has been calculated.
+        /// </summary>
+        internal void CopyValues(ArrayInstance source, uint sourceStartIndex, uint targetStartIndex, uint length)
+        {
+            if (length == 0)
+            {
+                return;
+            }
+
+            if (_dense != null && source._dense != null
+                               && _dense.Length >= targetStartIndex + length
+                               && ReferenceEquals(_dense[targetStartIndex], null))
+            {
+                uint j = 0;
+                for (uint i = sourceStartIndex; i < sourceStartIndex + length; ++i, j++)
+                {
+                    var sourcePropertyDescriptor = i < source._dense.Length && source._dense[i] != null
+                        ? source._dense[i]
+                        : source.GetProperty(i.ToString());
+
+                    _dense[targetStartIndex + j] = sourcePropertyDescriptor?._value != null
+                        ? new PropertyDescriptor(sourcePropertyDescriptor._value, PropertyFlag.ConfigurableEnumerableWritable)
+                        : null;
+                }
+            }
+            else
+            {
+                // slower version
+                for (uint k = sourceStartIndex; k < length; k++)
+                {
+                    if (source.TryGetValue(k, out var subElement))
+                    {
+                        SetIndexValue(targetStartIndex, subElement, updateLength: false);
+                    }
+                }
+            }
         }
     }
 }

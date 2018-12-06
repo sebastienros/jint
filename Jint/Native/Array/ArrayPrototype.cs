@@ -891,17 +891,24 @@ namespace Jint.Native.Array
                 ExceptionHelper.ThrowRangeError(_engine, "Invalid array length");;
             }
 
-            var a = Engine.Array.Construct((uint) (final - k));
-            uint n = 0;
-            for (; k < final; k++)
+            var length = (uint) System.Math.Max(0, (long) final - (long) k);
+            var a = Engine.Array.Construct(length);
+            if (thisObj is ArrayInstance ai)
             {
-                if (o.TryGetValue(k, out var kValue))
-                {
-                    a.SetIndexValue(n, kValue, updateLength: true);
-                }
-
-                n++;
+                a.CopyValues(ai, (uint) k, 0, length);
             }
+            else
+            {
+                // slower path
+                for (uint n = 0; k < final; k++, n++)
+                {
+                    if (o.TryGetValue(k, out var kValue))
+                    {
+                        a.SetIndexValue(n, kValue, updateLength: false);
+                    }
+                }
+            }
+            a.DefineOwnProperty("length", new PropertyDescriptor(length, PropertyFlag.None), false);
 
             return a;
         }
@@ -1060,49 +1067,42 @@ namespace Jint.Native.Array
         private JsValue Concat(JsValue thisObj, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(Engine, thisObj);
-            uint n = 0;
             var items = new List<JsValue>(arguments.Length + 1) {o};
             items.AddRange(arguments);
 
             // try to find best capacity
-            bool hasNonSpreadables = false;
+            bool hasObjectSpreadables = false;
             uint capacity = 0;
             for (var i = 0; i < items.Count; i++)
             {
                 uint increment;
                 var objectInstance = items[i] as ObjectInstance;
-                if (objectInstance == null
-                    || (hasNonSpreadables |= objectInstance.IsConcatSpreadable) == false)
+                if (objectInstance == null)
                 {
                     increment = 1;
                 }
                 else
                 {
+                    var isConcatSpreadable = objectInstance.IsConcatSpreadable;
+                    hasObjectSpreadables |= isConcatSpreadable;
                     var operations = ArrayOperations.For(objectInstance);
-                    increment = operations.GetLength();
+                    increment = isConcatSpreadable ? operations.GetLength() : 1; 
                 }
                 capacity += increment;
             }
 
+            uint n = 0;
             var a = Engine.Array.ConstructFast(capacity);
             for (var i = 0; i < items.Count; i++)
             {
                 var e = items[i];
                 if (e is ArrayInstance eArray
-                    && (!hasNonSpreadables || eArray.IsConcatSpreadable))
+                    && eArray.IsConcatSpreadable)
                 {
-                    var len = eArray.GetLength();
-                    for (uint k = 0; k < len; k++)
-                    {
-                        if (eArray.TryGetValue(k, out var subElement))
-                        {
-                            a.SetIndexValue(n, subElement, updateLength: false);
-                        }
-
-                        n++;
-                    }
+                    a.CopyValues(eArray, 0, n, eArray.GetLength());
+                    n += eArray.GetLength();
                 }
-                else if (hasNonSpreadables
+                else if (hasObjectSpreadables
                          && e is ObjectInstance oi 
                          && oi.IsConcatSpreadable)
                 {
