@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -126,22 +127,56 @@ namespace Jint.Runtime.Interpreter.Expressions
             private readonly JintExpression _left;
             private readonly JintExpression _right;
 
+            private readonly JintIdentifierExpression _leftIdentifier;
+            private bool _evalOrArguments;
+
             public Assignment(Engine engine, AssignmentExpression expression) : base(engine, expression)
             {
                 _left = Build(engine, (Expression) expression.Left);
                 _right = Build(engine, expression.Right);
+
+                _leftIdentifier = _left as JintIdentifierExpression;
+                _evalOrArguments = _leftIdentifier?._expressionName == "eval" || _leftIdentifier?._expressionName == "arguments";
             }
 
             protected override object EvaluateInternal()
             {
-                var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
                 JsValue rval = _right.GetValue();
 
-                lref.AssertValid(_engine);
+                if (_leftIdentifier == null || !SetReferenceValueFast(rval))
+                {
+                    // slower version
+                    var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
+                    lref.AssertValid(_engine);
 
-                _engine.PutValue(lref, rval);
-                _engine._referencePool.Return(lref);
+                    _engine.PutValue(lref, rval);
+                    _engine._referencePool.Return(lref);
+
+                }
                 return rval;
+            }
+
+            private bool SetReferenceValueFast(JsValue right)
+            {
+                var env = _engine.ExecutionContext.LexicalEnvironment;
+                var strict = StrictModeScope.IsStrictModeCode;
+                if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                    env,
+                    _leftIdentifier._expressionName,
+                    strict,
+                    out var environmentRecord,
+                    out _))
+                {
+                    if (strict && _evalOrArguments)
+                    {
+                        ExceptionHelper.ThrowSyntaxError(_engine);
+                    }
+
+                    environmentRecord.SetMutableBinding(_leftIdentifier._expressionName, right, strict);
+                    return true;
+                }
+
+                return false;
             }
         }
     }
