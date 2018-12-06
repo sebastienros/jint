@@ -1,22 +1,10 @@
 ﻿using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Diagnosers;
-using BenchmarkDotNet.Jobs;
 
 namespace Jint.Benchmark
 {
-    [Config(typeof(Config))]
+    [MemoryDiagnoser]
     public class StopwatchBenchmark : SingleScriptBenchmark
     {
-        private class Config : ManualConfig
-        {
-            public Config()
-            {
-                Add(Job.ShortRun);
-                Add(MemoryDiagnoser.Default);
-            }
-        }
- 
         [Params(1)]
         public override int N { get; set; }
 

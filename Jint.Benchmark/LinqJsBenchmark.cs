@@ -1,20 +1,10 @@
 ﻿using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Jobs;
 
 namespace Jint.Benchmark
 {
-    [Config(typeof(Config))]
+    [MemoryDiagnoser]
     public class LinqJsBenchmark : SingleScriptBenchmark
     {
-        private class Config : ManualConfig
-        {
-            public Config()
-            {
-                Add(Job.ShortRun);
-            }
-        }
-
         [Params(10)]
         public override int N { get; set; }
 
