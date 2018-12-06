@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -9,6 +10,9 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _argument;
         private readonly int _change;
         private readonly bool _prefix;
+
+        private readonly JintIdentifierExpression _leftIdentifier;
+        private readonly bool _evalOrArguments;
 
         public JintUpdateExpression(Engine engine, UpdateExpression expression) : base(engine, expression)
         {
@@ -26,9 +30,21 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 ExceptionHelper.ThrowArgumentException();
             }
+
+            _leftIdentifier = _argument as JintIdentifierExpression;
+            _evalOrArguments = _leftIdentifier?._expressionName == "eval" || _leftIdentifier?._expressionName == "arguments";
         }
 
         protected override object EvaluateInternal()
+        {
+            var fastResult = _leftIdentifier != null
+                ? UpdateIdentifier()
+                : null;
+
+            return fastResult ?? UpdateNonIdentifier();
+        }
+
+        private object UpdateNonIdentifier()
         {
             var value = (Reference) _argument.Evaluate();
             value.AssertValid(_engine);
@@ -41,5 +57,33 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             return JsNumber.Create(_prefix ? newValue : oldValue);
         }
+
+        private JsValue UpdateIdentifier()
+        {
+            var env = _engine.ExecutionContext.LexicalEnvironment;
+            var strict = StrictModeScope.IsStrictModeCode;
+            var name = _leftIdentifier._expressionName;
+            if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                env,
+                name,
+                strict,
+                out var environmentRecord,
+                out var value))
+            {
+                if (strict && _evalOrArguments)
+                {
+                    ExceptionHelper.ThrowSyntaxError(_engine);
+                }
+
+                var oldValue = TypeConverter.ToNumber(value);
+                var newValue = oldValue + _change;
+
+                environmentRecord.SetMutableBinding(name, newValue, strict);
+                return JsNumber.Create(_prefix ? newValue : oldValue);
+            }
+
+            return null;
+        }
+
     }
 }
