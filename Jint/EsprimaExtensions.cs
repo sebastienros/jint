@@ -5,7 +5,7 @@ using Jint.Runtime;
 
 namespace Jint
 {
-    internal static class EsprimaExtensions
+    public static class EsprimaExtensions
     {
         public static string GetKey<T>(this T expression) where T : Expression
         {

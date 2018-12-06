@@ -4,9 +4,6 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
-using PropertyDescriptor = Jint.Runtime.Descriptors.PropertyDescriptor;
-using TypeConverter = Jint.Runtime.TypeConverter;
-
 namespace Jint.Native.Array
 {
     public class ArrayInstance : ObjectInstance
@@ -34,6 +31,9 @@ namespace Jint.Native.Array
             }
         }
 
+        /// <summary>
+        /// Possibility to construct valid array fast, requires that supplied array does not have holes.
+        /// </summary>
         public ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine, objectClass: "Array")
         {
             int length = 0;
@@ -374,6 +374,32 @@ namespace Jint.Native.Array
             return base.GetOwnProperty(propertyName);
         }
 
+        internal PropertyDescriptor GetOwnProperty(uint index)
+        {
+            if (TryGetDescriptor(index, out var result))
+            {
+                return result;
+            }
+
+            return PropertyDescriptor.Undefined;
+        }
+
+        internal JsValue Get(uint index)
+        {
+            var desc = GetProperty(index);
+            return UnwrapJsValue(desc);
+        }
+
+        internal PropertyDescriptor GetProperty(uint index)
+        {
+            var prop = GetOwnProperty(index);
+            if (prop != PropertyDescriptor.Undefined)
+            {
+                return prop;
+            }
+            return Prototype?.GetProperty(TypeConverter.ToString(index)) ?? PropertyDescriptor.Undefined;
+        }
+
         protected internal override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
         {
             if (IsArrayIndex(propertyName, out var index))
@@ -604,8 +630,7 @@ namespace Jint.Native.Array
 
             if (canUseDense)
             {
-                var temp = _dense;
-                if (index >= (uint) temp.Length)
+                if (index >= (uint) _dense.Length)
                 {
                     EnsureCapacity((uint) newSize);
                 }
@@ -808,6 +833,45 @@ namespace Jint.Native.Array
                 }
             }
             return array;
+        }
+
+        /// <summary>
+        /// Fast path for concatenating sane-sized arrays, we assume size has been calculated.
+        /// </summary>
+        internal void CopyValues(ArrayInstance source, uint sourceStartIndex, uint targetStartIndex, uint length)
+        {
+            if (length == 0)
+            {
+                return;
+            }
+
+            if (_dense != null && source._dense != null
+                               && _dense.Length >= targetStartIndex + length
+                               && ReferenceEquals(_dense[targetStartIndex], null))
+            {
+                uint j = 0;
+                for (uint i = sourceStartIndex; i < sourceStartIndex + length; ++i, j++)
+                {
+                    var sourcePropertyDescriptor = i < source._dense.Length && source._dense[i] != null
+                        ? source._dense[i]
+                        : source.GetProperty(i.ToString());
+
+                    _dense[targetStartIndex + j] = sourcePropertyDescriptor?._value != null
+                        ? new PropertyDescriptor(sourcePropertyDescriptor._value, PropertyFlag.ConfigurableEnumerableWritable)
+                        : null;
+                }
+            }
+            else
+            {
+                // slower version
+                for (uint k = sourceStartIndex; k < length; k++)
+                {
+                    if (source.TryGetValue(k, out var subElement))
+                    {
+                        SetIndexValue(targetStartIndex, subElement, updateLength: false);
+                    }
+                }
+            }
         }
     }
 }

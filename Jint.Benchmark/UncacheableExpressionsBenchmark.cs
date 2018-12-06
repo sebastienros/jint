@@ -4,9 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Diagnosers;
-using BenchmarkDotNet.Jobs;
 using Jint.Native;
 using Newtonsoft.Json;
 using Undefined = Jint.Native.Undefined;
@@ -16,18 +13,9 @@ namespace Jint.Benchmark
     /// <summary>
     /// Test case for situation where object is projected via filter and map, Jint deems code as uncacheable.
     /// </summary>
-    [Config(typeof(Config))]
+    [MemoryDiagnoser]
     public class UncacheableExpressionsBenchmark
     {
-        private class Config : ManualConfig
-        {
-            public Config()
-            {
-                Add(Job.MediumRun.WithLaunchCount(1));
-                Add(MemoryDiagnoser.Default);
-            }
-        }
-
         private Document doc;
 
         private string targetObject;

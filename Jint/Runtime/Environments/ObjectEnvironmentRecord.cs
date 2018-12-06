@@ -26,6 +26,24 @@ namespace Jint.Runtime.Environments
             return _bindingObject.HasProperty(name);
         }
 
+        internal override bool TryGetBinding(string name, bool strict, out Binding binding)
+        {
+            if (!_bindingObject.HasProperty(name))
+            {
+                binding = default;
+                return false;
+            }
+
+            // we unwrap by name
+            binding = new Binding(null, false, false);
+            return true;
+        }
+
+        internal override JsValue UnwrapBindingValue(string name, bool strict, in Binding binding)
+        {
+            return GetBindingValue(name, strict);
+        }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2.2
         /// </summary>

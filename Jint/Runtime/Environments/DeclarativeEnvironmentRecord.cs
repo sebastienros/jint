@@ -1,6 +1,7 @@
 ﻿﻿using System;
 using System.Collections.Generic;
-using Esprima.Ast;
+ using System.Runtime.CompilerServices;
+ using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Argument;
@@ -118,6 +119,32 @@ namespace Jint.Runtime.Environments
             return ContainsKey(name);
         }
 
+        internal override bool TryGetBinding(string name, bool strict, out Binding binding)
+        {
+            if (_set && _key == name)
+            {
+                binding = _value;
+                return true;
+            }
+
+            if (name.Length == 9
+                && name == BindingNameArguments
+                && !ReferenceEquals(_argumentsBinding.Value, null))
+            {
+                _argumentsBindingWasAccessed = true;
+                binding = _argumentsBinding;
+                return true;
+            }
+
+            if (_dictionary != null)
+            {
+                return _dictionary.TryGetValue(name, out binding);
+            }
+
+            binding = default;
+            return false;
+        }
+
         public override void CreateMutableBinding(string name, JsValue value, bool canBeDeleted = false)
         {
             SetItem(name, new Binding(value, canBeDeleted, mutable: true));
@@ -143,7 +170,17 @@ namespace Jint.Runtime.Environments
         public override JsValue GetBindingValue(string name, bool strict)
         {
             ref var binding = ref GetExistingItem(name);
+            return UnwrapBindingValue(name, strict, binding);
+        }
 
+        internal override JsValue UnwrapBindingValue(string name, bool strict, in Binding binding)
+        {
+            return UnwrapBindingValueInternal(strict, binding);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private JsValue UnwrapBindingValueInternal(bool strict, in Binding binding)
+        {
             if (!binding.Mutable && binding.Value._type == Types.Undefined)
             {
                 if (strict)

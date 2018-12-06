@@ -112,12 +112,37 @@ namespace Jint.Runtime
             }
         }
 
+        internal static bool CanBeIndex(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return false;
+            }
+
+            char first = input[0];
+            if (first < 32 || (first > 57 && first != 73))
+            {
+                // does not start with space, +, -, number or I
+                return false;
+            }
+
+            // might be
+            return true;
+        }
+
         private static double ToNumber(string input)
         {
             // eager checks to save time and trimming
             if (string.IsNullOrEmpty(input))
             {
                 return 0;
+            }
+
+            char first = input[0];
+            if (input.Length == 1 && first >= '0' && first <= '9')
+            {
+                // simple constant number
+                return first - '0';
             }
 
             var s = StringPrototype.IsWhiteSpaceEx(input[0]) || StringPrototype.IsWhiteSpaceEx(input[input.Length - 1])

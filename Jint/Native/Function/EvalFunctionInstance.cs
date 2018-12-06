@@ -2,6 +2,7 @@
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Native.Function
 {
@@ -62,7 +63,8 @@ namespace Jint.Native.Function
                                 this, 
                                 arguments);
 
-                            var result = _engine.ExecuteStatement(program);
+                            var statement = JintStatement.Build(_engine, program);
+                            var result = statement.Execute();
                             var value = result.GetValueOrDefault();
 
                             if (argumentInstanceRented)

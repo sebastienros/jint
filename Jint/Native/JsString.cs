@@ -13,6 +13,12 @@ namespace Jint.Native
 
         public static readonly JsString Empty = new JsString("");
         private static readonly JsString NullString = new JsString("null");
+        internal static readonly JsString UndefinedString = new JsString("undefined");
+        internal static readonly JsString ObjectString = new JsString("object");
+        internal static readonly JsString FunctionString = new JsString("function");
+        internal static readonly JsString BooleanString = new JsString("boolean");
+        internal static readonly JsString StringString = new JsString("string");
+        internal static readonly JsString NumberString = new JsString("number");
 
         internal string _value;
 

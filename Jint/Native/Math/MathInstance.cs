@@ -464,22 +464,34 @@ namespace Jint.Native.Math
             var x = TypeConverter.ToNumber(arguments.At(0));
             var y = TypeConverter.ToNumber(arguments.At(1));
 
+            // check easy case where values are valid
+            if (x > 1 && y > 1 && x < int.MaxValue && y < int.MaxValue)
+            {
+                return System.Math.Pow(x, y);
+            }
+
+            if (y == 0)
+            {
+                return 1;
+            }
+            
+            return HandlePowUnlikely(y, x);
+        }
+
+        private static JsValue HandlePowUnlikely(double y, double x)
+        {
             if (double.IsNaN(y))
             {
                 return double.NaN;
             }
 
-            if (y.Equals(0))
-            {
-                return 1;
-            }
-
-            if (double.IsNaN(x) && !y.Equals(0))
+            if (double.IsNaN(x))
             {
                 return double.NaN;
             }
 
-            if (System.Math.Abs(x) > 1)
+            var absX = System.Math.Abs(x);
+            if (absX > 1)
             {
                 if (double.IsPositiveInfinity(y))
                 {
@@ -492,7 +504,7 @@ namespace Jint.Native.Math
                 }
             }
 
-            if (System.Math.Abs(x).Equals(1))
+            if (absX == 1)
             {
                 if (double.IsInfinity(y))
                 {
@@ -500,7 +512,7 @@ namespace Jint.Native.Math
                 }
             }
 
-            if (System.Math.Abs(x) < 1)
+            if (absX < 1)
             {
                 if (double.IsPositiveInfinity(y))
                 {
@@ -593,7 +605,7 @@ namespace Jint.Native.Math
             }
 
             // If x<0 and x is finite and y is finite and y is not an integer, the result is NaN.
-            if (x < 0 && !double.IsInfinity(x) && !double.IsInfinity(y) && !y.Equals((int)y))
+            if (x < 0 && !double.IsInfinity(x) && !double.IsInfinity(y) && !y.Equals((int) y))
             {
                 return double.NaN;
             }
