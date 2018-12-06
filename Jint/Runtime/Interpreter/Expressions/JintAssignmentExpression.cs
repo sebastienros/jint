@@ -128,7 +128,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             private readonly JintExpression _right;
 
             private readonly JintIdentifierExpression _leftIdentifier;
-            private bool _evalOrArguments;
+            private readonly bool _evalOrArguments;
 
             public Assignment(Engine engine, AssignmentExpression expression) : base(engine, expression)
             {
@@ -141,22 +141,28 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                JsValue rval = _right.GetValue();
-
-                if (_leftIdentifier == null || !SetReferenceValueFast(rval))
+                JsValue rval = null;
+                if (_leftIdentifier != null)
                 {
-                    // slower version
-                    var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
-                    lref.AssertValid(_engine);
-
-                    _engine.PutValue(lref, rval);
-                    _engine._referencePool.Return(lref);
-
+                    rval = AssignToIdentifier();
                 }
+
+                return rval ?? SetValue();
+            }
+
+            private JsValue SetValue()
+            {
+                // slower version
+                var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
+                lref.AssertValid(_engine);
+
+                var rval = _right.GetValue();
+                _engine.PutValue(lref, rval);
+                _engine._referencePool.Return(lref);
                 return rval;
             }
 
-            private bool SetReferenceValueFast(JsValue right)
+            private JsValue AssignToIdentifier()
             {
                 var env = _engine.ExecutionContext.LexicalEnvironment;
                 var strict = StrictModeScope.IsStrictModeCode;
@@ -172,11 +178,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                         ExceptionHelper.ThrowSyntaxError(_engine);
                     }
 
-                    environmentRecord.SetMutableBinding(_leftIdentifier._expressionName, right, strict);
-                    return true;
+                    var rval = _right.GetValue();
+                    environmentRecord.SetMutableBinding(_leftIdentifier._expressionName, rval, strict);
+                    return rval;
                 }
 
-                return false;
+                return null;
             }
         }
     }
