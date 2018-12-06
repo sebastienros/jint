@@ -22,6 +22,10 @@ namespace Jint.Runtime.Environments
         /// <returns><c>true</c> if it does and <c>false</c> if it does not.</returns>
         public abstract bool HasBinding(string name);
 
+        internal abstract bool TryGetBinding(string name, bool strict, out Binding binding);
+
+        internal abstract JsValue UnwrapBindingValue(string name, bool strict, in Binding binding);
+
         /// <summary>
         /// Creates a new mutable binding in an environment record.
         /// </summary>

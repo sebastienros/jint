@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
@@ -20,7 +19,12 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        protected override object EvaluateInternal() => GetIdentifierReference();
+        protected override object EvaluateInternal()
+        {
+            var env = _engine.ExecutionContext.LexicalEnvironment;
+            var strict = StrictModeScope.IsStrictModeCode;
+            return LexicalEnvironment.GetIdentifierReference(env, _expressionName, strict);
+        }
 
         public override JsValue GetValue()
         {
@@ -32,16 +36,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return _calculatedValue;
             }
 
-            var value = GetIdentifierReference();
-            return _engine.GetValue(value, true);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private Reference GetIdentifierReference()
-        {
             var env = _engine.ExecutionContext.LexicalEnvironment;
             var strict = StrictModeScope.IsStrictModeCode;
-            return LexicalEnvironment.GetIdentifierReference(env, _expressionName, strict);
+            return LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(env, _expressionName, strict, out _, out var value)
+                ? value
+                : _engine.GetValue(new Reference(JsValue.Undefined, _expressionName, strict), true);
         }
     }
 }
