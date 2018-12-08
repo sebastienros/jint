@@ -542,7 +542,7 @@ namespace Jint
                     _referencePool.Return(reference);
                 }
 
-                if (!(reference._baseValue._type != Types.Object && reference._baseValue._type != Types.None))
+                if (reference._baseValue._type == Types.Object)
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
                     var v = o.Get(referencedName);
