@@ -400,7 +400,7 @@ namespace Jint.Runtime
             MemberExpression expression,
             object baseReference)
         {
-            if (o._type != Types.Undefined && o._type != Types.Null)
+            if (o._type > Types.Null)
             {
                 return;
             }
@@ -414,14 +414,42 @@ namespace Jint.Runtime
             ThrowTypeError(engine, o, expression, baseReference);
         }
 
-        private static void ThrowTypeError(Engine engine, JsValue o, MemberExpression expression, object baseReference)
+        internal static void CheckObjectCoercible(
+            Engine engine,
+            JsValue o,
+            MemberExpression expression,
+            string referenceName)
         {
-            var referencedName = "The value";
-            if (baseReference is Reference reference)
+            if (o._type > Types.Null)
             {
-                referencedName = reference.GetReferencedName();
+                return;
             }
-            
+
+            var referenceResolver = engine.Options.ReferenceResolver;
+            if (referenceResolver != null && referenceResolver.CheckCoercible(o))
+            {
+                return;
+            }
+
+            ThrowTypeError(engine, o, expression, referenceName);
+        }
+
+        private static void ThrowTypeError(
+            Engine engine, 
+            JsValue o,
+            MemberExpression expression, 
+            object baseReference)
+        {
+            ThrowTypeError(engine, o, expression, (baseReference as Reference)?.GetReferencedName());
+        }
+
+        private static void ThrowTypeError(
+            Engine engine,
+            JsValue o,
+            MemberExpression expression,
+            string referencedName)
+        {
+            referencedName = referencedName ?? "The value";
             var message = $"{referencedName} is {o}";
             throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, expression.Location);
         }

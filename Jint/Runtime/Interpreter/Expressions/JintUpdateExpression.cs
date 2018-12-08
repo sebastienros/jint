@@ -1,6 +1,5 @@
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -60,13 +59,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private JsValue UpdateIdentifier()
         {
-            var env = _engine.ExecutionContext.LexicalEnvironment;
             var strict = StrictModeScope.IsStrictModeCode;
             var name = _leftIdentifier._expressionName;
-            if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                env,
+            if (TryGetIdentifierEnvironmentWithBindingValue(
                 name,
-                strict,
                 out var environmentRecord,
                 out var value))
             {
@@ -84,6 +80,5 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             return null;
         }
-
     }
 }

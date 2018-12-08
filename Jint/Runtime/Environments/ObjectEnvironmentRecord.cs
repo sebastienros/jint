@@ -35,7 +35,7 @@ namespace Jint.Runtime.Environments
             }
 
             // we unwrap by name
-            binding = new Binding(null, false, false);
+            binding = default;
             return true;
         }
 
