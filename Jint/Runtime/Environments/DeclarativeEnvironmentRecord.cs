@@ -6,8 +6,9 @@ using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Argument;
 using Jint.Native.Function;
+ using Jint.Runtime.Interpreter.Expressions;
 
-namespace Jint.Runtime.Environments
+ namespace Jint.Runtime.Environments
 {
     /// <summary>
     /// Represents a declarative environment record
@@ -260,13 +261,23 @@ namespace Jint.Runtime.Environments
         internal void AddFunctionParameters(
             FunctionInstance functionInstance,
             JsValue[] arguments,
-            ArgumentsInstance argumentsInstance)
+            ArgumentsInstance argumentsInstance,
+            IFunction functionDeclaration)
         {
             var parameters = functionInstance._formalParameters;
             bool empty = _dictionary == null && !_set;
             if (empty && parameters.Length == 1 && parameters[0].Length != BindingNameArguments.Length)
             {
                 var jsValue = arguments.Length == 0 ? Undefined : arguments[0];
+
+                if (jsValue.IsUndefined()
+                    && functionDeclaration?.Params.Count == 1
+                    && functionDeclaration.Params[0] is AssignmentPattern ap
+                    && ap.Right is Literal l)
+                {
+                    jsValue = JintLiteralExpression.ConvertToJsValue(l);
+                }
+
                 var binding = new Binding(jsValue, false, true);
                 _set = true;
                 _key = parameters[0];
@@ -274,7 +285,7 @@ namespace Jint.Runtime.Environments
             }
             else
             {
-                AddMultipleParameters(arguments, parameters);
+                AddMultipleParameters(arguments, parameters, functionDeclaration);
             }
 
             if (ReferenceEquals(_argumentsBinding.Value, null))
@@ -283,13 +294,21 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        private void AddMultipleParameters(JsValue[] arguments, string[] parameters)
+        private void AddMultipleParameters(JsValue[] arguments, string[] parameters, IFunction functionDeclaration)
         {
             bool empty = _dictionary == null && !_set;
             for (var i = 0; i < parameters.Length; i++)
             {
                 var argName = parameters[i];
                 var jsValue = i + 1 > arguments.Length ? Undefined : arguments[i];
+
+                if (jsValue.IsUndefined()
+                    && i < functionDeclaration?.Params.Count
+                    && functionDeclaration.Params[i] is AssignmentPattern ap
+                    && ap.Right is Literal l)
+                {
+                    jsValue = JintLiteralExpression.ConvertToJsValue(l);
+                }
 
                 if (empty || !TryGetValue(argName, out var existing))
                 {

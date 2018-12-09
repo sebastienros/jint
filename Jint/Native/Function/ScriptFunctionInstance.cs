@@ -11,7 +11,7 @@ namespace Jint.Native.Function
 {
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        private readonly IFunction _functionDeclaration;
+        internal readonly IFunction _functionDeclaration;
         private readonly JintStatement _functionBody;
 
         /// <summary>
@@ -67,7 +67,14 @@ namespace Jint.Native.Function
             var names = new string[count];
             for (var i = 0; i < count; ++i)
             {
-                names[i] = ((Identifier) list[i]).Name;
+                if (list[i] is Identifier identifier)
+                {
+                    names[i] = identifier.Name;
+                }
+                else if (list[i] is AssignmentPattern ap)
+                {
+                    names[i] = ((Identifier) ap.Left).Name;
+                }
             }
 
             return names;

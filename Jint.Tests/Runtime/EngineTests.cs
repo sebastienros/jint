@@ -2627,7 +2627,6 @@ function output(x) {
                 var arr1 = [1, 2];
                 var arr2 = [3, 4 ];
                 var r = [...arr2, ...arr1];
-
             ");
 
             var arrayInstance = (ArrayInstance) _engine.GetValue("r");
@@ -2645,5 +2644,22 @@ function output(x) {
             Assert.Equal("1ab", c);
         }
 
+        [Fact]
+        public void ShouldSupportDefaultsInFunctionParameters()
+        {
+            RunTest(@"
+                function f(x, y=12) {
+                  // y is 12 if not passed (or passed as undefined)
+                  return x + y;
+                }
+            ");
+
+            var function = _engine.GetValue("f");
+            var result = function.Invoke(3).ToString();
+            Assert.Equal("15", result);
+
+            result = function.Invoke(3, JsValue.Undefined).ToString();
+            Assert.Equal("15", result);
+        }
     }
 }

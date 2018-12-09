@@ -28,6 +28,7 @@ using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
+using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
 
 namespace Jint
@@ -773,9 +774,11 @@ namespace Jint
                 var argsObj = _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, env, strict);
                 canReleaseArgumentsInstance = true;
 
+                var functionDeclaration = (functionInstance as ScriptFunctionInstance)?._functionDeclaration;
+
                 if (!ReferenceEquals(der, null))
                 {
-                    der.AddFunctionParameters(functionInstance, arguments, argsObj);
+                    der.AddFunctionParameters(functionInstance, arguments, argsObj, functionDeclaration);
                 }
                 else
                 {
@@ -785,6 +788,15 @@ namespace Jint
                     {
                         var argName = parameters[i];
                         var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
+
+                        if (v.IsUndefined()
+                            && i < functionDeclaration?.Params.Count
+                            && functionDeclaration.Params[i] is AssignmentPattern ap
+                            && ap.Right is Literal l)
+                        {
+                            v = JintLiteralExpression.ConvertToJsValue(l);
+                        }
+
                         var argAlreadyDeclared = env.HasBinding(argName);
                         if (!argAlreadyDeclared)
                         {
