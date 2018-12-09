@@ -7,6 +7,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly JintExpression _calleeExpression;
         private JintExpression[] _jintArguments;
+        private bool _hasSpreads;
 
         public JintNewExpression(Engine engine, NewExpression expression) : base(engine, expression)
         {
@@ -21,14 +22,22 @@ namespace Jint.Runtime.Interpreter.Expressions
             for (var i = 0; i < _jintArguments.Length; i++)
             {
                 _jintArguments[i] = Build(_engine, (Expression) expression.Arguments[i]);
+                _hasSpreads |= _jintArguments[i] is JintSpreadExpression;
             }
         }
 
         protected override object EvaluateInternal()
         {
-            var arguments = _engine._jsValueArrayPool.RentArray(_jintArguments.Length);
-
-            BuildArguments(_jintArguments, arguments);
+            JsValue[] arguments;
+            if (_hasSpreads)
+            {
+                arguments = BuildArgumentsWithSpreads(_jintArguments);
+            }
+            else
+            {
+                arguments = _engine._jsValueArrayPool.RentArray(_jintArguments.Length);
+                BuildArguments(_jintArguments, arguments);
+            }
 
             // todo: optimize by defining a common abstract class or interface
             if (!(_calleeExpression.GetValue() is IConstructor callee))

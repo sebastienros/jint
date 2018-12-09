@@ -13,6 +13,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly int _maxRecursionDepth;
 
         private readonly JintExpression _calleeExpression;
+        private bool _hasSpreads;
 
         public JintCallExpression(Engine engine, CallExpression expression) : base(engine, expression)
         {
@@ -36,6 +37,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var expressionArgument = (Expression) expression.Arguments[i];
                 cachedArgumentsHolder.JintArguments[i] = Build(_engine, expressionArgument);
                 cacheable &= expressionArgument is Literal;
+                _hasSpreads |= expressionArgument is SpreadElement;
             }
 
             if (cacheable)
@@ -76,8 +78,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 if (cachedArguments.JintArguments.Length > 0)
                 {
-                    arguments = _engine._jsValueArrayPool.RentArray(cachedArguments.JintArguments.Length);
-                    BuildArguments(cachedArguments.JintArguments, arguments);
+                    if (_hasSpreads)
+                    {
+                        arguments = BuildArgumentsWithSpreads(cachedArguments.JintArguments);
+                    }
+                    else
+                    {
+                        arguments = _engine._jsValueArrayPool.RentArray(cachedArguments.JintArguments.Length);
+                        BuildArguments(cachedArguments.JintArguments, arguments);
+                    }
                 }
             }
 

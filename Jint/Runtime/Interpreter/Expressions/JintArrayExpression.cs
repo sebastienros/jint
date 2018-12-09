@@ -89,7 +89,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 Engine engine,
                 ArrayInstance instance,
                 IIterator iterator,
-                long startIndex) : base(engine, iterator, 2)
+                long startIndex) : base(engine, iterator, 0)
             {
                 _instance = instance;
                 _index = startIndex - 1;
