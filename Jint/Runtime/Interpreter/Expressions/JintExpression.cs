@@ -111,6 +111,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                 case Nodes.UnaryExpression:
                     return new JintUnaryExpression(engine, (UnaryExpression) expression);
 
+                case Nodes.SpreadElement:
+                    return new JintSpreadExpression(engine, (SpreadElement) expression);
+
                 default:
                     ExceptionHelper.ThrowArgumentOutOfRangeException();
                     return null;

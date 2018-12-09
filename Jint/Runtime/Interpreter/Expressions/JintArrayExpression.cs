@@ -1,10 +1,14 @@
 using Esprima.Ast;
+using Jint.Native;
+using Jint.Native.Array;
+using Jint.Native.Iterator;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintArrayExpression : JintExpression
     {
         private JintExpression[] _expressions;
+        private bool _hasSpreads;
 
         public JintArrayExpression(Engine engine, ArrayExpression expression) : base(engine, expression)
         {
@@ -22,25 +26,82 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     var expression = Build(_engine, (Expression) expr);
                     _expressions[n] = expression;
+                    _hasSpreads |= expression is JintSpreadExpression;
                 }
             }
         }
 
         protected override object EvaluateInternal()
         {
-            var a = _engine.Array.ConstructFast((uint) _expressions.Length);
+            var a = _engine.Array.ConstructFast(_hasSpreads ? 0 : (uint) _expressions.Length);
             var expressions = _expressions;
+
+            uint arrayIndexCounter = 0;
             for (uint i = 0; i < (uint) expressions.Length; i++)
             {
                 var expr = expressions[i];
-                if (expr != null)
+                if (expr == null)
+                {
+                    continue;
+                }
+
+                if (_hasSpreads && expr is JintSpreadExpression jse)
+                {
+                    jse.GetValueAndCheckIterator(out var objectInstance, out var iterator);
+                    // optimize for array
+                    if (objectInstance is ArrayInstance ai)
+                    {
+                        var length = ai.GetLength();
+                        var newLength = a.GetLength() + length;
+                        a.EnsureCapacity(newLength);
+                        a.CopyValues(ai, sourceStartIndex: 0, targetStartIndex: arrayIndexCounter, length);
+                        arrayIndexCounter += length;
+                        a.SetLength(newLength);
+                    }
+                    else
+                    {
+                        var protocol = new ArraySpreadProtocol(_engine, a, iterator, arrayIndexCounter);
+                        protocol.Execute();
+                        arrayIndexCounter += (uint) protocol._index + 1;
+                    }
+                }
+                else
                 {
                     var value = expr.GetValue();
-                    a.SetIndexValue(i, value, updateLength: false);
+                    a.SetIndexValue(arrayIndexCounter++, value, updateLength: false);
                 }
             }
 
+            if (_hasSpreads)
+            {
+                a.SetLength(arrayIndexCounter);
+            }
+
             return a;
+        }
+
+        private sealed class ArraySpreadProtocol : IteratorProtocol
+        {
+            private readonly ArrayInstance _instance;
+            internal long _index;
+
+            public ArraySpreadProtocol(
+                Engine engine,
+                ArrayInstance instance,
+                IIterator iterator,
+                long startIndex) : base(engine, iterator, 2)
+            {
+                _instance = instance;
+                _index = startIndex - 1;
+            }
+
+            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+            {
+                _index++;
+                var jsValue = ExtractValueFromIteratorInstance(currentValue);
+
+                _instance.SetIndexValue((uint) _index, jsValue, updateLength: false);
+            }
         }
     }
 }
