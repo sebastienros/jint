@@ -157,7 +157,7 @@ ES6 features which are being implemented:
 - [ ] [enhanced object literals](https://github.com/lukehoban/es6features/blob/master/README.md#enhanced-object-literals)
 - [ ] [template strings](https://github.com/lukehoban/es6features/blob/master/README.md#template-strings)
 - [ ] [destructuring](https://github.com/lukehoban/es6features/blob/master/README.md#destructuring)
-- [ ] [default + rest + spread](https://github.com/lukehoban/es6features/blob/master/README.md#default--rest--spread)
+- [x] [default + rest + spread](https://github.com/lukehoban/es6features/blob/master/README.md#default--rest--spread)
 - [ ] [let + const](https://github.com/lukehoban/es6features/blob/master/README.md#let--const)
 - [x] [iterators + for..of](https://github.com/lukehoban/es6features/blob/master/README.md#iterators--forof)
 - [ ] [generators](https://github.com/lukehoban/es6features/blob/master/README.md#generators)

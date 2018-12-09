@@ -42,6 +42,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var expr = expressions[i];
                 if (expr == null)
                 {
+                    arrayIndexCounter++;
                     continue;
                 }
 
