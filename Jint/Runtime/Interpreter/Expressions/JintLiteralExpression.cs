@@ -47,7 +47,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            return GetValue();
+            return _cachedValue ?? ResolveValue();
         }
 
         private JsValue ResolveValue()

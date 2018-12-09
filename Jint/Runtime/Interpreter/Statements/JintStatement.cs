@@ -6,9 +6,11 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal abstract class JintStatement<T> : JintStatement where T : Statement
     {
+        // require sub-classes to set to false explicitly to skip virtual call
+        protected bool _initialized = true;
+
         protected readonly Engine _engine;
         protected readonly T _statement;
-        private bool _initialized;
 
         protected JintStatement(Engine engine, T statement)
         {

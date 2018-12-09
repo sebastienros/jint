@@ -122,7 +122,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return lval;
         }
 
-        private class Assignment : JintExpression
+        internal class Assignment : JintExpression
         {
             private readonly JintExpression _left;
             private readonly JintExpression _right;
@@ -144,7 +144,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 JsValue rval = null;
                 if (_leftIdentifier != null)
                 {
-                    rval = AssignToIdentifier();
+                    rval = AssignToIdentifier(_engine, _leftIdentifier, _right, _evalOrArguments);
                 }
 
                 return rval ?? SetValue();
@@ -162,24 +162,28 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return rval;
             }
 
-            private JsValue AssignToIdentifier()
+            internal static JsValue AssignToIdentifier(
+                Engine engine,
+                JintIdentifierExpression left,
+                JintExpression right,
+                bool hasEvalOrArguments)
             {
-                var env = _engine.ExecutionContext.LexicalEnvironment;
+                var env = engine.ExecutionContext.LexicalEnvironment;
                 var strict = StrictModeScope.IsStrictModeCode;
                 if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                     env,
-                    _leftIdentifier._expressionName,
+                    left._expressionName,
                     strict,
                     out var environmentRecord,
                     out _))
                 {
-                    if (strict && _evalOrArguments)
+                    if (strict && hasEvalOrArguments)
                     {
-                        ExceptionHelper.ThrowSyntaxError(_engine);
+                        ExceptionHelper.ThrowSyntaxError(engine);
                     }
 
-                    var rval = _right.GetValue();
-                    environmentRecord.SetMutableBinding(_leftIdentifier._expressionName, rval, strict);
+                    var rval = right.GetValue();
+                    environmentRecord.SetMutableBinding(left._expressionName, rval, strict);
                     return rval;
                 }
 

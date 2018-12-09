@@ -1,6 +1,8 @@
+using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Number;
+using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -9,8 +11,8 @@ namespace Jint.Runtime.Interpreter.Expressions
         // require sub-classes to set to false explicitly to skip virtual call
         protected bool _initialized = true;
 
-        protected internal readonly Engine _engine;
-        protected internal readonly INode _expression;
+        protected readonly Engine _engine;
+        protected readonly INode _expression;
 
         protected JintExpression(Engine engine, INode expression)
         {
@@ -326,6 +328,38 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 targetArray[i] = jintExpressions[i].GetValue();
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected bool TryGetIdentifierEnvironmentWithBindingValue(
+            string expressionName,
+            out EnvironmentRecord record,
+            out JsValue value)
+        {
+            var env = _engine.ExecutionContext.LexicalEnvironment;
+            var strict = StrictModeScope.IsStrictModeCode;
+            return LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                env,
+                expressionName,
+                strict,
+                out record,
+                out value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected bool TryGetIdentifierEnvironmentWithBindingValue(
+            bool strict,
+            string expressionName,
+            out EnvironmentRecord record,
+            out JsValue value)
+        {
+            var env = _engine.ExecutionContext.LexicalEnvironment;
+            return LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                env,
+                expressionName,
+                strict,
+                out record,
+                out value);
         }
     }
 }

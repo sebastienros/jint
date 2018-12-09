@@ -36,9 +36,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return _calculatedValue;
             }
 
-            var env = _engine.ExecutionContext.LexicalEnvironment;
             var strict = StrictModeScope.IsStrictModeCode;
-            return LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(env, _expressionName, strict, out _, out var value)
+            return TryGetIdentifierEnvironmentWithBindingValue(strict, _expressionName, out _, out var value)
                 ? value
                 : _engine.GetValue(new Reference(JsValue.Undefined, _expressionName, strict), true);
         }

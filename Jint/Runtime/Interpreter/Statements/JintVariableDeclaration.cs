@@ -7,16 +7,21 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaration>
     {
+        private static readonly Completion VoidCompletion = new Completion(CompletionType.Normal, Undefined.Instance, null);
+
         private ResolvedDeclaration[] _declarations;
 
         private sealed class ResolvedDeclaration
         {
             internal JintExpression Left;
             internal JintExpression Init;
+            internal JintIdentifierExpression LeftIdentifier;
+            internal bool EvalOrArguments;
         }
 
         public JintVariableDeclaration(Engine engine, VariableDeclaration statement) : base(engine, statement)
         {
+            _initialized = false;
         }
 
         protected override void Initialize()
@@ -32,9 +37,12 @@ namespace Jint.Runtime.Interpreter.Statements
                     ? JintExpression.Build(_engine, declaration.Init)
                     : null;
 
+                var leftIdentifier = left as JintIdentifierExpression;
                 _declarations[i] = new ResolvedDeclaration
                 {
                     Left = left,
+                    LeftIdentifier = leftIdentifier,
+                    EvalOrArguments = leftIdentifier?._expressionName == "eval" || leftIdentifier?._expressionName == "arguments",
                     Init = init
                 };
             }
@@ -48,16 +56,25 @@ namespace Jint.Runtime.Interpreter.Statements
                 var declaration = declarations[i];
                 if (declaration.Init != null)
                 {
-                    var lhs = (Reference) declaration.Left.Evaluate();
-                    lhs.AssertValid(_engine);
+                    if (declaration.LeftIdentifier == null
+                        || JintAssignmentExpression.Assignment.AssignToIdentifier(
+                            _engine,
+                            declaration.LeftIdentifier,
+                            declaration.Init,
+                            declaration.EvalOrArguments) is null)
+                    {
+                        // slow path
+                        var lhs = (Reference) declaration.Left.Evaluate();
+                        lhs.AssertValid(_engine);
 
-                    var value = declaration.Init.GetValue();
-                    _engine.PutValue(lhs, value);
-                    _engine._referencePool.Return(lhs);
+                        var value = declaration.Init.GetValue();
+                        _engine.PutValue(lhs, value);
+                        _engine._referencePool.Return(lhs);
+                    }
                 }
             }
 
-            return new Completion(CompletionType.Normal, Undefined.Instance, null);
+            return VoidCompletion;
         }
     }
 }

@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -9,12 +10,18 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintMemberExpression : JintExpression
     {
         private readonly JintExpression _objectExpression;
+        private readonly JintIdentifierExpression _objectIdentifierExpression;
+        private readonly JintThisExpression _objectThisExpression;
+
         private readonly JintExpression _propertyExpression;
         private readonly string _determinedPropertyNameString;
 
         public JintMemberExpression(Engine engine, MemberExpression expression) : base(engine, expression)
         {
             _objectExpression = Build(engine, expression.Object);
+            _objectIdentifierExpression = _objectExpression as JintIdentifierExpression;
+            _objectThisExpression = _objectExpression as JintThisExpression;
+
             if (!expression.Computed)
             {
                 _determinedPropertyNameString = ((Identifier) expression.Property).Name;
@@ -28,25 +35,46 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            var baseReference = _objectExpression.Evaluate();
-            var baseValue = _engine.GetValue(baseReference, false);
+            string baseReferenceName = null;
+            JsValue baseValue = null;
+            var isStrictModeCode = StrictModeScope.IsStrictModeCode;
 
-            string propertyNameString = _determinedPropertyNameString;
-            if (propertyNameString == null)
+            if (_objectIdentifierExpression != null)
             {
-                var propertyNameReference = _propertyExpression.Evaluate();
-                var propertyNameValue = _engine.GetValue(propertyNameReference, true);
-                propertyNameString = TypeConverter.ToPropertyKey(propertyNameValue);
+                baseReferenceName = _objectIdentifierExpression._expressionName;
+                var strict = isStrictModeCode;
+                TryGetIdentifierEnvironmentWithBindingValue(
+                    strict,
+                    _objectIdentifierExpression._expressionName,
+                    out _,
+                    out baseValue);
+            }
+            else if (_objectThisExpression != null)
+            {
+                baseValue = _objectThisExpression.GetValue();
             }
 
-            TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, baseReference);
-
-            if (baseReference is Reference r)
+            if (baseValue is null)
             {
-                _engine._referencePool.Return(r);
+                // fast checks failed
+                var baseReference = _objectExpression.Evaluate();
+                if (baseReference is Reference reference)
+                {
+                    baseReferenceName = reference._name;
+                    baseValue = _engine.GetValue(reference, false);
+                    _engine._referencePool.Return(reference);
+                }
+                else
+                {
+                    baseValue = _engine.GetValue(baseReference, false);
+                }
             }
 
-            return _engine._referencePool.Rent(baseValue, propertyNameString, StrictModeScope.IsStrictModeCode);
+            var propertyNameString = _determinedPropertyNameString ?? TypeConverter.ToPropertyKey(_propertyExpression.GetValue());
+
+            TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, baseReferenceName);
+
+            return _engine._referencePool.Rent(baseValue, propertyNameString, isStrictModeCode);
         }
     }
 }
