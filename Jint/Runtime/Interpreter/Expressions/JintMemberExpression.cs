@@ -11,6 +11,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly JintExpression _objectExpression;
         private readonly JintIdentifierExpression _objectIdentifierExpression;
+        private readonly JintThisExpression _objectThisExpression;
 
         private readonly JintExpression _propertyExpression;
         private readonly string _determinedPropertyNameString;
@@ -19,6 +20,8 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             _objectExpression = Build(engine, expression.Object);
             _objectIdentifierExpression = _objectExpression as JintIdentifierExpression;
+            _objectThisExpression = _objectExpression as JintThisExpression;
+
             if (!expression.Computed)
             {
                 _determinedPropertyNameString = ((Identifier) expression.Property).Name;
@@ -46,10 +49,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                     out _,
                     out baseValue);
             }
+            else if (_objectThisExpression != null)
+            {
+                baseValue = _objectThisExpression.GetValue();
+            }
 
             if (baseValue is null)
             {
-                // fast check failed
+                // fast checks failed
                 var baseReference = _objectExpression.Evaluate();
                 if (baseReference is Reference reference)
                 {
@@ -63,13 +70,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            string propertyNameString = _determinedPropertyNameString;
-            if (propertyNameString == null)
-            {
-                var propertyNameReference = _propertyExpression.Evaluate();
-                var propertyNameValue = _engine.GetValue(propertyNameReference, true);
-                propertyNameString = TypeConverter.ToPropertyKey(propertyNameValue);
-            }
+            var propertyNameString = _determinedPropertyNameString ?? TypeConverter.ToPropertyKey(_propertyExpression.GetValue());
 
             TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, baseReferenceName);
 
