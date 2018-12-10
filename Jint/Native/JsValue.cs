@@ -177,7 +177,9 @@ namespace Jint.Native
                 return false;
             }
 
-            var obj = (ObjectInstance) callable.Call(this, Arguments.Empty);
+            var obj = callable.Call(this, Arguments.Empty) as ObjectInstance
+                      ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Result of the Symbol.iterator method is not an object");
+
             if (obj is IIterator i)
             {
                 iterator = i;
