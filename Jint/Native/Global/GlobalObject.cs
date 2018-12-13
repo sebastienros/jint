@@ -69,8 +69,10 @@ namespace Jint.Native.Global
             FastAddProperty("encodeURIComponent", new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("escape", new ClrFunctionInstance(Engine, "escape", Escape, 1), true, false, true);
             FastAddProperty("unescape", new ClrFunctionInstance(Engine, "unescape", Unescape, 1), true, false, true);
+            FastAddProperty("atob", new ClrFunctionInstance(Engine, "atob", AtoB, 1), true, false, true);
+            FastAddProperty("btoa", new ClrFunctionInstance(Engine, "btoa", BtoA, 1), true, false, true);
         }
-
+        
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.2
         /// </summary>
@@ -691,6 +693,20 @@ namespace Jint.Native.Global
             }
 
             return _stringBuilder.ToString();
+        }
+        
+        public JsValue AtoB(JsValue thisObject, JsValue[] arguments)
+        {
+            var inputString = TypeConverter.ToString(arguments.At(0));
+            byte[] bytes = System.Convert.FromBase64String(inputString);
+            return System.Text.Encoding.GetEncoding(28591).GetString(bytes);
+        }
+        
+        public JsValue BtoA(JsValue thisObject, JsValue[] arguments)
+        {
+            var inputString = TypeConverter.ToString(arguments.At(0));
+            byte[] bytes = System.Text.Encoding.GetEncoding(28591).GetBytes(inputString);
+            return System.Convert.ToBase64String(bytes);
         }
     }
 }
