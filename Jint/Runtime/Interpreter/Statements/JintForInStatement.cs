@@ -8,19 +8,28 @@ using Jint.Runtime.References;
 namespace Jint.Runtime.Interpreter.Statements
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-12.6.4
+    ///     http://www.ecma-international.org/ecma-262/5.1/#sec-12.6.4
     /// </summary>
     internal sealed class JintForInStatement : JintStatement<ForInStatement>
     {
-        private readonly JintExpression _identifier;
         private readonly JintStatement _body;
+        private readonly JintExpression _identifier;
         private readonly JintExpression _right;
 
         public JintForInStatement(Engine engine, ForInStatement statement) : base(engine, statement)
         {
-            _identifier = JintExpression.Build(engine, _statement.Left.Type == Nodes.VariableDeclaration
-                ? (Identifier) ((VariableDeclaration) _statement.Left).Declarations[0].Id
-                : (Identifier) _statement.Left);
+            if (_statement.Left.Type == Nodes.VariableDeclaration)
+            {
+                _identifier = JintExpression.Build(engine, (Identifier) ((VariableDeclaration) _statement.Left).Declarations[0].Id);
+            }
+            else if (_statement.Left.Type == Nodes.MemberExpression)
+            {
+                _identifier = JintExpression.Build(engine, ((MemberExpression) _statement.Left));
+            }
+            else
+            {
+                _identifier = JintExpression.Build(engine, (Identifier) _statement.Left);
+            }
 
             _body = Build(engine, _statement.Body);
             _right = JintExpression.Build(engine, statement.Right);
@@ -36,7 +45,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
 
             var obj = TypeConverter.ToObject(_engine, experValue);
-            JsValue v = Null.Instance;
+            var v = Undefined.Instance;
 
             // keys are constructed using the prototype chain
             var cursor = obj;

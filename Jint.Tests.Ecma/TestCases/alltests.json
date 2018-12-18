@@ -15885,13 +15885,13 @@
     source: "ch12/12.6/12.6.3/S12.6.3_A8_T3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch12/12.6/12.6.3/S12.6.3_A9.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch12/12.6/12.6.3/S12.6.3_A9.js"
   },
   {

@@ -185,13 +185,18 @@ namespace Jint.Runtime.Environments
             {
                 if (strict)
                 {
-                    ExceptionHelper.ThrowReferenceError(_engine, "Can't access an uninitialized immutable binding.");
+                    ThrowUninitializedBindingException();
                 }
 
                 return Undefined;
             }
 
             return binding.Value;
+        }
+
+        private void ThrowUninitializedBindingException()
+        {
+            throw new JavaScriptException(_engine.ReferenceError, "Can't access an uninitialized immutable binding.");
         }
 
         public override bool DeleteBinding(string name)

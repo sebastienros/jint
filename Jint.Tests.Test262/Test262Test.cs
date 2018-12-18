@@ -21,7 +21,6 @@ namespace Jint.Tests.Test262
         private static readonly Dictionary<string, string> _skipReasons =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-
         static Test262Test()
         {
             //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
@@ -67,20 +66,42 @@ namespace Jint.Tests.Test262
             }
 
             string lastError = null;
-            try
-            {
-                engine.Execute(code);
-            }
-            catch (JavaScriptException j)
-            {
-                lastError = TypeConverter.ToString(j.Error);
-            }
-            catch (Exception e)
-            {
-                lastError = e.ToString();
-            }
 
-            Assert.Null(lastError);
+            bool negative = code.IndexOf("negative:", StringComparison.Ordinal) > -1;
+            if (negative)
+            {
+                try
+                {
+                    engine.Execute(code);
+                }
+                catch (JavaScriptException j)
+                {
+                    lastError = TypeConverter.ToString(j.Error);
+                }
+                catch (Exception e)
+                {
+                    lastError = e.ToString();
+                }
+
+                Assert.NotNull(lastError);
+            }
+            else
+            {
+                try
+                {
+                    engine.Execute(code);
+                }
+                catch (JavaScriptException j)
+                {
+                    lastError = TypeConverter.ToString(j.Error);
+                }
+                catch (Exception e)
+                {
+                    lastError = e.ToString();
+                }
+
+                Assert.Null(lastError);
+            }
         }
 
         protected void RunTestInternal(SourceFile sourceFile)
@@ -121,66 +142,85 @@ namespace Jint.Tests.Test262
                     var items = features.Groups[1].Captures[0].Value.Split(",");
                     foreach (var item in items.Select(x => x.Trim()))
                     {
-                        // TODO implement
-                        if (item == "cross-realm")
+                        switch (item)
                         {
-                            skip = true;
-                            reason = "realms not implemented";
-                        }
-                        else if (item == "Symbol.species")
-                        {
-                            skip = true;
-                            reason = "Symbol.species not implemented";
-                        }
-                        else if (item == "Proxy")
-                        {
-                            skip = true;
-                            reason = "Proxies not implemented";
-                        }
-                        else if (item == "Symbol.unscopables")
-                        {
-                            skip = true;
-                            reason = "Symbol.unscopables not implemented";
-                        }
-                        else if (item == "Symbol.match")
-                        {
-                            skip = true;
-                            reason = "Symbol.match not implemented";
-                        }
-                        else if (item == "Symbol.matchAll")
-                        {
-                            skip = true;
-                            reason = "Symbol.matchAll not implemented";
-                        }
-                        else if (item == "Symbol.split")
-                        {
-                            skip = true;
-                            reason = "Symbol.split not implemented";
-                        }
-                        else if (item == "String.prototype.matchAll")
-                        {
-                            skip = true;
-                            reason = "proposal stage";
-                        }
-                        else if (item == "Symbol.search")
-                        {
-                            skip = true;
-                            reason = "Symbol.search not implemented";
-                        }
-                        else if (item == "Symbol.replace")
-                        {
-                            skip = true;
-                            reason = "Symbol.replace not implemented";
-                        }
-                        else if (item == "Symbol.toStringTag")
-                        {
-                            skip = true;
-                            reason = "Symbol.toStringTag not implemented";
-                        }
-                        else if (item == "BigInt")
-                        {
-                            skip = true;
-                            reason = "BigInt not implemented";
+                            // TODO implement
+                            case "cross-realm":
+                                skip = true;
+                                reason = "realms not implemented";
+                                break;
+                            case "tail-call-optimization":
+                                skip = true;
+                                reason = "tail-calls not implemented";
+                                break;
+                            case "class":
+                                skip = true;
+                                reason = "class keyword not implemented";
+                                break;
+                            case "Symbol.species":
+                                skip = true;
+                                reason = "Symbol.species not implemented";
+                                break;
+                            case "Proxy":
+                                skip = true;
+                                reason = "Proxies not implemented";
+                                break;
+                            case "object-spread":
+                                skip = true;
+                                reason = "Object spread not implemented";
+                                break;
+                            case "Symbol.unscopables":
+                                skip = true;
+                                reason = "Symbol.unscopables not implemented";
+                                break;
+                            case "Symbol.match":
+                                skip = true;
+                                reason = "Symbol.match not implemented";
+                                break;
+                            case "Symbol.matchAll":
+                                skip = true;
+                                reason = "Symbol.matchAll not implemented";
+                                break;
+                            case "Symbol.split":
+                                skip = true;
+                                reason = "Symbol.split not implemented";
+                                break;
+                            case "String.prototype.matchAll":
+                                skip = true;
+                                reason = "proposal stage";
+                                break;
+                            case "Symbol.search":
+                                skip = true;
+                                reason = "Symbol.search not implemented";
+                                break;
+                            case "Symbol.replace":
+                                skip = true;
+                                reason = "Symbol.replace not implemented";
+                                break;
+                            case "Symbol.toStringTag":
+                                skip = true;
+                                reason = "Symbol.toStringTag not implemented";
+                                break;
+                            case "BigInt":
+                                skip = true;
+                                reason = "BigInt not implemented";
+                                break;
+                            case "generators":
+                                skip = true;
+                                reason = "generators not implemented";
+                                break;
+                            case "destructuring-binding":
+                                skip = true;
+                                reason = "destructuring-binding not implemented";
+                                break;
+                            case "let":
+                                skip = true;
+                                reason = "let not implemented";
+                                break;
+                            case "async-functions":
+                                skip = true;
+                                reason = "async-functions not implemented";
+                                break;
                         }
                     }
                 }

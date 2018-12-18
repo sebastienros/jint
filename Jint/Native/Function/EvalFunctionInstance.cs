@@ -102,7 +102,7 @@ namespace Jint.Native.Function
             {
                 if (e.Description == Messages.InvalidLHSInAssignment)
                 {
-                    ExceptionHelper.ThrowReferenceError(_engine);
+                    ExceptionHelper.ThrowReferenceError(_engine, (string) null);
                 }
 
                 ExceptionHelper.ThrowSyntaxError(_engine);

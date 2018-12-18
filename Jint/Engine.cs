@@ -523,7 +523,7 @@ namespace Jint
                     return val;
                 }
 
-                ExceptionHelper.ThrowReferenceError(this, reference.GetReferencedName() + " is not defined");
+                ExceptionHelper.ThrowReferenceError(this, reference);
             }
 
             var baseValue = reference._baseValue;
@@ -597,7 +597,7 @@ namespace Jint
             {
                 if (reference._strict)
                 {
-                    ExceptionHelper.ThrowReferenceError(this);
+                    ExceptionHelper.ThrowReferenceError(this, reference);
                 }
 
                 Global.Put(reference._name, value, false);
