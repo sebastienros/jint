@@ -269,14 +269,8 @@ using Jint.Native.Function;
             if (empty && parameters.Length == 1 && parameters[0].Length != BindingNameArguments.Length)
             {
                 var jsValue = arguments.Length == 0 ? Undefined : arguments[0];
-
-                if (jsValue.IsUndefined()
-                    && functionDeclaration?.Params.Count == 1
-                    && functionDeclaration.Params[0] is AssignmentPattern ap
-                    && ap.Right is Literal l)
-                {
-                    jsValue = JintLiteralExpression.ConvertToJsValue(l);
-                }
+                jsValue = HandleAssignmentPatternIfNeeded(functionDeclaration, jsValue, 0);
+                jsValue = HandleRestPatternIfNeeded(_engine, functionDeclaration, arguments, 0, jsValue);
 
                 var binding = new Binding(jsValue, false, true);
                 _set = true;
@@ -302,12 +296,10 @@ using Jint.Native.Function;
                 var argName = parameters[i];
                 var jsValue = i + 1 > arguments.Length ? Undefined : arguments[i];
 
-                if (jsValue.IsUndefined()
-                    && i < functionDeclaration?.Params.Count
-                    && functionDeclaration.Params[i] is AssignmentPattern ap
-                    && ap.Right is Literal l)
+                jsValue = HandleAssignmentPatternIfNeeded(functionDeclaration, jsValue, i);
+                if (i == parameters.Length - 1)
                 {
-                    jsValue = JintLiteralExpression.ConvertToJsValue(l);
+                    jsValue = HandleRestPatternIfNeeded(_engine, functionDeclaration, arguments, i, jsValue);
                 }
 
                 if (empty || !TryGetValue(argName, out var existing))
@@ -335,6 +327,45 @@ using Jint.Native.Function;
                     }
                 }
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static JsValue HandleAssignmentPatternIfNeeded(IFunction functionDeclaration, JsValue jsValue, int index)
+        {
+            if (jsValue.IsUndefined()
+                && index < functionDeclaration?.Params.Count
+                && functionDeclaration.Params[index] is AssignmentPattern ap
+                && ap.Right is Literal l)
+            {
+                return JintLiteralExpression.ConvertToJsValue(l);
+            }
+
+            return jsValue;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static JsValue HandleRestPatternIfNeeded(
+            Engine engine,
+            IFunction functionDeclaration,
+            JsValue[] arguments,
+            int index,
+            JsValue defaultValue)
+        {
+            if (index < functionDeclaration?.Params.Count
+                && functionDeclaration.Params[index] is RestElement)
+            {
+                var count = (uint) (arguments.Length - functionDeclaration.Params.Count + 1);
+                var rest = engine.Array.ConstructFast(count);
+
+                uint targetIndex = 0;
+                for (var i = index; i < arguments.Length; ++i)
+                {
+                    rest.SetIndexValue(targetIndex++, arguments[i], updateLength: false);
+                }
+                return rest;
+            }
+
+            return defaultValue;
         }
 
         internal void AddVariableDeclarations(List<VariableDeclaration> variableDeclarations)

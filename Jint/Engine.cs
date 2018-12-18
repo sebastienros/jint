@@ -28,7 +28,6 @@ using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
-using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
 
 namespace Jint
@@ -428,7 +427,12 @@ namespace Jint
 
             using (new StrictModeScope(_isStrict || program.Strict))
             {
-                DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.HoistingScope.FunctionDeclarations, program.HoistingScope.VariableDeclarations, null, null);
+                DeclarationBindingInstantiation(
+                    DeclarationBindingType.GlobalCode,
+                    program.HoistingScope.FunctionDeclarations,
+                    program.HoistingScope.VariableDeclarations,
+                    functionInstance: null,
+                    arguments: null);
 
                 var list = new JintStatementList(this, null, program.Body);
                 var result = list.Execute();
@@ -774,7 +778,7 @@ namespace Jint
                 var argsObj = _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, env, strict);
                 canReleaseArgumentsInstance = true;
 
-                var functionDeclaration = (functionInstance as ScriptFunctionInstance)?._functionDeclaration;
+                var functionDeclaration = (functionInstance as ScriptFunctionInstance)?.FunctionDeclaration;
 
                 if (!ReferenceEquals(der, null))
                 {
@@ -788,14 +792,7 @@ namespace Jint
                     {
                         var argName = parameters[i];
                         var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
-
-                        if (v.IsUndefined()
-                            && i < functionDeclaration?.Params.Count
-                            && functionDeclaration.Params[i] is AssignmentPattern ap
-                            && ap.Right is Literal l)
-                        {
-                            v = JintLiteralExpression.ConvertToJsValue(l);
-                        }
+                        v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionDeclaration, v, i);
 
                         var argAlreadyDeclared = env.HasBinding(argName);
                         if (!argAlreadyDeclared)

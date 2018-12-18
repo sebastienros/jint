@@ -60,7 +60,7 @@ namespace Jint.Native.Function
                                 DeclarationBindingType.EvalCode,
                                 program.HoistingScope.FunctionDeclarations,
                                 program.HoistingScope.VariableDeclarations,
-                                this, 
+                                functionInstance: this, 
                                 arguments);
 
                             var statement = JintStatement.Build(_engine, program);

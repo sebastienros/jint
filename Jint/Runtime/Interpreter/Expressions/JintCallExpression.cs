@@ -31,13 +31,26 @@ namespace Jint.Runtime.Interpreter.Expressions
                 JintArguments = new JintExpression[expression.Arguments.Count]
             };
 
+            bool CanSpread(INode e)
+            {
+                return e?.Type == Nodes.SpreadElement
+                    || e is AssignmentExpression ae && ae.Right?.Type == Nodes.SpreadElement;
+            }
+
             bool cacheable = true;
             for (var i = 0; i < expression.Arguments.Count; i++)
             {
                 var expressionArgument = (Expression) expression.Arguments[i];
                 cachedArgumentsHolder.JintArguments[i] = Build(_engine, expressionArgument);
                 cacheable &= expressionArgument is Literal;
-                _hasSpreads |= expressionArgument is SpreadElement;
+                _hasSpreads |= CanSpread(expressionArgument);
+                if (expressionArgument is ArrayExpression ae)
+                {
+                    for (var elementIndex = 0; elementIndex < ae.Elements.Count; elementIndex++)
+                    {
+                        _hasSpreads |= CanSpread(ae.Elements[elementIndex]);
+                    }
+                }
             }
 
             if (cacheable)
@@ -46,7 +59,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var arguments = ArrayExt.Empty<JsValue>();
                 if (cachedArgumentsHolder.JintArguments.Length > 0)
                 {
-                    arguments = _engine._jsValueArrayPool.RentArray(cachedArgumentsHolder.JintArguments.Length);
+                    arguments = new JsValue[cachedArgumentsHolder.JintArguments.Length];
                     BuildArguments(cachedArgumentsHolder.JintArguments, arguments);
                 }
 

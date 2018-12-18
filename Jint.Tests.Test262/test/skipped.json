@@ -336,10 +336,26 @@
   },
   {
     "source": "language/statements/for/head-lhs-let.js",
-    "reason": "Esprima edge case"
+    "reason": "Esprima problem"
   },
   {
     "source": "language/statements/for-in/head-var-bound-names-dup.js",
     "reason": "destructing not implemented"
+  },
+  {
+    "source": "language/rest-parameters/with-new-target.js",
+    "reason": "classes not implemented"
+  },
+  {
+    "source": "language/rest-parameters/arrow-function.js",
+    "reason": "arrow functions not implemented"
+  },
+  {
+    "source": "language/rest-parameters/object-pattern.js",
+    "reason": "destructing not implemented"
+  },
+  {
+    "source": "language/expressions/call/trailing-comma.js",
+    "reason": "Esprima problem"
   }
 ]

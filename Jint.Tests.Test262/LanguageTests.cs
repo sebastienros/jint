@@ -2,12 +2,20 @@ using Xunit;
 
 namespace Jint.Tests.Test262
 {
-    public class ExpressionTests : Test262Test
+    public class LanguageTests : Test262Test
     {
+        [Theory(DisplayName = "language\\rest-parameters")]
+        [MemberData(nameof(SourceFiles), "language\\rest-parameters", false)]
+        [MemberData(nameof(SourceFiles), "language\\rest-parameters", true, Skip = "Skipped")]
+        protected void RestParameters(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+
         [Theory(DisplayName = "language\\expressions\\array")]
         [MemberData(nameof(SourceFiles), "language\\expressions\\array", false)]
         [MemberData(nameof(SourceFiles), "language\\expressions\\array", true, Skip = "Skipped")]
-        protected void Array(SourceFile sourceFile)
+        protected void ExpressionsArray(SourceFile sourceFile)
         {
             RunTestInternal(sourceFile);
         }
@@ -15,7 +23,7 @@ namespace Jint.Tests.Test262
         [Theory(DisplayName = "language\\expressions\\call")]
         [MemberData(nameof(SourceFiles), "language\\expressions\\call", false)]
         [MemberData(nameof(SourceFiles), "language\\expressions\\call", true, Skip = "Skipped")]
-        protected void Call(SourceFile sourceFile)
+        protected void ExpressionsCall(SourceFile sourceFile)
         {
             RunTestInternal(sourceFile);
         }
@@ -23,7 +31,7 @@ namespace Jint.Tests.Test262
         [Theory(DisplayName = "language\\expressions\\new")]
         [MemberData(nameof(SourceFiles), "language\\expressions\\new", false)]
         [MemberData(nameof(SourceFiles), "language\\expressions\\new", true, Skip = "Skipped")]
-        protected void New(SourceFile sourceFile)
+        protected void ExpressionsNew(SourceFile sourceFile)
         {
             RunTestInternal(sourceFile);
         }

@@ -29,6 +29,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                     _hasSpreads |= expression is JintSpreadExpression;
                 }
             }
+
+            // we get called from nested spread expansion in call
+            _initialized = true;
         }
 
         protected override object EvaluateInternal()
@@ -53,7 +56,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (objectInstance is ArrayInstance ai)
                     {
                         var length = ai.GetLength();
-                        var newLength = a.GetLength() + length;
+                        var newLength = arrayIndexCounter + length;
                         a.EnsureCapacity(newLength);
                         a.CopyValues(ai, sourceStartIndex: 0, targetStartIndex: arrayIndexCounter, length);
                         arrayIndexCounter += length;
@@ -63,7 +66,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         var protocol = new ArraySpreadProtocol(_engine, a, iterator, arrayIndexCounter);
                         protocol.Execute();
-                        arrayIndexCounter += (uint) protocol._index + 1;
+                        arrayIndexCounter += protocol._addedCount;
                     }
                 }
                 else
@@ -85,6 +88,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             private readonly ArrayInstance _instance;
             internal long _index;
+            internal uint _addedCount = 0;
 
             public ArraySpreadProtocol(
                 Engine engine,
@@ -99,6 +103,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             protected override void ProcessItem(JsValue[] args, JsValue currentValue)
             {
                 _index++;
+                _addedCount++;
                 var jsValue = ExtractValueFromIteratorInstance(currentValue);
 
                 _instance.SetIndexValue((uint) _index, jsValue, updateLength: false);

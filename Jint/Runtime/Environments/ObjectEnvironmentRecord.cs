@@ -97,6 +97,11 @@ namespace Jint.Runtime.Environments
             return ArrayExt.Empty<string>();
         }
 
+        public override bool Equals(JsValue other)
+        {
+            return ReferenceEquals(_bindingObject, other);
+        }
+
         internal override void FunctionWasCalled()
         {
         }
