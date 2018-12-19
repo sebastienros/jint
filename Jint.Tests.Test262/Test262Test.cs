@@ -68,38 +68,25 @@ namespace Jint.Tests.Test262
             string lastError = null;
 
             bool negative = code.IndexOf("negative:", StringComparison.Ordinal) > -1;
+            try
+            {
+                engine.Execute(code);
+            }
+            catch (JavaScriptException j)
+            {
+                lastError = TypeConverter.ToString(j.Error);
+            }
+            catch (Exception e)
+            {
+                lastError = e.ToString();
+            }
+
             if (negative)
             {
-                try
-                {
-                    engine.Execute(code);
-                }
-                catch (JavaScriptException j)
-                {
-                    lastError = TypeConverter.ToString(j.Error);
-                }
-                catch (Exception e)
-                {
-                    lastError = e.ToString();
-                }
-
                 Assert.NotNull(lastError);
             }
             else
             {
-                try
-                {
-                    engine.Execute(code);
-                }
-                catch (JavaScriptException j)
-                {
-                    lastError = TypeConverter.ToString(j.Error);
-                }
-                catch (Exception e)
-                {
-                    lastError = e.ToString();
-                }
-
                 Assert.Null(lastError);
             }
         }
