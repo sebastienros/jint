@@ -35,7 +35,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var expressionArgument = (Expression) expression.Arguments[i];
                 cachedArgumentsHolder.JintArguments[i] = Build(_engine, expressionArgument);
-                cacheable &= (expressionArgument is Literal || expressionArgument is FunctionExpression);
+                cacheable &= expressionArgument is Literal;
             }
 
             if (cacheable)

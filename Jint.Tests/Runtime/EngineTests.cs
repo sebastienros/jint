@@ -4,7 +4,10 @@ using System.IO;
 using System.Reflection;
 using Esprima;
 using Esprima.Ast;
+using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Number;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
@@ -156,6 +159,7 @@ namespace Jint.Tests.Runtime
             ");
 
         }
+
 
         [Fact]
         public void FunctionConstructorCall()
@@ -2505,5 +2509,93 @@ namespace Jint.Tests.Runtime
             Assert.Equal("concatwelldone", result);
         }
 
+        [Fact]
+        public void ComplexMappingAndReducing()
+        {
+            const string program = @"
+Object.map = function (o, f, ctx) {
+    ctx = ctx || this;
+    var result = [];
+    Object.keys(o).forEach(function(k) {
+        result.push(f.call(ctx, o[k], k));
+	});
+    return result;
+};
+
+var x1 = {""Value"":1.0,""Elements"":[{""Name"":""a"",""Value"":""b"",""Decimal"":3.2},{""Name"":""a"",""Value"":""b"",""Decimal"": 3.5}],""Values"":{""test"": 2,""test1"":3,""test2"": 4}}
+var x2 = {""Value"":2.0,""Elements"":[{""Name"":""aa"",""Value"":""ba"",""Decimal"":3.5}],""Values"":{""test"":1,""test1"":2,""test2"":3}};
+
+function output(x) {
+	var elements = x.Elements.map(function(a){return a.Decimal;});
+	var values = x.Values;
+	var generated = x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {});
+	return {
+        TestDictionary1 : values, 
+        TestDictionary2 : x.Values, 
+        TestDictionaryDirectAccess1 : Object.keys(x.Values).length,
+        TestDictionaryDirectAccess2 : Object.keys(x.Values),
+        TestDictionaryDirectAccess4 : Object.keys(x.Values).map(function(a){return x.Values[a];}),
+        TestDictionarySum1 : Object.keys(values).map(function(a){return{Key: a,Value:values[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0),
+        TestDictionarySum2 : Object.keys(x.Values).map(function(a){return{Key: a,Value:x.Values[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0),
+        TestDictionarySum3 : Object.keys(x.Values).map(function(a){return x.Values[a];}).reduce(function(a, b) { return a + b; }, 0),
+        TestDictionaryAverage1 : Object.keys(values).map(function(a){return{Key: a,Value:values[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(values).length||1),
+        TestDictionaryAverage2 : Object.keys(x.Values).map(function(a){return{Key: a,Value:x.Values[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(x.Values).length||1),
+        TestDictionaryAverage3 : Object.keys(x.Values).map(function(a){return x.Values[a];}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(x.Values).map(function(a){return x.Values[a];}).length||1),
+        TestDictionaryFunc1 : Object.keys(x.Values).length,
+        TestDictionaryFunc2 : Object.map(x.Values, function(v, k){ return v;}),
+        TestGeneratedDictionary1 : generated,
+        TestGeneratedDictionary2 : x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {}),
+        TestGeneratedDictionary3 : Object.keys(generated).length,
+        TestGeneratedDictionarySum1 : Object.keys(generated).map(function(a){return{Key: a,Value:generated[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0),
+        TestGeneratedDictionarySum2 : Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).map(function(a){return{Key: a,Value:x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0),
+        TestGeneratedDictionaryAverage1 : Object.keys(generated).map(function(a){return{Key: a,Value:generated[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(generated).length||1),
+        TestGeneratedDictionaryAverage2 : Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).map(function(a){return{Key: a,Value:x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).length||1), 
+        TestGeneratedDictionaryDirectAccess1 : Object.keys(generated),
+        TestGeneratedDictionaryDirectAccess2 : Object.keys(generated).map(function(a){return generated[a];}),
+        TestGeneratedDictionaryDirectAccess3 : Object.keys(generated).length, 
+        TestList1 : elements.reduce(function(a, b) { return a + b; }, 0), 
+        TestList2 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0),
+        TestList3 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0),
+        TestList4 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0)/(x.Elements.length||1),
+        TestList5 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0)/(x.Elements.map((function(a){return a.Decimal;})).length||1)
+    };
+};
+";
+            _engine.Execute(program);
+            var result1 = (ObjectInstance) _engine.Execute("output(x1)").GetCompletionValue();
+            var result2 = (ObjectInstance) _engine.Execute("output(x2)").GetCompletionValue();
+
+            Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum1")));
+            Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum2")));
+            Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum3")));
+
+            Assert.Equal(3, TypeConverter.ToNumber(result1.Get("TestDictionaryAverage1")));
+            Assert.Equal(3, TypeConverter.ToNumber(result1.Get("TestDictionaryAverage2")));
+            Assert.Equal(3, TypeConverter.ToNumber(result1.Get("TestDictionaryAverage3")));
+
+            Assert.Equal(3, TypeConverter.ToNumber(result1.Get("TestDictionaryFunc1")));
+            Assert.Equal(1, TypeConverter.ToNumber(result1.Get("TestGeneratedDictionary3")));
+
+            Assert.Equal(3.5, TypeConverter.ToNumber(result1.Get("TestGeneratedDictionarySum1")));
+            Assert.Equal(3.5, TypeConverter.ToNumber(result1.Get("TestGeneratedDictionarySum2")));
+            Assert.Equal(3.5, TypeConverter.ToNumber(result1.Get("TestGeneratedDictionaryAverage1")));
+            Assert.Equal(3.5, TypeConverter.ToNumber(result1.Get("TestGeneratedDictionaryAverage2")));
+
+            Assert.Equal(1, TypeConverter.ToNumber(result1.Get("TestGeneratedDictionaryDirectAccess3")));
+
+            Assert.Equal(6.7, TypeConverter.ToNumber(result1.Get("TestList1")));
+            Assert.Equal(6.7, TypeConverter.ToNumber(result1.Get("TestList2")));
+            Assert.Equal(6.7, TypeConverter.ToNumber(result1.Get("TestList3")));
+            Assert.Equal(3.35, TypeConverter.ToNumber(result1.Get("TestList4")));
+            Assert.Equal(3.35, TypeConverter.ToNumber(result1.Get("TestList5")));
+
+            Assert.Equal(6, TypeConverter.ToNumber(result2.Get("TestDictionarySum1")));
+            Assert.Equal(6, TypeConverter.ToNumber(result2.Get("TestDictionarySum2")));
+            Assert.Equal(6, TypeConverter.ToNumber(result2.Get("TestDictionarySum3")));
+
+            Assert.Equal(2, TypeConverter.ToNumber(result2.Get("TestDictionaryAverage1")));
+            Assert.Equal(2, TypeConverter.ToNumber(result2.Get("TestDictionaryAverage2")));
+            Assert.Equal(2, TypeConverter.ToNumber(result2.Get("TestDictionaryAverage3")));
+        }
     }
 }
