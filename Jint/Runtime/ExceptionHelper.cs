@@ -1,5 +1,6 @@
 ﻿using System;
 using Jint.Runtime.CallStack;
+using Jint.Runtime.References;
 
 namespace Jint.Runtime
 {
@@ -32,8 +33,14 @@ namespace Jint.Runtime
             throw new ArgumentException(message, paramName);
         }
 
-        public static void ThrowReferenceError(Engine engine, string message = null)
+        public static void ThrowReferenceError(Engine engine, Reference reference)
         {
+            ThrowReferenceError(engine, reference?.GetReferencedName());
+        }
+
+        public static void ThrowReferenceError(Engine engine, string name)
+        {
+            var message = name != null ? name + " is not defined" : null;
             throw new JavaScriptException(engine.ReferenceError, message);
         }
 

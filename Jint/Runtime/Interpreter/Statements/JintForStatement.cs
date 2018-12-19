@@ -67,7 +67,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 var stmtType = stmt.Type;
                 if (stmtType == CompletionType.Break && (stmt.Identifier == null || stmt.Identifier == _statement?.LabelSet?.Name))
                 {
-                    return new Completion(CompletionType.Normal, v, null);
+                    return new Completion(CompletionType.Normal, stmt.Value, null);
                 }
 
                 if (stmtType != CompletionType.Continue || ((stmt.Identifier != null) && stmt.Identifier != _statement?.LabelSet?.Name))

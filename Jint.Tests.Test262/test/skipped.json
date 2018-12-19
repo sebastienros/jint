@@ -289,5 +289,57 @@
   {
     "source": "built-ins/StringIteratorPrototype/next/next-iteration-surrogate-pairs.js",
     "reason": "code point iteration not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-const-bound-names-fordecl-tdz.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-const-fresh-binding-per-iteration.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-decl-expr.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-let-bound-names-fordecl-tdz.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-let-destructuring.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-let-fresh-binding-per-iteration.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-lhs-let.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/scope-head-var-none.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for/head-const-fresh-binding-per-iteration.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for/head-let-destructuring.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for/head-let-fresh-binding-per-iteration.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for/head-lhs-let.js",
+    "reason": "Esprima edge case"
+  },
+  {
+    "source": "language/statements/for-in/head-var-bound-names-dup.js",
+    "reason": "destructing not implemented"
   }
 ]

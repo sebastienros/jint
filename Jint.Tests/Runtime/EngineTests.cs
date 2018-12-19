@@ -109,6 +109,22 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldHaveProperReferenceErrorMessage()
+        {
+            RunTest(@"
+                'use strict';
+                var arr = [1, 2];
+                try {
+                    for (i in arr) { }
+                    assert(false);
+                }
+                catch (ex) {
+                    assert(ex.message === 'i is not defined');
+                }
+            ");
+        }
+
+        [Fact]
         public void ShouldEvaluateHasOwnProperty()
         {
             RunTest(@"
