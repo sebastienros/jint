@@ -427,7 +427,12 @@ namespace Jint
 
             using (new StrictModeScope(_isStrict || program.Strict))
             {
-                DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.HoistingScope.FunctionDeclarations, program.HoistingScope.VariableDeclarations, null, null);
+                DeclarationBindingInstantiation(
+                    DeclarationBindingType.GlobalCode,
+                    program.HoistingScope.FunctionDeclarations,
+                    program.HoistingScope.VariableDeclarations,
+                    functionInstance: null,
+                    arguments: null);
 
                 var list = new JintStatementList(this, null, program.Body);
                 var result = list.Execute();
@@ -773,9 +778,11 @@ namespace Jint
                 var argsObj = _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, env, strict);
                 canReleaseArgumentsInstance = true;
 
+                var functionDeclaration = (functionInstance as ScriptFunctionInstance)?.FunctionDeclaration;
+
                 if (!ReferenceEquals(der, null))
                 {
-                    der.AddFunctionParameters(functionInstance, arguments, argsObj);
+                    der.AddFunctionParameters(functionInstance, arguments, argsObj, functionDeclaration);
                 }
                 else
                 {
@@ -785,6 +792,8 @@ namespace Jint
                     {
                         var argName = parameters[i];
                         var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
+                        v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionDeclaration, v, i);
+
                         var argAlreadyDeclared = env.HasBinding(argName);
                         if (!argAlreadyDeclared)
                         {

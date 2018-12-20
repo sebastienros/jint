@@ -40,7 +40,7 @@ namespace Jint.Native.Function
             string[] parameters,
             LexicalEnvironment scope,
             bool strict,
-            in string objectClass)
+            string objectClass)
             : base(engine, objectClass)
         {
             _name = new PropertyDescriptor(name, PropertyFlag.Configurable);

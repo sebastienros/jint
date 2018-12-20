@@ -6,8 +6,9 @@ using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Argument;
 using Jint.Native.Function;
+ using Jint.Runtime.Interpreter.Expressions;
 
-namespace Jint.Runtime.Environments
+ namespace Jint.Runtime.Environments
 {
     /// <summary>
     /// Represents a declarative environment record
@@ -260,13 +261,17 @@ namespace Jint.Runtime.Environments
         internal void AddFunctionParameters(
             FunctionInstance functionInstance,
             JsValue[] arguments,
-            ArgumentsInstance argumentsInstance)
+            ArgumentsInstance argumentsInstance,
+            IFunction functionDeclaration)
         {
             var parameters = functionInstance._formalParameters;
             bool empty = _dictionary == null && !_set;
             if (empty && parameters.Length == 1 && parameters[0].Length != BindingNameArguments.Length)
             {
                 var jsValue = arguments.Length == 0 ? Undefined : arguments[0];
+                jsValue = HandleAssignmentPatternIfNeeded(functionDeclaration, jsValue, 0);
+                jsValue = HandleRestPatternIfNeeded(_engine, functionDeclaration, arguments, 0, jsValue);
+
                 var binding = new Binding(jsValue, false, true);
                 _set = true;
                 _key = parameters[0];
@@ -274,7 +279,7 @@ namespace Jint.Runtime.Environments
             }
             else
             {
-                AddMultipleParameters(arguments, parameters);
+                AddMultipleParameters(arguments, parameters, functionDeclaration);
             }
 
             if (ReferenceEquals(_argumentsBinding.Value, null))
@@ -283,13 +288,19 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        private void AddMultipleParameters(JsValue[] arguments, string[] parameters)
+        private void AddMultipleParameters(JsValue[] arguments, string[] parameters, IFunction functionDeclaration)
         {
             bool empty = _dictionary == null && !_set;
             for (var i = 0; i < parameters.Length; i++)
             {
                 var argName = parameters[i];
                 var jsValue = i + 1 > arguments.Length ? Undefined : arguments[i];
+
+                jsValue = HandleAssignmentPatternIfNeeded(functionDeclaration, jsValue, i);
+                if (i == parameters.Length - 1)
+                {
+                    jsValue = HandleRestPatternIfNeeded(_engine, functionDeclaration, arguments, i, jsValue);
+                }
 
                 if (empty || !TryGetValue(argName, out var existing))
                 {
@@ -316,6 +327,45 @@ namespace Jint.Runtime.Environments
                     }
                 }
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static JsValue HandleAssignmentPatternIfNeeded(IFunction functionDeclaration, JsValue jsValue, int index)
+        {
+            if (jsValue.IsUndefined()
+                && index < functionDeclaration?.Params.Count
+                && functionDeclaration.Params[index] is AssignmentPattern ap
+                && ap.Right is Literal l)
+            {
+                return JintLiteralExpression.ConvertToJsValue(l);
+            }
+
+            return jsValue;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static JsValue HandleRestPatternIfNeeded(
+            Engine engine,
+            IFunction functionDeclaration,
+            JsValue[] arguments,
+            int index,
+            JsValue defaultValue)
+        {
+            if (index < functionDeclaration?.Params.Count
+                && functionDeclaration.Params[index] is RestElement)
+            {
+                var count = (uint) (arguments.Length - functionDeclaration.Params.Count + 1);
+                var rest = engine.Array.ConstructFast(count);
+
+                uint targetIndex = 0;
+                for (var i = index; i < arguments.Length; ++i)
+                {
+                    rest.SetIndexValue(targetIndex++, arguments[i], updateLength: false);
+                }
+                return rest;
+            }
+
+            return defaultValue;
         }
 
         internal void AddVariableDeclarations(List<VariableDeclaration> variableDeclarations)

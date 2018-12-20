@@ -13,6 +13,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly int _maxRecursionDepth;
 
         private readonly JintExpression _calleeExpression;
+        private bool _hasSpreads;
 
         public JintCallExpression(Engine engine, CallExpression expression) : base(engine, expression)
         {
@@ -30,12 +31,26 @@ namespace Jint.Runtime.Interpreter.Expressions
                 JintArguments = new JintExpression[expression.Arguments.Count]
             };
 
+            bool CanSpread(INode e)
+            {
+                return e?.Type == Nodes.SpreadElement
+                    || e is AssignmentExpression ae && ae.Right?.Type == Nodes.SpreadElement;
+            }
+
             bool cacheable = true;
             for (var i = 0; i < expression.Arguments.Count; i++)
             {
                 var expressionArgument = (Expression) expression.Arguments[i];
                 cachedArgumentsHolder.JintArguments[i] = Build(_engine, expressionArgument);
                 cacheable &= expressionArgument is Literal;
+                _hasSpreads |= CanSpread(expressionArgument);
+                if (expressionArgument is ArrayExpression ae)
+                {
+                    for (var elementIndex = 0; elementIndex < ae.Elements.Count; elementIndex++)
+                    {
+                        _hasSpreads |= CanSpread(ae.Elements[elementIndex]);
+                    }
+                }
             }
 
             if (cacheable)
@@ -44,7 +59,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var arguments = ArrayExt.Empty<JsValue>();
                 if (cachedArgumentsHolder.JintArguments.Length > 0)
                 {
-                    arguments = _engine._jsValueArrayPool.RentArray(cachedArgumentsHolder.JintArguments.Length);
+                    arguments = new JsValue[cachedArgumentsHolder.JintArguments.Length];
                     BuildArguments(cachedArgumentsHolder.JintArguments, arguments);
                 }
 
@@ -76,8 +91,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 if (cachedArguments.JintArguments.Length > 0)
                 {
-                    arguments = _engine._jsValueArrayPool.RentArray(cachedArguments.JintArguments.Length);
-                    BuildArguments(cachedArguments.JintArguments, arguments);
+                    if (_hasSpreads)
+                    {
+                        arguments = BuildArgumentsWithSpreads(cachedArguments.JintArguments);
+                    }
+                    else
+                    {
+                        arguments = _engine._jsValueArrayPool.RentArray(cachedArguments.JintArguments.Length);
+                        BuildArguments(cachedArguments.JintArguments, arguments);
+                    }
                 }
             }
 

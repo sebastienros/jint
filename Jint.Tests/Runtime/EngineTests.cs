@@ -2613,5 +2613,53 @@ function output(x) {
             Assert.Equal(2, TypeConverter.ToNumber(result2.Get("TestDictionaryAverage2")));
             Assert.Equal(2, TypeConverter.ToNumber(result2.Get("TestDictionaryAverage3")));
         }
+        [Fact]
+        public void ShouldBeAbleToSpreadArrayLiteralsAndFunctionParameters()
+        {
+            RunTest(@"
+                function concat(x, a, b) {
+                    x += a;
+                    x += b;
+                    return x;
+                }
+                var s = [...'abc'];
+                var c = concat(1, ...'ab');
+                var arr1 = [1, 2];
+                var arr2 = [3, 4 ];
+                var r = [...arr2, ...arr1];
+            ");
+
+            var arrayInstance = (ArrayInstance) _engine.GetValue("r");
+            Assert.Equal(arrayInstance[0], 3);
+            Assert.Equal(arrayInstance[1], 4);
+            Assert.Equal(arrayInstance[2], 1);
+            Assert.Equal(arrayInstance[3], 2);
+
+            arrayInstance = (ArrayInstance) _engine.GetValue("s");
+            Assert.Equal(arrayInstance[0], 'a');
+            Assert.Equal(arrayInstance[1], 'b');
+            Assert.Equal(arrayInstance[2], 'c');
+
+            var c = _engine.GetValue("c").ToString();
+            Assert.Equal("1ab", c);
+        }
+
+        [Fact]
+        public void ShouldSupportDefaultsInFunctionParameters()
+        {
+            RunTest(@"
+                function f(x, y=12) {
+                  // y is 12 if not passed (or passed as undefined)
+                  return x + y;
+                }
+            ");
+
+            var function = _engine.GetValue("f");
+            var result = function.Invoke(3).ToString();
+            Assert.Equal("15", result);
+
+            result = function.Invoke(3, JsValue.Undefined).ToString();
+            Assert.Equal("15", result);
+        }
     }
 }

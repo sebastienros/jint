@@ -173,6 +173,12 @@ namespace Jint.Native.Argument
 
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
+            if (_func is ScriptFunctionInstance scriptFunctionInstance && scriptFunctionInstance._function._hasRestParameter)
+            {
+                // immutable
+                return false;
+            }
+
             EnsureInitialized();
 
             if (!_strict && !ReferenceEquals(ParameterMap, null))

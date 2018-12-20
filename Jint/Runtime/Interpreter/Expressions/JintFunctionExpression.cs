@@ -6,13 +6,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintFunctionExpression : JintExpression
     {
-        private readonly IFunction _function;
-        private readonly string _name;
+        private readonly JintFunctionDefinition _function;
 
-        public JintFunctionExpression(Engine engine, IFunction function) : base(engine, ArrowParameterPlaceHolder.Empty)
+        public JintFunctionExpression(Engine engine, IFunction function)
+            : base(engine, ArrowParameterPlaceHolder.Empty)
         {
-            _function = function;
-            _name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id.Name : null;
+            _function = new JintFunctionDefinition(engine, function);
         }
 
         protected override object EvaluateInternal()
@@ -24,11 +23,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _engine,
                 _function,
                 funcEnv,
-                _function.Strict);
+                _function._strict);
 
-            if (_name != null)
+            if (_function._name != null)
             {
-                envRec.CreateMutableBinding(_name, closure);
+                envRec.CreateMutableBinding(_function._name, closure);
             }
 
             return closure;

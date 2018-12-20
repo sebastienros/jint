@@ -168,15 +168,18 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool TryGetIterator(Engine engine, out IIterator iterator)
         {
-            if (!(this is ObjectInstance oi)
-                || !oi.TryGetValue(GlobalSymbolRegistry.Iterator._value, out var value)
+            var objectInstance = TypeConverter.ToObject(engine, this);
+
+            if (!objectInstance.TryGetValue(GlobalSymbolRegistry.Iterator._value, out var value)
                 || !(value is ICallable callable))
             {
                 iterator = null;
                 return false;
             }
 
-            var obj = (ObjectInstance) callable.Call(this, Arguments.Empty);
+            var obj = callable.Call(this, Arguments.Empty) as ObjectInstance
+                      ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Result of the Symbol.iterator method is not an object");
+
             if (obj is IIterator i)
             {
                 iterator = i;

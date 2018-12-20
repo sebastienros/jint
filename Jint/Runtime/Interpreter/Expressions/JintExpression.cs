@@ -1,6 +1,9 @@
 using System.Runtime.CompilerServices;
+using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Array;
+using Jint.Native.Iterator;
 using Jint.Native.Number;
 using Jint.Runtime.Environments;
 
@@ -110,6 +113,9 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 case Nodes.UnaryExpression:
                     return new JintUnaryExpression(engine, (UnaryExpression) expression);
+
+                case Nodes.SpreadElement:
+                    return new JintSpreadExpression(engine, (SpreadElement) expression);
 
                 default:
                     ExceptionHelper.ThrowArgumentOutOfRangeException();
@@ -327,6 +333,61 @@ namespace Jint.Runtime.Interpreter.Expressions
             for (var i = 0; i < jintExpressions.Length; i++)
             {
                 targetArray[i] = jintExpressions[i].GetValue();
+            }
+        }
+
+        protected JsValue[] BuildArgumentsWithSpreads(JintExpression[] jintExpressions)
+        {
+            var args = new List<JsValue>(jintExpressions.Length);
+            for (var i = 0; i < jintExpressions.Length; i++)
+            {
+                var jintExpression = jintExpressions[i];
+                if (jintExpression is JintSpreadExpression jse)
+                {
+                    jse.GetValueAndCheckIterator(out var objectInstance, out var iterator);
+                    // optimize for array
+                    if (objectInstance is ArrayInstance ai)
+                    {
+                        var length = ai.GetLength();
+                        for (uint j = 0; j < length; ++j)
+                        {
+                            if (ai.TryGetValue(j, out var value))
+                            {
+                                args.Add(value);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var protocol = new ArraySpreadProtocol(_engine, args, iterator);
+                        protocol.Execute();
+                    }
+                }
+                else
+                {
+                    args.Add(jintExpression.GetValue());
+                }
+            }
+
+            return args.ToArray();
+        }
+
+        private sealed class ArraySpreadProtocol : IteratorProtocol
+        {
+            private readonly List<JsValue> _instance;
+
+            public ArraySpreadProtocol(
+                Engine engine,
+                List<JsValue> instance,
+                IIterator iterator) : base(engine, iterator, 0)
+            {
+                _instance = instance;
+            }
+
+            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+            {
+                var jsValue = ExtractValueFromIteratorInstance(currentValue);
+                _instance.Add(jsValue);
             }
         }
 

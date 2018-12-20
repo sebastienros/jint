@@ -5,14 +5,13 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
-using Jint.Runtime.Interpreter.Statements;
+using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Function
 {
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        private readonly IFunction _functionDeclaration;
-        private readonly JintStatement _functionBody;
+        internal readonly JintFunctionDefinition _function;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
@@ -22,15 +21,24 @@ namespace Jint.Native.Function
             IFunction functionDeclaration,
             LexicalEnvironment scope,
             bool strict)
-            : base(engine, functionDeclaration.Id?.Name ?? "", GetParameterNames(functionDeclaration), scope, strict)
+            : this(engine, new JintFunctionDefinition(engine, functionDeclaration), scope, strict)
         {
-            _functionDeclaration = functionDeclaration;
-            _functionBody = JintStatement.Build(engine, functionDeclaration.Body);
+        }
+
+        internal ScriptFunctionInstance(
+            Engine engine,
+            JintFunctionDefinition function,
+            LexicalEnvironment scope,
+            bool strict)
+            : base(engine, function._name ?? "", function._parameterNames, scope, strict)
+        {
+            _function = function;
 
             Extensible = true;
             Prototype = _engine.Function.PrototypeObject;
 
-            _length = new PropertyDescriptor(JsNumber.Create(_formalParameters.Length), PropertyFlag.AllForbidden);
+            var length = function._hasRestParameter ? _formalParameters.Length - 1 : _formalParameters.Length;
+            _length = new PropertyDescriptor(JsNumber.Create(length), PropertyFlag.AllForbidden);
 
             var proto = new ObjectInstanceWithConstructor(engine, this)
             {
@@ -40,9 +48,9 @@ namespace Jint.Native.Function
 
             _prototype = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
-            if (_functionDeclaration.Id != null)
+            if (_function._name != null)
             {
-                DefineOwnProperty("name", new PropertyDescriptor(_functionDeclaration.Id.Name, PropertyFlag.None), false);
+                DefineOwnProperty("name", new PropertyDescriptor(_function._name, PropertyFlag.None), false);
             }
 
             if (strict)
@@ -54,24 +62,8 @@ namespace Jint.Native.Function
             }
         }
 
-        private static string[] GetParameterNames(IFunction functionDeclaration)
-        {
-            var list = functionDeclaration.Params;
-            var count = list.Count;
-
-            if (count == 0)
-            {
-                return System.ArrayExt.Empty<string>();
-            }
-
-            var names = new string[count];
-            for (var i = 0; i < count; ++i)
-            {
-                names[i] = ((Identifier) list[i]).Name;
-            }
-
-            return names;
-        }
+        // for example RavenDB wants to inspect this
+        public IFunction FunctionDeclaration => _function._function;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.1
@@ -111,12 +103,12 @@ namespace Jint.Native.Function
                 {
                     var argumentInstanceRented = _engine.DeclarationBindingInstantiation(
                         DeclarationBindingType.FunctionCode,
-                        _functionDeclaration.HoistingScope.FunctionDeclarations,
-                        _functionDeclaration.HoistingScope.VariableDeclarations,
-                        this,
+                        _function._hoistingScope.FunctionDeclarations,
+                        _function._hoistingScope.VariableDeclarations,
+                        functionInstance: this,
                         arguments);
 
-                    var result = _functionBody.Execute();
+                    var result = _function._body.Execute();
                     
                     var value = result.GetValueOrDefault();
                     
