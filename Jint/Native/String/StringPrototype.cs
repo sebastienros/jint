@@ -825,7 +825,7 @@ namespace Jint.Native.String
             var position = (int)TypeConverter.ToInteger(pos);
             if (position < 0 || position >= s.Length)
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
             return (double) s[position];
         }

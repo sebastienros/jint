@@ -20,10 +20,10 @@ namespace Jint.Native
         private static readonly JsNumber[] _doubleToJsValue = new JsNumber[NumbersMax];
         private static readonly JsNumber[] _intToJsValue = new JsNumber[NumbersMax];
 
-        private static readonly JsNumber DoubleNaN = new JsNumber(double.NaN);
-        private static readonly JsNumber DoubleNegativeOne = new JsNumber((double) -1);
-        private static readonly JsNumber DoublePositiveInfinity = new JsNumber(double.PositiveInfinity);
-        private static readonly JsNumber DoubleNegativeInfinity = new JsNumber(double.NegativeInfinity);
+        internal static readonly JsNumber DoubleNaN = new JsNumber(double.NaN);
+        internal static readonly JsNumber DoubleNegativeOne = new JsNumber((double) -1);
+        internal static readonly JsNumber DoublePositiveInfinity = new JsNumber(double.PositiveInfinity);
+        internal static readonly JsNumber DoubleNegativeInfinity = new JsNumber(double.NegativeInfinity);
         private static readonly JsNumber IntegerNegativeOne = new JsNumber(-1);
         internal static readonly JsNumber NegativeZero = new JsNumber(-0);
         internal static readonly JsNumber PositiveZero = new JsNumber(+0);

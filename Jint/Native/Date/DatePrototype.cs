@@ -130,7 +130,7 @@ namespace Jint.Native.Date
         {
             if (double.IsNaN(EnsureDateInstance(thisObj).PrimitiveValue))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return EnsureDateInstance(thisObj).PrimitiveValue;
@@ -141,7 +141,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return YearFromTime(LocalTime(t));
@@ -152,7 +152,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return YearFromTime(LocalTime(t)) - 1900;
@@ -163,7 +163,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return YearFromTime(t);
@@ -174,7 +174,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return MonthFromTime(LocalTime(t));
@@ -185,7 +185,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return MonthFromTime(t);
@@ -196,7 +196,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return DateFromTime(LocalTime(t));
@@ -207,7 +207,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return DateFromTime(t);
@@ -218,7 +218,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return WeekDay(LocalTime(t));
@@ -229,7 +229,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return WeekDay(t);
@@ -240,7 +240,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return HourFromTime(LocalTime(t));
@@ -251,7 +251,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return HourFromTime(t);
@@ -262,7 +262,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return MinFromTime(LocalTime(t));
@@ -273,7 +273,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return MinFromTime(t);
@@ -284,7 +284,7 @@ namespace Jint.Native.Date
             var t = thisObj.TryCast<DateInstance>().PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return SecFromTime(LocalTime(t));
@@ -295,7 +295,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return SecFromTime(t);
@@ -306,7 +306,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return MsFromTime(LocalTime(t));
@@ -317,7 +317,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return MsFromTime(t);
@@ -328,7 +328,7 @@ namespace Jint.Native.Date
             var t = EnsureDateInstance(thisObj).PrimitiveValue;
             if (double.IsNaN(t))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             return (t - LocalTime(t))/MsPerMinute;
@@ -492,7 +492,7 @@ namespace Jint.Native.Date
             if (double.IsNaN(y))
             {
                 EnsureDateInstance(thisObj).PrimitiveValue = double.NaN;
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             var fy = TypeConverter.ToInteger(y);
@@ -654,7 +654,7 @@ namespace Jint.Native.Date
         {
             if (!AreFinite(t))
             {
-                return Double.NaN;
+                return double.NaN;
             }
 
             var sign = (t < 0) ? -1 : 1;
