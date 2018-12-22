@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -1009,16 +1010,15 @@ namespace Jint.Native.Array
                 return s;
             }
 
-            var sb = ArrayExecutionContext.Current.StringBuilder;
-            sb.Clear();
-            sb.Append(s);
+            var sb = StringBuilderPool.GetInstance();
+            sb.Builder.Append(s);
             for (uint k = 1; k < len; k++)
             {
-                sb.Append(sep);
-                sb.Append(StringFromJsValue(o.Get(k)));
+                sb.Builder.Append(sep);
+                sb.Builder.Append(StringFromJsValue(o.Get(k)));
             }
 
-            return sb.ToString();
+            return sb.ToStringAndFree();
         }
 
         private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)

@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
-using Esprima;
 using Jint.Runtime;
 using Newtonsoft.Json.Linq;
 using Xunit;
@@ -213,16 +212,18 @@ namespace Jint.Tests.Test262
                     }
                 }
 
-                if (name.StartsWith("built-ins/String/raw/"))
-                {
-                    skip = true;
-                    reason = "requires template string";
-                }
-
                 if (code.IndexOf("SpecialCasing.txt") > -1)
                 {
                     skip = true;
                     reason = "SpecialCasing.txt not implemented";
+                }
+
+                if (file.EndsWith("tv-line-continuation.js")
+                    || file.EndsWith("tv-line-terminator-sequence.js")
+                    || file.EndsWith("special-characters.js"))
+                {
+                    // LF endings required
+                    code = code.Replace("\r\n", "\n");
                 }
 
                 var sourceFile = new SourceFile(

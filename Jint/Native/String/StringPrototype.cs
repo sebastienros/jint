@@ -7,6 +7,7 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -520,8 +521,7 @@ namespace Jint.Native.String
                     // $`	Inserts the portion of the string that precedes the matched substring.
                     // $'	Inserts the portion of the string that follows the matched substring.
                     // $n or $nn	Where n or nn are decimal digits, inserts the nth parenthesized submatch string, provided the first argument was a RegExp object.
-                    var replacementBuilder = StringExecutionContext.Current.GetStringBuilder(0);
-                    replacementBuilder.Clear();
+                    var replacementBuilder = StringBuilderPool.GetInstance();
                     for (int i = 0; i < replaceString.Length; i++)
                     {
                         char c = replaceString[i];
@@ -529,13 +529,13 @@ namespace Jint.Native.String
                         {
                             c = replaceString[++i];
                             if (c == '$')
-                                replacementBuilder.Append('$');
+                                replacementBuilder.Builder.Append('$');
                             else if (c == '&')
-                                replacementBuilder.Append(matchValue);
+                                replacementBuilder.Builder.Append(matchValue);
                             else if (c == '`')
-                                replacementBuilder.Append(thisString.Substring(0, matchIndex));
+                                replacementBuilder.Builder.Append(thisString.Substring(0, matchIndex));
                             else if (c == '\'')
-                                replacementBuilder.Append(thisString.Substring(matchIndex + matchValue.Length));
+                                replacementBuilder.Builder.Append(thisString.Substring(matchIndex + matchValue.Length));
                             else if (c >= '0' && c <= '9')
                             {
                                 int matchNumber1 = c - '0';
@@ -549,33 +549,33 @@ namespace Jint.Native.String
                                 if (matchNumber2 > 0 && matchNumber2 < args.Length - 2)
                                 {
                                     // Two digit capture replacement.
-                                    replacementBuilder.Append(TypeConverter.ToString(args[matchNumber2]));
+                                    replacementBuilder.Builder.Append(TypeConverter.ToString(args[matchNumber2]));
                                     i++;
                                 }
                                 else if (matchNumber1 > 0 && matchNumber1 < args.Length - 2)
                                 {
                                     // Single digit capture replacement.
-                                    replacementBuilder.Append(TypeConverter.ToString(args[matchNumber1]));
+                                    replacementBuilder.Builder.Append(TypeConverter.ToString(args[matchNumber1]));
                                 }
                                 else
                                 {
                                     // Capture does not exist.
-                                    replacementBuilder.Append('$');
+                                    replacementBuilder.Builder.Append('$');
                                     i--;
                                 }
                             }
                             else
                             {
                                 // Unknown replacement pattern.
-                                replacementBuilder.Append('$');
-                                replacementBuilder.Append(c);
+                                replacementBuilder.Builder.Append('$');
+                                replacementBuilder.Builder.Append(c);
                             }
                         }
                         else
-                            replacementBuilder.Append(c);
+                            replacementBuilder.Builder.Append(c);
                     }
 
-                    return replacementBuilder.ToString();
+                    return replacementBuilder.ToStringAndFree();
                 });
             }
 
@@ -638,12 +638,12 @@ namespace Jint.Native.String
                 _engine._jsValueArrayPool.ReturnArray(args);
 
                 // Replace only the first match.
-                var result = StringExecutionContext.Current.GetStringBuilder(thisString.Length + (substr.Length - substr.Length));
-                result.Clear();
-                result.Append(thisString, 0, start);
-                result.Append(replaceString);
-                result.Append(thisString, end, thisString.Length - end);
-                return result.ToString();
+                var result = StringBuilderPool.GetInstance();
+                result.Builder.EnsureCapacity(thisString.Length + (substr.Length - substr.Length));
+                result.Builder.Append(thisString, 0, start);
+                result.Builder.Append(replaceString);
+                result.Builder.Append(thisString, end, thisString.Length - end);
+                return result.ToStringAndFree();
             }
         }
 
@@ -1125,13 +1125,14 @@ namespace Jint.Native.String
                 return new string(str[0], n);
             }
 
-            var sb = new StringBuilder(n * str.Length);
+            var sb = StringBuilderPool.GetInstance();
+            sb.Builder.EnsureCapacity(n * str.Length);
             for (var i = 0; i < n; ++i)
             {
-                sb.Append(str);
+                sb.Builder.Append(str);
             }
 
-            return sb.ToString();
+            return sb.ToStringAndFree();
         }
     }
 }

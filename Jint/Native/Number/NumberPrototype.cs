@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Text;
 using Jint.Native.Number.Dtoa;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
@@ -234,15 +235,15 @@ namespace Jint.Native.Number
                 return "0";
             }
 
-            var result = new StringBuilder();
+            var result = StringBuilderPool.GetInstance();
             while (n > 0)
             {
                 var digit = (int)(n % radix);
                 n = n / radix;
-                result.Insert(0, digits[digit]);
+                result.Builder.Insert(0, digits[digit]);
             }
 
-            return result.ToString();
+            return result.ToStringAndFree();
         }
 
         public static string ToFractionBase(double n, int radix)
@@ -256,17 +257,17 @@ namespace Jint.Native.Number
                 return "0";
             }
 
-            var result = new StringBuilder();
+            var result = StringBuilderPool.GetInstance();
             while (n > 0 && result.Length < 50) // arbitrary limit
             {
                 var c = n*radix;
                 var d = (int) c;
                 n = c - d;
 
-                result.Append(digits[d]);
+                result.Builder.Append(digits[d]);
             }
 
-            return result.ToString();
+            return result.ToStringAndFree();
         }
 
         public static string ToNumberString(double m)

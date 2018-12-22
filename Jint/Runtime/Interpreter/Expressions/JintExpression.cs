@@ -117,6 +117,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 case Nodes.SpreadElement:
                     return new JintSpreadExpression(engine, (SpreadElement) expression);
 
+                case Nodes.TemplateLiteral:
+                    return new JintTemplateLiteralExpression(engine, (TemplateLiteral) expression);
+
+                case Nodes.TaggedTemplateExpression:
+                    return new JintTaggedTemplateExpression(engine, (TaggedTemplateExpression) expression);
+
                 default:
                     ExceptionHelper.ThrowArgumentOutOfRangeException();
                     return null;

@@ -35,5 +35,13 @@ namespace Jint.Tests.Test262
         {
             RunTestInternal(sourceFile);
         }
+
+        [Theory(DisplayName = "language\\expressions\\template-literal")]
+        [MemberData(nameof(SourceFiles), "language\\expressions\\template-literal", false)]
+        [MemberData(nameof(SourceFiles), "language\\expressions\\template-literal", true, Skip = "Skipped")]
+        protected void ExpressionsTemplateLiteral(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
     }
 }

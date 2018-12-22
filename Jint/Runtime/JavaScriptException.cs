@@ -4,6 +4,7 @@ using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Error;
+using Jint.Pooling;
 
 namespace Jint.Runtime
 {
@@ -37,26 +38,26 @@ namespace Jint.Runtime
         public JavaScriptException SetCallstack(Engine engine, Location location = null)
         {
             Location = location;
-            var sb = new StringBuilder();
+            var sb = StringBuilderPool.GetInstance();
             foreach (var cse in engine.CallStack)
             {
-                sb.Append(" at ")
+                sb.Builder.Append(" at ")
                     .Append(cse)
                     .Append("(");
 
                 for (var index = 0; index < cse.CallExpression.Arguments.Count; index++)
                 {
                     if (index != 0)
-                        sb.Append(", ");
+                        sb.Builder.Append(", ");
                     var arg = cse.CallExpression.Arguments[index];
                     if (arg is Expression pke)
-                        sb.Append(pke.GetKey());
+                        sb.Builder.Append(pke.GetKey());
                     else
-                        sb.Append(arg);
+                        sb.Builder.Append(arg);
                 }
 
 
-                sb.Append(") @ ")
+                sb.Builder.Append(") @ ")
                     .Append(cse.CallExpression.Location.Source)
                     .Append(" ")
                     .Append(cse.CallExpression.Location.Start.Column)
@@ -64,7 +65,7 @@ namespace Jint.Runtime
                     .Append(cse.CallExpression.Location.Start.Line)
                     .AppendLine();
             }
-            CallStack = sb.ToString();
+            CallStack = sb.ToStringAndFree();
             return this;
         }
 

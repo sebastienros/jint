@@ -1,3 +1,4 @@
-Jint.Tests/* linguist-vendored
-Jint.Tests.Ecma/* linguist-vendored
-Jint.Tests.CommonScripts/* linguist-vendored
+Jint.Tests/** linguist-vendored
+Jint.Tests.Ecma/** linguist-vendored
+Jint.Tests.CommonScripts/** linguist-vendored
+Jint.Tests.Test262/** linguist-vendored
