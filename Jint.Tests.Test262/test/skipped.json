@@ -357,5 +357,9 @@
   {
     "source": "language/expressions/call/trailing-comma.js",
     "reason": "Esprima problem"
+  },
+  {
+    "source": "built-ins/Math/pow/int32_min-exponent.js",
+    "reason": "const not implemented"
   }
 ]

@@ -7,6 +7,9 @@ namespace Jint.Native
 {
     public sealed class JsNumber : JsValue, IEquatable<JsNumber>
     {
+        // .NET double epsilon and JS epsilon have different values
+        internal const double JavaScriptEpsilon = 2.2204460492503130808472633361816E-16;
+
         internal readonly double _value;
 
         // how many decimals to check when determining if double is actually an int
@@ -25,7 +28,7 @@ namespace Jint.Native
         internal static readonly JsNumber DoublePositiveInfinity = new JsNumber(double.PositiveInfinity);
         internal static readonly JsNumber DoubleNegativeInfinity = new JsNumber(double.NegativeInfinity);
         private static readonly JsNumber IntegerNegativeOne = new JsNumber(-1);
-        internal static readonly JsNumber NegativeZero = new JsNumber(-0);
+        internal static readonly JsNumber NegativeZero = new JsNumber(-0d);
         internal static readonly JsNumber PositiveZero = new JsNumber(+0);
 
         internal static readonly JsNumber PI = new JsNumber(System.Math.PI);

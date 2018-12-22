@@ -512,7 +512,28 @@ namespace Jint.Native.Math
         private static JsValue Log1p(JsValue thisObject, JsValue[] arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
-            return Log(thisObject, new [] { JsNumber.Create(x + 1)});
+
+            if (double.IsNaN(x))
+            {
+                return JsNumber.DoubleNaN;
+            }
+
+            if (x < -1)
+            {
+                return JsNumber.DoubleNaN;
+            }
+
+            if (x == -1)
+            {
+                return JsNumber.DoubleNegativeInfinity;
+            }
+
+            if (x == 0 || double.IsPositiveInfinity(x))
+            {
+                return arguments.At(0);
+            }
+
+            return System.Math.Log(1 + x);
         }
 
         private static JsValue Log2(JsValue thisObject, JsValue[] arguments)
@@ -540,7 +561,7 @@ namespace Jint.Native.Math
                 return JsNumber.PositiveZero;
             }
 
-            return System.Math.Log(x) * 1.4426950408889634073599246810019;
+            return System.Math.Log(x, 2);
         }
 
         private static JsValue Log10(JsValue thisObject, JsValue[] arguments)
