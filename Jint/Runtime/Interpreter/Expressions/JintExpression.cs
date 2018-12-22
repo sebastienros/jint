@@ -136,12 +136,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (double.IsNaN(rN) || double.IsNaN(lN))
                 {
-                    return double.NaN;
+                    return JsNumber.DoubleNaN;
                 }
 
                 if (double.IsInfinity(lN) && double.IsInfinity(rN))
                 {
-                    return double.NaN;
+                    return JsNumber.DoubleNaN;
                 }
 
                 if (double.IsInfinity(lN) && rN == 0)
@@ -156,7 +156,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (lN == 0 && rN == 0)
                 {
-                    return double.NaN;
+                    return JsNumber.DoubleNaN;
                 }
 
                 if (rN == 0)

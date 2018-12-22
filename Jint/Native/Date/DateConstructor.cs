@@ -92,7 +92,7 @@ namespace Jint.Native.Date
                         if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
                         {
                             // unrecognized dates should return NaN (15.9.4.2)
-                            return double.NaN;
+                            return JsNumber.DoubleNaN;
                         }
                     }
                 }

@@ -37,7 +37,7 @@ namespace Jint.Native.Number
             SetOwnProperty("NaN", new PropertyDescriptor(double.NaN, PropertyFlag.AllForbidden));
             SetOwnProperty("NEGATIVE_INFINITY", new PropertyDescriptor(double.NegativeInfinity, PropertyFlag.AllForbidden));
             SetOwnProperty("POSITIVE_INFINITY", new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.AllForbidden));
-            SetOwnProperty("EPSILON", new PropertyDescriptor(double.Epsilon, PropertyFlag.AllForbidden));
+            SetOwnProperty("EPSILON", new PropertyDescriptor(JsNumber.JavaScriptEpsilon, PropertyFlag.AllForbidden));
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

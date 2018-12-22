@@ -110,7 +110,7 @@ namespace Jint.Native.Global
             }
             else if (radix < 2 || radix > 36)
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
             else if (radix != 16)
             {
@@ -128,7 +128,7 @@ namespace Jint.Native.Global
             }
             catch
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
         }
@@ -201,7 +201,7 @@ namespace Jint.Native.Global
 
             if (trimmedString.StartsWith("NaN"))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             var separator = (char)0;
@@ -305,7 +305,7 @@ namespace Jint.Native.Global
 
             if (isNan)
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             for (var k = 1; k <= exp; k++)
