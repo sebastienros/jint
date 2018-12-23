@@ -38,34 +38,37 @@ namespace Jint.Runtime
         public JavaScriptException SetCallstack(Engine engine, Location location = null)
         {
             Location = location;
-            var sb = StringBuilderPool.GetInstance();
-            foreach (var cse in engine.CallStack)
+            using (var sb = StringBuilderPool.GetInstance())
             {
-                sb.Builder.Append(" at ")
-                    .Append(cse)
-                    .Append("(");
-
-                for (var index = 0; index < cse.CallExpression.Arguments.Count; index++)
+                foreach (var cse in engine.CallStack)
                 {
-                    if (index != 0)
-                        sb.Builder.Append(", ");
-                    var arg = cse.CallExpression.Arguments[index];
-                    if (arg is Expression pke)
-                        sb.Builder.Append(pke.GetKey());
-                    else
-                        sb.Builder.Append(arg);
+                    sb.Builder.Append(" at ")
+                        .Append(cse)
+                        .Append("(");
+
+                    for (var index = 0; index < cse.CallExpression.Arguments.Count; index++)
+                    {
+                        if (index != 0)
+                            sb.Builder.Append(", ");
+                        var arg = cse.CallExpression.Arguments[index];
+                        if (arg is Expression pke)
+                            sb.Builder.Append(pke.GetKey());
+                        else
+                            sb.Builder.Append(arg);
+                    }
+
+
+                    sb.Builder.Append(") @ ")
+                        .Append(cse.CallExpression.Location.Source)
+                        .Append(" ")
+                        .Append(cse.CallExpression.Location.Start.Column)
+                        .Append(":")
+                        .Append(cse.CallExpression.Location.Start.Line)
+                        .AppendLine();
                 }
-
-
-                sb.Builder.Append(") @ ")
-                    .Append(cse.CallExpression.Location.Source)
-                    .Append(" ")
-                    .Append(cse.CallExpression.Location.Start.Column)
-                    .Append(":")
-                    .Append(cse.CallExpression.Location.Start.Line)
-                    .AppendLine();
+                CallStack = sb.ToString();
             }
-            CallStack = sb.ToStringAndFree();
+
             return this;
         }
 

@@ -235,15 +235,17 @@ namespace Jint.Native.Number
                 return "0";
             }
 
-            var result = StringBuilderPool.GetInstance();
-            while (n > 0)
+            using (var result = StringBuilderPool.GetInstance())
             {
-                var digit = (int)(n % radix);
-                n = n / radix;
-                result.Builder.Insert(0, digits[digit]);
-            }
+                while (n > 0)
+                {
+                    var digit = (int) (n % radix);
+                    n = n / radix;
+                    result.Builder.Insert(0, digits[digit]);
+                }
 
-            return result.ToStringAndFree();
+                return result.ToString();
+            }
         }
 
         public static string ToFractionBase(double n, int radix)
@@ -257,17 +259,19 @@ namespace Jint.Native.Number
                 return "0";
             }
 
-            var result = StringBuilderPool.GetInstance();
-            while (n > 0 && result.Length < 50) // arbitrary limit
+            using (var result = StringBuilderPool.GetInstance())
             {
-                var c = n*radix;
-                var d = (int) c;
-                n = c - d;
+                while (n > 0 && result.Length < 50) // arbitrary limit
+                {
+                    var c = n*radix;
+                    var d = (int) c;
+                    n = c - d;
 
-                result.Builder.Append(digits[d]);
+                    result.Builder.Append(digits[d]);
+                }
+
+                return result.ToString();
             }
-
-            return result.ToStringAndFree();
         }
 
         public static string ToNumberString(double m)

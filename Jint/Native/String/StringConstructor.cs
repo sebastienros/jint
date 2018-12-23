@@ -97,10 +97,9 @@ namespace Jint.Native.String
         /// </summary>
         private JsValue Raw(JsValue thisObj, JsValue[] arguments)
         {
-            var cooked  = TypeConverter.ToObject(_engine, arguments.At(0));
+            var cooked = TypeConverter.ToObject(_engine, arguments.At(0));
             var raw = TypeConverter.ToObject(_engine, cooked.Get("raw"));
 
-            var result = StringBuilderPool.GetInstance();
             var operations = ArrayPrototype.ArrayOperations.For(raw);
             var length = operations.GetLength();
 
@@ -109,20 +108,23 @@ namespace Jint.Native.String
                 return JsString.Empty;
             }
 
-            for (var i = 0; i < length; i++)
+            using (var result = StringBuilderPool.GetInstance())
             {
-                if (i > 0)
+                for (var i = 0; i < length; i++)
                 {
-                    if (i < arguments.Length && !arguments[i].IsUndefined())
+                    if (i > 0)
                     {
-                        result.Builder.Append(TypeConverter.ToString(arguments[i]));
+                        if (i < arguments.Length && !arguments[i].IsUndefined())
+                        {
+                            result.Builder.Append(TypeConverter.ToString(arguments[i]));
+                        }
                     }
+
+                    result.Builder.Append(TypeConverter.ToString(operations.Get((ulong) i)));
                 }
 
-                result.Builder.Append(TypeConverter.ToString(operations.Get((ulong) i)));
+                return result.ToString();
             }
-
-            return result.ToStringAndFree();
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

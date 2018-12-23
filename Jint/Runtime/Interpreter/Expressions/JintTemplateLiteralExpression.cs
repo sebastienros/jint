@@ -35,18 +35,20 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private JsString BuildString()
         {
-            var sb = StringBuilderPool.GetInstance();
-            for (var i = 0; i < _templateLiteralExpression.Quasis.Count; i++)
+            using (var sb = StringBuilderPool.GetInstance())
             {
-                var quasi = _templateLiteralExpression.Quasis[i];
-                sb.Builder.Append(quasi.Value.Cooked);
-                if (i < _expressions.Length)
+                for (var i = 0; i < _templateLiteralExpression.Quasis.Count; i++)
                 {
-                    sb.Builder.Append(_expressions[i].GetValue());
+                    var quasi = _templateLiteralExpression.Quasis[i];
+                    sb.Builder.Append(quasi.Value.Cooked);
+                    if (i < _expressions.Length)
+                    {
+                        sb.Builder.Append(_expressions[i].GetValue());
+                    }
                 }
-            }
 
-            return JsString.Create(sb.ToStringAndFree());
+                return JsString.Create(sb.ToString());
+            }
         }
 
         protected override object EvaluateInternal()

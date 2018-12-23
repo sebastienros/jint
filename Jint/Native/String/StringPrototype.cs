@@ -521,61 +521,64 @@ namespace Jint.Native.String
                     // $`	Inserts the portion of the string that precedes the matched substring.
                     // $'	Inserts the portion of the string that follows the matched substring.
                     // $n or $nn	Where n or nn are decimal digits, inserts the nth parenthesized submatch string, provided the first argument was a RegExp object.
-                    var replacementBuilder = StringBuilderPool.GetInstance();
-                    for (int i = 0; i < replaceString.Length; i++)
+                    using (var replacementBuilder = StringBuilderPool.GetInstance())
                     {
-                        char c = replaceString[i];
-                        if (c == '$' && i < replaceString.Length - 1)
+                        for (int i = 0; i < replaceString.Length; i++)
                         {
-                            c = replaceString[++i];
-                            if (c == '$')
-                                replacementBuilder.Builder.Append('$');
-                            else if (c == '&')
-                                replacementBuilder.Builder.Append(matchValue);
-                            else if (c == '`')
-                                replacementBuilder.Builder.Append(thisString.Substring(0, matchIndex));
-                            else if (c == '\'')
-                                replacementBuilder.Builder.Append(thisString.Substring(matchIndex + matchValue.Length));
-                            else if (c >= '0' && c <= '9')
+                            char c = replaceString[i];
+                            if (c == '$' && i < replaceString.Length - 1)
                             {
-                                int matchNumber1 = c - '0';
-
-                                // The match number can be one or two digits long.
-                                int matchNumber2 = 0;
-                                if (i < replaceString.Length - 1 && replaceString[i + 1] >= '0' && replaceString[i + 1] <= '9')
-                                    matchNumber2 = matchNumber1 * 10 + (replaceString[i + 1] - '0');
-
-                                // Try the two digit capture first.
-                                if (matchNumber2 > 0 && matchNumber2 < args.Length - 2)
+                                c = replaceString[++i];
+                                if (c == '$')
+                                    replacementBuilder.Builder.Append('$');
+                                else if (c == '&')
+                                    replacementBuilder.Builder.Append(matchValue);
+                                else if (c == '`')
+                                    replacementBuilder.Builder.Append(thisString.Substring(0, matchIndex));
+                                else if (c == '\'')
+                                    replacementBuilder.Builder.Append(thisString.Substring(matchIndex + matchValue.Length));
+                                else if (c >= '0' && c <= '9')
                                 {
-                                    // Two digit capture replacement.
-                                    replacementBuilder.Builder.Append(TypeConverter.ToString(args[matchNumber2]));
-                                    i++;
-                                }
-                                else if (matchNumber1 > 0 && matchNumber1 < args.Length - 2)
-                                {
-                                    // Single digit capture replacement.
-                                    replacementBuilder.Builder.Append(TypeConverter.ToString(args[matchNumber1]));
+                                    int matchNumber1 = c - '0';
+
+                                    // The match number can be one or two digits long.
+                                    int matchNumber2 = 0;
+                                    if (i < replaceString.Length - 1 && replaceString[i + 1] >= '0' && replaceString[i + 1] <= '9')
+                                        matchNumber2 = matchNumber1 * 10 + (replaceString[i + 1] - '0');
+
+                                    // Try the two digit capture first.
+                                    if (matchNumber2 > 0 && matchNumber2 < args.Length - 2)
+                                    {
+                                        // Two digit capture replacement.
+                                        replacementBuilder.Builder.Append(TypeConverter.ToString(args[matchNumber2]));
+                                        i++;
+                                    }
+                                    else if (matchNumber1 > 0 && matchNumber1 < args.Length - 2)
+                                    {
+                                        // Single digit capture replacement.
+                                        replacementBuilder.Builder.Append(TypeConverter.ToString(args[matchNumber1]));
+                                    }
+                                    else
+                                    {
+                                        // Capture does not exist.
+                                        replacementBuilder.Builder.Append('$');
+                                        i--;
+                                    }
                                 }
                                 else
                                 {
-                                    // Capture does not exist.
+                                    // Unknown replacement pattern.
                                     replacementBuilder.Builder.Append('$');
-                                    i--;
+                                    replacementBuilder.Builder.Append(c);
                                 }
                             }
                             else
-                            {
-                                // Unknown replacement pattern.
-                                replacementBuilder.Builder.Append('$');
                                 replacementBuilder.Builder.Append(c);
-                            }
                         }
-                        else
-                            replacementBuilder.Builder.Append(c);
+
+                        return replacementBuilder.ToString();
                     }
 
-                    return replacementBuilder.ToStringAndFree();
                 });
             }
 
@@ -638,12 +641,14 @@ namespace Jint.Native.String
                 _engine._jsValueArrayPool.ReturnArray(args);
 
                 // Replace only the first match.
-                var result = StringBuilderPool.GetInstance();
-                result.Builder.EnsureCapacity(thisString.Length + (substr.Length - substr.Length));
-                result.Builder.Append(thisString, 0, start);
-                result.Builder.Append(replaceString);
-                result.Builder.Append(thisString, end, thisString.Length - end);
-                return result.ToStringAndFree();
+                using (var result = StringBuilderPool.GetInstance())
+                {
+                    result.Builder.EnsureCapacity(thisString.Length + (substr.Length - substr.Length));
+                    result.Builder.Append(thisString, 0, start);
+                    result.Builder.Append(replaceString);
+                    result.Builder.Append(thisString, end, thisString.Length - end);
+                    return result.ToString();
+                }
             }
         }
 
@@ -1125,14 +1130,16 @@ namespace Jint.Native.String
                 return new string(str[0], n);
             }
 
-            var sb = StringBuilderPool.GetInstance();
-            sb.Builder.EnsureCapacity(n * str.Length);
-            for (var i = 0; i < n; ++i)
+            using (var sb = StringBuilderPool.GetInstance())
             {
-                sb.Builder.Append(str);
-            }
+                sb.Builder.EnsureCapacity(n * str.Length);
+                for (var i = 0; i < n; ++i)
+                {
+                    sb.Builder.Append(str);
+                }
 
-            return sb.ToStringAndFree();
+                return sb.ToString();
+            }
         }
     }
 }

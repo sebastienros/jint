@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
+using System;
 using System.Diagnostics;
 using System.Text;
 
@@ -13,8 +14,11 @@ namespace Jint.Pooling
     ///        ... sb.ToString() ...
     ///        inst.Free();
     /// </summary>
-    public class StringBuilderPool
+    internal sealed class StringBuilderPool : IDisposable
     {
+        // global pool
+        private static readonly ObjectPool<StringBuilderPool> s_poolInstance = CreatePool();
+
         public readonly StringBuilder Builder = new StringBuilder();
         private readonly ObjectPool<StringBuilderPool> _pool;
 
@@ -25,41 +29,6 @@ namespace Jint.Pooling
         }
 
         public int Length => Builder.Length;
-
-        public void Free()
-        {
-            var builder = Builder;
-
-            // do not store builders that are too large.
-            if (builder.Capacity <= 1024)
-            {
-                builder.Clear();
-                _pool.Free(this);
-            }
-            else
-            {
-                _pool.ForgetTrackedObject(this);
-            }
-        }
-
-        public string ToStringAndFree()
-        {
-            string result = Builder.ToString();
-            Free();
-
-            return result;
-        }
-
-        public string ToStringAndFree(int startIndex, int length)
-        {
-            string result = Builder.ToString(startIndex, length);
-            Free();
-
-            return result;
-        }
-
-        // global pool
-        private static readonly ObjectPool<StringBuilderPool> s_poolInstance = CreatePool();
 
         // if someone needs to create a private pool;
         /// <summary>
@@ -81,9 +50,25 @@ namespace Jint.Pooling
             return builder;
         }
 
-        public static implicit operator StringBuilder(StringBuilderPool obj)
+        public override string ToString()
         {
-            return obj.Builder;
+            return Builder.ToString();
+        }
+
+        public void Dispose()
+        {
+            var builder = Builder;
+
+            // do not store builders that are too large.
+            if (builder.Capacity <= 1024)
+            {
+                builder.Clear();
+                _pool.Free(this);
+            }
+            else
+            {
+                _pool.ForgetTrackedObject(this);
+            }
         }
     }
 }

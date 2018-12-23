@@ -1010,15 +1010,17 @@ namespace Jint.Native.Array
                 return s;
             }
 
-            var sb = StringBuilderPool.GetInstance();
-            sb.Builder.Append(s);
-            for (uint k = 1; k < len; k++)
+            using (var sb = StringBuilderPool.GetInstance())
             {
-                sb.Builder.Append(sep);
-                sb.Builder.Append(StringFromJsValue(o.Get(k)));
-            }
+                sb.Builder.Append(s);
+                for (uint k = 1; k < len; k++)
+                {
+                    sb.Builder.Append(sep);
+                    sb.Builder.Append(StringFromJsValue(o.Get(k)));
+                }
 
-            return sb.ToStringAndFree();
+                return sb.ToString();
+            }
         }
 
         private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
