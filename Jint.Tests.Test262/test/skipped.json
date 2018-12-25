@@ -365,5 +365,17 @@
   {
     "source": "language/expressions/template-literal/tv-line-terminator-sequence.js",
     "reason": "Line feed problems (git, windows, linux)"
+  },
+  {
+    "source": "built-ins/Number/prototype/toPrecision/range.js",
+    "reason": "arrow functions now implemented"
+  },
+  {
+    "source": "built-ins/Number/prototype/toFixed/range.js",
+    "reason": "arrow functions now implemented"
+  },
+  {
+    "source": "built-ins/Number/prototype/toExponential/range.js",
+    "reason": "arrow functions now implemented"
   }
 ]

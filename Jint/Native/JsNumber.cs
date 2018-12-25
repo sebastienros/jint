@@ -13,7 +13,7 @@ namespace Jint.Native
         internal readonly double _value;
 
         // how many decimals to check when determining if double is actually an int
-        private const double DoubleIsIntegerTolerance = double.Epsilon * 100;
+        internal const double DoubleIsIntegerTolerance = double.Epsilon * 100;
 
         private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
 

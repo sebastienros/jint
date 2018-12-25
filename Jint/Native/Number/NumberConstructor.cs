@@ -1,12 +1,17 @@
 ﻿using Jint.Native.Function;
+using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Number
 {
     public sealed class NumberConstructor : FunctionInstance, IConstructor
     {
+        private const long MinSafeInteger = -9007199254740991;
+        internal const long MaxSafeInteger = 9007199254740991;
+
         public NumberConstructor(Engine engine)
             : base(engine, "Number", null, null, false)
         {
@@ -38,6 +43,75 @@ namespace Jint.Native.Number
             SetOwnProperty("NEGATIVE_INFINITY", new PropertyDescriptor(double.NegativeInfinity, PropertyFlag.AllForbidden));
             SetOwnProperty("POSITIVE_INFINITY", new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.AllForbidden));
             SetOwnProperty("EPSILON", new PropertyDescriptor(JsNumber.JavaScriptEpsilon, PropertyFlag.AllForbidden));
+            SetOwnProperty("MIN_SAFE_INTEGER", new PropertyDescriptor(MinSafeInteger, PropertyFlag.AllForbidden));
+            SetOwnProperty("MAX_SAFE_INTEGER", new PropertyDescriptor(MaxSafeInteger, PropertyFlag.AllForbidden));
+
+            FastAddProperty("isFinite", new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("isInteger", new ClrFunctionInstance(Engine, "isInteger", IsInteger, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("isNaN", new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("isSafeInteger", new ClrFunctionInstance(Engine, "isSafeInteger", IsSafeInteger, 1, PropertyFlag.Configurable), true, false, true);
+
+            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, "parseFloat", GlobalObject.ParseFloat, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, "parseInt", GlobalObject.ParseInt, 0, PropertyFlag.Configurable), true, false, true);
+        }
+
+        private JsValue IsFinite(JsValue thisObj, JsValue[] arguments)
+        {
+            if (!(arguments.At(0) is JsNumber num))
+            {
+                return false;
+            }
+
+            return double.IsInfinity(num._value) || double.IsNaN(num._value) ? JsBoolean.False : JsBoolean.True;
+        }
+
+        private JsValue IsInteger(JsValue thisObj, JsValue[] arguments)
+        {
+            if (!(arguments.At(0) is JsNumber num))
+            {
+                return false;
+            }
+
+            if (double.IsInfinity(num._value) || double.IsNaN(num._value))
+            {
+                return JsBoolean.False;
+            }
+
+            var integer = TypeConverter.ToInteger(num);
+
+            return integer == num._value;
+        }
+
+        private JsValue IsNaN(JsValue thisObj, JsValue[] arguments)
+        {
+            if (!(arguments.At(0) is JsNumber num))
+            {
+                return false;
+            }
+
+            return double.IsNaN(num._value);
+        }
+
+        private JsValue IsSafeInteger(JsValue thisObj, JsValue[] arguments)
+        {
+            if (!(arguments.At(0) is JsNumber num))
+            {
+                return false;
+            }
+
+            if (double.IsInfinity(num._value) || double.IsNaN(num._value))
+            {
+                return JsBoolean.False;
+            }
+
+            var integer = TypeConverter.ToInteger(num);
+
+            if (integer != num._value)
+            {
+                return false;
+            }
+
+            return System.Math.Abs(integer) <= MaxSafeInteger;
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

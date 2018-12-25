@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Globalization;
+using System.Numerics;
 using System.Text;
 using Jint.Native.Number.Dtoa;
 using Jint.Pooling;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Number
@@ -36,12 +38,12 @@ namespace Jint.Native.Number
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToNumberString), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf), true, false, true);
-            FastAddProperty("toFixed", new ClrFunctionInstance(Engine, "toFixed", ToFixed, 1), true, false, true);
-            FastAddProperty("toExponential", new ClrFunctionInstance(Engine, "toExponential", ToExponential), true, false, true);
-            FastAddProperty("toPrecision", new ClrFunctionInstance(Engine, "toPrecision", ToPrecision), true, false, true);
+            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("toFixed", new ClrFunctionInstance(Engine, "toFixed", ToFixed, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("toExponential", new ClrFunctionInstance(Engine, "toExponential", ToExponential, 1, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("toPrecision", new ClrFunctionInstance(Engine, "toPrecision", ToPrecision, 1, PropertyFlag.Configurable), true, false, true);
         }
 
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
@@ -101,9 +103,9 @@ namespace Jint.Native.Number
         private JsValue ToFixed(JsValue thisObj, JsValue[] arguments)
         {
             var f = (int)TypeConverter.ToInteger(arguments.At(0, 0));
-            if (f < 0 || f > 20)
+            if (f < 0 || f > 100)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 20");
+                ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 100");
             }
 
             var x = TypeConverter.ToNumber(thisObj);
@@ -118,58 +120,137 @@ namespace Jint.Native.Number
                 return ToNumberString(x);
             }
 
+            // handle non-decimal with greater precision
+            if (x - (long) x < JsNumber.DoubleIsIntegerTolerance)
+            {
+                return ((long) x).ToString("f" + f, CultureInfo.InvariantCulture);
+            }
+
             return x.ToString("f" + f, CultureInfo.InvariantCulture);
         }
 
+        /// <summary>
+        /// https://www.ecma-international.org/ecma-262/6.0/#sec-number.prototype.toexponential
+        /// </summary>
         private JsValue ToExponential(JsValue thisObj, JsValue[] arguments)
         {
-            var f = (int)TypeConverter.ToInteger(arguments.At(0, 16));
-            if (f < 0 || f > 20)
+            if (!thisObj.IsNumber() && ReferenceEquals(thisObj.TryCast<NumberInstance>(), null))
             {
-                ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 20");
+                ExceptionHelper.ThrowTypeError(Engine);
             }
 
             var x = TypeConverter.ToNumber(thisObj);
+            var fractionDigits = arguments.At(0);
+            if (fractionDigits.IsUndefined())
+            {
+                fractionDigits = JsNumber.PositiveZero;
+            }
+
+            var f = (int) TypeConverter.ToInteger(fractionDigits);
 
             if (double.IsNaN(x))
             {
                 return "NaN";
             }
 
+            bool negative = false;
+            if (x < 0)
+            {
+                negative = true;
+                x = -x;
+            }
+
+            if (double.IsPositiveInfinity(x))
+            {
+                return thisObj.ToString();
+            }
+
+            if (f < 0 || f > 100)
+            {
+                ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 100");
+            }
+
             string format = string.Concat("#.", new string('0', f), "e+0");
-            return x.ToString(format, CultureInfo.InvariantCulture);
+
+            // handle non-decimal with greater precision
+            string formatted;
+            if (x - (long) x < JsNumber.DoubleIsIntegerTolerance)
+            {
+                formatted = ((long) x).ToString(format, CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                formatted = x.ToString(format, CultureInfo.InvariantCulture);
+            }
+
+            return negative ? "-" + formatted : formatted;
         }
 
         private JsValue ToPrecision(JsValue thisObj, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(thisObj);
+            if (!thisObj.IsNumber() && ReferenceEquals(thisObj.TryCast<NumberInstance>(), null))
+            {
+                ExceptionHelper.ThrowTypeError(Engine);
+            }
 
-            if (arguments.At(0).IsUndefined())
+            var x = TypeConverter.ToNumber(thisObj);
+            var precisionArgument = arguments.At(0);
+
+            if (precisionArgument.IsUndefined())
             {
                 return TypeConverter.ToString(x);
             }
 
-            var p = TypeConverter.ToInteger(arguments.At(0));
+            var p = TypeConverter.ToInteger(precisionArgument);
 
             if (double.IsInfinity(x) || double.IsNaN(x))
             {
                 return TypeConverter.ToString(x);
             }
 
-            if (p < 1 || p > 21)
+            if (p < 1 || p > 100)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "precision must be between 1 and 21");
+                ExceptionHelper.ThrowRangeError(_engine, "precision must be between 1 and 100");
             }
 
             // Get the number of decimals
-            string str = x.ToString("e23", CultureInfo.InvariantCulture);
-            int decimals = str.IndexOfAny(_numberSeparators);
-            decimals = decimals == -1 ? str.Length : decimals;
+            bool negative = false;
+            if (x < 0)
+            {
+                negative = true;
+                x = -x;
+            }
 
-            p -= decimals;
-            p = p < 1 ? 1 : p;
+            var isIntegral = x - (long) x < JsNumber.DoubleIsIntegerTolerance;
 
-            return x.ToString("f" + p, CultureInfo.InvariantCulture);
+            p -= GetNumberOfDigits(x);
+            p = p < 0 ? 0 : p;
+
+            p += GetNumberOfDecimals(x);
+
+            // handle non-decimal with greater precision
+            string formatted;
+            if (isIntegral)
+            {
+                formatted = ((long) x).ToString("f" + p, CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                formatted = x.ToString("f" + p, CultureInfo.InvariantCulture);
+            }
+
+            return negative ? "-" + formatted : formatted;
+        }
+
+        private static int GetNumberOfDigits(double d)
+        {
+            var abs = System.Math.Abs(d);
+            return abs < 1 ? 1 : (int)(System.Math.Log10(abs) + 1);
+        }
+
+        private static int GetNumberOfDecimals(double d)
+        {
+            return BitConverter.GetBytes(decimal.GetBits((decimal) d)[3])[2];
         }
 
         private JsValue ToNumberString(JsValue thisObject, JsValue[] arguments)

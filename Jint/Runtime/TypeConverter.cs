@@ -170,29 +170,46 @@ namespace Jint.Runtime
             // todo: use a common implementation with JavascriptParser
             try
             {
-                if (!s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                if (s.Length > 2 && s[0] == '0' && char.IsLetter(s[1]))
                 {
-                    var start = s[0];
-                    if (start != '+' && start != '-' && start != '.' && !char.IsDigit(start))
+                    int fromBase = 0;
+                    if (s[1] == 'x' || s[1] == 'X')
                     {
-                        return double.NaN;
+                        fromBase = 16;
                     }
 
-                    double n = double.Parse(s,
-                        NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
-                        NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
-                        NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
-                    if (s.StartsWith("-") && n == 0)
+                    if (s[1] == 'o' || s[1] == 'O')
                     {
-                        return -0.0;
+                        fromBase = 8;
                     }
 
-                    return n;
+                    if (s[1] == 'b' || s[1] == 'B')
+                    {
+                        fromBase = 2;
+                    }
+
+                    if (fromBase > 0)
+                    {
+                        return Convert.ToInt32(s.Substring(2), fromBase);
+                    }
                 }
 
-                int i = int.Parse(s.Substring(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+                var start = s[0];
+                if (start != '+' && start != '-' && start != '.' && !char.IsDigit(start))
+                {
+                    return double.NaN;
+                }
 
-                return i;
+                double n = double.Parse(s,
+                    NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
+                    NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
+                    NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
+                if (s.StartsWith("-") && n == 0)
+                {
+                    return -0.0;
+                }
+
+                return n;
             }
             catch (OverflowException)
             {
