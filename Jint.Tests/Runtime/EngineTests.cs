@@ -1320,6 +1320,20 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldExecuteDromaeoBase64()
+        {
+            RunTest(@"
+var startTest = function () { };
+var test = function (name, fn) { fn(); };
+var endTest = function () { };
+var prep = function (fn) { fn(); };
+            ");
+
+            var content = GetEmbeddedFile("dromaeo-string-base64.js");
+            RunTest(content);
+        }
+
+        [Fact]
         public void ShouldExecuteKnockoutWithErrorWhenIntolerant()
         {
             var content = GetEmbeddedFile("knockout-3.4.0.js");

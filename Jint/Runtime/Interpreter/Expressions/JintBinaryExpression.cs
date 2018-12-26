@@ -56,40 +56,37 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public static bool StrictlyEqual(JsValue x, JsValue y)
         {
-            if (x._type != y._type)
+            var typeX = x.Type;
+            var typeY = y.Type;
+
+            if (typeX != typeY)
             {
                 return false;
             }
 
-            if (x._type == Types.Boolean || x._type == Types.String)
+            switch (typeX)
             {
-                return x.Equals(y);
+                case Types.Undefined:
+                case Types.Null:
+                    return true;
+                case Types.Number:
+                    var nx = ((JsNumber) x)._value;
+                    var ny = ((JsNumber) y)._value;
+                    return !double.IsNaN(nx) && !double.IsNaN(ny) && nx == ny;
+                case Types.String:
+                    return x.AsStringWithoutTypeCheck() == y.AsStringWithoutTypeCheck();
+                case Types.Boolean:
+                    return ((JsBoolean) x)._value == ((JsBoolean) y)._value;
+                case Types.Object when x.AsObject() is IObjectWrapper xw:
+                    var yw = y.AsObject() as IObjectWrapper;
+                    if (yw == null)
+                        return false;
+                    return Equals(xw.Target, yw.Target);
+                case Types.None:
+                    return true;
+                default:
+                    return x == y;
             }
-
-
-            if (x._type >= Types.None && x._type <= Types.Null)
-            {
-                return true;
-            }
-
-            if (x is JsNumber jsNumber)
-            {
-                var nx = jsNumber._value;
-                var ny = ((JsNumber) y)._value;
-                return !double.IsNaN(nx) && !double.IsNaN(ny) && nx == ny;
-            }
-
-            if (x is IObjectWrapper xw)
-            {
-                if (!(y is IObjectWrapper yw))
-                {
-                    return false;
-                }
-
-                return Equals(xw.Target, yw.Target);
-            }
-
-            return x == y;
         }
 
         private sealed class JintGenericBinaryExpression : JintBinaryExpression
