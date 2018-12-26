@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using System.Threading;
-using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Interop;

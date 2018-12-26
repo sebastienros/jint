@@ -90,6 +90,9 @@ namespace Jint.Runtime.Interpreter.Statements
                 case Nodes.ForInStatement:
                     return new JintForInStatement(engine, (ForInStatement) statement);
 
+                case Nodes.ForOfStatement:
+                    return new JintForOfStatement(engine, (ForOfStatement) statement);
+
                 case Nodes.IfStatement:
                     return new JintIfStatement(engine, (IfStatement) statement);
 

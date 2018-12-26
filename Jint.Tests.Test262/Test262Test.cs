@@ -247,6 +247,10 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "regexp-lookbehind not implemented";
                                 break;
+                            case "TypedArray":
+                                skip = true;
+                                reason = "TypedArray not implemented";
+                                break;
                         }
                     }
                 }
