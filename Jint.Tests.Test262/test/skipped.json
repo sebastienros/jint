@@ -361,5 +361,9 @@
   {
     "source": "built-ins/Math/pow/int32_min-exponent.js",
     "reason": "const not implemented"
+  },
+  {
+    "source": "language/expressions/template-literal/tv-line-terminator-sequence.js",
+    "reason": "Line feed problems (git, windows, linux)"
   }
 ]
