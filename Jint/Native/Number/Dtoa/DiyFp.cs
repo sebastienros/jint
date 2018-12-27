@@ -43,20 +43,14 @@ namespace Jint.Native.Number.Dtoa
         internal const int KSignificandSize = 64;
         private const ulong KUint64MSB = 0x8000000000000000L;
 
-        internal DiyFp(long f, int e)
+        internal DiyFp(ulong f, int e)
         {
             F = f;
             E = e;
         }
 
-        public readonly long F;
+        public readonly ulong F;
         public readonly int E;
-
-        private static bool Uint64Gte(long a, long b)
-        {
-            // greater-or-equal for unsigned int64 in java-style...
-            return (a == b) || ((a > b) ^ (a < 0) ^ (b < 0));
-        }
 
         // Returns a - b.
         // The exponents of both numbers must be the same and this must be bigger
@@ -64,7 +58,6 @@ namespace Jint.Native.Number.Dtoa
         internal static DiyFp Minus(in DiyFp a, in DiyFp b)
         {
             Debug.Assert(a.E == b.E);
-            Debug.Assert(Uint64Gte(a.F, b.F));
 
             return new DiyFp(a.F - b.F, a.E);
         }
@@ -74,39 +67,38 @@ namespace Jint.Native.Number.Dtoa
         // returns a * b;
         internal static DiyFp Times(in DiyFp a, in DiyFp b)
         {
-            DiyFp result = new DiyFp(a.F, a.E);
             // Simply "emulates" a 128 bit multiplication.
             // However: the resulting number only contains 64 bits. The least
             // significant 64 bits are only used for rounding the most significant 64
             // bits.
-            const long kM32 = 0xFFFFFFFFL;
-            long a1 = result.F.UnsignedShift(32);
-            long b1 = result.F & kM32;
-            long c = b.F.UnsignedShift(32);
-            long d = b.F & kM32;
-            long ac = a1*c;
-            long bc = b1*c;
-            long ad = a1*d;
-            long bd = b1*d;
-            long tmp = bd.UnsignedShift(32) + (ad & kM32) + (bc & kM32);
+            const ulong kM32 = 0xFFFFFFFFL;
+            ulong a1 = a.F >> 32;
+            ulong b1 = a.F & kM32;
+            ulong c = b.F >> 32;
+            ulong d = b.F & kM32;
+            ulong ac = a1*c;
+            ulong bc = b1*c;
+            ulong ad = a1*d;
+            ulong bd = b1*d;
+            ulong tmp = (bd >> 32) + (ad & kM32) + (bc & kM32);
             // By adding 1U << 31 to tmp we round the final result.
             // Halfway cases will be round up.
             tmp += 1L << 31;
-            long resultF = ac + ad.UnsignedShift(32) + bc.UnsignedShift(32) + tmp.UnsignedShift(32);
-            return new DiyFp(resultF, result.E + b.E + 64);
+            ulong resultF = ac + (ad >> 32) + (bc >> 32) + (tmp >> 32);
+            return new DiyFp(resultF, a.E + b.E + 64);
         }
 
-        internal static DiyFp Normalize(long f, int e)
+        internal static DiyFp Normalize(ulong f, int e)
         {
             // This method is mainly called for normalizing boundaries. In general
             // boundaries need to be shifted by 10 bits. We thus optimize for this case.
-            const long k10MsBits = 0xFFC00000L << 32;
+            const ulong k10MsBits = (ulong) 0x3FF << 54;
             while ((f & k10MsBits) == 0)
             {
                 f <<= 10;
                 e -= 10;
             }
-            while (((ulong) f & KUint64MSB) == 0)
+            while ((f & KUint64MSB) == 0)
             {
                 f <<= 1;
                 e--;

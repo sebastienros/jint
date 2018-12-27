@@ -38,13 +38,13 @@ namespace Jint.Native.Number.Dtoa
 
         private class CachedPower
         {
-            internal readonly long Significand;
+            internal readonly ulong Significand;
             internal readonly short BinaryExponent;
             internal readonly short DecimalExponent;
 
             internal CachedPower(ulong significand, short binaryExponent, short decimalExponent)
             {
-                Significand = (long) significand;
+                Significand =  significand;
                 BinaryExponent = binaryExponent;
                 DecimalExponent = decimalExponent;
             }
@@ -62,15 +62,17 @@ namespace Jint.Native.Number.Dtoa
             internal readonly DiyFp cMk;
         }
 
-        internal static GetCachedPowerResult GetCachedPower(int e, int alpha, int gamma)
+        internal static GetCachedPowerResult GetCachedPowerForBinaryExponentRange(int min_exponent, int max_exponent)
         {
             const int kQ = DiyFp.KSignificandSize;
-            double k = System.Math.Ceiling((alpha - e + kQ - 1) * Kd1Log210);
+            double k = System.Math.Ceiling((min_exponent + kQ - 1) * Kd1Log210);
             int index = (GrisuCacheOffset + (int) k - 1) / CachedPowersSpacing + 1;
             CachedPower cachedPower = CACHED_POWERS[index];
 
+            Debug.Assert(min_exponent <= cachedPower.BinaryExponent);
+            Debug.Assert(cachedPower.BinaryExponent <= max_exponent);
+
             var cMk = new DiyFp(cachedPower.Significand, cachedPower.BinaryExponent);
-            Debug.Assert((alpha <= cMk.E + e) && (cMk.E + e <= gamma));
             return new GetCachedPowerResult(cachedPower.DecimalExponent, cMk);
         }
 

@@ -6,9 +6,8 @@ namespace Jint.Native.Number.Dtoa
 {
     internal class FastDtoaBuilder
     {
-
         // allocate buffer for generated digits + extra notation + padding zeroes
-        private readonly char[] _chars = new char[FastDtoa.KFastDtoaMaximalLength + 8];
+        internal readonly char[] _chars = new char[FastDtoa.KFastDtoaMaximalLength + 8];
         internal int End;
         internal int Point;
         private bool _formatted;
@@ -36,9 +35,9 @@ namespace Jint.Native.Number.Dtoa
             return "[chars:" + new string(_chars, 0, End) + ", point:" + Point + "]";
         }
 
-        public string Format()
+        public string Format(FastDtoa.FastDtoaMode mode)
         {
-            if (!_formatted)
+            if (!_formatted && mode != FastDtoa.FastDtoaMode.Precision)
             {
                 // check for minus sign
                 int firstDigit = _chars[0] == '-' ? 1 : 0;

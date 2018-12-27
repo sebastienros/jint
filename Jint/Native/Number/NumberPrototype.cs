@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Globalization;
-using System.Numerics;
-using System.Text;
 using Jint.Native.Number.Dtoa;
 using Jint.Pooling;
 using Jint.Runtime;
@@ -15,8 +13,6 @@ namespace Jint.Native.Number
     /// </summary>
     public sealed class NumberPrototype : NumberInstance
     {
-        private static readonly char[] _numberSeparators = {'.', 'e'};
-
         private NumberPrototype(Engine engine)
             : base(engine)
         {
@@ -201,7 +197,7 @@ namespace Jint.Native.Number
                 return TypeConverter.ToString(x);
             }
 
-            var p = TypeConverter.ToInteger(precisionArgument);
+            var p = (int) TypeConverter.ToInteger(precisionArgument);
 
             if (double.IsInfinity(x) || double.IsNaN(x))
             {
@@ -221,25 +217,67 @@ namespace Jint.Native.Number
                 x = -x;
             }
 
-            var isIntegral = x - (long) x < JsNumber.DoubleIsIntegerTolerance;
+            var decimalRep = FastDtoa.NumberToString(
+                x,
+                FastDtoa.FastDtoaMode.Precision,
+                p,
+                out var decimal_rep_length,
+                out var decimal_point);
 
-            p -= GetNumberOfDigits(x);
-            p = p < 0 ? 0 : p;
-
-            p += GetNumberOfDecimals(x);
-
-            // handle non-decimal with greater precision
-            string formatted;
-            if (isIntegral)
+            if (decimalRep == null)
             {
-                formatted = ((long) x).ToString("f" + p, CultureInfo.InvariantCulture);
-            }
-            else
-            {
-                formatted = x.ToString("f" + p, CultureInfo.InvariantCulture);
+                p -= GetNumberOfDigits(x);
+                p = p < 0 ? 0 : p;
+
+                p += GetNumberOfDecimals(x);
+                var formatted = x.ToString("f" + p, CultureInfo.InvariantCulture);
+                return negative ? "-" + formatted : formatted;
             }
 
-            return negative ? "-" + formatted : formatted;
+            int exponent = decimal_point - 1;
+
+            if (exponent < -6 || exponent >= p)
+            {
+                return CreateExponentialRepresentation(decimalRep, exponent, negative, p);
+            }
+
+            using (var builder = StringBuilderPool.GetInstance())
+            {
+                // Use fixed notation.
+                if (negative)
+                {
+                    builder.Builder.Append('-');
+                }
+
+                if (decimal_point <= 0)
+                {
+                    builder.Builder.Append("0.");
+                    builder.Builder.Append('0', -decimal_point);
+                    builder.Builder.Append(decimalRep);
+                    builder.Builder.Append('0', p - decimal_rep_length);
+                }
+                else
+                {
+                    int m = System.Math.Min(decimal_rep_length, decimal_point);
+                    builder.Builder.Append(decimalRep, 0, m);
+                    builder.Builder.Append('0', System.Math.Max(0, decimal_point - decimal_rep_length));
+                    if (decimal_point < p)
+                    {
+                        builder.Builder.Append('.');
+                        var extra = negative ? 2 : 1;
+                        if (decimal_rep_length > decimal_point)
+                        {
+                            int len = decimalRep.Length - decimal_point;
+                            int n = System.Math.Min(len, p - (builder.Length - 1 - extra));
+                            builder.Builder.Append(decimalRep, decimal_point, n);
+                        }
+
+                        builder.Builder.Append('0', System.Math.Max(0, extra + (p - builder.Length - 1)));
+                    }
+                }
+
+                return builder.ToString();
+            }
         }
 
         private static int GetNumberOfDigits(double d)
@@ -251,6 +289,40 @@ namespace Jint.Native.Number
         private static int GetNumberOfDecimals(double d)
         {
             return BitConverter.GetBytes(decimal.GetBits((decimal) d)[3])[2];
+        }
+
+        private static string CreateExponentialRepresentation(
+            string decimalRep,
+            int exponent,
+            bool negative,
+            int significantDigits)
+        {
+            bool negativeExponent = false;
+            if (exponent < 0)
+            {
+                negativeExponent = true;
+                exponent = -exponent;
+            }
+
+            var builder = StringBuilderPool.GetInstance();
+
+            if (negative)
+            {
+                builder.Builder.Append('-');
+            }
+            builder.Builder.Append(decimalRep[0]);
+            if (significantDigits != 1)
+            {
+                builder.Builder.Append('.');
+                builder.Builder.Append(decimalRep, 1, decimalRep.Length - 1);
+                int length = decimalRep.Length;
+                builder.Builder.Append('0', significantDigits - length);
+            }
+
+            builder.Builder.Append('e');
+            builder.Builder.Append(negativeExponent ? '-' : '+');
+            builder.Builder.Append(exponent);
+            return builder.ToString();
         }
 
         private JsValue ToNumberString(JsValue thisObject, JsValue[] arguments)
@@ -379,12 +451,23 @@ namespace Jint.Native.Number
 
             // V8 FastDtoa can't convert all numbers, so try it first but
             // fall back to old DToA in case it fails
-            var result = FastDtoa.NumberToString(m);
+            var result = FastDtoa.NumberToString(
+                m,
+                FastDtoa.FastDtoaMode.Shortest,
+                0,
+                out var length,
+                out var decimalPoint);
+
             if (result != null)
             {
                 return result;
             }
 
+            return CreateFallbackString(m);
+        }
+
+        private static string CreateFallbackString(double m)
+        {
             // s is all digits (significand)
             // k number of digits of s
             // n total of digits in fraction s*10^n-k=m

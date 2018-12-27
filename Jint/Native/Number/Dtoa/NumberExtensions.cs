@@ -8,6 +8,12 @@ namespace Jint.Native.Number.Dtoa
         public static long UnsignedShift(this long l, int shift)
         {
             return (long) ((ulong) l >> shift);
+        }        
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong UnsignedShift(this ulong l, int shift)
+        {
+            return l >> shift;
         }
     }
 }

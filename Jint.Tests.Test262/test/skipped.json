@@ -212,7 +212,7 @@
     "reason": "requires toLocaleString changes"
   },
 
-  // experimenta
+  // experimentals start
 
   {
     "source": "built-ins/Array/prototype/flat/array-like-objects.js",
@@ -278,13 +278,16 @@
     "source": "built-ins/Array/prototype/flatMap/thisArg-argument.js",
     "reason": "experimental"
   },
+
+  // experimentals end
+
   {
     "source": "built-ins/String/prototype/padEnd/observable-operations.js",
-    "reason": "observables not implemetned"
+    "reason": "observables not implemented"
   },
   {
     "source": "built-ins/String/prototype/padStart/observable-operations.js",
-    "reason": "observables not implemetned"
+    "reason": "observables not implemented"
   },
   {
     "source": "built-ins/StringIteratorPrototype/next/next-iteration-surrogate-pairs.js",
@@ -368,14 +371,14 @@
   },
   {
     "source": "built-ins/Number/prototype/toPrecision/range.js",
-    "reason": "arrow functions now implemented"
+    "reason": "arrow functions not implemented"
   },
   {
     "source": "built-ins/Number/prototype/toFixed/range.js",
-    "reason": "arrow functions now implemented"
+    "reason": "arrow functions not implemented"
   },
   {
     "source": "built-ins/Number/prototype/toExponential/range.js",
-    "reason": "arrow functions now implemented"
+    "reason": "arrow functions not implemented"
   }
 ]
