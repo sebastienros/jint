@@ -32,13 +32,13 @@ using System.Diagnostics;
 
 namespace Jint.Native.Number.Dtoa
 {
-
-// Helper functions for doubles.
+    /// <summary>
+    /// Helper functions for doubles.
+    /// </summary>
     internal class DoubleHelper
     {
-
-        private const ulong KExponentMask = 0x7FF0000000000000L;
-        private const ulong KSignificandMask = 0x000FFFFFFFFFFFFFL;
+        internal const ulong KExponentMask = 0x7FF0000000000000L;
+        internal const ulong KSignificandMask = 0x000FFFFFFFFFFFFFL;
         private const ulong KHiddenBit = 0x0010000000000000L;
 
         private static DiyFp AsDiyFp(ulong d64)
@@ -67,7 +67,7 @@ namespace Jint.Native.Number.Dtoa
             return new DiyFp(f, e);
         }
 
-        private static int Exponent(ulong d64)
+        internal static int Exponent(ulong d64)
         {
             if (IsDenormal(d64)) return KDenormalExponent;
 
@@ -75,17 +75,26 @@ namespace Jint.Native.Number.Dtoa
             return biasedE - KExponentBias;
         }
 
-        private static ulong Significand(ulong d64)
+        internal static int NormalizedExponent(ulong significand, int exponent)
+        {
+            Debug.Assert(significand != 0);
+            while ((significand & KHiddenBit) == 0)
+            {
+                significand = significand << 1;
+                exponent = exponent - 1;
+            }
+            return exponent;
+        }
+
+        internal static ulong Significand(ulong d64)
         {
             ulong significand = d64 & KSignificandMask;
             if (!IsDenormal(d64))
             {
                 return significand + KHiddenBit;
             }
-            else
-            {
-                return significand;
-            }
+
+            return significand;
         }
 
         // Returns true if the double is a denormal.

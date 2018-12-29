@@ -37,10 +37,6 @@ namespace Jint.Native.Number.Dtoa
 {
     internal sealed class FastDtoa
     {
-        // share buffer to reduce memory usage
-        private static readonly ThreadLocal<FastDtoaBuilder> cachedBuffer = new ThreadLocal<FastDtoaBuilder>(() => new FastDtoaBuilder());
-
-
         // FastDtoa will produce at most kFastDtoaMaximalLength digits.
         public const int KFastDtoaMaximalLength = 17;
 
@@ -68,7 +64,7 @@ namespace Jint.Native.Number.Dtoa
         //    representable number to the input.
         //  Modifies the generated digits in the buffer to approach (round towards) w.
         private static bool RoundWeed(
-            FastDtoaBuilder buffer,
+            DtoaBuilder buffer,
             ulong distanceTooHighW,
             ulong unsafeInterval,
             ulong rest,
@@ -187,7 +183,7 @@ namespace Jint.Native.Number.Dtoa
         //
         // Precondition: rest < ten_kappa.
         static bool RoundWeedCounted(
-            FastDtoaBuilder buffer,
+            DtoaBuilder buffer,
             ulong rest,
             ulong ten_kappa,
             ulong unit,
@@ -215,8 +211,8 @@ namespace Jint.Native.Number.Dtoa
             if ((rest > unit) && (ten_kappa - (rest - unit) <= (rest - unit)))
             {
                 // Increment the last digit recursively until we find a non '9' digit.
-                buffer._chars[buffer.End - 1]++;
-                for (int i = buffer.End - 1; i > 0; --i)
+                buffer._chars[buffer.Length - 1]++;
+                for (int i = buffer.Length - 1; i > 0; --i)
                 {
                     if (buffer._chars[i] != '0' + 10) break;
                     buffer._chars[i] = '0';
@@ -417,7 +413,7 @@ namespace Jint.Native.Number.Dtoa
             in DiyFp low,
             in DiyFp w,
             in DiyFp high,
-            FastDtoaBuilder buffer,
+            DtoaBuilder buffer,
             int mk,
             out int kappa)
         {
@@ -476,7 +472,7 @@ namespace Jint.Native.Number.Dtoa
                 {
                     // Rounding down (by not emitting the remaining digits) yields a number
                     // that lies within the unsafe interval.
-                    buffer.Point = buffer.End - mk + kappa;
+                    buffer.Point = buffer.Length - mk + kappa;
                     return RoundWeed(
                         buffer,
                         DiyFp.Minus(tooHigh, w).F,
@@ -515,7 +511,7 @@ namespace Jint.Native.Number.Dtoa
                 kappa--;
                 if (fractionals < unsafeInterval.F)
                 {
-                    buffer.Point = buffer.End - mk + kappa;
+                    buffer.Point = buffer.Length - mk + kappa;
                     return RoundWeed(
                         buffer,
                         DiyFp.Minus(tooHigh, w).F*unit,
@@ -558,7 +554,7 @@ namespace Jint.Native.Number.Dtoa
         static bool DigitGenCounted(
             in DiyFp w,
             int requested_digits,
-            FastDtoaBuilder buffer,
+            DtoaBuilder buffer,
             out int kappa)
         {
             Debug.Assert(MinimalTargetExponent <= w.E && w.E <= MaximalTargetExponent);
@@ -635,7 +631,7 @@ namespace Jint.Native.Number.Dtoa
         // The last digit will be closest to the actual v. That is, even if several
         // digits might correctly yield 'v' when read again, the closest will be
         // computed.
-        private static bool Grisu3(double v, FastDtoaBuilder buffer, out int decimal_exponent)
+        private static bool Grisu3(double v, DtoaBuilder buffer, out int decimal_exponent)
         {
             ulong bits = (ulong) BitConverter.DoubleToInt64Bits(v);
             DiyFp w = DoubleHelper.AsNormalizedDiyFp(bits);
@@ -701,7 +697,7 @@ namespace Jint.Native.Number.Dtoa
         static bool Grisu3Counted(
             double v,
             int requested_digits,
-            FastDtoaBuilder buffer,
+            DtoaBuilder buffer,
             out int decimal_exponent)
         {
             ulong bits = (ulong) BitConverter.DoubleToInt64Bits(v);
@@ -736,28 +732,25 @@ namespace Jint.Native.Number.Dtoa
             return result;
         }
 
-        public static string NumberToString(
+        public static bool NumberToString(
             double v,
-            FastDtoaMode mode,
+            DtoaMode mode,
             int requested_digits,
-            out int length,
-            out int decimal_point)
+            out int decimal_point,
+            DtoaBuilder buffer)
         {
             Debug.Assert(v > 0);
             Debug.Assert(!double.IsNaN(v));
             Debug.Assert(!double.IsInfinity(v));
 
-            var buffer = cachedBuffer.Value;
-            buffer.Reset();
-
             bool result;
             int decimal_exponent = 0;
             switch (mode)
             {
-                case FastDtoaMode.Shortest:
+                case DtoaMode.Shortest:
                     result = Grisu3(v, buffer, out decimal_exponent);
                     break;
-                case FastDtoaMode.Precision:
+                case DtoaMode.Precision:
                     result = Grisu3Counted(v, requested_digits, buffer, out decimal_exponent);
                     break;
                 default:
@@ -765,21 +758,14 @@ namespace Jint.Native.Number.Dtoa
                     break;
             }
 
-            decimal_point = -1;
-            length = buffer.End;
             if (result)
             {
-                decimal_point = length + decimal_exponent;
-                return buffer.Format(mode);
+                decimal_point = buffer.Length + decimal_exponent;
+                return true;
             }
 
-            return null;
-        }
-
-        internal enum FastDtoaMode
-        {
-            Shortest,
-            Precision
+            decimal_point = -1;
+            return false;
         }
     }
 }

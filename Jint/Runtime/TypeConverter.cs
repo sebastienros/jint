@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Number;
+using Jint.Native.Number.Dtoa;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Runtime.References;
@@ -332,7 +333,7 @@ namespace Jint.Runtime
                 return ToString((long) d);
             }
 
-            return NumberPrototype.ToNumberString(d);
+            return NumberPrototype.NumberToString(d, new DtoaBuilder());
         }
 
         /// <summary>

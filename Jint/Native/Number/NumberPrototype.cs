@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Globalization;
 using Jint.Native.Number.Dtoa;
 using Jint.Pooling;
@@ -13,6 +14,10 @@ namespace Jint.Native.Number
     /// </summary>
     public sealed class NumberPrototype : NumberInstance
     {
+        // share buffer to reduce memory usage
+        private readonly DtoaBuilder cachedBuffer = new DtoaBuilder();
+
+
         private NumberPrototype(Engine engine)
             : base(engine)
         {
@@ -137,49 +142,67 @@ namespace Jint.Native.Number
 
             var x = TypeConverter.ToNumber(thisObj);
             var fractionDigits = arguments.At(0);
-            if (fractionDigits.IsUndefined())
-            {
-                fractionDigits = JsNumber.PositiveZero;
-            }
-
-            var f = (int) TypeConverter.ToInteger(fractionDigits);
 
             if (double.IsNaN(x))
             {
                 return "NaN";
             }
 
-            bool negative = false;
-            if (x < 0)
-            {
-                negative = true;
-                x = -x;
-            }
-
-            if (double.IsPositiveInfinity(x))
+            if (double.IsInfinity(x))
             {
                 return thisObj.ToString();
             }
 
-            if (f < 0 || f > 100)
+            var f = (int) TypeConverter.ToInteger(fractionDigits);
+            if (fractionDigits.IsUndefined())
             {
-                ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 100");
-            }
-
-            string format = string.Concat("#.", new string('0', f), "e+0");
-
-            // handle non-decimal with greater precision
-            string formatted;
-            if (x - (long) x < JsNumber.DoubleIsIntegerTolerance)
-            {
-                formatted = ((long) x).ToString(format, CultureInfo.InvariantCulture);
+                f = -1;
             }
             else
             {
-                formatted = x.ToString(format, CultureInfo.InvariantCulture);
+                if (f < 0 || f > 100)
+                {
+                    ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 100");
+                }
             }
 
-            return negative ? "-" + formatted : formatted;
+            bool negative = false;
+            if (x < 0)
+            {
+                x = -x;
+                negative = true;
+            }
+
+            int decimalPoint;
+            if (f == -1)
+            {
+                DtoaNumberFormatter.DoubleToAscii(
+                    cachedBuffer,
+                    x,
+                    DtoaMode.Shortest,
+                    requested_digits: 0,
+                    out _,
+                    out decimalPoint);
+                f = cachedBuffer.Length - 1;
+            }
+            else
+            {
+                DtoaNumberFormatter.DoubleToAscii(
+                    cachedBuffer,
+                    x,
+                    DtoaMode.Precision,
+                    requested_digits: f + 1,
+                    out _,
+                    out decimalPoint);
+                f = cachedBuffer.Length - 1;
+            }
+
+            Debug.Assert(cachedBuffer.Length > 0);
+            Debug.Assert(cachedBuffer.Length <= f + 1);
+
+            int exponent = decimalPoint - 1;
+            var result = CreateExponentialRepresentation(cachedBuffer, exponent, negative, f+1);
+            return result;
         }
 
         private JsValue ToPrecision(JsValue thisObj, JsValue[] arguments)
@@ -209,36 +232,19 @@ namespace Jint.Native.Number
                 ExceptionHelper.ThrowRangeError(_engine, "precision must be between 1 and 100");
             }
 
-            // Get the number of decimals
-            bool negative = false;
-            if (x < 0)
-            {
-                negative = true;
-                x = -x;
-            }
-
-            var decimalRep = FastDtoa.NumberToString(
+            DtoaNumberFormatter.DoubleToAscii(
+                cachedBuffer,
                 x,
-                FastDtoa.FastDtoaMode.Precision,
+                DtoaMode.Precision,
                 p,
-                out var decimal_rep_length,
-                out var decimal_point);
+                out var negative,
+                out var decimalPoint);
 
-            if (decimalRep == null)
-            {
-                p -= GetNumberOfDigits(x);
-                p = p < 0 ? 0 : p;
 
-                p += GetNumberOfDecimals(x);
-                var formatted = x.ToString("f" + p, CultureInfo.InvariantCulture);
-                return negative ? "-" + formatted : formatted;
-            }
-
-            int exponent = decimal_point - 1;
-
+            int exponent = decimalPoint - 1;
             if (exponent < -6 || exponent >= p)
             {
-                return CreateExponentialRepresentation(decimalRep, exponent, negative, p);
+                return CreateExponentialRepresentation(cachedBuffer, exponent, negative, p);
             }
 
             using (var builder = StringBuilderPool.GetInstance())
@@ -249,30 +255,30 @@ namespace Jint.Native.Number
                     builder.Builder.Append('-');
                 }
 
-                if (decimal_point <= 0)
+                if (decimalPoint <= 0)
                 {
                     builder.Builder.Append("0.");
-                    builder.Builder.Append('0', -decimal_point);
-                    builder.Builder.Append(decimalRep);
-                    builder.Builder.Append('0', p - decimal_rep_length);
+                    builder.Builder.Append('0', -decimalPoint);
+                    builder.Builder.Append(cachedBuffer._chars, 0, cachedBuffer.Length);
+                    builder.Builder.Append('0', p - cachedBuffer.Length);
                 }
                 else
                 {
-                    int m = System.Math.Min(decimal_rep_length, decimal_point);
-                    builder.Builder.Append(decimalRep, 0, m);
-                    builder.Builder.Append('0', System.Math.Max(0, decimal_point - decimal_rep_length));
-                    if (decimal_point < p)
+                    int m = System.Math.Min(cachedBuffer.Length, decimalPoint);
+                    builder.Builder.Append(cachedBuffer._chars, 0, m);
+                    builder.Builder.Append('0', System.Math.Max(0, decimalPoint - cachedBuffer.Length));
+                    if (decimalPoint < p)
                     {
                         builder.Builder.Append('.');
                         var extra = negative ? 2 : 1;
-                        if (decimal_rep_length > decimal_point)
+                        if (cachedBuffer.Length > decimalPoint)
                         {
-                            int len = decimalRep.Length - decimal_point;
+                            int len = cachedBuffer.Length - decimalPoint;
                             int n = System.Math.Min(len, p - (builder.Length - 1 - extra));
-                            builder.Builder.Append(decimalRep, decimal_point, n);
+                            builder.Builder.Append(cachedBuffer._chars, decimalPoint, n);
                         }
 
-                        builder.Builder.Append('0', System.Math.Max(0, extra + (p - builder.Length - 1)));
+                        builder.Builder.Append('0', System.Math.Max(0, extra + (p - cachedBuffer.Length - 1)));
                     }
                 }
 
@@ -280,19 +286,8 @@ namespace Jint.Native.Number
             }
         }
 
-        private static int GetNumberOfDigits(double d)
-        {
-            var abs = System.Math.Abs(d);
-            return abs < 1 ? 1 : (int)(System.Math.Log10(abs) + 1);
-        }
-
-        private static int GetNumberOfDecimals(double d)
-        {
-            return BitConverter.GetBytes(decimal.GetBits((decimal) d)[3])[2];
-        }
-
         private static string CreateExponentialRepresentation(
-            string decimalRep,
+            DtoaBuilder buffer,
             int exponent,
             bool negative,
             int significantDigits)
@@ -310,12 +305,12 @@ namespace Jint.Native.Number
             {
                 builder.Builder.Append('-');
             }
-            builder.Builder.Append(decimalRep[0]);
+            builder.Builder.Append(buffer._chars[0]);
             if (significantDigits != 1)
             {
                 builder.Builder.Append('.');
-                builder.Builder.Append(decimalRep, 1, decimalRep.Length - 1);
-                int length = decimalRep.Length;
+                builder.Builder.Append(buffer._chars, 1, buffer.Length - 1);
+                int length = buffer.Length;
                 builder.Builder.Append('0', significantDigits - length);
             }
 
@@ -427,7 +422,12 @@ namespace Jint.Native.Number
             }
         }
 
-        public static string ToNumberString(double m)
+        private string ToNumberString(double m)
+        {
+            return NumberToString(m, cachedBuffer);
+        }
+
+        internal static string NumberToString(double m, DtoaBuilder builder)
         {
             if (double.IsNaN(m))
             {
@@ -446,71 +446,101 @@ namespace Jint.Native.Number
 
             if (m < 0)
             {
-                return "-" + ToNumberString(-m);
+                return "-" + NumberToString(-m, builder);
             }
 
-            // V8 FastDtoa can't convert all numbers, so try it first but
-            // fall back to old DToA in case it fails
-            var result = FastDtoa.NumberToString(
+            DtoaNumberFormatter.DoubleToAscii(
+                builder,
                 m,
-                FastDtoa.FastDtoaMode.Shortest,
+                DtoaMode.Shortest,
                 0,
-                out var length,
-                out var decimalPoint);
+                out _,
+                out _);
 
-            if (result != null)
-            {
-                return result;
-            }
-
-            return CreateFallbackString(m);
+            // check for minus sign
+            int firstDigit = builder._chars[0] == '-' ? 1 : 0;
+            int decPoint = builder.Point - firstDigit;
+            return decPoint < -5 || decPoint > 21
+                ? ToExponentialFormat(builder, firstDigit, decPoint)
+                : ToFixedFormat(builder, firstDigit, decPoint);
         }
 
-        private static string CreateFallbackString(double m)
+        private static string ToFixedFormat(DtoaBuilder builder, int firstDigit, int decPoint)
         {
-            // s is all digits (significand)
-            // k number of digits of s
-            // n total of digits in fraction s*10^n-k=m
-            // 123.4 s=1234, k=4, n=3
-            // 1234000 s = 1234, k=4, n=7
-            string s = null;
-            var rFormat = m.ToString("r", CultureInfo.InvariantCulture);
-            if (rFormat.IndexOf("e", StringComparison.OrdinalIgnoreCase) == -1)
+            void Fill(char[] array, int fromIndex, int toIndex, char val)
             {
-                s = rFormat.Replace(".", "").TrimStart('0').TrimEnd('0');
+                for (int i = fromIndex; i < toIndex; i++)
+                {
+                    array[i] = val;
+                }
             }
 
-            const string format = "0.00000000000000000e0";
-            var parts = m.ToString(format, CultureInfo.InvariantCulture).Split('e');
-            if (s == null)
+            if (builder.Point < builder.Length)
             {
-                s = parts[0].TrimEnd('0').Replace(".", "");
+                // insert decimal point
+                if (decPoint > 0)
+                {
+                    // >= 1, split decimals and insert point
+                    System.Array.Copy(builder._chars, builder.Point,builder. _chars, builder.Point + 1, builder.Length - builder.Point);
+                    builder._chars[builder.Point] = '.';
+                    builder.Length++;
+                }
+                else
+                {
+                    // < 1,
+                    int target = firstDigit + 2 - decPoint;
+                    System.Array.Copy(builder._chars, firstDigit, builder._chars, target, builder.Length - firstDigit);
+                    builder._chars[firstDigit] = '0';
+                    builder._chars[firstDigit + 1] = '.';
+                    if (decPoint < 0)
+                    {
+                        Fill(builder._chars, firstDigit + 2, target, '0');
+                    }
+                    builder.Length += 2 - decPoint;
+                }
+            }
+            else if (builder.Point > builder.Length)
+            {
+                // large integer, add trailing zeroes
+                Fill(builder._chars, builder.Length, builder.Point, '0');
+                builder.Length += builder. Point - builder.Length;
             }
 
-            var n = int.Parse(parts[1]) + 1;
-            var k = s.Length;
+            return new string(builder._chars, 0, builder.Length);
+        }
 
-            if (k <= n && n <= 21)
+        private static string ToExponentialFormat(DtoaBuilder builder, int firstDigit, int decPoint)
+        {
+            if (builder.Length - firstDigit > 1)
             {
-                return s + new string('0', n - k);
+                // insert decimal point if more than one digit was produced
+                int dot = firstDigit + 1;
+                System.Array.Copy(builder._chars, dot, builder._chars, dot + 1, builder.Length - dot);
+                builder._chars[dot] = '.';
+                builder.Length++;
+            }
+            builder._chars[builder.Length++] = 'e';
+            char sign = '+';
+            int exp = decPoint - 1;
+            if (exp < 0)
+            {
+                sign = '-';
+                exp = -exp;
+            }
+            builder._chars[builder.Length++] = sign;
+
+            int charPos = exp > 99 ? builder.Length + 2 : exp > 9 ? builder.Length + 1 : builder.Length;
+            builder.Length = charPos + 1;
+
+            for (;;)
+            {
+                int r = exp%10;
+                builder._chars[charPos--] = (char) ('0' + r);
+                exp = exp/10;
+                if (exp == 0) break;
             }
 
-            if (0 < n && n <= 21)
-            {
-                return s.Substring(0, n) + '.' + s.Substring(n);
-            }
-
-            if (-6 < n && n <= 0)
-            {
-                return "0." + new string('0', -n) + s;
-            }
-
-            if (k == 1)
-            {
-                return s + "e" + (n - 1 < 0 ? "-" : "+") + System.Math.Abs(n - 1);
-            }
-
-            return s.Substring(0, 1) + "." + s.Substring(1) + "e" + (n - 1 < 0 ? "-" : "+") + System.Math.Abs(n - 1);
+            return new string(builder._chars, 0, builder.Length);
         }
     }
 }
