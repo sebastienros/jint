@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using Jint.Native.Number.Dtoa;
 using Jint.Pooling;
@@ -441,14 +440,14 @@ namespace Jint.Native.Number
                 return "0";
             }
 
-            if (double.IsPositiveInfinity(m) || m >= double.MaxValue)
+            if (double.IsPositiveInfinity(m))
             {
                 return "Infinity";
             }
 
-            if (m < 0)
+            if (double.IsNegativeInfinity(m))
             {
-                return "-" + NumberToString(-m, builder);
+                return "-Infinity";
             }
 
             DtoaNumberFormatter.DoubleToAscii(
@@ -457,94 +456,58 @@ namespace Jint.Native.Number
                 DtoaMode.Shortest,
                 0,
                 out var negative,
-                out var point);
+                out var decimal_point);
 
-            // check for minus sign
-            int firstDigit = negative ? 1 : 0;
-            return point < -5 || point > 21
-                ? ToExponentialFormat(builder, firstDigit, point)
-                : ToFixedFormat(builder, firstDigit, point);
-        }
-
-        private static string ToFixedFormat(
-            DtoaBuilder builder,
-            int firstDigit,
-            int decPoint)
-        {
-            void Fill(char[] array, int fromIndex, int toIndex, char val)
+            using (var sb = StringBuilderPool.GetInstance())
             {
-                for (int i = fromIndex; i < toIndex; i++)
+                if (negative)
                 {
-                    array[i] = val;
+                    sb.Builder.Append('-');
                 }
-            }
 
-            if (decPoint < builder.Length)
-            {
-                // insert decimal point
-                if (decPoint > 0)
+                if (builder.Length <= decimal_point && decimal_point <= 21)
                 {
-                    // >= 1, split decimals and insert point
-                    System.Array.Copy(builder._chars, decPoint,builder. _chars, decPoint + 1, builder.Length - decPoint);
-                    builder._chars[decPoint] = '.';
-                    builder.Length++;
+                    // ECMA-262 section 9.8.1 step 6.
+                    sb.Builder.Append(builder._chars, 0, builder.Length);
+                    sb.Builder.Append('0', decimal_point - builder.Length);
+                }
+                else if (0 < decimal_point && decimal_point <= 21)
+                {
+                    // ECMA-262 section 9.8.1 step 7.
+                    sb.Builder.Append(builder._chars, 0, decimal_point);
+                    sb.Builder.Append('.');
+                    sb.Builder.Append(builder._chars, decimal_point, builder.Length - decimal_point);
+                }
+                else if (decimal_point <= 0 && decimal_point > -6)
+                {
+                    // ECMA-262 section 9.8.1 step 8.
+                    sb.Builder.Append("0.");
+                    sb.Builder.Append('0', -decimal_point);
+                    sb.Builder.Append(builder._chars, 0, builder.Length);
                 }
                 else
                 {
-                    // < 1,
-                    int target = firstDigit + 2 - decPoint;
-                    System.Array.Copy(builder._chars, firstDigit, builder._chars, target, builder.Length - firstDigit);
-                    builder._chars[firstDigit] = '0';
-                    builder._chars[firstDigit + 1] = '.';
-                    if (decPoint < 0)
+                    // ECMA-262 section 9.8.1 step 9 and 10 combined.
+                    sb.Builder.Append(builder._chars[0]);
+                    if (builder.Length != 1)
                     {
-                        Fill(builder._chars, firstDigit + 2, target, '0');
+                        sb.Builder.Append('.');
+                        sb.Builder.Append(builder._chars, 1, builder.Length - 1);
                     }
-                    builder.Length += 2 - decPoint;
+
+                    sb.Builder.Append('e');
+                    sb.Builder.Append((decimal_point >= 0) ? '+' : '-');
+                    int exponent = decimal_point - 1;
+                    if (exponent < 0)
+                    {
+                        exponent = -exponent;
+                    }
+
+                    sb.Builder.Append(exponent);
                 }
-            }
-            else if (decPoint > builder.Length)
-            {
-                // large integer, add trailing zeroes
-                Fill(builder._chars, builder.Length, decPoint, '0');
-                builder.Length += decPoint - builder.Length;
-            }
 
-            return new string(builder._chars, 0, builder.Length);
-        }
-
-        private static string ToExponentialFormat(DtoaBuilder builder, int firstDigit, int decPoint)
-        {
-            if (builder.Length - firstDigit > 1)
-            {
-                // insert decimal point if more than one digit was produced
-                int dot = firstDigit + 1;
-                System.Array.Copy(builder._chars, dot, builder._chars, dot + 1, builder.Length - dot);
-                builder._chars[dot] = '.';
-                builder.Length++;
+                return sb.ToString();
             }
-            builder._chars[builder.Length++] = 'e';
-            char sign = '+';
-            int exp = decPoint - 1;
-            if (exp < 0)
-            {
-                sign = '-';
-                exp = -exp;
-            }
-            builder._chars[builder.Length++] = sign;
-
-            int charPos = exp > 99 ? builder.Length + 2 : exp > 9 ? builder.Length + 1 : builder.Length;
-            builder.Length = charPos + 1;
-
-            for (;;)
-            {
-                int r = exp%10;
-                builder._chars[charPos--] = (char) ('0' + r);
-                exp = exp/10;
-                if (exp == 0) break;
-            }
-
-            return new string(builder._chars, 0, builder.Length);
         }
     }
 }
