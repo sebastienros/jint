@@ -9,7 +9,6 @@ namespace Jint.Native.Number.Dtoa
         // allocate buffer for generated digits + extra notation + padding zeroes
         internal readonly char[] _chars = new char[FastDtoa.KFastDtoaMaximalLength + 8];
         internal int Length;
-        internal int Point;
 
         internal void Append(char c)
         {
@@ -23,14 +22,8 @@ namespace Jint.Native.Number.Dtoa
 
         public void Reset()
         {
-            Point = 0;
             Length = 0;
             System.Array.Clear(_chars, 0, _chars.Length);
-        }
-
-        public override string ToString()
-        {
-            return "[chars:" + new string(_chars, 0, Length) + ", point:" + Point + "]";
         }
 
         public char this[int i]
@@ -41,6 +34,11 @@ namespace Jint.Native.Number.Dtoa
                 _chars[i] = value;
                 Length = System.Math.Max(Length, i + 1);
             }
+        }
+
+        public override string ToString()
+        {
+            return "[chars:" + new string(_chars, 0, Length) + "]";
         }
     }
 }

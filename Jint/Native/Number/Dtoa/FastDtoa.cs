@@ -472,7 +472,6 @@ namespace Jint.Native.Number.Dtoa
                 {
                     // Rounding down (by not emitting the remaining digits) yields a number
                     // that lies within the unsafe interval.
-                    buffer.Point = buffer.Length - mk + kappa;
                     return RoundWeed(
                         buffer,
                         DiyFp.Minus(tooHigh, w).F,
@@ -511,7 +510,6 @@ namespace Jint.Native.Number.Dtoa
                 kappa--;
                 if (fractionals < unsafeInterval.F)
                 {
-                    buffer.Point = buffer.Length - mk + kappa;
                     return RoundWeed(
                         buffer,
                         DiyFp.Minus(tooHigh, w).F*unit,

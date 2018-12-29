@@ -456,18 +456,20 @@ namespace Jint.Native.Number
                 m,
                 DtoaMode.Shortest,
                 0,
-                out _,
-                out _);
+                out var negative,
+                out var point);
 
             // check for minus sign
-            int firstDigit = builder._chars[0] == '-' ? 1 : 0;
-            int decPoint = builder.Point - firstDigit;
-            return decPoint < -5 || decPoint > 21
-                ? ToExponentialFormat(builder, firstDigit, decPoint)
-                : ToFixedFormat(builder, firstDigit, decPoint);
+            int firstDigit = negative ? 1 : 0;
+            return point < -5 || point > 21
+                ? ToExponentialFormat(builder, firstDigit, point)
+                : ToFixedFormat(builder, firstDigit, point);
         }
 
-        private static string ToFixedFormat(DtoaBuilder builder, int firstDigit, int decPoint)
+        private static string ToFixedFormat(
+            DtoaBuilder builder,
+            int firstDigit,
+            int decPoint)
         {
             void Fill(char[] array, int fromIndex, int toIndex, char val)
             {
@@ -477,14 +479,14 @@ namespace Jint.Native.Number
                 }
             }
 
-            if (builder.Point < builder.Length)
+            if (decPoint < builder.Length)
             {
                 // insert decimal point
                 if (decPoint > 0)
                 {
                     // >= 1, split decimals and insert point
-                    System.Array.Copy(builder._chars, builder.Point,builder. _chars, builder.Point + 1, builder.Length - builder.Point);
-                    builder._chars[builder.Point] = '.';
+                    System.Array.Copy(builder._chars, decPoint,builder. _chars, decPoint + 1, builder.Length - decPoint);
+                    builder._chars[decPoint] = '.';
                     builder.Length++;
                 }
                 else
@@ -501,11 +503,11 @@ namespace Jint.Native.Number
                     builder.Length += 2 - decPoint;
                 }
             }
-            else if (builder.Point > builder.Length)
+            else if (decPoint > builder.Length)
             {
                 // large integer, add trailing zeroes
-                Fill(builder._chars, builder.Length, builder.Point, '0');
-                builder.Length += builder. Point - builder.Length;
+                Fill(builder._chars, builder.Length, decPoint, '0');
+                builder.Length += decPoint - builder.Length;
             }
 
             return new string(builder._chars, 0, builder.Length);

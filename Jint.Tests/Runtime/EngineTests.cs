@@ -2053,11 +2053,10 @@ var prep = function (fn) { fn(); };
         public void ShouldStringifyNumWithoutV8DToA()
         {
             // 53.6841659 cannot be converted by V8's DToA => "old" DToA code will be used.
-
             var engine = new Engine();
-            Native.JsValue val = engine.Execute("JSON.stringify(53.6841659)").GetCompletionValue();
+            var val = engine.Execute("JSON.stringify(53.6841659)").GetCompletionValue();
 
-            Assert.True(val.AsString() == "53.6841659");
+            Assert.Equal("53.6841659", val.AsString());
         }
 
         [Fact]
