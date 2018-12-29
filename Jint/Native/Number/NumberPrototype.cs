@@ -122,7 +122,7 @@ namespace Jint.Native.Number
             }
 
             // handle non-decimal with greater precision
-            if (x - (long) x < JsNumber.DoubleIsIntegerTolerance)
+            if (System.Math.Abs(x - (long) x) < JsNumber.DoubleIsIntegerTolerance)
             {
                 return ((long) x).ToString("f" + f, CultureInfo.InvariantCulture);
             }
@@ -142,6 +142,12 @@ namespace Jint.Native.Number
 
             var x = TypeConverter.ToNumber(thisObj);
             var fractionDigits = arguments.At(0);
+            if (fractionDigits.IsUndefined())
+            {
+                fractionDigits = JsNumber.PositiveZero;
+            }
+
+            var f = (int) TypeConverter.ToInteger(fractionDigits);
 
             if (double.IsNaN(x))
             {
@@ -153,17 +159,14 @@ namespace Jint.Native.Number
                 return thisObj.ToString();
             }
 
-            var f = (int) TypeConverter.ToInteger(fractionDigits);
-            if (fractionDigits.IsUndefined())
+            if (f < 0 || f > 100)
+            {
+                ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 100");
+            }
+
+            if (arguments.At(0).IsUndefined())
             {
                 f = -1;
-            }
-            else
-            {
-                if (f < 0 || f > 100)
-                {
-                    ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 100");
-                }
             }
 
             bool negative = false;
@@ -194,7 +197,6 @@ namespace Jint.Native.Number
                     requested_digits: f + 1,
                     out _,
                     out decimalPoint);
-                f = cachedBuffer.Length - 1;
             }
 
             Debug.Assert(cachedBuffer.Length > 0);
@@ -274,11 +276,11 @@ namespace Jint.Native.Number
                         if (cachedBuffer.Length > decimalPoint)
                         {
                             int len = cachedBuffer.Length - decimalPoint;
-                            int n = System.Math.Min(len, p - (builder.Length - 1 - extra));
+                            int n = System.Math.Min(len, p - (builder.Builder.Length - extra));
                             builder.Builder.Append(cachedBuffer._chars, decimalPoint, n);
                         }
 
-                        builder.Builder.Append('0', System.Math.Max(0, extra + (p - cachedBuffer.Length - 1)));
+                        builder.Builder.Append('0', System.Math.Max(0, extra + (p - builder.Builder.Length)));
                     }
                 }
 
