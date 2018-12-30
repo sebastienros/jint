@@ -14,6 +14,7 @@ namespace Jint
         private bool _strict;
         private bool _allowDebuggerStatement;
         private bool _allowClr;
+        private bool _allowClrWrite = true;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private int _maxStatements;
         private long _memoryLimit;
@@ -83,6 +84,12 @@ namespace Jint
             _allowClr = true;
             _lookupAssemblies.AddRange(assemblies);
             _lookupAssemblies = _lookupAssemblies.Distinct().ToList();
+            return this;
+        }
+
+        public Options AllowClrWrite(bool allow = true)
+        {
+            _allowClrWrite = allow;
             return this;
         }
 
@@ -167,6 +174,8 @@ namespace Jint
         internal bool IsDebugMode { get; private set; }
 
         internal bool _IsClrAllowed => _allowClr;
+
+        internal bool _IsClrWriteAllowed => _allowClrWrite;
 
         internal Predicate<Exception> _ClrExceptionsHandler => _clrExceptionsHandler;
 
