@@ -43,5 +43,29 @@ namespace Jint.Tests.Test262
         {
             RunTestInternal(sourceFile);
         }
+
+        [Theory(DisplayName = "language\\source-text")]
+        [MemberData(nameof(SourceFiles), "language\\source-text", false)]
+        [MemberData(nameof(SourceFiles), "language\\source-text", true, Skip = "Skipped")]
+        protected void SourceText(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+
+        [Theory(DisplayName = "language\\types")]
+        [MemberData(nameof(SourceFiles), "language\\types", false)]
+        [MemberData(nameof(SourceFiles), "language\\types", true, Skip = "Skipped")]
+        protected void Types(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+
+        [Theory(DisplayName = "language\\white-space")]
+        [MemberData(nameof(SourceFiles), "language\\white-space", false)]
+        [MemberData(nameof(SourceFiles), "language\\white-space", true, Skip = "Skipped")]
+        protected void WhiteSpace(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
     }
 }

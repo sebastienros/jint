@@ -186,10 +186,7 @@ namespace Jint.Native.Json
                 var isFinite = GlobalObject.IsFinite(Undefined.Instance, Arguments.From(value));
                 if (((JsBoolean) isFinite)._value)
                 {
-                    using (var sb = _engine._stringBuilderPool.Rent())
-                    {
-                        return TypeConverter.ToString(_engine, ((JsNumber) value)._value);
-                    }
+                    return TypeConverter.ToString(_engine, ((JsNumber) value)._value);
                 }
 
                 return "null";

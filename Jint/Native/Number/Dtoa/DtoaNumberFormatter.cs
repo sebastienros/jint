@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Jint.Runtime;
 
 namespace Jint.Native.Number.Dtoa
@@ -14,8 +13,8 @@ namespace Jint.Native.Number.Dtoa
             out bool negative,
             out int point)
         {
-            Debug.Assert(!Double.IsNaN(v));
-            Debug.Assert(!Double.IsInfinity(v));
+            Debug.Assert(!double.IsNaN(v));
+            Debug.Assert(!double.IsInfinity(v));
             Debug.Assert(mode == DtoaMode.Shortest || requested_digits >= 0);
 
             point = 0;
@@ -30,15 +29,13 @@ namespace Jint.Native.Number.Dtoa
 
             if (v == 0)
             {
-                buffer.Length = 1;
-                buffer._chars[0] = '0';
+                buffer[0] = '0';
                 point = 1;
                 return;
             }
 
-            if (mode == DtoaMode.Precision && requested_digits == 0) {
-                buffer.Reset();
-                buffer.Length = 0;
+            if (mode == DtoaMode.Precision && requested_digits == 0)
+            {
                 return;
             }
 
@@ -55,7 +52,6 @@ namespace Jint.Native.Number.Dtoa
                     fast_worked = FastDtoa.NumberToString(v, DtoaMode.Precision, requested_digits, out point, buffer);
                     break;
                 default:
-                    buffer.Length = 0;
                     ExceptionHelper.ThrowArgumentOutOfRangeException<string>();
                     return;
             }

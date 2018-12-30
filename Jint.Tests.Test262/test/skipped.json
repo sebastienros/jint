@@ -380,5 +380,13 @@
   {
     "source": "built-ins/Number/prototype/toExponential/range.js",
     "reason": "arrow functions not implemented"
+  },
+  {
+    "source": "language/types/number/8.5.1.js",
+    "reason": "C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308"
+  },
+  {
+    "source": "language/white-space/mongolian-vowel-separator-eval.js",
+    "reason": "Esprima problem"
   }
 ]

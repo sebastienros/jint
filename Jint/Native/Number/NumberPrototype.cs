@@ -215,10 +215,7 @@ namespace Jint.Native.Number
 
             if (precisionArgument.IsUndefined())
             {
-                using (var builder = _engine._stringBuilderPool.Rent())
-                {
-                    return TypeConverter.ToString(_engine, x);
-                }
+                return TypeConverter.ToString(_engine, x);
             }
 
             var p = (int) TypeConverter.ToInteger(precisionArgument);
