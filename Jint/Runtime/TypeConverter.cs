@@ -345,7 +345,7 @@ namespace Jint.Runtime
 
             using (var stringBuilder = engine._stringBuilderPool.Rent())
             {
-                return NumberPrototype.NumberToString(d, engine._dtoaBuilder, stringBuilder.Builder);
+                return NumberPrototype.NumberToString(d, new DtoaBuilder(), stringBuilder.Builder);
             }
         }
 

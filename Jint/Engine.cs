@@ -60,8 +60,6 @@ namespace Jint
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
         internal readonly StringBuilderPool _stringBuilderPool;
-        // share buffer to reduce memory usage
-        internal readonly DtoaBuilder _dtoaBuilder;
 
         public ITypeConverter ClrTypeConverter;
 
@@ -246,7 +244,6 @@ namespace Jint
             _argumentsInstancePool = new ArgumentsInstancePool(this);
             _jsValueArrayPool = new JsValueArrayPool();
             _stringBuilderPool = new StringBuilderPool();
-            _dtoaBuilder = new DtoaBuilder();
 
             Eval = new EvalFunctionInstance(this, System.ArrayExt.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
