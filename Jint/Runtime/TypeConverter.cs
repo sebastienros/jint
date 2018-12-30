@@ -345,7 +345,8 @@ namespace Jint.Runtime
 
             using (var stringBuilder = engine._stringBuilderPool.Rent())
             {
-                return NumberPrototype.NumberToString(d, new DtoaBuilder(), stringBuilder.Builder);
+                // we can create smaller array as we know the format to be short
+                return NumberPrototype.NumberToString(d, new DtoaBuilder(17), stringBuilder.Builder);
             }
         }
 

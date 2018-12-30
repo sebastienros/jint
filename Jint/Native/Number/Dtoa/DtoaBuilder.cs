@@ -7,8 +7,17 @@ namespace Jint.Native.Number.Dtoa
     internal class DtoaBuilder
     {
         // allocate buffer for generated digits + extra notation + padding zeroes
-        internal readonly char[] _chars = new char[FastDtoa.KFastDtoaMaximalLength + 8];
+        internal readonly char[] _chars;
         internal int Length;
+
+        public DtoaBuilder(int size)
+        {
+            _chars = new char[size];
+        }
+
+        public DtoaBuilder() : this(FastDtoa.KFastDtoaMaximalLength + 8)
+        {
+        }
 
         internal void Append(char c)
         {
