@@ -74,7 +74,7 @@ namespace Jint.Tests.Test262
             }
             catch (JavaScriptException j)
             {
-                lastError = TypeConverter.ToString(j.Error);
+                lastError = TypeConverter.ToString(engine, j.Error);
             }
             catch (Exception e)
             {

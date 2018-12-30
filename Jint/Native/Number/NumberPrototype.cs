@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using Jint.Native.Number.Dtoa;
-using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -13,10 +13,6 @@ namespace Jint.Native.Number
     /// </summary>
     public sealed class NumberPrototype : NumberInstance
     {
-        // share buffer to reduce memory usage
-        private readonly DtoaBuilder cachedBuffer = new DtoaBuilder();
-
-
         private NumberPrototype(Engine engine)
             : base(engine)
         {
@@ -176,21 +172,22 @@ namespace Jint.Native.Number
             }
 
             int decimalPoint;
+            var dtoaBuilder = _engine._dtoaBuilder;
             if (f == -1)
             {
                 DtoaNumberFormatter.DoubleToAscii(
-                    cachedBuffer,
+                    dtoaBuilder,
                     x,
                     DtoaMode.Shortest,
                     requested_digits: 0,
                     out _,
                     out decimalPoint);
-                f = cachedBuffer.Length - 1;
+                f = dtoaBuilder.Length - 1;
             }
             else
             {
                 DtoaNumberFormatter.DoubleToAscii(
-                    cachedBuffer,
+                    dtoaBuilder,
                     x,
                     DtoaMode.Precision,
                     requested_digits: f + 1,
@@ -198,11 +195,11 @@ namespace Jint.Native.Number
                     out decimalPoint);
             }
 
-            Debug.Assert(cachedBuffer.Length > 0);
-            Debug.Assert(cachedBuffer.Length <= f + 1);
+            Debug.Assert(dtoaBuilder.Length > 0);
+            Debug.Assert(dtoaBuilder.Length <= f + 1);
 
             int exponent = decimalPoint - 1;
-            var result = CreateExponentialRepresentation(cachedBuffer, exponent, negative, f+1);
+            var result = CreateExponentialRepresentation(dtoaBuilder, exponent, negative, f+1);
             return result;
         }
 
@@ -218,14 +215,22 @@ namespace Jint.Native.Number
 
             if (precisionArgument.IsUndefined())
             {
-                return TypeConverter.ToString(x);
+                using (var builder = _engine._stringBuilderPool.Rent())
+                {
+                    return TypeConverter.ToString(_engine, x);
+                }
             }
 
             var p = (int) TypeConverter.ToInteger(precisionArgument);
 
-            if (double.IsInfinity(x) || double.IsNaN(x))
+            if (double.IsNaN(x))
             {
-                return TypeConverter.ToString(x);
+                return "NaN";
+            }
+
+            if (double.IsInfinity(x))
+            {
+                return thisObj.ToString();
             }
 
             if (p < 1 || p > 100)
@@ -233,8 +238,9 @@ namespace Jint.Native.Number
                 ExceptionHelper.ThrowRangeError(_engine, "precision must be between 1 and 100");
             }
 
+            var dtoaBuilder = _engine._dtoaBuilder;
             DtoaNumberFormatter.DoubleToAscii(
-                cachedBuffer,
+                dtoaBuilder,
                 x,
                 DtoaMode.Precision,
                 p,
@@ -245,10 +251,10 @@ namespace Jint.Native.Number
             int exponent = decimalPoint - 1;
             if (exponent < -6 || exponent >= p)
             {
-                return CreateExponentialRepresentation(cachedBuffer, exponent, negative, p);
+                return CreateExponentialRepresentation(dtoaBuilder, exponent, negative, p);
             }
 
-            using (var builder = StringBuilderPool.GetInstance())
+            using (var builder = _engine._stringBuilderPool.Rent())
             {
                 // Use fixed notation.
                 if (negative)
@@ -260,23 +266,23 @@ namespace Jint.Native.Number
                 {
                     builder.Builder.Append("0.");
                     builder.Builder.Append('0', -decimalPoint);
-                    builder.Builder.Append(cachedBuffer._chars, 0, cachedBuffer.Length);
-                    builder.Builder.Append('0', p - cachedBuffer.Length);
+                    builder.Builder.Append(dtoaBuilder._chars, 0, dtoaBuilder.Length);
+                    builder.Builder.Append('0', p - dtoaBuilder.Length);
                 }
                 else
                 {
-                    int m = System.Math.Min(cachedBuffer.Length, decimalPoint);
-                    builder.Builder.Append(cachedBuffer._chars, 0, m);
-                    builder.Builder.Append('0', System.Math.Max(0, decimalPoint - cachedBuffer.Length));
+                    int m = System.Math.Min(dtoaBuilder.Length, decimalPoint);
+                    builder.Builder.Append(dtoaBuilder._chars, 0, m);
+                    builder.Builder.Append('0', System.Math.Max(0, decimalPoint - dtoaBuilder.Length));
                     if (decimalPoint < p)
                     {
                         builder.Builder.Append('.');
                         var extra = negative ? 2 : 1;
-                        if (cachedBuffer.Length > decimalPoint)
+                        if (dtoaBuilder.Length > decimalPoint)
                         {
-                            int len = cachedBuffer.Length - decimalPoint;
+                            int len = dtoaBuilder.Length - decimalPoint;
                             int n = System.Math.Min(len, p - (builder.Builder.Length - extra));
-                            builder.Builder.Append(cachedBuffer._chars, decimalPoint, n);
+                            builder.Builder.Append(dtoaBuilder._chars, decimalPoint, n);
                         }
 
                         builder.Builder.Append('0', System.Math.Max(0, extra + (p - builder.Builder.Length)));
@@ -287,7 +293,7 @@ namespace Jint.Native.Number
             }
         }
 
-        private static string CreateExponentialRepresentation(
+        private string CreateExponentialRepresentation(
             DtoaBuilder buffer,
             int exponent,
             bool negative,
@@ -300,25 +306,26 @@ namespace Jint.Native.Number
                 exponent = -exponent;
             }
 
-            var builder = StringBuilderPool.GetInstance();
-
-            if (negative)
+            using (var builder = _engine._stringBuilderPool.Rent())
             {
-                builder.Builder.Append('-');
-            }
-            builder.Builder.Append(buffer._chars[0]);
-            if (significantDigits != 1)
-            {
-                builder.Builder.Append('.');
-                builder.Builder.Append(buffer._chars, 1, buffer.Length - 1);
-                int length = buffer.Length;
-                builder.Builder.Append('0', significantDigits - length);
-            }
+                if (negative)
+                {
+                    builder.Builder.Append('-');
+                }
+                builder.Builder.Append(buffer._chars[0]);
+                if (significantDigits != 1)
+                {
+                    builder.Builder.Append('.');
+                    builder.Builder.Append(buffer._chars, 1, buffer.Length - 1);
+                    int length = buffer.Length;
+                    builder.Builder.Append('0', significantDigits - length);
+                }
 
-            builder.Builder.Append('e');
-            builder.Builder.Append(negativeExponent ? '-' : '+');
-            builder.Builder.Append(exponent);
-            return builder.ToString();
+                builder.Builder.Append('e');
+                builder.Builder.Append(negativeExponent ? '-' : '+');
+                builder.Builder.Append(exponent);
+                return builder.ToString();
+            }
         }
 
         private JsValue ToNumberString(JsValue thisObject, JsValue[] arguments)
@@ -376,7 +383,7 @@ namespace Jint.Native.Number
             return result;
         }
 
-        public static string ToBase(long n, int radix)
+        public string ToBase(long n, int radix)
         {
             const string digits = "0123456789abcdefghijklmnopqrstuvwxyz";
             if (n == 0)
@@ -384,7 +391,7 @@ namespace Jint.Native.Number
                 return "0";
             }
 
-            using (var result = StringBuilderPool.GetInstance())
+            using (var result = _engine._stringBuilderPool.Rent())
             {
                 while (n > 0)
                 {
@@ -397,7 +404,7 @@ namespace Jint.Native.Number
             }
         }
 
-        public static string ToFractionBase(double n, int radix)
+        public string ToFractionBase(double n, int radix)
         {
             // based on the repeated multiplication method
             // http://www.mathpath.org/concepts/Num/frac.htm
@@ -408,7 +415,7 @@ namespace Jint.Native.Number
                 return "0";
             }
 
-            using (var result = StringBuilderPool.GetInstance())
+            using (var result = _engine._stringBuilderPool.Rent())
             {
                 while (n > 0 && result.Length < 50) // arbitrary limit
                 {
@@ -425,10 +432,16 @@ namespace Jint.Native.Number
 
         private string ToNumberString(double m)
         {
-            return NumberToString(m, cachedBuffer);
+            using (var stringBuilder = _engine._stringBuilderPool.Rent())
+            {
+                return NumberToString(m, _engine._dtoaBuilder, stringBuilder.Builder);
+            }
         }
 
-        internal static string NumberToString(double m, DtoaBuilder builder)
+        internal static string NumberToString(
+            double m,
+            DtoaBuilder builder,
+            StringBuilder stringBuilder)
         {
             if (double.IsNaN(m))
             {
@@ -458,56 +471,53 @@ namespace Jint.Native.Number
                 out var negative,
                 out var decimal_point);
 
-            using (var sb = StringBuilderPool.GetInstance())
+            if (negative)
             {
-                if (negative)
-                {
-                    sb.Builder.Append('-');
-                }
-
-                if (builder.Length <= decimal_point && decimal_point <= 21)
-                {
-                    // ECMA-262 section 9.8.1 step 6.
-                    sb.Builder.Append(builder._chars, 0, builder.Length);
-                    sb.Builder.Append('0', decimal_point - builder.Length);
-                }
-                else if (0 < decimal_point && decimal_point <= 21)
-                {
-                    // ECMA-262 section 9.8.1 step 7.
-                    sb.Builder.Append(builder._chars, 0, decimal_point);
-                    sb.Builder.Append('.');
-                    sb.Builder.Append(builder._chars, decimal_point, builder.Length - decimal_point);
-                }
-                else if (decimal_point <= 0 && decimal_point > -6)
-                {
-                    // ECMA-262 section 9.8.1 step 8.
-                    sb.Builder.Append("0.");
-                    sb.Builder.Append('0', -decimal_point);
-                    sb.Builder.Append(builder._chars, 0, builder.Length);
-                }
-                else
-                {
-                    // ECMA-262 section 9.8.1 step 9 and 10 combined.
-                    sb.Builder.Append(builder._chars[0]);
-                    if (builder.Length != 1)
-                    {
-                        sb.Builder.Append('.');
-                        sb.Builder.Append(builder._chars, 1, builder.Length - 1);
-                    }
-
-                    sb.Builder.Append('e');
-                    sb.Builder.Append((decimal_point >= 0) ? '+' : '-');
-                    int exponent = decimal_point - 1;
-                    if (exponent < 0)
-                    {
-                        exponent = -exponent;
-                    }
-
-                    sb.Builder.Append(exponent);
-                }
-
-                return sb.ToString();
+                stringBuilder.Append('-');
             }
+
+            if (builder.Length <= decimal_point && decimal_point <= 21)
+            {
+                // ECMA-262 section 9.8.1 step 6.
+                stringBuilder.Append(builder._chars, 0, builder.Length);
+                stringBuilder.Append('0', decimal_point - builder.Length);
+            }
+            else if (0 < decimal_point && decimal_point <= 21)
+            {
+                // ECMA-262 section 9.8.1 step 7.
+                stringBuilder.Append(builder._chars, 0, decimal_point);
+                stringBuilder.Append('.');
+                stringBuilder.Append(builder._chars, decimal_point, builder.Length - decimal_point);
+            }
+            else if (decimal_point <= 0 && decimal_point > -6)
+            {
+                // ECMA-262 section 9.8.1 step 8.
+                stringBuilder.Append("0.");
+                stringBuilder.Append('0', -decimal_point);
+                stringBuilder.Append(builder._chars, 0, builder.Length);
+            }
+            else
+            {
+                // ECMA-262 section 9.8.1 step 9 and 10 combined.
+                stringBuilder.Append(builder._chars[0]);
+                if (builder.Length != 1)
+                {
+                    stringBuilder.Append('.');
+                    stringBuilder.Append(builder._chars, 1, builder.Length - 1);
+                }
+
+                stringBuilder.Append('e');
+                stringBuilder.Append((decimal_point >= 0) ? '+' : '-');
+                int exponent = decimal_point - 1;
+                if (exponent < 0)
+                {
+                    exponent = -exponent;
+                }
+
+                stringBuilder.Append(exponent);
+            }
+
+            return stringBuilder.ToString();
         }
     }
 }

@@ -35,7 +35,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private JsString BuildString()
         {
-            using (var sb = StringBuilderPool.GetInstance())
+            using (var sb = _engine._stringBuilderPool.Rent())
             {
                 for (var i = 0; i < _templateLiteralExpression.Quasis.Count; i++)
                 {

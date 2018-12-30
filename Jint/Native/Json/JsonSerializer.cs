@@ -57,14 +57,14 @@ namespace Jint.Native.Json
                         }
                         else if (v.IsNumber())
                         {
-                            item = TypeConverter.ToString(v);
+                            item = TypeConverter.ToString(_engine, v);
                         }
                         else if (v.IsObject())
                         {
                             var propertyObj = v.AsObject();
                             if (propertyObj.Class == "String" || propertyObj.Class == "Number")
                             {
-                                item = TypeConverter.ToString(v);
+                                item = TypeConverter.ToString(_engine, v);
                             }
                         }
 
@@ -86,7 +86,7 @@ namespace Jint.Native.Json
                 }
                 else if (spaceObj.Class == "String")
                 {
-                    space = TypeConverter.ToString(spaceObj);
+                    space = TypeConverter.ToString(_engine, spaceObj);
                 }
             }
 
@@ -152,7 +152,7 @@ namespace Jint.Native.Json
                         value = TypeConverter.ToNumber(value);
                         break;
                     case "String":
-                        value = TypeConverter.ToString(value);
+                        value = TypeConverter.ToString(_engine, value);
                         break;
                     case "Boolean":
                         value = TypeConverter.ToPrimitive(value);
@@ -186,7 +186,10 @@ namespace Jint.Native.Json
                 var isFinite = GlobalObject.IsFinite(Undefined.Instance, Arguments.From(value));
                 if (((JsBoolean) isFinite)._value)
                 {
-                    return TypeConverter.ToString(value);
+                    using (var sb = _engine._stringBuilderPool.Rent())
+                    {
+                        return TypeConverter.ToString(_engine, ((JsNumber) value)._value);
+                    }
                 }
 
                 return "null";

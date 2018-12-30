@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Number;
@@ -324,8 +325,17 @@ namespace Jint.Runtime
                 : c.ToString();
         }
 
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static string ToString(double d)
+        internal static string ToString(ulong i)
+        {
+            return i >= 0 && i < (ulong) intToString.Length
+                ? intToString[i]
+                : i.ToString();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(Engine engine, double d)
         {
             if (d > long.MinValue && d < long.MaxValue  && Math.Abs(d % 1) <= DoubleIsIntegerTolerance)
             {
@@ -333,13 +343,16 @@ namespace Jint.Runtime
                 return ToString((long) d);
             }
 
-            return NumberPrototype.NumberToString(d, new DtoaBuilder());
+            using (var stringBuilder = engine._stringBuilderPool.Rent())
+            {
+                return NumberPrototype.NumberToString(d, engine._dtoaBuilder, stringBuilder.Builder);
+            }
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/#sec-topropertykey
         /// </summary>
-        public static string ToPropertyKey(JsValue o)
+        public static string ToPropertyKey(Engine engine, JsValue o)
         {
             var key = ToPrimitive(o, Types.String);
             if (key is JsSymbol s)
@@ -347,13 +360,13 @@ namespace Jint.Runtime
                 return s._value;
             }
 
-            return ToString(key);
+            return ToString(engine, key);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/#sec-tostring
         /// </summary>
-        public static string ToString(JsValue o)
+        public static string ToString(Engine engine, JsValue o)
         {
             switch (o._type)
             {
@@ -362,7 +375,7 @@ namespace Jint.Runtime
                 case Types.Boolean:
                     return ((JsBoolean) o)._value ? "true" : "false";
                 case Types.Number:
-                    return ToString(((JsNumber) o)._value);
+                    return ToString(engine, ((JsNumber) o)._value);
                 case Types.Symbol:
                     return ExceptionHelper.ThrowTypeErrorNoEngine<string>("Cannot convert a Symbol value to a string");
                 case Types.Undefined:
@@ -370,9 +383,9 @@ namespace Jint.Runtime
                 case Types.Null:
                     return Null.Text;
                 case Types.Object when o is IPrimitiveInstance p:
-                    return ToString(ToPrimitive(p.PrimitiveValue, Types.String));
+                    return ToString(engine, ToPrimitive(p.PrimitiveValue, Types.String));
                 default:
-                    return ToString(ToPrimitive(o, Types.String));
+                    return ToString(engine, ToPrimitive(o, Types.String));
             }
         }
 

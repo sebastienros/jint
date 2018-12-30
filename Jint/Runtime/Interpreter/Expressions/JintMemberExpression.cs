@@ -70,7 +70,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            var propertyNameString = _determinedPropertyNameString ?? TypeConverter.ToPropertyKey(_propertyExpression.GetValue());
+            var propertyNameString = _determinedPropertyNameString ?? TypeConverter.ToPropertyKey(_engine, _propertyExpression.GetValue());
 
             TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, baseReferenceName);
 

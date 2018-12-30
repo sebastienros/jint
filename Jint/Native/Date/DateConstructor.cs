@@ -81,7 +81,7 @@ namespace Jint.Native.Date
 
         private JsValue Parse(JsValue thisObj, JsValue[] arguments)
         {
-            var date = TypeConverter.ToString(arguments.At(0));
+            var date = TypeConverter.ToString(_engine, arguments.At(0));
 
             if (!DateTime.TryParseExact(date, DefaultFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var result))
             {

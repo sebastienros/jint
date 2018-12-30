@@ -38,7 +38,7 @@ namespace Jint.Runtime
         public JavaScriptException SetCallstack(Engine engine, Location location = null)
         {
             Location = location;
-            using (var sb = StringBuilderPool.GetInstance())
+            using (var sb = engine._stringBuilderPool.Rent())
             {
                 foreach (var cse in engine.CallStack)
                 {

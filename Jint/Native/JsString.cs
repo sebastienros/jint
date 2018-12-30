@@ -49,9 +49,9 @@ namespace Jint.Native
             _value = value.ToString();
         }
 
-        public virtual JsString Append(JsValue jsValue)
+        public virtual JsString Append(Engine engine, JsValue jsValue)
         {
-            return new ConcatenatedString(string.Concat(_value, TypeConverter.ToString(jsValue)));
+            return new ConcatenatedString(string.Concat(_value, TypeConverter.ToString(engine, jsValue)));
         }
 
         internal virtual JsString EnsureCapacity(int capacity)
@@ -172,9 +172,9 @@ namespace Jint.Native
                 return _value;
             }
 
-            public override JsString Append(JsValue jsValue)
+            public override JsString Append(Engine engine, JsValue jsValue)
             {
-                var value = TypeConverter.ToString(jsValue);
+                var value = TypeConverter.ToString(engine, jsValue);
                 if (_stringBuilder == null)
                 {
                     _stringBuilder = new StringBuilder(_value, _value.Length + value.Length);

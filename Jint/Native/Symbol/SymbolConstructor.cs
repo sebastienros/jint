@@ -64,7 +64,7 @@ namespace Jint.Native.Symbol
             var description = arguments.At(0);
             var descString = description.IsUndefined()
                 ? Undefined
-                : TypeConverter.ToString(description);
+                : TypeConverter.ToString(_engine, description);
 
             if (ReturnOnAbruptCompletion(ref descString))
             {
@@ -77,7 +77,7 @@ namespace Jint.Native.Symbol
 
         public JsValue For(JsValue thisObj, JsValue[] arguments)
         {
-            var stringKey = TypeConverter.ToString(arguments.At(0));
+            var stringKey = TypeConverter.ToString(_engine, arguments.At(0));
 
             // 2. ReturnIfAbrupt(stringKey).
 

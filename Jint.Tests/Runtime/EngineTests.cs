@@ -889,8 +889,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldComputeFractionInBase()
         {
-            Assert.Equal("011", NumberPrototype.ToFractionBase(0.375, 2));
-            Assert.Equal("14141414141414141414141414141414141414141414141414", NumberPrototype.ToFractionBase(0.375, 5));
+            Assert.Equal("011", _engine.Number.PrototypeObject.ToFractionBase(0.375, 2));
+            Assert.Equal("14141414141414141414141414141414141414141414141414", _engine.Number.PrototypeObject.ToFractionBase(0.375, 5));
         }
 
         [Fact]
@@ -965,7 +965,7 @@ namespace Jint.Tests.Runtime
         [InlineData("2qgpckvng1s", 10000000000000000L, 36)]
         public void ShouldConvertNumbersToDifferentBase(string expected, long number, int radix)
         {
-            var result = NumberPrototype.ToBase(number, radix);
+            var result = _engine.Number.PrototypeObject.ToBase(number, radix);
             Assert.Equal(expected, result);
         }
 

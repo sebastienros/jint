@@ -139,7 +139,7 @@ namespace Jint.Native.Object
             }
 
             var p = arguments.At(1);
-            var name = TypeConverter.ToPropertyKey(p);
+            var name = TypeConverter.ToPropertyKey(_engine, p);
 
             var desc = o.GetOwnProperty(name);
             return PropertyDescriptor.FromPropertyDescriptor(Engine, desc);
@@ -217,7 +217,7 @@ namespace Jint.Native.Object
             }
 
             var p = arguments.At(1);
-            var name = TypeConverter.ToPropertyKey(p);
+            var name = TypeConverter.ToPropertyKey(_engine, p);
 
             var attributes = arguments.At(2);
             var desc = PropertyDescriptor.ToPropertyDescriptor(Engine, attributes);

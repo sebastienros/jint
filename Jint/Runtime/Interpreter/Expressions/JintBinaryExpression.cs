@@ -103,7 +103,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             var lprim = TypeConverter.ToPrimitive(left);
                             var rprim = TypeConverter.ToPrimitive(right);
                             return lprim.IsString() || rprim.IsString()
-                                ? (JsValue) JsString.Create(TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim))
+                                ? (JsValue) JsString.Create(TypeConverter.ToString(_engine, lprim) + TypeConverter.ToString(_engine, rprim))
                                 : JsNumber.Create(TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim));
                         };
                         break;
@@ -223,7 +223,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                                 return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "in can only be used with an object");
                             }
 
-                            return oi.HasProperty(TypeConverter.ToString(left)) ? JsBoolean.True : JsBoolean.False;
+                            return oi.HasProperty(TypeConverter.ToString(_engine, left)) ? JsBoolean.True : JsBoolean.False;
                         };
 
                         break;

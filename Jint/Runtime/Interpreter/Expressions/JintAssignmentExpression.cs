@@ -43,10 +43,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         if (!(lprim is JsString jsString))
                         {
-                            jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
+                            jsString = new JsString.ConcatenatedString(TypeConverter.ToString(_engine, lprim));
                         }
 
-                        lval = jsString.Append(rprim);
+                        lval = jsString.Append(_engine, rprim);
                     }
                     else
                     {

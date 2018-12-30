@@ -93,7 +93,7 @@ namespace Jint.Native.Json
         public JsValue Parse(JsValue thisObject, JsValue[] arguments)
         {
             var parser = new JsonParser(_engine);
-            var res = parser.Parse(TypeConverter.ToString(arguments[0]));
+            var res = parser.Parse(TypeConverter.ToString(_engine, arguments[0]));
             if (arguments.Length > 1)
             {
                 this._reviver = arguments[1];

@@ -51,8 +51,8 @@ namespace Jint.Native.Number
             FastAddProperty("isNaN", new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("isSafeInteger", new ClrFunctionInstance(Engine, "isSafeInteger", IsSafeInteger, 1, PropertyFlag.Configurable), true, false, true);
 
-            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, "parseFloat", GlobalObject.ParseFloat, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, "parseInt", GlobalObject.ParseInt, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, "parseFloat", _engine.Global.ParseFloat, 0, PropertyFlag.Configurable), true, false, true);
+            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, "parseInt", _engine.Global.ParseInt, 0, PropertyFlag.Configurable), true, false, true);
         }
 
         private JsValue IsFinite(JsValue thisObj, JsValue[] arguments)

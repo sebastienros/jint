@@ -52,19 +52,19 @@ namespace Jint.Native.Function
 
             if (argCount == 1)
             {
-                body = TypeConverter.ToString(arguments[0]);
+                body = TypeConverter.ToString(_engine, arguments[0]);
             }
             else if (argCount > 1)
             {
                 var firstArg = arguments[0];
-                p = TypeConverter.ToString(firstArg);
+                p = TypeConverter.ToString(_engine, firstArg);
                 for (var k = 1; k < argCount - 1; k++)
                 {
                     var nextArg = arguments[k];
-                    p += "," + TypeConverter.ToString(nextArg);
+                    p += "," + TypeConverter.ToString(_engine, nextArg);
                 }
 
-                body = TypeConverter.ToString(arguments[argCount-1]);
+                body = TypeConverter.ToString(_engine, arguments[argCount-1]);
             }
 
             IFunction function;

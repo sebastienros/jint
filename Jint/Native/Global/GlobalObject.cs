@@ -74,9 +74,9 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.2
         /// </summary>
-        public static JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
+        public JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
         {
-            string inputString = TypeConverter.ToString(arguments.At(0));
+            string inputString = TypeConverter.ToString(_engine, arguments.At(0));
             var s = StringPrototype.TrimEx(inputString);
 
             var sign = 1;
@@ -175,9 +175,9 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.3
         /// </summary>
-        public static JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
+        public JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
         {
-            var inputString = TypeConverter.ToString(arguments.At(0));
+            var inputString = TypeConverter.ToString(_engine, arguments.At(0));
             var trimmedString = StringPrototype.TrimStartEx(inputString);
 
             var sign = 1;
@@ -384,7 +384,7 @@ namespace Jint.Native.Global
         /// <returns></returns>
         public JsValue EncodeUri(JsValue thisObject, JsValue[] arguments)
         {
-            var uriString = TypeConverter.ToString(arguments.At(0));
+            var uriString = TypeConverter.ToString(_engine, arguments.At(0));
 
             return Encode(uriString, UnescapedUriSet);
         }
@@ -398,7 +398,7 @@ namespace Jint.Native.Global
         /// <returns></returns>
         public JsValue EncodeUriComponent(JsValue thisObject, JsValue[] arguments)
         {
-            var uriString = TypeConverter.ToString(arguments.At(0));
+            var uriString = TypeConverter.ToString(_engine, arguments.At(0));
 
             return Encode(uriString, UriUnescaped);
         }
@@ -511,14 +511,14 @@ namespace Jint.Native.Global
 
         public JsValue DecodeUri(JsValue thisObject, JsValue[] arguments)
         {
-            var uriString = TypeConverter.ToString(arguments.At(0));
+            var uriString = TypeConverter.ToString(_engine, arguments.At(0));
 
             return Decode(uriString, ReservedUriSet);
         }
 
         public JsValue DecodeUriComponent(JsValue thisObject, JsValue[] arguments)
         {
-            var componentString = TypeConverter.ToString(arguments.At(0));
+            var componentString = TypeConverter.ToString(_engine, arguments.At(0));
 
             return Decode(componentString, null);
         }
@@ -623,7 +623,7 @@ namespace Jint.Native.Global
         public JsValue Escape(JsValue thisObject, JsValue[] arguments)
         {
             const string whiteList = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_ + -./";
-            var uriString = TypeConverter.ToString(arguments.At(0));
+            var uriString = TypeConverter.ToString(_engine, arguments.At(0));
 
             var strLen = uriString.Length;
 
@@ -655,7 +655,7 @@ namespace Jint.Native.Global
         /// </summary>
         public JsValue Unescape(JsValue thisObject, JsValue[] arguments)
         {
-            var uriString = TypeConverter.ToString(arguments.At(0));
+            var uriString = TypeConverter.ToString(_engine, arguments.At(0));
 
             var strLen = uriString.Length;
 

@@ -47,7 +47,7 @@ namespace Jint.Native.Error
                 ExceptionHelper.ThrowTypeError(Engine);
             }
 
-            var name = TypeConverter.ToString(o.Get("name"));
+            var name = TypeConverter.ToString(_engine, o.Get("name"));
 
             var msgProp = o.Get("message");
             string msg;
@@ -57,7 +57,7 @@ namespace Jint.Native.Error
             }
             else
             {
-                msg = TypeConverter.ToString(msgProp);
+                msg = TypeConverter.ToString(_engine, msgProp);
             }
             if (name == "")
             {

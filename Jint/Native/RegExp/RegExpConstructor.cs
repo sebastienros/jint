@@ -82,10 +82,10 @@ namespace Jint.Native.RegExp
             }
             else
             {
-                p = TypeConverter.ToString(pattern);
+                p = TypeConverter.ToString(_engine, pattern);
             }
 
-            f = !flags.IsUndefined() ? TypeConverter.ToString(flags) : "";
+            f = !flags.IsUndefined() ? TypeConverter.ToString(_engine, flags) : "";
 
             r = new RegExpInstance(Engine);
             r.Prototype = PrototypeObject;
