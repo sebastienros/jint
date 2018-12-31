@@ -2029,6 +2029,13 @@ var prep = function (fn) { fn(); };
         }
 
         [Fact]
+        public void CanStringifyToConsole()
+        {
+            var engine = new Engine(options => options.AllowClr(typeof(Console).Assembly));
+            engine.Execute("System.Console.WriteLine(JSON.stringify({x:12, y:14}));");
+        }
+
+        [Fact]
         public void ShouldNotCompareClrInstancesWithObjects()
         {
             var engine = new Engine();
