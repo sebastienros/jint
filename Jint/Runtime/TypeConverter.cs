@@ -462,32 +462,50 @@ namespace Jint.Runtime
             }
         }
 
-        public static IEnumerable<MethodBase> FindBestMatch<T>(T[] methods, JsValue[] arguments) where T : MethodBase
+        public static IEnumerable<Tuple<MethodBase, JsValue[]>> FindBestMatch<T>(T[] methods, Func<T, bool, JsValue[]> argumentProvider) where T : MethodBase
         {
-            var matchingByParameterCount = new List<T>();
+            List<Tuple<T, JsValue[]>> matchingByParameterCount = null;
             foreach (var m in methods)
             {
-                if (m.GetParameters().Length == arguments.Length)
+                bool hasParams = false;
+                var parameterInfos = m.GetParameters();
+                foreach (var parameter in parameterInfos)
                 {
-                    matchingByParameterCount.Add(m);
+                    if (Attribute.IsDefined(parameter, typeof(ParamArrayAttribute)))
+                    {
+                        hasParams = true;
+                        break;
+                    }
+                }
+
+                var arguments = argumentProvider(m, hasParams);
+                if (parameterInfos.Length == arguments.Length)
+                {
+                    if (methods.Length == 0 && arguments.Length == 0)
+                    {
+                        yield return new Tuple<MethodBase, JsValue[]>(m, arguments);
+                        yield break;
+                    }
+
+                    matchingByParameterCount = matchingByParameterCount ?? new List<Tuple<T, JsValue[]>>();
+                    matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, arguments));
                 }
             }
 
-            if (matchingByParameterCount.Count == 1 && arguments.Length == 0)
+            if (matchingByParameterCount == null)
             {
-                yield return matchingByParameterCount[0];
                 yield break;
             }
 
-            foreach (var method in matchingByParameterCount)
+            foreach (var tuple in matchingByParameterCount)
             {
                 var perfectMatch = true;
-                var parameters = method.GetParameters();
+                var parameters = tuple.Item1.GetParameters();
+                var arguments = tuple.Item2;
                 for (var i = 0; i < arguments.Length; i++)
                 {
                     var arg = arguments[i].ToObject();
                     var paramType = parameters[i].ParameterType;
-
                     if (arg == null)
                     {
                         if (!TypeIsNullable(paramType))
@@ -505,14 +523,15 @@ namespace Jint.Runtime
 
                 if (perfectMatch)
                 {
-                    yield return method;
+                    yield return new Tuple<MethodBase, JsValue[]>(tuple.Item1, arguments);
                     yield break;
                 }
             }
 
             for (var i = 0; i < matchingByParameterCount.Count; i++)
             {
-                yield return matchingByParameterCount[i];
+                var tuple = matchingByParameterCount[i];
+                yield return new Tuple<MethodBase, JsValue[]>(tuple.Item1, tuple.Item2);
             }
         }
 
