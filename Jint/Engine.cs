@@ -15,7 +15,6 @@ using Jint.Native.Json;
 using Jint.Native.Map;
 using Jint.Native.Math;
 using Jint.Native.Number;
-using Jint.Native.Number.Dtoa;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.Set;
@@ -59,7 +58,6 @@ namespace Jint
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
-        internal readonly StringBuilderPool _stringBuilderPool;
 
         public ITypeConverter ClrTypeConverter;
 
@@ -243,7 +241,6 @@ namespace Jint
             _referencePool = new ReferencePool();
             _argumentsInstancePool = new ArgumentsInstancePool(this);
             _jsValueArrayPool = new JsValueArrayPool();
-            _stringBuilderPool = new StringBuilderPool();
 
             Eval = new EvalFunctionInstance(this, System.ArrayExt.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
@@ -254,7 +251,7 @@ namespace Jint
                 Global.FastAddProperty("importNamespace", new ClrFunctionInstance(
                     this,
                     "importNamespace",
-                    (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(this, arguments.At(0)))), false, false, false);
+                    (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)))), false, false, false);
             }
 
             ClrTypeConverter = new DefaultTypeConverter(this);

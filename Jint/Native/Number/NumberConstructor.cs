@@ -1,5 +1,4 @@
 ﻿using Jint.Native.Function;
-using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;

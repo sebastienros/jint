@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Text;
 using Jint.Native.Number.Dtoa;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -217,7 +218,7 @@ namespace Jint.Native.Number
 
             if (precisionArgument.IsUndefined())
             {
-                return TypeConverter.ToString(_engine, x);
+                return TypeConverter.ToString(x);
             }
 
             var p = (int) TypeConverter.ToInteger(precisionArgument);
@@ -252,7 +253,7 @@ namespace Jint.Native.Number
                 return CreateExponentialRepresentation(_dtoaBuilder, exponent, negative, p);
             }
 
-            using (var builder = _engine._stringBuilderPool.Rent())
+            using (var builder = StringBuilderPool.Rent())
             {
                 // Use fixed notation.
                 if (negative)
@@ -304,7 +305,7 @@ namespace Jint.Native.Number
                 exponent = -exponent;
             }
 
-            using (var builder = _engine._stringBuilderPool.Rent())
+            using (var builder = StringBuilderPool.Rent())
             {
                 if (negative)
                 {
@@ -389,7 +390,7 @@ namespace Jint.Native.Number
                 return "0";
             }
 
-            using (var result = _engine._stringBuilderPool.Rent())
+            using (var result = StringBuilderPool.Rent())
             {
                 while (n > 0)
                 {
@@ -413,7 +414,7 @@ namespace Jint.Native.Number
                 return "0";
             }
 
-            using (var result = _engine._stringBuilderPool.Rent())
+            using (var result = StringBuilderPool.Rent())
             {
                 while (n > 0 && result.Length < 50) // arbitrary limit
                 {
@@ -430,7 +431,7 @@ namespace Jint.Native.Number
 
         private string ToNumberString(double m)
         {
-            using (var stringBuilder = _engine._stringBuilderPool.Rent())
+            using (var stringBuilder = StringBuilderPool.Rent())
             {
                 return NumberToString(m, _dtoaBuilder, stringBuilder.Builder);
             }

@@ -569,8 +569,8 @@ namespace Jint.Native.Object
                 current.Configurable == desc.Configurable && current.ConfigurableSet == desc.ConfigurableSet &&
                 current.Writable == desc.Writable && current.WritableSet == desc.WritableSet &&
                 current.Enumerable == desc.Enumerable && current.EnumerableSet == desc.EnumerableSet &&
-                ((ReferenceEquals(currentGet, null) && ReferenceEquals(descGet, null)) || (!ReferenceEquals(currentGet, null) && !ReferenceEquals(descGet, null) && JintExpression.SameValue(_engine, currentGet, descGet))) &&
-                ((ReferenceEquals(currentSet, null) && ReferenceEquals(descSet, null)) || (!ReferenceEquals(currentSet, null) && !ReferenceEquals(descSet, null) && JintExpression.SameValue(_engine, currentSet, descSet))) &&
+                ((ReferenceEquals(currentGet, null) && ReferenceEquals(descGet, null)) || (!ReferenceEquals(currentGet, null) && !ReferenceEquals(descGet, null) && JintExpression.SameValue(currentGet, descGet))) &&
+                ((ReferenceEquals(currentSet, null) && ReferenceEquals(descSet, null)) || (!ReferenceEquals(currentSet, null) && !ReferenceEquals(descSet, null) && JintExpression.SameValue(currentSet, descSet))) &&
                 ((ReferenceEquals(currentValue, null) && ReferenceEquals(descValue, null)) || (!ReferenceEquals(currentValue, null) && !ReferenceEquals(descValue, null) && JintBinaryExpression.StrictlyEqual(currentValue, descValue)))
             )
             {
@@ -648,7 +648,7 @@ namespace Jint.Native.Object
 
                         if (!current.Writable)
                         {
-                            if (!ReferenceEquals(descValue, null) && !JintExpression.SameValue(_engine, descValue, currentValue))
+                            if (!ReferenceEquals(descValue, null) && !JintExpression.SameValue(descValue, currentValue))
                             {
                                 if (throwOnError)
                                 {
@@ -664,9 +664,9 @@ namespace Jint.Native.Object
                 {
                     if (!current.Configurable)
                     {
-                        if ((!ReferenceEquals(descSet, null) && !JintExpression.SameValue(_engine, descSet, currentSet ?? Undefined))
+                        if ((!ReferenceEquals(descSet, null) && !JintExpression.SameValue(descSet, currentSet ?? Undefined))
                             ||
-                            (!ReferenceEquals(descGet, null) && !JintExpression.SameValue(_engine, descGet, currentGet ?? Undefined)))
+                            (!ReferenceEquals(descGet, null) && !JintExpression.SameValue(descGet, currentGet ?? Undefined)))
                         {
                             if (throwOnError)
                             {
@@ -750,7 +750,7 @@ namespace Jint.Native.Object
 
         public override string ToString()
         {
-            return TypeConverter.ToString(_engine, this);
+            return TypeConverter.ToString(this);
         }
 
         public override object ToObject()

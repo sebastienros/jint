@@ -230,12 +230,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return false;
         }
 
-        protected bool SameValue(JsValue x, JsValue y)
-        {
-            return SameValue(_engine, x, y);
-        }
-
-        public static bool SameValue(Engine engine, JsValue x, JsValue y)
+        protected internal static bool SameValue(JsValue x, JsValue y)
         {
             var typea = TypeConverter.GetPrimitiveType(x);
             var typeb = TypeConverter.GetPrimitiveType(y);
@@ -271,7 +266,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     return false;
                 case Types.String:
-                    return TypeConverter.ToString(engine, x) == TypeConverter.ToString(engine, y);
+                    return TypeConverter.ToString(x) == TypeConverter.ToString(y);
                 case Types.Boolean:
                     return TypeConverter.ToBoolean(x) == TypeConverter.ToBoolean(y);
                 default:
@@ -279,7 +274,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        public JsValue Compare(JsValue x, JsValue y, bool leftFirst = true)
+        protected static JsValue Compare(JsValue x, JsValue y, bool leftFirst = true)
         {
             JsValue px, py;
             if (leftFirst)
@@ -335,7 +330,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else
             {
-                return string.CompareOrdinal(TypeConverter.ToString(_engine, x), TypeConverter.ToString(_engine, y)) < 0;
+                return string.CompareOrdinal(TypeConverter.ToString(x), TypeConverter.ToString(y)) < 0;
             }
         }
 

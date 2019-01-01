@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -809,8 +810,8 @@ namespace Jint.Native.Array
                     return 0;
                 }
 
-                var xString = TypeConverter.ToString(_engine, x);
-                var yString = TypeConverter.ToString(_engine, y);
+                var xString = TypeConverter.ToString(x);
+                var yString = TypeConverter.ToString(y);
 
                 var r = CompareOrdinal(xString, yString);
                 return r;
@@ -989,7 +990,7 @@ namespace Jint.Native.Array
                 separator = ",";
             }
 
-            var sep = TypeConverter.ToString(_engine, separator);
+            var sep = TypeConverter.ToString(separator);
 
             // as per the spec, this has to be called after ToString(separator)
             if (len == 0)
@@ -1001,7 +1002,7 @@ namespace Jint.Native.Array
             {
                 return value.IsNullOrUndefined()
                     ? ""
-                    : TypeConverter.ToString(_engine, value);
+                    : TypeConverter.ToString(value);
             }
 
             var s = StringFromJsValue(o.Get(0));
@@ -1010,7 +1011,7 @@ namespace Jint.Native.Array
                 return s;
             }
 
-            using (var sb = _engine._stringBuilderPool.Rent())
+            using (var sb = StringBuilderPool.Rent())
             {
                 sb.Builder.Append(s);
                 for (uint k = 1; k < len; k++)

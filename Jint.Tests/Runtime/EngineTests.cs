@@ -6,7 +6,6 @@ using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
-using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;

@@ -52,7 +52,7 @@ namespace Jint.Repl
                     var result = engine.GetValue(engine.Execute(input).GetCompletionValue());
                     if (result.Type != Types.None && result.Type != Types.Null && result.Type != Types.Undefined)
                     {
-                        var str = TypeConverter.ToString(engine, engine.Json.Stringify(engine.Json, Arguments.From(result, Undefined.Instance, "  ")));
+                        var str = TypeConverter.ToString(engine.Json.Stringify(engine.Json, Arguments.From(result, Undefined.Instance, "  ")));
                         Console.WriteLine("=> {0}", str);
                     }
                 }

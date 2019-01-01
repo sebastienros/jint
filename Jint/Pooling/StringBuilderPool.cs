@@ -11,26 +11,26 @@ namespace Jint.Pooling
     /// </summary>
     internal sealed class StringBuilderPool
     {
-        private readonly ObjectPool<StringBuilder> _pool;
+        private static readonly ConcurrentObjectPool<StringBuilder> _pool;
 
-        public StringBuilderPool()
+        static StringBuilderPool()
         {
-            _pool = new ObjectPool<StringBuilder>(() => new StringBuilder());
+            _pool = new ConcurrentObjectPool<StringBuilder>(() => new StringBuilder());
         }
 
-        public BuilderWrapper Rent()
+        public static BuilderWrapper Rent()
         {
             var builder = _pool.Allocate();
             Debug.Assert(builder.Length == 0);
-            return new BuilderWrapper(builder, this);
+            return new BuilderWrapper(builder, _pool);
         }
 
         internal readonly struct BuilderWrapper : IDisposable
         {
             public readonly StringBuilder Builder;
-            private readonly StringBuilderPool _pool;
+            private readonly ConcurrentObjectPool<StringBuilder> _pool;
 
-            public BuilderWrapper(StringBuilder builder, StringBuilderPool pool)
+            public BuilderWrapper(StringBuilder builder, ConcurrentObjectPool<StringBuilder> pool)
             {
                 Builder = builder;
                 _pool = pool;
@@ -51,11 +51,11 @@ namespace Jint.Pooling
                 if (builder.Capacity <= 1024)
                 {
                     builder.Clear();
-                    _pool._pool.Free(builder);
+                    _pool.Free(builder);
                 }
                 else
                 {
-                    _pool._pool.ForgetTrackedObject(builder);
+                    _pool.ForgetTrackedObject(builder);
                 }
             }
         }

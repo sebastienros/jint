@@ -67,7 +67,7 @@ namespace Jint.Native.RegExp
                 ExceptionHelper.ThrowTypeError(Engine);
             }
 
-            var s = TypeConverter.ToString(_engine, arguments.At(0));
+            var s = TypeConverter.ToString(arguments.At(0));
             var length = s.Length;
             var lastIndex = TypeConverter.ToNumber(R.Get("lastIndex"));
             var i = TypeConverter.ToInteger(lastIndex);

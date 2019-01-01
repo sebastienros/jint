@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Text;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -38,7 +37,7 @@ namespace Jint.Runtime
         public JavaScriptException SetCallstack(Engine engine, Location location = null)
         {
             Location = location;
-            using (var sb = engine._stringBuilderPool.Rent())
+            using (var sb = StringBuilderPool.Rent())
             {
                 foreach (var cse in engine.CallStack)
                 {

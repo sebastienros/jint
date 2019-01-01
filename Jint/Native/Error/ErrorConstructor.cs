@@ -50,7 +50,7 @@ namespace Jint.Native.Error
             var jsValue = arguments.At(0);
             if (!jsValue.IsUndefined())
             {
-                instance.Put("message", TypeConverter.ToString(_engine, jsValue), false);
+                instance.Put("message", TypeConverter.ToString(jsValue), false);
             }
 
             return instance;

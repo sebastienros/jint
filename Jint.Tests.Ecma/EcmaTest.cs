@@ -217,7 +217,7 @@ namespace Jint.Tests.Ecma
                 }
                 catch (JavaScriptException j)
                 {
-                    _lastError = TypeConverter.ToString(engine, j.Error);
+                    _lastError = TypeConverter.ToString(j.Error);
                 }
                 catch (Exception e)
                 {

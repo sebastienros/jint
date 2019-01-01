@@ -30,7 +30,7 @@ namespace Jint.Native.Function
                 return arg;
             }
 
-            var code = TypeConverter.ToString(_engine, arg);
+            var code = TypeConverter.ToString(arg);
 
             try
             {

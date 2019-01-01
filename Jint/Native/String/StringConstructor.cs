@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Text;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -108,7 +107,7 @@ namespace Jint.Native.String
                 return JsString.Empty;
             }
 
-            using (var result = _engine._stringBuilderPool.Rent())
+            using (var result = StringBuilderPool.Rent())
             {
                 for (var i = 0; i < length; i++)
                 {
@@ -116,11 +115,11 @@ namespace Jint.Native.String
                     {
                         if (i < arguments.Length && !arguments[i].IsUndefined())
                         {
-                            result.Builder.Append(TypeConverter.ToString(_engine, arguments[i]));
+                            result.Builder.Append(TypeConverter.ToString(arguments[i]));
                         }
                     }
 
-                    result.Builder.Append(TypeConverter.ToString(_engine, operations.Get((ulong) i)));
+                    result.Builder.Append(TypeConverter.ToString(operations.Get((ulong) i)));
                 }
 
                 return result.ToString();
@@ -137,7 +136,7 @@ namespace Jint.Native.String
             var arg = arguments[0];
             var str = arg is JsSymbol s
                 ? s.ToString()
-                : TypeConverter.ToString(_engine, arg);
+                : TypeConverter.ToString(arg);
 
             return JsString.Create(str);
         }
@@ -152,7 +151,7 @@ namespace Jint.Native.String
             string value = "";
             if (arguments.Length > 0)
             {
-                value = TypeConverter.ToString(_engine, arguments[0]);
+                value = TypeConverter.ToString(arguments[0]);
             }
             return Construct(value);
         }

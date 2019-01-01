@@ -74,7 +74,7 @@ namespace Jint.Native.Function
             var po = Get("prototype");
             if (!po.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine, $"Function has non-object prototype '{TypeConverter.ToString(_engine, po)}' in instanceof check");
+                ExceptionHelper.ThrowTypeError(_engine, $"Function has non-object prototype '{TypeConverter.ToString(po)}' in instanceof check");
             }
 
             var o = po.AsObject();
