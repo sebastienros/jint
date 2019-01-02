@@ -212,7 +212,7 @@
     "reason": "requires toLocaleString changes"
   },
 
-  // experimenta
+  // experimentals start
 
   {
     "source": "built-ins/Array/prototype/flat/array-like-objects.js",
@@ -278,13 +278,16 @@
     "source": "built-ins/Array/prototype/flatMap/thisArg-argument.js",
     "reason": "experimental"
   },
+
+  // experimentals end
+
   {
     "source": "built-ins/String/prototype/padEnd/observable-operations.js",
-    "reason": "observables not implemetned"
+    "reason": "observables not implemented"
   },
   {
     "source": "built-ins/String/prototype/padStart/observable-operations.js",
-    "reason": "observables not implemetned"
+    "reason": "observables not implemented"
   },
   {
     "source": "built-ins/StringIteratorPrototype/next/next-iteration-surrogate-pairs.js",
@@ -365,5 +368,25 @@
   {
     "source": "language/expressions/template-literal/tv-line-terminator-sequence.js",
     "reason": "Line feed problems (git, windows, linux)"
+  },
+  {
+    "source": "built-ins/Number/prototype/toPrecision/range.js",
+    "reason": "arrow functions not implemented"
+  },
+  {
+    "source": "built-ins/Number/prototype/toFixed/range.js",
+    "reason": "arrow functions not implemented"
+  },
+  {
+    "source": "built-ins/Number/prototype/toExponential/range.js",
+    "reason": "arrow functions not implemented"
+  },
+  {
+    "source": "language/types/number/8.5.1.js",
+    "reason": "C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308"
+  },
+  {
+    "source": "language/white-space/mongolian-vowel-separator-eval.js",
+    "reason": "Esprima problem"
   }
 ]

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Pooling;
@@ -1010,7 +1011,7 @@ namespace Jint.Native.Array
                 return s;
             }
 
-            using (var sb = StringBuilderPool.GetInstance())
+            using (var sb = StringBuilderPool.Rent())
             {
                 sb.Builder.Append(s);
                 for (uint k = 1; k < len; k++)
@@ -1249,7 +1250,7 @@ namespace Jint.Native.Array
         internal abstract class ArrayOperations
         {
             protected internal const ulong MaxArrayLength = 4294967295;
-            protected internal const ulong MaxArrayLikeLength = 9007199254740991;
+            protected internal const ulong MaxArrayLikeLength = NumberConstructor.MaxSafeInteger;
 
             public abstract ObjectInstance Target { get; }
 

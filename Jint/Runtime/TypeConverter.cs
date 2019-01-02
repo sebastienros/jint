@@ -6,8 +6,10 @@ using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Number;
+using Jint.Native.Number.Dtoa;
 using Jint.Native.Object;
 using Jint.Native.String;
+using Jint.Pooling;
 using Jint.Runtime.References;
 
 namespace Jint.Runtime
@@ -170,29 +172,46 @@ namespace Jint.Runtime
             // todo: use a common implementation with JavascriptParser
             try
             {
-                if (!s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                if (s.Length > 2 && s[0] == '0' && char.IsLetter(s[1]))
                 {
-                    var start = s[0];
-                    if (start != '+' && start != '-' && start != '.' && !char.IsDigit(start))
+                    int fromBase = 0;
+                    if (s[1] == 'x' || s[1] == 'X')
                     {
-                        return double.NaN;
+                        fromBase = 16;
                     }
 
-                    double n = double.Parse(s,
-                        NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
-                        NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
-                        NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
-                    if (s.StartsWith("-") && n == 0)
+                    if (s[1] == 'o' || s[1] == 'O')
                     {
-                        return -0.0;
+                        fromBase = 8;
                     }
 
-                    return n;
+                    if (s[1] == 'b' || s[1] == 'B')
+                    {
+                        fromBase = 2;
+                    }
+
+                    if (fromBase > 0)
+                    {
+                        return Convert.ToInt32(s.Substring(2), fromBase);
+                    }
                 }
 
-                int i = int.Parse(s.Substring(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+                var start = s[0];
+                if (start != '+' && start != '-' && start != '.' && !char.IsDigit(start))
+                {
+                    return double.NaN;
+                }
 
-                return i;
+                double n = double.Parse(s,
+                    NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
+                    NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
+                    NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
+                if (s.StartsWith("-") && n == 0)
+                {
+                    return -0.0;
+                }
+
+                return n;
             }
             catch (OverflowException)
             {
@@ -306,6 +325,15 @@ namespace Jint.Runtime
                 : c.ToString();
         }
 
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(ulong i)
+        {
+            return i >= 0 && i < (ulong) intToString.Length
+                ? intToString[i]
+                : i.ToString();
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(double d)
         {
@@ -315,7 +343,11 @@ namespace Jint.Runtime
                 return ToString((long) d);
             }
 
-            return NumberPrototype.ToNumberString(d);
+            using (var stringBuilder = StringBuilderPool.Rent())
+            {
+                // we can create smaller array as we know the format to be short
+                return NumberPrototype.NumberToString(d, new DtoaBuilder(17), stringBuilder.Builder);
+            }
         }
 
         /// <summary>

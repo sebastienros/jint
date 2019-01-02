@@ -26,7 +26,7 @@ namespace Jint.Native.Object
         internal StringDictionarySlim<PropertyDescriptor> _properties;
 
         private readonly string _class;
-        protected readonly Engine _engine;
+        protected internal readonly Engine _engine;
 
         public ObjectInstance(Engine engine) : this(engine, "Object")
         {

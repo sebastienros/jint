@@ -7,67 +7,56 @@ using System.Text;
 namespace Jint.Pooling
 {
     /// <summary>
-    /// The usage is:
-    ///        var inst = PooledStringBuilder.GetInstance();
-    ///        var sb = inst.builder;
-    ///        ... Do Stuff...
-    ///        ... sb.ToString() ...
-    ///        inst.Free();
+    /// Pooling of StringBuilder instances.
     /// </summary>
-    internal sealed class StringBuilderPool : IDisposable
+    internal sealed class StringBuilderPool
     {
-        // global pool
-        private static readonly ObjectPool<StringBuilderPool> s_poolInstance = CreatePool();
+        private static readonly ConcurrentObjectPool<StringBuilder> _pool;
 
-        public readonly StringBuilder Builder = new StringBuilder();
-        private readonly ObjectPool<StringBuilderPool> _pool;
-
-        private StringBuilderPool(ObjectPool<StringBuilderPool> pool)
+        static StringBuilderPool()
         {
-            Debug.Assert(pool != null);
-            _pool = pool;
+            _pool = new ConcurrentObjectPool<StringBuilder>(() => new StringBuilder());
         }
 
-        public int Length => Builder.Length;
-
-        // if someone needs to create a private pool;
-        /// <summary>
-        /// If someone need to create a private pool
-        /// </summary>
-        /// <param name="size">The size of the pool.</param>
-        /// <returns></returns>
-        internal static ObjectPool<StringBuilderPool> CreatePool(int size = 32)
+        public static BuilderWrapper Rent()
         {
-            ObjectPool<StringBuilderPool> pool = null;
-            pool = new ObjectPool<StringBuilderPool>(() => new StringBuilderPool(pool), size);
-            return pool;
+            var builder = _pool.Allocate();
+            Debug.Assert(builder.Length == 0);
+            return new BuilderWrapper(builder, _pool);
         }
 
-        public static StringBuilderPool GetInstance()
+        internal readonly struct BuilderWrapper : IDisposable
         {
-            var builder = s_poolInstance.Allocate();
-            Debug.Assert(builder.Builder.Length == 0);
-            return builder;
-        }
+            public readonly StringBuilder Builder;
+            private readonly ConcurrentObjectPool<StringBuilder> _pool;
 
-        public override string ToString()
-        {
-            return Builder.ToString();
-        }
-
-        public void Dispose()
-        {
-            var builder = Builder;
-
-            // do not store builders that are too large.
-            if (builder.Capacity <= 1024)
+            public BuilderWrapper(StringBuilder builder, ConcurrentObjectPool<StringBuilder> pool)
             {
-                builder.Clear();
-                _pool.Free(this);
+                Builder = builder;
+                _pool = pool;
             }
-            else
+
+            public int Length => Builder.Length;
+
+            public override string ToString()
             {
-                _pool.ForgetTrackedObject(this);
+                return Builder.ToString();
+            }
+
+            public void Dispose()
+            {
+                var builder = Builder;
+
+                // do not store builders that are too large.
+                if (builder.Capacity <= 1024)
+                {
+                    builder.Clear();
+                    _pool.Free(builder);
+                }
+                else
+                {
+                    _pool.ForgetTrackedObject(builder);
+                }
             }
         }
     }

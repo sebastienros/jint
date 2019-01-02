@@ -6,7 +6,6 @@ using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
-using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
@@ -889,8 +888,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldComputeFractionInBase()
         {
-            Assert.Equal("011", NumberPrototype.ToFractionBase(0.375, 2));
-            Assert.Equal("14141414141414141414141414141414141414141414141414", NumberPrototype.ToFractionBase(0.375, 5));
+            Assert.Equal("011", _engine.Number.PrototypeObject.ToFractionBase(0.375, 2));
+            Assert.Equal("14141414141414141414141414141414141414141414141414", _engine.Number.PrototypeObject.ToFractionBase(0.375, 5));
         }
 
         [Fact]
@@ -965,7 +964,7 @@ namespace Jint.Tests.Runtime
         [InlineData("2qgpckvng1s", 10000000000000000L, 36)]
         public void ShouldConvertNumbersToDifferentBase(string expected, long number, int radix)
         {
-            var result = NumberPrototype.ToBase(number, radix);
+            var result = _engine.Number.PrototypeObject.ToBase(number, radix);
             Assert.Equal(expected, result);
         }
 
@@ -2053,11 +2052,10 @@ var prep = function (fn) { fn(); };
         public void ShouldStringifyNumWithoutV8DToA()
         {
             // 53.6841659 cannot be converted by V8's DToA => "old" DToA code will be used.
-
             var engine = new Engine();
-            Native.JsValue val = engine.Execute("JSON.stringify(53.6841659)").GetCompletionValue();
+            var val = engine.Execute("JSON.stringify(53.6841659)").GetCompletionValue();
 
-            Assert.True(val.AsString() == "53.6841659");
+            Assert.Equal("53.6841659", val.AsString());
         }
 
         [Fact]

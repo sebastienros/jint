@@ -263,7 +263,7 @@ namespace Jint.Native.String
             return s.Substring(from, length);
         }
 
-        private static JsValue Substr(JsValue thisObj, JsValue[] arguments)
+        private JsValue Substr(JsValue thisObj, JsValue[] arguments)
         {
             var s = TypeConverter.ToString(thisObj);
             var start = TypeConverter.ToInteger(arguments.At(0));
@@ -521,7 +521,7 @@ namespace Jint.Native.String
                     // $`	Inserts the portion of the string that precedes the matched substring.
                     // $'	Inserts the portion of the string that follows the matched substring.
                     // $n or $nn	Where n or nn are decimal digits, inserts the nth parenthesized submatch string, provided the first argument was a RegExp object.
-                    using (var replacementBuilder = StringBuilderPool.GetInstance())
+                    using (var replacementBuilder = StringBuilderPool.Rent())
                     {
                         for (int i = 0; i < replaceString.Length; i++)
                         {
@@ -641,7 +641,7 @@ namespace Jint.Native.String
                 _engine._jsValueArrayPool.ReturnArray(args);
 
                 // Replace only the first match.
-                using (var result = StringBuilderPool.GetInstance())
+                using (var result = StringBuilderPool.Rent())
                 {
                     result.Builder.EnsureCapacity(thisString.Length + (substr.Length - substr.Length));
                     result.Builder.Append(thisString, 0, start);
@@ -1130,7 +1130,7 @@ namespace Jint.Native.String
                 return new string(str[0], n);
             }
 
-            using (var sb = StringBuilderPool.GetInstance())
+            using (var sb = StringBuilderPool.Rent())
             {
                 sb.Builder.EnsureCapacity(n * str.Length);
                 for (var i = 0; i < n; ++i)

@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Text;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -108,7 +107,7 @@ namespace Jint.Native.String
                 return JsString.Empty;
             }
 
-            using (var result = StringBuilderPool.GetInstance())
+            using (var result = StringBuilderPool.Rent())
             {
                 for (var i = 0; i < length; i++)
                 {

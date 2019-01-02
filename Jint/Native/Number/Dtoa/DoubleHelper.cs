@@ -32,25 +32,25 @@ using System.Diagnostics;
 
 namespace Jint.Native.Number.Dtoa
 {
-
-// Helper functions for doubles.
+    /// <summary>
+    /// Helper functions for doubles.
+    /// </summary>
     internal class DoubleHelper
     {
+        internal const ulong KExponentMask = 0x7FF0000000000000L;
+        internal const ulong KSignificandMask = 0x000FFFFFFFFFFFFFL;
+        private const ulong KHiddenBit = 0x0010000000000000L;
 
-        private const long KExponentMask = 0x7FF0000000000000L;
-        private const long KSignificandMask = 0x000FFFFFFFFFFFFFL;
-        private const long KHiddenBit = 0x0010000000000000L;
-
-        private static DiyFp AsDiyFp(long d64)
+        private static DiyFp AsDiyFp(ulong d64)
         {
             Debug.Assert(!IsSpecial(d64));
             return new DiyFp(Significand(d64), Exponent(d64));
         }
 
         // this->Significand() must not be 0.
-        internal static DiyFp AsNormalizedDiyFp(long d64)
+        internal static DiyFp AsNormalizedDiyFp(ulong d64)
         {
-            long f = Significand(d64);
+            ulong f = Significand(d64);
             int e = Exponent(d64);
 
             Debug.Assert(f != 0);
@@ -67,7 +67,7 @@ namespace Jint.Native.Number.Dtoa
             return new DiyFp(f, e);
         }
 
-        private static int Exponent(long d64)
+        internal static int Exponent(ulong d64)
         {
             if (IsDenormal(d64)) return KDenormalExponent;
 
@@ -75,28 +75,37 @@ namespace Jint.Native.Number.Dtoa
             return biasedE - KExponentBias;
         }
 
-        private static long Significand(long d64)
+        internal static int NormalizedExponent(ulong significand, int exponent)
         {
-            long significand = d64 & KSignificandMask;
+            Debug.Assert(significand != 0);
+            while ((significand & KHiddenBit) == 0)
+            {
+                significand = significand << 1;
+                exponent = exponent - 1;
+            }
+            return exponent;
+        }
+
+        internal static ulong Significand(ulong d64)
+        {
+            ulong significand = d64 & KSignificandMask;
             if (!IsDenormal(d64))
             {
                 return significand + KHiddenBit;
             }
-            else
-            {
-                return significand;
-            }
+
+            return significand;
         }
 
         // Returns true if the double is a denormal.
-        private static bool IsDenormal(long d64)
+        private static bool IsDenormal(ulong d64)
         {
             return (d64 & KExponentMask) == 0L;
         }
 
         // We consider denormals not to be special.
         // Hence only Infinity and NaN are special.
-        private static bool IsSpecial(long d64)
+        private static bool IsSpecial(ulong d64)
         {
             return (d64 & KExponentMask) == KExponentMask;
         }
@@ -116,7 +125,7 @@ namespace Jint.Native.Number.Dtoa
         // Returns the two boundaries of first argument.
         // The bigger boundary (m_plus) is normalized. The lower boundary has the same
         // exponent as m_plus.
-        internal static NormalizedBoundariesResult NormalizedBoundaries(long d64)
+        internal static NormalizedBoundariesResult NormalizedBoundaries(ulong d64)
         {
             DiyFp v = AsDiyFp(d64);
             bool significandIsZero = (v.F == KHiddenBit);

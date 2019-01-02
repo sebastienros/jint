@@ -230,7 +230,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return false;
         }
 
-        public static bool SameValue(JsValue x, JsValue y)
+        protected internal static bool SameValue(JsValue x, JsValue y)
         {
             var typea = TypeConverter.GetPrimitiveType(x);
             var typeb = TypeConverter.GetPrimitiveType(y);
@@ -274,7 +274,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        public static JsValue Compare(JsValue x, JsValue y, bool leftFirst = true)
+        protected static JsValue Compare(JsValue x, JsValue y, bool leftFirst = true)
         {
             JsValue px, py;
             if (leftFirst)

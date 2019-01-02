@@ -1,4 +1,3 @@
-using System.Text;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Pooling;
@@ -35,7 +34,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private JsString BuildString()
         {
-            using (var sb = StringBuilderPool.GetInstance())
+            using (var sb = StringBuilderPool.Rent())
             {
                 for (var i = 0; i < _templateLiteralExpression.Quasis.Count; i++)
                 {
