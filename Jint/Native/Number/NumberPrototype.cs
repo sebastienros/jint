@@ -14,9 +14,6 @@ namespace Jint.Native.Number
     /// </summary>
     public sealed class NumberPrototype : NumberInstance
     {
-        // share buffer to reduce memory usage
-        private readonly DtoaBuilder _dtoaBuilder = new DtoaBuilder();
-
         private NumberPrototype(Engine engine)
             : base(engine)
         {
@@ -176,21 +173,22 @@ namespace Jint.Native.Number
             }
 
             int decimalPoint;
+            var dtoaBuilder = new DtoaBuilder();
             if (f == -1)
             {
                 DtoaNumberFormatter.DoubleToAscii(
-                    _dtoaBuilder,
+                    dtoaBuilder,
                     x,
                     DtoaMode.Shortest,
                     requested_digits: 0,
                     out _,
                     out decimalPoint);
-                f = _dtoaBuilder.Length - 1;
+                f = dtoaBuilder.Length - 1;
             }
             else
             {
                 DtoaNumberFormatter.DoubleToAscii(
-                    _dtoaBuilder,
+                    dtoaBuilder,
                     x,
                     DtoaMode.Precision,
                     requested_digits: f + 1,
@@ -198,11 +196,11 @@ namespace Jint.Native.Number
                     out decimalPoint);
             }
 
-            Debug.Assert(_dtoaBuilder.Length > 0);
-            Debug.Assert(_dtoaBuilder.Length <= f + 1);
+            Debug.Assert(dtoaBuilder.Length > 0);
+            Debug.Assert(dtoaBuilder.Length <= f + 1);
 
             int exponent = decimalPoint - 1;
-            var result = CreateExponentialRepresentation(_dtoaBuilder, exponent, negative, f+1);
+            var result = CreateExponentialRepresentation(dtoaBuilder, exponent, negative, f+1);
             return result;
         }
 
@@ -238,8 +236,9 @@ namespace Jint.Native.Number
                 ExceptionHelper.ThrowRangeError(_engine, "precision must be between 1 and 100");
             }
 
+            var dtoaBuilder = new DtoaBuilder();
             DtoaNumberFormatter.DoubleToAscii(
-                _dtoaBuilder,
+                dtoaBuilder,
                 x,
                 DtoaMode.Precision,
                 p,
@@ -250,7 +249,7 @@ namespace Jint.Native.Number
             int exponent = decimalPoint - 1;
             if (exponent < -6 || exponent >= p)
             {
-                return CreateExponentialRepresentation(_dtoaBuilder, exponent, negative, p);
+                return CreateExponentialRepresentation(dtoaBuilder, exponent, negative, p);
             }
 
             using (var builder = StringBuilderPool.Rent())
@@ -265,23 +264,23 @@ namespace Jint.Native.Number
                 {
                     builder.Builder.Append("0.");
                     builder.Builder.Append('0', -decimalPoint);
-                    builder.Builder.Append(_dtoaBuilder._chars, 0, _dtoaBuilder.Length);
-                    builder.Builder.Append('0', p - _dtoaBuilder.Length);
+                    builder.Builder.Append(dtoaBuilder._chars, 0, dtoaBuilder.Length);
+                    builder.Builder.Append('0', p - dtoaBuilder.Length);
                 }
                 else
                 {
-                    int m = System.Math.Min(_dtoaBuilder.Length, decimalPoint);
-                    builder.Builder.Append(_dtoaBuilder._chars, 0, m);
-                    builder.Builder.Append('0', System.Math.Max(0, decimalPoint - _dtoaBuilder.Length));
+                    int m = System.Math.Min(dtoaBuilder.Length, decimalPoint);
+                    builder.Builder.Append(dtoaBuilder._chars, 0, m);
+                    builder.Builder.Append('0', System.Math.Max(0, decimalPoint - dtoaBuilder.Length));
                     if (decimalPoint < p)
                     {
                         builder.Builder.Append('.');
                         var extra = negative ? 2 : 1;
-                        if (_dtoaBuilder.Length > decimalPoint)
+                        if (dtoaBuilder.Length > decimalPoint)
                         {
-                            int len = _dtoaBuilder.Length - decimalPoint;
+                            int len = dtoaBuilder.Length - decimalPoint;
                             int n = System.Math.Min(len, p - (builder.Builder.Length - extra));
-                            builder.Builder.Append(_dtoaBuilder._chars, decimalPoint, n);
+                            builder.Builder.Append(dtoaBuilder._chars, decimalPoint, n);
                         }
 
                         builder.Builder.Append('0', System.Math.Max(0, extra + (p - builder.Builder.Length)));
@@ -433,7 +432,7 @@ namespace Jint.Native.Number
         {
             using (var stringBuilder = StringBuilderPool.Rent())
             {
-                return NumberToString(m, _dtoaBuilder, stringBuilder.Builder);
+                return NumberToString(m, new DtoaBuilder(), stringBuilder.Builder);
             }
         }
 
