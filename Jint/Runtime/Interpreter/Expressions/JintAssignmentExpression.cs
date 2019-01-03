@@ -1,6 +1,7 @@
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
+using Jint.Native.Object;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
@@ -220,27 +221,69 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        private sealed class ObjectPatternAssignmentExpression : JintExpression
+        internal sealed class ObjectPatternAssignmentExpression : JintExpression
         {
-            private readonly ObjectPattern _left;
+            private readonly ObjectPattern _objectPattern;
             private readonly JintExpression _right;
 
             public ObjectPatternAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
             {
-                _left = (ObjectPattern) expression.Left;
+                _objectPattern = (ObjectPattern) expression.Left;
                 _right = Build(engine, expression.Right);
             }
 
             protected override object EvaluateInternal()
             {
-                foreach (var property in _left.Properties)
-                {
-                    //JintExpression.Build(_engine, property)
-                    SimpleAssignmentExpression.AssignToIdentifier(_engine, null, _right, false);
-                }
-
+                AssignToPattern(_engine, _objectPattern, _right.GetValue());
                 return JsValue.Undefined;
             }
+            
+            internal static void AssignToPattern(Engine engine, ObjectPattern objectPattern, JsValue argument)
+            {
+                var source = (ObjectInstance) argument;
+                for (uint i = 0; i < objectPattern.Properties.Count; i++)
+                {
+                    var left = objectPattern.Properties[(int) i];
+                    if (left.Key is Identifier identifier)
+                    {
+                        if (!source.TryGetValue(identifier.Name, out var value)
+                            && left.Value is AssignmentPattern assignmentPattern
+                            && assignmentPattern.Right is Literal l)
+                        {
+                            value = JintLiteralExpression.ConvertToJsValue(l);
+                        }
+                        var target = left.Value as Identifier ?? identifier;
+                        AssignToIdentifier(engine, target.Name, value);
+                    }
+                    else
+                    {
+                        ExceptionHelper.ThrowArgumentOutOfRangeException("pattern", "Unable to determine how to handle object pattern element");
+                        break;
+                    }
+                }
+            }
+            
+            private static JsValue AssignToIdentifier(
+                Engine engine,
+                string name,
+                JsValue rval)
+            {
+                var env = engine.ExecutionContext.LexicalEnvironment;
+                var strict = StrictModeScope.IsStrictModeCode;
+                if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                    env,
+                    name,
+                    strict,
+                    out var environmentRecord,
+                    out _))
+                {
+                    environmentRecord.SetMutableBinding(name, rval, strict);
+                    return rval;
+                }
+
+                return null;
+            }
+
         }
 
         internal sealed class ArrayPatternAssignmentExpression : JintExpression
@@ -308,7 +351,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                             ExceptionHelper.ThrowArgumentOutOfRangeException("pattern", "Unable to determine how to handle array pattern element");
                             break;
                         }
-                        
                     }
                 }
             }

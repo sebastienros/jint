@@ -15,6 +15,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             internal JintExpression Left;
             internal ArrayPattern LeftArrayPattern;
+            internal ObjectPattern LeftObjectPattern;
             internal JintExpression Init;
             internal JintIdentifierExpression LeftIdentifier;
             internal bool EvalOrArguments;
@@ -35,6 +36,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 JintExpression left = null;
                 JintExpression init = null;
                 ArrayPattern leftArrayPattern = null;
+                ObjectPattern leftObjectPattern = null;
                 if (declaration.Init != null)
                 {
                     if (declaration.Id is Expression expression)
@@ -44,6 +46,10 @@ namespace Jint.Runtime.Interpreter.Statements
                     else if (declaration.Id is ArrayPattern arrayPattern)
                     {
                         leftArrayPattern = arrayPattern;
+                    }
+                    else if (declaration.Id is ObjectPattern objectPattern)
+                    {
+                        leftObjectPattern = objectPattern;
                     }
                         
                     init = declaration.Init != null
@@ -56,6 +62,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     Left = left,
                     LeftArrayPattern = leftArrayPattern,
+                    LeftObjectPattern = leftObjectPattern,
                     LeftIdentifier = leftIdentifier,
                     EvalOrArguments = leftIdentifier?._expressionName == "eval" || leftIdentifier?._expressionName == "arguments",
                     Init = init
@@ -76,6 +83,13 @@ namespace Jint.Runtime.Interpreter.Statements
                         JintAssignmentExpression.ArrayPatternAssignmentExpression.AssignToPattern(
                             _engine,
                             declaration.LeftArrayPattern,
+                            declaration.Init.GetValue());
+                    }
+                    if (declaration.LeftObjectPattern != null)
+                    {
+                        JintAssignmentExpression.ObjectPatternAssignmentExpression.AssignToPattern(
+                            _engine,
+                            declaration.LeftObjectPattern,
                             declaration.Init.GetValue());
                     }
                     else if (declaration.LeftIdentifier == null

@@ -866,6 +866,26 @@ namespace Jint
                                 }
                             }
                         }
+                        else if (d.Id is ObjectPattern objectPattern)
+                        {
+                            for (var k = 0; k < objectPattern.Properties.Count; k++)
+                            {
+                                var element = objectPattern.Properties[k];
+                                var id = element.Value as Identifier ?? element.Key as Identifier;
+                                if (id != null)
+                                {
+                                    HandleIdentifier(id);
+                                }
+                                else
+                                {
+                                    ExceptionHelper.ThrowArgumentOutOfRangeException("key", "Unable to determine how to handle object pattern key");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            ExceptionHelper.ThrowArgumentOutOfRangeException("declaration", "Unable to determine how to handle declaration");
+                        }
                     }
                 }
             }
