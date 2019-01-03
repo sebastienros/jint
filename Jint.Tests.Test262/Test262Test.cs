@@ -196,10 +196,6 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "generators not implemented";
                                 break;
-                            case "destructuring-binding":
-                                skip = true;
-                                reason = "destructuring-binding not implemented";
-                                break;
                             case "let":
                                 skip = true;
                                 reason = "let not implemented";

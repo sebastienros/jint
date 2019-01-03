@@ -30,7 +30,6 @@
 
 using System;
 using System.Diagnostics;
-using System.Threading;
 using Jint.Runtime;
 
 namespace Jint.Native.Number.Dtoa

@@ -823,6 +823,21 @@ namespace Jint
             }
             else
             {
+                void HandleIdentifier(Identifier identifier)
+                {
+                    if (identifier == null)
+                    {
+                        // ignored
+                        return;
+                    }
+                    
+                    var varAlreadyDeclared = env.HasBinding(identifier.Name);
+                    if (!varAlreadyDeclared)
+                    {
+                        env.CreateMutableBinding(identifier.Name, Undefined.Instance);
+                    }
+                }
+                
                 // slow path
                 var variableDeclarationsCount = variableDeclarations.Count;
                 for (var i = 0; i < variableDeclarationsCount; i++)
@@ -832,11 +847,24 @@ namespace Jint
                     for (var j = 0; j < declarationsCount; j++)
                     {
                         var d = variableDeclaration.Declarations[j];
-                        var dn = ((Identifier) d.Id).Name;
-                        var varAlreadyDeclared = env.HasBinding(dn);
-                        if (!varAlreadyDeclared)
+                        if (d.Id is Identifier identifier)
                         {
-                            env.CreateMutableBinding(dn, Undefined.Instance);
+                            HandleIdentifier(identifier);
+                        }
+                        else if (d.Id is ArrayPattern arrayPattern)
+                        {
+                            for (var k = 0; k < arrayPattern.Elements.Count; k++)
+                            {
+                                var element = arrayPattern.Elements[k];
+                                if (element is Identifier id)
+                                {
+                                    HandleIdentifier(id);
+                                }
+                                else if (element is AssignmentPattern ap)
+                                {
+                                    HandleIdentifier((Identifier) ap.Left);
+                                }
+                            }
                         }
                     }
                 }

@@ -14,6 +14,7 @@ namespace Jint.Runtime.Interpreter.Statements
         private sealed class ResolvedDeclaration
         {
             internal JintExpression Left;
+            internal ArrayPattern LeftArrayPattern;
             internal JintExpression Init;
             internal JintIdentifierExpression LeftIdentifier;
             internal bool EvalOrArguments;
@@ -30,17 +31,31 @@ namespace Jint.Runtime.Interpreter.Statements
             for (var i = 0; i < _declarations.Length; i++)
             {
                 var declaration = _statement.Declarations[i];
-                var left = declaration.Init != null
-                    ? JintExpression.Build(_engine, (Expression) declaration.Id)
-                    : null;
-                var init = declaration.Init != null
-                    ? JintExpression.Build(_engine, declaration.Init)
-                    : null;
+
+                JintExpression left = null;
+                JintExpression init = null;
+                ArrayPattern leftArrayPattern = null;
+                if (declaration.Init != null)
+                {
+                    if (declaration.Id is Expression expression)
+                    {
+                        left = JintExpression.Build(_engine, expression);
+                    }
+                    else if (declaration.Id is ArrayPattern arrayPattern)
+                    {
+                        leftArrayPattern = arrayPattern;
+                    }
+                        
+                    init = declaration.Init != null
+                        ? JintExpression.Build(_engine, declaration.Init)
+                        : null;
+                }
 
                 var leftIdentifier = left as JintIdentifierExpression;
                 _declarations[i] = new ResolvedDeclaration
                 {
                     Left = left,
+                    LeftArrayPattern = leftArrayPattern,
                     LeftIdentifier = leftIdentifier,
                     EvalOrArguments = leftIdentifier?._expressionName == "eval" || leftIdentifier?._expressionName == "arguments",
                     Init = init
@@ -56,8 +71,15 @@ namespace Jint.Runtime.Interpreter.Statements
                 var declaration = declarations[i];
                 if (declaration.Init != null)
                 {
-                    if (declaration.LeftIdentifier == null
-                        || JintAssignmentExpression.Assignment.AssignToIdentifier(
+                    if (declaration.LeftArrayPattern != null)
+                    {
+                        JintAssignmentExpression.ArrayPatternAssignmentExpression.AssignToPattern(
+                            _engine,
+                            declaration.LeftArrayPattern,
+                            declaration.Init.GetValue());
+                    }
+                    else if (declaration.LeftIdentifier == null
+                        || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
                             _engine,
                             declaration.LeftIdentifier,
                             declaration.Init,

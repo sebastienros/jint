@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
@@ -20,7 +21,20 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             if (expression.Operator == AssignmentOperator.Assign)
             {
-                return new Assignment(engine, expression);
+                if (expression.Left is Expression)
+                {
+                    return new SimpleAssignmentExpression(engine, expression);
+                }
+
+                if (expression.Left is ObjectPattern)
+                {
+                    return new ObjectPatternAssignmentExpression(engine, expression);
+                }
+
+                if (expression.Left is ArrayPattern)
+                {
+                    return new ArrayPatternAssignmentExpression(engine, expression);
+                }
             }
 
             return new JintAssignmentExpression(engine, expression);
@@ -122,21 +136,29 @@ namespace Jint.Runtime.Interpreter.Expressions
             return lval;
         }
 
-        internal class Assignment : JintExpression
+        internal sealed class SimpleAssignmentExpression : JintExpression
         {
             private readonly JintExpression _left;
             private readonly JintExpression _right;
 
             private readonly JintIdentifierExpression _leftIdentifier;
             private readonly bool _evalOrArguments;
+            private readonly ArrayPattern _arrayPattern;
 
-            public Assignment(Engine engine, AssignmentExpression expression) : base(engine, expression)
+            public SimpleAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
             {
-                _left = Build(engine, (Expression) expression.Left);
-                _right = Build(engine, expression.Right);
+                if (expression.Left is ArrayPattern arrayPattern)
+                {
+                    _arrayPattern = arrayPattern;
+                }
+                else
+                {
+                    _left = Build(engine, (Expression) expression.Left);
+                    _leftIdentifier = _left as JintIdentifierExpression;
+                    _evalOrArguments = _leftIdentifier?._expressionName == "eval" || _leftIdentifier?._expressionName == "arguments";
+                }
 
-                _leftIdentifier = _left as JintIdentifierExpression;
-                _evalOrArguments = _leftIdentifier?._expressionName == "eval" || _leftIdentifier?._expressionName == "arguments";
+                _right = Build(engine, expression.Right);
             }
 
             protected override object EvaluateInternal()
@@ -145,6 +167,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (_leftIdentifier != null)
                 {
                     rval = AssignToIdentifier(_engine, _leftIdentifier, _right, _evalOrArguments);
+                }
+                else if (_arrayPattern != null)
+                {
+                    foreach (var element in _arrayPattern.Elements)
+                    {
+                        AssignToIdentifier(_engine, _leftIdentifier, _right, false);
+                    }
                 }
 
                 return rval ?? SetValue();
@@ -184,6 +213,121 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     var rval = right.GetValue();
                     environmentRecord.SetMutableBinding(left._expressionName, rval, strict);
+                    return rval;
+                }
+
+                return null;
+            }
+        }
+
+        private sealed class ObjectPatternAssignmentExpression : JintExpression
+        {
+            private readonly ObjectPattern _left;
+            private readonly JintExpression _right;
+
+            public ObjectPatternAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
+            {
+                _left = (ObjectPattern) expression.Left;
+                _right = Build(engine, expression.Right);
+            }
+
+            protected override object EvaluateInternal()
+            {
+                foreach (var property in _left.Properties)
+                {
+                    //JintExpression.Build(_engine, property)
+                    SimpleAssignmentExpression.AssignToIdentifier(_engine, null, _right, false);
+                }
+
+                return JsValue.Undefined;
+            }
+        }
+
+        internal sealed class ArrayPatternAssignmentExpression : JintExpression
+        {
+            private readonly AssignmentExpression _assignmentExpression;
+            private ArrayPattern _arrayPattern;
+            private JintExpression _right;
+
+            public ArrayPatternAssignmentExpression(
+                Engine engine,
+                AssignmentExpression expression) : base(engine, expression)
+            {
+                _assignmentExpression = expression;
+                _initialized = false;
+            }
+
+            protected override void Initialize()
+            {
+                _arrayPattern = (ArrayPattern) _assignmentExpression.Left;
+                _right = Build(_engine, _assignmentExpression.Right);
+            }
+
+            protected override object EvaluateInternal()
+            {
+                AssignToPattern(_engine, _arrayPattern, _right.GetValue());
+                return JsValue.Undefined;
+            }
+
+            internal static void AssignToPattern(Engine engine, ArrayPattern arrayPattern, JsValue argument)
+            {
+                var source = ArrayPrototype.ArrayOperations.For(engine, argument);
+                for (uint i = 0; i < arrayPattern.Elements.Count; i++)
+                {
+                    var left = arrayPattern.Elements[(int) i];
+                    if (left is Identifier identifier)
+                    {
+                        source.TryGetValue(i, out var value);
+                        AssignToIdentifier(engine, identifier.Name, value);
+                    }
+                    else if (left is ArrayPatternElement arrayPatternElement)
+                    {
+                        if (arrayPatternElement is RestElement restElement)
+                        {
+                            var length = source.GetLength();
+                            var array = engine.Array.ConstructFast(length - i);
+                            for (uint j = i; j < length; ++j)
+                            {
+                                source.TryGetValue(j, out var indexValue);
+                                array.SetIndexValue(j - i, indexValue, updateLength: false);
+                            }
+
+                            AssignToIdentifier(engine, ((Identifier) restElement.Argument).Name, array);
+                        }
+                        else if (arrayPatternElement is AssignmentPattern assignmentPattern)
+                        {
+                            if (!source.TryGetValue(i, out var value)
+                                && assignmentPattern.Right is Literal l)
+                            {
+                                value = JintLiteralExpression.ConvertToJsValue(l);
+                            } 
+                            AssignToIdentifier(engine, ((Identifier) assignmentPattern.Left).Name, value);
+                        }
+                        else
+                        {
+                            ExceptionHelper.ThrowArgumentOutOfRangeException("pattern", "Unable to determine how to handle array pattern element");
+                            break;
+                        }
+                        
+                    }
+                }
+            }
+
+            private static JsValue AssignToIdentifier(
+                Engine engine,
+                string name,
+                JsValue rval)
+            {
+                var env = engine.ExecutionContext.LexicalEnvironment;
+                var strict = StrictModeScope.IsStrictModeCode;
+                if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                    env,
+                    name,
+                    strict,
+                    out var environmentRecord,
+                    out _))
+                {
+                    environmentRecord.SetMutableBinding(name, rval, strict);
                     return rval;
                 }
 
