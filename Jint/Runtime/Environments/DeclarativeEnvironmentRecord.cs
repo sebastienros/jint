@@ -271,6 +271,7 @@ using Jint.Native.Function;
                 var jsValue = arguments.Length == 0 ? Undefined : arguments[0];
                 jsValue = HandleAssignmentPatternIfNeeded(functionDeclaration, jsValue, 0);
                 jsValue = HandleRestPatternIfNeeded(_engine, functionDeclaration, arguments, 0, jsValue);
+                HandleObjectPatternIfNeeded(_engine, functionDeclaration, jsValue, 0);
 
                 var binding = new Binding(jsValue, false, true);
                 _set = true;
@@ -301,6 +302,7 @@ using Jint.Native.Function;
                 {
                     jsValue = HandleRestPatternIfNeeded(_engine, functionDeclaration, arguments, i, jsValue);
                 }
+                jsValue = HandleObjectPatternIfNeeded(_engine, functionDeclaration, jsValue, 0);
 
                 if (empty || !TryGetValue(argName, out var existing))
                 {
@@ -327,6 +329,20 @@ using Jint.Native.Function;
                     }
                 }
             }
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static JsValue HandleObjectPatternIfNeeded(Engine engine, IFunction functionDeclaration, JsValue jsValue, int index)
+        {
+            if (functionDeclaration.Params[index] is ObjectPattern op)
+            {
+                if (jsValue.IsNullOrUndefined())
+                {
+                    ExceptionHelper.ThrowTypeError(engine, "Cannot destructure 'undefined' or 'null'.");
+                }
+            }
+
+            return jsValue;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -378,13 +394,14 @@ using Jint.Native.Function;
                 for (var j = 0; j < declarationsCount; j++)
                 {
                     var d = variableDeclaration.Declarations[j];
-                    var dn = ((Identifier) d.Id).Name;
-
-                    if (!ContainsKey(dn))
+                    Engine.ProcessDeclaration(d, this, dn =>
                     {
-                        var binding = new Binding(Undefined, canBeDeleted: false, mutable: true);
-                        SetItem(dn, binding);
-                    }
+                        if (!ContainsKey(dn))
+                        {
+                            var binding = new Binding(Undefined, canBeDeleted: false, mutable: true);
+                            SetItem(dn, binding);
+                        }
+                    });
                 }
             }
         }

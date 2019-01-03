@@ -128,7 +128,7 @@ namespace Jint.Native.Array
             return instance;
         }
 
-        private sealed class ArrayProtocol : IteratorProtocol
+        internal sealed class ArrayProtocol : IteratorProtocol
         {
             private readonly JsValue _thisArg;
             private readonly ArrayInstance _instance;

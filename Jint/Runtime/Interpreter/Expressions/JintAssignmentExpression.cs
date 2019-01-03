@@ -1,6 +1,7 @@
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
+using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
@@ -246,13 +247,19 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var left = objectPattern.Properties[(int) i];
                     if (left.Key is Identifier identifier)
                     {
+                        Identifier target;
                         if (!source.TryGetValue(identifier.Name, out var value)
                             && left.Value is AssignmentPattern assignmentPattern
-                            && assignmentPattern.Right is Literal l)
+                            && assignmentPattern.Right is Expression defaultValueExpression)
                         {
-                            value = JintLiteralExpression.ConvertToJsValue(l);
+                            var jintExpression = Build(engine, defaultValueExpression);
+                            value = jintExpression.GetValue();
+                            target = assignmentPattern.Left as Identifier ?? identifier;
                         }
-                        var target = left.Value as Identifier ?? identifier;
+                        else
+                        {
+                            target = left.Value as Identifier ?? identifier;
+                        }
                         AssignToIdentifier(engine, target.Name, value);
                     }
                     else
@@ -263,8 +270,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
             
-            private static JsValue AssignToIdentifier(
-                Engine engine,
+            private static void AssignToIdentifier(Engine engine,
                 string name,
                 JsValue rval)
             {
@@ -278,12 +284,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                     out _))
                 {
                     environmentRecord.SetMutableBinding(name, rval, strict);
-                    return rval;
                 }
-
-                return null;
+                else
+                {
+                    env._record.CreateMutableBinding(name, rval);
+                }
             }
-
         }
 
         internal sealed class ArrayPatternAssignmentExpression : JintExpression
@@ -314,36 +320,82 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             internal static void AssignToPattern(Engine engine, ArrayPattern arrayPattern, JsValue argument)
             {
-                var source = ArrayPrototype.ArrayOperations.For(engine, argument);
+                var obj = TypeConverter.ToObject(engine, argument);
+
+                ArrayPrototype.ArrayOperations arrayOperations = null;
+                IIterator iterator = null;
+                if (obj.IsArrayLike)
+                {
+                    arrayOperations = ArrayPrototype.ArrayOperations.For(obj);
+                }
+                else
+                {
+                    if (!obj.TryGetIterator(engine, out iterator))
+                    {
+                        ExceptionHelper.ThrowTypeError(engine);
+                        return;
+                    }
+                }
+                
                 for (uint i = 0; i < arrayPattern.Elements.Count; i++)
                 {
                     var left = arrayPattern.Elements[(int) i];
                     if (left is Identifier identifier)
                     {
-                        source.TryGetValue(i, out var value);
+                        JsValue value;
+                        if (arrayOperations != null)
+                        {
+                            arrayOperations.TryGetValue(i, out value);
+                        }
+                        else
+                        {
+                            value = iterator.Next();
+                        }
                         AssignToIdentifier(engine, identifier.Name, value);
                     }
                     else if (left is ArrayPatternElement arrayPatternElement)
                     {
                         if (arrayPatternElement is RestElement restElement)
                         {
-                            var length = source.GetLength();
-                            var array = engine.Array.ConstructFast(length - i);
-                            for (uint j = i; j < length; ++j)
+                            ArrayInstance array;
+                            if (arrayOperations != null)
                             {
-                                source.TryGetValue(j, out var indexValue);
-                                array.SetIndexValue(j - i, indexValue, updateLength: false);
+                                var length = arrayOperations.GetLength();
+                                array = engine.Array.ConstructFast(length - i);
+                                for (uint j = i; j < length; ++j)
+                                {
+                                    arrayOperations.TryGetValue(j, out var indexValue);
+                                    array.SetIndexValue(j - i, indexValue, updateLength: false);
+                                }
+                            }
+                            else
+                            {
+
+                                array = engine.Array.ConstructFast(0);
+                                var protocol = new ArrayConstructor.ArrayProtocol(engine, obj, array, iterator, null);
+                                protocol.Execute();
                             }
 
                             AssignToIdentifier(engine, ((Identifier) restElement.Argument).Name, array);
                         }
                         else if (arrayPatternElement is AssignmentPattern assignmentPattern)
                         {
-                            if (!source.TryGetValue(i, out var value)
-                                && assignmentPattern.Right is Literal l)
+                            JsValue value;
+                            if (arrayOperations != null)
                             {
-                                value = JintLiteralExpression.ConvertToJsValue(l);
-                            } 
+                                arrayOperations.TryGetValue(i, out value);
+                            }
+                            else
+                            {
+                                value = iterator.Next();
+                            }
+
+                            if (value.IsUndefined()
+                                && assignmentPattern.Right is Expression defaultValueExpression)
+                            {
+                                var jintExpression = Build(engine, defaultValueExpression);
+                                value = jintExpression.GetValue();
+                            }
                             AssignToIdentifier(engine, ((Identifier) assignmentPattern.Left).Name, value);
                         }
                         else
@@ -355,8 +407,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            private static JsValue AssignToIdentifier(
-                Engine engine,
+            private static void AssignToIdentifier(Engine engine,
                 string name,
                 JsValue rval)
             {
@@ -370,10 +421,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                     out _))
                 {
                     environmentRecord.SetMutableBinding(name, rval, strict);
-                    return rval;
+                    return;
                 }
 
-                return null;
+                return;
             }
         }
     }

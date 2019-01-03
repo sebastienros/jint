@@ -23,9 +23,9 @@ namespace Jint.Tests.Test262
         [RunnableInDebugOnly]
         public void TestSingle()
         {
-            const string Target = @"built-ins/Math/pow/applying-the-exp-operator_A19.js";
+            const string Target = @"language/destructuring/binding/syntax/array-pattern-with-no-elements.js";
             //const string Target = @"built-ins/Array/from/calling-from-valid-2.js";
-            var sourceFile = SourceFiles("built-ins", false)
+            var sourceFile = SourceFiles("language", false)
                 .SelectMany(x => x)
                 .Cast<SourceFile>()
                 .First(x => x.Source == Target);

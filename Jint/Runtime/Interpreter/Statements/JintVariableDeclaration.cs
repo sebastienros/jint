@@ -85,7 +85,7 @@ namespace Jint.Runtime.Interpreter.Statements
                             declaration.LeftArrayPattern,
                             declaration.Init.GetValue());
                     }
-                    if (declaration.LeftObjectPattern != null)
+                    else if (declaration.LeftObjectPattern != null)
                     {
                         JintAssignmentExpression.ObjectPatternAssignmentExpression.AssignToPattern(
                             _engine,

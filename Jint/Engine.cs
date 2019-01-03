@@ -823,21 +823,6 @@ namespace Jint
             }
             else
             {
-                void HandleIdentifier(Identifier identifier)
-                {
-                    if (identifier == null)
-                    {
-                        // ignored
-                        return;
-                    }
-                    
-                    var varAlreadyDeclared = env.HasBinding(identifier.Name);
-                    if (!varAlreadyDeclared)
-                    {
-                        env.CreateMutableBinding(identifier.Name, Undefined.Instance);
-                    }
-                }
-                
                 // slow path
                 var variableDeclarationsCount = variableDeclarations.Count;
                 for (var i = 0; i < variableDeclarationsCount; i++)
@@ -847,50 +832,74 @@ namespace Jint
                     for (var j = 0; j < declarationsCount; j++)
                     {
                         var d = variableDeclaration.Declarations[j];
-                        if (d.Id is Identifier identifier)
-                        {
-                            HandleIdentifier(identifier);
-                        }
-                        else if (d.Id is ArrayPattern arrayPattern)
-                        {
-                            for (var k = 0; k < arrayPattern.Elements.Count; k++)
-                            {
-                                var element = arrayPattern.Elements[k];
-                                if (element is Identifier id)
-                                {
-                                    HandleIdentifier(id);
-                                }
-                                else if (element is AssignmentPattern ap)
-                                {
-                                    HandleIdentifier((Identifier) ap.Left);
-                                }
-                            }
-                        }
-                        else if (d.Id is ObjectPattern objectPattern)
-                        {
-                            for (var k = 0; k < objectPattern.Properties.Count; k++)
-                            {
-                                var element = objectPattern.Properties[k];
-                                var id = element.Value as Identifier ?? element.Key as Identifier;
-                                if (id != null)
-                                {
-                                    HandleIdentifier(id);
-                                }
-                                else
-                                {
-                                    ExceptionHelper.ThrowArgumentOutOfRangeException("key", "Unable to determine how to handle object pattern key");
-                                }
-                            }
-                        }
-                        else
-                        {
-                            ExceptionHelper.ThrowArgumentOutOfRangeException("declaration", "Unable to determine how to handle declaration");
-                        }
+                        ProcessDeclaration(d, env, null);
                     }
                 }
             }
 
             return canReleaseArgumentsInstance;
+        }
+
+        internal static void ProcessDeclaration(VariableDeclarator d, EnvironmentRecord env, Action<string> postProcess)
+        {
+            void HandleIdentifier(Identifier identifier)
+            {
+                if (identifier == null)
+                {
+                    // ignored
+                    return;
+                }
+
+                var varAlreadyDeclared = env.HasBinding(identifier.Name);
+                if (!varAlreadyDeclared)
+                {
+                    env.CreateMutableBinding(identifier.Name, Undefined.Instance);
+                }
+
+                postProcess?.Invoke(identifier.Name);
+            }
+
+            if (d.Id is Identifier id1)
+            {
+                HandleIdentifier(id1);
+            }
+            else if (d.Id is ArrayPattern arrayPattern)
+            {
+                for (var k = 0; k < arrayPattern.Elements.Count; k++)
+                {
+                    var element = arrayPattern.Elements[k];
+                    if (element is Identifier id)
+                    {
+                        HandleIdentifier(id);
+                    }
+                    else if (element is AssignmentPattern ap)
+                    {
+                        HandleIdentifier((Identifier) ap.Left);
+                    }
+                }
+            }
+            else if (d.Id is ObjectPattern objectPattern)
+            {
+                for (var k = 0; k < objectPattern.Properties.Count; k++)
+                {
+                    var element = objectPattern.Properties[k];
+                    var id = element.Value as Identifier ?? element.Key as Identifier;
+                    if (id != null)
+                    {
+                        HandleIdentifier(id);
+                    }
+                    else
+                    {
+                        ExceptionHelper.ThrowArgumentOutOfRangeException("key",
+                            "Unable to determine how to handle object pattern key");
+                    }
+                }
+            }
+            else
+            {
+                ExceptionHelper.ThrowArgumentOutOfRangeException("declaration",
+                    "Unable to determine how to handle declaration");
+            }
         }
 
         private void AddFunctionDeclarations(List<FunctionDeclaration> functionDeclarations, EnvironmentRecord env, bool configurableBindings, bool strict)

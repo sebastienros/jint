@@ -28,14 +28,6 @@ namespace Jint.Tests.Test262
             RunTestInternal(sourceFile);
         }
 
-        [Theory(DisplayName = "language\\expressions\\assignment")]
-        [MemberData(nameof(SourceFiles), "language\\expressions\\assignment", false)]
-        [MemberData(nameof(SourceFiles), "language\\expressions\\assignment", true, Skip = "Skipped")]
-        protected void ExpressionsAssignment(SourceFile sourceFile)
-        {
-            RunTestInternal(sourceFile);
-        }
-
         [Theory(DisplayName = "language\\expressions\\call")]
         [MemberData(nameof(SourceFiles), "language\\expressions\\call", false)]
         [MemberData(nameof(SourceFiles), "language\\expressions\\call", true, Skip = "Skipped")]

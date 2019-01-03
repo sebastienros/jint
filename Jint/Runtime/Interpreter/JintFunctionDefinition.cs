@@ -59,6 +59,19 @@ namespace Jint.Runtime.Interpreter
                     }
                     _hasRestParameter = true;
                 }
+                else if (node is ObjectPattern)
+                {
+                    names[i] = "";
+                }
+                else if (node is ArrayPattern)
+                {
+                    names[i] = "";
+                }
+                else
+                {
+                    ExceptionHelper.ThrowArgumentOutOfRangeException("functionDeclaration",
+                        "Unable to determine how to handle parameter");
+                }
             }
 
             return names;
