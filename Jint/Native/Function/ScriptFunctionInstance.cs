@@ -48,11 +48,6 @@ namespace Jint.Native.Function
 
             _prototype = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
-            if (_function._name != null)
-            {
-                DefineOwnProperty("name", new PropertyDescriptor(_function._name, PropertyFlag.None), false);
-            }
-
             if (strict)
             {
                 var thrower = engine.Function.ThrowTypeError;

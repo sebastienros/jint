@@ -1,8 +1,8 @@
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
+using Jint.Native.Function;
 using Jint.Native.Iterator;
-using Jint.Native.Object;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -29,11 +29,17 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             internal static void ProcessPatterns(Engine engine, BindingPattern pattern, JsValue argument)
             {
-                HandleArrayPattern(engine, pattern as ArrayPattern, argument);
-                HandleObjectPattern(engine, pattern as ObjectPattern, argument);
+                if (pattern is ArrayPattern ap)
+                {
+                    HandleArrayPattern(engine, ap, argument);
+                }
+                else if (pattern is ObjectPattern op)
+                {
+                    HandleObjectPattern(engine, op, argument);
+                }
             }
 
-            internal static void HandleArrayPattern(Engine engine, ArrayPattern arrayPattern, JsValue argument)
+            private static void HandleArrayPattern(Engine engine, ArrayPattern pattern, JsValue argument)
             {
                 var obj = TypeConverter.ToObject(engine, argument);
 
@@ -52,9 +58,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                 }
                 
-                for (uint i = 0; i < arrayPattern.Elements.Count; i++)
+                for (uint i = 0; i < pattern.Elements.Count; i++)
                 {
-                    var left = arrayPattern.Elements[(int) i];
+                    var left = pattern.Elements[(int) i];
                     if (left is Identifier identifier)
                     {
                         JsValue value;
@@ -67,6 +73,19 @@ namespace Jint.Runtime.Interpreter.Expressions
                             value = iterator.Next();
                         }
                         AssignToIdentifier(engine, identifier.Name, value);
+                    }
+                    else if (left is BindingPattern bindingPattern)
+                    {
+                        JsValue value;
+                        if (arrayOperations != null)
+                        {
+                            arrayOperations.TryGetValue(i, out value);
+                        }
+                        else
+                        {
+                            value = iterator.Next();
+                        }
+                        ProcessPatterns(engine, bindingPattern, value);
                     }
                     else if (left is ArrayPatternElement arrayPatternElement)
                     {
@@ -91,7 +110,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                                 protocol.Execute();
                             }
 
-                            AssignToIdentifier(engine, ((Identifier) restElement.Argument).Name, array);
+                            if (restElement.Argument is Identifier leftIdentifier)
+                            {
+                                AssignToIdentifier(engine, leftIdentifier.Name, array);
+                            }
+                            else if (restElement.Argument is BindingPattern bp)
+                            {
+                                ProcessPatterns(engine, bp, array);
+                            }
                         }
                         else if (arrayPatternElement is AssignmentPattern assignmentPattern)
                         {
@@ -111,7 +137,15 @@ namespace Jint.Runtime.Interpreter.Expressions
                                 var jintExpression = Build(engine, defaultValueExpression);
                                 value = jintExpression.GetValue();
                             }
-                            AssignToIdentifier(engine, ((Identifier) assignmentPattern.Left).Name, value);
+
+                            if (assignmentPattern.Left is Identifier leftIdentifier)
+                            {
+                                AssignToIdentifier(engine, leftIdentifier.Name, value);
+                            }
+                            else if (assignmentPattern.Left is BindingPattern bp)
+                            {
+                                ProcessPatterns(engine, bp, value);
+                            }
                         }
                         else
                         {
@@ -122,34 +156,48 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            
-            internal static void HandleObjectPattern(Engine engine, ObjectPattern objectPattern, JsValue argument)
+            private static void HandleObjectPattern(Engine engine, ObjectPattern pattern, JsValue argument)
             {
-                var source = (ObjectInstance) argument;
-                for (uint i = 0; i < objectPattern.Properties.Count; i++)
+                var source = TypeConverter.ToObject(engine, argument);
+                for (uint i = 0; i < pattern.Properties.Count; i++)
                 {
-                    var left = objectPattern.Properties[(int) i];
-                    if (left.Key is Identifier identifier)
+                    var left = pattern.Properties[(int) i];
+                    string sourceKey;
+                    Identifier identifier = left.Key as Identifier;
+                    if (identifier == null)
                     {
-                        Identifier target;
-                        if (!source.TryGetValue(identifier.Name, out var value)
-                            && left.Value is AssignmentPattern assignmentPattern
-                            && assignmentPattern.Right is Expression defaultValueExpression)
-                        {
-                            var jintExpression = Build(engine, defaultValueExpression);
-                            value = jintExpression.GetValue();
-                            target = assignmentPattern.Left as Identifier ?? identifier;
-                        }
-                        else
-                        {
-                            target = left.Value as Identifier ?? identifier;
-                        }
-                        AssignToIdentifier(engine, target.Name, value);
+                        var keyExpression = Build(engine, left.Key);
+                        sourceKey = TypeConverter.ToPropertyKey(keyExpression.GetValue());
                     }
                     else
                     {
-                        ExceptionHelper.ThrowArgumentOutOfRangeException("pattern", "Unable to determine how to handle object pattern element");
-                        break;
+                        sourceKey = identifier.Name;
+                    }
+
+                    source.TryGetValue(sourceKey, out var value);
+                    if (left.Value is AssignmentPattern assignmentPattern
+                        && assignmentPattern.Right is Expression expression)
+                    {
+                        var jintExpression = Build(engine, expression);
+                        value = jintExpression.GetValue();
+
+                        var target = assignmentPattern.Left as Identifier ?? identifier;
+
+                        if (value is FunctionInstance scriptFunctionInstance)
+                        {
+                            scriptFunctionInstance.SetFunctionName(target.Name);
+                        }
+                        
+                        AssignToIdentifier(engine, target.Name, value);
+                    }
+                    else if (left.Value is BindingPattern bindingPattern)
+                    {
+                        ProcessPatterns(engine, bindingPattern, value);
+                    }
+                    else
+                    {
+                        var target = left.Value as Identifier ?? identifier;
+                        AssignToIdentifier(engine, target.Name, value);
                     }
                 }
             }
