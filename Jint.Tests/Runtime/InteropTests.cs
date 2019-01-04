@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
@@ -1620,5 +1621,82 @@ namespace Jint.Tests.Runtime
             Assert.Equal(engine.Invoke("throwException3").AsString(), exceptionMessage);
             Assert.Throws<ArgumentNullException>(() => engine.Invoke("throwException4"));
         }
+        
+        [Fact]
+        public void ArrayFromShouldConvertListToArrayLike()
+        {
+            var list = new List<Person>
+            {
+                new Person {Name = "Mike"},
+                new Person {Name = "Mika"}
+            };
+            _engine.SetValue("a", list);
+
+            RunTest(@"
+                var arr = new Array(a);
+                assert(arr.length === 2);
+                assert(arr[0].Name === 'Mike');
+                assert(arr[1].Name === 'Mika');
+            ");
+
+            RunTest(@"
+                var arr = Array.from(a);
+                assert(arr.length === 2);
+                assert(arr[0].Name === 'Mike');
+                assert(arr[1].Name === 'Mika');
+            ");
+        }
+        
+        [Fact]
+        public void ArrayFromShouldConvertArrayToArrayLike()
+        {
+            var list = new []
+            {
+                new Person {Name = "Mike"},
+                new Person {Name = "Mika"}
+            };
+            _engine.SetValue("a", list);
+
+            RunTest(@"
+                var arr = new Array(a);
+                assert(arr.length === 2);
+                assert(arr[0].Name === 'Mike');
+                assert(arr[1].Name === 'Mika');
+            ");
+
+            RunTest(@"
+                var arr = Array.from(a);
+                assert(arr.length === 2);
+                assert(arr[0].Name === 'Mike');
+                assert(arr[1].Name === 'Mika');
+            ");
+        }
+        
+        [Fact]
+        public void ArrayFromShouldConvertIEnumerable()
+        {
+            var enumerable = new []
+            {
+                new Person {Name = "Mike"},
+                new Person {Name = "Mika"}
+            }.Select(x => x);
+            
+            _engine.SetValue("a", enumerable);
+
+            RunTest(@"
+                var arr = new Array(a);
+                assert(arr.length === 2);
+                assert(arr[0].Name === 'Mike');
+                assert(arr[1].Name === 'Mika');
+            ");
+
+            RunTest(@"
+                var arr = Array.from(a);
+                assert(arr.length === 2);
+                assert(arr[0].Name === 'Mike');
+                assert(arr[1].Name === 'Mika');
+            ");
+        }
+
     }
 }

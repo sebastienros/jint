@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using Jint.Native;
@@ -17,9 +18,19 @@ namespace Jint.Runtime.Interop
             : base(engine)
         {
             Target = obj;
+            if (obj is ICollection collection)
+            {
+                IsArrayLike = true;
+                // create a forwarder to produce length from Count
+                var functionInstance = new ClrFunctionInstance(engine, "length", (thisObj, arguments) => collection.Count);
+                var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.AllForbidden);
+                AddProperty("length", descriptor);
+            }
         }
 
         public object Target { get; }
+
+        internal override bool IsArrayLike { get; }
 
         public override void Put(string propertyName, JsValue value, bool throwOnError)
         {
@@ -68,55 +79,62 @@ namespace Jint.Runtime.Interop
             AddProperty(propertyName, descriptor);
             return descriptor;
         }
-
+        
         private static Func<Engine, object, PropertyDescriptor> ResolveProperty(Type type, string propertyName)
         {
-            // look for a property
-            PropertyInfo property = null;
-            foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+            var isNumber = uint.TryParse(propertyName, out _);
+
+            // properties and fields cannot be numbers
+            if (!isNumber)
             {
-                if (EqualsIgnoreCasing(p.Name, propertyName))
+                // look for a property
+                PropertyInfo property = null;
+                foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
-                    property = p;
-                    break;
+                    if (EqualsIgnoreCasing(p.Name, propertyName))
+                    {
+                        property = p;
+                        break;
+                    }
                 }
-            }
 
-            if (property != null)
-            {
-                return (engine, target) => new PropertyInfoDescriptor(engine, property, target);
-            }
-
-            // look for a field
-            FieldInfo field = null;
-            foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
-            {
-                if (EqualsIgnoreCasing(f.Name, propertyName))
+                if (property != null)
                 {
-                    field = f;
-                    break;
+                    return (engine, target) => new PropertyInfoDescriptor(engine, property, target);
                 }
-            }
 
-            if (field != null)
-            {
-                return (engine, target) => new FieldInfoDescriptor(engine, field, target);
-            }
-
-            // if no properties were found then look for a method
-            List<MethodInfo> methods = null;
-            foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
-            {
-                if (EqualsIgnoreCasing(m.Name, propertyName))
+                // look for a field
+                FieldInfo field = null;
+                foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
-                    methods = methods ?? new List<MethodInfo>();
-                    methods.Add(m);
+                    if (EqualsIgnoreCasing(f.Name, propertyName))
+                    {
+                        field = f;
+                        break;
+                    }
                 }
-            }
 
-            if (methods?.Count > 0)
-            {
-                return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, methods.ToArray()), PropertyFlag.OnlyEnumerable);
+                if (field != null)
+                {
+                    return (engine, target) => new FieldInfoDescriptor(engine, field, target);
+                }
+                
+                // if no properties were found then look for a method
+                List<MethodInfo> methods = null;
+                foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+                {
+                    if (EqualsIgnoreCasing(m.Name, propertyName))
+                    {
+                        methods = methods ?? new List<MethodInfo>();
+                        methods.Add(m);
+                    }
+                }
+
+                if (methods?.Count > 0)
+                {
+                    return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, methods.ToArray()), PropertyFlag.OnlyEnumerable);
+                }
+
             }
 
             // if no methods are found check if target implemented indexing
