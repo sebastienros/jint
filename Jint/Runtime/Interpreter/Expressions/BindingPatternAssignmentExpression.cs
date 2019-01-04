@@ -132,14 +132,18 @@ namespace Jint.Runtime.Interpreter.Expressions
                             }
 
                             if (value.IsUndefined()
-                                && assignmentPattern.Right is Expression defaultValueExpression)
+                                && assignmentPattern.Right is Expression expression)
                             {
-                                var jintExpression = Build(engine, defaultValueExpression);
+                                var jintExpression = Build(engine, expression);
                                 value = jintExpression.GetValue();
                             }
 
                             if (assignmentPattern.Left is Identifier leftIdentifier)
                             {
+                                if (assignmentPattern.Right is FunctionExpression)
+                                {
+                                    ((FunctionInstance) value).SetFunctionName(leftIdentifier.Name);
+                                }
                                 AssignToIdentifier(engine, leftIdentifier.Name, value);
                             }
                             else if (assignmentPattern.Left is BindingPattern bp)
@@ -175,17 +179,24 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     source.TryGetValue(sourceKey, out var value);
-                    if (left.Value is AssignmentPattern assignmentPattern
-                        && assignmentPattern.Right is Expression expression)
+                    if (left.Value is AssignmentPattern assignmentPattern)
                     {
-                        var jintExpression = Build(engine, expression);
-                        value = jintExpression.GetValue();
-
-                        var target = assignmentPattern.Left as Identifier ?? identifier;
-
-                        if (value is FunctionInstance scriptFunctionInstance)
+                        if (value.IsUndefined() && assignmentPattern.Right is Expression expression)
                         {
-                            scriptFunctionInstance.SetFunctionName(target.Name);
+                            var jintExpression = Build(engine, expression);
+                            value = jintExpression.GetValue();
+                        }
+                        
+                        if (assignmentPattern.Left is BindingPattern bp)
+                        {
+                            ProcessPatterns(engine, bp, value);
+                            continue;
+                        }
+                        
+                        var target = assignmentPattern.Left as Identifier ?? identifier;
+                        if (assignmentPattern.Right is FunctionExpression)
+                        {
+                            ((FunctionInstance) value).SetFunctionName(target.Name);
                         }
                         
                         AssignToIdentifier(engine, target.Name, value);

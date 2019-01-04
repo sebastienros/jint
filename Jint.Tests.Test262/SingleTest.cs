@@ -23,7 +23,7 @@ namespace Jint.Tests.Test262
         [RunnableInDebugOnly]
         public void TestSingle()
         {
-            const string Target = @"language/statements/for/dstr-var-obj-ptrn-id-init-fn-name-fn.js";
+            const string Target = @"language/statements/for/dstr-var-obj-ptrn-prop-obj.js";
             //const string Target = @"built-ins/Array/from/calling-from-valid-2.js";
             var sourceFile = SourceFiles("language/statements", false)
                 .SelectMany(x => x)
