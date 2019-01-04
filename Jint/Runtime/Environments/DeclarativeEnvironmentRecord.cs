@@ -394,14 +394,15 @@ using Jint.Native.Function;
                 for (var j = 0; j < declarationsCount; j++)
                 {
                     var d = variableDeclaration.Declarations[j];
-                    Engine.ProcessDeclaration(d, this, dn =>
+                    if (d.Id is Identifier id)
                     {
+                        var dn = id.Name;
                         if (!ContainsKey(dn))
                         {
                             var binding = new Binding(Undefined, canBeDeleted: false, mutable: true);
                             SetItem(dn, binding);
                         }
-                    });
+                    }
                 }
             }
         }
