@@ -81,6 +81,11 @@ namespace Jint.Native.Array
                 return ConstructArrayFromArrayLike(objectInstance, callable, thisArg);
             }
 
+            if (objectInstance is ObjectWrapper wrapper && wrapper.Target is IEnumerable enumerable)
+            {
+                return ConstructArrayFromIEnumerable(enumerable);
+            }
+
             var instance = _engine.Array.ConstructFast(0);
             if (objectInstance.TryGetIterator(_engine, out var iterator))
             {
@@ -257,16 +262,7 @@ namespace Jint.Native.Array
             {
                 if (objectWrapper.Target is IEnumerable enumerable)
                 {
-                    var jsArray = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
-                    var tempArray = _engine._jsValueArrayPool.RentArray(1);
-                    foreach (var item in enumerable)
-                    {
-                        var jsItem = FromObject(Engine, item);
-                        tempArray[0] = jsItem;
-                        Engine.Array.PrototypeObject.Push(jsArray, tempArray);
-                    }
-                    _engine._jsValueArrayPool.ReturnArray(tempArray);
-                    return jsArray;
+                    return ConstructArrayFromIEnumerable(enumerable);
                 }
             }
             else if (arguments.Length == 1 && arguments[0] is ArrayInstance arrayInstance)
@@ -284,6 +280,21 @@ namespace Jint.Native.Array
             }
 
             return instance;
+        }
+
+        private ArrayInstance ConstructArrayFromIEnumerable(IEnumerable enumerable)
+        {
+            var jsArray = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
+            var tempArray = _engine._jsValueArrayPool.RentArray(1);
+            foreach (var item in enumerable)
+            {
+                var jsItem = FromObject(Engine, item);
+                tempArray[0] = jsItem;
+                Engine.Array.PrototypeObject.Push(jsArray, tempArray);
+            }
+
+            _engine._jsValueArrayPool.ReturnArray(tempArray);
+            return jsArray;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

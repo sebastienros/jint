@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
@@ -1655,6 +1656,32 @@ namespace Jint.Tests.Runtime
                 new Person {Name = "Mika"}
             };
             _engine.SetValue("a", list);
+
+            RunTest(@"
+                var arr = new Array(a);
+                assert(arr.length === 2);
+                assert(arr[0].Name === 'Mike');
+                assert(arr[1].Name === 'Mika');
+            ");
+
+            RunTest(@"
+                var arr = Array.from(a);
+                assert(arr.length === 2);
+                assert(arr[0].Name === 'Mike');
+                assert(arr[1].Name === 'Mika');
+            ");
+        }
+        
+        [Fact]
+        public void ArrayFromShouldConvertIEnumerable()
+        {
+            var enumerable = new []
+            {
+                new Person {Name = "Mike"},
+                new Person {Name = "Mika"}
+            }.Select(x => x);
+            
+            _engine.SetValue("a", enumerable);
 
             RunTest(@"
                 var arr = new Array(a);
