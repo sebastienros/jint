@@ -433,6 +433,10 @@
     "source": "language/statements/for/dstr-var-ary-ptrn-rest-obj-prop-id.js",
     "reason": "let not implemented"
   },
+  {
+    "source": "language/statements/for/dstr-let-ary-ptrn-rest-obj-prop-id.js",
+    "reason": "let not implemented"
+  },
   
   
   
