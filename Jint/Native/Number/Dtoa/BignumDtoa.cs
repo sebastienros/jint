@@ -125,7 +125,6 @@ namespace Jint.Native.Number.Dtoa
                 delta_plus = delta_minus;
             }
 
-            int length = 0;
             buffer.Reset();
             while (true)
             {
@@ -185,8 +184,8 @@ namespace Jint.Native.Number.Dtoa
                         // loop would have stopped earlier.
                         // We still have an assert here in case the preconditions were not
                         // satisfied.
-                        Debug.Assert(buffer[length - 1] != '9');
-                        buffer[length - 1]++;
+                        Debug.Assert(buffer[buffer.Length - 1] != '9');
+                        buffer[buffer.Length - 1]++;
                     }
                     else
                     {
@@ -195,14 +194,14 @@ namespace Jint.Native.Number.Dtoa
                         //   For now let's round towards even (since this is what Gay seems to
                         //   do).
 
-                        if ((buffer[length - 1] - '0') % 2 == 0)
+                        if ((buffer[buffer.Length - 1] - '0') % 2 == 0)
                         {
                             // Round down => Do nothing.
                         }
                         else
                         {
-                            Debug.Assert(buffer[length - 1] != '9');
-                            buffer[length - 1]++;
+                            Debug.Assert(buffer[buffer.Length - 1] != '9');
+                            buffer[buffer.Length - 1]++;
                         }
                     }
 
@@ -221,8 +220,8 @@ namespace Jint.Native.Number.Dtoa
                     // stopped the loop earlier.
                     // We still have an DCHECK here, in case the preconditions were not
                     // satisfied.
-                    Debug.Assert(buffer[length - 1] != '9');
-                    buffer[length - 1]++;
+                    Debug.Assert(buffer[buffer.Length - 1] != '9');
+                    buffer[buffer.Length - 1]++;
                     return;
                 }
             }
