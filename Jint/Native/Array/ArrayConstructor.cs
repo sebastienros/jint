@@ -78,44 +78,7 @@ namespace Jint.Native.Array
 
             if (objectInstance.IsArrayLike)
             {
-                var operations = ArrayPrototype.ArrayOperations.For(objectInstance);
-
-                var length = operations.GetLength();
-
-                var a = _engine.Array.ConstructFast(length);
-                var args = !ReferenceEquals(callable, null)
-                    ? _engine._jsValueArrayPool.RentArray(2)
-                    : null;
-
-                uint n = 0;
-                for (uint i = 0; i < length; i++)
-                {
-                    JsValue jsValue;
-                    operations.TryGetValue(i, out var value);
-                    if (!ReferenceEquals(callable, null))
-                    {
-                        args[0] = value;
-                        args[1] = i;
-                        jsValue = callable.Call(thisArg, args);
-
-                        // function can alter data
-                        length = operations.GetLength();
-                    }
-                    else
-                    {
-                        jsValue = value;
-                    }
-                    a.SetIndexValue(i, jsValue, updateLength: false);
-                    n++;
-                }
-
-                if (!ReferenceEquals(callable, null))
-                {
-                    _engine._jsValueArrayPool.ReturnArray(args);
-                }
-
-                a.SetLength(length);
-                return a;
+                return ConstructArrayFromArrayLike(objectInstance, callable, thisArg);
             }
 
             var instance = _engine.Array.ConstructFast(0);
@@ -126,6 +89,52 @@ namespace Jint.Native.Array
             }
 
             return instance;
+        }
+
+        private ArrayInstance ConstructArrayFromArrayLike(
+            ObjectInstance objectInstance, 
+            ICallable callable, 
+            JsValue thisArg)
+        {
+            var operations = ArrayPrototype.ArrayOperations.For(objectInstance);
+
+            var length = operations.GetLength();
+
+            var a = _engine.Array.ConstructFast(length);
+            var args = !ReferenceEquals(callable, null)
+                ? _engine._jsValueArrayPool.RentArray(2)
+                : null;
+
+            uint n = 0;
+            for (uint i = 0; i < length; i++)
+            {
+                JsValue jsValue;
+                operations.TryGetValue(i, out var value);
+                if (!ReferenceEquals(callable, null))
+                {
+                    args[0] = value;
+                    args[1] = i;
+                    jsValue = callable.Call(thisArg, args);
+
+                    // function can alter data
+                    length = operations.GetLength();
+                }
+                else
+                {
+                    jsValue = value;
+                }
+
+                a.SetIndexValue(i, jsValue, updateLength: false);
+                n++;
+            }
+
+            if (!ReferenceEquals(callable, null))
+            {
+                _engine._jsValueArrayPool.ReturnArray(args);
+            }
+
+            a.SetLength(length);
+            return a;
         }
 
         internal sealed class ArrayProtocol : IteratorProtocol
@@ -259,6 +268,11 @@ namespace Jint.Native.Array
                     _engine._jsValueArrayPool.ReturnArray(tempArray);
                     return jsArray;
                 }
+            }
+            else if (arguments.Length == 1 && arguments[0] is ArrayInstance arrayInstance)
+            {
+                // direct copy
+                return ConstructArrayFromArrayLike(arrayInstance, null, this);
             }
             else
             {
