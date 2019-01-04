@@ -59,6 +59,16 @@ namespace Jint.Runtime.Interpreter
                     }
                     _hasRestParameter = true;
                 }
+                else if (node is BindingPattern)
+                {
+                    names[i] = "";
+                }
+                else
+                {
+                    ExceptionHelper.ThrowArgumentOutOfRangeException(
+                        nameof(functionDeclaration),
+                        "Unable to determine how to handle parameter of type " + node.GetType());
+                }
             }
 
             return names;

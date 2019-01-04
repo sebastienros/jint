@@ -832,11 +832,13 @@ namespace Jint
                     for (var j = 0; j < declarationsCount; j++)
                     {
                         var d = variableDeclaration.Declarations[j];
-                        var dn = ((Identifier) d.Id).Name;
-                        var varAlreadyDeclared = env.HasBinding(dn);
-                        if (!varAlreadyDeclared)
+                        if (d.Id is Identifier id1)
                         {
-                            env.CreateMutableBinding(dn, Undefined.Instance);
+                            var varAlreadyDeclared = env.HasBinding(id1.Name);
+                            if (!varAlreadyDeclared)
+                            {
+                                env.CreateMutableBinding(id1.Name, Undefined.Instance);
+                            }
                         }
                     }
                 }

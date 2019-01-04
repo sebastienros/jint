@@ -43,7 +43,10 @@ namespace Jint.Native.Function
             string objectClass)
             : base(engine, objectClass)
         {
-            _name = new PropertyDescriptor(name, PropertyFlag.Configurable);
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                _name = new PropertyDescriptor(name, PropertyFlag.Configurable);
+            }
             _formalParameters = parameters;
             _scope = scope;
             _strict = strict;
@@ -212,6 +215,18 @@ namespace Jint.Native.Function
             }
 
             base.RemoveOwnProperty(propertyName);
+        }
+
+        internal void SetFunctionName(string name, bool throwIfExists = false)
+        {
+            if (!HasOwnProperty("name"))
+            {
+                _name = new PropertyDescriptor(name, PropertyFlag.Configurable);
+            }
+            else if (throwIfExists)
+            {
+                ExceptionHelper.ThrowError(_engine, "cannot set name");
+            }
         }
     }
 }

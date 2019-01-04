@@ -124,7 +124,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return new JintTaggedTemplateExpression(engine, (TaggedTemplateExpression) expression);
 
                 default:
-                    ExceptionHelper.ThrowArgumentOutOfRangeException();
+                    ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(expression), $"unsupported language element '{expression.Type}'");
                     return null;
             }
         }

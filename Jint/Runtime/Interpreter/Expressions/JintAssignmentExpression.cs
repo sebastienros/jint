@@ -20,7 +20,15 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             if (expression.Operator == AssignmentOperator.Assign)
             {
-                return new Assignment(engine, expression);
+                if (expression.Left is Expression)
+                {
+                    return new SimpleAssignmentExpression(engine, expression);
+                }
+
+                if (expression.Left is BindingPattern)
+                {
+                    return new BindingPatternAssignmentExpression(engine, expression);
+                }
             }
 
             return new JintAssignmentExpression(engine, expression);
@@ -122,21 +130,29 @@ namespace Jint.Runtime.Interpreter.Expressions
             return lval;
         }
 
-        internal class Assignment : JintExpression
+        internal sealed class SimpleAssignmentExpression : JintExpression
         {
             private readonly JintExpression _left;
             private readonly JintExpression _right;
 
             private readonly JintIdentifierExpression _leftIdentifier;
             private readonly bool _evalOrArguments;
+            private readonly ArrayPattern _arrayPattern;
 
-            public Assignment(Engine engine, AssignmentExpression expression) : base(engine, expression)
+            public SimpleAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
             {
-                _left = Build(engine, (Expression) expression.Left);
-                _right = Build(engine, expression.Right);
+                if (expression.Left is ArrayPattern arrayPattern)
+                {
+                    _arrayPattern = arrayPattern;
+                }
+                else
+                {
+                    _left = Build(engine, (Expression) expression.Left);
+                    _leftIdentifier = _left as JintIdentifierExpression;
+                    _evalOrArguments = _leftIdentifier?._expressionName == "eval" || _leftIdentifier?._expressionName == "arguments";
+                }
 
-                _leftIdentifier = _left as JintIdentifierExpression;
-                _evalOrArguments = _leftIdentifier?._expressionName == "eval" || _leftIdentifier?._expressionName == "arguments";
+                _right = Build(engine, expression.Right);
             }
 
             protected override object EvaluateInternal()
@@ -145,6 +161,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (_leftIdentifier != null)
                 {
                     rval = AssignToIdentifier(_engine, _leftIdentifier, _right, _evalOrArguments);
+                }
+                else if (_arrayPattern != null)
+                {
+                    foreach (var element in _arrayPattern.Elements)
+                    {
+                        AssignToIdentifier(_engine, _leftIdentifier, _right, false);
+                    }
                 }
 
                 return rval ?? SetValue();
