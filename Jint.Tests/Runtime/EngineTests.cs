@@ -124,6 +124,21 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldHaveProperNotAFunctionErrorMessage()
+        {
+            RunTest(@"
+                try {
+                    var example = {};
+                    example();
+                    assert(false);
+                }
+                catch (ex) {
+                    assert(ex.message === 'example is not a function');
+                }
+            ");
+        }
+
+        [Fact]
         public void ShouldEvaluateHasOwnProperty()
         {
             RunTest(@"

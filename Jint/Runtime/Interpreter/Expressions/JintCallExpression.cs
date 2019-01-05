@@ -135,7 +135,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (!(func is ICallable callable))
             {
-                return ExceptionHelper.ThrowTypeError<object>(_engine);
+                var message = $"{r?.GetReferencedName() ?? ""} is not a function";
+                return ExceptionHelper.ThrowTypeError<object>(_engine, message);
             }
 
             var thisObject = Undefined.Instance;
