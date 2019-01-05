@@ -155,7 +155,7 @@ namespace Jint.Native.Number.Dtoa
         // Guaranteed to lie in one Bigit.
         internal void AssignUInt16(uint value)
         {
-            Debug.Assert(kBigitSize >= 8 * sizeof(uint));
+            Debug.Assert(kBigitSize <= 8 * sizeof(uint));
             Zero();
             if (value == 0) return;
 
