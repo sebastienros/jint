@@ -3,7 +3,6 @@ using System.Linq;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Number;
-using Jint.Native.Object;
 using Jint.Parser.Ast;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -477,16 +476,20 @@ namespace Jint.Runtime
                 return x.AsBoolean() == y.AsBoolean();
             }
 
-			if (typea == Types.Object)
-			{
-				var xw = x.AsObject() as IObjectWrapper;
+            if (typea == Types.Object)
+            {
+                var xw = x.AsObject() as IObjectWrapper;
 
-				if (xw != null)
-				{
-					var yw = y.AsObject() as IObjectWrapper;
-					return Object.Equals(xw.Target, yw.Target);
-				}
-			}
+                if (xw != null)
+                {
+                    var yw = y.AsObject() as IObjectWrapper;
+
+                    if (yw != null)
+                    {
+                        return Object.Equals(xw.Target, yw.Target);
+                    }
+                }
+            }
 
             return x == y;
         }
