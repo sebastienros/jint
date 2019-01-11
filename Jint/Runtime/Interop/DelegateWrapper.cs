@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Reflection;
+using System.Linq;
 using Jint.Native;
 using Jint.Native.Function;
 
@@ -37,6 +38,12 @@ namespace Jint.Runtime.Interop
         public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
         {
             var parameterInfos = _d.Method.GetParameters();
+
+            if (parameterInfos.Length > 0 && parameterInfos[0].ParameterType.FullName == "System.Runtime.CompilerServices.Closure")
+            {
+                parameterInfos = parameterInfos.Skip(1).ToArray();
+            }
+
             int delegateArgumentsCount = parameterInfos.Length;
             int delegateNonParamsArgumentsCount = _delegateContainsParamsArgument ? delegateArgumentsCount - 1 : delegateArgumentsCount;
 
