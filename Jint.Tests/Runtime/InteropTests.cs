@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Native;
@@ -126,15 +125,17 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void DynamicDelegateCanBeSet()
         {
+#if NETFRAMEWORK
             var parameters = new[] { Expression.Parameter(typeof(int)), Expression.Parameter(typeof(int)) };
             var exp = Expression.Add(parameters[0], parameters[1]);
             var del = Expression.Lambda(exp, parameters).Compile();
 
             _engine.SetValue("add", del);
-
+            
             RunTest(@"
                 assert(add(1,1) === 2);
             ");
+#endif
         }
 
         [Fact]
