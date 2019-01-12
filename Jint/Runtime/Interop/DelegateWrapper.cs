@@ -40,7 +40,7 @@ namespace Jint.Runtime.Interop
             var parameterInfos = _d.Method.GetParameters();
             
 #if NETFRAMEWORK
-            if (parameterInfos.Length > 0 && parameterInfos[0].ParameterType.FullName == "System.Runtime.CompilerServices.Closure")
+            if (parameterInfos.Length > 0 && parameterInfos[0].ParameterType == typeof(System.Runtime.CompilerServices.Closure))
             {
                 var reducedLength = parameterInfos.Length - 1;
                 var reducedParameterInfos = new ParameterInfo[reducedLength];
