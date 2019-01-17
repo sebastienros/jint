@@ -7,6 +7,6 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public interface IObjectConverter
     {
-        bool TryConvert(object value, out JsValue result);
+        bool TryConvert(Engine engine, object value, out JsValue result);
     }
 }

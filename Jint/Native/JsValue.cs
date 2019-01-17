@@ -290,7 +290,7 @@ namespace Jint.Native
             for (var i = 0; i < convertersCount; i++)
             {
                 var converter = converters[i];
-                if (converter.TryConvert(value, out var result))
+                if (converter.TryConvert(engine, value, out var result))
                 {
                     return result;
                 }
