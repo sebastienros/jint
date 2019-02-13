@@ -384,7 +384,7 @@ using Jint.Native.Function;
             return defaultValue;
         }
 
-        internal void AddVariableDeclarations(List<VariableDeclaration> variableDeclarations)
+        internal void AddVariableDeclarations(Esprima.Ast.List<VariableDeclaration> variableDeclarations)
         {
             var variableDeclarationsCount = variableDeclarations.Count;
             for (var i = 0; i < variableDeclarationsCount; i++)

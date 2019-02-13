@@ -23,7 +23,7 @@ namespace Jint.Runtime.Interpreter.Statements
             var r = _switchBlock.Execute(jsValue);
             if (r.Type == CompletionType.Break && r.Identifier == _statement.LabelSet?.Name)
             {
-                return new Completion(CompletionType.Normal, r.Value, null);
+                return new Completion(CompletionType.Normal, r.Value, null, Location);
             }
 
             return r;

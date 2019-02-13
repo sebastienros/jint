@@ -32,7 +32,6 @@ namespace Jint.Tests.Parser
             var program = new JavaScriptParser("this").ParseProgram();
             var body = program.Body;
 
-            Assert.NotNull(body);
             Assert.Single(body);
             Assert.Equal(Nodes.ThisExpression, body.First().As<ExpressionStatement>().Expression.Type);
         }
@@ -43,7 +42,6 @@ namespace Jint.Tests.Parser
             var program = new JavaScriptParser("null").ParseProgram();
             var body = program.Body;
 
-            Assert.NotNull(body);
             Assert.Single(body);
             Assert.Equal(Nodes.Literal, body.First().As<ExpressionStatement>().Expression.Type);
             Assert.Equal(null, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
@@ -59,7 +57,6 @@ namespace Jint.Tests.Parser
             ").ParseProgram();
             var body = program.Body;
 
-            Assert.NotNull(body);
             Assert.Single(body);
             Assert.Equal(Nodes.Literal, body.First().As<ExpressionStatement>().Expression.Type);
             Assert.Equal(42d, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
@@ -74,7 +71,6 @@ namespace Jint.Tests.Parser
             var program = new JavaScriptParser("(1 + 2 ) * 3").ParseProgram();
             var body = program.Body;
 
-            Assert.NotNull(body);
             Assert.Single(body);
             Assert.NotNull(binary = body.First().As<ExpressionStatement>().Expression.As<BinaryExpression>());
             Assert.Equal(3d, binary.Right.As<Literal>().Value);
@@ -111,7 +107,6 @@ namespace Jint.Tests.Parser
             var program = new JavaScriptParser(source).ParseProgram();
             var body = program.Body;
 
-            Assert.NotNull(body);
             Assert.Single(body);
             Assert.NotNull(literal = body.First().As<ExpressionStatement>().Expression.As<Literal>());
             Assert.Equal(Convert.ToDouble(expected), Convert.ToDouble(literal.Value));
@@ -131,7 +126,6 @@ namespace Jint.Tests.Parser
             var program = new JavaScriptParser(source).ParseProgram();
             var body = program.Body;
 
-            Assert.NotNull(body);
             Assert.Single(body);
             Assert.NotNull(literal = body.First().As<ExpressionStatement>().Expression.As<Literal>());
             Assert.Equal(expected, literal.Value);
@@ -172,10 +166,7 @@ namespace Jint.Tests.Parser
 
         public void ShouldInsertSemicolons(string source)
         {
-            var program = new JavaScriptParser(source).ParseProgram();
-            var body = program.Body;
-
-            Assert.NotNull(body);
+            new JavaScriptParser(source).ParseProgram();
         }
 
         [Fact]

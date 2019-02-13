@@ -484,21 +484,17 @@ namespace Jint.Native.Json
 
         private Token CollectToken()
         {
-            _location = new Location
-                {
-                    Start = new Position
-                        {
-                            Line = _lineNumber,
-                            Column = _index - _lineStart
-                        }
-                };
+            var start = new Position(
+                line: _lineNumber,
+                column: _index - _lineStart);
 
             Token token = Advance();
-            _location.End = new Position
-                {
-                    Line = _lineNumber,
-                    Column = _index - _lineStart
-                };
+
+            var end = new Position(
+                line: _lineNumber,
+                column: _index - _lineStart);
+
+            _location = new Location(start, end, _source);
 
             if (token.Type != Tokens.EOF)
             {
@@ -559,23 +555,18 @@ namespace Jint.Native.Json
         {
             if (_extra.Range != null)
             {
-                node.Range = new int[] {_state.MarkerStack.Pop(), _index};
+                node.Range = new Range(_state.MarkerStack.Pop(), _index);
             }
             if (_extra.Loc.HasValue)
             {
-                node.Location = new Location
-                    {
-                        Start = new Position
-                            {
-                                Line = _state.MarkerStack.Pop(),
-                                Column = _state.MarkerStack.Pop()
-                            },
-                        End = new Position
-                            {
-                                Line = _lineNumber,
-                                Column = _index - _lineStart
-                            }
-                    };
+                node.Location = new Location(
+                    start: new Position(
+                        line: _state.MarkerStack.Pop(),
+                        column: _state.MarkerStack.Pop()),
+                    end: new Position(
+                        line: _lineNumber,
+                        column: _index - _lineStart),
+                    source: _source);
                 PostProcess(node);
             }
             return node;
@@ -624,29 +615,16 @@ namespace Jint.Native.Json
 
         private void ThrowError(Token token, string messageFormat, params object[] arguments)
         {
-            ParserException exception;
             string msg = System.String.Format(messageFormat, arguments);
+            int lineNumber = token.LineNumber ?? _lineNumber;
 
-            if (token.LineNumber.HasValue)
-            {
-                exception = new ParserException("Line " + token.LineNumber + ": " + msg)
-                    {
-                        Index = token.Range[0],
-                        LineNumber = token.LineNumber.Value,
-                        Column = token.Range[0] - _lineStart + 1
-                    };
-            }
-            else
-            {
-                exception = new ParserException("Line " + _lineNumber + ": " + msg)
-                    {
-                        Index = _index,
-                        LineNumber = _lineNumber,
-                        Column = _index - _lineStart + 1
-                    };
-            }
-
-            exception.Description = msg;
+            var error = new ParseError(
+                    description: msg,
+                    source: _source,
+                    index: token.Range[0],
+                    position: new Position(token.LineNumber ?? _lineNumber, token.Range[0] - _lineStart + 1));
+            var exception = new ParserException("Line " + lineNumber  + ": " + msg, error);
+            
             throw exception;
         }
 
@@ -694,7 +672,7 @@ namespace Jint.Native.Json
 
         private ObjectInstance ParseJsonArray()
         {
-            var elements = new List<JsValue>();
+            var elements = new System.Collections.Generic.List<JsValue>();
 
             Expect("[");
 
@@ -848,7 +826,7 @@ namespace Jint.Native.Json
             {
                 if (options.Tokens)
                 {
-                    _extra.Tokens = new List<Token>();
+                    _extra.Tokens = new System.Collections.Generic.List<Token>();
                 }
 
             }
@@ -879,7 +857,7 @@ namespace Jint.Native.Json
             public int? Loc;
             public int[] Range;
 
-            public List<Token> Tokens;
+            public System.Collections.Generic.List<Token> Tokens;
         }
 
         private enum Tokens

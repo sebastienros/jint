@@ -1,3 +1,4 @@
+using Esprima;
 using Esprima.Ast;
 
 namespace Jint.Runtime.Interpreter.Statements
@@ -16,7 +17,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
-            return new Completion(CompletionType.Continue, null, _labelName);
+            return new Completion(CompletionType.Continue, null, _labelName, Location);
         }
     }
 }

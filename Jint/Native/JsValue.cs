@@ -222,7 +222,7 @@ namespace Jint.Native
             }
 
             // TODO not implemented
-            return new Completion(CompletionType.Normal, Native.Undefined.Instance, null);
+            return new Completion(CompletionType.Normal, Native.Undefined.Instance, null, default);
         }
 
         [Pure]

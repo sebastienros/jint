@@ -21,7 +21,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override Completion ExecuteInternal()
         {
             var jsValue = _argument?.GetValue() ?? Undefined.Instance;
-            return new Completion(CompletionType.Return, jsValue, null);
+            return new Completion(CompletionType.Return, jsValue, null, Location);
         }
     }
 }

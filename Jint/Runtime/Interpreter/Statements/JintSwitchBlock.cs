@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Interpreter.Expressions;
@@ -8,11 +9,11 @@ namespace Jint.Runtime.Interpreter.Statements
     internal sealed class JintSwitchBlock
     {
         private readonly Engine _engine;
-        private readonly List<SwitchCase> _switchBlock;
+        private readonly Esprima.Ast.List<SwitchCase> _switchBlock;
         private JintSwitchCase[] _jintSwitchBlock;
         private bool _initialized;
 
-        public JintSwitchBlock(Engine engine, List<SwitchCase> switchBlock)
+        public JintSwitchBlock(Engine engine, Esprima.Ast.List<SwitchCase> switchBlock)
         {
             _engine = engine;
             _switchBlock = switchBlock;
@@ -36,6 +37,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
 
             JsValue v = Undefined.Instance;
+            Location l = _engine._lastSyntaxNode.Location;
             JintSwitchCase defaultCase = null;
             bool hit = false;
 
@@ -63,6 +65,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         return r;
                     }
 
+                    l = r.Location;
                     v = r.Value ?? Undefined.Instance;
                 }
             }
@@ -76,10 +79,11 @@ namespace Jint.Runtime.Interpreter.Statements
                     return r;
                 }
 
+                l = r.Location;
                 v = r.Value ?? Undefined.Instance;
             }
 
-            return new Completion(CompletionType.Normal, v, null);
+            return new Completion(CompletionType.Normal, v, null, l);
         }
 
         private sealed class JintSwitchCase
@@ -89,10 +93,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
             public JintSwitchCase(Engine engine, SwitchCase switchCase)
             {
-                if (switchCase.Consequent != null)
-                {
-                    Consequent = new JintStatementList(engine, null, switchCase.Consequent);
-                }
+                Consequent = new JintStatementList(engine, null, switchCase.Consequent);
 
                 if (switchCase.Test != null)
                 {

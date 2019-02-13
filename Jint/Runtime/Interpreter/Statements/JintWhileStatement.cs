@@ -28,7 +28,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 var jsValue = _test.GetValue();
                 if (!TypeConverter.ToBoolean(jsValue))
                 {
-                    return new Completion(CompletionType.Normal, v, null);
+                    return new Completion(CompletionType.Normal, v, null, Location);
                 }
 
                 var completion = _body.Execute();
@@ -42,7 +42,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     if (completion.Type == CompletionType.Break && (completion.Identifier == null || completion.Identifier == _labelSetName))
                     {
-                        return new Completion(CompletionType.Normal, v, null);
+                        return new Completion(CompletionType.Normal, v, null, Location);
                     }
 
                     if (completion.Type != CompletionType.Normal)
