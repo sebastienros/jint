@@ -35,15 +35,20 @@ namespace Jint.Native.RegExp
             FastAddProperty("lastIndex", 0, true, false, false);
         }
 
-        private JsValue ToRegExpString(JsValue thisObj, JsValue[] arguments)
+        private static JsValue ToRegExpString(JsValue thisObj, JsValue[] arguments)
         {
             var regExp = thisObj.TryCast<RegExpInstance>();
 
-            return "/" + regExp.Source + "/"
-                + (regExp.Flags.Contains("g") ? "g" : "")
-                + (regExp.Flags.Contains("i") ? "i" : "")
-                + (regExp.Flags.Contains("m") ? "m" : "")
+            string res = "/" + regExp.Source + "/";
+            if (regExp.Flags != null)
+            {
+                res += (regExp.Flags.Contains("g") ? "g" : "")
+                    + (regExp.Flags.Contains("i") ? "i" : "")
+                    + (regExp.Flags.Contains("m") ? "m" : "")
                 ;
+            }
+
+            return res;
         }
 
         private JsValue Test(JsValue thisObj, JsValue[] arguments)

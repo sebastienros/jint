@@ -1799,6 +1799,12 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void RegExpPrototypeToString()
+        {
+            RunTest("assert(RegExp.prototype.toString() === '//');");
+        }
+
+        [Fact]
         public void RegExpSupportsMultiline()
         {
             RunTest(@"
