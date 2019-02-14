@@ -77,6 +77,10 @@ namespace Jint.Native.Function
                 {
                     thisBinding = thisArg;
                 }
+                else if (_function._function is ArrowFunctionExpression arrow)
+                {
+                    thisBinding = _engine.ExecutionContext.ThisBinding;
+                }
                 else if (thisArg._type == Types.Undefined || thisArg._type == Types.Null)
                 {
                     thisBinding = _engine.Global;

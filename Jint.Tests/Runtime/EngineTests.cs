@@ -205,6 +205,45 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ArrowFunctionCall()
+        {
+            RunTest(@"
+                var add = (a, b) => {
+                    return a + b;
+                }
+
+                var x = add(1, 2);
+                assert(x == 3);
+            ");
+        }
+
+        [Fact]
+        public void ArrowFunctionExpressionCall()
+        {
+            RunTest(@"
+                var add = (a, b) => a + b;
+
+                var x = add(1, 2);
+                assert(x === 3);
+            ");
+        }
+
+        [Fact]
+        public void ArrowFunctionScope()
+        {
+            RunTest(@"
+                var bob = {
+                    _name: ""Bob"",
+                    _friends: [""Alice""],
+                    printFriends() {
+                        this._friends.forEach(f => assert(this._name === ""Bob"" && f === ""Alice""))
+                    }
+                };
+                bob.printFriends();
+            ");
+        }
+
+        [Fact]
         public void NewObjectsShouldUsePrivateProperties()
         {
             RunTest(@"

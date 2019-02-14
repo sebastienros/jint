@@ -63,6 +63,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                 case Nodes.ArrayExpression:
                     return new JintArrayExpression(engine, (ArrayExpression) expression);
 
+                case Nodes.ArrowFunctionExpression:
+                    return new JintArrowFunctionExpression(engine, (IFunction) expression);
+
                 case Nodes.BinaryExpression:
                     return JintBinaryExpression.Build(engine, (BinaryExpression) expression);
 
