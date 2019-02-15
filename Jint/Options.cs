@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Jint.Native.Object;
 using Jint.Runtime.Interop;
 
 namespace Jint
@@ -15,6 +16,7 @@ namespace Jint
         private bool _debugMode;
         private bool _allowClr;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
+        Func<object, ObjectInstance> _wrapObjectHandler;
         private int _maxStatements;
         private int _maxRecursionDepth = -1; 
         private TimeSpan _timeoutInterval;
@@ -66,11 +68,22 @@ namespace Jint
         }
 
         /// <summary>
-         /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
+        /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
         /// </summary>
         public Options AddObjectConverter(IObjectConverter objectConverter)
         {
             _objectConverters.Add(objectConverter);
+            return this;
+        }
+
+        /// <summary>
+        /// If no known type could be guessed, objects are normally wrapped as an
+        /// ObjectInstance using class ObjectWrapper. This function can be used to
+        /// register a handler for a customized handling.
+        /// </summary>
+        public Options SetWrapObjectHandler(Func<object, ObjectInstance> wrapObjectHandler)
+        {
+            _wrapObjectHandler = wrapObjectHandler;
             return this;
         }
 
@@ -167,6 +180,8 @@ namespace Jint
         internal IList<Assembly> _LookupAssemblies => _lookupAssemblies;
 
         internal IEnumerable<IObjectConverter> _ObjectConverters => _objectConverters;
+
+        internal Func<object, ObjectInstance> _WrapObjectHandler => _wrapObjectHandler;
 
         internal int _MaxStatements => _maxStatements;
 

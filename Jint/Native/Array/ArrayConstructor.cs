@@ -68,29 +68,35 @@ namespace Jint.Native.Array
                 }
                 
                 instance.FastAddProperty("length", length, true, false, false);
+                return instance;
             }
-            else if (arguments.Length == 1 && arguments.At(0).IsObject() && arguments.At(0).As<ObjectWrapper>() != null )
+
+            if (arguments.Length == 1)
             {
-                var enumerable = arguments.At(0).As<ObjectWrapper>().Target as IEnumerable;
-
-                if (enumerable != null)
+                JsValue a = arguments.At(0);
+                if (a.IsObject())
                 {
-                    var jsArray = Engine.Array.Construct(Arguments.Empty);
-                    foreach (var item in enumerable)
+                    var wrapper = a.AsObject() as IObjectWrapper;
+                    if (wrapper != null)
                     {
-                        var jsItem = JsValue.FromObject(Engine, item);
-                        Engine.Array.PrototypeObject.Push(jsArray, Arguments.From(jsItem));
-                    }
+                        var enumerable = wrapper.Target as IEnumerable;
+                        if (enumerable != null)
+                        {
+                            var jsArray = Engine.Array.Construct(Arguments.Empty);
+                            foreach (object item in enumerable)
+                            {
+                                var jsItem = JsValue.FromObject(Engine, item);
+                                Engine.Array.PrototypeObject.Push(jsArray, Arguments.From(jsItem));
+                            }
 
-                    return jsArray;
+                            return jsArray;
+                        }
+                    }
                 }
             }
-            else
-            {
-                instance.FastAddProperty("length", 0, true, false, false);
-                PrototypeObject.Push(instance, arguments);
-            }
 
+            instance.FastAddProperty("length", 0, true, false, false);
+            PrototypeObject.Push(instance, arguments);
             return instance;
         }
 
