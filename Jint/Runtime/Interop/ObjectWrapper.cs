@@ -8,12 +8,12 @@ using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime.Interop
 {
-	/// <summary>
-	/// Wraps a CLR instance
-	/// </summary>
-	public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper
+    /// <summary>
+    /// Wraps a CLR instance
+    /// </summary>
+    public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper
     {
-        public Object Target { get; set; }
+        public Object Target { get; private set; }
 
         public ObjectWrapper(Engine engine, Object obj)
             : base(engine)
