@@ -496,7 +496,7 @@ namespace Jint.Runtime
 
         public static IEnumerable<Tuple<MethodBase, JsValue[]>> FindBestMatch<T>(T[] methods, Func<T, bool, JsValue[]> argumentProvider) where T : MethodBase
         {
-            List<Tuple<T, JsValue[]>> matchingByParameterCount = null;
+            System.Collections.Generic.List<Tuple<T, JsValue[]>> matchingByParameterCount = null;
             foreach (var m in methods)
             {
                 bool hasParams = false;
@@ -519,7 +519,7 @@ namespace Jint.Runtime
                         yield break;
                     }
 
-                    matchingByParameterCount = matchingByParameterCount ?? new List<Tuple<T, JsValue[]>>();
+                    matchingByParameterCount = matchingByParameterCount ?? new System.Collections.Generic.List<Tuple<T, JsValue[]>>();
                     matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, arguments));
                 }
             }

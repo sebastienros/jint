@@ -255,7 +255,7 @@ namespace Jint
             }
 
             ClrTypeConverter = new DefaultTypeConverter(this);
-            BreakPoints = new List<BreakPoint>();
+            BreakPoints = new System.Collections.Generic.List<BreakPoint>();
             DebugHandler = new DebugHandler(this);
         }
 
@@ -301,7 +301,7 @@ namespace Jint
         public event DebugStepDelegate Step;
         public event BreakDelegate Break;
         internal DebugHandler DebugHandler { get; private set; }
-        public List<BreakPoint> BreakPoints { get; private set; }
+        public System.Collections.Generic.List<BreakPoint> BreakPoints { get; private set; }
 
         internal StepMode? InvokeStepEvent(DebugInformation info)
         {
@@ -429,8 +429,8 @@ namespace Jint
             {
                 DeclarationBindingInstantiation(
                     DeclarationBindingType.GlobalCode,
-                    program.HoistingScope.FunctionDeclarations,
-                    program.HoistingScope.VariableDeclarations,
+                    ref program.HoistingScope.FunctionDeclarations,
+                    ref program.HoistingScope.VariableDeclarations,
                     functionInstance: null,
                     arguments: null);
 
@@ -762,8 +762,8 @@ namespace Jint
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
         internal bool DeclarationBindingInstantiation(
             DeclarationBindingType declarationBindingType,
-            List<FunctionDeclaration> functionDeclarations,
-            List<VariableDeclaration> variableDeclarations,
+            ref Esprima.Ast.List<FunctionDeclaration> functionDeclarations,
+            ref Esprima.Ast.List<VariableDeclaration> variableDeclarations,
             FunctionInstance functionInstance,
             JsValue[] arguments)
         {
@@ -808,7 +808,7 @@ namespace Jint
 
             if (functionDeclarations.Count > 0)
             {
-                AddFunctionDeclarations(functionDeclarations, env, configurableBindings, strict);
+                AddFunctionDeclarations(ref functionDeclarations, env, configurableBindings, strict);
             }
 
             if (variableDeclarations.Count == 0)
@@ -819,7 +819,7 @@ namespace Jint
             // process all variable declarations in the current parser scope
             if (!ReferenceEquals(der, null))
             {
-                der.AddVariableDeclarations(variableDeclarations);
+                der.AddVariableDeclarations(ref variableDeclarations);
             }
             else
             {
@@ -847,7 +847,11 @@ namespace Jint
             return canReleaseArgumentsInstance;
         }
 
-        private void AddFunctionDeclarations(List<FunctionDeclaration> functionDeclarations, EnvironmentRecord env, bool configurableBindings, bool strict)
+        private void AddFunctionDeclarations(
+            ref Esprima.Ast.List<FunctionDeclaration> functionDeclarations,
+            EnvironmentRecord env,
+            bool configurableBindings,
+            bool strict)
         {
             var functionDeclarationsCount = functionDeclarations.Count;
             for (var i = 0; i < functionDeclarationsCount; i++)

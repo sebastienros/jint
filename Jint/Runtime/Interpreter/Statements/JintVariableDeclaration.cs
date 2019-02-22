@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaration>
     {
-        private static readonly Completion VoidCompletion = new Completion(CompletionType.Normal, Undefined.Instance, null);
+        private static readonly Completion VoidCompletion = new Completion(CompletionType.Normal, Undefined.Instance, null, default);
 
         private ResolvedDeclaration[] _declarations;
 

@@ -10,7 +10,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
-            return new Completion(CompletionType.Normal, null, null);
+            return new Completion(CompletionType.Normal, null, null, Location);
         }
     }
 }

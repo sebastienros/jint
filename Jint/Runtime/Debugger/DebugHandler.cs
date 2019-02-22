@@ -44,7 +44,7 @@ namespace Jint.Runtime.Debugger
             if (identifier != null)
             {
                 var stack = identifier.Name + "(";
-                var paramStrings = new List<string>();
+                var paramStrings = new System.Collections.Generic.List<string>();
 
                 foreach (var argument in callExpression.Arguments)
                 {

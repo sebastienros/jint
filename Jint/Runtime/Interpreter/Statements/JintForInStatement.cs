@@ -41,7 +41,7 @@ namespace Jint.Runtime.Interpreter.Statements
             var experValue = _right.GetValue();
             if (experValue.IsNullOrUndefined())
             {
-                return new Completion(CompletionType.Normal, null, null);
+                return new Completion(CompletionType.Normal, null, null, Location);
             }
 
             var obj = TypeConverter.ToObject(_engine, experValue);
@@ -89,7 +89,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                     if (stmt.Type == CompletionType.Break)
                     {
-                        return new Completion(CompletionType.Normal, v, null);
+                        return new Completion(CompletionType.Normal, v, null, Location);
                     }
 
                     if (stmt.Type != CompletionType.Continue)
@@ -104,7 +104,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 cursor = cursor.Prototype;
             }
 
-            return new Completion(CompletionType.Normal, v, null);
+            return new Completion(CompletionType.Normal, v, null, Location);
         }
     }
 }

@@ -15,12 +15,12 @@ namespace Jint.Runtime.Interpreter
 
         private readonly Engine _engine;
         private readonly Statement _statement;
-        private readonly List<StatementListItem> _statements;
+        private readonly Esprima.Ast.List<StatementListItem> _statements;
 
         private Pair[] _jintStatements;
         private bool _initialized;
 
-        public JintStatementList(Engine engine, Statement statement, List<StatementListItem> statements)
+        public JintStatementList(Engine engine, Statement statement, Esprima.Ast.List<StatementListItem> statements)
         {
             _engine = engine;
             _statement = statement;
@@ -59,7 +59,7 @@ namespace Jint.Runtime.Interpreter
             }
 
             JintStatement s = null;
-            var c = new Completion(CompletionType.Normal, null, null);
+            var c = new Completion(CompletionType.Normal, null, null, _engine._lastSyntaxNode?.Location ?? default);
             Completion sl = c;
             try
             {
@@ -85,7 +85,8 @@ namespace Jint.Runtime.Interpreter
             }
             catch (JavaScriptException v)
             {
-                var completion = new Completion(CompletionType.Throw, v.Error, null, v.Location ?? s?.Location);
+                var location = v.Location == default ? s.Location : v.Location;
+                var completion = new Completion(CompletionType.Throw, v.Error, null, location);
                 return completion;
             }
             catch (TypeErrorException e)
@@ -94,7 +95,7 @@ namespace Jint.Runtime.Interpreter
                 {
                     e.Message
                 });
-                return new Completion(CompletionType.Throw, error, null, s?.Location);
+                return new Completion(CompletionType.Throw, error, null, s.Location);
             }
             catch (RangeErrorException e)
             {
@@ -102,9 +103,9 @@ namespace Jint.Runtime.Interpreter
                 {
                     e.Message
                 });
-                c = new Completion(CompletionType.Throw, error, null, s?.Location);
+                c = new Completion(CompletionType.Throw, error, null, s.Location);
             }
-            return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier);
+            return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier, c.Location);
         }
 
         internal Completion? FastResolve()
