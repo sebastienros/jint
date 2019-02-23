@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
@@ -494,6 +495,8 @@ namespace Jint.Runtime
             }
         }
 
+        private static readonly Engine _engine = new Engine();
+
         public static IEnumerable<Tuple<MethodBase, JsValue[]>> FindBestMatch<T>(T[] methods, Func<T, bool, JsValue[]> argumentProvider) where T : MethodBase
         {
             System.Collections.Generic.List<Tuple<T, JsValue[]>> matchingByParameterCount = null;
@@ -521,6 +524,25 @@ namespace Jint.Runtime
 
                     matchingByParameterCount = matchingByParameterCount ?? new System.Collections.Generic.List<Tuple<T, JsValue[]>>();
                     matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, arguments));
+                }
+                else if (parameterInfos.Length > arguments.Length)
+                {
+                    // check if we got enough default values to provide all parameters (or more in case some default values are provided/overwritten)
+                    var defaultValuesCount = parameterInfos.Count(x => x.HasDefaultValue);
+                    if (parameterInfos.Length <= arguments.Length + defaultValuesCount)
+                    {
+                        // create missing arguments from default values
+                        var argsWithDefaults = new List<JsValue>(arguments);
+                        for (var i = arguments.Length; i < parameterInfos.Length; i++)
+                        {
+                            var param = parameterInfos[i];
+                            var value = JsValue.FromObject(_engine, param.DefaultValue);
+                            argsWithDefaults.Add(value);
+                        }
+
+                        matchingByParameterCount = matchingByParameterCount ?? new List<Tuple<T, JsValue[]>>();
+                        matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, argsWithDefaults.ToArray()));
+                    }
                 }
             }
 

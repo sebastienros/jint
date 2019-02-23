@@ -6,6 +6,7 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
+using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
 using Shapes;
@@ -167,6 +168,28 @@ namespace Jint.Tests.Runtime
                 assert(callArgumentAndParams('a','1') === 'a:1');
                 assert(callArgumentAndParams('a') === 'a:');
                 assert(callArgumentAndParams() === ':');
+            ");
+        }
+
+        [Fact]
+        public void DelegateWithDefaultValueParametersCanBeInvoked()
+        {
+            var instance = new A();
+            _engine.SetValue("Instance", instance);
+            _engine.SetValue("Class", TypeReference.CreateTypeReference(_engine, typeof(A)));
+
+            RunTest(@"
+                assert(Instance.Call19() === 0);
+                assert(Instance.Call19(1) === 1);
+                assert(Instance.Call20(1) === 4);
+                assert(Instance.Call20(1, 2) === 5);
+                assert(Instance.Call20(1 , 2, 3) === 6);
+
+                assert(Class.Call19Static() === 0);
+                assert(Class.Call19Static(1) === 1);
+                assert(Class.Call20Static(1) === 4);
+                assert(Class.Call20Static(1, 2) === 5);
+                assert(Class.Call20Static(1 , 2, 3) === 6);
             ");
         }
 
