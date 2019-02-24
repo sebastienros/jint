@@ -210,7 +210,7 @@ namespace Jint.Runtime.Interop
                 return (engine, target) => new IndexDescriptor(engine, explicitIndexers[0].DeclaringType, propertyName, target);
             }
 
-
+            /**
             // if nothing found until now, try to find an registered extension Method
             if (this.Engine.InstanceExtensionMethodTypeCache.ContainsKey(type))
             {
@@ -218,6 +218,7 @@ namespace Jint.Runtime.Interop
                 Properties.Add(propertyName, descriptor);
                 return (engine, target) => descriptor;
             }
+            /**/
 
             return (engine, target) => PropertyDescriptor.Undefined;
         }

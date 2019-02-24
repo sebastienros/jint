@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Jint.Tests.Runtime.Domain;
 
-namespace Jint.Tests.Runtime.ExtensionMethods
+namespace Jint.Tests.Runtime.Extensions
 {
     public static class PersonExtensions
     {

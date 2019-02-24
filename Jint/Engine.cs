@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
@@ -267,18 +265,18 @@ namespace Jint
             RegisterExtensionMethods();
         }
 
-        internal static Dictionary<Type, List<MethodInfo>> StaticExtensionMethodClassCache = new Dictionary<Type, List<MethodInfo>>();
-        internal static Dictionary<Type, List<MethodInfo>> StaticExtensionMethodTypeCache = new Dictionary<Type, List<MethodInfo>>();
-        internal Dictionary<Type, List<MethodInfo>> InstanceExtensionMethodTypeCache = new Dictionary<Type, List<MethodInfo>>();
+        internal static readonly Dictionary<Type, System.Collections.Generic.List<MethodInfo>> StaticExtensionMethodClassCache = new Dictionary<Type, System.Collections.Generic.List<MethodInfo>>();
+        internal static readonly Dictionary<Type, System.Collections.Generic.List<MethodInfo>> StaticExtensionMethodTypeCache = new Dictionary<Type, System.Collections.Generic.List<MethodInfo>>();
+        internal readonly Dictionary<Type, System.Collections.Generic.List<MethodInfo>> InstanceExtensionMethodTypeCache = new Dictionary<Type, System.Collections.Generic.List<MethodInfo>>();
 
-        private object staticExtensionMethodClassCacheLock = new object();
+        private readonly object _staticExtensionMethodClassCacheLock = new object();
 
         private void RegisterExtensionMethods()
         {
 
             foreach (var extensionMethodClass in Options._ExtensionMethodClasses)
             {
-                lock (staticExtensionMethodClassCacheLock)
+                lock (_staticExtensionMethodClassCacheLock)
                 {
                     List<MethodInfo> extMethods;
                     if (!StaticExtensionMethodClassCache.TryGetValue(extensionMethodClass, out extMethods))
