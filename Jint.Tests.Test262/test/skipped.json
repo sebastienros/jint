@@ -184,10 +184,6 @@
     "reason": "WeakSet not implemented"
   },
   {
-    "source": "built-ins/Set/prototype/forEach/this-arg-explicit-cannot-override-lexical-this-arrow.js",
-    "reason": "arrow functions not implemented"
-  },
-  {
     "source": "built-ins/Array/prototype/reverse/length-exceeding-integer-limit-with-proxy.js",
     "reason": "proxies not implemented"
   },
@@ -347,7 +343,7 @@
   },
   {
     "source": "language/rest-parameters/arrow-function.js",
-    "reason": "arrow functions not implemented"
+    "reason": "Github issue #600 - rest parameters hang when not set"
   },
   {
     "source": "language/rest-parameters/object-pattern.js",
@@ -363,51 +359,27 @@
   },
   {
     "source": "built-ins/Number/prototype/toPrecision/range.js",
-    "reason": "arrow functions not implemented"
+    "reason": "Github issue #599 - dtoa function not precise enough"
   },
   {
     "source": "built-ins/Number/prototype/toFixed/range.js",
-    "reason": "arrow functions not implemented"
+    "reason": "Github issue #599 - dtoa function not precise enough"
   },
   {
     "source": "built-ins/Number/prototype/toExponential/range.js",
-    "reason": "arrow functions not implemented"
+    "reason": "Github issue #599 - dtoa function not precise enough"
   },
   {
     "source": "language/types/number/8.5.1.js",
     "reason": "C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308"
   },
   {
-    "source": "language/statements/for/dstr-const-ary-ptrn-elem-id-init-fn-name-arrow.js",
-    "reason": "arrow functions not implemented"
-  },
-  {
     "source": "language/statements/for/dstr-const-ary-ptrn-elem-id-init-fn-name-class.js",
     "reason": "class not implemented"
   },
   {
-    "source": "language/statements/for/dstr-let-ary-ptrn-elem-id-init-fn-name-arrow.js",
-    "reason": "arrow functions not implemented"
-  },
-  {
     "source": "language/statements/for/dstr-let-ary-ptrn-elem-id-init-fn-name-class.js",
     "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for/dstr-let-obj-ptrn-id-init-fn-name-arrow.js",
-    "reason": "arrow functions not implemented"
-  },
-  {
-    "source": "language/statements/for/dstr-const-obj-ptrn-id-init-fn-name-arrow.js",
-    "reason": "arrow functions not implemented"
-  },
-  {
-    "source": "language/statements/for/dstr-var-ary-ptrn-elem-id-init-fn-name-arrow.js",
-    "reason": "arrow functions not implemented"
-  },
-  {
-    "source": "language/statements/for/dstr-var-obj-ptrn-id-init-fn-name-arrow.js",
-    "reason": "arrow functions not implemented"
   },
   {
     "source": "language/statements/for/dstr-let-obj-ptrn-id-init-fn-name-class.js",

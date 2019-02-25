@@ -214,9 +214,9 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     var rval = right.GetValue();
 
-                    if (rval is FunctionInstance instance)
+                    if (right is JintFunctionExpression || right is JintArrowFunctionExpression)
                     {
-                        instance.SetFunctionName(left._expressionName);
+                        ((FunctionInstance) rval).SetFunctionName(left._expressionName);
                     }
 
                     environmentRecord.SetMutableBinding(left._expressionName, rval, strict);
