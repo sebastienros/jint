@@ -163,7 +163,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         if (assignmentPattern.Left is Identifier leftIdentifier)
                         {
-                            if (assignmentPattern.Right is FunctionExpression)
+                            if (assignmentPattern.Right is FunctionExpression || assignmentPattern.Right is ArrowFunctionExpression)
                             {
                                 ((FunctionInstance) value).SetFunctionName(leftIdentifier.Name);
                             }
@@ -222,10 +222,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     
                     var target = assignmentPattern.Left as Identifier ?? identifier;
-                    if (assignmentPattern.Right is FunctionExpression)
-                    {
-                        ((FunctionInstance) value).SetFunctionName(target.Name);
-                    }
                     
                     AssignToIdentifier(engine, target.Name, value);
                 }
@@ -246,6 +242,12 @@ namespace Jint.Runtime.Interpreter.Expressions
             JsValue rval)
         {
             var env = engine.ExecutionContext.LexicalEnvironment;
+
+            if (rval is FunctionInstance instance)
+            {
+                instance.SetFunctionName(name);
+            }
+
             var strict = StrictModeScope.IsStrictModeCode;
             if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 env,

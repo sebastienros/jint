@@ -13,7 +13,7 @@ namespace Jint.Runtime.Interpreter.Statements
         private JintSwitchCase[] _jintSwitchBlock;
         private bool _initialized;
 
-        public JintSwitchBlock(Engine engine, Esprima.Ast.List<SwitchCase> switchBlock)
+        public JintSwitchBlock(Engine engine, in Esprima.Ast.List<SwitchCase> switchBlock)
         {
             _engine = engine;
             _switchBlock = switchBlock;

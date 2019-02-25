@@ -102,8 +102,8 @@ namespace Jint.Native.Function
                 {
                     var argumentInstanceRented = _engine.DeclarationBindingInstantiation(
                         DeclarationBindingType.FunctionCode,
-                        _function._hoistingScope.FunctionDeclarations,
-                        _function._hoistingScope.VariableDeclarations,
+                        ref _function._hoistingScope.FunctionDeclarations,
+                        ref _function._hoistingScope.VariableDeclarations,
                         functionInstance: this,
                         arguments);
 
