@@ -81,7 +81,7 @@ namespace Jint.Native.Array
                 return ConstructArrayFromArrayLike(objectInstance, callable, thisArg);
             }
 
-            if (objectInstance is ObjectWrapper wrapper && wrapper.Target is IEnumerable enumerable)
+            if (objectInstance is IObjectWrapper wrapper && wrapper.Target is IEnumerable enumerable)
             {
                 return ConstructArrayFromIEnumerable(enumerable);
             }
@@ -258,7 +258,7 @@ namespace Jint.Native.Array
 
                 instance._length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
             }
-            else if (arguments.Length == 1 && arguments[0] is ObjectWrapper objectWrapper)
+            else if (arguments.Length == 1 && arguments[0] is IObjectWrapper objectWrapper)
             {
                 if (objectWrapper.Target is IEnumerable enumerable)
                 {
