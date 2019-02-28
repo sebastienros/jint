@@ -34,9 +34,10 @@ namespace Jint.Runtime
             Error = error;
         }
 
-        public JavaScriptException SetCallstack(Engine engine, Location location = null)
+        public JavaScriptException SetCallstack(Engine engine, Location? location = null)
         {
-            Location = location;
+            Location = location ?? default;
+
             using (var sb = StringBuilderPool.Rent())
             {
                 foreach (var cse in engine.CallStack)
@@ -120,8 +121,8 @@ namespace Jint.Runtime
 
         public Location Location { get; set; }
 
-        public int LineNumber => Location?.Start.Line ?? 0;
+        public int LineNumber => Location.Start.Line;
 
-        public int Column => Location?.Start.Column ?? 0;
+        public int Column => Location.Start.Column;
     }
 }

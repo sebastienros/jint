@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 System.Diagnostics.Debugger.Break();
             }
 
-            return new Completion(CompletionType.Normal, null, null);
+            return new Completion(CompletionType.Normal, null, null, Location);
         }
     }
 }

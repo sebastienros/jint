@@ -16,7 +16,5 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             return _statementList.Execute();
         }
-
-        public override Location Location => null;
     }
 }

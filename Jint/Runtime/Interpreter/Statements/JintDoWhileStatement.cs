@@ -37,7 +37,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     if (completion.Type == CompletionType.Break && (completion.Identifier == null || completion.Identifier == _labelSetName))
                     {
-                        return new Completion(CompletionType.Normal, v, null);
+                        return new Completion(CompletionType.Normal, v, null, Location);
                     }
 
                     if (completion.Type != CompletionType.Normal)
@@ -49,7 +49,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 iterating = TypeConverter.ToBoolean(_test.GetValue());
             } while (iterating);
 
-            return new Completion(CompletionType.Normal, v, null);
+            return new Completion(CompletionType.Normal, v, null, Location);
         }
     }
 }

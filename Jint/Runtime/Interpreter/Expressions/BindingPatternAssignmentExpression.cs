@@ -111,7 +111,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     ProcessPatterns(engine, bindingPattern, value);
                 }
-                else if (left is ArrayPatternElement arrayPatternElement)
+                else if (left is IArrayPatternElement arrayPatternElement)
                 {
                     if (arrayPatternElement is RestElement restElement)
                     {

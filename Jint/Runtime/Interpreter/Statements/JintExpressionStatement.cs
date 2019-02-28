@@ -15,7 +15,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override Completion ExecuteInternal()
         {
             var value = _expression.GetValue();
-            return new Completion(CompletionType.Normal, value, null);
+            return new Completion(CompletionType.Normal, value, null, Location);
         }
     }
 }

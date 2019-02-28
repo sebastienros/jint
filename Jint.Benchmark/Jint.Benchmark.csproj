@@ -22,6 +22,7 @@
     <PackageReference Include="BenchmarkDotNet" Version="0.11.2" />
     <ProjectReference Include="..\Jint\Jint.csproj" />
     <PackageReference Include="Jurassic" Version="3.0.0-alpha2" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
     <PackageReference Include="NiL.JS.NetCore" Version="2.5.1200" />
   </ItemGroup>
 </Project>

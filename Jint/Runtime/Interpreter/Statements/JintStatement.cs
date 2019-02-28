@@ -131,7 +131,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 var jsValue = JintLiteralExpression.ConvertToJsValue(l);
                 if (jsValue != null)
                 {
-                    return new Completion(CompletionType.Return, jsValue, null);
+                    return new Completion(CompletionType.Return, jsValue, null, rs.Location);
                 }
             }
 

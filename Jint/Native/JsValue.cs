@@ -222,7 +222,7 @@ namespace Jint.Native
             }
 
             // TODO not implemented
-            return new Completion(CompletionType.Normal, Native.Undefined.Instance, null);
+            return new Completion(CompletionType.Normal, Native.Undefined.Instance, null, default);
         }
 
         [Pure]
@@ -290,7 +290,7 @@ namespace Jint.Native
             for (var i = 0; i < convertersCount; i++)
             {
                 var converter = converters[i];
-                if (converter.TryConvert(value, out var result))
+                if (converter.TryConvert(engine, value, out var result))
                 {
                     return result;
                 }
