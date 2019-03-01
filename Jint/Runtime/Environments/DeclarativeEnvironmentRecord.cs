@@ -384,17 +384,8 @@ namespace Jint.Runtime.Environments
                 if (argument == Undefined)
                 {
                     var expression = assignmentPattern.Right.As<Expression>();
-
-                    if (expression is Identifier identifierExpression)
-                    {
-                        argument = GetBindingValue(identifierExpression.Name, true);
-                    }
-                    else
-                    {
-                        var jintExpression = JintExpression.Build(_engine, expression);
-
-                        argument = jintExpression.GetValue();
-                    }
+                    var jintExpression = JintExpression.Build(_engine, expression);
+                    argument = jintExpression.GetValue();
                 }
 
                 SetFunctionParameter(assignmentPattern.Left, new []{ argument }, 0, initiallyEmpty);
