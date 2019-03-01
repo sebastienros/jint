@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native.Function;
+using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -16,10 +17,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            var closure = new ScriptFunctionInstance(
+            var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
+
+            var closure = new ArrowFunctionInstance(
                 _engine,
                 _function,
-                _engine.ExecutionContext.LexicalEnvironment,
+                funcEnv,
                 _function._strict);
 
             return closure;

@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Esprima;
 using Esprima.Ast;
 using Jint.Runtime.Interpreter.Statements;
@@ -36,53 +39,40 @@ namespace Jint.Runtime.Interpreter
             _body = JintStatement.Build(engine, bodyStatement);
         }
 
+        private IEnumerable<Identifier> GetParameterIdentifiers(INode parameter)
+        {
+            if (parameter is Identifier identifier)
+            {
+                return new[] {identifier};
+            }
+            else if (parameter is RestElement restElement)
+            {
+                _hasRestParameter = true;
+                return GetParameterIdentifiers(restElement.Argument);
+            }
+            else if (parameter is ArrayPattern arrayPattern)
+            {
+                return arrayPattern.Elements.SelectMany(GetParameterIdentifiers);
+            }
+            else if (parameter is ObjectPattern objectPattern)
+            {
+                return objectPattern.Properties.SelectMany(property => GetParameterIdentifiers(property.Value));
+            }
+            else if (parameter is AssignmentPattern assignmentPattern)
+            {
+                return GetParameterIdentifiers(assignmentPattern.Left);
+            }
+            else
+            {
+                return Enumerable.Empty<Identifier>();
+            }
+        }
+
         private string[] GetParameterNames(IFunction functionDeclaration)
         {
-            var list = functionDeclaration.Params;
-            var count = list.Count;
+            var identifiers = functionDeclaration.Params.SelectMany(GetParameterIdentifiers);
 
-            if (count == 0)
-            {
-                return System.ArrayExt.Empty<string>();
-            }
-
-            var names = new string[count];
-            for (var i = 0; i < count; ++i)
-            {
-                var node = list[i];
-                if (node is Identifier identifier)
-                {
-                    names[i] = identifier.Name;
-                }
-                else if (node is AssignmentPattern ap)
-                {
-                    names[i] = ((Identifier) ap.Left).Name;
-                }
-                else if (node is RestElement re)
-                {
-                    if (re.Argument is Identifier id)
-                    {
-                        names[i] = id.Name;
-                    }
-                    else
-                    {
-                        names[i] = "";
-                    }
-                    _hasRestParameter = true;
-                }
-                else if (node is BindingPattern)
-                {
-                    names[i] = "";
-                }
-                else
-                {
-                    ExceptionHelper.ThrowArgumentOutOfRangeException(
-                        nameof(functionDeclaration),
-                        "Unable to determine how to handle parameter of type " + node.GetType());
-                }
-            }
-
-            return names;
+            return identifiers.Select(identifier => identifier.Name).ToArray();
         }
 
     }

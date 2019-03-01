@@ -28,6 +28,14 @@ namespace Jint.Tests.Test262
             RunTestInternal(sourceFile);
         }
 
+        [Theory(DisplayName = "language\\expressions\\arrow-function")]
+        [MemberData(nameof(SourceFiles), "language\\expressions\\arrow-function", false)]
+        [MemberData(nameof(SourceFiles), "language\\expressions\\arrow-function", true, Skip = "Skipped")]
+        protected void ArrowFunction(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+
         [Theory(DisplayName = "language\\expressions\\call")]
         [MemberData(nameof(SourceFiles), "language\\expressions\\call", false)]
         [MemberData(nameof(SourceFiles), "language\\expressions\\call", true, Skip = "Skipped")]

@@ -778,7 +778,9 @@ namespace Jint
                 var argsObj = _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, env, strict);
                 canReleaseArgumentsInstance = true;
 
-                var functionDeclaration = (functionInstance as ScriptFunctionInstance)?.FunctionDeclaration;
+
+                var functionDeclaration = (functionInstance as ScriptFunctionInstance)?.FunctionDeclaration ??
+                    (functionInstance as ArrowFunctionInstance)?.FunctionDeclaration;
 
                 if (!ReferenceEquals(der, null))
                 {
@@ -786,6 +788,7 @@ namespace Jint
                 }
                 else
                 {
+                    // TODO: match functionality with DeclarationEnvironmentRecord.AddFunctionParameters here
                     // slow path
                     var parameters = functionInstance._formalParameters;
                     for (var i = 0; i < parameters.Length; i++)
