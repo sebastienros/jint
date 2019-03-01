@@ -92,10 +92,6 @@
     "reason": "ArrayBuffer not implemented"
   },
   {
-    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_non-array.js",
-    "reason": "class keyword not implemented"
-  },
-  {
     "source": "built-ins/Array/prototype/concat/Array.prototype.concat_large-typed-array.js",
     "reason": "Uint8Array not implemented"
   },
@@ -338,10 +334,6 @@
     "reason": "destructing not implemented"
   },
   {
-    "source": "language/rest-parameters/with-new-target.js",
-    "reason": "classes not implemented"
-  },
-  {
     "source": "language/rest-parameters/arrow-function.js",
     "reason": "Github issue #600 - rest parameters hang when not set"
   },
@@ -374,6 +366,36 @@
     "reason": "C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308"
   },
   {
+    "source": "language/statements/for/dstr-const-ary-ptrn-rest-obj-prop-id.js",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/statements/for/dstr-var-ary-ptrn-rest-obj-prop-id.js",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/statements/for/dstr-let-ary-ptrn-rest-obj-prop-id.js",
+    "reason": "let not implemented"
+  },
+  
+  // class support
+  {
+    "source": "language/expressions/arrow-function/dstr-dflt-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_non-array.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/rest-parameters/with-new-target.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
     "source": "language/statements/for/dstr-const-ary-ptrn-elem-id-init-fn-name-class.js",
     "reason": "class not implemented"
   },
@@ -398,20 +420,22 @@
     "reason": "class not implemented"
   },
   {
-    "source": "language/statements/for/dstr-const-ary-ptrn-rest-obj-prop-id.js",
-    "reason": "let not implemented"
+    "source": "language/expressions/arrow-function/dstr-dflt-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
   },
   {
-    "source": "language/statements/for/dstr-var-ary-ptrn-rest-obj-prop-id.js",
-    "reason": "let not implemented"
+    "source": "language/expressions/arrow-function/dstr-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
   },
   {
-    "source": "language/statements/for/dstr-let-ary-ptrn-rest-obj-prop-id.js",
-    "reason": "let not implemented"
+    "source": "language/expressions/arrow-function/lexical-super-property-from-within-constructor.js",
+    "reason": "class not implemented"
   },
-  
-  
-  
+  {
+    "source": "language/expressions/arrow-function/lexical-supercall-from-immediately-invoked-arrow.js",
+    "reason": "class not implemented"
+  },
+
   
   // Esprima problems
   
@@ -469,6 +493,42 @@
   },
   {
     "source": "language/white-space/mongolian-vowel-separator-eval.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dflt-params-trailing-comma.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-dflt-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-dflt-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-dflt-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/params-trailing-comma-multiple.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/params-trailing-comma-single.js",
     "reason": "Esprima problem"
   }
 ]

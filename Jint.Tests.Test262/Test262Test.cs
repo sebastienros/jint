@@ -204,6 +204,10 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "async-functions not implemented";
                                 break;
+                            case "new.target":
+                                skip = true;
+                                reason = "MetaProperty not implemented";
+                                break;
                         }
                     }
                 }

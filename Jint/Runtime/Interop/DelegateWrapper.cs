@@ -3,7 +3,6 @@ using System.Globalization;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Function;
-using System.Linq;
 
 namespace Jint.Runtime.Interop
 {

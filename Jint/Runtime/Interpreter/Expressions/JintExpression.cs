@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;

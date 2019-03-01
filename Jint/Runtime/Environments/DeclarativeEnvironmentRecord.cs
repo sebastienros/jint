@@ -1,15 +1,13 @@
-﻿﻿using System;
-using System.Collections.Generic;
- using System.Linq;
- using System.Runtime.CompilerServices;
- using Esprima.Ast;
+﻿using System;
+using System.Runtime.CompilerServices;
+using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Argument;
 using Jint.Native.Function;
- using Jint.Runtime.Interpreter.Expressions;
+using Jint.Runtime.Interpreter.Expressions;
 
- namespace Jint.Runtime.Environments
+namespace Jint.Runtime.Environments
 {
     /// <summary>
     /// Represents a declarative environment record
