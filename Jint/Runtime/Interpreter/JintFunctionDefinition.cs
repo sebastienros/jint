@@ -42,37 +42,51 @@ namespace Jint.Runtime.Interpreter
         {
             if (parameter is Identifier identifier)
             {
-                return new[] {identifier};
+                return new [] { identifier };
             }
-            else if (parameter is RestElement restElement)
+            if (parameter is RestElement restElement)
             {
                 _hasRestParameter = true;
                 return GetParameterIdentifiers(restElement.Argument);
             }
-            else if (parameter is ArrayPattern arrayPattern)
+            if (parameter is ArrayPattern arrayPattern)
             {
                 return arrayPattern.Elements.SelectMany(GetParameterIdentifiers);
             }
-            else if (parameter is ObjectPattern objectPattern)
+            if (parameter is ObjectPattern objectPattern)
             {
                 return objectPattern.Properties.SelectMany(property => GetParameterIdentifiers(property.Value));
             }
-            else if (parameter is AssignmentPattern assignmentPattern)
+            if (parameter is AssignmentPattern assignmentPattern)
             {
                 return GetParameterIdentifiers(assignmentPattern.Left);
             }
-            else
-            {
-                return Enumerable.Empty<Identifier>();
-            }
+
+            return Enumerable.Empty<Identifier>();
         }
 
         private string[] GetParameterNames(IFunction functionDeclaration)
         {
-            var identifiers = functionDeclaration.Params.SelectMany(GetParameterIdentifiers);
+            var parameterNames = new List<string>();
+            var functionDeclarationParams = functionDeclaration.Params;
+            int count = functionDeclarationParams.Count;
+            for (var i = 0; i < count; i++)
+            {
+                var parameter = functionDeclarationParams[i];
+                if (parameter is Identifier id)
+                {
+                    parameterNames.Add(id.Name);
+                }
+                else
+                {
+                    foreach (var identifier in GetParameterIdentifiers(parameter))
+                    {
+                        parameterNames.Add(identifier.Name);
+                    }
+                }
+            }
 
-            return identifiers.Select(identifier => identifier.Name).ToArray();
+            return parameterNames.ToArray();
         }
-
     }
 }
