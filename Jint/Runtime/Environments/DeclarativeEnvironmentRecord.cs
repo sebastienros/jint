@@ -4,7 +4,9 @@ using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Argument;
+using Jint.Native.Array;
 using Jint.Native.Function;
+using Jint.Native.Iterator;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Environments
@@ -309,7 +311,7 @@ namespace Jint.Runtime.Environments
                 }
                 else if (restElement.Argument is BindingPattern bindingPattern)
                 {
-                    SetFunctionParameter(bindingPattern, arguments, index, initiallyEmpty);
+                    SetFunctionParameter(bindingPattern, new [] { argument }, index, initiallyEmpty);
                 }
                 else
                 {
@@ -323,10 +325,21 @@ namespace Jint.Runtime.Environments
                     ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is null");
                 }
 
+                ArrayInstance array = null;
                 var arrayContents = ArrayExt.Empty<JsValue>();
                 if (argument.IsArray())
                 {
-                    var array = argument.AsArray();
+                    array = argument.AsArray();
+                }
+                else if (argument.TryGetIterator(_engine, out var iterator))
+                {
+                    array = _engine.Array.ConstructFast(0);
+                    var protocol = new ArrayPatternProtocol(_engine, array, iterator, arrayPattern.Elements.Count);
+                    protocol.Execute();
+                }
+
+                if (!ReferenceEquals(array, null))
+                {
                     arrayContents = new JsValue[array.Length];
 
                     for (uint contentsIndex = 0; contentsIndex < array.Length; contentsIndex++)
@@ -342,14 +355,9 @@ namespace Jint.Runtime.Environments
             }
             else if (parameter is ObjectPattern objectPattern)
             {
-                if (argument.IsNull())
+                if (argument.IsNullOrUndefined())
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is null");
-                }
-
-                if (argument.IsUndefined())
-                {
-                    ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is undefined");
+                    ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is null or undefined");
                 }
 
                 if (!argument.IsObject())
@@ -359,6 +367,7 @@ namespace Jint.Runtime.Environments
 
                 var argumentObject = argument.AsObject();
 
+                var jsValues = _engine._jsValueArrayPool.RentArray(1);
                 foreach (var property in objectPattern.Properties)
                 {
                     if (property.Key is Identifier propertyIdentifier)
@@ -367,11 +376,13 @@ namespace Jint.Runtime.Environments
                     }
                     else if (property.Key is Literal propertyLiteral)
                     {
-                        argument = argumentObject.Get(propertyLiteral.StringValue);
+                        argument = argumentObject.Get(propertyLiteral.Raw);
                     }
 
-                    SetFunctionParameter(property.Value, new []{ argument }, 0, initiallyEmpty);
+                    jsValues[0] = argument;
+                    SetFunctionParameter(property.Value, jsValues, 0, initiallyEmpty);
                 }
+                _engine._jsValueArrayPool.ReturnArray(jsValues);
             }
             else if (parameter is AssignmentPattern assignmentPattern)
             {
@@ -483,6 +494,41 @@ namespace Jint.Runtime.Environments
                 // we need to ensure we hold on to arguments given
                 argumentsInstance.PersistArguments();
                 _argumentsBindingWasAccessed = null;
+            }
+        }
+
+        private sealed class ArrayPatternProtocol : IteratorProtocol
+        {
+            private readonly ArrayInstance _instance;
+            private readonly int _max;
+            private long _index = -1;
+
+            public ArrayPatternProtocol(
+                Engine engine,
+                ArrayInstance instance,
+                IIterator iterator,
+                int max) : base(engine, iterator, 0)
+            {
+                _instance = instance;
+                _max = max;
+            }
+
+            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+            {
+                _index++;
+                var jsValue = ExtractValueFromIteratorInstance(currentValue);
+                _instance.SetIndexValue((uint) _index, jsValue, updateLength: false);
+            }
+
+            protected override bool ShouldContinue => _index < _max;
+
+            protected override void IterationEnd()
+            {
+                if (_index >= 0)
+                {
+                    _instance.SetLength((uint) _index);
+                    ReturnIterator();
+                }
             }
         }
     }
