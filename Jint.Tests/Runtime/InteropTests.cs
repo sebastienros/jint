@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -1171,6 +1172,83 @@ namespace Jint.Tests.Runtime
             Assert.Equal(Colors.Blue | Colors.Green, s.Color);
         }
 
+        enum TestEnumInt32 : int
+        {
+            None,
+            One = 1,
+            Min = int.MaxValue,
+            Max = int.MaxValue,
+        }
+
+        enum TestEnumUInt32 : uint
+        {
+            None,
+            One = 1,
+            Min = uint.MaxValue,
+            Max = uint.MaxValue,
+        }
+
+        enum TestEnumInt64 : long
+        {
+            None,
+            One = 1,
+            Min = long.MaxValue,
+            Max = long.MaxValue,
+        }
+
+        enum TestEnumUInt64 : ulong
+        {
+            None,
+            One = 1,
+            Min = ulong.MaxValue,
+            Max = ulong.MaxValue,
+        }
+
+        void TestEnum<T>(T enumValue)
+        {
+            object i = Convert.ChangeType(enumValue, Enum.GetUnderlyingType(typeof(T)));
+            string s = Convert.ToString(i, CultureInfo.InvariantCulture);
+            var o = new Tuple<T>(enumValue);
+            _engine.SetValue("o", o);
+            RunTest("assert(o.Item1 === " + s + ");");
+        }
+
+        [Fact]
+        public void ShouldWorkWithEnumInt32()
+        {
+            TestEnum(TestEnumInt32.None);
+            TestEnum(TestEnumInt32.One);
+            TestEnum(TestEnumInt32.Min);
+            TestEnum(TestEnumInt32.Max);
+        }
+
+        [Fact]
+        public void ShouldWorkWithEnumUInt32()
+        {
+            TestEnum(TestEnumUInt32.None);
+            TestEnum(TestEnumUInt32.One);
+            TestEnum(TestEnumUInt32.Min);
+            TestEnum(TestEnumUInt32.Max);
+        }
+
+        [Fact]
+        public void ShouldWorkWithEnumInt64()
+        {
+            TestEnum(TestEnumInt64.None);
+            TestEnum(TestEnumInt64.One);
+            TestEnum(TestEnumInt64.Min);
+            TestEnum(TestEnumInt64.Max);
+        }
+
+        [Fact]
+        public void ShouldWorkWithEnumUInt64()
+        {
+            TestEnum(TestEnumUInt64.None);
+            TestEnum(TestEnumUInt64.One);
+            TestEnum(TestEnumUInt64.Min);
+            TestEnum(TestEnumUInt64.Max);
+        }
+
         [Fact]
         public void EnumIsConvertedToNumber()
         {
@@ -1189,7 +1267,6 @@ namespace Jint.Tests.Runtime
                 assert(o.b === 10);
             ");
         }
-
 
         [Fact]
         public void ShouldConvertToEnum()
@@ -1238,7 +1315,6 @@ namespace Jint.Tests.Runtime
                 assert(c.Foo === 'Bar');
             ");
         }
-
 
         [Fact]
         public void ShouldUseExplicitPropertySetter()

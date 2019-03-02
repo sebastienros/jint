@@ -328,9 +328,18 @@ namespace Jint.Native
                 return new DelegateWrapper(engine, d);
             }
 
-            if (value.GetType().IsEnum)
+            Type t = value.GetType();
+            if (t.IsEnum)
             {
-                return JsNumber.Create((int) value);
+                Type ut = Enum.GetUnderlyingType(t);
+
+                if (ut == typeof(ulong))
+                    return JsNumber.Create(System.Convert.ToDouble(value));
+
+                if (ut == typeof(uint) || ut == typeof(long))
+                    return JsNumber.Create(System.Convert.ToInt64(value));
+
+                return JsNumber.Create(System.Convert.ToInt32(value));
             }
 
             // if no known type could be guessed, wrap it as an ObjectInstance
