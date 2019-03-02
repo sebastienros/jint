@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using Jint.Runtime;
 using Newtonsoft.Json.Linq;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Jint.Tests.Test262
 {
@@ -242,8 +243,13 @@ namespace Jint.Tests.Test262
         }
     }
 
-    public class SourceFile
+    public class SourceFile : IXunitSerializable
     {
+        public SourceFile()
+        {
+
+        }
+
         public SourceFile(
             string source,
             string fullPath,
@@ -258,11 +264,21 @@ namespace Jint.Tests.Test262
             Code = code;
         }
 
-        public string Source { get; }
+        public string Source { get; private set; }
         public bool Skip { get; }
         public string Reason { get; }
         public string FullPath { get; }
         public string Code { get; }
+
+        public void Deserialize(IXunitSerializationInfo info)
+        {
+            Source = info.GetValue<string>("Source");
+        }
+
+        public void Serialize(IXunitSerializationInfo info)
+        {
+            info.AddValue("Source", Source);
+        }
 
         public override string ToString()
         {

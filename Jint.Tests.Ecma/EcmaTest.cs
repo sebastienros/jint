@@ -5,6 +5,7 @@ using System.Reflection;
 using Jint.Runtime;
 using Newtonsoft.Json.Linq;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Jint.Tests.Ecma
 {
@@ -268,8 +269,13 @@ namespace Jint.Tests.Ecma
             return results;
         }
 
-        public class SourceFile
+        public class SourceFile : IXunitSerializable
         {
+            public SourceFile()
+            {
+
+            }
+
             public SourceFile(JObject node, string basePath)
             {
                 Skip = node["skip"].Value<bool>();
@@ -282,6 +288,16 @@ namespace Jint.Tests.Ecma
             public bool Skip { get; set; }
             public string Reason { get; set; }
             public string BasePath { get; }
+
+            public void Deserialize(IXunitSerializationInfo info)
+            {
+                Source = info.GetValue<string>("Source");
+            }
+
+            public void Serialize(IXunitSerializationInfo info)
+            {
+                info.AddValue("Source", Source);
+            }
 
             public override string ToString()
             {
