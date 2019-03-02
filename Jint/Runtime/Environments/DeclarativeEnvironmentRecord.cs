@@ -279,7 +279,7 @@ namespace Jint.Runtime.Environments
             INode parameter,
             JsValue[] arguments,
             int index,
-            in bool initiallyEmpty)
+            bool initiallyEmpty)
         {
             var argument = arguments.Length > index ? arguments[index] : Undefined;
 
@@ -307,9 +307,9 @@ namespace Jint.Runtime.Environments
                 {
                     SetItemSafely(restIdentifier.Name, argument, initiallyEmpty);
                 }
-                else if (restElement.Argument is ArrayPattern arrayPattern)
+                else if (restElement.Argument is BindingPattern bindingPattern)
                 {
-                    SetFunctionParameter(arrayPattern, arguments, index, initiallyEmpty);
+                    SetFunctionParameter(bindingPattern, arguments, index, initiallyEmpty);
                 }
                 else
                 {
@@ -323,22 +323,16 @@ namespace Jint.Runtime.Environments
                     ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is null");
                 }
 
-                if (argument.IsUndefined())
+                var arrayContents = ArrayExt.Empty<JsValue>();
+                if (argument.IsArray())
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is undefined");
-                }
+                    var array = argument.AsArray();
+                    arrayContents = new JsValue[array.Length];
 
-                if (!argument.IsArray())
-                {
-                    return;
-                }
-
-                var array = argument.AsArray();
-                JsValue[] arrayContents = new JsValue[array.Length];
-
-                for (uint contentsIndex = 0; contentsIndex < array.Length; contentsIndex++)
-                {
-                    arrayContents[contentsIndex] = array.Get(contentsIndex);
+                    for (uint contentsIndex = 0; contentsIndex < array.Length; contentsIndex++)
+                    {
+                        arrayContents[contentsIndex] = array.Get(contentsIndex);
+                    }
                 }
 
                 for (uint arrayIndex = 0; arrayIndex < arrayPattern.Elements.Count; arrayIndex++)
@@ -381,11 +375,23 @@ namespace Jint.Runtime.Environments
             }
             else if (parameter is AssignmentPattern assignmentPattern)
             {
-                if (argument == Undefined)
+                var idLeft = assignmentPattern.Left as Identifier;
+                if (idLeft != null
+                    && assignmentPattern.Right is Identifier idRight
+                    && idLeft.Name == idRight.Name)
+                {
+                    ExceptionHelper.ThrowReferenceError(_engine, idRight.Name);
+                }
+
+                if (argument.IsUndefined())
                 {
                     var expression = assignmentPattern.Right.As<Expression>();
                     var jintExpression = JintExpression.Build(_engine, expression);
                     argument = jintExpression.GetValue();
+                    if (idLeft != null && argument is FunctionInstance fn)
+                    {
+                        fn.SetFunctionName(idLeft.Name);
+                    }
                 }
 
                 SetFunctionParameter(assignmentPattern.Left, new []{ argument }, 0, initiallyEmpty);
@@ -420,7 +426,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        internal void AddVariableDeclarations(ref Esprima.Ast.List<VariableDeclaration> variableDeclarations)
+        internal void AddVariableDeclarations(ref NodeList<VariableDeclaration> variableDeclarations)
         {
             var variableDeclarationsCount = variableDeclarations.Count;
             for (var i = 0; i < variableDeclarationsCount; i++)

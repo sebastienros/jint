@@ -58,9 +58,8 @@ namespace Jint.Native.Function
 
                             bool argumentInstanceRented = Engine.DeclarationBindingInstantiation(
                                 DeclarationBindingType.EvalCode,
-                                ref program.HoistingScope.FunctionDeclarations,
-                                ref program.HoistingScope.VariableDeclarations,
-                                functionInstance: this, 
+                                program.HoistingScope,
+                                functionInstance: this,
                                 arguments);
 
                             var statement = JintStatement.Build(_engine, program);

@@ -8,11 +8,11 @@ namespace Jint.Runtime.Interpreter.Statements
     internal sealed class JintSwitchBlock
     {
         private readonly Engine _engine;
-        private readonly Esprima.Ast.List<SwitchCase> _switchBlock;
+        private readonly NodeList<SwitchCase> _switchBlock;
         private JintSwitchCase[] _jintSwitchBlock;
         private bool _initialized;
 
-        public JintSwitchBlock(Engine engine, in Esprima.Ast.List<SwitchCase> switchBlock)
+        public JintSwitchBlock(Engine engine, NodeList<SwitchCase> switchBlock)
         {
             _engine = engine;
             _switchBlock = switchBlock;

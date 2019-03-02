@@ -435,6 +435,14 @@
     "source": "language/expressions/arrow-function/lexical-supercall-from-immediately-invoked-arrow.js",
     "reason": "class not implemented"
   },
+  {
+    "source": "language/expressions/arrow-function/lexical-super-property.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/arrow-function/lexical-super-call-from-within-constructor.js",
+    "reason": "class not implemented"
+  },
 
   
   // Esprima problems
