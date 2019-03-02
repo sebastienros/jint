@@ -287,16 +287,22 @@ namespace Jint.Tests.Ecma
             public string Source { get; set; }
             public bool Skip { get; set; }
             public string Reason { get; set; }
-            public string BasePath { get; }
+            public string BasePath { get; set; }
 
             public void Deserialize(IXunitSerializationInfo info)
             {
-                Source = info.GetValue<string>("Source");
+                Skip = info.GetValue<bool>(nameof(Skip));
+                Source = info.GetValue<string>(nameof(Source));
+                Reason = info.GetValue<string>(nameof(Reason));
+                BasePath = info.GetValue<string>(nameof(BasePath));
             }
 
             public void Serialize(IXunitSerializationInfo info)
             {
-                info.AddValue("Source", Source);
+                info.AddValue(nameof(Skip), Skip);
+                info.AddValue(nameof(Source), Source);
+                info.AddValue(nameof(Reason), Reason);
+                info.AddValue(nameof(BasePath), BasePath);
             }
 
             public override string ToString()

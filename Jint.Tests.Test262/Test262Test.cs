@@ -264,20 +264,28 @@ namespace Jint.Tests.Test262
             Code = code;
         }
 
-        public string Source { get; private set; }
-        public bool Skip { get; }
-        public string Reason { get; }
-        public string FullPath { get; }
-        public string Code { get; }
+        public string Source { get; set; }
+        public bool Skip { get; set; }
+        public string Reason { get; set; }
+        public string FullPath { get; set; }
+        public string Code { get; set; }
 
         public void Deserialize(IXunitSerializationInfo info)
         {
-            Source = info.GetValue<string>("Source");
+            Skip = info.GetValue<bool>(nameof(Skip));
+            Source = info.GetValue<string>(nameof(Source));
+            Reason = info.GetValue<string>(nameof(Reason));
+            FullPath = info.GetValue<string>(nameof(FullPath));
+            Code = info.GetValue<string>(nameof(Code));
         }
 
         public void Serialize(IXunitSerializationInfo info)
         {
-            info.AddValue("Source", Source);
+            info.AddValue(nameof(Skip), Skip);
+            info.AddValue(nameof(Source), Source);
+            info.AddValue(nameof(Reason), Reason);
+            info.AddValue(nameof(FullPath), FullPath);
+            info.AddValue(nameof(Code), Code);
         }
 
         public override string ToString()
