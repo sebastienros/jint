@@ -16,7 +16,7 @@ namespace Jint
         private bool _debugMode;
         private bool _allowClr;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
-        Func<object, ObjectInstance> _wrapObjectHandler;
+        private Func<object, ObjectInstance> _wrapObjectHandler;
         private int _maxStatements;
         private int _maxRecursionDepth = -1; 
         private TimeSpan _timeoutInterval;
