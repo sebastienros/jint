@@ -378,6 +378,11 @@ namespace Jint.Runtime.Environments
                     {
                         argument = argumentObject.Get(propertyLiteral.Raw);
                     }
+                    else if (property.Key is CallExpression callExpression)
+                    {
+                        var jintCallExpression = JintExpression.Build(_engine, callExpression);
+                        argument = argumentObject.Get(jintCallExpression.GetValue().AsString());
+                    }
 
                     jsValues[0] = argument;
                     SetFunctionParameter(property.Value, jsValues, 0, initiallyEmpty);
