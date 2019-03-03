@@ -808,12 +808,13 @@ namespace Jint.Native.Math
             return System.Math.Pow(x, y);
         }
 
-        private static JsValue Random(JsValue thisObject, JsValue[] arguments)
+        private JsValue Random(JsValue thisObject, JsValue[] arguments)
         {
             if(_random == null)
             {
                 _random = new Random();
             }
+            
             return _random.NextDouble();
         }
 
