@@ -14,6 +14,7 @@ namespace Jint.Runtime.Interpreter
         internal readonly string[] _parameterNames;
         internal readonly JintStatement _body;
         internal bool _hasRestParameter;
+        internal int _length;
 
         public readonly HoistingScope _hoistingScope;
 
@@ -70,15 +71,21 @@ namespace Jint.Runtime.Interpreter
             var parameterNames = new List<string>();
             var functionDeclarationParams = functionDeclaration.Params;
             int count = functionDeclarationParams.Count;
+            bool onlyIdentifiers = true;
             for (var i = 0; i < count; i++)
             {
                 var parameter = functionDeclarationParams[i];
                 if (parameter is Identifier id)
                 {
                     parameterNames.Add(id.Name);
+                    if (onlyIdentifiers)
+                    {
+                        _length++;
+                    }
                 }
                 else
                 {
+                    onlyIdentifiers = false;
                     foreach (var identifier in GetParameterIdentifiers(parameter))
                     {
                         parameterNames.Add(identifier.Name);

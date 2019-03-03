@@ -21,6 +21,9 @@ namespace Jint.Tests.Test262
         private static readonly Dictionary<string, string> _skipReasons =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+        private static readonly HashSet<string> _strictSkips =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         static Test262Test()
         {
             //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
@@ -50,7 +53,12 @@ namespace Jint.Tests.Test262
             var doc = JArray.Parse(content);
             foreach (var entry in doc.Values<JObject>())
             {
-                _skipReasons[entry["source"].Value<string>()] = entry["reason"].Value<string>();
+                var source = entry["source"].Value<string>();
+                _skipReasons[source] = entry["reason"].Value<string>();
+                if (entry.TryGetValue("mode", out var mode) && mode.Value<string>() == "strict")
+                {
+                    _strictSkips.Add(source);
+                }
             }
         }
 
@@ -93,19 +101,15 @@ namespace Jint.Tests.Test262
 
         protected void RunTestInternal(SourceFile sourceFile)
         {
-            RunTestCode(sourceFile.Code);
-        }
-
-        private void RunTestCode(string code)
-        {
-            if (code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0)
+            if (sourceFile.Code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0)
             {
-                RunTestCode(code, strict: false);
+                RunTestCode(sourceFile.Code, strict: false);
             }
 
-            if (code.IndexOf("noStrict", StringComparison.Ordinal) < 0)
+            if (!_strictSkips.Contains(sourceFile.Source)
+                && sourceFile.Code.IndexOf("noStrict", StringComparison.Ordinal) < 0)
             {
-                RunTestCode(code, strict: true);
+                RunTestCode(sourceFile.Code, strict: true);
             }
         }
 

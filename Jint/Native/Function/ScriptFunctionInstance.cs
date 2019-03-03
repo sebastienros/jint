@@ -37,8 +37,7 @@ namespace Jint.Native.Function
             Extensible = true;
             Prototype = _engine.Function.PrototypeObject;
 
-            var length = function._hasRestParameter ? _formalParameters.Length - 1 : _formalParameters.Length;
-            _length = new PropertyDescriptor(JsNumber.Create(length), PropertyFlag.AllForbidden);
+            _length = new PropertyDescriptor(JsNumber.Create(function._length), PropertyFlag.Configurable);
 
             var proto = new ObjectInstanceWithConstructor(engine, this)
             {
@@ -73,11 +72,7 @@ namespace Jint.Native.Function
             {
                 // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
                 JsValue thisBinding;
-                if (_function._function is ArrowFunctionExpression arrow)
-                {
-                    thisBinding = _engine.ExecutionContext.ThisBinding;
-                }
-                else if (StrictModeScope.IsStrictModeCode)
+                if (StrictModeScope.IsStrictModeCode)
                 {
                     thisBinding = thisArg;
                 }

@@ -10,6 +10,7 @@ namespace Jint.Native.Function
     public sealed class ArrowFunctionInstance : FunctionInstance
     {
         private readonly JintFunctionDefinition _function;
+        private readonly JsValue _thisBinding;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
@@ -35,8 +36,8 @@ namespace Jint.Native.Function
             Extensible = false;
             Prototype = Engine.Function.PrototypeObject;
 
-            var length = function._hasRestParameter ? _formalParameters.Length - 1 : _formalParameters.Length;
-            _length = new PropertyDescriptor(JsNumber.Create(length), PropertyFlag.AllForbidden);
+            _length = new PropertyDescriptor(JsNumber.Create(function._length), PropertyFlag.Configurable);
+            _thisBinding = _engine.ExecutionContext.ThisBinding;
         }
 
         // for example RavenDB wants to inspect this
@@ -55,7 +56,10 @@ namespace Jint.Native.Function
             var strict = Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
             {
-                _engine.EnterExecutionContext(localEnv, localEnv, _engine.ExecutionContext.ThisBinding);
+                _engine.EnterExecutionContext(
+                    localEnv,
+                    localEnv,
+                    _thisBinding);
 
                 try
                 {

@@ -271,7 +271,8 @@ namespace Jint.Runtime.Environments
                 SetFunctionParameter(parameters[i], arguments, i, empty);
             }
 
-            if (ReferenceEquals(_argumentsBinding.Value, null))
+            if (ReferenceEquals(_argumentsBinding.Value, null)
+                && !(functionInstance is ArrowFunctionInstance))
             {
                 _argumentsBinding = new Binding(argumentsInstance, canBeDeleted: false, mutable: true);
             }
@@ -331,7 +332,7 @@ namespace Jint.Runtime.Environments
                 {
                     array = argument.AsArray();
                 }
-                else if (argument.TryGetIterator(_engine, out var iterator))
+                else if (argument.IsObject() && argument.TryGetIterator(_engine, out var iterator))
                 {
                     array = _engine.Array.ConstructFast(0);
                     var protocol = new ArrayPatternProtocol(_engine, array, iterator, arrayPattern.Elements.Count);
@@ -404,9 +405,10 @@ namespace Jint.Runtime.Environments
                     var expression = assignmentPattern.Right.As<Expression>();
                     var jintExpression = JintExpression.Build(_engine, expression);
                     argument = jintExpression.GetValue();
-                    if (idLeft != null && argument is FunctionInstance fn)
+                    if (idLeft != null
+                        && (assignmentPattern.Right is FunctionExpression || assignmentPattern.Right is ArrowFunctionExpression))
                     {
-                        fn.SetFunctionName(idLeft.Name);
+                        ((FunctionInstance) argument).SetFunctionName(idLeft.Name);
                     }
                 }
 
