@@ -497,7 +497,16 @@
     "reason": "class not implemented"
   },
 
-  
+
+  {
+    "source": "language/expressions/arrow-function/scope-paramsbody-var-open.js",
+    "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+  },
+  {
+    "source": "language/expressions/function/scope-paramsbody-var-open.js",
+    "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+  },
+
   // Esprima problems
   
   {
@@ -627,5 +636,5 @@
   {
     "source": "language/expressions/function/params-trailing-comma-single.js",
     "reason": "Esprima problem"
-  },
+  }
 ]
