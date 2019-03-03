@@ -29,7 +29,9 @@ namespace Jint.Runtime.Descriptors.Specialized
 
         private JsValue DoGet(JsValue n)
         {
-            return _env.GetBindingValue(_name, false);
+            return _env.TryGetBinding(_name, false, out var binding)
+                ? binding.Value
+                : JsValue.Undefined;
         }
 
         private void DoSet(JsValue n, JsValue o)

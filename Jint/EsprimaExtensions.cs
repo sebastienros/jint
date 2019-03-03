@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -38,6 +39,13 @@ namespace Jint
             }
 
             return ExceptionHelper.ThrowArgumentException<string>("Unable to extract correct key");
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool IsFunctionWithName(this INode node)
+        {
+            var type = node.Type;
+            return type == Nodes.FunctionExpression || type == Nodes.ArrowFunctionExpression;
         }
     }
 }

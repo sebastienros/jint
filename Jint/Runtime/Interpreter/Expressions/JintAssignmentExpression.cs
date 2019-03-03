@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
@@ -180,6 +181,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 lref.AssertValid(_engine);
 
                 var rval = _right.GetValue();
+
+                if (_right._expression.IsFunctionWithName())
+                {
+                    ((FunctionInstance) rval).SetFunctionName(lref.GetReferencedName());
+                }
+
                 _engine.PutValue(lref, rval);
                 _engine._referencePool.Return(lref);
                 return rval;
@@ -206,6 +213,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     var rval = right.GetValue();
+
+                    if (right._expression.IsFunctionWithName())
+                    {
+                        ((FunctionInstance) rval).SetFunctionName(left._expressionName);
+                    }
+
                     environmentRecord.SetMutableBinding(left._expressionName, rval, strict);
                     return rval;
                 }

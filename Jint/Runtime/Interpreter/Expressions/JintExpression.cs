@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
@@ -15,7 +14,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected bool _initialized = true;
 
         protected readonly Engine _engine;
-        protected readonly INode _expression;
+        protected internal readonly INode _expression;
 
         protected JintExpression(Engine engine, INode expression)
         {
@@ -62,6 +61,9 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 case Nodes.ArrayExpression:
                     return new JintArrayExpression(engine, (ArrayExpression) expression);
+
+                case Nodes.ArrowFunctionExpression:
+                    return new JintArrowFunctionExpression(engine, (IFunction) expression);
 
                 case Nodes.BinaryExpression:
                     return JintBinaryExpression.Build(engine, (BinaryExpression) expression);

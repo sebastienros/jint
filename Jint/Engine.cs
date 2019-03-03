@@ -429,8 +429,7 @@ namespace Jint
             {
                 DeclarationBindingInstantiation(
                     DeclarationBindingType.GlobalCode,
-                    ref program.HoistingScope.FunctionDeclarations,
-                    ref program.HoistingScope.VariableDeclarations,
+                    program.HoistingScope,
                     functionInstance: null,
                     arguments: null);
 
@@ -762,8 +761,7 @@ namespace Jint
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
         internal bool DeclarationBindingInstantiation(
             DeclarationBindingType declarationBindingType,
-            ref Esprima.Ast.List<FunctionDeclaration> functionDeclarations,
-            ref Esprima.Ast.List<VariableDeclaration> variableDeclarations,
+            HoistingScope hoistingScope,
             FunctionInstance functionInstance,
             JsValue[] arguments)
         {
@@ -778,7 +776,9 @@ namespace Jint
                 var argsObj = _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, env, strict);
                 canReleaseArgumentsInstance = true;
 
-                var functionDeclaration = (functionInstance as ScriptFunctionInstance)?.FunctionDeclaration;
+
+                var functionDeclaration = (functionInstance as ScriptFunctionInstance)?.FunctionDeclaration ??
+                    (functionInstance as ArrowFunctionInstance)?.FunctionDeclaration;
 
                 if (!ReferenceEquals(der, null))
                 {
@@ -786,6 +786,7 @@ namespace Jint
                 }
                 else
                 {
+                    // TODO: match functionality with DeclarationEnvironmentRecord.AddFunctionParameters here
                     // slow path
                     var parameters = functionInstance._formalParameters;
                     for (var i = 0; i < parameters.Length; i++)
@@ -806,11 +807,13 @@ namespace Jint
                 }
             }
 
+            var functionDeclarations = hoistingScope.FunctionDeclarations;
             if (functionDeclarations.Count > 0)
             {
                 AddFunctionDeclarations(ref functionDeclarations, env, configurableBindings, strict);
             }
 
+            var variableDeclarations = hoistingScope.VariableDeclarations;
             if (variableDeclarations.Count == 0)
             {
                 return canReleaseArgumentsInstance;
@@ -848,7 +851,7 @@ namespace Jint
         }
 
         private void AddFunctionDeclarations(
-            ref Esprima.Ast.List<FunctionDeclaration> functionDeclarations,
+            ref NodeList<FunctionDeclaration> functionDeclarations,
             EnvironmentRecord env,
             bool configurableBindings,
             bool strict)
