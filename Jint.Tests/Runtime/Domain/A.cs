@@ -104,5 +104,25 @@ namespace Jint.Tests.Runtime.Domain
         {
             callback(18);
         }
+
+        public int Call19(int a = 0)
+        {
+            return a;
+        }
+
+        public static int Call19Static(int a = 0)
+        {
+            return a;
+        }
+
+        public int Call20(int a, int b = 1, int c = 2)
+        {
+            return a + b + c;
+        }
+
+        public static int Call20Static(int a, int b = 1, int c = 2)
+        {
+            return a + b + c;
+        }
     }
 }
