@@ -164,7 +164,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         if (assignmentPattern.Left is Identifier leftIdentifier)
                         {
-                            if (assignmentPattern.Right is FunctionExpression || assignmentPattern.Right is ArrowFunctionExpression)
+                            if (assignmentPattern.Right.IsFunctionWithName())
                             {
                                 ((FunctionInstance) value).SetFunctionName(leftIdentifier.Name);
                             }
@@ -225,7 +225,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     
                     var target = assignmentPattern.Left as Identifier ?? identifier;
 
-                    if (assignmentPattern.Right is FunctionExpression || assignmentPattern.Right is ArrowFunctionExpression)
+                    if (assignmentPattern.Right.IsFunctionWithName())
                     {
                         ((FunctionInstance) value).SetFunctionName(target.Name);
                     }

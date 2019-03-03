@@ -422,8 +422,7 @@ namespace Jint.Runtime.Environments
                         ? RunInNewParameterEnvironment(jintExpression)
                         : jintExpression.GetValue();
 
-                    if (idLeft != null
-                        && (assignmentPattern.Right is FunctionExpression || assignmentPattern.Right is ArrowFunctionExpression))
+                    if (idLeft != null && assignmentPattern.Right.IsFunctionWithName())
                     {
                         ((FunctionInstance) argument).SetFunctionName(idLeft.Name);
                     }

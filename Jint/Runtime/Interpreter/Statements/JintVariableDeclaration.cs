@@ -90,7 +90,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                         var value = declaration.Init.GetValue();
 
-                        if (declaration.Init is JintFunctionExpression || declaration.Init is JintArrowFunctionExpression)
+                        if (declaration.Init._expression.IsFunctionWithName())
                         {
                             ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
                         }

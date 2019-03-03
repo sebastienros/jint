@@ -182,9 +182,9 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 var rval = _right.GetValue();
 
-                if (rval is FunctionInstance instance)
+                if (_right._expression.IsFunctionWithName())
                 {
-                    instance.SetFunctionName(lref.GetReferencedName());
+                    ((FunctionInstance) rval).SetFunctionName(lref.GetReferencedName());
                 }
 
                 _engine.PutValue(lref, rval);
@@ -214,7 +214,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     var rval = right.GetValue();
 
-                    if (right is JintFunctionExpression || right is JintArrowFunctionExpression)
+                    if (right._expression.IsFunctionWithName())
                     {
                         ((FunctionInstance) rval).SetFunctionName(left._expressionName);
                     }
