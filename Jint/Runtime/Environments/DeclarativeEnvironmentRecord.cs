@@ -266,16 +266,17 @@ namespace Jint.Runtime.Environments
 
             bool empty = _dictionary == null && !_set;
 
-            for (var i = 0; i < parameters.Count; i++)
-            {
-                SetFunctionParameter(parameters[i], arguments, i, empty);
-            }
-
             if (ReferenceEquals(_argumentsBinding.Value, null)
                 && !(functionInstance is ArrowFunctionInstance))
             {
                 _argumentsBinding = new Binding(argumentsInstance, canBeDeleted: false, mutable: true);
             }
+
+            for (var i = 0; i < parameters.Count; i++)
+            {
+                SetFunctionParameter(parameters[i], arguments, i, empty);
+            }
+
         }
 
         private void SetFunctionParameter(

@@ -366,6 +366,15 @@
     "reason": "C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308"
   },
 
+  // function behaviour to be implemented
+  {
+    "source": "language/expressions/function/scope-name-var-open-non-strict.js",
+    "reason": "inner binding is immutable (from parameters) Expected SameValue(«null», «function() {{ ... }}») to be true"
+  },
+  {
+    "source": "language/expressions/function/scope-name-var-open-strict.js",
+    "reason": "inner binding rejects modification (from parameters) Expected a Error to be thrown but no exception was thrown at all"
+  },
 
   // let support
   {
@@ -392,6 +401,16 @@
   },
   {
     "source": "language/expressions/arrow-function/dstr-dflt-ary-ptrn-rest-obj-prop-id.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/function/dstr-ary-ptrn-rest-obj-prop-id.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/function/dstr-dflt-ary-ptrn-rest-obj-prop-id.js",
     "mode": "strict",
     "reason": "let not implemented"
   },
@@ -459,6 +478,22 @@
   },
   {
     "source": "language/expressions/arrow-function/lexical-super-call-from-within-constructor.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/function/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/function/dstr-dflt-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/function/dstr-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/function/dstr-dflt-obj-ptrn-id-init-fn-name-class.js",
     "reason": "class not implemented"
   },
 
@@ -556,5 +591,41 @@
   {
     "source": "language/expressions/arrow-function/params-trailing-comma-single.js",
     "reason": "Esprima problem"
-  }
+  },
+  {
+    "source": "language/expressions/function/dflt-params-trailing-comma.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dstr-dflt-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dstr-dflt-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dstr-dflt-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dstr-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dstr-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dstr-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/params-trailing-comma-multiple.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/params-trailing-comma-single.js",
+    "reason": "Esprima problem"
+  },
 ]
