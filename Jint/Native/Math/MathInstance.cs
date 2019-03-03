@@ -9,7 +9,7 @@ namespace Jint.Native.Math
 {
     public sealed class MathInstance : ObjectInstance
     {
-        [ThreadStatic] private static Random _random;
+        private Random _random;
 
         private MathInstance(Engine engine) : base(engine, "Math")
         {
