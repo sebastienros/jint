@@ -402,9 +402,25 @@ namespace Jint.Runtime.Environments
 
                 if (argument.IsUndefined())
                 {
+                    JsValue RunInNewParameterEnvironment(JintExpression exp)
+                    {
+                        var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
+                        var paramVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+
+                        _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.ThisBinding);;
+                        var result = exp.GetValue();
+                        _engine.LeaveExecutionContext();
+
+                        return result;
+                    }
+
                     var expression = assignmentPattern.Right.As<Expression>();
                     var jintExpression = JintExpression.Build(_engine, expression);
-                    argument = jintExpression.GetValue();
+
+                    argument = jintExpression is JintSequenceExpression
+                        ? RunInNewParameterEnvironment(jintExpression)
+                        : jintExpression.GetValue();
+
                     if (idLeft != null
                         && (assignmentPattern.Right is FunctionExpression || assignmentPattern.Right is ArrowFunctionExpression))
                     {
