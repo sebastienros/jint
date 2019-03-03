@@ -414,6 +414,16 @@
     "mode": "strict",
     "reason": "let not implemented"
   },
+  {
+    "source": "language/expressions/object/dstr-meth-ary-ptrn-rest-obj-prop-id.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-dflt-ary-ptrn-rest-obj-prop-id.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
 
   // class support
   {
@@ -496,6 +506,116 @@
     "source": "language/expressions/function/dstr-dflt-obj-ptrn-id-init-fn-name-class.js",
     "reason": "class not implemented"
   },
+  {
+    "source": "language/expressions/object/dstr-meth-dflt-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-dflt-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/method-definition/name-invoke-ctor",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/method-definition/name-invoke-ctor.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/method-definition/name-prototype-prop.js",
+    "reason": "class not implemented"
+  },
+
+
+  {
+    "source": "language/expressions/object/accessor-name-computed-yield-id.js",
+    "reason": "accessor / yield not implemented"
+  },
+  {
+    "source": "language/expressions/object/accessor-name-computed.js",
+    "reason": "yield not implemented"
+  },
+  {
+    "source": "language/expressions/object/prop-dup-set-get-set.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/accessor-name-computed-err-to-prop-key.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/accessor-name-computed-err-unresolvable.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/accessor-name-computed-in.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/accessor-name-literal-numeric-leading-decimal.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/accessor-name-literal-numeric-non-canonical.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/fn-name-accessor-get.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/fn-name-accessor-set.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/method-definition/name-prop-name-yield-id.js",
+    "reason": "yield not implemented"
+  },
+
+
+  {
+    "source": "language/expressions/object/method.js",
+    "reason": "setPrototypeOf not implemented"
+  },
+  {
+    "source": "language/expressions/object/setter-super-prop.js",
+    "reason": "setPrototypeOf not implemented"
+  },
+  {
+    "source": "language/expressions/object/getter-super-prop.js",
+    "reason": "setPrototypeOf not implemented"
+  },
+
+
+  {
+    "source": "language/expressions/object/fn-name-arrow.js",
+    "reason": "symbols not identifiable in property name"
+  },
+  {
+    "source": "language/expressions/object/fn-name-cover.js",
+    "reason": "symbols not identifiable in property name"
+  },
+  {
+    "source": "language/expressions/object/fn-name-fn.js",
+    "reason": "symbols not identifiable in property name"
+  },
+  {
+    "source": "language/expressions/object/method-definition/fn-name-fn.js",
+    "reason": "symbols not identifiable in property name"
+  },
+  {
+    "source": "language/expressions/object/method-definition/name-name-prop-symbol.js",
+    "reason": "symbols not identifiable in property name"
+  },
 
 
   {
@@ -504,6 +624,14 @@
   },
   {
     "source": "language/expressions/function/scope-paramsbody-var-open.js",
+    "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+  },
+  {
+    "source": "language/expressions/object/scope-meth-paramsbody-var-open.js",
+    "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+  },
+  {
+    "source": "language/expressions/object/scope-setter-paramsbody-var-open.js",
     "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
   },
 
@@ -631,6 +759,86 @@
   },
   {
     "source": "language/expressions/function/params-trailing-comma-multiple.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-dflt-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-dflt-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/let-non-strict-access.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/async-meth-dflt-params-abrupt.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/async-meth-dflt-params-arg-val-not-undefined.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/async-meth-dflt-params-ref-later.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/async-meth-dflt-params-ref-prior.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/async-meth-dflt-params-ref-self.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-dflt-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/let-non-strict-syntax.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/meth-dflt-params-trailing-comma.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/meth-params-trailing-comma-multiple.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/meth-params-trailing-comma-single.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/name-param-id-yield.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/yield-non-strict-access.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/yield-non-strict-syntax.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/object-method-returns-promise.js",
     "reason": "Esprima problem"
   },
   {

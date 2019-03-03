@@ -1,4 +1,5 @@
 ﻿using System;
+using Jint.Native;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.References;
 
@@ -135,9 +136,9 @@ namespace Jint.Runtime
             throw new InvalidOperationException(message);
         }
 
-        public static void ThrowJavaScriptException(string message)
+        public static void ThrowJavaScriptException(Engine engine, JsValue value, Completion result)
         {
-            throw new JavaScriptException("TypeError");
+            throw new JavaScriptException(value).SetCallstack(engine, result.Location);
         }
 
         public static void ThrowRecursionDepthOverflowException(JintCallStack currentStack, string currentExpressionReference)

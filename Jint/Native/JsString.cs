@@ -209,7 +209,12 @@ namespace Jint.Native
             {
                 if (other is ConcatenatedString cs)
                 {
-                    return _stringBuilder.Equals(cs._stringBuilder);
+                    if (_stringBuilder != null && cs._stringBuilder != null)
+                    {
+                        return _stringBuilder.Equals(cs._stringBuilder);
+                    }
+
+                    return ToString() == cs.ToString();
                 }
 
                 if (other is JsString jsString)

@@ -17,7 +17,7 @@ namespace Jint.Native.Function
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
         /// </summary>
         public ScriptFunctionInstance(
-            Engine engine, 
+            Engine engine,
             IFunction functionDeclaration,
             LexicalEnvironment scope,
             bool strict)
@@ -67,7 +67,7 @@ namespace Jint.Native.Function
         /// <returns></returns>
         public override JsValue Call(JsValue thisArg, JsValue[] arguments)
         {
-            var strict = Strict || _engine._isStrict;
+            var strict = _strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
             {
                 // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
@@ -102,9 +102,9 @@ namespace Jint.Native.Function
                         arguments);
 
                     var result = _function._body.Execute();
-                    
+
                     var value = result.GetValueOrDefault();
-                    
+
                     if (argumentInstanceRented)
                     {
                         _engine.ExecutionContext.LexicalEnvironment?._record?.FunctionWasCalled();
@@ -113,8 +113,7 @@ namespace Jint.Native.Function
 
                     if (result.Type == CompletionType.Throw)
                     {
-                        var ex = new JavaScriptException(value).SetCallstack(_engine, result.Location);
-                        throw ex;
+                        ExceptionHelper.ThrowJavaScriptException(_engine, value, result);
                     }
 
                     if (result.Type == CompletionType.Return)
@@ -139,6 +138,7 @@ namespace Jint.Native.Function
         public ObjectInstance Construct(JsValue[] arguments)
         {
             var proto = Get("prototype").TryCast<ObjectInstance>();
+
             var obj = new ObjectInstance(_engine)
             {
                 Extensible = true,

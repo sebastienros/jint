@@ -60,6 +60,14 @@ namespace Jint.Tests.Test262
             RunTestInternal(sourceFile);
         }
 
+        [Theory(DisplayName = "language\\expressions\\object")]
+        [MemberData(nameof(SourceFiles), "language\\expressions\\object", false)]
+        [MemberData(nameof(SourceFiles), "language\\expressions\\object", true, Skip = "Skipped")]
+        protected void ExpressionsObject(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+
         [Theory(DisplayName = "language\\expressions\\template-literal")]
         [MemberData(nameof(SourceFiles), "language\\expressions\\template-literal", false)]
         [MemberData(nameof(SourceFiles), "language\\expressions\\template-literal", true, Skip = "Skipped")]

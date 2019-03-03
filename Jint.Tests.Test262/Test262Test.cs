@@ -102,6 +102,11 @@ namespace Jint.Tests.Test262
 
         protected void RunTestInternal(SourceFile sourceFile)
         {
+            if (sourceFile.Skip)
+            {
+                return;
+            }
+
             if (sourceFile.Code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0)
             {
                 RunTestCode(sourceFile.Code, strict: false);
@@ -127,6 +132,23 @@ namespace Jint.Tests.Test262
                 bool skip = _skipReasons.TryGetValue(name, out var reason);
 
                 var code = skip ? "" : File.ReadAllText(file);
+
+                var flags = Regex.Match(code, "flags: \\[(.+?)\\]");
+                if (flags.Success)
+                {
+                    var items = flags.Groups[1].Captures[0].Value.Split(",");
+                    foreach (var item in items.Select(x => x.Trim()))
+                    {
+                        switch (item)
+                        {
+                            // TODO implement
+                            case "async":
+                                skip = true;
+                                reason = "async not implemented";
+                                break;
+                        }
+                    }
+                }
 
                 var features = Regex.Match(code, "features: \\[(.+?)\\]");
                 if (features.Success)
@@ -209,9 +231,17 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "async-functions not implemented";
                                 break;
+                            case "async-iteration":
+                                skip = true;
+                                reason = "async not implemented";
+                                break;
                             case "new.target":
                                 skip = true;
                                 reason = "MetaProperty not implemented";
+                                break;
+                            case "super":
+                                skip = true;
+                                reason = "super not implemented";
                                 break;
                         }
                     }
@@ -221,6 +251,12 @@ namespace Jint.Tests.Test262
                 {
                     skip = true;
                     reason = "SpecialCasing.txt not implemented";
+                }
+
+                if (name.StartsWith("language/expressions/object/dstr-async-gen-meth-"))
+                {
+                    skip = true;
+                    reason = "Esprima problem, Unexpected token *";
                 }
 
                 if (file.EndsWith("tv-line-continuation.js")
