@@ -98,14 +98,14 @@ namespace Jint.Runtime.Interop
 
         public override bool HasInstance(JsValue v)
         {
-            ObjectWrapper wrapper = v.As<ObjectWrapper>();
-
-            if (ReferenceEquals(wrapper, null))
+            if (v.IsObject())
             {
-                return base.HasInstance(v);
+                var wrapper = v.AsObject() as IObjectWrapper;
+                if (wrapper != null)
+                    return wrapper.Target.GetType() == ReferenceType;
             }
 
-            return wrapper.Target.GetType() == ReferenceType;
+            return base.HasInstance(v);
         }
 
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
