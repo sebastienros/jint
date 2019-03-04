@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
 
@@ -88,6 +89,12 @@ namespace Jint.Runtime.Interpreter.Statements
                         lhs.AssertValid(_engine);
 
                         var value = declaration.Init.GetValue();
+
+                        if (declaration.Init._expression.IsFunctionWithName())
+                        {
+                            ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
+                        }
+
                         _engine.PutValue(lhs, value);
                         _engine._referencePool.Return(lhs);
                     }

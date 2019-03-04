@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using Jint.Runtime;
 using Newtonsoft.Json.Linq;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Jint.Tests.Test262
 {
@@ -20,6 +21,9 @@ namespace Jint.Tests.Test262
 
         private static readonly Dictionary<string, string> _skipReasons =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        private static readonly HashSet<string> _strictSkips =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         static Test262Test()
         {
@@ -50,7 +54,12 @@ namespace Jint.Tests.Test262
             var doc = JArray.Parse(content);
             foreach (var entry in doc.Values<JObject>())
             {
-                _skipReasons[entry["source"].Value<string>()] = entry["reason"].Value<string>();
+                var source = entry["source"].Value<string>();
+                _skipReasons[source] = entry["reason"].Value<string>();
+                if (entry.TryGetValue("mode", out var mode) && mode.Value<string>() == "strict")
+                {
+                    _strictSkips.Add(source);
+                }
             }
         }
 
@@ -93,19 +102,15 @@ namespace Jint.Tests.Test262
 
         protected void RunTestInternal(SourceFile sourceFile)
         {
-            RunTestCode(sourceFile.Code);
-        }
-
-        private void RunTestCode(string code)
-        {
-            if (code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0)
+            if (sourceFile.Code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0)
             {
-                RunTestCode(code, strict: false);
+                RunTestCode(sourceFile.Code, strict: false);
             }
 
-            if (code.IndexOf("noStrict", StringComparison.Ordinal) < 0)
+            if (!_strictSkips.Contains(sourceFile.Source)
+                && sourceFile.Code.IndexOf("noStrict", StringComparison.Ordinal) < 0)
             {
-                RunTestCode(code, strict: true);
+                RunTestCode(sourceFile.Code, strict: true);
             }
         }
 
@@ -204,6 +209,10 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "async-functions not implemented";
                                 break;
+                            case "new.target":
+                                skip = true;
+                                reason = "MetaProperty not implemented";
+                                break;
                         }
                     }
                 }
@@ -242,8 +251,13 @@ namespace Jint.Tests.Test262
         }
     }
 
-    public class SourceFile
+    public class SourceFile : IXunitSerializable
     {
+        public SourceFile()
+        {
+
+        }
+
         public SourceFile(
             string source,
             string fullPath,
@@ -258,11 +272,29 @@ namespace Jint.Tests.Test262
             Code = code;
         }
 
-        public string Source { get; }
-        public bool Skip { get; }
-        public string Reason { get; }
-        public string FullPath { get; }
-        public string Code { get; }
+        public string Source { get; set; }
+        public bool Skip { get; set; }
+        public string Reason { get; set; }
+        public string FullPath { get; set; }
+        public string Code { get; set; }
+
+        public void Deserialize(IXunitSerializationInfo info)
+        {
+            Skip = info.GetValue<bool>(nameof(Skip));
+            Source = info.GetValue<string>(nameof(Source));
+            Reason = info.GetValue<string>(nameof(Reason));
+            FullPath = info.GetValue<string>(nameof(FullPath));
+            Code = info.GetValue<string>(nameof(Code));
+        }
+
+        public void Serialize(IXunitSerializationInfo info)
+        {
+            info.AddValue(nameof(Skip), Skip);
+            info.AddValue(nameof(Source), Source);
+            info.AddValue(nameof(Reason), Reason);
+            info.AddValue(nameof(FullPath), FullPath);
+            info.AddValue(nameof(Code), Code);
+        }
 
         public override string ToString()
         {

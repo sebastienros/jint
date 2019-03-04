@@ -1,14 +1,15 @@
-﻿﻿using System;
-using System.Collections.Generic;
- using System.Runtime.CompilerServices;
- using Esprima.Ast;
+﻿using System;
+using System.Runtime.CompilerServices;
+using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Argument;
+using Jint.Native.Array;
 using Jint.Native.Function;
- using Jint.Runtime.Interpreter.Expressions;
+using Jint.Native.Iterator;
+using Jint.Runtime.Interpreter.Expressions;
 
- namespace Jint.Runtime.Environments
+namespace Jint.Runtime.Environments
 {
     /// <summary>
     /// Represents a declarative environment record
@@ -255,136 +256,211 @@ using Jint.Native.Function;
             return keys;
         }
 
-        /// <summary>
-        /// Optimized version for function calls.
-        /// </summary>
         internal void AddFunctionParameters(
             FunctionInstance functionInstance,
             JsValue[] arguments,
             ArgumentsInstance argumentsInstance,
             IFunction functionDeclaration)
         {
-            var parameters = functionInstance._formalParameters;
+            var parameters = functionDeclaration.Params;
+
             bool empty = _dictionary == null && !_set;
-            if (empty && parameters.Length == 1 && parameters[0].Length != BindingNameArguments.Length)
-            {
-                var jsValue = arguments.Length == 0 ? Undefined : arguments[0];
-                jsValue = HandleAssignmentPatternIfNeeded(functionDeclaration, jsValue, 0);
-                jsValue = HandleRestPatternIfNeeded(_engine, functionDeclaration, arguments, 0, jsValue);
-                HandleObjectPatternIfNeeded(_engine, functionDeclaration, jsValue, 0);
 
-                var binding = new Binding(jsValue, false, true);
-                _set = true;
-                _key = parameters[0];
-                _value = binding;
-            }
-            else
-            {
-                AddMultipleParameters(arguments, parameters, functionDeclaration);
-            }
-
-            if (ReferenceEquals(_argumentsBinding.Value, null))
+            if (ReferenceEquals(_argumentsBinding.Value, null)
+                && !(functionInstance is ArrowFunctionInstance))
             {
                 _argumentsBinding = new Binding(argumentsInstance, canBeDeleted: false, mutable: true);
             }
+
+            for (var i = 0; i < parameters.Count; i++)
+            {
+                SetFunctionParameter(parameters[i], arguments, i, empty);
+            }
+
         }
 
-        private void AddMultipleParameters(JsValue[] arguments, string[] parameters, IFunction functionDeclaration)
+        private void SetFunctionParameter(
+            INode parameter,
+            JsValue[] arguments,
+            int index,
+            bool initiallyEmpty)
         {
-            bool empty = _dictionary == null && !_set;
-            for (var i = 0; i < parameters.Length; i++)
+            var argument = arguments.Length > index ? arguments[index] : Undefined;
+
+            if (parameter is Identifier identifier)
             {
-                var argName = parameters[i];
-                var jsValue = i + 1 > arguments.Length ? Undefined : arguments[i];
+                SetItemSafely(identifier.Name, argument, initiallyEmpty);
+            }
+            else if (parameter is RestElement restElement)
+            {
+                // index + 1 == parameters.count because rest is last
+                int restCount = arguments.Length - (index + 1) + 1;
+                uint count = restCount > 0 ? (uint) restCount : 0;
 
-                jsValue = HandleAssignmentPatternIfNeeded(functionDeclaration, jsValue, i);
-                if (i == parameters.Length - 1)
+                var rest = _engine.Array.ConstructFast(count);
+
+                uint targetIndex = 0;
+                for (var argIndex = index; argIndex < arguments.Length; ++argIndex)
                 {
-                    jsValue = HandleRestPatternIfNeeded(_engine, functionDeclaration, arguments, i, jsValue);
+                    rest.SetIndexValue(targetIndex++, arguments[argIndex], updateLength: false);
                 }
-                jsValue = HandleObjectPatternIfNeeded(_engine, functionDeclaration, jsValue, 0);
 
-                if (empty || !TryGetValue(argName, out var existing))
+                argument = rest;
+
+                if (restElement.Argument is Identifier restIdentifier)
                 {
-                    var binding = new Binding(jsValue, false, true);
-                    if (argName.Length == 9 && argName == BindingNameArguments)
-                    {
-                        _argumentsBinding = binding;
-                    }
-                    else
-                    {
-                        SetItem(argName, binding);
-                    }
+                    SetItemSafely(restIdentifier.Name, argument, initiallyEmpty);
+                }
+                else if (restElement.Argument is BindingPattern bindingPattern)
+                {
+                    SetFunctionParameter(bindingPattern, new [] { argument }, index, initiallyEmpty);
                 }
                 else
                 {
-                    if (existing.Mutable)
-                    {
-                        ref var b = ref GetExistingItem(argName);
-                        b.Value = jsValue;
-                    }
-                    else
-                    {
-                        ExceptionHelper.ThrowTypeError(_engine, "Can't update the value of an immutable binding.");
-                    }
+                    ExceptionHelper.ThrowSyntaxError(_engine, "Rest parameters can only be identifiers or arrays");
                 }
             }
-        }
-        
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static JsValue HandleObjectPatternIfNeeded(Engine engine, IFunction functionDeclaration, JsValue jsValue, int index)
-        {
-            if (functionDeclaration.Params[index] is ObjectPattern op)
+            else if (parameter is ArrayPattern arrayPattern)
             {
-                if (jsValue.IsNullOrUndefined())
+                if (argument.IsNull())
                 {
-                    ExceptionHelper.ThrowTypeError(engine, "Cannot destructure 'undefined' or 'null'.");
+                    ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is null");
                 }
-            }
 
-            return jsValue;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static JsValue HandleAssignmentPatternIfNeeded(IFunction functionDeclaration, JsValue jsValue, int index)
-        {
-            if (jsValue.IsUndefined()
-                && index < functionDeclaration?.Params.Count
-                && functionDeclaration.Params[index] is AssignmentPattern ap
-                && ap.Right is Literal l)
-            {
-                return JintLiteralExpression.ConvertToJsValue(l);
-            }
-
-            return jsValue;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static JsValue HandleRestPatternIfNeeded(
-            Engine engine,
-            IFunction functionDeclaration,
-            JsValue[] arguments,
-            int index,
-            JsValue defaultValue)
-        {
-            if (index < functionDeclaration?.Params.Count
-                && functionDeclaration.Params[index] is RestElement)
-            {
-                var count = (uint) (arguments.Length - functionDeclaration.Params.Count + 1);
-                var rest = engine.Array.ConstructFast(count);
-
-                uint targetIndex = 0;
-                for (var i = index; i < arguments.Length; ++i)
+                ArrayInstance array = null;
+                var arrayContents = ArrayExt.Empty<JsValue>();
+                if (argument.IsArray())
                 {
-                    rest.SetIndexValue(targetIndex++, arguments[i], updateLength: false);
+                    array = argument.AsArray();
                 }
-                return rest;
-            }
+                else if (argument.IsObject() && argument.TryGetIterator(_engine, out var iterator))
+                {
+                    array = _engine.Array.ConstructFast(0);
+                    var protocol = new ArrayPatternProtocol(_engine, array, iterator, arrayPattern.Elements.Count);
+                    protocol.Execute();
+                }
 
-            return defaultValue;
+                if (!ReferenceEquals(array, null))
+                {
+                    arrayContents = new JsValue[array.Length];
+
+                    for (uint contentsIndex = 0; contentsIndex < array.Length; contentsIndex++)
+                    {
+                        arrayContents[contentsIndex] = array.Get(contentsIndex);
+                    }
+                }
+
+                for (uint arrayIndex = 0; arrayIndex < arrayPattern.Elements.Count; arrayIndex++)
+                {
+                    SetFunctionParameter(arrayPattern.Elements[(int) arrayIndex], arrayContents, (int) arrayIndex, initiallyEmpty);
+                }
+            }
+            else if (parameter is ObjectPattern objectPattern)
+            {
+                if (argument.IsNullOrUndefined())
+                {
+                    ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is null or undefined");
+                }
+
+                if (!argument.IsObject())
+                {
+                    return;
+                }
+
+                var argumentObject = argument.AsObject();
+
+                var jsValues = _engine._jsValueArrayPool.RentArray(1);
+                foreach (var property in objectPattern.Properties)
+                {
+                    if (property.Key is Identifier propertyIdentifier)
+                    {
+                        argument = argumentObject.Get(propertyIdentifier.Name);
+                    }
+                    else if (property.Key is Literal propertyLiteral)
+                    {
+                        argument = argumentObject.Get(propertyLiteral.Raw);
+                    }
+                    else if (property.Key is CallExpression callExpression)
+                    {
+                        var jintCallExpression = JintExpression.Build(_engine, callExpression);
+                        argument = argumentObject.Get(jintCallExpression.GetValue().AsString());
+                    }
+
+                    jsValues[0] = argument;
+                    SetFunctionParameter(property.Value, jsValues, 0, initiallyEmpty);
+                }
+                _engine._jsValueArrayPool.ReturnArray(jsValues);
+            }
+            else if (parameter is AssignmentPattern assignmentPattern)
+            {
+                var idLeft = assignmentPattern.Left as Identifier;
+                if (idLeft != null
+                    && assignmentPattern.Right is Identifier idRight
+                    && idLeft.Name == idRight.Name)
+                {
+                    ExceptionHelper.ThrowReferenceError(_engine, idRight.Name);
+                }
+
+                if (argument.IsUndefined())
+                {
+                    JsValue RunInNewParameterEnvironment(JintExpression exp)
+                    {
+                        var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
+                        var paramVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+
+                        _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.ThisBinding);;
+                        var result = exp.GetValue();
+                        _engine.LeaveExecutionContext();
+
+                        return result;
+                    }
+
+                    var expression = assignmentPattern.Right.As<Expression>();
+                    var jintExpression = JintExpression.Build(_engine, expression);
+
+                    argument = jintExpression is JintSequenceExpression
+                        ? RunInNewParameterEnvironment(jintExpression)
+                        : jintExpression.GetValue();
+
+                    if (idLeft != null && assignmentPattern.Right.IsFunctionWithName())
+                    {
+                        ((FunctionInstance) argument).SetFunctionName(idLeft.Name);
+                    }
+                }
+
+                SetFunctionParameter(assignmentPattern.Left, new []{ argument }, 0, initiallyEmpty);
+            }
         }
 
-        internal void AddVariableDeclarations(ref Esprima.Ast.List<VariableDeclaration> variableDeclarations)
+        private void SetItemSafely(string name, JsValue argument, bool initiallyEmpty)
+        {
+            if (initiallyEmpty || !TryGetValue(name, out var existing))
+            {
+                var binding = new Binding(argument, false, true);
+                if (name.Length == 9 && name == BindingNameArguments)
+                {
+                    _argumentsBinding = binding;
+                }
+                else
+                {
+                    SetItem(name, binding);
+                }
+            }
+            else
+            {
+                if (existing.Mutable)
+                {
+                    ref var b = ref GetExistingItem(name);
+                    b.Value = argument;
+                }
+                else
+                {
+                    ExceptionHelper.ThrowTypeError(_engine, "Can't update the value of an immutable binding.");
+                }
+            }
+        }
+
+        internal void AddVariableDeclarations(ref NodeList<VariableDeclaration> variableDeclarations)
         {
             var variableDeclarationsCount = variableDeclarations.Count;
             for (var i = 0; i < variableDeclarationsCount; i++)
@@ -406,6 +482,21 @@ using Jint.Native.Function;
                 }
             }
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static JsValue HandleAssignmentPatternIfNeeded(IFunction functionDeclaration, JsValue jsValue, int index)
+        {
+            // TODO remove this method, overwrite with above SetFunctionParameter logic
+            if (jsValue.IsUndefined()
+                && index < functionDeclaration?.Params.Count
+                && functionDeclaration.Params[index] is AssignmentPattern ap
+                && ap.Right is Literal l)
+            {
+                return JintLiteralExpression.ConvertToJsValue(l);
+            }
+
+            return jsValue;
+        }
         
         internal override void FunctionWasCalled()
         {
@@ -426,6 +517,41 @@ using Jint.Native.Function;
                 // we need to ensure we hold on to arguments given
                 argumentsInstance.PersistArguments();
                 _argumentsBindingWasAccessed = null;
+            }
+        }
+
+        private sealed class ArrayPatternProtocol : IteratorProtocol
+        {
+            private readonly ArrayInstance _instance;
+            private readonly int _max;
+            private long _index = -1;
+
+            public ArrayPatternProtocol(
+                Engine engine,
+                ArrayInstance instance,
+                IIterator iterator,
+                int max) : base(engine, iterator, 0)
+            {
+                _instance = instance;
+                _max = max;
+            }
+
+            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+            {
+                _index++;
+                var jsValue = ExtractValueFromIteratorInstance(currentValue);
+                _instance.SetIndexValue((uint) _index, jsValue, updateLength: false);
+            }
+
+            protected override bool ShouldContinue => _index < _max;
+
+            protected override void IterationEnd()
+            {
+                if (_index >= 0)
+                {
+                    _instance.SetLength((uint) _index);
+                    ReturnIterator();
+                }
             }
         }
     }

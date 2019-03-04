@@ -37,8 +37,7 @@ namespace Jint.Native.Function
             Extensible = true;
             Prototype = _engine.Function.PrototypeObject;
 
-            var length = function._hasRestParameter ? _formalParameters.Length - 1 : _formalParameters.Length;
-            _length = new PropertyDescriptor(JsNumber.Create(length), PropertyFlag.AllForbidden);
+            _length = new PropertyDescriptor(JsNumber.Create(function._length), PropertyFlag.Configurable);
 
             var proto = new ObjectInstanceWithConstructor(engine, this)
             {
@@ -98,8 +97,7 @@ namespace Jint.Native.Function
                 {
                     var argumentInstanceRented = _engine.DeclarationBindingInstantiation(
                         DeclarationBindingType.FunctionCode,
-                        ref _function._hoistingScope.FunctionDeclarations,
-                        ref _function._hoistingScope.VariableDeclarations,
+                        _function._hoistingScope,
                         functionInstance: this,
                         arguments);
 

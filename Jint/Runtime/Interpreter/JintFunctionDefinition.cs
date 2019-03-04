@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Esprima;
 using Esprima.Ast;
 using Jint.Runtime.Interpreter.Statements;
@@ -12,6 +14,7 @@ namespace Jint.Runtime.Interpreter
         internal readonly string[] _parameterNames;
         internal readonly JintStatement _body;
         internal bool _hasRestParameter;
+        internal int _length;
 
         public readonly HoistingScope _hoistingScope;
 
@@ -36,54 +39,61 @@ namespace Jint.Runtime.Interpreter
             _body = JintStatement.Build(engine, bodyStatement);
         }
 
-        private string[] GetParameterNames(IFunction functionDeclaration)
+        private IEnumerable<Identifier> GetParameterIdentifiers(INode parameter)
         {
-            var list = functionDeclaration.Params;
-            var count = list.Count;
-
-            if (count == 0)
+            if (parameter is Identifier identifier)
             {
-                return System.ArrayExt.Empty<string>();
+                return new [] { identifier };
+            }
+            if (parameter is RestElement restElement)
+            {
+                _hasRestParameter = true;
+                return GetParameterIdentifiers(restElement.Argument);
+            }
+            if (parameter is ArrayPattern arrayPattern)
+            {
+                return arrayPattern.Elements.SelectMany(GetParameterIdentifiers);
+            }
+            if (parameter is ObjectPattern objectPattern)
+            {
+                return objectPattern.Properties.SelectMany(property => GetParameterIdentifiers(property.Value));
+            }
+            if (parameter is AssignmentPattern assignmentPattern)
+            {
+                return GetParameterIdentifiers(assignmentPattern.Left);
             }
 
-            var names = new string[count];
-            for (var i = 0; i < count; ++i)
+            return Enumerable.Empty<Identifier>();
+        }
+
+        private string[] GetParameterNames(IFunction functionDeclaration)
+        {
+            var parameterNames = new List<string>();
+            var functionDeclarationParams = functionDeclaration.Params;
+            int count = functionDeclarationParams.Count;
+            bool onlyIdentifiers = true;
+            for (var i = 0; i < count; i++)
             {
-                var node = list[i];
-                if (node is Identifier identifier)
+                var parameter = functionDeclarationParams[i];
+                if (parameter is Identifier id)
                 {
-                    names[i] = identifier.Name;
-                }
-                else if (node is AssignmentPattern ap)
-                {
-                    names[i] = ((Identifier) ap.Left).Name;
-                }
-                else if (node is RestElement re)
-                {
-                    if (re.Argument is Identifier id)
+                    parameterNames.Add(id.Name);
+                    if (onlyIdentifiers)
                     {
-                        names[i] = id.Name;
+                        _length++;
                     }
-                    else
-                    {
-                        names[i] = "";
-                    }
-                    _hasRestParameter = true;
-                }
-                else if (node is BindingPattern)
-                {
-                    names[i] = "";
                 }
                 else
                 {
-                    ExceptionHelper.ThrowArgumentOutOfRangeException(
-                        nameof(functionDeclaration),
-                        "Unable to determine how to handle parameter of type " + node.GetType());
+                    onlyIdentifiers = false;
+                    foreach (var identifier in GetParameterIdentifiers(parameter))
+                    {
+                        parameterNames.Add(identifier.Name);
+                    }
                 }
             }
 
-            return names;
+            return parameterNames.ToArray();
         }
-
     }
 }

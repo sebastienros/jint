@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Esprima.Ast;
+﻿using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Interpreter.Statements;
 
@@ -15,12 +14,12 @@ namespace Jint.Runtime.Interpreter
 
         private readonly Engine _engine;
         private readonly Statement _statement;
-        private readonly Esprima.Ast.List<StatementListItem> _statements;
+        private readonly NodeList<IStatementListItem> _statements;
 
         private Pair[] _jintStatements;
         private bool _initialized;
 
-        public JintStatementList(Engine engine, Statement statement, Esprima.Ast.List<StatementListItem> statements)
+        public JintStatementList(Engine engine, Statement statement, NodeList<IStatementListItem> statements)
         {
             _engine = engine;
             _statement = statement;
