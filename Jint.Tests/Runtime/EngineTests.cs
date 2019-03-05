@@ -1009,6 +1009,16 @@ namespace Jint.Tests.Runtime
             Assert.Throws<ArgumentException>(() => _engine.Invoke(foo, obj, new object[] { }));
         }
 
+        [Fact]
+        public void ShouldNotAllowModifyingSharedUndefinedDescriptor()
+        {
+            var e = new Engine();
+            e.Execute("var x = { literal: true };");
+
+            var pd = e.GetValue("x").AsObject().GetProperty("doesNotExist");
+            Assert.Throws<InvalidOperationException>(() => pd.Value = "oh no, assigning this breaks things");
+        }
+
         [Theory]
         [InlineData("0", 0, 16)]
         [InlineData("1", 1, 16)]
