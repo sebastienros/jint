@@ -119,7 +119,7 @@ namespace Jint.Native.Function
             JsValue[] values = ArrayExt.Empty<JsValue>();
             if (arguments.Length > 1)
             {
-                values = _engine._jsValueArrayPool.RentArray(arguments.Length - 1);
+                values = new JsValue[arguments.Length - 1];
                 System.Array.Copy(arguments, 1, values, 0, arguments.Length - 1);
             }
 

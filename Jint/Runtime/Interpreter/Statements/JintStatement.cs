@@ -1,4 +1,5 @@
-﻿using Esprima;
+﻿using System.Runtime.CompilerServices;
+using Esprima;
 using Esprima.Ast;
 using Jint.Runtime.Interpreter.Expressions;
 
@@ -6,19 +7,30 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal abstract class JintStatement<T> : JintStatement where T : Statement
     {
+        protected readonly T _statement;
+
+        protected JintStatement(Engine engine, T statement) : base(engine, statement)
+        {
+            _statement = statement;
+        }
+    }
+
+    internal abstract class JintStatement
+    {
+        protected readonly Engine _engine;
+        private readonly Statement _statement;
+
         // require sub-classes to set to false explicitly to skip virtual call
         protected bool _initialized = true;
 
-        protected readonly Engine _engine;
-        protected readonly T _statement;
-
-        protected JintStatement(Engine engine, T statement)
+        protected JintStatement(Engine engine, Statement statement)
         {
             _engine = engine;
             _statement = statement;
         }
 
-        public sealed override Completion Execute()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Completion Execute()
         {
             _engine._lastSyntaxNode = _statement;
 
@@ -36,7 +48,9 @@ namespace Jint.Runtime.Interpreter.Statements
             return ExecuteInternal();
         }
 
-        public override Location Location => _statement.Location;
+        protected abstract Completion ExecuteInternal();
+
+        public Location Location => _statement.Location;
 
         /// <summary>
         /// Opportunity to build one-time structures and caching based on lexical context.
@@ -44,15 +58,6 @@ namespace Jint.Runtime.Interpreter.Statements
         protected virtual void Initialize()
         {
         }
-    }
-
-    internal abstract class JintStatement
-    {
-        public abstract Location Location { get; }
-
-        public abstract Completion Execute();
-
-        protected abstract Completion ExecuteInternal();
 
         protected internal static JintStatement Build(Engine engine, Statement statement)
         {
