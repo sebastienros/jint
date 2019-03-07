@@ -15,6 +15,7 @@ namespace Jint
         private bool _strict;
         private bool _allowDebuggerStatement;
         private bool _allowClr;
+        private bool _allowClrWrite = true;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private Func<object, ObjectInstance> _wrapObjectHandler;
         private int _maxStatements;
@@ -99,6 +100,12 @@ namespace Jint
             return this;
         }
 
+        public Options AllowClrWrite(bool allow = true)
+        {
+            _allowClrWrite = allow;
+            return this;
+        }
+
         /// <summary>
         /// Exceptions thrown from CLR code are converted to JavaScript errors and
         /// can be used in at try/catch statement. By default these exceptions are bubbled
@@ -180,6 +187,8 @@ namespace Jint
         internal bool IsDebugMode { get; private set; }
 
         internal bool _IsClrAllowed => _allowClr;
+
+        internal bool _IsClrWriteAllowed => _allowClrWrite;
 
         internal Predicate<Exception> _ClrExceptionsHandler => _clrExceptionsHandler;
 
