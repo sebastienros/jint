@@ -7145,8 +7145,8 @@
     source: "ch11/11.1/11.1.5/11.1.5-3-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate names allowed",
     source: "ch11/11.1/11.1.5/11.1.5-4-4-a-1-s.js"
   },
   {
@@ -7170,43 +7170,43 @@
     source: "ch11/11.1/11.1.5/11.1.5_4-4-a-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate names now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-b-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate names now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-b-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate names now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-c-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate names now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-c-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate get get now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-d-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate set set allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-d-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate property names now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-d-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate property names now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-d-4.js"
   },
   {

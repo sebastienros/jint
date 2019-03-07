@@ -37,7 +37,7 @@ namespace Jint
         private static readonly ParserOptions DefaultParserOptions = new ParserOptions
         {
             AdaptRegexp = true,
-            Tolerant = false,
+            Tolerant = true,
             Loc = true
         };
 

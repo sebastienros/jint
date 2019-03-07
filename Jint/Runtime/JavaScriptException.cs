@@ -52,7 +52,7 @@ namespace Jint.Runtime
                             sb.Builder.Append(", ");
                         var arg = cse.CallExpression.Arguments[index];
                         if (arg is Expression pke)
-                            sb.Builder.Append(pke.GetKey());
+                            sb.Builder.Append(pke.GetKey(engine));
                         else
                             sb.Builder.Append(arg);
                     }

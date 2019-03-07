@@ -52,7 +52,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                 ExceptionHelper.ThrowInvalidOperationException("No matching indexer found.");
             }
 
-            Writable = true;
+            Writable = engine.Options._IsClrWriteAllowed;
         }
 
         public IndexDescriptor(Engine engine, string key, object item)

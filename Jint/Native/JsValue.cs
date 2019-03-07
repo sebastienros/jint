@@ -227,17 +227,21 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T TryCast<T>(Action<JsValue> fail = null) where T : class
+        public T TryCast<T>() where T : class
         {
-            if (_type == Types.Object)
+            return this as T;
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public T TryCast<T>(Action<JsValue> fail) where T : class
+        {
+            if (this is T o)
             {
-                if (this is T o)
-                {
-                    return o;
-                }
+                return o;
             }
 
-            fail?.Invoke(this);
+            fail.Invoke(this);
 
             return null;
         }

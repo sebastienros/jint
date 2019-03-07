@@ -7,7 +7,7 @@ namespace Jint.Runtime.Descriptors
 {
     public class PropertyDescriptor
     {
-        public static readonly PropertyDescriptor Undefined = new PropertyDescriptor(PropertyFlag.None);
+        public static readonly PropertyDescriptor Undefined = new UndefinedPropertyDescriptor();
 
         internal PropertyFlag _flags;
         internal JsValue _value;
@@ -382,6 +382,18 @@ namespace Jint.Runtime.Descriptors
             }
 
             return true;
+        }
+
+        private sealed class UndefinedPropertyDescriptor : PropertyDescriptor
+        {
+            public UndefinedPropertyDescriptor() : base(PropertyFlag.None | PropertyFlag.CustomJsValue)
+            {
+            }
+
+            protected internal override JsValue CustomValue
+            {
+                set => ExceptionHelper.ThrowInvalidOperationException("making changes to undefined property's descriptor is not allowed");
+            }
         }
     }
 }
