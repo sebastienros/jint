@@ -32,6 +32,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return _engine.GetValue(Evaluate(), true);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public object Evaluate()
         {
             _engine._lastSyntaxNode = _expression;
@@ -336,7 +337,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        protected void BuildArguments(JintExpression[] jintExpressions, JsValue[] targetArray)
+        protected static void BuildArguments(JintExpression[] jintExpressions, JsValue[] targetArray)
         {
             for (var i = 0; i < jintExpressions.Length; i++)
             {

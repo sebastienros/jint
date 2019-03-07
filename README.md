@@ -154,7 +154,7 @@ This example is using French as the default culture.
 ES6 features which are being implemented:
 - [x] [arrows](https://github.com/lukehoban/es6features/blob/master/README.md#arrows)
 - [ ] [classes](https://github.com/lukehoban/es6features/blob/master/README.md#classes)
-- [ ] [enhanced object literals](https://github.com/lukehoban/es6features/blob/master/README.md#enhanced-object-literals)
+- [x] [enhanced object literals](https://github.com/lukehoban/es6features/blob/master/README.md#enhanced-object-literals)
 - [x] [template strings](https://github.com/lukehoban/es6features/blob/master/README.md#template-strings)
 - [x] [destructuring](https://github.com/lukehoban/es6features/blob/master/README.md#destructuring)
 - [x] [default + rest + spread](https://github.com/lukehoban/es6features/blob/master/README.md#default--rest--spread)

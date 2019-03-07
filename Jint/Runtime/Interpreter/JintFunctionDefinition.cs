@@ -33,7 +33,17 @@ namespace Jint.Runtime.Interpreter
             }
             else
             {
-                bodyStatement = (BlockStatement) function.Body;
+                // Esprima doesn't detect strict at the moment for
+                // language/expressions/object/method-definition/name-invoke-fn-strict.js
+                var blockStatement = (BlockStatement) function.Body;
+                for (int i = 0; i < blockStatement.Body.Count; ++i)
+                {
+                    if (blockStatement.Body[i] is Directive d && d.Directiv == "use strict")
+                    {
+                        _strict = true;
+                    }
+                }
+                bodyStatement = blockStatement;
             }
 
             _body = JintStatement.Build(engine, bodyStatement);

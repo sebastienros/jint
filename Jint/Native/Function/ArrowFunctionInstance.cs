@@ -13,7 +13,7 @@ namespace Jint.Native.Function
         private readonly JsValue _thisBinding;
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-arrow-function-definitions
         /// </summary>
         public ArrowFunctionInstance(
             Engine engine,
@@ -81,8 +81,7 @@ namespace Jint.Native.Function
 
                     if (result.Type == CompletionType.Throw)
                     {
-                        var ex = new JavaScriptException(value).SetCallstack(_engine, result.Location);
-                        throw ex;
+                        ExceptionHelper.ThrowJavaScriptException(_engine, value, result);
                     }
 
                     if (result.Type == CompletionType.Return)

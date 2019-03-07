@@ -10,7 +10,7 @@ namespace Jint.Native.Function
     {
         private const string PropertyNamePrototype = "prototype";
         private const int PropertyNamePrototypeLength = 9;
-        protected PropertyDescriptor _prototype;
+        protected internal PropertyDescriptor _prototype;
 
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
@@ -22,7 +22,7 @@ namespace Jint.Native.Function
 
         protected readonly LexicalEnvironment _scope;
         protected internal readonly string[] _formalParameters;
-        private readonly bool _strict;
+        protected readonly bool _strict;
 
         protected FunctionInstance(
             Engine engine,
