@@ -118,10 +118,9 @@ namespace Jint.Native.Argument
                     return desc;
                 }
 
-                var isMapped = ParameterMap.GetOwnProperty(propertyName);
-                if (isMapped != PropertyDescriptor.Undefined)
+                if (ParameterMap.TryGetValue(propertyName, out var jsValue) && !jsValue.IsUndefined())
                 {
-                    desc.Value = ParameterMap.Get(propertyName);
+                    desc.Value = jsValue;
                 }
 
                 return desc;
@@ -173,6 +172,12 @@ namespace Jint.Native.Argument
 
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
         {
+            if (_func is ScriptFunctionInstance scriptFunctionInstance && scriptFunctionInstance._function._hasRestParameter)
+            {
+                // immutable
+                return false;
+            }
+
             EnsureInitialized();
 
             if (!_strict && !ReferenceEquals(ParameterMap, null))

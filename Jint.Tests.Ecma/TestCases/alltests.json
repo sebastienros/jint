@@ -7145,8 +7145,8 @@
     source: "ch11/11.1/11.1.5/11.1.5-3-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate names allowed",
     source: "ch11/11.1/11.1.5/11.1.5-4-4-a-1-s.js"
   },
   {
@@ -7170,43 +7170,43 @@
     source: "ch11/11.1/11.1.5/11.1.5_4-4-a-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate names now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-b-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate names now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-b-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate names now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-c-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate names now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-c-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate get get now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-d-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate set set allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-d-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate property names now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-d-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "duplicate property names now allowed",
     source: "ch11/11.1/11.1.5/11.1.5_4-4-d-4.js"
   },
   {
@@ -15885,13 +15885,13 @@
     source: "ch12/12.6/12.6.3/S12.6.3_A8_T3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch12/12.6/12.6.3/S12.6.3_A9.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch12/12.6/12.6.3/S12.6.3_A9.js"
   },
   {
@@ -16825,8 +16825,8 @@
     source: "ch13/13.2/13.2-14-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "function length is configurable",
     source: "ch13/13.2/13.2-15-1.js"
   },
   {
@@ -24780,8 +24780,8 @@
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-186.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "function length is configurable",
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-187.js"
   },
   {
@@ -38255,18 +38255,18 @@
     source: "ch15/15.3/15.3.5/S15.3.5.1_A1_T3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "function length is configurable",
     source: "ch15/15.3/15.3.5/S15.3.5.1_A2_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "function length is configurable",
     source: "ch15/15.3/15.3.5/S15.3.5.1_A2_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "function length is configurable",
     source: "ch15/15.3/15.3.5/S15.3.5.1_A2_T3.js"
   },
   {

@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
+using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -35,6 +37,7 @@ namespace Jint.Native.String
         {
             SetOwnProperty("fromCharCode", new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCharCode", FromCharCode, 1), PropertyFlag.NonEnumerable));
             SetOwnProperty("fromCodePoint", new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCodePoint", FromCodePoint, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
+            SetOwnProperty("raw", new PropertyDescriptor(new ClrFunctionInstance(Engine, "raw", Raw, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
         }
 
         private static JsValue FromCharCode(JsValue thisObj, JsValue[] arguments)
@@ -86,6 +89,41 @@ namespace Jint.Native.String
             }
 
             return result + FromCharCode(null, codeUnits.ToArray());
+        }
+
+        /// <summary>
+        /// https://www.ecma-international.org/ecma-262/6.0/#sec-string.raw
+        /// </summary>
+        private JsValue Raw(JsValue thisObj, JsValue[] arguments)
+        {
+            var cooked = TypeConverter.ToObject(_engine, arguments.At(0));
+            var raw = TypeConverter.ToObject(_engine, cooked.Get("raw"));
+
+            var operations = ArrayPrototype.ArrayOperations.For(raw);
+            var length = operations.GetLength();
+
+            if (length <= 0)
+            {
+                return JsString.Empty;
+            }
+
+            using (var result = StringBuilderPool.Rent())
+            {
+                for (var i = 0; i < length; i++)
+                {
+                    if (i > 0)
+                    {
+                        if (i < arguments.Length && !arguments[i].IsUndefined())
+                        {
+                            result.Builder.Append(TypeConverter.ToString(arguments[i]));
+                        }
+                    }
+
+                    result.Builder.Append(TypeConverter.ToString(operations.Get((ulong) i)));
+                }
+
+                return result.ToString();
+            }
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

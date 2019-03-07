@@ -74,7 +74,7 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.2
         /// </summary>
-        public static JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
+        public JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
         {
             string inputString = TypeConverter.ToString(arguments.At(0));
             var s = StringPrototype.TrimEx(inputString);
@@ -110,7 +110,7 @@ namespace Jint.Native.Global
             }
             else if (radix < 2 || radix > 36)
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
             else if (radix != 16)
             {
@@ -128,7 +128,7 @@ namespace Jint.Native.Global
             }
             catch
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
         }
@@ -175,7 +175,7 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.3
         /// </summary>
-        public static JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
+        public JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
         {
             var inputString = TypeConverter.ToString(arguments.At(0));
             var trimmedString = StringPrototype.TrimStartEx(inputString);
@@ -201,7 +201,7 @@ namespace Jint.Native.Global
 
             if (trimmedString.StartsWith("NaN"))
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             var separator = (char)0;
@@ -305,7 +305,7 @@ namespace Jint.Native.Global
 
             if (isNan)
             {
-                return double.NaN;
+                return JsNumber.DoubleNaN;
             }
 
             for (var k = 1; k <= exp; k++)

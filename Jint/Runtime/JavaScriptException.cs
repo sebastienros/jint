@@ -1,9 +1,9 @@
 ﻿using System;
-using System.Text;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Error;
+using Jint.Pooling;
 
 namespace Jint.Runtime
 {
@@ -34,37 +34,41 @@ namespace Jint.Runtime
             Error = error;
         }
 
-        public JavaScriptException SetCallstack(Engine engine, Location location = null)
+        public JavaScriptException SetCallstack(Engine engine, Location? location = null)
         {
-            Location = location;
-            var sb = new StringBuilder();
-            foreach (var cse in engine.CallStack)
+            Location = location ?? default;
+
+            using (var sb = StringBuilderPool.Rent())
             {
-                sb.Append(" at ")
-                    .Append(cse)
-                    .Append("(");
-
-                for (var index = 0; index < cse.CallExpression.Arguments.Count; index++)
+                foreach (var cse in engine.CallStack)
                 {
-                    if (index != 0)
-                        sb.Append(", ");
-                    var arg = cse.CallExpression.Arguments[index];
-                    if (arg is Expression pke)
-                        sb.Append(pke.GetKey());
-                    else
-                        sb.Append(arg);
+                    sb.Builder.Append(" at ")
+                        .Append(cse)
+                        .Append("(");
+
+                    for (var index = 0; index < cse.CallExpression.Arguments.Count; index++)
+                    {
+                        if (index != 0)
+                            sb.Builder.Append(", ");
+                        var arg = cse.CallExpression.Arguments[index];
+                        if (arg is Expression pke)
+                            sb.Builder.Append(pke.GetKey(engine));
+                        else
+                            sb.Builder.Append(arg);
+                    }
+
+
+                    sb.Builder.Append(") @ ")
+                        .Append(cse.CallExpression.Location.Source)
+                        .Append(" ")
+                        .Append(cse.CallExpression.Location.Start.Column)
+                        .Append(":")
+                        .Append(cse.CallExpression.Location.Start.Line)
+                        .AppendLine();
                 }
-
-
-                sb.Append(") @ ")
-                    .Append(cse.CallExpression.Location.Source)
-                    .Append(" ")
-                    .Append(cse.CallExpression.Location.Start.Column)
-                    .Append(":")
-                    .Append(cse.CallExpression.Location.Start.Line)
-                    .AppendLine();
+                CallStack = sb.ToString();
             }
-            CallStack = sb.ToString();
+
             return this;
         }
 
@@ -117,8 +121,8 @@ namespace Jint.Runtime
 
         public Location Location { get; set; }
 
-        public int LineNumber => Location?.Start.Line ?? 0;
+        public int LineNumber => Location.Start.Line;
 
-        public int Column => Location?.Start.Column ?? 0;
+        public int Column => Location.Start.Column;
     }
 }

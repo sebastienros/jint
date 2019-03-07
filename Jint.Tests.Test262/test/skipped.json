@@ -92,10 +92,6 @@
     "reason": "ArrayBuffer not implemented"
   },
   {
-    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_non-array.js",
-    "reason": "class keyword not implemented"
-  },
-  {
     "source": "built-ins/Array/prototype/concat/Array.prototype.concat_large-typed-array.js",
     "reason": "Uint8Array not implemented"
   },
@@ -184,10 +180,6 @@
     "reason": "WeakSet not implemented"
   },
   {
-    "source": "built-ins/Set/prototype/forEach/this-arg-explicit-cannot-override-lexical-this-arrow.js",
-    "reason": "arrow functions not implemented"
-  },
-  {
     "source": "built-ins/Array/prototype/reverse/length-exceeding-integer-limit-with-proxy.js",
     "reason": "proxies not implemented"
   },
@@ -212,7 +204,7 @@
     "reason": "requires toLocaleString changes"
   },
 
-  // experimenta
+  // experimentals start
 
   {
     "source": "built-ins/Array/prototype/flat/array-like-objects.js",
@@ -278,16 +270,579 @@
     "source": "built-ins/Array/prototype/flatMap/thisArg-argument.js",
     "reason": "experimental"
   },
+
+  // experimentals end
+
   {
     "source": "built-ins/String/prototype/padEnd/observable-operations.js",
-    "reason": "observables not implemetned"
+    "reason": "observables not implemented"
   },
   {
     "source": "built-ins/String/prototype/padStart/observable-operations.js",
-    "reason": "observables not implemetned"
+    "reason": "observables not implemented"
   },
   {
     "source": "built-ins/StringIteratorPrototype/next/next-iteration-surrogate-pairs.js",
     "reason": "code point iteration not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-const-bound-names-fordecl-tdz.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-const-fresh-binding-per-iteration.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-decl-expr.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-let-bound-names-fordecl-tdz.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-let-destructuring.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-let-fresh-binding-per-iteration.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-lhs-let.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/scope-head-var-none.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for/head-const-fresh-binding-per-iteration.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for/head-let-destructuring.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for/head-let-fresh-binding-per-iteration.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "language/statements/for-in/head-var-bound-names-dup.js",
+    "reason": "destructing not implemented"
+  },
+  {
+    "source": "language/rest-parameters/arrow-function.js",
+    "reason": "Github issue #600 - rest parameters hang when not set"
+  },
+  {
+    "source": "language/rest-parameters/object-pattern.js",
+    "reason": "destructing not implemented"
+  },
+  {
+    "source": "built-ins/Math/pow/int32_min-exponent.js",
+    "reason": "const not implemented"
+  },
+  {
+    "source": "language/expressions/template-literal/tv-line-terminator-sequence.js",
+    "reason": "Line feed problems (git, windows, linux)"
+  },
+  {
+    "source": "built-ins/Number/prototype/toPrecision/range.js",
+    "reason": "Github issue #599 - dtoa function not precise enough"
+  },
+  {
+    "source": "built-ins/Number/prototype/toFixed/range.js",
+    "reason": "Github issue #599 - dtoa function not precise enough"
+  },
+  {
+    "source": "built-ins/Number/prototype/toExponential/range.js",
+    "reason": "Github issue #599 - dtoa function not precise enough"
+  },
+  {
+    "source": "language/types/number/8.5.1.js",
+    "reason": "C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308"
+  },
+
+  // function behaviour to be implemented
+  {
+    "source": "language/expressions/function/scope-name-var-open-non-strict.js",
+    "reason": "inner binding is immutable (from parameters) Expected SameValue(«null», «function() {{ ... }}») to be true"
+  },
+  {
+    "source": "language/expressions/function/scope-name-var-open-strict.js",
+    "reason": "inner binding rejects modification (from parameters) Expected a Error to be thrown but no exception was thrown at all"
+  },
+
+  // let support
+  {
+    "source": "language/statements/for/dstr-const-ary-ptrn-rest-obj-prop-id.js",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/statements/for/dstr-var-ary-ptrn-rest-obj-prop-id.js",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/statements/for/dstr-let-ary-ptrn-rest-obj-prop-id.js",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-ary-ptrn-elem-id-init-fn-name-cover.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-ary-ptrn-rest-obj-prop-id.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-dflt-ary-ptrn-rest-obj-prop-id.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/function/dstr-ary-ptrn-rest-obj-prop-id.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/function/dstr-dflt-ary-ptrn-rest-obj-prop-id.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-ary-ptrn-rest-obj-prop-id.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-dflt-ary-ptrn-rest-obj-prop-id.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+
+  // class support
+  {
+    "source": "language/expressions/arrow-function/dstr-dflt-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_non-array.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/rest-parameters/with-new-target.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/for/dstr-const-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/for/dstr-let-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/for/dstr-let-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/for/dstr-const-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/for/dstr-var-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/for/dstr-var-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-dflt-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/arrow-function/lexical-super-property-from-within-constructor.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/arrow-function/lexical-supercall-from-immediately-invoked-arrow.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/arrow-function/lexical-super-property.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/arrow-function/lexical-super-call-from-within-constructor.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/function/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/function/dstr-dflt-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/function/dstr-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/function/dstr-dflt-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-dflt-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-dflt-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/method-definition/name-invoke-ctor",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/method-definition/name-invoke-ctor.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/expressions/object/method-definition/name-prototype-prop.js",
+    "reason": "class not implemented"
+  },
+
+
+  {
+    "source": "language/expressions/object/accessor-name-computed-yield-id.js",
+    "reason": "accessor / yield not implemented"
+  },
+  {
+    "source": "language/expressions/object/accessor-name-computed.js",
+    "reason": "yield not implemented"
+  },
+  {
+    "source": "language/expressions/object/prop-dup-set-get-set.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/accessor-name-computed-err-to-prop-key.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/accessor-name-computed-err-unresolvable.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/accessor-name-computed-in.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/accessor-name-literal-numeric-leading-decimal.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/accessor-name-literal-numeric-non-canonical.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/fn-name-accessor-get.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/fn-name-accessor-set.js",
+    "reason": "accessor not implemented"
+  },
+  {
+    "source": "language/expressions/object/method-definition/name-prop-name-yield-id.js",
+    "reason": "yield not implemented"
+  },
+
+
+  {
+    "source": "language/expressions/object/method.js",
+    "reason": "setPrototypeOf not implemented"
+  },
+  {
+    "source": "language/expressions/object/setter-super-prop.js",
+    "reason": "setPrototypeOf not implemented"
+  },
+  {
+    "source": "language/expressions/object/getter-super-prop.js",
+    "reason": "setPrototypeOf not implemented"
+  },
+
+
+  {
+    "source": "language/expressions/object/fn-name-arrow.js",
+    "reason": "symbols not identifiable in property name"
+  },
+  {
+    "source": "language/expressions/object/fn-name-cover.js",
+    "reason": "symbols not identifiable in property name"
+  },
+  {
+    "source": "language/expressions/object/fn-name-fn.js",
+    "reason": "symbols not identifiable in property name"
+  },
+  {
+    "source": "language/expressions/object/method-definition/fn-name-fn.js",
+    "reason": "symbols not identifiable in property name"
+  },
+  {
+    "source": "language/expressions/object/method-definition/name-name-prop-symbol.js",
+    "reason": "symbols not identifiable in property name"
+  },
+
+
+  {
+    "source": "language/expressions/arrow-function/scope-paramsbody-var-open.js",
+    "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+  },
+  {
+    "source": "language/expressions/function/scope-paramsbody-var-open.js",
+    "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+  },
+  {
+    "source": "language/expressions/object/scope-meth-paramsbody-var-open.js",
+    "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+  },
+  {
+    "source": "language/expressions/object/scope-setter-paramsbody-var-open.js",
+    "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+  },
+
+  // Esprima problems
+  
+  {
+    "source": "language/statements/for/dstr-var-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/statements/for/dstr-var-obj-ptrn-rest-skip-non-enumerable",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/statements/for/dstr-var-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/statements/for/dstr-const-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/statements/for/dstr-const-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/statements/for/dstr-const-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/statements/for/dstr-const-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/statements/for/dstr-let-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/statements/for/dstr-let-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/statements/for/dstr-let-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/statements/for/dstr-var-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/call/trailing-comma.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/statements/for/head-lhs-let.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/white-space/mongolian-vowel-separator-eval.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dflt-params-trailing-comma.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-dflt-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-dflt-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-dflt-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/dstr-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/params-trailing-comma-multiple.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/arrow-function/params-trailing-comma-single.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dflt-params-trailing-comma.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dstr-dflt-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dstr-dflt-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dstr-dflt-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dstr-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dstr-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/dstr-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/params-trailing-comma-multiple.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-dflt-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-dflt-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-obj-ptrn-rest-getter.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-obj-ptrn-rest-val-obj.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/let-non-strict-access.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/async-meth-dflt-params-abrupt.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/async-meth-dflt-params-arg-val-not-undefined.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/async-meth-dflt-params-ref-later.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/async-meth-dflt-params-ref-prior.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/async-meth-dflt-params-ref-self.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-dflt-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/dstr-meth-obj-ptrn-rest-skip-non-enumerable.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/let-non-strict-syntax.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/meth-dflt-params-trailing-comma.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/meth-params-trailing-comma-multiple.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/meth-params-trailing-comma-single.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/name-param-id-yield.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/yield-non-strict-access.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/yield-non-strict-syntax.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/method-definition/object-method-returns-promise.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/function/params-trailing-comma-single.js",
+    "reason": "Esprima problem"
   }
 ]

@@ -1,4 +1,12 @@
 image: Visual Studio 2017
+
+# Do not build feature branch with open Pull Requests
+skip_branch_with_pr: true
+branches:
+  only:
+    - master
+    - dev
+
 init:
   - git config --global core.autocrlf true
 install:
@@ -11,6 +19,7 @@ build_script:
   - dotnet pack -c Release
 test_script:
   - dotnet test .\Jint.Tests\Jint.Tests.csproj -c Release -f netcoreapp2.1
+  - dotnet test .\Jint.Tests\Jint.Tests.csproj -c Release -f net452
   - dotnet test .\Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj -c Release -f netcoreapp2.1
   - dotnet test .\Jint.Tests.Ecma\Jint.Tests.Ecma.csproj -c Release -f netcoreapp2.1
   - dotnet test .\Jint.Tests.Test262\Jint.Tests.Test262.csproj -c Release -f netcoreapp2.1

@@ -44,7 +44,7 @@ namespace Jint.Runtime.Debugger
             if (identifier != null)
             {
                 var stack = identifier.Name + "(";
-                var paramStrings = new List<string>();
+                var paramStrings = new System.Collections.Generic.List<string>();
 
                 foreach (var argument in callExpression.Arguments)
                 {
@@ -162,7 +162,7 @@ namespace Jint.Runtime.Debugger
         private static Dictionary<string, JsValue> GetLocalVariables(LexicalEnvironment lex)
         {
             Dictionary<string, JsValue> locals = new Dictionary<string, JsValue>();
-            if (!ReferenceEquals(lex?.Record, null))
+            if (!ReferenceEquals(lex?._record, null))
             {
                 AddRecordsFromEnvironment(lex, locals);
             }
@@ -174,22 +174,22 @@ namespace Jint.Runtime.Debugger
             Dictionary<string, JsValue> globals = new Dictionary<string, JsValue>();
             LexicalEnvironment tempLex = lex;
 
-            while (tempLex != null && !ReferenceEquals(tempLex.Record, null))
+            while (!ReferenceEquals(tempLex?._record, null))
             {
                 AddRecordsFromEnvironment(tempLex, globals);
-                tempLex = tempLex.Outer;
+                tempLex = tempLex._outer;
             }
             return globals;
         }
 
         private static void AddRecordsFromEnvironment(LexicalEnvironment lex, Dictionary<string, JsValue> locals)
         {
-            var bindings = lex.Record.GetAllBindingNames();
+            var bindings = lex._record.GetAllBindingNames();
             foreach (var binding in bindings)
             {
                 if (locals.ContainsKey(binding) == false)
                 {
-                    var jsValue = lex.Record.GetBindingValue(binding, false);
+                    var jsValue = lex._record.GetBindingValue(binding, false);
                     if (jsValue.TryCast<ICallable>() == null)
                     {
                         locals.Add(binding, jsValue);

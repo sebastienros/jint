@@ -22,7 +22,8 @@ calls = 0;
   );
 })`\
 \
-\`
+\
+`
 assert.sameValue(calls, 1);
 
 calls = 0;

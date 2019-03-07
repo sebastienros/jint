@@ -168,15 +168,18 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool TryGetIterator(Engine engine, out IIterator iterator)
         {
-            if (!(this is ObjectInstance oi)
-                || !oi.TryGetValue(GlobalSymbolRegistry.Iterator._value, out var value)
+            var objectInstance = TypeConverter.ToObject(engine, this);
+
+            if (!objectInstance.TryGetValue(GlobalSymbolRegistry.Iterator._value, out var value)
                 || !(value is ICallable callable))
             {
                 iterator = null;
                 return false;
             }
 
-            var obj = (ObjectInstance) callable.Call(this, Arguments.Empty);
+            var obj = callable.Call(this, Arguments.Empty) as ObjectInstance
+                      ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Result of the Symbol.iterator method is not an object");
+
             if (obj is IIterator i)
             {
                 iterator = i;
@@ -219,22 +222,26 @@ namespace Jint.Native
             }
 
             // TODO not implemented
-            return new Completion(CompletionType.Normal, Native.Undefined.Instance, null);
+            return new Completion(CompletionType.Normal, Native.Undefined.Instance, null, default);
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T TryCast<T>(Action<JsValue> fail = null) where T : class
+        public T TryCast<T>() where T : class
         {
-            if (_type == Types.Object)
+            return this as T;
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public T TryCast<T>(Action<JsValue> fail) where T : class
+        {
+            if (this is T o)
             {
-                if (this is T o)
-                {
-                    return o;
-                }
+                return o;
             }
 
-            fail?.Invoke(this);
+            fail.Invoke(this);
 
             return null;
         }
@@ -287,7 +294,7 @@ namespace Jint.Native
             for (var i = 0; i < convertersCount; i++)
             {
                 var converter = converters[i];
-                if (converter.TryConvert(value, out var result))
+                if (converter.TryConvert(engine, value, out var result))
                 {
                     return result;
                 }
@@ -325,13 +332,24 @@ namespace Jint.Native
                 return new DelegateWrapper(engine, d);
             }
 
-            if (value.GetType().IsEnum)
+            Type t = value.GetType();
+            if (t.IsEnum)
             {
-                return JsNumber.Create((int) value);
+                Type ut = Enum.GetUnderlyingType(t);
+
+                if (ut == typeof(ulong))
+                    return JsNumber.Create(System.Convert.ToDouble(value));
+
+                if (ut == typeof(uint) || ut == typeof(long))
+                    return JsNumber.Create(System.Convert.ToInt64(value));
+
+                return JsNumber.Create(System.Convert.ToInt32(value));
             }
 
             // if no known type could be guessed, wrap it as an ObjectInstance
-            return new ObjectWrapper(engine, value);
+            var h = engine.Options._WrapObjectHandler;
+            ObjectInstance o = h != null ? h(value) : null;
+            return o ?? new ObjectWrapper(engine, value);
         }
 
         private static JsValue Convert(Engine e, object v)

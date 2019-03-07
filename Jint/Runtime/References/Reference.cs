@@ -70,7 +70,7 @@ namespace Jint.Runtime.References
 
         internal void AssertValid(Engine engine)
         {
-            if(_strict && (_name == "eval" || _name == "arguments") && _baseValue is EnvironmentRecord)
+            if (_strict && (_name == "eval" || _name == "arguments") && _baseValue is EnvironmentRecord)
             {
                 ExceptionHelper.ThrowSyntaxError(engine);
             }

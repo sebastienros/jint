@@ -27,6 +27,7 @@ using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interpreter;
 using Jint.Runtime.References;
 
 namespace Jint
@@ -36,26 +37,24 @@ namespace Jint
         private static readonly ParserOptions DefaultParserOptions = new ParserOptions
         {
             AdaptRegexp = true,
-            Tolerant = false,
+            Tolerant = true,
             Loc = true
         };
 
-        private readonly ExpressionInterpreter _expressions;
-        private readonly StatementInterpreter _statements;
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
         private long _initialMemoryUsage;
         private long _timeoutTicks;
-        private INode _lastSyntaxNode;
+        internal INode _lastSyntaxNode;
 
         // cached access
         private readonly bool _isDebugMode;
         internal readonly bool _isStrict;
         private readonly int _maxStatements;
         private readonly long _memoryLimit;
-        private readonly bool _runBeforeStatementChecks;
-        private readonly IReferenceResolver _referenceResolver;
+        internal readonly bool _runBeforeStatementChecks;
+        internal readonly IReferenceResolver _referenceResolver;
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
@@ -246,9 +245,6 @@ namespace Jint
             Eval = new EvalFunctionInstance(this, System.ArrayExt.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global.FastAddProperty("eval", Eval, true, false, true);
 
-            _statements = new StatementInterpreter(this);
-            _expressions = new ExpressionInterpreter(this);
-
             if (Options._IsClrAllowed)
             {
                 Global.FastAddProperty("System", new NamespaceReference(this, "System"), false, false, false);
@@ -259,7 +255,7 @@ namespace Jint
             }
 
             ClrTypeConverter = new DefaultTypeConverter(this);
-            BreakPoints = new List<BreakPoint>();
+            BreakPoints = new System.Collections.Generic.List<BreakPoint>();
             DebugHandler = new DebugHandler(this);
         }
 
@@ -305,7 +301,7 @@ namespace Jint
         public event DebugStepDelegate Step;
         public event BreakDelegate Break;
         internal DebugHandler DebugHandler { get; private set; }
-        public List<BreakPoint> BreakPoints { get; private set; }
+        public System.Collections.Generic.List<BreakPoint> BreakPoints { get; private set; }
 
         internal StepMode? InvokeStepEvent(DebugInformation info)
         {
@@ -431,9 +427,14 @@ namespace Jint
 
             using (new StrictModeScope(_isStrict || program.Strict))
             {
-                DeclarationBindingInstantiation(DeclarationBindingType.GlobalCode, program.HoistingScope.FunctionDeclarations, program.HoistingScope.VariableDeclarations, null, null);
+                DeclarationBindingInstantiation(
+                    DeclarationBindingType.GlobalCode,
+                    program.HoistingScope,
+                    functionInstance: null,
+                    arguments: null);
 
-                var result = _statements.ExecuteProgram(program);
+                var list = new JintStatementList(this, null, program.Body);
+                var result = list.Execute();
                 if (result.Type == CompletionType.Throw)
                 {
                     var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
@@ -459,91 +460,7 @@ namespace Jint
             return _completionValue;
         }
 
-        public Completion ExecuteStatement(Statement statement)
-        {
-            _lastSyntaxNode = statement;
-
-            if (_runBeforeStatementChecks)
-            {
-                BeforeExecuteStatement(statement);
-            }
-
-            switch (statement.Type)
-            {
-                case Nodes.BlockStatement:
-                    return _statements.ExecuteStatementList(((BlockStatement) statement).Body);
-
-                case Nodes.ReturnStatement:
-                    var jsValue = ((ReturnStatement) statement).Argument == null
-                        ? Undefined.Instance
-                        : GetValue(EvaluateExpression(((ReturnStatement) statement).Argument), true);
-
-                    return new Completion(CompletionType.Return, jsValue, null);
-
-                case Nodes.VariableDeclaration:
-                    return _statements.ExecuteVariableDeclaration((VariableDeclaration) statement);
-
-                case Nodes.BreakStatement:
-                    return _statements.ExecuteBreakStatement((BreakStatement) statement);
-
-                case Nodes.ContinueStatement:
-                    return _statements.ExecuteContinueStatement((ContinueStatement) statement);
-
-                case Nodes.DoWhileStatement:
-                    return _statements.ExecuteDoWhileStatement((DoWhileStatement) statement);
-
-                case Nodes.EmptyStatement:
-                    return new Completion(CompletionType.Normal, null, null);
-
-                case Nodes.ExpressionStatement:
-                    return new Completion(
-                        CompletionType.Normal,
-                        GetValue(EvaluateExpression(((ExpressionStatement) statement).Expression), true),
-                        null);
-
-                case Nodes.ForStatement:
-                    return _statements.ExecuteForStatement((ForStatement) statement);
-
-                case Nodes.ForInStatement:
-                    return _statements.ExecuteForInStatement((ForInStatement) statement);
-
-                case Nodes.IfStatement:
-                    return _statements.ExecuteIfStatement((IfStatement) statement);
-
-                case Nodes.LabeledStatement:
-                    return _statements.ExecuteLabeledStatement((LabeledStatement) statement);
-
-                case Nodes.SwitchStatement:
-                    return _statements.ExecuteSwitchStatement((SwitchStatement) statement);
-
-                case Nodes.FunctionDeclaration:
-                    return new Completion(CompletionType.Normal, null, null);
-
-                case Nodes.ThrowStatement:
-                    return _statements.ExecuteThrowStatement((ThrowStatement) statement);
-
-                case Nodes.TryStatement:
-                    return _statements.ExecuteTryStatement((TryStatement) statement);
-
-                case Nodes.WhileStatement:
-                    return _statements.ExecuteWhileStatement((WhileStatement) statement);
-
-                case Nodes.WithStatement:
-                    return _statements.ExecuteWithStatement((WithStatement) statement);
-
-                case Nodes.DebuggerStatement:
-                    return _statements.ExecuteDebuggerStatement((DebuggerStatement) statement);
-
-                case Nodes.Program:
-                    return _statements.ExecuteProgram((Program) statement);
-
-                default:
-                    ExceptionHelper.ThrowArgumentOutOfRangeException();
-                    return new Completion(CompletionType.Normal, null, null);
-            }
-        }
-
-        private void BeforeExecuteStatement(Statement statement)
+        internal void RunBeforeExecuteStatementChecks(Statement statement)
         {
             if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
             {
@@ -577,66 +494,6 @@ namespace Jint
             }
         }
 
-        public object EvaluateExpression(INode expression)
-        {
-            _lastSyntaxNode = expression;
-
-            switch (expression.Type)
-            {
-                case Nodes.AssignmentExpression:
-                    return _expressions.EvaluateAssignmentExpression((AssignmentExpression) expression);
-
-                case Nodes.ArrayExpression:
-                    return _expressions.EvaluateArrayExpression((ArrayExpression) expression);
-
-                case Nodes.BinaryExpression:
-                    return _expressions.EvaluateBinaryExpression((BinaryExpression) expression);
-
-                case Nodes.CallExpression:
-                    return _expressions.EvaluateCallExpression((CallExpression) expression);
-
-                case Nodes.ConditionalExpression:
-                    return _expressions.EvaluateConditionalExpression((ConditionalExpression) expression);
-
-                case Nodes.FunctionExpression:
-                    return _expressions.EvaluateFunctionExpression((IFunction) expression);
-
-                case Nodes.Identifier:
-                    return _expressions.EvaluateIdentifier((Identifier) expression);
-
-                case Nodes.Literal:
-                    return _expressions.EvaluateLiteral((Literal) expression);
-
-                case Nodes.LogicalExpression:
-                    return _expressions.EvaluateLogicalExpression((BinaryExpression) expression);
-
-                case Nodes.MemberExpression:
-                    return _expressions.EvaluateMemberExpression((MemberExpression) expression);
-
-                case Nodes.NewExpression:
-                    return _expressions.EvaluateNewExpression((NewExpression) expression);
-
-                case Nodes.ObjectExpression:
-                    return _expressions.EvaluateObjectExpression((ObjectExpression) expression);
-
-                case Nodes.SequenceExpression:
-                    return _expressions.EvaluateSequenceExpression((SequenceExpression) expression);
-
-                case Nodes.ThisExpression:
-                    return _expressions.EvaluateThisExpression((ThisExpression) expression);
-
-                case Nodes.UpdateExpression:
-                    return _expressions.EvaluateUpdateExpression((UpdateExpression) expression);
-
-                case Nodes.UnaryExpression:
-                    return _expressions.EvaluateUnaryExpression((UnaryExpression) expression);
-
-                default:
-                    ExceptionHelper.ThrowArgumentOutOfRangeException();
-                    return null;
-            }
-        }
-
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.1
         /// </summary>
@@ -657,6 +514,11 @@ namespace Jint
                 return ((Completion) value).Value;
             }
 
+            return GetValue(reference, returnReferenceToPool);
+        }
+
+        internal JsValue GetValue(Reference reference, bool returnReferenceToPool)
+        {
             if (reference._baseValue._type == Types.Undefined)
             {
                 if (_referenceResolver != null &&
@@ -664,7 +526,8 @@ namespace Jint
                 {
                     return val;
                 }
-                ExceptionHelper.ThrowReferenceError(this, reference.GetReferencedName() + " is not defined");
+
+                ExceptionHelper.ThrowReferenceError(this, reference);
             }
 
             var baseValue = reference._baseValue;
@@ -682,7 +545,8 @@ namespace Jint
                 {
                     _referencePool.Return(reference);
                 }
-                if (!(reference._baseValue._type != Types.Object && reference._baseValue._type != Types.None))
+
+                if (reference._baseValue._type == Types.Object)
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
                     var v = o.Get(referencedName);
@@ -708,7 +572,7 @@ namespace Jint
                         return Undefined.Instance;
                     }
 
-                    var callable = (ICallable)getter.AsObject();
+                    var callable = (ICallable) getter.AsObject();
                     return callable.Call(baseValue, Arguments.Empty);
                 }
             }
@@ -731,15 +595,13 @@ namespace Jint
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.2
         /// </summary>
-        /// <param name="reference"></param>
-        /// <param name="value"></param>
         public void PutValue(Reference reference, JsValue value)
         {
             if (reference._baseValue._type == Types.Undefined)
             {
                 if (reference._strict)
                 {
-                    ExceptionHelper.ThrowReferenceError(this);
+                    ExceptionHelper.ThrowReferenceError(this, reference);
                 }
 
                 Global.Put(reference._name, value, false);
@@ -899,8 +761,7 @@ namespace Jint
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
         internal bool DeclarationBindingInstantiation(
             DeclarationBindingType declarationBindingType,
-            List<FunctionDeclaration> functionDeclarations,
-            List<VariableDeclaration> variableDeclarations,
+            HoistingScope hoistingScope,
             FunctionInstance functionInstance,
             JsValue[] arguments)
         {
@@ -915,18 +776,25 @@ namespace Jint
                 var argsObj = _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, env, strict);
                 canReleaseArgumentsInstance = true;
 
+
+                var functionDeclaration = (functionInstance as ScriptFunctionInstance)?.FunctionDeclaration ??
+                    (functionInstance as ArrowFunctionInstance)?.FunctionDeclaration;
+
                 if (!ReferenceEquals(der, null))
                 {
-                    der.AddFunctionParameters(functionInstance, arguments, argsObj);
+                    der.AddFunctionParameters(functionInstance, arguments, argsObj, functionDeclaration);
                 }
                 else
                 {
+                    // TODO: match functionality with DeclarationEnvironmentRecord.AddFunctionParameters here
                     // slow path
                     var parameters = functionInstance._formalParameters;
                     for (var i = 0; i < parameters.Length; i++)
                     {
                         var argName = parameters[i];
                         var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
+                        v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionDeclaration, v, i);
+
                         var argAlreadyDeclared = env.HasBinding(argName);
                         if (!argAlreadyDeclared)
                         {
@@ -939,11 +807,13 @@ namespace Jint
                 }
             }
 
+            var functionDeclarations = hoistingScope.FunctionDeclarations;
             if (functionDeclarations.Count > 0)
             {
-                AddFunctionDeclarations(functionDeclarations, env, configurableBindings, strict);
+                AddFunctionDeclarations(ref functionDeclarations, env, configurableBindings, strict);
             }
 
+            var variableDeclarations = hoistingScope.VariableDeclarations;
             if (variableDeclarations.Count == 0)
             {
                 return canReleaseArgumentsInstance;
@@ -952,7 +822,7 @@ namespace Jint
             // process all variable declarations in the current parser scope
             if (!ReferenceEquals(der, null))
             {
-                der.AddVariableDeclarations(variableDeclarations);
+                der.AddVariableDeclarations(ref variableDeclarations);
             }
             else
             {
@@ -965,11 +835,13 @@ namespace Jint
                     for (var j = 0; j < declarationsCount; j++)
                     {
                         var d = variableDeclaration.Declarations[j];
-                        var dn = ((Identifier) d.Id).Name;
-                        var varAlreadyDeclared = env.HasBinding(dn);
-                        if (!varAlreadyDeclared)
+                        if (d.Id is Identifier id1)
                         {
-                            env.CreateMutableBinding(dn, Undefined.Instance);
+                            var varAlreadyDeclared = env.HasBinding(id1.Name);
+                            if (!varAlreadyDeclared)
+                            {
+                                env.CreateMutableBinding(id1.Name, Undefined.Instance);
+                            }
                         }
                     }
                 }
@@ -978,7 +850,11 @@ namespace Jint
             return canReleaseArgumentsInstance;
         }
 
-        private void AddFunctionDeclarations(List<FunctionDeclaration> functionDeclarations, EnvironmentRecord env, bool configurableBindings, bool strict)
+        private void AddFunctionDeclarations(
+            ref NodeList<FunctionDeclaration> functionDeclarations,
+            EnvironmentRecord env,
+            bool configurableBindings,
+            bool strict)
         {
             var functionDeclarationsCount = functionDeclarations.Count;
             for (var i = 0; i < functionDeclarationsCount; i++)

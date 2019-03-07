@@ -10,7 +10,7 @@ namespace Jint.Native.Function
     {
         private const string PropertyNamePrototype = "prototype";
         private const int PropertyNamePrototypeLength = 9;
-        protected PropertyDescriptor _prototype;
+        protected internal PropertyDescriptor _prototype;
 
         private const string PropertyNameLength = "length";
         private const int PropertyNameLengthLength = 6;
@@ -22,7 +22,7 @@ namespace Jint.Native.Function
 
         protected readonly LexicalEnvironment _scope;
         protected internal readonly string[] _formalParameters;
-        private readonly bool _strict;
+        protected readonly bool _strict;
 
         protected FunctionInstance(
             Engine engine,
@@ -40,10 +40,13 @@ namespace Jint.Native.Function
             string[] parameters,
             LexicalEnvironment scope,
             bool strict,
-            in string objectClass)
+            string objectClass)
             : base(engine, objectClass)
         {
-            _name = new PropertyDescriptor(name, PropertyFlag.Configurable);
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                _name = new PropertyDescriptor(name, PropertyFlag.Configurable);
+            }
             _formalParameters = parameters;
             _scope = scope;
             _strict = strict;
@@ -212,6 +215,18 @@ namespace Jint.Native.Function
             }
 
             base.RemoveOwnProperty(propertyName);
+        }
+
+        internal void SetFunctionName(string name, bool throwIfExists = false)
+        {
+            if (!HasOwnProperty("name"))
+            {
+                _name = new PropertyDescriptor(name, PropertyFlag.Configurable);
+            }
+            else if (throwIfExists)
+            {
+                ExceptionHelper.ThrowError(_engine, "cannot set name");
+            }
         }
     }
 }

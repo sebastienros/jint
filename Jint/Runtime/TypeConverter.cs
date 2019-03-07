@@ -6,8 +6,10 @@ using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Number;
+using Jint.Native.Number.Dtoa;
 using Jint.Native.Object;
 using Jint.Native.String;
+using Jint.Pooling;
 using Jint.Runtime.References;
 
 namespace Jint.Runtime
@@ -112,12 +114,37 @@ namespace Jint.Runtime
             }
         }
 
+        internal static bool CanBeIndex(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return false;
+            }
+
+            char first = input[0];
+            if (first < 32 || (first > 57 && first != 73))
+            {
+                // does not start with space, +, -, number or I
+                return false;
+            }
+
+            // might be
+            return true;
+        }
+
         private static double ToNumber(string input)
         {
             // eager checks to save time and trimming
             if (string.IsNullOrEmpty(input))
             {
                 return 0;
+            }
+
+            char first = input[0];
+            if (input.Length == 1 && first >= '0' && first <= '9')
+            {
+                // simple constant number
+                return first - '0';
             }
 
             var s = StringPrototype.IsWhiteSpaceEx(input[0]) || StringPrototype.IsWhiteSpaceEx(input[input.Length - 1])
@@ -145,29 +172,46 @@ namespace Jint.Runtime
             // todo: use a common implementation with JavascriptParser
             try
             {
-                if (!s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                if (s.Length > 2 && s[0] == '0' && char.IsLetter(s[1]))
                 {
-                    var start = s[0];
-                    if (start != '+' && start != '-' && start != '.' && !char.IsDigit(start))
+                    int fromBase = 0;
+                    if (s[1] == 'x' || s[1] == 'X')
                     {
-                        return double.NaN;
+                        fromBase = 16;
                     }
 
-                    double n = double.Parse(s,
-                        NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
-                        NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
-                        NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
-                    if (s.StartsWith("-") && n == 0)
+                    if (s[1] == 'o' || s[1] == 'O')
                     {
-                        return -0.0;
+                        fromBase = 8;
                     }
 
-                    return n;
+                    if (s[1] == 'b' || s[1] == 'B')
+                    {
+                        fromBase = 2;
+                    }
+
+                    if (fromBase > 0)
+                    {
+                        return Convert.ToInt32(s.Substring(2), fromBase);
+                    }
                 }
 
-                int i = int.Parse(s.Substring(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+                var start = s[0];
+                if (start != '+' && start != '-' && start != '.' && !char.IsDigit(start))
+                {
+                    return double.NaN;
+                }
 
-                return i;
+                double n = double.Parse(s,
+                    NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
+                    NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
+                    NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
+                if (s.StartsWith("-") && n == 0)
+                {
+                    return -0.0;
+                }
+
+                return n;
             }
             catch (OverflowException)
             {
@@ -281,6 +325,15 @@ namespace Jint.Runtime
                 : c.ToString();
         }
 
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(ulong i)
+        {
+            return i >= 0 && i < (ulong) intToString.Length
+                ? intToString[i]
+                : i.ToString();
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(double d)
         {
@@ -290,7 +343,11 @@ namespace Jint.Runtime
                 return ToString((long) d);
             }
 
-            return NumberPrototype.ToNumberString(d);
+            using (var stringBuilder = StringBuilderPool.Rent())
+            {
+                // we can create smaller array as we know the format to be short
+                return NumberPrototype.NumberToString(d, new DtoaBuilder(17), stringBuilder.Builder);
+            }
         }
 
         /// <summary>
@@ -375,7 +432,7 @@ namespace Jint.Runtime
             MemberExpression expression,
             object baseReference)
         {
-            if (o._type != Types.Undefined && o._type != Types.Null)
+            if (o._type > Types.Null)
             {
                 return;
             }
@@ -389,14 +446,42 @@ namespace Jint.Runtime
             ThrowTypeError(engine, o, expression, baseReference);
         }
 
-        private static void ThrowTypeError(Engine engine, JsValue o, MemberExpression expression, object baseReference)
+        internal static void CheckObjectCoercible(
+            Engine engine,
+            JsValue o,
+            MemberExpression expression,
+            string referenceName)
         {
-            var referencedName = "The value";
-            if (baseReference is Reference reference)
+            if (o._type > Types.Null)
             {
-                referencedName = reference.GetReferencedName();
+                return;
             }
-            
+
+            var referenceResolver = engine.Options.ReferenceResolver;
+            if (referenceResolver != null && referenceResolver.CheckCoercible(o))
+            {
+                return;
+            }
+
+            ThrowTypeError(engine, o, expression, referenceName);
+        }
+
+        private static void ThrowTypeError(
+            Engine engine, 
+            JsValue o,
+            MemberExpression expression, 
+            object baseReference)
+        {
+            ThrowTypeError(engine, o, expression, (baseReference as Reference)?.GetReferencedName());
+        }
+
+        private static void ThrowTypeError(
+            Engine engine,
+            JsValue o,
+            MemberExpression expression,
+            string referencedName)
+        {
+            referencedName = referencedName ?? "The value";
             var message = $"{referencedName} is {o}";
             throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, expression.Location);
         }
@@ -409,32 +494,75 @@ namespace Jint.Runtime
             }
         }
 
-        public static IEnumerable<MethodBase> FindBestMatch<T>(T[] methods, JsValue[] arguments) where T : MethodBase
+        public static IEnumerable<Tuple<MethodBase, JsValue[]>> FindBestMatch<T>(Engine engine, T[] methods, Func<T, bool, JsValue[]> argumentProvider) where T : MethodBase
         {
-            var matchingByParameterCount = new List<T>();
+            System.Collections.Generic.List<Tuple<T, JsValue[]>> matchingByParameterCount = null;
             foreach (var m in methods)
             {
-                if (m.GetParameters().Length == arguments.Length)
+                bool hasParams = false;
+                var parameterInfos = m.GetParameters();
+                foreach (var parameter in parameterInfos)
                 {
-                    matchingByParameterCount.Add(m);
+                    if (Attribute.IsDefined(parameter, typeof(ParamArrayAttribute)))
+                    {
+                        hasParams = true;
+                        break;
+                    }
+                }
+
+                var arguments = argumentProvider(m, hasParams);
+                if (parameterInfos.Length == arguments.Length)
+                {
+                    if (methods.Length == 0 && arguments.Length == 0)
+                    {
+                        yield return new Tuple<MethodBase, JsValue[]>(m, arguments);
+                        yield break;
+                    }
+
+                    matchingByParameterCount = matchingByParameterCount ?? new System.Collections.Generic.List<Tuple<T, JsValue[]>>();
+                    matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, arguments));
+                }
+                else if (parameterInfos.Length > arguments.Length)
+                {
+                    // check if we got enough default values to provide all parameters (or more in case some default values are provided/overwritten)
+                    var defaultValuesCount = 0;
+                    foreach (var param in parameterInfos)
+                    {
+                        if (param.HasDefaultValue) defaultValuesCount++;
+                    }
+
+                    if (parameterInfos.Length <= arguments.Length + defaultValuesCount)
+                    {
+                        // create missing arguments from default values
+
+                        var argsWithDefaults = new System.Collections.Generic.List<JsValue>(arguments);
+                        for (var i = arguments.Length; i < parameterInfos.Length; i++)
+                        {
+                            var param = parameterInfos[i];
+                            var value = JsValue.FromObject(engine, param.DefaultValue);
+                            argsWithDefaults.Add(value);
+                        }
+
+                        matchingByParameterCount = matchingByParameterCount ?? new System.Collections.Generic.List<Tuple<T, JsValue[]>>();
+                        matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, argsWithDefaults.ToArray()));
+                    }
                 }
             }
 
-            if (matchingByParameterCount.Count == 1 && arguments.Length == 0)
+            if (matchingByParameterCount == null)
             {
-                yield return matchingByParameterCount[0];
                 yield break;
             }
 
-            foreach (var method in matchingByParameterCount)
+            foreach (var tuple in matchingByParameterCount)
             {
                 var perfectMatch = true;
-                var parameters = method.GetParameters();
+                var parameters = tuple.Item1.GetParameters();
+                var arguments = tuple.Item2;
                 for (var i = 0; i < arguments.Length; i++)
                 {
                     var arg = arguments[i].ToObject();
                     var paramType = parameters[i].ParameterType;
-
                     if (arg == null)
                     {
                         if (!TypeIsNullable(paramType))
@@ -452,14 +580,15 @@ namespace Jint.Runtime
 
                 if (perfectMatch)
                 {
-                    yield return method;
+                    yield return new Tuple<MethodBase, JsValue[]>(tuple.Item1, arguments);
                     yield break;
                 }
             }
 
             for (var i = 0; i < matchingByParameterCount.Count; i++)
             {
-                yield return matchingByParameterCount[i];
+                var tuple = matchingByParameterCount[i];
+                yield return new Tuple<MethodBase, JsValue[]>(tuple.Item1, tuple.Item2);
             }
         }
 

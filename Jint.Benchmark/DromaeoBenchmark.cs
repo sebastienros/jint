@@ -3,33 +3,20 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Diagnosers;
-using BenchmarkDotNet.Jobs;
-using Jint;
 
-namespace Esprima.Benchmark
+namespace Jint.Benchmark
 {
-    [Config(typeof(Config))]
+    [MemoryDiagnoser]
     public class DromaeoBenchmark
     {
-        private class Config : ManualConfig
-        {
-            public Config()
-            {
-                Add(Job.MediumRun.WithLaunchCount(1));
-                Add(MemoryDiagnoser.Default);
-            }
-        }
-        
-        private static readonly Dictionary<string, string> files = new Dictionary<string, string>
+        public static readonly Dictionary<string, string> files = new Dictionary<string, string>
         {
             {"dromaeo-3d-cube", null},
             {"dromaeo-core-eval", null},
             {"dromaeo-object-array", null},
             {"dromaeo-object-regexp", null},
             {"dromaeo-object-string", null},
-            {"dromaeo-string-base64", null}
+            //{"dromaeo-string-base64", null}
         };
 
         private Engine engine;

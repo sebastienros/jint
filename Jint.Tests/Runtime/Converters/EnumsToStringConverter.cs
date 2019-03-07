@@ -6,7 +6,7 @@ namespace Jint.Tests.Runtime.Converters
 {
     public class EnumsToStringConverter : IObjectConverter
     {
-        public bool TryConvert(object value, out JsValue result)
+        public bool TryConvert(Engine engine, object value, out JsValue result)
         {
             if (value is Enum)
             {

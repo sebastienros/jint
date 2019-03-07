@@ -3,25 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Diagnosers;
-using BenchmarkDotNet.Jobs;
 using Jint;
 
 namespace Esprima.Benchmark
 {
-    [Config(typeof(Config))]
+    [MemoryDiagnoser]
     public class SunSpiderBenchmark
     {
-        private class Config : ManualConfig
-        {
-            public Config()
-            {
-                Add(Job.ShortRun.WithLaunchCount(1));
-                Add(MemoryDiagnoser.Default);
-            }
-        }
-        
         private static readonly Dictionary<string, string> files = new Dictionary<string, string>
         {
             {"3d-cube", null},

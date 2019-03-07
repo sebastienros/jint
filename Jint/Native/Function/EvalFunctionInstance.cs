@@ -2,6 +2,7 @@
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Native.Function
 {
@@ -57,12 +58,12 @@ namespace Jint.Native.Function
 
                             bool argumentInstanceRented = Engine.DeclarationBindingInstantiation(
                                 DeclarationBindingType.EvalCode,
-                                program.HoistingScope.FunctionDeclarations,
-                                program.HoistingScope.VariableDeclarations,
-                                this, 
+                                program.HoistingScope,
+                                functionInstance: this,
                                 arguments);
 
-                            var result = _engine.ExecuteStatement(program);
+                            var statement = JintStatement.Build(_engine, program);
+                            var result = statement.Execute();
                             var value = result.GetValueOrDefault();
 
                             if (argumentInstanceRented)
@@ -100,7 +101,7 @@ namespace Jint.Native.Function
             {
                 if (e.Description == Messages.InvalidLHSInAssignment)
                 {
-                    ExceptionHelper.ThrowReferenceError(_engine);
+                    ExceptionHelper.ThrowReferenceError(_engine, (string) null);
                 }
 
                 ExceptionHelper.ThrowSyntaxError(_engine);

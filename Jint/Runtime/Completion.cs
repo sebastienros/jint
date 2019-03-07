@@ -18,7 +18,7 @@ namespace Jint.Runtime
     /// </summary>
     public readonly struct Completion
     {
-        public Completion(CompletionType type, JsValue value, string identifier, Location location = null)
+        public Completion(CompletionType type, JsValue value, string identifier, Location location)
         {
             Type = type;
             Value = value;

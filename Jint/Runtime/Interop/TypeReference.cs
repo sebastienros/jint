@@ -53,8 +53,10 @@ namespace Jint.Runtime.Interop
 
             var constructors = ReferenceType.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
 
-            foreach (var method in TypeConverter.FindBestMatch(constructors, arguments))
+            foreach (var tuple in TypeConverter.FindBestMatch(_engine, constructors, (info, b) => arguments))
             {
+                var method = tuple.Item1;
+
                 var parameters = new object[arguments.Length];
                 var methodParameters = method.GetParameters();
                 try
@@ -76,9 +78,9 @@ namespace Jint.Runtime.Interop
                         }
                     }
 
-                    var constructor = (ConstructorInfo)method;
+                    var constructor = (ConstructorInfo) method;
                     var instance = constructor.Invoke(parameters);
-                    var result = TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, instance));
+                    var result = TypeConverter.ToObject(Engine, FromObject(Engine, instance));
 
                     // todo: cache method info
 
@@ -96,14 +98,14 @@ namespace Jint.Runtime.Interop
 
         public override bool HasInstance(JsValue v)
         {
-            ObjectWrapper wrapper = v.As<ObjectWrapper>();
-
-            if (ReferenceEquals(wrapper, null))
+            if (v.IsObject())
             {
-                return base.HasInstance(v);
+                var wrapper = v.AsObject() as IObjectWrapper;
+                if (wrapper != null)
+                    return wrapper.Target.GetType() == ReferenceType;
             }
 
-            return wrapper.Target.GetType() == ReferenceType;
+            return base.HasInstance(v);
         }
 
         public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
@@ -196,7 +198,7 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            if (methodInfo?.Count == 0)
+            if (methodInfo == null || methodInfo.Count == 0)
             {
                 return PropertyDescriptor.Undefined;
             }

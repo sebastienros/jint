@@ -37,6 +37,17 @@ namespace Jint.Runtime.Interop
         public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
         {
             var parameterInfos = _d.Method.GetParameters();
+            
+#if NETFRAMEWORK
+            if (parameterInfos.Length > 0 && parameterInfos[0].ParameterType == typeof(System.Runtime.CompilerServices.Closure))
+            {
+                var reducedLength = parameterInfos.Length - 1;
+                var reducedParameterInfos = new ParameterInfo[reducedLength];
+                Array.Copy(parameterInfos, 1, reducedParameterInfos, 0, reducedLength);
+                parameterInfos = reducedParameterInfos;
+            }
+#endif
+
             int delegateArgumentsCount = parameterInfos.Length;
             int delegateNonParamsArgumentsCount = _delegateContainsParamsArgument ? delegateArgumentsCount - 1 : delegateArgumentsCount;
 

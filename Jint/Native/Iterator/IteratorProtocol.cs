@@ -40,11 +40,11 @@ namespace Jint.Native.Iterator
                     }
 
                     ProcessItem(args, currentValue);
-                } while (true);
+                } while (ShouldContinue);
             }
             catch
             {
-                _iterator.Return();
+                ReturnIterator();
                 throw;
             }
             finally
@@ -54,6 +54,13 @@ namespace Jint.Native.Iterator
 
             IterationEnd();
         }
+
+        protected void ReturnIterator()
+        {
+            _iterator.Return();
+        }
+
+        protected virtual bool ShouldContinue => true;
 
         protected virtual void IterationEnd()
         {

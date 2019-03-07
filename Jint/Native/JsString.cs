@@ -13,6 +13,12 @@ namespace Jint.Native
 
         public static readonly JsString Empty = new JsString("");
         private static readonly JsString NullString = new JsString("null");
+        internal static readonly JsString UndefinedString = new JsString("undefined");
+        internal static readonly JsString ObjectString = new JsString("object");
+        internal static readonly JsString FunctionString = new JsString("function");
+        internal static readonly JsString BooleanString = new JsString("boolean");
+        internal static readonly JsString StringString = new JsString("string");
+        internal static readonly JsString NumberString = new JsString("number");
 
         internal string _value;
 
@@ -203,7 +209,12 @@ namespace Jint.Native
             {
                 if (other is ConcatenatedString cs)
                 {
-                    return _stringBuilder.Equals(cs._stringBuilder);
+                    if (_stringBuilder != null && cs._stringBuilder != null)
+                    {
+                        return _stringBuilder.Equals(cs._stringBuilder);
+                    }
+
+                    return ToString() == cs.ToString();
                 }
 
                 if (other is JsString jsString)

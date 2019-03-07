@@ -4,7 +4,9 @@ using System.IO;
 using System.Reflection;
 using Esprima;
 using Esprima.Ast;
-using Jint.Native.Number;
+using Jint.Native;
+using Jint.Native.Array;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
@@ -106,6 +108,37 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldHaveProperReferenceErrorMessage()
+        {
+            RunTest(@"
+                'use strict';
+                var arr = [1, 2];
+                try {
+                    for (i in arr) { }
+                    assert(false);
+                }
+                catch (ex) {
+                    assert(ex.message === 'i is not defined');
+                }
+            ");
+        }
+
+        [Fact]
+        public void ShouldHaveProperNotAFunctionErrorMessage()
+        {
+            RunTest(@"
+                try {
+                    var example = {};
+                    example();
+                    assert(false);
+                }
+                catch (ex) {
+                    assert(ex.message === 'example is not a function');
+                }
+            ");
+        }
+
+        [Fact]
         public void ShouldEvaluateHasOwnProperty()
         {
             RunTest(@"
@@ -157,6 +190,7 @@ namespace Jint.Tests.Runtime
 
         }
 
+
         [Fact]
         public void FunctionConstructorCall()
         {
@@ -167,6 +201,45 @@ namespace Jint.Tests.Runtime
 
                 var john = new Body(36);
                 assert(john.mass == 36);
+            ");
+        }
+
+        [Fact]
+        public void ArrowFunctionCall()
+        {
+            RunTest(@"
+                var add = (a, b) => {
+                    return a + b;
+                }
+
+                var x = add(1, 2);
+                assert(x == 3);
+            ");
+        }
+
+        [Fact]
+        public void ArrowFunctionExpressionCall()
+        {
+            RunTest(@"
+                var add = (a, b) => a + b;
+
+                var x = add(1, 2);
+                assert(x === 3);
+            ");
+        }
+
+        [Fact]
+        public void ArrowFunctionScope()
+        {
+            RunTest(@"
+                var bob = {
+                    _name: ""Bob"",
+                    _friends: [""Alice""],
+                    printFriends() {
+                        this._friends.forEach(f => assert(this._name === ""Bob"" && f === ""Alice""))
+                    }
+                };
+                bob.printFriends();
             ");
         }
 
@@ -869,8 +942,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldComputeFractionInBase()
         {
-            Assert.Equal("011", NumberPrototype.ToFractionBase(0.375, 2));
-            Assert.Equal("14141414141414141414141414141414141414141414141414", NumberPrototype.ToFractionBase(0.375, 5));
+            Assert.Equal("011", _engine.Number.PrototypeObject.ToFractionBase(0.375, 2));
+            Assert.Equal("14141414141414141414141414141414141414141414141414", _engine.Number.PrototypeObject.ToFractionBase(0.375, 5));
         }
 
         [Fact]
@@ -936,6 +1009,16 @@ namespace Jint.Tests.Runtime
             Assert.Throws<ArgumentException>(() => _engine.Invoke(foo, obj, new object[] { }));
         }
 
+        [Fact]
+        public void ShouldNotAllowModifyingSharedUndefinedDescriptor()
+        {
+            var e = new Engine();
+            e.Execute("var x = { literal: true };");
+
+            var pd = e.GetValue("x").AsObject().GetProperty("doesNotExist");
+            Assert.Throws<InvalidOperationException>(() => pd.Value = "oh no, assigning this breaks things");
+        }
+
         [Theory]
         [InlineData("0", 0, 16)]
         [InlineData("1", 1, 16)]
@@ -945,7 +1028,7 @@ namespace Jint.Tests.Runtime
         [InlineData("2qgpckvng1s", 10000000000000000L, 36)]
         public void ShouldConvertNumbersToDifferentBase(string expected, long number, int radix)
         {
-            var result = NumberPrototype.ToBase(number, radix);
+            var result = _engine.Number.PrototypeObject.ToBase(number, radix);
             Assert.Equal(expected, result);
         }
 
@@ -1093,7 +1176,7 @@ namespace Jint.Tests.Runtime
             {
                 Assert.Equal(1, e.LineNumber);
                 Assert.Equal(9, e.Column);
-                Assert.Equal("jQuery.js", e.Source);
+                Assert.Equal("jQuery.js", e.SourceText);
             }
         }
         #region DateParsingAndStrings
@@ -1297,6 +1380,20 @@ namespace Jint.Tests.Runtime
 
                 assert('Hello Paul' == html);
             ");
+        }
+
+        [Fact]
+        public void ShouldExecuteDromaeoBase64()
+        {
+            RunTest(@"
+var startTest = function () { };
+var test = function (name, fn) { fn(); };
+var endTest = function () { };
+var prep = function (fn) { fn(); };
+            ");
+
+            var content = GetEmbeddedFile("dromaeo-string-base64.js");
+            RunTest(content);
         }
 
         [Fact]
@@ -1921,6 +2018,12 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void RegExpPrototypeToString()
+        {
+            RunTest("assert(RegExp.prototype.toString() === '//');");
+        }
+
+        [Fact]
         public void ShouldSetYearBefore1970()
         {
 
@@ -1995,6 +2098,13 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void CanStringifyToConsole()
+        {
+            var engine = new Engine(options => options.AllowClr(typeof(Console).Assembly));
+            engine.Execute("System.Console.WriteLine(JSON.stringify({x:12, y:14}));");
+        }
+
+        [Fact]
         public void ShouldNotCompareClrInstancesWithObjects()
         {
             var engine = new Engine();
@@ -2012,11 +2122,10 @@ namespace Jint.Tests.Runtime
         public void ShouldStringifyNumWithoutV8DToA()
         {
             // 53.6841659 cannot be converted by V8's DToA => "old" DToA code will be used.
-
             var engine = new Engine();
-            Native.JsValue val = engine.Execute("JSON.stringify(53.6841659)").GetCompletionValue();
+            var val = engine.Execute("JSON.stringify(53.6841659)").GetCompletionValue();
 
-            Assert.True(val.AsString() == "53.6841659");
+            Assert.Equal("53.6841659", val.AsString());
         }
 
         [Fact]
@@ -2505,5 +2614,141 @@ namespace Jint.Tests.Runtime
             Assert.Equal("concatwelldone", result);
         }
 
+        [Fact]
+        public void ComplexMappingAndReducing()
+        {
+            const string program = @"
+Object.map = function (o, f, ctx) {
+    ctx = ctx || this;
+    var result = [];
+    Object.keys(o).forEach(function(k) {
+        result.push(f.call(ctx, o[k], k));
+	});
+    return result;
+};
+
+var x1 = {""Value"":1.0,""Elements"":[{""Name"":""a"",""Value"":""b"",""Decimal"":3.2},{""Name"":""a"",""Value"":""b"",""Decimal"": 3.5}],""Values"":{""test"": 2,""test1"":3,""test2"": 4}}
+var x2 = {""Value"":2.0,""Elements"":[{""Name"":""aa"",""Value"":""ba"",""Decimal"":3.5}],""Values"":{""test"":1,""test1"":2,""test2"":3}};
+
+function output(x) {
+	var elements = x.Elements.map(function(a){return a.Decimal;});
+	var values = x.Values;
+	var generated = x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {});
+	return {
+        TestDictionary1 : values, 
+        TestDictionary2 : x.Values, 
+        TestDictionaryDirectAccess1 : Object.keys(x.Values).length,
+        TestDictionaryDirectAccess2 : Object.keys(x.Values),
+        TestDictionaryDirectAccess4 : Object.keys(x.Values).map(function(a){return x.Values[a];}),
+        TestDictionarySum1 : Object.keys(values).map(function(a){return{Key: a,Value:values[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0),
+        TestDictionarySum2 : Object.keys(x.Values).map(function(a){return{Key: a,Value:x.Values[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0),
+        TestDictionarySum3 : Object.keys(x.Values).map(function(a){return x.Values[a];}).reduce(function(a, b) { return a + b; }, 0),
+        TestDictionaryAverage1 : Object.keys(values).map(function(a){return{Key: a,Value:values[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(values).length||1),
+        TestDictionaryAverage2 : Object.keys(x.Values).map(function(a){return{Key: a,Value:x.Values[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(x.Values).length||1),
+        TestDictionaryAverage3 : Object.keys(x.Values).map(function(a){return x.Values[a];}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(x.Values).map(function(a){return x.Values[a];}).length||1),
+        TestDictionaryFunc1 : Object.keys(x.Values).length,
+        TestDictionaryFunc2 : Object.map(x.Values, function(v, k){ return v;}),
+        TestGeneratedDictionary1 : generated,
+        TestGeneratedDictionary2 : x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {}),
+        TestGeneratedDictionary3 : Object.keys(generated).length,
+        TestGeneratedDictionarySum1 : Object.keys(generated).map(function(a){return{Key: a,Value:generated[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0),
+        TestGeneratedDictionarySum2 : Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).map(function(a){return{Key: a,Value:x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0),
+        TestGeneratedDictionaryAverage1 : Object.keys(generated).map(function(a){return{Key: a,Value:generated[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(generated).length||1),
+        TestGeneratedDictionaryAverage2 : Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).map(function(a){return{Key: a,Value:x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).length||1), 
+        TestGeneratedDictionaryDirectAccess1 : Object.keys(generated),
+        TestGeneratedDictionaryDirectAccess2 : Object.keys(generated).map(function(a){return generated[a];}),
+        TestGeneratedDictionaryDirectAccess3 : Object.keys(generated).length, 
+        TestList1 : elements.reduce(function(a, b) { return a + b; }, 0), 
+        TestList2 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0),
+        TestList3 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0),
+        TestList4 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0)/(x.Elements.length||1),
+        TestList5 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0)/(x.Elements.map((function(a){return a.Decimal;})).length||1)
+    };
+};
+";
+            _engine.Execute(program);
+            var result1 = (ObjectInstance) _engine.Execute("output(x1)").GetCompletionValue();
+            var result2 = (ObjectInstance) _engine.Execute("output(x2)").GetCompletionValue();
+
+            Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum1")));
+            Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum2")));
+            Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum3")));
+
+            Assert.Equal(3, TypeConverter.ToNumber(result1.Get("TestDictionaryAverage1")));
+            Assert.Equal(3, TypeConverter.ToNumber(result1.Get("TestDictionaryAverage2")));
+            Assert.Equal(3, TypeConverter.ToNumber(result1.Get("TestDictionaryAverage3")));
+
+            Assert.Equal(3, TypeConverter.ToNumber(result1.Get("TestDictionaryFunc1")));
+            Assert.Equal(1, TypeConverter.ToNumber(result1.Get("TestGeneratedDictionary3")));
+
+            Assert.Equal(3.5, TypeConverter.ToNumber(result1.Get("TestGeneratedDictionarySum1")));
+            Assert.Equal(3.5, TypeConverter.ToNumber(result1.Get("TestGeneratedDictionarySum2")));
+            Assert.Equal(3.5, TypeConverter.ToNumber(result1.Get("TestGeneratedDictionaryAverage1")));
+            Assert.Equal(3.5, TypeConverter.ToNumber(result1.Get("TestGeneratedDictionaryAverage2")));
+
+            Assert.Equal(1, TypeConverter.ToNumber(result1.Get("TestGeneratedDictionaryDirectAccess3")));
+
+            Assert.Equal(6.7, TypeConverter.ToNumber(result1.Get("TestList1")));
+            Assert.Equal(6.7, TypeConverter.ToNumber(result1.Get("TestList2")));
+            Assert.Equal(6.7, TypeConverter.ToNumber(result1.Get("TestList3")));
+            Assert.Equal(3.35, TypeConverter.ToNumber(result1.Get("TestList4")));
+            Assert.Equal(3.35, TypeConverter.ToNumber(result1.Get("TestList5")));
+
+            Assert.Equal(6, TypeConverter.ToNumber(result2.Get("TestDictionarySum1")));
+            Assert.Equal(6, TypeConverter.ToNumber(result2.Get("TestDictionarySum2")));
+            Assert.Equal(6, TypeConverter.ToNumber(result2.Get("TestDictionarySum3")));
+
+            Assert.Equal(2, TypeConverter.ToNumber(result2.Get("TestDictionaryAverage1")));
+            Assert.Equal(2, TypeConverter.ToNumber(result2.Get("TestDictionaryAverage2")));
+            Assert.Equal(2, TypeConverter.ToNumber(result2.Get("TestDictionaryAverage3")));
+        }
+        [Fact]
+        public void ShouldBeAbleToSpreadArrayLiteralsAndFunctionParameters()
+        {
+            RunTest(@"
+                function concat(x, a, b) {
+                    x += a;
+                    x += b;
+                    return x;
+                }
+                var s = [...'abc'];
+                var c = concat(1, ...'ab');
+                var arr1 = [1, 2];
+                var arr2 = [3, 4 ];
+                var r = [...arr2, ...arr1];
+            ");
+
+            var arrayInstance = (ArrayInstance) _engine.GetValue("r");
+            Assert.Equal(arrayInstance[0], 3);
+            Assert.Equal(arrayInstance[1], 4);
+            Assert.Equal(arrayInstance[2], 1);
+            Assert.Equal(arrayInstance[3], 2);
+
+            arrayInstance = (ArrayInstance) _engine.GetValue("s");
+            Assert.Equal(arrayInstance[0], 'a');
+            Assert.Equal(arrayInstance[1], 'b');
+            Assert.Equal(arrayInstance[2], 'c');
+
+            var c = _engine.GetValue("c").ToString();
+            Assert.Equal("1ab", c);
+        }
+
+        [Fact]
+        public void ShouldSupportDefaultsInFunctionParameters()
+        {
+            RunTest(@"
+                function f(x, y=12) {
+                  // y is 12 if not passed (or passed as undefined)
+                  return x + y;
+                }
+            ");
+
+            var function = _engine.GetValue("f");
+            var result = function.Invoke(3).ToString();
+            Assert.Equal("15", result);
+
+            result = function.Invoke(3, JsValue.Undefined).ToString();
+            Assert.Equal("15", result);
+        }
     }
 }

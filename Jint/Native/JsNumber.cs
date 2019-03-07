@@ -1,15 +1,19 @@
 ﻿using System;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Jint.Runtime;
 
 namespace Jint.Native
 {
     public sealed class JsNumber : JsValue, IEquatable<JsNumber>
     {
+        // .NET double epsilon and JS epsilon have different values
+        internal const double JavaScriptEpsilon = 2.2204460492503130808472633361816E-16;
+
         internal readonly double _value;
 
         // how many decimals to check when determining if double is actually an int
-        private const double DoubleIsIntegerTolerance = double.Epsilon * 100;
+        internal const double DoubleIsIntegerTolerance = double.Epsilon * 100;
 
         private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
 
@@ -19,11 +23,15 @@ namespace Jint.Native
         private static readonly JsNumber[] _doubleToJsValue = new JsNumber[NumbersMax];
         private static readonly JsNumber[] _intToJsValue = new JsNumber[NumbersMax];
 
-        private static readonly JsNumber DoubleNaN = new JsNumber(double.NaN);
-        private static readonly JsNumber DoubleNegativeOne = new JsNumber((double) -1);
-        private static readonly JsNumber DoublePositiveInfinity = new JsNumber(double.PositiveInfinity);
-        private static readonly JsNumber DoubleNegativeInfinity = new JsNumber(double.NegativeInfinity);
+        internal static readonly JsNumber DoubleNaN = new JsNumber(double.NaN);
+        internal static readonly JsNumber DoubleNegativeOne = new JsNumber((double) -1);
+        internal static readonly JsNumber DoublePositiveInfinity = new JsNumber(double.PositiveInfinity);
+        internal static readonly JsNumber DoubleNegativeInfinity = new JsNumber(double.NegativeInfinity);
         private static readonly JsNumber IntegerNegativeOne = new JsNumber(-1);
+        internal static readonly JsNumber NegativeZero = new JsNumber(-0d);
+        internal static readonly JsNumber PositiveZero = new JsNumber(+0);
+
+        internal static readonly JsNumber PI = new JsNumber(System.Math.PI);
 
         static JsNumber()
         {
@@ -69,6 +77,17 @@ namespace Jint.Native
                 return DoubleNegativeOne;
             }
 
+            if (value <= double.MaxValue && value >= double.MinValue)
+            {
+                return new JsNumber(value);
+            }
+
+            return CreateNumberUnlikely(value);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static JsNumber CreateNumberUnlikely(double value)
+        {
             if (value == double.NegativeInfinity)
             {
                 return DoubleNegativeInfinity;
