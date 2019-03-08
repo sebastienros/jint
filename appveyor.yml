@@ -6,6 +6,7 @@ branches:
   only:
     - master
     - dev
+    - rel/3.0-beta
 
 init:
   - git config --global core.autocrlf true
