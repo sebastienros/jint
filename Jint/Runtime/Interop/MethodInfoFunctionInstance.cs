@@ -88,15 +88,7 @@ namespace Jint.Runtime.Interop
                 }
                 catch (TargetInvocationException exception)
                 {
-                    var meaningfulException = exception.InnerException ?? exception;
-                    var handler = Engine.Options._ClrExceptionsHandler;
-
-                    if (handler != null && handler(meaningfulException))
-                    {
-                        ExceptionHelper.ThrowError(_engine, meaningfulException.Message);
-                    }
-
-                    throw meaningfulException;
+                    ExceptionHelper.ThrowMeaningfulException(_engine, exception);
                 }
             }
 
@@ -132,6 +124,5 @@ namespace Jint.Runtime.Interop
             newArgumentsCollection[nonParamsArgumentsCount] = jsArray;
             return newArgumentsCollection;
         }
-
     }
 }

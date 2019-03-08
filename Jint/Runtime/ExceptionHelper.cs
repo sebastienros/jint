@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 using Jint.Native;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.References;
@@ -154,6 +155,17 @@ namespace Jint.Runtime
         public static T ThrowArgumentNullException<T>(string paramName)
         {
             throw new ArgumentNullException(paramName);
+        }
+
+        public static void ThrowMeaningfulException(Engine engine, TargetInvocationException exception)
+        {
+            var meaningfulException = exception.InnerException ?? exception;
+
+            var handler = engine.Options._ClrExceptionsHandler;
+            if (handler != null && handler(meaningfulException))
+                ThrowError(engine, meaningfulException.Message);
+
+            throw meaningfulException;
         }
 
         public static void ThrowError(Engine engine, string message)
