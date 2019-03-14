@@ -11,9 +11,14 @@ namespace Jint.Repl
     {
         static void Main(string[] args)
         {
-            var engine = new Engine(cfg => cfg.AllowClr())
+
+            var engine = new Engine(cfg => cfg.AllowClr());
+
+            engine
                 .SetValue("print", new Action<object>(Console.WriteLine))
-            ;
+                .SetValue("load", new Func<string, object>(
+                    path => engine.Execute(File.ReadAllText(path))
+                                  .GetCompletionValue()));
 
             var filename = args.Length > 0 ? args[0] : "";
             if (!String.IsNullOrEmpty(filename))
@@ -33,7 +38,9 @@ namespace Jint.Repl
             string version = fvi.FileVersion;
 
             Console.WriteLine("Welcome to Jint ({0})", version);
-            Console.WriteLine("Type 'exit' to leave, 'print()' to write on the console.");
+            Console.WriteLine("Type 'exit' to leave, " +
+                              "'print()' to write on the console, " +
+                              "'load()' to load scripts.");
             Console.WriteLine();
 
             var defaultColor = Console.ForegroundColor;
