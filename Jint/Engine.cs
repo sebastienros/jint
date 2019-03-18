@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
-using System.Linq;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
@@ -285,7 +284,7 @@ namespace Jint
                             if (methodInfo.IsDefined(typeof(ExtensionAttribute), true))
                             {
                                 extMethods.Add(methodInfo);
-                                var firstParamType = methodInfo.GetParameters().First().ParameterType;
+                                var firstParamType = methodInfo.GetParameters()[0].ParameterType;
                                 RegisterTypeInInstanceCache(firstParamType, methodInfo);
 
                                 if (StaticExtensionMethodTypeCache.ContainsKey(firstParamType))
@@ -307,7 +306,7 @@ namespace Jint
                         {
                             if (methodInfo.IsDefined(typeof(ExtensionAttribute), true))
                             {
-                                var firstParamType = methodInfo.GetParameters().First().ParameterType;
+                                var firstParamType = methodInfo.GetParameters()[0].ParameterType;
                                 RegisterTypeInInstanceCache(firstParamType, methodInfo);
 
                                 if (StaticExtensionMethodTypeCache.ContainsKey(firstParamType))
