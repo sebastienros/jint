@@ -9,12 +9,9 @@ using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
-using Xunit;
-using System.Net;
 using Jint.Tests.Runtime.Domain;
 using Jint.Tests.Runtime.Extensions;
-using System.Collections.Generic;
-using System.Linq;
+using Xunit;
 
 namespace Jint.Tests.Runtime
 {
