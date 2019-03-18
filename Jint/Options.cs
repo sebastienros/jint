@@ -27,7 +27,6 @@ namespace Jint
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver;
-        private List<Type> _extensionMethodsTypes = new List<Type>();
         private List<Type> _extensionMethodClasses = new List<Type>();
 
         /// <summary>
@@ -130,6 +129,9 @@ namespace Jint
             return this;
         }
 
+        /// <summary>
+        /// Add Type with Extension Methods to be available within the Engine.
+        /// </summary>
         public Options AddExtensionMethods(params Type[] types)
         {
             _extensionMethodClasses.AddRange(types);
@@ -220,9 +222,7 @@ namespace Jint
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
 
         internal IReferenceResolver  ReferenceResolver => _referenceResolver;
-
-
-        internal IList<Type> _ExtensionMethodsTypes => _extensionMethodsTypes;
-        internal IList<Type> _ExtensionMethodClasses => _extensionMethodClasses;
+        
+        internal IList<Type> ExtensionMethodClasses => _extensionMethodClasses;
     }
 }

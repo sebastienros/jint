@@ -272,7 +272,7 @@ namespace Jint
 
         private void RegisterExtensionMethods()
         {
-            foreach (var extensionMethodClass in Options._ExtensionMethodClasses)
+            foreach (var extensionMethodClass in Options.ExtensionMethodClasses)
             {
                 lock (_staticExtensionMethodClassCacheLock)
                 {
@@ -315,7 +315,7 @@ namespace Jint
                                 }
                                 else
                                 {
-                                    StaticExtensionMethodTypeCache.Add(firstParamType, new List<MethodInfo>() {methodInfo});
+                                    StaticExtensionMethodTypeCache.Add(firstParamType, new List<MethodInfo> {methodInfo});
                                 }
                             }
                         }
@@ -328,7 +328,7 @@ namespace Jint
         {
             if (!InstanceExtensionMethodTypeCache.ContainsKey(type))
             {
-                InstanceExtensionMethodTypeCache.Add(type, new List<MethodInfo>() { methodInfo });
+                InstanceExtensionMethodTypeCache.Add(type, new List<MethodInfo> { methodInfo });
             }
             else
             {
