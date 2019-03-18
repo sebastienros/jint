@@ -53,7 +53,7 @@ namespace Jint.Runtime.Interop
 
             var constructors = ReferenceType.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
 
-            foreach (var tuple in TypeConverter.FindBestMatch(_engine, constructors, (info, b) => arguments))
+            foreach (var tuple in TypeConverter.FindBestMatch(_engine, constructors, (info, b, em) => arguments))
             {
                 var method = tuple.Item1;
 

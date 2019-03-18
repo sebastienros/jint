@@ -71,7 +71,7 @@ namespace Jint.Runtime.Interop
 
             if (!_engine.ClrPropertyDescriptorFactories.TryGetValue(key, out var factory))
             {
-                factory = ResolveProperty(type, propertyName);
+                factory = ResolveProperty(_engine, type, propertyName);
                 _engine.ClrPropertyDescriptorFactories[key] = factory;
             }
 
@@ -80,7 +80,7 @@ namespace Jint.Runtime.Interop
             return descriptor;
         }
         
-        private static Func<Engine, object, PropertyDescriptor> ResolveProperty(Type type, string propertyName)
+        private static Func<Engine, object, PropertyDescriptor> ResolveProperty(Engine _engine, Type type, string propertyName)
         {
             var isNumber = uint.TryParse(propertyName, out _);
 
@@ -210,15 +210,12 @@ namespace Jint.Runtime.Interop
                 return (engine, target) => new IndexDescriptor(engine, explicitIndexers[0].DeclaringType, propertyName, target);
             }
 
-            /**
             // if nothing found until now, try to find an registered extension Method
-            if (this.Engine.InstanceExtensionMethodTypeCache.ContainsKey(type))
+            if (_engine.InstanceExtensionMethodTypeCache.ContainsKey(type))
             {
-                var descriptor = new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, this.Engine.InstanceExtensionMethodTypeCache[type].ToArray()), false, true, false);
-                Properties.Add(propertyName, descriptor);
-                return (engine, target) => descriptor;
+                return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(_engine, _engine.InstanceExtensionMethodTypeCache[type].ToArray()), false, true, false);
             }
-            /**/
+
 
             return (engine, target) => PropertyDescriptor.Undefined;
         }

@@ -494,7 +494,7 @@ namespace Jint.Runtime
             }
         }
 
-        public static IEnumerable<Tuple<MethodBase, JsValue[]>> FindBestMatch<T>(Engine engine, T[] methods, Func<T, bool, JsValue[]> argumentProvider) where T : MethodBase
+        public static IEnumerable<Tuple<MethodBase, JsValue[]>> FindBestMatch<T>(Engine engine, T[] methods, Func<T, bool, bool, JsValue[]> argumentProvider) where T : MethodBase
         {
             System.Collections.Generic.List<Tuple<T, JsValue[]>> matchingByParameterCount = null;
             foreach (var m in methods)
@@ -510,7 +510,8 @@ namespace Jint.Runtime
                     }
                 }
 
-                var arguments = argumentProvider(m, hasParams);
+                var isExtensionMethod = m.IsDefined(typeof(ExtensionAttribute), true);
+                var arguments = argumentProvider(m, hasParams, isExtensionMethod);
                 if (parameterInfos.Length == arguments.Length)
                 {
                     if (methods.Length == 0 && arguments.Length == 0)

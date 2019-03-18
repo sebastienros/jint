@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Collections.Generic;
+using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Native;
@@ -24,25 +25,18 @@ namespace Jint.Runtime.Interop
 
         public JsValue Invoke(MethodInfo[] methodInfos, JsValue thisObject, JsValue[] jsArguments)
         {
-            /**
-            var arguments = ProcessParamsArrays(jsArguments, methodInfos);
-            var methods = TypeConverter.FindBestMatch(Engine, methodInfos, arguments).ToList();
-
-            // if nothing found until now, try to find an registered extension Method
-            if (methods.Count == 0 &&  methodInfos.Any(m => m.IsExtensionMethod()))
+            JsValue[] ArgumentProvider(MethodInfo method, bool hasParams, bool isExtension)
             {
-                var args = jsArguments.ToList();
-                args.Insert(0, thisObject);
-
-                arguments = ProcessParamsArrays(args.ToArray(), methodInfos);
-                methods = TypeConverter.FindBestMatch(Engine, methodInfos, arguments).ToList();
+                // in case we work with an extension method, add thisObject as first argument
+                var jsArgs = jsArguments;
+                if (isExtension) {
+                    var args = new System.Collections.Generic.List<JsValue> {thisObject};
+                    foreach (var argument in jsArguments) args.Add(argument);
+                    jsArgs = args.ToArray();
+                }
+                
+                return hasParams ? ProcessParamsArrays(jsArgs, method) : jsArgs;
             }
-            /**/
-
-            JsValue[] ArgumentProvider(MethodInfo method, bool hasParams) =>
-                hasParams
-                    ? ProcessParamsArrays(jsArguments, method)
-                    : jsArguments;
 
             var converter = Engine.ClrTypeConverter;
 
