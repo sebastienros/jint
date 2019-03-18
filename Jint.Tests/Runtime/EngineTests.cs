@@ -2778,6 +2778,5 @@ function output(x) {
             var expected = DateTime.Now.Year - bruce.Age;
             Assert.Equal(val.AsNumber(), expected);
         }
-
     }
 }
