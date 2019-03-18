@@ -265,62 +265,64 @@ namespace Jint
             RegisterExtensionMethods();
         }
 
-        internal static readonly Dictionary<Type, System.Collections.Generic.List<MethodInfo>> StaticExtensionMethodClassCache = new Dictionary<Type, System.Collections.Generic.List<MethodInfo>>();
-        internal static readonly Dictionary<Type, System.Collections.Generic.List<MethodInfo>> StaticExtensionMethodTypeCache = new Dictionary<Type, System.Collections.Generic.List<MethodInfo>>();
+        private static readonly Dictionary<Type, System.Collections.Generic.List<MethodInfo>> StaticExtensionMethodClassCache = new Dictionary<Type, System.Collections.Generic.List<MethodInfo>>();
+        private static readonly Dictionary<Type, System.Collections.Generic.List<MethodInfo>> StaticExtensionMethodTypeCache = new Dictionary<Type, System.Collections.Generic.List<MethodInfo>>();
         internal readonly Dictionary<Type, System.Collections.Generic.List<MethodInfo>> InstanceExtensionMethodTypeCache = new Dictionary<Type, System.Collections.Generic.List<MethodInfo>>();
 
         private readonly object _staticExtensionMethodClassCacheLock = new object();
 
         private void RegisterExtensionMethods()
         {
-
             foreach (var extensionMethodClass in Options._ExtensionMethodClasses)
             {
                 lock (_staticExtensionMethodClassCacheLock)
                 {
-                    List<MethodInfo> extMethods;
-                    if (!StaticExtensionMethodClassCache.TryGetValue(extensionMethodClass, out extMethods))
+                    if (!StaticExtensionMethodClassCache.TryGetValue(extensionMethodClass, out var extMethods))
                     {
                         extMethods = new List<MethodInfo>();
-                        foreach (var methodInfo in extensionMethodClass.GetExtensionMethods())
+                        foreach (var methodInfo in extensionMethodClass.GetMethods(BindingFlags.Public | BindingFlags.Static))
                         {
-                            extMethods.Add(methodInfo);
-                            var firstParamType = methodInfo.GetParameters().First().ParameterType;
-                            RegisterTypeInInstanceCache(firstParamType, methodInfo);
-
-                            if (StaticExtensionMethodTypeCache.ContainsKey(firstParamType))
+                            if (methodInfo.IsDefined(typeof(ExtensionAttribute), true))
                             {
-                                StaticExtensionMethodTypeCache[firstParamType].Add(methodInfo);
-                            }
-                            else
-                            {
-                                StaticExtensionMethodTypeCache.Add(firstParamType, new List<MethodInfo>() { methodInfo });
-                            }
+                                extMethods.Add(methodInfo);
+                                var firstParamType = methodInfo.GetParameters().First().ParameterType;
+                                RegisterTypeInInstanceCache(firstParamType, methodInfo);
 
+                                if (StaticExtensionMethodTypeCache.ContainsKey(firstParamType))
+                                {
+                                    StaticExtensionMethodTypeCache[firstParamType].Add(methodInfo);
+                                }
+                                else
+                                {
+                                    StaticExtensionMethodTypeCache.Add(firstParamType, new List<MethodInfo>() {methodInfo});
+                                }
+                            }
                         }
 
                         StaticExtensionMethodClassCache.Add(extensionMethodClass, extMethods);
                     }
                     else
                     {
-                        foreach (var methodInfo in extensionMethodClass.GetExtensionMethods())
+                        foreach (var methodInfo in extensionMethodClass.GetMethods(BindingFlags.Public | BindingFlags.Static))
                         {
-                            var firstParamType = methodInfo.GetParameters().First().ParameterType;
-                            RegisterTypeInInstanceCache(firstParamType, methodInfo);
+                            if (methodInfo.IsDefined(typeof(ExtensionAttribute), true))
+                            {
+                                var firstParamType = methodInfo.GetParameters().First().ParameterType;
+                                RegisterTypeInInstanceCache(firstParamType, methodInfo);
 
-                            if (StaticExtensionMethodTypeCache.ContainsKey(firstParamType))
-                            {
-                                StaticExtensionMethodTypeCache[firstParamType].Add(methodInfo);
-                            }
-                            else
-                            {
-                                StaticExtensionMethodTypeCache.Add(firstParamType, new List<MethodInfo>() { methodInfo });
+                                if (StaticExtensionMethodTypeCache.ContainsKey(firstParamType))
+                                {
+                                    StaticExtensionMethodTypeCache[firstParamType].Add(methodInfo);
+                                }
+                                else
+                                {
+                                    StaticExtensionMethodTypeCache.Add(firstParamType, new List<MethodInfo>() {methodInfo});
+                                }
                             }
                         }
                     }
                 }
             }
-
         }
 
         private void RegisterTypeInInstanceCache(Type type, MethodInfo methodInfo)
