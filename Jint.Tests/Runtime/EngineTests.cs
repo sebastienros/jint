@@ -2753,14 +2753,16 @@ function output(x) {
             Assert.Equal("15", result);
         }
 
+        /**
         [Fact]
         public void StringExtension()
         {
             var engine = new Engine(o => o.AddExtensionMethods(typeof(StringExtensions)));
             var val = engine.Execute("\"Testing\".Reverse()").GetCompletionValue().AsString();
 
-            Assert.True(val == "gnitseT");
+            Assert.Equal("gnitseT", val);
         }
+        /**/
 
         [Fact]
         public void PersonExtension()
@@ -2770,10 +2772,15 @@ function output(x) {
             bruce.Name = "Bruce Wayne";
             bruce.Age = 123;
             engine.SetValue("bruce", bruce);
-            var val = engine.Execute("bruce.GetBirthYear()").GetCompletionValue();
 
-            var expected = DateTime.Now.Year - bruce.Age;
-            Assert.Equal(val.AsNumber(), expected);
+            var val1 = engine.Execute("bruce.GetBirthYear()").GetCompletionValue();
+            Assert.Equal(DateTime.Now.Year - bruce.Age, val1.AsNumber());
+
+            var val2 = engine.Execute("bruce.GetFormattedName()").GetCompletionValue();
+            Assert.Equal("Bruce Wayne (123)", val2.AsString());
+
+            var val3 = engine.Execute("bruce.GetBirthMonth()").GetCompletionValue();
+            Assert.Throws<JavaScriptException>(() => engine.Execute("bruce.GetBirthMonth()"));
         }
     }
 }

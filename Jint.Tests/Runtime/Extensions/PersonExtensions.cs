@@ -9,5 +9,10 @@ namespace Jint.Tests.Runtime.Extensions
         {
             return DateTime.Now.Year - person.Age;
         }
+
+        public static string GetFormattedName(this Person person)
+        {
+            return $"{person.Name} ({person.Age})";
+        }
     }
 }
