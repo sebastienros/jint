@@ -210,12 +210,11 @@ namespace Jint.Runtime.Interop
                 return (engine, target) => new IndexDescriptor(engine, explicitIndexers[0].DeclaringType, propertyName, target);
             }
 
-            // if nothing found until now, try to find an registered extension Method
-            if (_engine.InstanceExtensionMethodTypeCache.ContainsKey(type))
+            // try to find a registered extension method
+            if (_engine.InstanceExtensionMethodTypeCache.TryGetValue(type, out var methodInfos))
             {
-                return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(_engine, _engine.InstanceExtensionMethodTypeCache[type].ToArray()), false, true, false);
+                return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, methodInfos.ToArray()), false, true, false);
             }
-
 
             return (engine, target) => PropertyDescriptor.Undefined;
         }
