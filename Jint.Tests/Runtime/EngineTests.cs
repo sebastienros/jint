@@ -2768,9 +2768,7 @@ function output(x) {
         public void PersonExtension()
         {
             var engine = new Engine(o => o.AddExtensionMethods(typeof(PersonExtensions)));
-            var bruce = new Person();
-            bruce.Name = "Bruce Wayne";
-            bruce.Age = 123;
+            var bruce = new Person {Name = "Bruce Wayne", Age = 123};
             engine.SetValue("bruce", bruce);
 
             var val1 = engine.Execute("bruce.GetBirthYear()").GetCompletionValue();
@@ -2779,8 +2777,7 @@ function output(x) {
             var val2 = engine.Execute("bruce.GetFormattedName()").GetCompletionValue();
             Assert.Equal("Bruce Wayne (123)", val2.AsString());
 
-            var val3 = engine.Execute("bruce.GetBirthMonth()").GetCompletionValue();
-            Assert.Throws<JavaScriptException>(() => engine.Execute("bruce.GetBirthMonth()"));
+            Assert.Throws<JavaScriptException>(() => engine.Execute("bruce.NonExistingMethod()"));
         }
     }
 }

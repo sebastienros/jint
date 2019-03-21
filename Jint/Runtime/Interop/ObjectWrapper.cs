@@ -210,10 +210,23 @@ namespace Jint.Runtime.Interop
                 return (engine, target) => new IndexDescriptor(engine, explicitIndexers[0].DeclaringType, propertyName, target);
             }
 
-            // try to find a registered extension method
+            // try to find cached extension methods
+            List<MethodInfo> extensionMethods = null;
             if (_engine.InstanceExtensionMethodTypeCache.TryGetValue(type, out var methodInfos))
             {
-                return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, methodInfos.ToArray()), false, true, false);
+                foreach (var mi in methodInfos)
+                {
+                    if (EqualsIgnoreCasing(mi.Name, propertyName))
+                    {
+                        extensionMethods = extensionMethods ?? new List<MethodInfo>();
+                        extensionMethods.Add(mi);
+                    }
+                }
+            }
+
+            if (extensionMethods?.Count > 0)
+            {
+                return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, extensionMethods.ToArray()), false, true, false);
             }
 
             return (engine, target) => PropertyDescriptor.Undefined;
