@@ -1,6 +1,6 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
-using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Native;
@@ -10,8 +10,7 @@ namespace Jint.Runtime.Interop
     public class DefaultTypeConverter : ITypeConverter
     {
         private readonly Engine _engine;
-        private static readonly Dictionary<string, bool> _knownConversions = new Dictionary<string, bool>();
-        private static readonly object _lockObject = new object();
+        private static readonly ConcurrentDictionary<string, bool> _knownConversions = new ConcurrentDictionary<string, bool>();
 
         private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new Type[] { typeof(object), typeof(Type), typeof(IFormatProvider) });
         private static readonly MethodInfo jsValueFromObject = typeof(JsValue).GetMethod("FromObject");
@@ -208,27 +207,18 @@ namespace Jint.Runtime.Interop
         {
             var key = value == null ? $"Null->{type}" : $"{value.GetType()}->{type}";
 
-            if (!_knownConversions.TryGetValue(key, out var canConvert))
+            var canConvert = _knownConversions.GetOrAdd(key, _ =>
             {
-                lock (_lockObject)
+                try
                 {
-                    if (!_knownConversions.TryGetValue(key, out canConvert))
-                    {
-                        try
-                        {
-                            converted = Convert(value, type, formatProvider);
-                            _knownConversions.Add(key, true);
-                            return true;
-                        }
-                        catch
-                        {
-                            converted = null;
-                            _knownConversions.Add(key, false);
-                            return false;
-                        }
-                    }
+                    Convert(value, type, formatProvider);
+                    return true;
                 }
-            }
+                catch
+                {
+                    return false;
+                }
+            });
 
             if (canConvert)
             {
