@@ -82,7 +82,7 @@ namespace Jint
             { typeof(UInt16), (Engine engine, object v) => JsNumber.Create((UInt16)v) },
             { typeof(UInt32), (Engine engine, object v) => JsNumber.Create((UInt32)v) },
             { typeof(UInt64), (Engine engine, object v) => JsNumber.Create((UInt64)v) },
-            { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "") }
+            { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "", engine) }
         };
 
         internal struct ClrPropertyDescriptorFactoriesKey : IEquatable<ClrPropertyDescriptorFactoriesKey>
