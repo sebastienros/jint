@@ -25,7 +25,9 @@ namespace Jint.Runtime.Interop
             Prototype = engine.Function.PrototypeObject;
             Extensible = true;
 
-            _length = new PropertyDescriptor(length, lengthFlags);
+            _length = lengthFlags == PropertyFlag.AllForbidden
+                ? PropertyDescriptor.AllForbiddenDescriptor.ForNumber(length)
+                : new PropertyDescriptor(length, lengthFlags);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

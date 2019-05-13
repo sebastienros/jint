@@ -34,7 +34,7 @@ namespace Jint.Native.String
                 Prototype = engine.Object.PrototypeObject,
                 PrimitiveValue = JsString.Empty,
                 Extensible = true,
-                _length = new PropertyDescriptor(0, PropertyFlag.AllForbidden),
+                _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero,
                 _stringConstructor = stringConstructor,
             };
 

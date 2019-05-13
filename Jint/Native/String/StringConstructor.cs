@@ -26,7 +26,7 @@ namespace Jint.Native.String
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = StringPrototype.CreatePrototypeObject(engine, obj);
 
-            obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
+            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
 
             // The initial value of String.prototype is the String prototype object
             obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
@@ -174,7 +174,9 @@ namespace Jint.Native.String
                 Prototype = PrototypeObject,
                 PrimitiveValue = value,
                 Extensible = true,
-                _length = new PropertyDescriptor(value.Length, PropertyFlag.AllForbidden)
+                _length = value.Length == 0
+                    ? PropertyDescriptor.AllForbiddenDescriptor.NumberZero
+                    : new PropertyDescriptor(value.Length, PropertyFlag.AllForbidden)
             };
 
             return instance;

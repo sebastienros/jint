@@ -27,7 +27,7 @@ namespace Jint.Native.Function
             obj.Prototype = obj.PrototypeObject;
 
             obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-            obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
+            obj._length =  PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
 
             return obj;
         }

@@ -25,7 +25,7 @@ namespace Jint.Native.Error
             // The value of the [[Prototype]] internal property of the Error constructor is the Function prototype object (15.11.3)
             obj.PrototypeObject = ErrorPrototype.CreatePrototypeObject(engine, obj, name);
 
-            obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
+            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
 
             // The initial value of Error.prototype is the Error prototype object
             obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);

@@ -29,7 +29,7 @@ namespace Jint.Native.Symbol
             // The value of the [[Prototype]] internal property of the Symbol constructor is the Function prototype object
             obj.PrototypeObject = SymbolPrototype.CreatePrototypeObject(engine, obj);
 
-            obj._length = new PropertyDescriptor(0, PropertyFlag.AllForbidden);
+            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
 
             // The initial value of String.prototype is the String prototype object
             obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);

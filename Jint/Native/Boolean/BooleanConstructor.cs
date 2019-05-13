@@ -20,7 +20,7 @@ namespace Jint.Native.Boolean
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = BooleanPrototype.CreatePrototypeObject(engine, obj);
 
-            obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
+            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
 
             // The initial value of Boolean.prototype is the Boolean prototype object
             obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);

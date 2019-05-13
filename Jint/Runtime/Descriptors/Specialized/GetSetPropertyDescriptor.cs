@@ -39,5 +39,26 @@ namespace Jint.Runtime.Descriptors.Specialized
         {
             _set = setter;
         }
+
+        internal sealed class ThrowerPropertyDescriptor : PropertyDescriptor
+        {
+            private readonly JsValue _get;
+            private readonly JsValue _set;
+
+            public ThrowerPropertyDescriptor(JsValue functionThrowTypeError)
+                : base(PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet | PropertyFlag.CustomJsValue)
+            {
+                _get = functionThrowTypeError;
+                _set = functionThrowTypeError;
+            }
+
+            public override JsValue Get => _get;
+            public override JsValue Set => _set;
+
+            protected internal override JsValue CustomValue
+            {
+                set => ExceptionHelper.ThrowInvalidOperationException("making changes to throw type error property's descriptor is not allowed");
+            }
+        }
     }
 }

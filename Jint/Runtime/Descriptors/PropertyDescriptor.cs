@@ -395,5 +395,36 @@ namespace Jint.Runtime.Descriptors
                 set => ExceptionHelper.ThrowInvalidOperationException("making changes to undefined property's descriptor is not allowed");
             }
         }
+
+        internal sealed class AllForbiddenDescriptor : PropertyDescriptor
+        {
+            public static readonly AllForbiddenDescriptor NumberZero = new AllForbiddenDescriptor(JsNumber.Create(0));
+            public static readonly AllForbiddenDescriptor NumberOne = new AllForbiddenDescriptor(JsNumber.Create(1));
+            public static readonly AllForbiddenDescriptor NumberTwo = new AllForbiddenDescriptor(JsNumber.Create(2));
+
+            public static readonly AllForbiddenDescriptor BooleanFalse = new AllForbiddenDescriptor(JsBoolean.False);
+            public static readonly AllForbiddenDescriptor BooleanTrue = new AllForbiddenDescriptor(JsBoolean.True);
+
+            private AllForbiddenDescriptor(JsValue value)
+                : base(PropertyFlag.AllForbidden)
+            {
+                _value = value;
+           }
+
+            public static PropertyDescriptor ForNumber(int number)
+            {
+                switch (number)
+                {
+                    case 2:
+                        return NumberTwo;
+                    case 1:
+                        return NumberOne;
+                    case 0:
+                        return NumberZero;
+                    default:
+                        return new PropertyDescriptor(number, PropertyFlag.AllForbidden);
+                }
+            }
+        }
     }
 }

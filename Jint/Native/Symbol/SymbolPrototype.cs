@@ -34,7 +34,7 @@ namespace Jint.Native.Symbol
         {
             _properties = new StringDictionarySlim<PropertyDescriptor>(8)
             {
-                ["length"] = new PropertyDescriptor(0, PropertyFlag.AllForbidden),
+                ["length"] = PropertyDescriptor.AllForbiddenDescriptor.NumberZero,
                 ["constructor"] = new PropertyDescriptor(_symbolConstructor, true, false, true),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToSymbolString), true, false, true),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf), true, false, true),

@@ -4,7 +4,6 @@ using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Function
@@ -26,7 +25,7 @@ namespace Jint.Native.Function
                 Extensible = true,
                 // The value of the [[Prototype]] internal property of the Function prototype object is the standard built-in Object prototype object
                 Prototype = engine.Object.PrototypeObject,
-                _length = new PropertyDescriptor(0, PropertyFlag.AllForbidden)
+                _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero
             };
 
             return obj;
@@ -69,13 +68,11 @@ namespace Jint.Native.Function
             }
             else
             {
-                f.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
+                f.SetOwnProperty("length", PropertyDescriptor.AllForbiddenDescriptor.NumberZero);
             }
 
-            var thrower = Engine.Function.ThrowTypeError;
-            const PropertyFlag flags = PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet;
-            f.DefineOwnProperty("caller", new GetSetPropertyDescriptor(thrower, thrower, flags), false);
-            f.DefineOwnProperty("arguments", new GetSetPropertyDescriptor(thrower, thrower, flags), false);
+            f.DefineOwnProperty("caller", _engine._getSetThrower, false);
+            f.DefineOwnProperty("arguments", _engine._getSetThrower, false);
 
             return f;
         }

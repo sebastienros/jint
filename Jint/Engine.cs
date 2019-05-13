@@ -25,6 +25,7 @@ using Jint.Runtime;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
@@ -84,6 +85,9 @@ namespace Jint
             { typeof(UInt64), (Engine engine, object v) => JsNumber.Create((UInt64)v) },
             { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "") }
         };
+
+        // shared frozen version
+        internal readonly PropertyDescriptor _getSetThrower;
 
         internal struct ClrPropertyDescriptorFactoriesKey : IEquatable<ClrPropertyDescriptorFactoriesKey>
         {
@@ -146,12 +150,13 @@ namespace Jint
 
             Object = ObjectConstructor.CreateObjectConstructor(this);
             Function = FunctionConstructor.CreateFunctionConstructor(this);
+            _getSetThrower = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(Function.ThrowTypeError);
 
             Symbol = SymbolConstructor.CreateSymbolConstructor(this);
             Array = ArrayConstructor.CreateArrayConstructor(this);
             Map = MapConstructor.CreateMapConstructor(this);
             Set = SetConstructor.CreateSetConstructor(this);
-            Iterator= IteratorConstructor.CreateIteratorConstructor(this);
+            Iterator = IteratorConstructor.CreateIteratorConstructor(this);
             String = StringConstructor.CreateStringConstructor(this);
             RegExp = RegExpConstructor.CreateRegExpConstructor(this);
             Number = NumberConstructor.CreateNumberConstructor(this);
