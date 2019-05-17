@@ -94,7 +94,14 @@ namespace Jint.Native.RegExp
             try
             {
                 var options = new Scanner("").ParseRegexOptions(f);
-                r.Value = new Regex(p, options);
+
+                var timeout = _engine.Options._RegexTimeoutInterval;
+                if (timeout.Ticks <= 0)
+                {
+                    timeout = Regex.InfiniteMatchTimeout;
+                }
+
+                r.Value = new Regex(p, options, timeout);
             }
             catch (Exception e)
             {
@@ -117,7 +124,7 @@ namespace Jint.Native.RegExp
             return r;
         }
 
-        public RegExpInstance Construct(string regExp)
+        public RegExpInstance Construct(string regExp, Engine engine)
         {
             var r = new RegExpInstance(Engine);
             r.Prototype = PrototypeObject;
@@ -128,6 +135,12 @@ namespace Jint.Native.RegExp
             var flags = (string)scanner.ScanRegExpFlags().Value;
             r.Value = scanner.TestRegExp(body, flags);
 
+            var timeout = engine.Options._RegexTimeoutInterval;
+            if (timeout.Ticks > 0)
+            {
+                r.Value = new Regex(r.Value.ToString(), r.Value.Options);
+            }
+
             r.Flags = flags;
             AssignFlags(r, flags);
             r.Source = System.String.IsNullOrEmpty(body) ? "(?:)" : body;
@@ -137,7 +150,7 @@ namespace Jint.Native.RegExp
             return r;
         }
 
-        public RegExpInstance Construct(Regex regExp, string flags)
+        public RegExpInstance Construct(Regex regExp, string flags, Engine engine)
         {
             var r = new RegExpInstance(Engine);
             r.Prototype = PrototypeObject;
@@ -147,7 +160,16 @@ namespace Jint.Native.RegExp
             AssignFlags(r, flags);
 
             r.Source = regExp.ToString();
-            r.Value = regExp;
+
+            var timeout = _engine.Options._RegexTimeoutInterval;
+            if (timeout.Ticks > 0)
+            {
+                r.Value = new Regex(regExp.ToString(), regExp.Options, timeout);
+            }
+            else
+            {
+                r.Value = regExp;
+            }
 
             SetRegexProperties(r);
 

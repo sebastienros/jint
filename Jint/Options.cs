@@ -22,6 +22,7 @@ namespace Jint
         private long _memoryLimit;
         private int _maxRecursionDepth = -1;
         private TimeSpan _timeoutInterval;
+        private TimeSpan? _regexTimeoutInterval;
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
@@ -145,6 +146,12 @@ namespace Jint
             return this;
         }
 
+        public Options RegexTimeoutInterval(TimeSpan regexTimeoutInterval)
+        {
+            _regexTimeoutInterval = regexTimeoutInterval;
+            return this;
+        }
+
         /// <summary>
         /// Sets maximum allowed depth of recursion.
         /// </summary>
@@ -205,6 +212,8 @@ namespace Jint
         internal int MaxRecursionDepth => _maxRecursionDepth;
 
         internal TimeSpan _TimeoutInterval => _timeoutInterval;
+
+        internal TimeSpan _RegexTimeoutInterval => _regexTimeoutInterval ?? _timeoutInterval;
 
         internal CultureInfo _Culture => _culture;
 

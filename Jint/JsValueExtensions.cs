@@ -11,7 +11,7 @@ namespace Jint
         {
             if (value._type != Types.Boolean)
             {
-                ExceptionHelper.ThrowArgumentException("The value is not a boolean");
+                ExceptionHelper.ThrowArgumentException($"Expected boolean but got {value._type}");
             }
 
             return ((JsBoolean) value)._value;
@@ -22,7 +22,7 @@ namespace Jint
         {
             if (value._type != Types.Number)
             {
-                ExceptionHelper.ThrowArgumentException("The value is not a number");
+                ExceptionHelper.ThrowArgumentException($"Expected number but got {value._type}");
             }
 
             return ((JsNumber) value)._value;
@@ -33,7 +33,7 @@ namespace Jint
         {
             if (value._type != Types.String)
             {
-                ExceptionHelper.ThrowArgumentException("The value is not a string");
+                ExceptionHelper.ThrowArgumentException($"Expected string but got {value._type}");
             }
 
             return AsStringWithoutTypeCheck(value);
@@ -50,7 +50,7 @@ namespace Jint
         {
             if (value._type != Types.Symbol)
             {
-                ExceptionHelper.ThrowArgumentException("The value is not a symbol");
+                ExceptionHelper.ThrowArgumentException($"Expected symbol but got {value._type}");
             }
 
             return ((JsSymbol) value)._value;
