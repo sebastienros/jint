@@ -10,18 +10,25 @@ namespace Jint.Native.Function
     public sealed class FunctionConstructor : FunctionInstance, IConstructor
     {
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
+        private static readonly JsString _functionName = new JsString("Function");
 
-        private FunctionConstructor(Engine engine):base(engine, "Function", null, null, false)
+        private FunctionInstance _throwTypeError;
+        private static readonly char[] ArgumentNameSeparator = new[] { ',' };
+
+        private FunctionConstructor(Engine engine)
+            : base(engine, _functionName, strict: false)
         {
         }
 
         public static FunctionConstructor CreateFunctionConstructor(Engine engine)
         {
-            var obj = new FunctionConstructor(engine);
-            obj.Extensible = true;
+            var obj = new FunctionConstructor(engine)
+            {
+                Extensible = true,
+                PrototypeObject = FunctionPrototype.CreatePrototypeObject(engine)
+            };
 
             // The initial value of Function.prototype is the standard built-in Function prototype object
-            obj.PrototypeObject = FunctionPrototype.CreatePrototypeObject(engine);
 
             // The value of the [[Prototype]] internal property of the Function constructor is the standard built-in Function prototype object
             obj.Prototype = obj.PrototypeObject;
@@ -106,9 +113,6 @@ namespace Jint.Native.Function
 
             return functionObject;
         }
-
-        private FunctionInstance _throwTypeError;
-        private static readonly char[] ArgumentNameSeparator = new[] { ',' };
 
         public FunctionInstance ThrowTypeError
         {

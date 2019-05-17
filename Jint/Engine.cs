@@ -67,6 +67,7 @@ namespace Jint
         private readonly Lazy<ErrorConstructor> _typeError;
         private readonly Lazy<ErrorConstructor> _uriError;
         private DebugHandler _debugHandler;
+        private List<BreakPoint> _breakPoints;
 
         // cached access
         private readonly bool _isDebugMode;
@@ -239,8 +240,6 @@ namespace Jint
             }
 
             ClrTypeConverter = new DefaultTypeConverter(this);
-            BreakPoints = new List<BreakPoint>();
-            _debugHandler = new DebugHandler(this);
         }
 
         public LexicalEnvironment GlobalEnvironment { get; }
@@ -285,9 +284,9 @@ namespace Jint
         public event DebugStepDelegate Step;
         public event BreakDelegate Break;
 
-        internal DebugHandler DebugHandler => (_debugHandler ?? (_debugHandler = new DebugHandler(this)));
+        internal DebugHandler DebugHandler => _debugHandler ?? (_debugHandler = new DebugHandler(this));
 
-        public List<BreakPoint> BreakPoints { get; private set; }
+        public List<BreakPoint> BreakPoints => _breakPoints ?? (_breakPoints = new List<BreakPoint>());
 
         internal StepMode? InvokeStepEvent(DebugInformation info)
         {

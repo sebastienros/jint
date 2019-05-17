@@ -31,15 +31,21 @@ namespace Jint.Native.Function
             LexicalEnvironment scope,
             bool strict,
             string objectClass = "Function")
-            : base(engine, objectClass)
+            : this(engine, name != null ? new JsString(name) : null, parameters, scope, strict, objectClass)
         {
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                _name = new PropertyDescriptor(name, PropertyFlag.Configurable);
-            }
+        }
+
+        internal FunctionInstance(
+            Engine engine,
+            JsString name,
+            string[] parameters,
+            LexicalEnvironment scope,
+            bool strict,
+            string objectClass = "Function")
+            : this(engine, name, strict, objectClass)
+        {
             _formalParameters = parameters;
             _scope = scope;
-            _strict = strict;
         }
 
         internal FunctionInstance(

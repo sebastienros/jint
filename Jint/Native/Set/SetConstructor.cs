@@ -12,7 +12,10 @@ namespace Jint.Native.Set
 {
     public sealed class SetConstructor : FunctionInstance, IConstructor
     {
-        private SetConstructor(Engine engine, string name) : base(engine, name, null, null, false)
+        private static readonly JsString _functionName = new JsString("Set");
+
+        private SetConstructor(Engine engine)
+            : base(engine, _functionName, false)
         {
         }
 
@@ -20,7 +23,7 @@ namespace Jint.Native.Set
 
         public static SetConstructor CreateSetConstructor(Engine engine)
         {
-            var obj = new SetConstructor(engine, "Set")
+            var obj = new SetConstructor(engine)
             {
                 Extensible = true,
                 Prototype = engine.Function.PrototypeObject

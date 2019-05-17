@@ -31,7 +31,7 @@ namespace Jint.Native.Array
             {
                 Extensible = true,
                 Prototype = engine.Object.PrototypeObject,
-                _length = new PropertyDescriptor(0, PropertyFlag.Writable),
+                _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable),
                 _arrayConstructor = arrayConstructor,
             };
 
