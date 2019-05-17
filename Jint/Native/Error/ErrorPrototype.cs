@@ -1,5 +1,4 @@
-﻿using Jint.Collections;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -23,7 +22,7 @@ namespace Jint.Native.Error
             var obj = new ErrorPrototype(engine, name)
             {
                 Extensible = true,
-                _errorConstructor = errorConstructor
+                _errorConstructor = errorConstructor,
             };
 
             if (name != "Error")
@@ -40,12 +39,9 @@ namespace Jint.Native.Error
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(3)
-            {
-                ["constructor"] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable),
-                ["message"] = new PropertyDescriptor("", true, false, true),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true)
-            };
+            _properties["constructor"] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable);
+            _properties["message"] = new PropertyDescriptor("", true, false, true);
+            _properties["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true);
         }
 
         public JsValue ToString(JsValue thisObject, JsValue[] arguments)

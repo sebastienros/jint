@@ -178,6 +178,10 @@ namespace Jint
             // Because the properties might need some of the built-in object
             // their configuration is delayed to a later step
 
+            // this is implementation dependent, and only to pass some unit tests
+            Global.Prototype = Object.PrototypeObject;
+            Object.Prototype = Function.PrototypeObject;
+
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, false);
 

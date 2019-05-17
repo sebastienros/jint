@@ -34,9 +34,6 @@ namespace Jint.Native.Global
 
         protected override void Initialize()
         {
-            // this is implementation dependent, and only to pass some unit tests
-            Prototype = Engine.Object.PrototypeObject;
-
             // Global object properties
             _properties["Object"] = new PropertyDescriptor(Engine.Object, true, false, true);
             _properties["Function"] = new PropertyDescriptor(Engine.Function, true, false, true);
