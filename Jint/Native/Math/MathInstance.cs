@@ -29,53 +29,52 @@ namespace Jint.Native.Math
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(50);
-
-            FastAddProperty("abs", new ClrFunctionInstance(Engine, "abs", Abs, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("acos", new ClrFunctionInstance(Engine, "acos", Acos, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("acosh", new ClrFunctionInstance(Engine, "acosh", Acosh, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("asin", new ClrFunctionInstance(Engine, "asin", Asin, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("asinh", new ClrFunctionInstance(Engine, "asinh", Asinh, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("atan", new ClrFunctionInstance(Engine, "atan", Atan, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("atanh", new ClrFunctionInstance(Engine, "atanh", Atanh, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("atan2", new ClrFunctionInstance(Engine, "atan2", Atan2, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("ceil", new ClrFunctionInstance(Engine, "ceil", Ceil, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("cos", new ClrFunctionInstance(Engine, "cos", Cos, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("cosh", new ClrFunctionInstance(Engine, "cosh", Cosh, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("exp", new ClrFunctionInstance(Engine, "exp", Exp, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("expm1", new ClrFunctionInstance(Engine, "expm1", Expm1, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("floor", new ClrFunctionInstance(Engine, "floor", Floor, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("log", new ClrFunctionInstance(Engine, "log", Log, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("log1p", new ClrFunctionInstance(Engine, "log1p", Log1p, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("log2", new ClrFunctionInstance(Engine, "log2", Log2, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("log10", new ClrFunctionInstance(Engine, "log10", Log10, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("max", new ClrFunctionInstance(Engine, "max", Max, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("min", new ClrFunctionInstance(Engine, "min", Min, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("pow", new ClrFunctionInstance(Engine, "pow", Pow, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("random", new ClrFunctionInstance(Engine, "random", Random, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("round", new ClrFunctionInstance(Engine, "round", Round, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("fround", new ClrFunctionInstance(Engine, "fround", Fround, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("sin", new ClrFunctionInstance(Engine, "sin", Sin, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("sinh", new ClrFunctionInstance(Engine, "sinh", Sinh, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("sqrt", new ClrFunctionInstance(Engine, "sqrt", Sqrt, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("tan", new ClrFunctionInstance(Engine, "tan", Tan, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("tanh", new ClrFunctionInstance(Engine, "tanh", Tanh, 1, PropertyFlag.Configurable), true, false, true);
-
-            FastAddProperty("trunc", new ClrFunctionInstance(Engine, "trunc", Truncate, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("sign", new ClrFunctionInstance(Engine, "sign", Sign, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("cbrt", new ClrFunctionInstance(Engine, "cbrt", Cbrt, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("hypot", new ClrFunctionInstance(Engine, "hypot", Hypot, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("imul", new ClrFunctionInstance(Engine, "imul", Imul, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("clz32", new ClrFunctionInstance(Engine, "clz32", Clz32, 1, PropertyFlag.Configurable), true, false, true);
-
-            FastAddProperty("E", System.Math.E, false, false, false);
-            FastAddProperty("LN10", System.Math.Log(10), false, false, false);
-            FastAddProperty("LN2", System.Math.Log(2), false, false, false);
-            FastAddProperty("LOG2E", System.Math.Log(System.Math.E, 2), false, false, false);
-            FastAddProperty("LOG10E", System.Math.Log(System.Math.E, 10), false, false, false);
-            FastAddProperty("PI", System.Math.PI, false, false, false);
-            FastAddProperty("SQRT1_2", System.Math.Sqrt(0.5), false, false, false);
-            FastAddProperty("SQRT2", System.Math.Sqrt(2), false, false, false);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(45)
+            {
+                ["abs"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "abs", Abs, 1, PropertyFlag.Configurable), true, false, true),
+                ["acos"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "acos", Acos, 1, PropertyFlag.Configurable), true, false, true),
+                ["acosh"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "acosh", Acosh, 1, PropertyFlag.Configurable), true, false, true),
+                ["asin"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "asin", Asin, 1, PropertyFlag.Configurable), true, false, true),
+                ["asinh"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "asinh", Asinh, 1, PropertyFlag.Configurable), true, false, true),
+                ["atan"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "atan", Atan, 1, PropertyFlag.Configurable), true, false, true),
+                ["atanh"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "atanh", Atanh, 1, PropertyFlag.Configurable), true, false, true),
+                ["atan2"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "atan2", Atan2, 2, PropertyFlag.Configurable), true, false, true),
+                ["ceil"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "ceil", Ceil, 1, PropertyFlag.Configurable), true, false, true),
+                ["cos"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "cos", Cos, 1, PropertyFlag.Configurable), true, false, true),
+                ["cosh"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "cosh", Cosh, 1, PropertyFlag.Configurable), true, false, true),
+                ["exp"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "exp", Exp, 1, PropertyFlag.Configurable), true, false, true),
+                ["expm1"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "expm1", Expm1, 1, PropertyFlag.Configurable), true, false, true),
+                ["floor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "floor", Floor, 1, PropertyFlag.Configurable), true, false, true),
+                ["log"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "log", Log, 1, PropertyFlag.Configurable), true, false, true),
+                ["log1p"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "log1p", Log1p, 1, PropertyFlag.Configurable), true, false, true),
+                ["log2"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "log2", Log2, 1, PropertyFlag.Configurable), true, false, true),
+                ["log10"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "log10", Log10, 1, PropertyFlag.Configurable), true, false, true),
+                ["max"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "max", Max, 2, PropertyFlag.Configurable), true, false, true),
+                ["min"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "min", Min, 2, PropertyFlag.Configurable), true, false, true),
+                ["pow"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "pow", Pow, 2, PropertyFlag.Configurable), true, false, true),
+                ["random"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "random", Random, 0, PropertyFlag.Configurable), true, false, true),
+                ["round"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "round", Round, 1, PropertyFlag.Configurable), true, false, true),
+                ["fround"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "fround", Fround, 1, PropertyFlag.Configurable), true, false, true),
+                ["sin"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "sin", Sin, 1, PropertyFlag.Configurable), true, false, true),
+                ["sinh"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "sinh", Sinh, 1, PropertyFlag.Configurable), true, false, true),
+                ["sqrt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "sqrt", Sqrt, 1, PropertyFlag.Configurable), true, false, true),
+                ["tan"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "tan", Tan, 1, PropertyFlag.Configurable), true, false, true),
+                ["tanh"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "tanh", Tanh, 1, PropertyFlag.Configurable), true, false, true),
+                ["trunc"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trunc", Truncate, 1, PropertyFlag.Configurable), true, false, true),
+                ["sign"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "sign", Sign, 1, PropertyFlag.Configurable), true, false, true),
+                ["cbrt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "cbrt", Cbrt, 1, PropertyFlag.Configurable), true, false, true),
+                ["hypot"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "hypot", Hypot, 2, PropertyFlag.Configurable), true, false, true),
+                ["imul"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "imul", Imul, 2, PropertyFlag.Configurable), true, false, true),
+                ["clz32"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clz32", Clz32, 1, PropertyFlag.Configurable), true, false, true),
+                ["E"] = new PropertyDescriptor(System.Math.E, false, false, false),
+                ["LN10"] = new PropertyDescriptor(System.Math.Log(10), false, false, false),
+                ["LN2"] = new PropertyDescriptor(System.Math.Log(2), false, false, false),
+                ["LOG2E"] = new PropertyDescriptor(System.Math.Log(System.Math.E, 2), false, false, false),
+                ["LOG10E"] = new PropertyDescriptor(System.Math.Log(System.Math.E, 10), false, false, false),
+                ["PI"] = new PropertyDescriptor(System.Math.PI, false, false, false),
+                ["SQRT1_2"] = new PropertyDescriptor(System.Math.Sqrt(0.5), false, false, false),
+                ["SQRT2"] = new PropertyDescriptor(System.Math.Sqrt(2), false, false, false)
+            };
         }
 
         private static JsValue Abs(JsValue thisObject, JsValue[] arguments)

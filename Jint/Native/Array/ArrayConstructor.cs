@@ -41,17 +41,13 @@ namespace Jint.Native.Array
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(10);
-
-            _properties[GlobalSymbolRegistry.Species._value] =
-                new GetSetPropertyDescriptor(
-                    get: new ClrFunctionInstance(Engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable),
-                    set: Undefined,
-                    PropertyFlag.Configurable);
-
-            SetOwnProperty("from",new PropertyDescriptor(new ClrFunctionInstance(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
-            SetOwnProperty("isArray", new PropertyDescriptor(new ClrFunctionInstance(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable));
-            SetOwnProperty("of", new PropertyDescriptor(new ClrFunctionInstance(Engine, "of", Of, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
+            _properties = new StringDictionarySlim<PropertyDescriptor>(5)
+            {
+                [GlobalSymbolRegistry.Species._value] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined,PropertyFlag.Configurable),
+                ["from"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
+                ["isArray"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable)),
+                ["of"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "of", Of, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable))
+            };
         }
 
         private JsValue From(JsValue thisObj, JsValue[] arguments)

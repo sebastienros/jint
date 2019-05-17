@@ -36,20 +36,22 @@ namespace Jint.Native.Object
         {
             Prototype = Engine.Function.PrototypeObject;
 
-            _properties = new StringDictionarySlim<PropertyDescriptor>(20);
-            FastAddProperty("getPrototypeOf", new ClrFunctionInstance(Engine, "getPrototypeOf", GetPrototypeOf, 1), true, false, true);
-            FastAddProperty("getOwnPropertyDescriptor", new ClrFunctionInstance(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2), true, false, true);
-            FastAddProperty("getOwnPropertyNames", new ClrFunctionInstance(Engine, "getOwnPropertyNames", GetOwnPropertyNames, 1), true, false, true);
-            FastAddProperty("create", new ClrFunctionInstance(Engine, "create", Create, 2), true, false, true);
-            FastAddProperty("defineProperty", new ClrFunctionInstance(Engine, "defineProperty", DefineProperty, 3), true, false, true);
-            FastAddProperty("defineProperties", new ClrFunctionInstance(Engine, "defineProperties", DefineProperties, 2), true, false, true);
-            FastAddProperty("seal", new ClrFunctionInstance(Engine, "seal", Seal, 1), true, false, true);
-            FastAddProperty("freeze", new ClrFunctionInstance(Engine, "freeze", Freeze, 1), true, false, true);
-            FastAddProperty("preventExtensions", new ClrFunctionInstance(Engine, "preventExtensions", PreventExtensions, 1), true, false, true);
-            FastAddProperty("isSealed", new ClrFunctionInstance(Engine, "isSealed", IsSealed, 1), true, false, true);
-            FastAddProperty("isFrozen", new ClrFunctionInstance(Engine, "isFrozen", IsFrozen, 1), true, false, true);
-            FastAddProperty("isExtensible", new ClrFunctionInstance(Engine, "isExtensible", IsExtensible, 1), true, false, true);
-            FastAddProperty("keys", new ClrFunctionInstance(Engine, "keys", Keys, 1), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            {
+                ["getPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getPrototypeOf", GetPrototypeOf, 1), true, false, true),
+                ["getOwnPropertyDescriptor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2), true, false, true),
+                ["getOwnPropertyNames"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyNames", GetOwnPropertyNames, 1), true, false, true),
+                ["create"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "create", Create, 2), true, false, true),
+                ["defineProperty"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "defineProperty", DefineProperty, 3), true, false, true),
+                ["defineProperties"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "defineProperties", DefineProperties, 2), true, false, true),
+                ["seal"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "seal", Seal, 1), true, false, true),
+                ["freeze"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "freeze", Freeze, 1), true, false, true),
+                ["preventExtensions"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "preventExtensions", PreventExtensions, 1), true, false, true),
+                ["isSealed"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isSealed", IsSealed, 1), true, false, true),
+                ["isFrozen"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isFrozen", IsFrozen, 1), true, false, true),
+                ["isExtensible"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isExtensible", IsExtensible, 1), true, false, true),
+                ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 1), true, false, true)
+            };
         }
 
         public ObjectPrototype PrototypeObject { get; private set; }

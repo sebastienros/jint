@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -35,9 +36,12 @@ namespace Jint.Native.String
 
         protected override void Initialize()
         {
-            SetOwnProperty("fromCharCode", new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCharCode", FromCharCode, 1), PropertyFlag.NonEnumerable));
-            SetOwnProperty("fromCodePoint", new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCodePoint", FromCodePoint, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
-            SetOwnProperty("raw", new PropertyDescriptor(new ClrFunctionInstance(Engine, "raw", Raw, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
+            _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            {
+                ["fromCharCode"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCharCode", FromCharCode, 1), PropertyFlag.NonEnumerable)),
+                ["fromCodePoint"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCodePoint", FromCodePoint, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
+                ["raw"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "raw", Raw, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable))
+            };
         }
 
         private static JsValue FromCharCode(JsValue thisObj, JsValue[] arguments)

@@ -310,17 +310,17 @@ namespace Jint.Runtime.Descriptors
 
             if (desc.IsDataDescriptor())
             {
-                obj.SetOwnProperty("value", new PropertyDescriptor(desc.Value ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable));
-                obj.SetOwnProperty("writable", new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable));
+                obj._properties["value"] =  new PropertyDescriptor(desc.Value ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
+                obj._properties["writable"] = new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable);
             }
             else
             {
-                obj.SetOwnProperty("get", new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable));
-                obj.SetOwnProperty("set", new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable));
+                obj._properties["get"] = new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
+                obj._properties["set"] = new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
-            obj.SetOwnProperty("enumerable", new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable));
-            obj.SetOwnProperty("configurable", new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable));
+            obj._properties["enumerable"] = new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable);
+            obj._properties["configurable"] = new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable);
 
             return obj;
         }

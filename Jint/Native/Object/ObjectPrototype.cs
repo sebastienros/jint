@@ -7,6 +7,8 @@ namespace Jint.Native.Object
 {
     public sealed class ObjectPrototype : ObjectInstance
     {
+        private ObjectConstructor _objectConstructor;
+
         private ObjectPrototype(Engine engine) : base(engine)
         {
         }
@@ -16,22 +18,24 @@ namespace Jint.Native.Object
             var obj = new ObjectPrototype(engine)
             {
                 Extensible = true,
-                _properties = new StringDictionarySlim<PropertyDescriptor>(8)
+                _objectConstructor = objectConstructor
             };
-
-            obj._properties["constructor"] = new PropertyDescriptor(objectConstructor, true, false, true);
 
             return obj;
         }
 
         protected override void Initialize()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToObjectString), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOF", ValueOf), true, false, true);
-            FastAddProperty("hasOwnProperty", new ClrFunctionInstance(Engine, "hasOwnProperty", HasOwnProperty, 1), true, false, true);
-            FastAddProperty("isPrototypeOf", new ClrFunctionInstance(Engine, "isPrototypeOf", IsPrototypeOf, 1), true, false, true);
-            FastAddProperty("propertyIsEnumerable", new ClrFunctionInstance(Engine, "propertyIsEnumerable", PropertyIsEnumerable, 1), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(8)
+            {
+                ["constructor"] = new PropertyDescriptor(_objectConstructor, true, false, true),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToObjectString), true, false, true),
+                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), true, false, true),
+                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOF", ValueOf), true, false, true),
+                ["hasOwnProperty"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "hasOwnProperty", HasOwnProperty, 1), true, false, true),
+                ["isPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isPrototypeOf", IsPrototypeOf, 1), true, false, true),
+                ["propertyIsEnumerable"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "propertyIsEnumerable", PropertyIsEnumerable, 1), true, false, true)
+            };
         }
 
         private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue[] arguments)

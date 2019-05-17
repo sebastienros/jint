@@ -39,24 +39,23 @@ namespace Jint.Native.Symbol
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(16);
-
-            FastAddProperty("species",GlobalSymbolRegistry.Species, PropertyFlag.AllForbidden);
-
-            FastAddProperty("for", new ClrFunctionInstance(Engine, "for", For, 1), true, false, true);
-            FastAddProperty("keyFor", new ClrFunctionInstance(Engine, "keyFor", KeyFor, 1), true, false, true);
-
-            FastAddProperty("hasInstance", GlobalSymbolRegistry.HasInstance, false, false, false);
-            FastAddProperty("isConcatSpreadable", GlobalSymbolRegistry.IsConcatSpreadable, false, false, false);
-            FastAddProperty("iterator", GlobalSymbolRegistry.Iterator, false, false, false);
-            FastAddProperty("match", GlobalSymbolRegistry.Match, false, false, false);
-            FastAddProperty("replace", GlobalSymbolRegistry.Replace, false, false, false);
-            FastAddProperty("search", GlobalSymbolRegistry.Search, false, false, false);
-            FastAddProperty("species", GlobalSymbolRegistry.Species, false, false, false);
-            FastAddProperty("split", GlobalSymbolRegistry.Split, false, false, false);
-            FastAddProperty("toPrimitive", GlobalSymbolRegistry.ToPrimitive, false, false, false);
-            FastAddProperty("toStringTag", GlobalSymbolRegistry.ToStringTag, false, false, false);
-            FastAddProperty("unscopables", GlobalSymbolRegistry.Unscopables, false, false, false);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            {
+                ["species"] = new PropertyDescriptor(GlobalSymbolRegistry.Species, PropertyFlag.AllForbidden),
+                ["for"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "for", For, 1), true, false, true),
+                ["keyFor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keyFor", KeyFor, 1), true, false, true),
+                ["hasInstance"] = new PropertyDescriptor(GlobalSymbolRegistry.HasInstance, false, false, false),
+                ["isConcatSpreadable"] = new PropertyDescriptor(GlobalSymbolRegistry.IsConcatSpreadable, false, false, false),
+                ["iterator"] = new PropertyDescriptor(GlobalSymbolRegistry.Iterator, false, false, false),
+                ["match"] = new PropertyDescriptor(GlobalSymbolRegistry.Match, false, false, false),
+                ["replace"] = new PropertyDescriptor(GlobalSymbolRegistry.Replace, false, false, false),
+                ["search"] = new PropertyDescriptor(GlobalSymbolRegistry.Search, false, false, false),
+                ["species"] = new PropertyDescriptor(GlobalSymbolRegistry.Species, false, false, false),
+                ["split"] = new PropertyDescriptor(GlobalSymbolRegistry.Split, false, false, false),
+                ["toPrimitive"] = new PropertyDescriptor(GlobalSymbolRegistry.ToPrimitive, false, false, false),
+                ["toStringTag"] = new PropertyDescriptor(GlobalSymbolRegistry.ToStringTag, false, false, false),
+                ["unscopables"] = new PropertyDescriptor(GlobalSymbolRegistry.Unscopables, false, false, false)
+            };
         }
 
         /// <summary>

@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using Jint.Collections;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -17,15 +18,20 @@ namespace Jint.Native.Json
 
         public static JsonInstance CreateJsonObject(Engine engine)
         {
-            var json = new JsonInstance(engine);
-            json.Prototype = engine.Object.PrototypeObject;
+            var json = new JsonInstance(engine)
+            {
+                Prototype = engine.Object.PrototypeObject
+            };
             return json;
         }
 
         protected override void Initialize()
         {
-            FastAddProperty("parse", new ClrFunctionInstance(Engine, "parse", Parse, 2), true, false, true);
-            FastAddProperty("stringify", new ClrFunctionInstance(Engine, "stringify", Stringify, 3), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(2)
+            {
+                ["parse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parse", Parse, 2), true, false, true),
+                ["stringify"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "stringify", Stringify, 3), true, false, true)
+            };
         }
 
         private JsValue AbstractWalkOperation(ObjectInstance thisObject, string prop)

@@ -11,6 +11,8 @@ namespace Jint.Native.Error
     /// </summary>
     public sealed class ErrorPrototype : ErrorInstance
     {
+        private ErrorConstructor _errorConstructor;
+
         private ErrorPrototype(Engine engine, string name)
             : base(engine, name)
         {
@@ -21,10 +23,8 @@ namespace Jint.Native.Error
             var obj = new ErrorPrototype(engine, name)
             {
                 Extensible = true,
-                _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+                _errorConstructor = errorConstructor
             };
-            obj._properties["constructor"] = new PropertyDescriptor(errorConstructor, PropertyFlag.NonEnumerable);
-            obj._properties["message"] = new PropertyDescriptor("", true, false, true);
 
             if (name != "Error")
             {
@@ -40,8 +40,12 @@ namespace Jint.Native.Error
 
         protected override void Initialize()
         {
-            // Error prototype functions
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            {
+                ["constructor"] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable),
+                ["message"] = new PropertyDescriptor("", true, false, true),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true)
+            };
         }
 
         public JsValue ToString(JsValue thisObject, JsValue[] arguments)

@@ -26,21 +26,23 @@ namespace Jint.Native.Function
                 Extensible = true,
                 // The value of the [[Prototype]] internal property of the Function prototype object is the standard built-in Object prototype object
                 Prototype = engine.Object.PrototypeObject,
+                _length = new PropertyDescriptor(0, PropertyFlag.AllForbidden)
             };
 
-            obj._length = new PropertyDescriptor(0, PropertyFlag.AllForbidden);
             return obj;
         }
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(7);
-            _properties["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(5)
+            {
+                ["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true),
+                ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2), true, false, true),
+                ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1), true, false, true),
+                ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1), true, false, true)
+            };
 
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString), true, false, true);
-            FastAddProperty("apply", new ClrFunctionInstance(Engine, "apply", Apply, 2), true, false, true);
-            FastAddProperty("call", new ClrFunctionInstance(Engine, "call", CallImpl, 1), true, false, true);
-            FastAddProperty("bind", new ClrFunctionInstance(Engine, "bind", Bind, 1), true, false, true);
         }
 
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)

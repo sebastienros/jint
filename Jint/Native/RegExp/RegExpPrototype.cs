@@ -9,6 +9,8 @@ namespace Jint.Native.RegExp
 {
     public sealed class RegExpPrototype : RegExpInstance
     {
+        private RegExpConstructor _regExpConstructor;
+
         private RegExpPrototype(Engine engine)
             : base(engine)
         {
@@ -20,10 +22,7 @@ namespace Jint.Native.RegExp
             {
                 Prototype = engine.Object.PrototypeObject,
                 Extensible = true,
-                _properties = new StringDictionarySlim<PropertyDescriptor>(10)
-                {
-                    ["constructor"] = new PropertyDescriptor(regExpConstructor, true, false, true)
-                }
+                _regExpConstructor = regExpConstructor
             };
 
             return obj;
@@ -31,15 +30,18 @@ namespace Jint.Native.RegExp
 
         protected override void Initialize()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToRegExpString), true, false, true);
-            FastAddProperty("exec", new ClrFunctionInstance(Engine, "exec", Exec, 1), true, false, true);
-            FastAddProperty("test", new ClrFunctionInstance(Engine, "test", Test, 1), true, false, true);
-
-            FastAddProperty("global", false, false, false, false);
-            FastAddProperty("ignoreCase", false, false, false, false);
-            FastAddProperty("multiline", false, false, false, false);
-            FastAddProperty("source", "(?:)", false, false, false);
-            FastAddProperty("lastIndex", 0, true, false, false);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(10)
+            {
+                ["constructor"] = new PropertyDescriptor(_regExpConstructor, true, false, true),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToRegExpString), true, false, true),
+                ["exec"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "exec", Exec, 1), true, false, true),
+                ["test"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "test", Test, 1), true, false, true),
+                ["global"] = new PropertyDescriptor(false, false, false, false),
+                ["ignoreCase"] = new PropertyDescriptor(false, false, false, false),
+                ["multiline"] = new PropertyDescriptor(false, false, false, false),
+                ["source"] = new PropertyDescriptor("(?:)", false, false, false),
+                ["lastIndex"] = new PropertyDescriptor(0, true, false, false)
+            };
         }
 
         private static JsValue ToRegExpString(JsValue thisObj, JsValue[] arguments)

@@ -11,6 +11,8 @@ namespace Jint.Native.Symbol
     /// </summary>
     public sealed class SymbolPrototype : ObjectInstance
     {
+        private SymbolConstructor _symbolConstructor;
+
         private SymbolPrototype(Engine engine)
             : base(engine)
         {
@@ -22,22 +24,24 @@ namespace Jint.Native.Symbol
             {
                 Prototype = engine.Object.PrototypeObject,
                 Extensible = true,
-                _properties = new StringDictionarySlim<PropertyDescriptor>(8)
+                _symbolConstructor = symbolConstructor
             };
-            obj._properties["length"] = new PropertyDescriptor(0, PropertyFlag.AllForbidden);
-            obj._properties["constructor"] = new PropertyDescriptor(symbolConstructor, true, false, true);
 
             return obj;
         }
 
         protected override void Initialize()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToSymbolString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf), true, false, true);
-            FastAddProperty("toStringTag", new JsString("Symbol"), false, false, true);
-
-            FastAddProperty(GlobalSymbolRegistry.ToPrimitive._value, new ClrFunctionInstance(Engine, "toPrimitive", ToPrimitive), false, false, true);
-            FastAddProperty(GlobalSymbolRegistry.ToStringTag._value, new JsString("Symbol"), false, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(8)
+            {
+                ["length"] = new PropertyDescriptor(0, PropertyFlag.AllForbidden),
+                ["constructor"] = new PropertyDescriptor(_symbolConstructor, true, false, true),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToSymbolString), true, false, true),
+                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf), true, false, true),
+                ["toStringTag"] = new PropertyDescriptor(new JsString("Symbol"), false, false, true),
+                [GlobalSymbolRegistry.ToPrimitive._value] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toPrimitive", ToPrimitive), false, false, true),
+                [GlobalSymbolRegistry.ToStringTag._value] = new PropertyDescriptor(new JsString("Symbol"), false, false, true)
+            };
         }
 
         public string SymbolDescriptiveString(JsSymbol sym)

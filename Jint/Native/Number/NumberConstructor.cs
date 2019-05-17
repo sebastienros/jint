@@ -39,24 +39,23 @@ namespace Jint.Native.Number
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(20);
-
-            SetOwnProperty("MAX_VALUE", new PropertyDescriptor(double.MaxValue, PropertyFlag.AllForbidden));
-            SetOwnProperty("MIN_VALUE", new PropertyDescriptor(double.Epsilon, PropertyFlag.AllForbidden));
-            SetOwnProperty("NaN", new PropertyDescriptor(double.NaN, PropertyFlag.AllForbidden));
-            SetOwnProperty("NEGATIVE_INFINITY", new PropertyDescriptor(double.NegativeInfinity, PropertyFlag.AllForbidden));
-            SetOwnProperty("POSITIVE_INFINITY", new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.AllForbidden));
-            SetOwnProperty("EPSILON", new PropertyDescriptor(JsNumber.JavaScriptEpsilon, PropertyFlag.AllForbidden));
-            SetOwnProperty("MIN_SAFE_INTEGER", new PropertyDescriptor(MinSafeInteger, PropertyFlag.AllForbidden));
-            SetOwnProperty("MAX_SAFE_INTEGER", new PropertyDescriptor(MaxSafeInteger, PropertyFlag.AllForbidden));
-
-            FastAddProperty("isFinite", new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("isInteger", new ClrFunctionInstance(Engine, "isInteger", IsInteger, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("isNaN", new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("isSafeInteger", new ClrFunctionInstance(Engine, "isSafeInteger", IsSafeInteger, 1, PropertyFlag.Configurable), true, false, true);
-
-            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, "parseFloat", _engine.Global.ParseFloat, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, "parseInt", _engine.Global.ParseInt, 0, PropertyFlag.Configurable), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            {
+                ["MAX_VALUE"] = new PropertyDescriptor(new PropertyDescriptor(double.MaxValue, PropertyFlag.AllForbidden)),
+                ["MIN_VALUE"] = new PropertyDescriptor(new PropertyDescriptor(double.Epsilon, PropertyFlag.AllForbidden)),
+                ["NaN"] = new PropertyDescriptor(new PropertyDescriptor(double.NaN, PropertyFlag.AllForbidden)),
+                ["NEGATIVE_INFINITY"] = new PropertyDescriptor(new PropertyDescriptor(double.NegativeInfinity, PropertyFlag.AllForbidden)),
+                ["POSITIVE_INFINITY"] = new PropertyDescriptor(new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.AllForbidden)),
+                ["EPSILON"] = new PropertyDescriptor(new PropertyDescriptor(JsNumber.JavaScriptEpsilon, PropertyFlag.AllForbidden)),
+                ["MIN_SAFE_INTEGER"] = new PropertyDescriptor(new PropertyDescriptor(MinSafeInteger, PropertyFlag.AllForbidden)),
+                ["MAX_SAFE_INTEGER"] = new PropertyDescriptor(new PropertyDescriptor(MaxSafeInteger, PropertyFlag.AllForbidden)),
+                ["isFinite"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1, PropertyFlag.Configurable), true, false, true),
+                ["isInteger"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isInteger", IsInteger, 1, PropertyFlag.Configurable), true, false, true),
+                ["isNaN"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1, PropertyFlag.Configurable), true, false, true),
+                ["isSafeInteger"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isSafeInteger", IsSafeInteger, 1, PropertyFlag.Configurable), true, false, true),
+                ["parseFloat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseFloat", _engine.Global.ParseFloat, 0, PropertyFlag.Configurable), true, false, true),
+                ["parseInt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseInt", _engine.Global.ParseInt, 0, PropertyFlag.Configurable), true, false, true)
+            };
         }
 
         private static JsValue IsFinite(JsValue thisObj, JsValue[] arguments)

@@ -32,7 +32,7 @@ namespace Jint.Native.Set
                 // The value of the [[Prototype]] internal property of the Set constructor is the Function prototype object
                 ctr.PrototypeObject = SetPrototype.CreatePrototypeObject(engine, ctr);
 
-                ctr.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
+                ctr._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
                 return ctr;
             }
 

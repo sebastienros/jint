@@ -10,6 +10,8 @@ namespace Jint.Native.Boolean
     /// </summary>
     public sealed class BooleanPrototype : BooleanInstance
     {
+        private BooleanConstructor _booleanConstructor;
+
         private BooleanPrototype(Engine engine) : base(engine)
         {
         }
@@ -21,18 +23,20 @@ namespace Jint.Native.Boolean
                 Prototype = engine.Object.PrototypeObject,
                 PrimitiveValue = false,
                 Extensible = true,
-                _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+                _booleanConstructor = booleanConstructor
             };
-
-            obj._properties["constructor"] = new PropertyDescriptor(booleanConstructor, PropertyFlag.NonEnumerable);
 
             return obj;
         }
 
         protected override void Initialize()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToBooleanString, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            {
+                ["constructor"] = new PropertyDescriptor(_booleanConstructor, PropertyFlag.NonEnumerable),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToBooleanString, 0, PropertyFlag.Configurable), true, false, true),
+                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true)
+            };
         }
 
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)

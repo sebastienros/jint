@@ -13,6 +13,8 @@ namespace Jint.Native.Set
     /// </summary>
     public sealed class SetPrototype : ObjectInstance
     {
+        private SetConstructor _mapConstructor;
+
         private SetPrototype(Engine engine) : base(engine)
         {
         }
@@ -23,35 +25,30 @@ namespace Jint.Native.Set
             {
                 Extensible = true, 
                 Prototype = engine.Object.PrototypeObject,
-                _properties = new StringDictionarySlim<PropertyDescriptor>(20)
+                _mapConstructor = mapConstructor
             };
-
-            obj._properties["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable);
-            obj._properties["constructor"] = new PropertyDescriptor(mapConstructor, PropertyFlag.NonEnumerable);
 
             return obj;
         }
 
         protected override void Initialize()
         {
-            FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Values, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty(GlobalSymbolRegistry.ToStringTag._value, "Set", false, false, true);
-
-            FastAddProperty("add", new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("clear", new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("delete", new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("has", new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("keys", new ClrFunctionInstance(Engine, "keys", Values, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true);
-
-            AddProperty(
-                "size", 
-                new GetSetPropertyDescriptor(
-                    get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable), 
-                    set: null,
-                    PropertyFlag.Configurable));
+            _properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            {
+                ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
+                ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
+                [GlobalSymbolRegistry.Iterator._value] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Values, 1, PropertyFlag.Configurable), true, false, true),
+                [GlobalSymbolRegistry.ToStringTag._value] = new PropertyDescriptor("Set", false, false, true),
+                ["add"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable), true, false, true),
+                ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), true, false, true),
+                ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), true, false, true),
+                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), true, false, true),
+                ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), true, false, true),
+                ["has"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), true, false, true),
+                ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Values, 0, PropertyFlag.Configurable), true, false, true),
+                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true),
+                ["size"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable)
+            };
         }
         
         private JsValue Size(JsValue thisObj, JsValue[] arguments)

@@ -14,7 +14,7 @@ namespace Jint.Native.Function
             : base(engine, "eval", parameters, scope, strict)
         {
             Prototype = Engine.Function.PrototypeObject;
-            SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
+            _length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

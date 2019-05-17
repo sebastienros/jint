@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -57,26 +58,31 @@ namespace Jint.Native.Date
 
         public static DateConstructor CreateDateConstructor(Engine engine)
         {
-            var obj = new DateConstructor(engine);
-            obj.Extensible = true;
+            var obj = new DateConstructor(engine)
+            {
+                Extensible = true,
+                Prototype = engine.Function.PrototypeObject
+            };
 
             // The value of the [[Prototype]] internal property of the Date constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = DatePrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(7, PropertyFlag.AllForbidden));
+            obj._length = new PropertyDescriptor(7, PropertyFlag.AllForbidden);
 
             // The initial value of Date.prototype is the Date prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
         protected override void Initialize()
         {
-            FastAddProperty("parse", new ClrFunctionInstance(Engine, "parse", Parse, 1), true, false, true);
-            FastAddProperty("UTC", new ClrFunctionInstance(Engine, "utc", Utc, 7), true, false, true);
-            FastAddProperty("now", new ClrFunctionInstance(Engine, "now", Now, 0), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            {
+                ["parse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parse", Parse, 1), true, false, true),
+                ["UTC"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "utc", Utc, 7), true, false, true),
+                ["now"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "now", Now, 0), true, false, true)
+            };
         }
 
         private JsValue Parse(JsValue thisObj, JsValue[] arguments)
