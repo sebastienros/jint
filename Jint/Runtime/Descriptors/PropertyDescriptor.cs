@@ -411,7 +411,7 @@ namespace Jint.Runtime.Descriptors
                 : base(PropertyFlag.AllForbidden)
             {
                 _value = value;
-           }
+            }
 
             public static PropertyDescriptor ForNumber(int number)
             {

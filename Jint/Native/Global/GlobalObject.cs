@@ -8,6 +8,7 @@ using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Global
@@ -48,13 +49,13 @@ namespace Jint.Native.Global
             _properties["Date"] = new PropertyDescriptor(Engine.Date, true, false, true);
             _properties["Math"] = new PropertyDescriptor(Engine.Math, true, false, true);
             _properties["JSON"] = new PropertyDescriptor(Engine.Json, true, false, true);
-            _properties["Error"] = new PropertyDescriptor(Engine.Error, true, false, true);
-            _properties["EvalError"] = new PropertyDescriptor(Engine.EvalError, true, false, true);
-            _properties["RangeError"] = new PropertyDescriptor(Engine.RangeError, true, false, true);
-            _properties["ReferenceError"] = new PropertyDescriptor(Engine.ReferenceError, true, false, true);
-            _properties["SyntaxError"] = new PropertyDescriptor(Engine.SyntaxError, true, false, true);
-            _properties["TypeError"] = new PropertyDescriptor(Engine.TypeError, true, false, true);
-            _properties["URIError"] = new PropertyDescriptor(Engine.UriError, true, false, true);
+            _properties["Error"] = new LazyPropertyDescriptor(() => Engine.Error, true, false, true);
+            _properties["EvalError"] = new LazyPropertyDescriptor(() => Engine.EvalError, true, false, true);
+            _properties["RangeError"] = new LazyPropertyDescriptor(() => Engine.RangeError, true, false, true);
+            _properties["ReferenceError"] = new LazyPropertyDescriptor(() => Engine.ReferenceError, true, false, true);
+            _properties["SyntaxError"] = new LazyPropertyDescriptor(() => Engine.SyntaxError, true, false, true);
+            _properties["TypeError"] = new LazyPropertyDescriptor(() => Engine.TypeError, true, false, true);
+            _properties["URIError"] = new LazyPropertyDescriptor(() => Engine.UriError, true, false, true);
             _properties["NaN"] = new PropertyDescriptor(double.NaN, false, false, false);
             _properties["Infinity"] = new PropertyDescriptor(double.PositiveInfinity, false, false, false);
             _properties["undefined"] = new PropertyDescriptor(Undefined, false, false, false);

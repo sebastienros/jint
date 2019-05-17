@@ -59,13 +59,13 @@ namespace Jint
         internal INode _lastSyntaxNode;
 
         // lazy properties
-        private readonly Lazy<ErrorConstructor> _error;
-        private readonly Lazy<ErrorConstructor> _evalError;
-        private readonly Lazy<ErrorConstructor> _rangeError;
-        private readonly Lazy<ErrorConstructor> _referenceError;
-        private readonly Lazy<ErrorConstructor> _syntaxError;
-        private readonly Lazy<ErrorConstructor> _typeError;
-        private readonly Lazy<ErrorConstructor> _uriError;
+        private ErrorConstructor _error;
+        private ErrorConstructor _evalError;
+        private ErrorConstructor _rangeError;
+        private ErrorConstructor _referenceError;
+        private ErrorConstructor _syntaxError;
+        private ErrorConstructor _typeError;
+        private ErrorConstructor _uriError;
         private DebugHandler _debugHandler;
         private List<BreakPoint> _breakPoints;
 
@@ -185,14 +185,6 @@ namespace Jint
             Math = MathInstance.CreateMathObject(this);
             Json = JsonInstance.CreateJsonObject(this);
 
-            _error = new Lazy<ErrorConstructor>(() => ErrorConstructor.CreateErrorConstructor(this, _errorFunctionName));
-            _evalError = new Lazy<ErrorConstructor>(() => ErrorConstructor.CreateErrorConstructor(this, _evalErrorFunctionName));
-            _rangeError = new Lazy<ErrorConstructor>(() => ErrorConstructor.CreateErrorConstructor(this, _rangeErrorFunctionName));
-            _referenceError = new Lazy<ErrorConstructor>(() => ErrorConstructor.CreateErrorConstructor(this, _referenceErrorFunctionName));
-            _syntaxError = new Lazy<ErrorConstructor>(() => ErrorConstructor.CreateErrorConstructor(this, _syntaxErrorFunctionName));
-            _typeError = new Lazy<ErrorConstructor>(() => ErrorConstructor.CreateErrorConstructor(this, _typeErrorFunctionName));
-            _uriError = new Lazy<ErrorConstructor>(() => ErrorConstructor.CreateErrorConstructor(this, _uriErrorFunctionName));
-
             GlobalSymbolRegistry = new GlobalSymbolRegistry();
 
             // Because the properties might need some of the built-in object
@@ -260,13 +252,13 @@ namespace Jint
         public SymbolConstructor Symbol { get; }
         public EvalFunctionInstance Eval { get; }
 
-        public ErrorConstructor Error => _error.Value;
-        public ErrorConstructor EvalError => _evalError.Value;
-        public ErrorConstructor SyntaxError => _syntaxError.Value;
-        public ErrorConstructor TypeError => _typeError.Value;
-        public ErrorConstructor RangeError => _rangeError.Value;
-        public ErrorConstructor ReferenceError => _referenceError.Value;
-        public ErrorConstructor UriError => _uriError.Value;
+        public ErrorConstructor Error => _error ?? (_error = ErrorConstructor.CreateErrorConstructor(this, _errorFunctionName));
+        public ErrorConstructor EvalError => _evalError ?? (_evalError = ErrorConstructor.CreateErrorConstructor(this, _evalErrorFunctionName));
+        public ErrorConstructor SyntaxError => _syntaxError ?? (_syntaxError = ErrorConstructor.CreateErrorConstructor(this, _syntaxErrorFunctionName));
+        public ErrorConstructor TypeError => _typeError ?? (_typeError = ErrorConstructor.CreateErrorConstructor(this, _typeErrorFunctionName));
+        public ErrorConstructor RangeError => _rangeError ?? (_rangeError = ErrorConstructor.CreateErrorConstructor(this, _rangeErrorFunctionName));
+        public ErrorConstructor ReferenceError => _referenceError ?? (_referenceError = ErrorConstructor.CreateErrorConstructor(this, _referenceErrorFunctionName));
+        public ErrorConstructor UriError => _uriError ?? (_uriError = ErrorConstructor.CreateErrorConstructor(this, _uriErrorFunctionName));
 
         public ref readonly ExecutionContext ExecutionContext
         {
