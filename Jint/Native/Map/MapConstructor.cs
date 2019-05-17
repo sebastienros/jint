@@ -1,4 +1,5 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Collections;
+using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -11,7 +12,10 @@ namespace Jint.Native.Map
 {
     public sealed class MapConstructor : FunctionInstance, IConstructor
     {
-        private MapConstructor(Engine engine, string name) : base(engine, name, null, null, false)
+        private static readonly JsString _functionName = new JsString("Map");
+
+        private MapConstructor(Engine engine)
+            : base(engine, _functionName, strict: false)
         {
         }
 
@@ -19,35 +23,30 @@ namespace Jint.Native.Map
 
         public static MapConstructor CreateMapConstructor(Engine engine)
         {
-            MapConstructor CreateMapConstructorTemplate(string name)
+            var obj = new MapConstructor(engine)
             {
-                var mapConstructor = new MapConstructor(engine, name);
-                mapConstructor.Extensible = true;
+                Extensible = true,
+                Prototype = engine.Function.PrototypeObject
+            };
 
-                // The value of the [[Prototype]] internal property of the Map constructor is the Function prototype object
-                mapConstructor.Prototype = engine.Function.PrototypeObject;
-                mapConstructor.PrototypeObject = MapPrototype.CreatePrototypeObject(engine, mapConstructor);
+            // The value of the [[Prototype]] internal property of the Map constructor is the Function prototype object
+            obj.PrototypeObject = MapPrototype.CreatePrototypeObject(engine, obj);
 
-                mapConstructor.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
-                return mapConstructor;
-            }
-
-            var obj = CreateMapConstructorTemplate("Map");
+            obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
 
             // The initial value of Map.prototype is the Map prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
-
-            obj.SetOwnProperty(GlobalSymbolRegistry.Species._value,
-                new GetSetPropertyDescriptor(
-                    get: new ClrFunctionInstance(engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable),
-                    set: Undefined,
-                    PropertyFlag.Configurable));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
+            _properties = new StringDictionarySlim<PropertyDescriptor>(2)
+            {
+                [GlobalSymbolRegistry.Species._value] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
+            };
+
         }
 
         private static JsValue Species(JsValue thisObject, JsValue[] arguments)

@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Global
@@ -21,54 +23,52 @@ namespace Jint.Native.Global
 
         public static GlobalObject CreateGlobalObject(Engine engine)
         {
-            var global = new GlobalObject(engine) { Prototype = null, Extensible = true };
+            var global = new GlobalObject(engine)
+            {
+                Prototype = null,
+                Extensible = true,
+                _properties = new StringDictionarySlim<PropertyDescriptor>(35)
+            };
 
             return global;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
-            // this is implementation dependent, and only to pass some unit tests
-            Prototype = Engine.Object.PrototypeObject;
-
             // Global object properties
-            FastAddProperty("Object", Engine.Object, true, false, true);
-            FastAddProperty("Function", Engine.Function, true, false, true);
-            FastAddProperty("Symbol", Engine.Symbol, true, false, true);
-            FastAddProperty("Array", Engine.Array, true, false, true);
-            FastAddProperty("Map", Engine.Map, true, false, true);
-            FastAddProperty("Set", Engine.Set, true, false, true);
-            FastAddProperty("String", Engine.String, true, false, true);
-            FastAddProperty("RegExp", Engine.RegExp, true, false, true);
-            FastAddProperty("Number", Engine.Number, true, false, true);
-            FastAddProperty("Boolean", Engine.Boolean, true, false, true);
-            FastAddProperty("Date", Engine.Date, true, false, true);
-            FastAddProperty("Math", Engine.Math, true, false, true);
-            FastAddProperty("JSON", Engine.Json, true, false, true);
-
-            FastAddProperty("Error", Engine.Error, true, false, true);
-            FastAddProperty("EvalError", Engine.EvalError, true, false, true);
-            FastAddProperty("RangeError", Engine.RangeError, true, false, true);
-            FastAddProperty("ReferenceError", Engine.ReferenceError, true, false, true);
-            FastAddProperty("SyntaxError", Engine.SyntaxError, true, false, true);
-            FastAddProperty("TypeError", Engine.TypeError, true, false, true);
-            FastAddProperty("URIError", Engine.UriError, true, false, true);
-
-            FastAddProperty("NaN", double.NaN, false, false, false);
-            FastAddProperty("Infinity", double.PositiveInfinity, false, false, false);
-            FastAddProperty("undefined", Undefined, false, false, false);
-
-            // Global object functions
-            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, "parseInt", ParseInt, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, "parseFloat", ParseFloat, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("isNaN", new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1), true, false, true);
-            FastAddProperty("isFinite", new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1), true, false, true);
-            FastAddProperty("decodeURI", new ClrFunctionInstance(Engine, "decodeURI", DecodeUri, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("decodeURIComponent", new ClrFunctionInstance(Engine, "decodeURIComponent", DecodeUriComponent, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("encodeURI", new ClrFunctionInstance(Engine, "encodeURI", EncodeUri, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("encodeURIComponent", new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("escape", new ClrFunctionInstance(Engine, "escape", Escape, 1), true, false, true);
-            FastAddProperty("unescape", new ClrFunctionInstance(Engine, "unescape", Unescape, 1), true, false, true);
+            _properties["Object"] = new PropertyDescriptor(Engine.Object, true, false, true);
+            _properties["Function"] = new PropertyDescriptor(Engine.Function, true, false, true);
+            _properties["Symbol"] = new PropertyDescriptor(Engine.Symbol, true, false, true);
+            _properties["Array"] = new PropertyDescriptor(Engine.Array, true, false, true);
+            _properties["Map"] = new PropertyDescriptor(Engine.Map, true, false, true);
+            _properties["Set"] = new PropertyDescriptor(Engine.Set, true, false, true);
+            _properties["String"] = new PropertyDescriptor(Engine.String, true, false, true);
+            _properties["RegExp"] = new PropertyDescriptor(Engine.RegExp, true, false, true);
+            _properties["Number"] = new PropertyDescriptor(Engine.Number, true, false, true);
+            _properties["Boolean"] = new PropertyDescriptor(Engine.Boolean, true, false, true);
+            _properties["Date"] = new PropertyDescriptor(Engine.Date, true, false, true);
+            _properties["Math"] = new PropertyDescriptor(Engine.Math, true, false, true);
+            _properties["JSON"] = new PropertyDescriptor(Engine.Json, true, false, true);
+            _properties["Error"] = new LazyPropertyDescriptor(() => Engine.Error, true, false, true);
+            _properties["EvalError"] = new LazyPropertyDescriptor(() => Engine.EvalError, true, false, true);
+            _properties["RangeError"] = new LazyPropertyDescriptor(() => Engine.RangeError, true, false, true);
+            _properties["ReferenceError"] = new LazyPropertyDescriptor(() => Engine.ReferenceError, true, false, true);
+            _properties["SyntaxError"] = new LazyPropertyDescriptor(() => Engine.SyntaxError, true, false, true);
+            _properties["TypeError"] = new LazyPropertyDescriptor(() => Engine.TypeError, true, false, true);
+            _properties["URIError"] = new LazyPropertyDescriptor(() => Engine.UriError, true, false, true);
+            _properties["NaN"] = new PropertyDescriptor(double.NaN, false, false, false);
+            _properties["Infinity"] = new PropertyDescriptor(double.PositiveInfinity, false, false, false);
+            _properties["undefined"] = new PropertyDescriptor(Undefined, false, false, false);
+            _properties["parseInt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseInt", ParseInt, 2, PropertyFlag.Configurable), true, false, true);
+            _properties["parseFloat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseFloat", ParseFloat, 1, PropertyFlag.Configurable), true, false, true);
+            _properties["isNaN"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1), true, false, true);
+            _properties["isFinite"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1), true, false, true);
+            _properties["decodeURI"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "decodeURI", DecodeUri, 1, PropertyFlag.Configurable), true, false, true);
+            _properties["decodeURIComponent"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "decodeURIComponent", DecodeUriComponent, 1, PropertyFlag.Configurable), true, false, true);
+            _properties["encodeURI"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURI", EncodeUri, 1, PropertyFlag.Configurable), true, false, true);
+            _properties["encodeURIComponent"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, PropertyFlag.Configurable), true, false, true);
+            _properties["escape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "escape", Escape, 1), true, false, true);
+            _properties["unescape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unescape", Unescape, 1), true, false, true);
         }
 
         /// <summary>

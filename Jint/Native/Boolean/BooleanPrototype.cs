@@ -1,4 +1,5 @@
-﻿using Jint.Runtime;
+﻿using Jint.Collections;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
@@ -9,26 +10,33 @@ namespace Jint.Native.Boolean
     /// </summary>
     public sealed class BooleanPrototype : BooleanInstance
     {
+        private BooleanConstructor _booleanConstructor;
+
         private BooleanPrototype(Engine engine) : base(engine)
         {
         }
 
         public static BooleanPrototype CreatePrototypeObject(Engine engine, BooleanConstructor booleanConstructor)
         {
-            var obj = new BooleanPrototype(engine);
-            obj.Prototype = engine.Object.PrototypeObject;
-            obj.PrimitiveValue = false;
-            obj.Extensible = true;
-
-            obj.SetOwnProperty("constructor", new PropertyDescriptor(booleanConstructor, PropertyFlag.NonEnumerable));
+            var obj = new BooleanPrototype(engine)
+            {
+                Prototype = engine.Object.PrototypeObject,
+                PrimitiveValue = false,
+                Extensible = true,
+                _booleanConstructor = booleanConstructor
+            };
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToBooleanString, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            {
+                ["constructor"] = new PropertyDescriptor(_booleanConstructor, PropertyFlag.NonEnumerable),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToBooleanString, 0, PropertyFlag.Configurable), true, false, true),
+                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true)
+            };
         }
 
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)

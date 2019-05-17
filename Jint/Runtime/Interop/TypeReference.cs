@@ -27,7 +27,7 @@ namespace Jint.Runtime.Interop
 
             // The value of the [[Prototype]] internal property of the TypeReference constructor is the Function prototype object
             obj.Prototype = engine.Function.PrototypeObject;
-            obj._length = new PropertyDescriptor(0, PropertyFlag.AllForbidden);
+            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
 
             // The initial value of Boolean.prototype is the Boolean prototype object
             obj._prototype = new PropertyDescriptor(engine.Object.PrototypeObject, PropertyFlag.AllForbidden);

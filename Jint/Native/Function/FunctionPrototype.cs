@@ -1,9 +1,9 @@
 ﻿using System;
+using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Function
@@ -13,8 +13,10 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class FunctionPrototype : FunctionInstance
     {
+        private static readonly JsString _functionName = new JsString("Function");
+
         private FunctionPrototype(Engine engine)
-            : base(engine, "Function", null, null, false)
+            : base(engine, _functionName, strict: false)
         {
         }
 
@@ -24,20 +26,24 @@ namespace Jint.Native.Function
             {
                 Extensible = true,
                 // The value of the [[Prototype]] internal property of the Function prototype object is the standard built-in Object prototype object
-                Prototype = engine.Object.PrototypeObject
+                Prototype = engine.Object.PrototypeObject,
+                _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero
             };
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
-            SetOwnProperty("constructor", new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable));
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString), true, false, true);
-            FastAddProperty("apply", new ClrFunctionInstance(Engine, "apply", Apply, 2), true, false, true);
-            FastAddProperty("call", new ClrFunctionInstance(Engine, "call", CallImpl, 1), true, false, true);
-            FastAddProperty("bind", new ClrFunctionInstance(Engine, "bind", Bind, 1), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(5)
+            {
+                ["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true),
+                ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2), true, false, true),
+                ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1), true, false, true),
+                ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1), true, false, true)
+            };
+
         }
 
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)
@@ -64,13 +70,11 @@ namespace Jint.Native.Function
             }
             else
             {
-                f.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
+                f.SetOwnProperty("length", PropertyDescriptor.AllForbiddenDescriptor.NumberZero);
             }
 
-            var thrower = Engine.Function.ThrowTypeError;
-            const PropertyFlag flags = PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet;
-            f.DefineOwnProperty("caller", new GetSetPropertyDescriptor(thrower, thrower, flags), false);
-            f.DefineOwnProperty("arguments", new GetSetPropertyDescriptor(thrower, thrower, flags), false);
+            f.DefineOwnProperty("caller", _engine._getSetThrower, false);
+            f.DefineOwnProperty("arguments", _engine._getSetThrower, false);
 
             return f;
         }

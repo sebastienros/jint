@@ -25,8 +25,9 @@ namespace Jint.Native.Object
 
         internal StringDictionarySlim<PropertyDescriptor> _properties;
 
+        private bool _initialized;
         private readonly string _class;
-        protected internal readonly Engine _engine;
+        protected readonly Engine _engine;
 
         public ObjectInstance(Engine engine) : this(engine, "Object")
         {
@@ -734,6 +735,11 @@ namespace Jint.Native.Object
             SetOwnProperty(name, new PropertyDescriptor(value, writable, enumerable, configurable));
         }
 
+        internal void FastAddProperty(string name, JsValue value, PropertyFlag flags)
+        {
+            SetOwnProperty(name, new PropertyDescriptor(value, flags));
+        }
+
         /// <summary>
         /// Optimized version of [[Put]] when the property is known to be already declared
         /// </summary>
@@ -744,7 +750,17 @@ namespace Jint.Native.Object
             SetOwnProperty(name, value);
         }
 
-        protected virtual void EnsureInitialized()
+        protected void EnsureInitialized()
+        {
+            if (!_initialized)
+            {
+                // we need to set flag eagerly to prevent wrong recursion
+                _initialized = true;
+                Initialize();
+            }
+        }
+
+        protected virtual void Initialize()
         {
         }
 

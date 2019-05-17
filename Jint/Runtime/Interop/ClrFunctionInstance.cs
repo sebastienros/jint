@@ -17,14 +17,17 @@ namespace Jint.Runtime.Interop
             string name,
             Func<JsValue, JsValue[], JsValue> func,
             int length = 0,
-            PropertyFlag lengthFlags = PropertyFlag.AllForbidden) : base(engine, name, null, null, false)
+            PropertyFlag lengthFlags = PropertyFlag.AllForbidden)
+            : base(engine, new JsString(name), strict: false)
         {
             _func = func;
 
             Prototype = engine.Function.PrototypeObject;
             Extensible = true;
 
-            _length = new PropertyDescriptor(length, lengthFlags);
+            _length = lengthFlags == PropertyFlag.AllForbidden
+                ? PropertyDescriptor.AllForbiddenDescriptor.ForNumber(length)
+                : new PropertyDescriptor(JsNumber.Create(length), lengthFlags);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

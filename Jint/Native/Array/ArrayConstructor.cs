@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Runtime.CompilerServices;
+using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
@@ -13,7 +14,9 @@ namespace Jint.Native.Array
 {
     public sealed class ArrayConstructor : FunctionInstance, IConstructor
     {
-        private ArrayConstructor(Engine engine) :  base(engine, "Array", null, null, false)
+        private static readonly JsString _functionName = new JsString("Array");
+
+        private ArrayConstructor(Engine engine) :  base(engine, _functionName, false)
         {
         }
 
@@ -21,32 +24,32 @@ namespace Jint.Native.Array
 
         public static ArrayConstructor CreateArrayConstructor(Engine engine)
         {
-            var obj = new ArrayConstructor(engine);
-            obj.Extensible = true;
+            var obj = new ArrayConstructor(engine)
+            {
+                Extensible = true,
+                Prototype = engine.Function.PrototypeObject
+            };
 
             // The value of the [[Prototype]] internal property of the Array constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = ArrayPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.Configurable));
+            obj._length = new PropertyDescriptor(1, PropertyFlag.Configurable);
 
             // The initial value of Array.prototype is the Array prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
-
-            obj.SetOwnProperty(GlobalSymbolRegistry.Species._value,
-                new GetSetPropertyDescriptor(
-                    get: new ClrFunctionInstance(engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable),
-                    set: Undefined,
-                    PropertyFlag.Configurable));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
-            SetOwnProperty("from",new PropertyDescriptor(new ClrFunctionInstance(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
-            SetOwnProperty("isArray", new PropertyDescriptor(new ClrFunctionInstance(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable));
-            SetOwnProperty("of", new PropertyDescriptor(new ClrFunctionInstance(Engine, "of", Of, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
+            _properties = new StringDictionarySlim<PropertyDescriptor>(5)
+            {
+                [GlobalSymbolRegistry.Species._value] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined,PropertyFlag.Configurable),
+                ["from"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
+                ["isArray"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable)),
+                ["of"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "of", Of, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable))
+            };
         }
 
         private JsValue From(JsValue thisObj, JsValue[] arguments)

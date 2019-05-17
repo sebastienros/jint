@@ -3,7 +3,6 @@ using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 
@@ -30,7 +29,7 @@ namespace Jint.Native.Function
             JintFunctionDefinition function,
             LexicalEnvironment scope,
             bool strict)
-            : base(engine, function._name ?? "", function._parameterNames, scope, strict)
+            : base(engine, function._name, function._parameterNames, scope, strict)
         {
             _function = function;
 
@@ -49,10 +48,8 @@ namespace Jint.Native.Function
 
             if (strict)
             {
-                var thrower = engine.Function.ThrowTypeError;
-                const PropertyFlag flags = PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet;
-                DefineOwnProperty("caller", new GetSetPropertyDescriptor(thrower, thrower, flags), false);
-                DefineOwnProperty("arguments", new GetSetPropertyDescriptor(thrower, thrower, flags), false);
+                DefineOwnProperty("caller", engine._getSetThrower, false);
+                DefineOwnProperty("arguments", engine._getSetThrower, false);
             }
         }
 

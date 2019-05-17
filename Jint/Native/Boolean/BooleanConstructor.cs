@@ -7,7 +7,10 @@ namespace Jint.Native.Boolean
 {
     public sealed class BooleanConstructor : FunctionInstance, IConstructor
     {
-        private BooleanConstructor(Engine engine): base(engine, "Boolean", null, null, false)
+        private static readonly JsString _functionName = new JsString("Boolean");
+
+        private BooleanConstructor(Engine engine)
+            : base(engine, _functionName, strict: false)
         {
         }
 
@@ -20,17 +23,12 @@ namespace Jint.Native.Boolean
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = BooleanPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
+            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
 
             // The initial value of Boolean.prototype is the Boolean prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
-        }
-
-        public void Configure()
-        {
-
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

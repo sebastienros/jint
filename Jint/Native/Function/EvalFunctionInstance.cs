@@ -9,12 +9,13 @@ namespace Jint.Native.Function
     public sealed class EvalFunctionInstance : FunctionInstance
     {
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
+        private static readonly JsString _functionName = new JsString("eval");
 
         public EvalFunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) 
-            : base(engine, "eval", parameters, scope, strict)
+            : base(engine, _functionName, parameters, scope, strict)
         {
             Prototype = Engine.Function.PrototypeObject;
-            SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
+            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
