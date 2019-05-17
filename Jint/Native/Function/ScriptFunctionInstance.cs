@@ -30,7 +30,7 @@ namespace Jint.Native.Function
             JintFunctionDefinition function,
             LexicalEnvironment scope,
             bool strict)
-            : base(engine, function._name ?? "", function._parameterNames, scope, strict)
+            : base(engine, function._name, function._parameterNames, scope, strict)
         {
             _function = function;
 

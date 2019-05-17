@@ -10,8 +10,10 @@ namespace Jint.Native.Iterator
 {
     public sealed class IteratorConstructor : FunctionInstance, IConstructor
     {
+        private static readonly JsString _functionName = new JsString("iterator");
+
         private IteratorConstructor(Engine engine)
-            : base(engine, "iterator", null, null, false)
+            : base(engine, _functionName, strict: false)
         {
         }
 

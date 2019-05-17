@@ -13,8 +13,10 @@ namespace Jint.Native.Symbol
     /// </summary>
     public sealed class SymbolConstructor : FunctionInstance, IConstructor
     {
+        private static readonly JsString _functionName = new JsString("Symbol");
+
         public SymbolConstructor(Engine engine)
-            : base(engine, "Symbol", null, null, false)
+            : base(engine, _functionName, strict: false)
         {
         }
 

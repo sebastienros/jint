@@ -12,18 +12,22 @@ namespace Jint.Native.String
 {
     public sealed class StringConstructor : FunctionInstance, IConstructor
     {
+        private static readonly JsString _functionName = new JsString("String");
+
         public StringConstructor(Engine engine)
-            : base(engine, "String", null, null, false)
+            : base(engine, _functionName, strict: false)
         {
         }
 
         public static StringConstructor CreateStringConstructor(Engine engine)
         {
-            var obj = new StringConstructor(engine);
-            obj.Extensible = true;
+            var obj = new StringConstructor(engine)
+            {
+                Extensible = true,
+                Prototype = engine.Function.PrototypeObject
+            };
 
             // The value of the [[Prototype]] internal property of the String constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = StringPrototype.CreatePrototypeObject(engine, obj);
 
             obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;

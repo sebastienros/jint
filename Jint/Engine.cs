@@ -42,6 +42,15 @@ namespace Jint
             Loc = true
         };
 
+
+        private static readonly JsString _errorFunctionName = new JsString("Error");
+        private static readonly JsString _evalErrorFunctionName = new JsString("EvalError");
+        private static readonly JsString _rangeErrorFunctionName = new JsString("RangeError");
+        private static readonly JsString _referenceErrorFunctionName = new JsString("ReferenceError");
+        private static readonly JsString _syntaxErrorFunctionName = new JsString("SyntaxError");
+        private static readonly JsString _typeErrorFunctionName = new JsString("TypeError");
+        private static readonly JsString _uriErrorFunctionName = new JsString("URIError");
+
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
@@ -165,13 +174,13 @@ namespace Jint
             Math = MathInstance.CreateMathObject(this);
             Json = JsonInstance.CreateJsonObject(this);
 
-            Error = ErrorConstructor.CreateErrorConstructor(this, "Error");
-            EvalError = ErrorConstructor.CreateErrorConstructor(this, "EvalError");
-            RangeError = ErrorConstructor.CreateErrorConstructor(this, "RangeError");
-            ReferenceError = ErrorConstructor.CreateErrorConstructor(this, "ReferenceError");
-            SyntaxError = ErrorConstructor.CreateErrorConstructor(this, "SyntaxError");
-            TypeError = ErrorConstructor.CreateErrorConstructor(this, "TypeError");
-            UriError = ErrorConstructor.CreateErrorConstructor(this, "URIError");
+            Error = ErrorConstructor.CreateErrorConstructor(this, _errorFunctionName);
+            EvalError = ErrorConstructor.CreateErrorConstructor(this, _evalErrorFunctionName);
+            RangeError = ErrorConstructor.CreateErrorConstructor(this, _rangeErrorFunctionName);
+            ReferenceError = ErrorConstructor.CreateErrorConstructor(this, _referenceErrorFunctionName);
+            SyntaxError = ErrorConstructor.CreateErrorConstructor(this, _syntaxErrorFunctionName);
+            TypeError = ErrorConstructor.CreateErrorConstructor(this, _typeErrorFunctionName);
+            UriError = ErrorConstructor.CreateErrorConstructor(this, _uriErrorFunctionName);
 
             GlobalSymbolRegistry = new GlobalSymbolRegistry();
 

@@ -12,12 +12,12 @@ namespace Jint.Native.Error
     {
         private ErrorConstructor _errorConstructor;
 
-        private ErrorPrototype(Engine engine, string name)
+        private ErrorPrototype(Engine engine, JsString name)
             : base(engine, name)
         {
         }
 
-        public static ErrorPrototype CreatePrototypeObject(Engine engine, ErrorConstructor errorConstructor, string name)
+        public static ErrorPrototype CreatePrototypeObject(Engine engine, ErrorConstructor errorConstructor, JsString name)
         {
             var obj = new ErrorPrototype(engine, name)
             {

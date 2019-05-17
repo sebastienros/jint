@@ -10,18 +10,22 @@ namespace Jint.Native.RegExp
 {
     public sealed class RegExpConstructor : FunctionInstance, IConstructor
     {
+        private static readonly JsString _functionName = new JsString("RegExp");
+
         public RegExpConstructor(Engine engine)
-            : base(engine, "RegExp", null, null, false)
+            : base(engine, _functionName, strict: false)
         {
         }
 
         public static RegExpConstructor CreateRegExpConstructor(Engine engine)
         {
-            var obj = new RegExpConstructor(engine);
-            obj.Extensible = true;
+            var obj = new RegExpConstructor(engine)
+            {
+                Extensible = true,
+                Prototype = engine.Function.PrototypeObject
+            };
 
             // The value of the [[Prototype]] internal property of the RegExp constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = RegExpPrototype.CreatePrototypeObject(engine, obj);
 
             obj._length = new PropertyDescriptor(2, PropertyFlag.AllForbidden);

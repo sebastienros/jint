@@ -9,11 +9,13 @@ namespace Jint.Native.Number
 {
     public sealed class NumberConstructor : FunctionInstance, IConstructor
     {
+        private static readonly JsString _functionName = new JsString("Number");
+
         private const long MinSafeInteger = -9007199254740991;
         internal const long MaxSafeInteger = 9007199254740991;
 
         public NumberConstructor(Engine engine)
-            : base(engine, "Number", null, null, false)
+            : base(engine, _functionName, strict: false)
         {
 
         }

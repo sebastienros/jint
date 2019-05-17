@@ -14,7 +14,9 @@ namespace Jint.Native.Array
 {
     public sealed class ArrayConstructor : FunctionInstance, IConstructor
     {
-        private ArrayConstructor(Engine engine) :  base(engine, "Array", null, null, false)
+        private static readonly JsString _functionName = new JsString("Array");
+
+        private ArrayConstructor(Engine engine) :  base(engine, _functionName, false)
         {
         }
 

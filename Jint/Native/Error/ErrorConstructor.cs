@@ -7,13 +7,14 @@ namespace Jint.Native.Error
 {
     public sealed class ErrorConstructor : FunctionInstance, IConstructor
     {
-        private string _name;
+        private JsString _name;
+        private static readonly JsString _functionName = new JsString("Error");
 
-        public ErrorConstructor(Engine engine) : base(engine, "Error", null, null, false)
+        public ErrorConstructor(Engine engine) : base(engine, _functionName, strict: false)
         {
         }
 
-        public static ErrorConstructor CreateErrorConstructor(Engine engine, string name)
+        public static ErrorConstructor CreateErrorConstructor(Engine engine, JsString name)
         {
             var obj = new ErrorConstructor(engine)
             {

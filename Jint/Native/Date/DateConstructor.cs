@@ -52,7 +52,9 @@ namespace Jint.Native.Date
             "THHK"
         };
 
-        public DateConstructor(Engine engine) : base(engine, "Date", null, null, false)
+        private static readonly JsString _functionName = new JsString("Date");
+
+        public DateConstructor(Engine engine) : base(engine, _functionName, strict: false)
         {
         }
 

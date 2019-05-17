@@ -13,8 +13,10 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class FunctionPrototype : FunctionInstance
     {
+        private static readonly JsString _functionName = new JsString("Function");
+
         private FunctionPrototype(Engine engine)
-            : base(engine, "Function", null, null, false)
+            : base(engine, _functionName, strict: false)
         {
         }
 

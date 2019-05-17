@@ -29,18 +29,8 @@ namespace Jint.Native.Function
             string name,
             string[] parameters,
             LexicalEnvironment scope,
-            bool strict)
-            : this(engine, name, parameters, scope, strict, objectClass: "Function")
-        {
-        }
-
-        protected FunctionInstance(
-            Engine engine,
-            string name,
-            string[] parameters,
-            LexicalEnvironment scope,
             bool strict,
-            string objectClass)
+            string objectClass = "Function")
             : base(engine, objectClass)
         {
             if (!string.IsNullOrWhiteSpace(name))
@@ -49,6 +39,20 @@ namespace Jint.Native.Function
             }
             _formalParameters = parameters;
             _scope = scope;
+            _strict = strict;
+        }
+
+        internal FunctionInstance(
+            Engine engine,
+            JsString name,
+            bool strict,
+            string objectClass = "Function")
+            : base(engine, objectClass)
+        {
+            if (!string.IsNullOrWhiteSpace(name?._value))
+            {
+                _name = new PropertyDescriptor(name, PropertyFlag.Configurable);
+            }
             _strict = strict;
         }
 

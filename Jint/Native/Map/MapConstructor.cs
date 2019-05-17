@@ -12,7 +12,10 @@ namespace Jint.Native.Map
 {
     public sealed class MapConstructor : FunctionInstance, IConstructor
     {
-        private MapConstructor(Engine engine, string name) : base(engine, name, null, null, false)
+        private static readonly JsString _functionName = new JsString("Map");
+
+        private MapConstructor(Engine engine)
+            : base(engine, _functionName, strict: false)
         {
         }
 
@@ -20,7 +23,7 @@ namespace Jint.Native.Map
 
         public static MapConstructor CreateMapConstructor(Engine engine)
         {
-            var obj = new MapConstructor(engine, "Map")
+            var obj = new MapConstructor(engine)
             {
                 Extensible = true,
                 Prototype = engine.Function.PrototypeObject
