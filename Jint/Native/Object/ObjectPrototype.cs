@@ -1,4 +1,5 @@
-﻿using Jint.Runtime;
+﻿using Jint.Collections;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
@@ -12,14 +13,18 @@ namespace Jint.Native.Object
 
         public static ObjectPrototype CreatePrototypeObject(Engine engine, ObjectConstructor objectConstructor)
         {
-            var obj = new ObjectPrototype(engine) { Extensible = true };
+            var obj = new ObjectPrototype(engine)
+            {
+                Extensible = true,
+                _properties = new StringDictionarySlim<PropertyDescriptor>(8)
+            };
 
-            obj.FastAddProperty("constructor", objectConstructor, true, false, true);
+            obj._properties["constructor"] = new PropertyDescriptor(objectConstructor, true, false, true);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToObjectString), true, false, true);
             FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), true, false, true);

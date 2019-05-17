@@ -17,7 +17,8 @@ namespace Jint.Runtime.Interop
             string name,
             Func<JsValue, JsValue[], JsValue> func,
             int length = 0,
-            PropertyFlag lengthFlags = PropertyFlag.AllForbidden) : base(engine, name, null, null, false)
+            PropertyFlag lengthFlags = PropertyFlag.AllForbidden)
+            : base(engine, name, null, null, false)
         {
             _func = func;
 

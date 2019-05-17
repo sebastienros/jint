@@ -20,17 +20,12 @@ namespace Jint.Native.Boolean
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = BooleanPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
+            obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
 
             // The initial value of Boolean.prototype is the Boolean prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
-        }
-
-        public void Configure()
-        {
-
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

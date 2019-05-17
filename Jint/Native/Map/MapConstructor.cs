@@ -1,4 +1,5 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Collections;
+using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -21,11 +22,14 @@ namespace Jint.Native.Map
         {
             MapConstructor CreateMapConstructorTemplate(string name)
             {
-                var mapConstructor = new MapConstructor(engine, name);
-                mapConstructor.Extensible = true;
+                var mapConstructor = new MapConstructor(engine, name)
+                {
+                    Extensible = true,
+                    Prototype = engine.Function.PrototypeObject,
+                    _properties = new StringDictionarySlim<PropertyDescriptor>(4)
+                };
 
                 // The value of the [[Prototype]] internal property of the Map constructor is the Function prototype object
-                mapConstructor.Prototype = engine.Function.PrototypeObject;
                 mapConstructor.PrototypeObject = MapPrototype.CreatePrototypeObject(engine, mapConstructor);
 
                 mapConstructor.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
@@ -35,7 +39,7 @@ namespace Jint.Native.Map
             var obj = CreateMapConstructorTemplate("Map");
 
             // The initial value of Map.prototype is the Map prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             obj.SetOwnProperty(GlobalSymbolRegistry.Species._value,
                 new GetSetPropertyDescriptor(
@@ -44,10 +48,6 @@ namespace Jint.Native.Map
                     PropertyFlag.Configurable));
 
             return obj;
-        }
-
-        public void Configure()
-        {
         }
 
         private static JsValue Species(JsValue thisObject, JsValue[] arguments)

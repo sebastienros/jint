@@ -173,50 +173,6 @@ namespace Jint
             // Because the properties might need some of the built-in object
             // their configuration is delayed to a later step
 
-            Global.Configure();
-
-            Object.Configure();
-            Object.PrototypeObject.Configure();
-
-            Symbol.Configure();
-            Symbol.PrototypeObject.Configure();
-
-            Function.Configure();
-            Function.PrototypeObject.Configure();
-
-            Array.Configure();
-            Array.PrototypeObject.Configure();
-
-            Map.Configure();
-            Map.PrototypeObject.Configure();
-
-            Set.Configure();
-            Set.PrototypeObject.Configure();
-
-            Iterator.Configure();
-            Iterator.PrototypeObject.Configure();
-
-            String.Configure();
-            String.PrototypeObject.Configure();
-
-            RegExp.Configure();
-            RegExp.PrototypeObject.Configure();
-
-            Number.Configure();
-            Number.PrototypeObject.Configure();
-
-            Boolean.Configure();
-            Boolean.PrototypeObject.Configure();
-
-            Date.Configure();
-            Date.PrototypeObject.Configure();
-
-            Math.Configure();
-            Json.Configure();
-
-            Error.Configure();
-            Error.PrototypeObject.Configure();
-
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, false);
 
@@ -243,12 +199,12 @@ namespace Jint
             _jsValueArrayPool = new JsValueArrayPool();
 
             Eval = new EvalFunctionInstance(this, System.ArrayExt.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
-            Global.FastAddProperty("eval", Eval, true, false, true);
+            Global._properties["eval"] = new PropertyDescriptor(Eval, true, false, true);
 
             if (Options._IsClrAllowed)
             {
-                Global.FastAddProperty("System", new NamespaceReference(this, "System"), false, false, false);
-                Global.FastAddProperty("importNamespace", new ClrFunctionInstance(
+                Global._properties["System"] = new PropertyDescriptor(new NamespaceReference(this, "System"), false, false, false);
+                Global._properties["importNamespace"] = new PropertyDescriptor(new ClrFunctionInstance(
                     this,
                     "importNamespace",
                     (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)))), false, false, false);

@@ -72,7 +72,7 @@ namespace Jint.Native.Date
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
             FastAddProperty("parse", new ClrFunctionInstance(Engine, "parse", Parse, 1), true, false, true);
             FastAddProperty("UTC", new ClrFunctionInstance(Engine, "utc", Utc, 7), true, false, true);

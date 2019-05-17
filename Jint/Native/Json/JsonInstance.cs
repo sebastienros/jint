@@ -22,7 +22,7 @@ namespace Jint.Native.Json
             return json;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
             FastAddProperty("parse", new ClrFunctionInstance(Engine, "parse", Parse, 2), true, false, true);
             FastAddProperty("stringify", new ClrFunctionInstance(Engine, "stringify", Stringify, 3), true, false, true);

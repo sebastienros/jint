@@ -1,4 +1,5 @@
 ﻿using System;
+using Jint.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -17,15 +18,19 @@ namespace Jint.Native.Math
 
         public static MathInstance CreateMathObject(Engine engine)
         {
-            var math = new MathInstance(engine);
-            math.Extensible = true;
-            math.Prototype = engine.Object.PrototypeObject;
+            var math = new MathInstance(engine)
+            {
+                Extensible = true,
+                Prototype = engine.Object.PrototypeObject
+            };
 
             return math;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
+            _properties = new StringDictionarySlim<PropertyDescriptor>(50);
+
             FastAddProperty("abs", new ClrFunctionInstance(Engine, "abs", Abs, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("acos", new ClrFunctionInstance(Engine, "acos", Acos, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("acosh", new ClrFunctionInstance(Engine, "acosh", Acosh, 1, PropertyFlag.Configurable), true, false, true);
@@ -71,7 +76,6 @@ namespace Jint.Native.Math
             FastAddProperty("PI", System.Math.PI, false, false, false);
             FastAddProperty("SQRT1_2", System.Math.Sqrt(0.5), false, false, false);
             FastAddProperty("SQRT2", System.Math.Sqrt(2), false, false, false);
-
         }
 
         private static JsValue Abs(JsValue thisObject, JsValue[] arguments)

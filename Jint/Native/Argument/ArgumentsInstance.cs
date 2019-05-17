@@ -47,19 +47,7 @@ namespace Jint.Native.Argument
             _initialized = false;
         }
 
-        protected override void EnsureInitialized()
-        {
-            if (_initialized)
-            {
-                return;
-            }
-
-            _initialized = true;
-
-            BuildProperties();
-        }
-
-        private void BuildProperties()
+        protected override void Initialize()
         {
             var args = _args;
             SetOwnProperty("length", new PropertyDescriptor(args.Length, PropertyFlag.NonEnumerable));

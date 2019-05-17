@@ -1,4 +1,5 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Collections;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -19,23 +20,27 @@ namespace Jint.Native.Number
 
         public static NumberConstructor CreateNumberConstructor(Engine engine)
         {
-            var obj = new NumberConstructor(engine);
-            obj.Extensible = true;
+            var obj = new NumberConstructor(engine)
+            {
+                Extensible = true,
+                Prototype = engine.Function.PrototypeObject
+            };
 
             // The value of the [[Prototype]] internal property of the Number constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = NumberPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
+            obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
 
             // The initial value of Number.prototype is the Number prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
+            _properties = new StringDictionarySlim<PropertyDescriptor>(20);
+
             SetOwnProperty("MAX_VALUE", new PropertyDescriptor(double.MaxValue, PropertyFlag.AllForbidden));
             SetOwnProperty("MIN_VALUE", new PropertyDescriptor(double.Epsilon, PropertyFlag.AllForbidden));
             SetOwnProperty("NaN", new PropertyDescriptor(double.NaN, PropertyFlag.AllForbidden));
@@ -54,7 +59,7 @@ namespace Jint.Native.Number
             FastAddProperty("parseInt", new ClrFunctionInstance(Engine, "parseInt", _engine.Global.ParseInt, 0, PropertyFlag.Configurable), true, false, true);
         }
 
-        private JsValue IsFinite(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsFinite(JsValue thisObj, JsValue[] arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -64,7 +69,7 @@ namespace Jint.Native.Number
             return double.IsInfinity(num._value) || double.IsNaN(num._value) ? JsBoolean.False : JsBoolean.True;
         }
 
-        private JsValue IsInteger(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsInteger(JsValue thisObj, JsValue[] arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -81,7 +86,7 @@ namespace Jint.Native.Number
             return integer == num._value;
         }
 
-        private JsValue IsNaN(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsNaN(JsValue thisObj, JsValue[] arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -91,7 +96,7 @@ namespace Jint.Native.Number
             return double.IsNaN(num._value);
         }
 
-        private JsValue IsSafeInteger(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsSafeInteger(JsValue thisObj, JsValue[] arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {

@@ -26,15 +26,10 @@ namespace Jint.Native.Function
             // The value of the [[Prototype]] internal property of the Function constructor is the standard built-in Function prototype object
             obj.Prototype = obj.PrototypeObject;
 
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
-            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
 
             return obj;
-        }
-
-        public void Configure()
-        {
-
         }
 
         public FunctionPrototype PrototypeObject { get; private set; }

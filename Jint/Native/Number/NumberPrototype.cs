@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using Jint.Collections;
 using Jint.Native.Number.Dtoa;
 using Jint.Pooling;
 using Jint.Runtime;
@@ -25,15 +26,16 @@ namespace Jint.Native.Number
             {
                 Prototype = engine.Object.PrototypeObject,
                 NumberData = JsNumber.Create(0),
-                Extensible = true
+                Extensible = true,
+                _properties = new StringDictionarySlim<PropertyDescriptor>(8)
             };
 
-            obj.FastAddProperty("constructor", numberConstructor, true, false, true);
+            obj._properties["constructor"] = new PropertyDescriptor(numberConstructor, true, false, true);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true);

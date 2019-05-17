@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using Jint.Collections;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -17,16 +18,19 @@ namespace Jint.Native.Symbol
 
         public static SymbolPrototype CreatePrototypeObject(Engine engine, SymbolConstructor symbolConstructor)
         {
-            var obj = new SymbolPrototype(engine);
-            obj.Prototype = engine.Object.PrototypeObject;
-            obj.Extensible = true;
-            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
-            obj.FastAddProperty("constructor", symbolConstructor, true, false, true);
+            var obj = new SymbolPrototype(engine)
+            {
+                Prototype = engine.Object.PrototypeObject,
+                Extensible = true,
+                _properties = new StringDictionarySlim<PropertyDescriptor>(8)
+            };
+            obj._properties["length"] = new PropertyDescriptor(0, PropertyFlag.AllForbidden);
+            obj._properties["constructor"] = new PropertyDescriptor(symbolConstructor, true, false, true);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToSymbolString), true, false, true);
             FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf), true, false, true);

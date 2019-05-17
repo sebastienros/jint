@@ -1,4 +1,5 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Collections;
+using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -21,11 +22,14 @@ namespace Jint.Native.Set
         {
             SetConstructor CreateSetConstructorTemplate(string name)
             {
-                var ctr = new SetConstructor(engine, name);
-                ctr.Extensible = true;
+                var ctr = new SetConstructor(engine, name)
+                {
+                    Extensible = true,
+                    Prototype = engine.Function.PrototypeObject,
+                    _properties = new StringDictionarySlim<PropertyDescriptor>(4)
+                };
 
                 // The value of the [[Prototype]] internal property of the Set constructor is the Function prototype object
-                ctr.Prototype = engine.Function.PrototypeObject;
                 ctr.PrototypeObject = SetPrototype.CreatePrototypeObject(engine, ctr);
 
                 ctr.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
@@ -35,7 +39,7 @@ namespace Jint.Native.Set
             var obj = CreateSetConstructorTemplate("Set");
 
             // The initial value of Set.prototype is the Set prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             obj.SetOwnProperty(GlobalSymbolRegistry.Species._value,
                 new GetSetPropertyDescriptor(
@@ -44,10 +48,6 @@ namespace Jint.Native.Set
                     PropertyFlag.Configurable));
 
             return obj;
-        }
-
-        public void Configure()
-        {
         }
 
         private static JsValue Species(JsValue thisObject, JsValue[] arguments)

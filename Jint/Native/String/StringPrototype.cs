@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -26,17 +27,20 @@ namespace Jint.Native.String
 
         public static StringPrototype CreatePrototypeObject(Engine engine, StringConstructor stringConstructor)
         {
-            var obj = new StringPrototype(engine);
-            obj.Prototype = engine.Object.PrototypeObject;
-            obj.PrimitiveValue = JsString.Empty;
-            obj.Extensible = true;
-            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
-            obj.SetOwnProperty("constructor", new PropertyDescriptor(stringConstructor, PropertyFlag.NonEnumerable));
+            var obj = new StringPrototype(engine)
+            {
+                Prototype = engine.Object.PrototypeObject,
+                PrimitiveValue = JsString.Empty,
+                Extensible = true,
+                _properties = new StringDictionarySlim<PropertyDescriptor>(40)
+            };
+            obj._length = new PropertyDescriptor(0, PropertyFlag.AllForbidden);
+            obj._properties["constructor"] = new PropertyDescriptor(stringConstructor, PropertyFlag.NonEnumerable);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToStringString, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true);

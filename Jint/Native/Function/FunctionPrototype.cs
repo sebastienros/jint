@@ -1,4 +1,5 @@
 ﻿using System;
+using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -24,16 +25,18 @@ namespace Jint.Native.Function
             {
                 Extensible = true,
                 // The value of the [[Prototype]] internal property of the Function prototype object is the standard built-in Object prototype object
-                Prototype = engine.Object.PrototypeObject
+                Prototype = engine.Object.PrototypeObject,
             };
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
+            obj._length = new PropertyDescriptor(0, PropertyFlag.AllForbidden);
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
-            SetOwnProperty("constructor", new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable));
+            _properties = new StringDictionarySlim<PropertyDescriptor>(7);
+            _properties["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable);
+
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString), true, false, true);
             FastAddProperty("apply", new ClrFunctionInstance(Engine, "apply", Apply, 2), true, false, true);
             FastAddProperty("call", new ClrFunctionInstance(Engine, "call", CallImpl, 1), true, false, true);

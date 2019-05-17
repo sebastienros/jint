@@ -1,5 +1,7 @@
-﻿using Jint.Native.Object;
+﻿using Jint.Collections;
+using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Error
 {
@@ -8,7 +10,8 @@ namespace Jint.Native.Error
         public ErrorInstance(Engine engine, string name)
             : base(engine, objectClass: "Error")
         {
-            FastAddProperty("name", name, true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>();
+            _properties["name"] = new PropertyDescriptor(name, true, false, true);
         }
 
         public override string ToString()

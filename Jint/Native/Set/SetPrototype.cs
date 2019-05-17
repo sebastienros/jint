@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using Jint.Collections;
+using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -21,16 +22,17 @@ namespace Jint.Native.Set
             var obj = new SetPrototype(engine)
             {
                 Extensible = true, 
-                Prototype = engine.Object.PrototypeObject
+                Prototype = engine.Object.PrototypeObject,
+                _properties = new StringDictionarySlim<PropertyDescriptor>(20)
             };
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
-            obj.SetOwnProperty("constructor", new PropertyDescriptor(mapConstructor, PropertyFlag.NonEnumerable));
+            obj._properties["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable);
+            obj._properties["constructor"] = new PropertyDescriptor(mapConstructor, PropertyFlag.NonEnumerable);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
             FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Values, 1, PropertyFlag.Configurable), true, false, true);
             FastAddProperty(GlobalSymbolRegistry.ToStringTag._value, "Set", false, false, true);

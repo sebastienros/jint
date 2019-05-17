@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using Jint.Collections;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -17,9 +18,13 @@ namespace Jint.Native.Error
 
         public static ErrorPrototype CreatePrototypeObject(Engine engine, ErrorConstructor errorConstructor, string name)
         {
-            var obj = new ErrorPrototype(engine, name) { Extensible = true };
-            obj.SetOwnProperty("constructor", new PropertyDescriptor(errorConstructor, PropertyFlag.NonEnumerable));
-            obj.FastAddProperty("message", "", true, false, true);
+            var obj = new ErrorPrototype(engine, name)
+            {
+                Extensible = true,
+                _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            };
+            obj._properties["constructor"] = new PropertyDescriptor(errorConstructor, PropertyFlag.NonEnumerable);
+            obj._properties["message"] = new PropertyDescriptor("", true, false, true);
 
             if (name != "Error")
             {
@@ -33,7 +38,7 @@ namespace Jint.Native.Error
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
             // Error prototype functions
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString), true, false, true);

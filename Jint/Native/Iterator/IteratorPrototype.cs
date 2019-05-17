@@ -13,16 +13,16 @@ namespace Jint.Native.Iterator
         {
             var obj = new IteratorPrototype(engine)
             {
-                Extensible = true, Prototype = engine.Object.PrototypeObject
+                Extensible = true,
+                Prototype = engine.Object.PrototypeObject
             };
-
-            obj.SetOwnProperty("name", new PropertyDescriptor("Map", PropertyFlag.Configurable));
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
+            FastAddProperty("name", "Map", PropertyFlag.Configurable);
             FastAddProperty("next", new ClrFunctionInstance(Engine, "next", Next, 0, PropertyFlag.Configurable), true, false, true);
         }
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Jint.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -27,16 +28,17 @@ namespace Jint.Native.Array
             var obj = new ArrayPrototype(engine)
             {
                 Extensible = true,
-                Prototype = engine.Object.PrototypeObject
+                Prototype = engine.Object.PrototypeObject,
+                _properties = new StringDictionarySlim<PropertyDescriptor>(35)
             };
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Writable));
-            obj.SetOwnProperty("constructor", new PropertyDescriptor(arrayConstructor, PropertyFlag.NonEnumerable));
+            obj._length = new PropertyDescriptor(0, PropertyFlag.Writable);
+            obj._properties["constructor"] =  new PropertyDescriptor(arrayConstructor, PropertyFlag.NonEnumerable);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), true, false, true);
             FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true);

@@ -1,4 +1,5 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Collections;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -19,26 +20,29 @@ namespace Jint.Native.Symbol
 
         public static SymbolConstructor CreateSymbolConstructor(Engine engine)
         {
-            var obj = new SymbolConstructor(engine);
-            obj.Extensible = true;
+            var obj = new SymbolConstructor(engine)
+            {
+                Extensible = true,
+                Prototype = engine.Function.PrototypeObject
+            };
 
             // The value of the [[Prototype]] internal property of the Symbol constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = SymbolPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
+            obj._length = new PropertyDescriptor(0, PropertyFlag.AllForbidden);
 
             // The initial value of String.prototype is the String prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
-
-
-            obj.SetOwnProperty("species", new PropertyDescriptor(GlobalSymbolRegistry.Species, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
+            _properties = new StringDictionarySlim<PropertyDescriptor>(16);
+
+            FastAddProperty("species",GlobalSymbolRegistry.Species, PropertyFlag.AllForbidden);
+
             FastAddProperty("for", new ClrFunctionInstance(Engine, "for", For, 1), true, false, true);
             FastAddProperty("keyFor", new ClrFunctionInstance(Engine, "keyFor", KeyFor, 1), true, false, true);
 
@@ -53,7 +57,6 @@ namespace Jint.Native.Symbol
             FastAddProperty("toPrimitive", GlobalSymbolRegistry.ToPrimitive, false, false, false);
             FastAddProperty("toStringTag", GlobalSymbolRegistry.ToStringTag, false, false, false);
             FastAddProperty("unscopables", GlobalSymbolRegistry.Unscopables, false, false, false);
-
         }
 
         /// <summary>

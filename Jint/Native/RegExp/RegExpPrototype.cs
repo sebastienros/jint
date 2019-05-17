@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -15,15 +16,20 @@ namespace Jint.Native.RegExp
 
         public static RegExpPrototype CreatePrototypeObject(Engine engine, RegExpConstructor regExpConstructor)
         {
-            var obj = new RegExpPrototype(engine);
-            obj.Prototype = engine.Object.PrototypeObject;
-            obj.Extensible = true;
+            var obj = new RegExpPrototype(engine)
+            {
+                Prototype = engine.Object.PrototypeObject,
+                Extensible = true,
+                _properties = new StringDictionarySlim<PropertyDescriptor>(10)
+                {
+                    ["constructor"] = new PropertyDescriptor(regExpConstructor, true, false, true)
+                }
+            };
 
-            obj.FastAddProperty("constructor", regExpConstructor, true, false, true);
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToRegExpString), true, false, true);
             FastAddProperty("exec", new ClrFunctionInstance(Engine, "exec", Exec, 1), true, false, true);

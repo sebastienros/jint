@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using Jint.Collections;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -22,15 +23,16 @@ namespace Jint.Native.Date
             {
                 Prototype = engine.Object.PrototypeObject,
                 Extensible = true,
-                PrimitiveValue = double.NaN
+                PrimitiveValue = double.NaN,
+                _properties = new StringDictionarySlim<PropertyDescriptor>(50)
             };
 
-            obj.SetOwnProperty("constructor", new PropertyDescriptor(dateConstructor, PropertyFlag.NonEnumerable));
+            obj._properties["constructor"] = new PropertyDescriptor(dateConstructor, PropertyFlag.NonEnumerable);
 
             return obj;
         }
 
-        public void Configure()
+        protected override  void Initialize()
         {
             FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString, 0), true, false, true);
             FastAddProperty("toDateString", new ClrFunctionInstance(Engine, "toDateString", ToDateString, 0), true, false, true);

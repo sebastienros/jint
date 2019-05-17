@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Runtime;
@@ -21,12 +22,17 @@ namespace Jint.Native.Global
 
         public static GlobalObject CreateGlobalObject(Engine engine)
         {
-            var global = new GlobalObject(engine) { Prototype = null, Extensible = true };
+            var global = new GlobalObject(engine)
+            {
+                Prototype = null,
+                Extensible = true,
+                _properties = new StringDictionarySlim<PropertyDescriptor>(40)
+            };
 
             return global;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
             // this is implementation dependent, and only to pass some unit tests
             Prototype = Engine.Object.PrototypeObject;

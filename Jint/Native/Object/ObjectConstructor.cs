@@ -19,21 +19,24 @@ namespace Jint.Native.Object
 
         public static ObjectConstructor CreateObjectConstructor(Engine engine)
         {
-            var obj = new ObjectConstructor(engine);
-            obj.Extensible = true;
+            var obj = new ObjectConstructor(engine)
+            {
+                Extensible = true
+            };
 
             obj.PrototypeObject = ObjectPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
+            obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
             Prototype = Engine.Function.PrototypeObject;
 
+            _properties = new StringDictionarySlim<PropertyDescriptor>(20);
             FastAddProperty("getPrototypeOf", new ClrFunctionInstance(Engine, "getPrototypeOf", GetPrototypeOf, 1), true, false, true);
             FastAddProperty("getOwnPropertyDescriptor", new ClrFunctionInstance(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2), true, false, true);
             FastAddProperty("getOwnPropertyNames", new ClrFunctionInstance(Engine, "getOwnPropertyNames", GetOwnPropertyNames, 1), true, false, true);

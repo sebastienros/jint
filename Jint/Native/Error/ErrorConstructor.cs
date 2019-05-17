@@ -15,25 +15,22 @@ namespace Jint.Native.Error
 
         public static ErrorConstructor CreateErrorConstructor(Engine engine, string name)
         {
-            var obj = new ErrorConstructor(engine);
-            obj.Extensible = true;
-            obj._name = name;
+            var obj = new ErrorConstructor(engine)
+            {
+                Extensible = true,
+                _name = name,
+                Prototype = engine.Function.PrototypeObject
+            };
 
             // The value of the [[Prototype]] internal property of the Error constructor is the Function prototype object (15.11.3)
-            obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = ErrorPrototype.CreatePrototypeObject(engine, obj, name);
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
+            obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
 
             // The initial value of Error.prototype is the Error prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
-        }
-
-        public void Configure()
-        {
-
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

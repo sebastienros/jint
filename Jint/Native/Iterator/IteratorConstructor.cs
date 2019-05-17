@@ -26,17 +26,14 @@ namespace Jint.Native.Iterator
             obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
+            obj._length =  new PropertyDescriptor(0, PropertyFlag.Configurable);
 
             // The initial value of Map.prototype is the Map prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
-        public void Configure()
-        {
-        }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
