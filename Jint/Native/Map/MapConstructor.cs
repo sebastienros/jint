@@ -42,7 +42,7 @@ namespace Jint.Native.Map
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(1)
+            _properties = new StringDictionarySlim<PropertyDescriptor>(2)
             {
                 [GlobalSymbolRegistry.Species._value] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
             };

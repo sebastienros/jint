@@ -10,7 +10,7 @@ namespace Jint.Native.Error
         public ErrorInstance(Engine engine, JsString name)
             : base(engine, objectClass: "Error")
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(1)
+            _properties = new StringDictionarySlim<PropertyDescriptor>(2)
             {
                 ["name"] = new PropertyDescriptor(name, true, false, true)
             };
