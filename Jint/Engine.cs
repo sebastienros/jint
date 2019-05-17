@@ -25,6 +25,7 @@ using Jint.Runtime;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
@@ -41,12 +42,32 @@ namespace Jint
             Loc = true
         };
 
+
+        private static readonly JsString _errorFunctionName = new JsString("Error");
+        private static readonly JsString _evalErrorFunctionName = new JsString("EvalError");
+        private static readonly JsString _rangeErrorFunctionName = new JsString("RangeError");
+        private static readonly JsString _referenceErrorFunctionName = new JsString("ReferenceError");
+        private static readonly JsString _syntaxErrorFunctionName = new JsString("SyntaxError");
+        private static readonly JsString _typeErrorFunctionName = new JsString("TypeError");
+        private static readonly JsString _uriErrorFunctionName = new JsString("URIError");
+
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
         private long _initialMemoryUsage;
         private long _timeoutTicks;
         internal INode _lastSyntaxNode;
+
+        // lazy properties
+        private ErrorConstructor _error;
+        private ErrorConstructor _evalError;
+        private ErrorConstructor _rangeError;
+        private ErrorConstructor _referenceError;
+        private ErrorConstructor _syntaxError;
+        private ErrorConstructor _typeError;
+        private ErrorConstructor _uriError;
+        private DebugHandler _debugHandler;
+        private List<BreakPoint> _breakPoints;
 
         // cached access
         private readonly bool _isDebugMode;
@@ -59,31 +80,34 @@ namespace Jint
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
 
-        public ITypeConverter ClrTypeConverter;
+        public readonly ITypeConverter ClrTypeConverter;
 
         // cache of types used when resolving CLR type names
-        internal Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
+        internal readonly Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
 
         internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new Dictionary<Type, Func<Engine, object, JsValue>>
         {
-            { typeof(bool), (Engine engine, object v) => (bool) v ? JsBoolean.True : JsBoolean.False },
-            { typeof(byte), (Engine engine, object v) => JsNumber.Create((byte)v) },
-            { typeof(char), (Engine engine, object v) => JsString.Create((char)v) },
-            { typeof(DateTime), (Engine engine, object v) => engine.Date.Construct((DateTime)v) },
-            { typeof(DateTimeOffset), (Engine engine, object v) => engine.Date.Construct((DateTimeOffset)v) },
-            { typeof(decimal), (Engine engine, object v) => (JsValue) (double)(decimal)v },
-            { typeof(double), (Engine engine, object v) => (JsValue)(double)v },
-            { typeof(Int16), (Engine engine, object v) => JsNumber.Create((Int16)v) },
-            { typeof(Int32), (Engine engine, object v) => JsNumber.Create((Int32)v) },
-            { typeof(Int64), (Engine engine, object v) => (JsValue)(Int64)v },
-            { typeof(SByte), (Engine engine, object v) => JsNumber.Create((SByte)v) },
-            { typeof(Single), (Engine engine, object v) => (JsValue)(Single)v },
-            { typeof(string), (Engine engine, object v) => (JsValue) (string)v },
-            { typeof(UInt16), (Engine engine, object v) => JsNumber.Create((UInt16)v) },
-            { typeof(UInt32), (Engine engine, object v) => JsNumber.Create((UInt32)v) },
-            { typeof(UInt64), (Engine engine, object v) => JsNumber.Create((UInt64)v) },
-            { typeof(System.Text.RegularExpressions.Regex), (Engine engine, object v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "") }
+            { typeof(bool), (engine, v) => (bool) v ? JsBoolean.True : JsBoolean.False },
+            { typeof(byte), (engine, v) => JsNumber.Create((byte)v) },
+            { typeof(char), (engine, v) => JsString.Create((char)v) },
+            { typeof(DateTime), (engine, v) => engine.Date.Construct((DateTime)v) },
+            { typeof(DateTimeOffset), (engine, v) => engine.Date.Construct((DateTimeOffset)v) },
+            { typeof(decimal), (engine, v) => (JsValue) (double)(decimal)v },
+            { typeof(double), (engine, v) => (JsValue)(double)v },
+            { typeof(Int16), (engine, v) => JsNumber.Create((Int16)v) },
+            { typeof(Int32), (engine, v) => JsNumber.Create((Int32)v) },
+            { typeof(Int64), (engine, v) => (JsValue)(Int64)v },
+            { typeof(SByte), (engine, v) => JsNumber.Create((SByte)v) },
+            { typeof(Single), (engine, v) => (JsValue)(Single)v },
+            { typeof(string), (engine, v) => (JsValue) (string)v },
+            { typeof(UInt16), (engine, v) => JsNumber.Create((UInt16)v) },
+            { typeof(UInt32), (engine, v) => JsNumber.Create((UInt32)v) },
+            { typeof(UInt64), (engine, v) => JsNumber.Create((UInt64)v) },
+            { typeof(System.Text.RegularExpressions.Regex), (engine, v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "") }
         };
+
+        // shared frozen version
+        internal readonly PropertyDescriptor _getSetThrower;
 
         internal struct ClrPropertyDescriptorFactoriesKey : IEquatable<ClrPropertyDescriptorFactoriesKey>
         {
@@ -93,8 +117,8 @@ namespace Jint
                 PropertyName = propertyName;
             }
 
-            internal readonly Type Type;
-            internal readonly string PropertyName;
+            private readonly Type Type;
+            private readonly string PropertyName;
 
             public bool Equals(ClrPropertyDescriptorFactoriesKey other)
             {
@@ -122,7 +146,7 @@ namespace Jint
         internal readonly Dictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>> ClrPropertyDescriptorFactories =
             new Dictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>>();
 
-        internal JintCallStack CallStack = new JintCallStack();
+        internal readonly JintCallStack CallStack = new JintCallStack();
 
         static Engine()
         {
@@ -146,12 +170,13 @@ namespace Jint
 
             Object = ObjectConstructor.CreateObjectConstructor(this);
             Function = FunctionConstructor.CreateFunctionConstructor(this);
+            _getSetThrower = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(Function.ThrowTypeError);
 
             Symbol = SymbolConstructor.CreateSymbolConstructor(this);
             Array = ArrayConstructor.CreateArrayConstructor(this);
             Map = MapConstructor.CreateMapConstructor(this);
             Set = SetConstructor.CreateSetConstructor(this);
-            Iterator= IteratorConstructor.CreateIteratorConstructor(this);
+            Iterator = IteratorConstructor.CreateIteratorConstructor(this);
             String = StringConstructor.CreateStringConstructor(this);
             RegExp = RegExpConstructor.CreateRegExpConstructor(this);
             Number = NumberConstructor.CreateNumberConstructor(this);
@@ -160,62 +185,14 @@ namespace Jint
             Math = MathInstance.CreateMathObject(this);
             Json = JsonInstance.CreateJsonObject(this);
 
-            Error = ErrorConstructor.CreateErrorConstructor(this, "Error");
-            EvalError = ErrorConstructor.CreateErrorConstructor(this, "EvalError");
-            RangeError = ErrorConstructor.CreateErrorConstructor(this, "RangeError");
-            ReferenceError = ErrorConstructor.CreateErrorConstructor(this, "ReferenceError");
-            SyntaxError = ErrorConstructor.CreateErrorConstructor(this, "SyntaxError");
-            TypeError = ErrorConstructor.CreateErrorConstructor(this, "TypeError");
-            UriError = ErrorConstructor.CreateErrorConstructor(this, "URIError");
-
             GlobalSymbolRegistry = new GlobalSymbolRegistry();
 
             // Because the properties might need some of the built-in object
             // their configuration is delayed to a later step
 
-            Global.Configure();
-
-            Object.Configure();
-            Object.PrototypeObject.Configure();
-
-            Symbol.Configure();
-            Symbol.PrototypeObject.Configure();
-
-            Function.Configure();
-            Function.PrototypeObject.Configure();
-
-            Array.Configure();
-            Array.PrototypeObject.Configure();
-
-            Map.Configure();
-            Map.PrototypeObject.Configure();
-
-            Set.Configure();
-            Set.PrototypeObject.Configure();
-
-            Iterator.Configure();
-            Iterator.PrototypeObject.Configure();
-
-            String.Configure();
-            String.PrototypeObject.Configure();
-
-            RegExp.Configure();
-            RegExp.PrototypeObject.Configure();
-
-            Number.Configure();
-            Number.PrototypeObject.Configure();
-
-            Boolean.Configure();
-            Boolean.PrototypeObject.Configure();
-
-            Date.Configure();
-            Date.PrototypeObject.Configure();
-
-            Math.Configure();
-            Json.Configure();
-
-            Error.Configure();
-            Error.PrototypeObject.Configure();
+            // this is implementation dependent, and only to pass some unit tests
+            Global.Prototype = Object.PrototypeObject;
+            Object.Prototype = Function.PrototypeObject;
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, false);
@@ -243,20 +220,18 @@ namespace Jint
             _jsValueArrayPool = new JsValueArrayPool();
 
             Eval = new EvalFunctionInstance(this, System.ArrayExt.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
-            Global.FastAddProperty("eval", Eval, true, false, true);
+            Global._properties["eval"] = new PropertyDescriptor(Eval, true, false, true);
 
             if (Options._IsClrAllowed)
             {
-                Global.FastAddProperty("System", new NamespaceReference(this, "System"), false, false, false);
-                Global.FastAddProperty("importNamespace", new ClrFunctionInstance(
+                Global._properties["System"] = new PropertyDescriptor(new NamespaceReference(this, "System"), false, false, false);
+                Global._properties["importNamespace"] = new PropertyDescriptor(new ClrFunctionInstance(
                     this,
                     "importNamespace",
                     (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)))), false, false, false);
             }
 
             ClrTypeConverter = new DefaultTypeConverter(this);
-            BreakPoints = new System.Collections.Generic.List<BreakPoint>();
-            DebugHandler = new DebugHandler(this);
         }
 
         public LexicalEnvironment GlobalEnvironment { get; }
@@ -277,18 +252,18 @@ namespace Jint
         public SymbolConstructor Symbol { get; }
         public EvalFunctionInstance Eval { get; }
 
-        public ErrorConstructor Error { get; }
-        public ErrorConstructor EvalError { get; }
-        public ErrorConstructor SyntaxError { get; }
-        public ErrorConstructor TypeError { get; }
-        public ErrorConstructor RangeError { get; }
-        public ErrorConstructor ReferenceError { get; }
-        public ErrorConstructor UriError { get; }
+        public ErrorConstructor Error => _error ?? (_error = ErrorConstructor.CreateErrorConstructor(this, _errorFunctionName));
+        public ErrorConstructor EvalError => _evalError ?? (_evalError = ErrorConstructor.CreateErrorConstructor(this, _evalErrorFunctionName));
+        public ErrorConstructor SyntaxError => _syntaxError ?? (_syntaxError = ErrorConstructor.CreateErrorConstructor(this, _syntaxErrorFunctionName));
+        public ErrorConstructor TypeError => _typeError ?? (_typeError = ErrorConstructor.CreateErrorConstructor(this, _typeErrorFunctionName));
+        public ErrorConstructor RangeError => _rangeError ?? (_rangeError = ErrorConstructor.CreateErrorConstructor(this, _rangeErrorFunctionName));
+        public ErrorConstructor ReferenceError => _referenceError ?? (_referenceError = ErrorConstructor.CreateErrorConstructor(this, _referenceErrorFunctionName));
+        public ErrorConstructor UriError => _uriError ?? (_uriError = ErrorConstructor.CreateErrorConstructor(this, _uriErrorFunctionName));
 
         public ref readonly ExecutionContext ExecutionContext
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return ref _executionContexts.Peek(); }
+            get => ref _executionContexts.Peek();
         }
 
         public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
@@ -300,8 +275,10 @@ namespace Jint
         public delegate StepMode BreakDelegate(object sender, DebugInformation e);
         public event DebugStepDelegate Step;
         public event BreakDelegate Break;
-        internal DebugHandler DebugHandler { get; private set; }
-        public System.Collections.Generic.List<BreakPoint> BreakPoints { get; private set; }
+
+        internal DebugHandler DebugHandler => _debugHandler ?? (_debugHandler = new DebugHandler(this));
+
+        public List<BreakPoint> BreakPoints => _breakPoints ?? (_breakPoints = new List<BreakPoint>());
 
         internal StepMode? InvokeStepEvent(DebugInformation info)
         {

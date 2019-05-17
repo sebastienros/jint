@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -11,33 +12,40 @@ namespace Jint.Native.String
 {
     public sealed class StringConstructor : FunctionInstance, IConstructor
     {
+        private static readonly JsString _functionName = new JsString("String");
+
         public StringConstructor(Engine engine)
-            : base(engine, "String", null, null, false)
+            : base(engine, _functionName, strict: false)
         {
         }
 
         public static StringConstructor CreateStringConstructor(Engine engine)
         {
-            var obj = new StringConstructor(engine);
-            obj.Extensible = true;
+            var obj = new StringConstructor(engine)
+            {
+                Extensible = true,
+                Prototype = engine.Function.PrototypeObject
+            };
 
             // The value of the [[Prototype]] internal property of the String constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = StringPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
+            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
 
             // The initial value of String.prototype is the String prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
-            SetOwnProperty("fromCharCode", new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCharCode", FromCharCode, 1), PropertyFlag.NonEnumerable));
-            SetOwnProperty("fromCodePoint", new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCodePoint", FromCodePoint, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
-            SetOwnProperty("raw", new PropertyDescriptor(new ClrFunctionInstance(Engine, "raw", Raw, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable));
+            _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            {
+                ["fromCharCode"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCharCode", FromCharCode, 1), PropertyFlag.NonEnumerable)),
+                ["fromCodePoint"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCodePoint", FromCodePoint, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
+                ["raw"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "raw", Raw, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable))
+            };
         }
 
         private static JsValue FromCharCode(JsValue thisObj, JsValue[] arguments)
@@ -170,7 +178,9 @@ namespace Jint.Native.String
                 Prototype = PrototypeObject,
                 PrimitiveValue = value,
                 Extensible = true,
-                _length = new PropertyDescriptor(value.Length, PropertyFlag.AllForbidden)
+                _length = value.Length == 0
+                    ? PropertyDescriptor.AllForbiddenDescriptor.NumberZero
+                    : new PropertyDescriptor(value.Length, PropertyFlag.AllForbidden)
             };
 
             return instance;

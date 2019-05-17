@@ -1,4 +1,5 @@
-﻿using Jint.Runtime.Descriptors;
+﻿using Jint.Collections;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Iterator
@@ -13,17 +14,20 @@ namespace Jint.Native.Iterator
         {
             var obj = new IteratorPrototype(engine)
             {
-                Extensible = true, Prototype = engine.Object.PrototypeObject
+                Extensible = true,
+                Prototype = engine.Object.PrototypeObject
             };
-
-            obj.SetOwnProperty("name", new PropertyDescriptor("Map", PropertyFlag.Configurable));
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
-            FastAddProperty("next", new ClrFunctionInstance(Engine, "next", Next, 0, PropertyFlag.Configurable), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(2)
+            {
+                ["name"] = new PropertyDescriptor("Map", PropertyFlag.Configurable),
+                ["next"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "next", Next, 0, PropertyFlag.Configurable), true, false, true)
+            };
         }
 
         private JsValue Next(JsValue thisObj, JsValue[] arguments)

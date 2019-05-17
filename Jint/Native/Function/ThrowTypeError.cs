@@ -5,10 +5,12 @@ namespace Jint.Native.Function
 {
     public sealed class ThrowTypeError : FunctionInstance
     {
+        private static readonly JsString _functionName = new JsString("throwTypeError");
+
         public ThrowTypeError(Engine engine)
-            : base(engine, "throwTypeError", System.ArrayExt.Empty<string>(), engine.GlobalEnvironment, false)
+            : base(engine, _functionName, System.ArrayExt.Empty<string>(), engine.GlobalEnvironment, false)
         {
-            DefineOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden), false);
+            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
             Extensible = false;
         }
 

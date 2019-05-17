@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using Jint.Collections;
 using Jint.Native.Number.Dtoa;
 using Jint.Pooling;
 using Jint.Runtime;
@@ -14,6 +15,8 @@ namespace Jint.Native.Number
     /// </summary>
     public sealed class NumberPrototype : NumberInstance
     {
+        private NumberConstructor _numberConstructor;
+
         private NumberPrototype(Engine engine)
             : base(engine)
         {
@@ -25,22 +28,26 @@ namespace Jint.Native.Number
             {
                 Prototype = engine.Object.PrototypeObject,
                 NumberData = JsNumber.Create(0),
-                Extensible = true
+                Extensible = true,
+                _numberConstructor = numberConstructor
             };
 
-            obj.FastAddProperty("constructor", numberConstructor, true, false, true);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("toFixed", new ClrFunctionInstance(Engine, "toFixed", ToFixed, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("toExponential", new ClrFunctionInstance(Engine, "toExponential", ToExponential, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("toPrecision", new ClrFunctionInstance(Engine, "toPrecision", ToPrecision, 1, PropertyFlag.Configurable), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(8)
+            {
+                ["constructor"] = new PropertyDescriptor(_numberConstructor, true, false, true),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true),
+                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
+                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),
+                ["toFixed"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toFixed", ToFixed, 1, PropertyFlag.Configurable), true, false, true),
+                ["toExponential"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toExponential", ToExponential, 1, PropertyFlag.Configurable), true, false, true),
+                ["toPrecision"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toPrecision", ToPrecision, 1, PropertyFlag.Configurable), true, false, true)
+            };
         }
 
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using Jint.Collections;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -11,6 +12,8 @@ namespace Jint.Native.Date
     /// </summary>
     public sealed class DatePrototype : DateInstance
     {
+        private DateConstructor _dateConstructor;
+
         private DatePrototype(Engine engine)
             : base(engine)
         {
@@ -22,61 +25,64 @@ namespace Jint.Native.Date
             {
                 Prototype = engine.Object.PrototypeObject,
                 Extensible = true,
-                PrimitiveValue = double.NaN
+                PrimitiveValue = double.NaN,
+                _dateConstructor = dateConstructor
             };
-
-            obj.SetOwnProperty("constructor", new PropertyDescriptor(dateConstructor, PropertyFlag.NonEnumerable));
 
             return obj;
         }
 
-        public void Configure()
+        protected override  void Initialize()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString, 0), true, false, true);
-            FastAddProperty("toDateString", new ClrFunctionInstance(Engine, "toDateString", ToDateString, 0), true, false, true);
-            FastAddProperty("toTimeString", new ClrFunctionInstance(Engine, "toTimeString", ToTimeString, 0), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0), true, false, true);
-            FastAddProperty("toLocaleDateString", new ClrFunctionInstance(Engine, "toLocaleDateString", ToLocaleDateString, 0), true, false, true);
-            FastAddProperty("toLocaleTimeString", new ClrFunctionInstance(Engine, "toLocaleTimeString", ToLocaleTimeString, 0), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0), true, false, true);
-            FastAddProperty("getTime", new ClrFunctionInstance(Engine, "getTime", GetTime, 0), true, false, true);
-            FastAddProperty("getFullYear", new ClrFunctionInstance(Engine, "getFullYear", GetFullYear, 0), true, false, true);
-            FastAddProperty("getYear", new ClrFunctionInstance(Engine, "getYear", GetYear, 0), true, false, true);
-            FastAddProperty("getUTCFullYear", new ClrFunctionInstance(Engine, "getUTCFullYear", GetUTCFullYear, 0), true, false, true);
-            FastAddProperty("getMonth", new ClrFunctionInstance(Engine, "getMonth", GetMonth, 0), true, false, true);
-            FastAddProperty("getUTCMonth", new ClrFunctionInstance(Engine, "getUTCMonth", GetUTCMonth, 0), true, false, true);
-            FastAddProperty("getDate", new ClrFunctionInstance(Engine, "getDate", GetDate, 0), true, false, true);
-            FastAddProperty("getUTCDate", new ClrFunctionInstance(Engine, "getUTCDate", GetUTCDate, 0), true, false, true);
-            FastAddProperty("getDay", new ClrFunctionInstance(Engine, "getDay", GetDay, 0), true, false, true);
-            FastAddProperty("getUTCDay", new ClrFunctionInstance(Engine, "getUTCDay", GetUTCDay, 0), true, false, true);
-            FastAddProperty("getHours", new ClrFunctionInstance(Engine, "getHours", GetHours, 0), true, false, true);
-            FastAddProperty("getUTCHours", new ClrFunctionInstance(Engine, "getUTCHours", GetUTCHours, 0), true, false, true);
-            FastAddProperty("getMinutes", new ClrFunctionInstance(Engine, "getMinutes", GetMinutes, 0), true, false, true);
-            FastAddProperty("getUTCMinutes", new ClrFunctionInstance(Engine, "getUTCMInutes", GetUTCMinutes, 0), true, false, true);
-            FastAddProperty("getSeconds", new ClrFunctionInstance(Engine, "getSeconds", GetSeconds, 0), true, false, true);
-            FastAddProperty("getUTCSeconds", new ClrFunctionInstance(Engine, "getUTCSeconds", GetUTCSeconds, 0), true, false, true);
-            FastAddProperty("getMilliseconds", new ClrFunctionInstance(Engine, "getMilliseconds", GetMilliseconds, 0), true, false, true);
-            FastAddProperty("getUTCMilliseconds", new ClrFunctionInstance(Engine, "getUTCMilliseconds", GetUTCMilliseconds, 0), true, false, true);
-            FastAddProperty("getTimezoneOffset", new ClrFunctionInstance(Engine, "getTimezoneOffset", GetTimezoneOffset, 0), true, false, true);
-            FastAddProperty("setTime", new ClrFunctionInstance(Engine, "setTime", SetTime, 1), true, false, true);
-            FastAddProperty("setMilliseconds", new ClrFunctionInstance(Engine, "setMilliseconds", SetMilliseconds, 1), true, false, true);
-            FastAddProperty("setUTCMilliseconds", new ClrFunctionInstance(Engine, "setUTCMilliseconds", SetUTCMilliseconds, 1), true, false, true);
-            FastAddProperty("setSeconds", new ClrFunctionInstance(Engine, "setSeconds", SetSeconds, 2), true, false, true);
-            FastAddProperty("setUTCSeconds", new ClrFunctionInstance(Engine, "setUTCSeconds", SetUTCSeconds, 2), true, false, true);
-            FastAddProperty("setMinutes", new ClrFunctionInstance(Engine, "setMinutes", SetMinutes, 3), true, false, true);
-            FastAddProperty("setUTCMinutes", new ClrFunctionInstance(Engine, "setUTCMinutes", SetUTCMinutes, 3), true, false, true);
-            FastAddProperty("setHours", new ClrFunctionInstance(Engine, "setHours", SetHours, 4), true, false, true);
-            FastAddProperty("setUTCHours", new ClrFunctionInstance(Engine, "setUTCHours", SetUTCHours, 4), true, false, true);
-            FastAddProperty("setDate", new ClrFunctionInstance(Engine, "setDate", SetDate, 1), true, false, true);
-            FastAddProperty("setUTCDate", new ClrFunctionInstance(Engine, "setUTCDate", SetUTCDate, 1), true, false, true);
-            FastAddProperty("setMonth", new ClrFunctionInstance(Engine, "setMonth", SetMonth, 2), true, false, true);
-            FastAddProperty("setUTCMonth", new ClrFunctionInstance(Engine, "setUTCMonth", SetUTCMonth, 2), true, false, true);
-            FastAddProperty("setFullYear", new ClrFunctionInstance(Engine, "setFullYear", SetFullYear, 3), true, false, true);
-            FastAddProperty("setYear", new ClrFunctionInstance(Engine, "setYear", SetYear, 1), true, false, true);
-            FastAddProperty("setUTCFullYear", new ClrFunctionInstance(Engine, "setUTCFullYear     ", SetUTCFullYear, 3), true, false, true);
-            FastAddProperty("toUTCString", new ClrFunctionInstance(Engine, "toUTCString", ToUtcString, 0), true, false, true);
-            FastAddProperty("toISOString", new ClrFunctionInstance(Engine, "toISOString", ToISOString, 0), true, false, true);
-            FastAddProperty("toJSON", new ClrFunctionInstance(Engine, "toJSON", ToJSON, 1), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(50)
+            {
+                ["constructor"] = new PropertyDescriptor(_dateConstructor, PropertyFlag.NonEnumerable),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0), true, false, true),
+                ["toDateString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toDateString", ToDateString, 0), true, false, true),
+                ["toTimeString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toTimeString", ToTimeString, 0), true, false, true),
+                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0), true, false, true),
+                ["toLocaleDateString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleDateString", ToLocaleDateString, 0), true, false, true),
+                ["toLocaleTimeString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleTimeString", ToLocaleTimeString, 0), true, false, true),
+                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0), true, false, true),
+                ["getTime"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getTime", GetTime, 0), true, false, true),
+                ["getFullYear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getFullYear", GetFullYear, 0), true, false, true),
+                ["getYear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getYear", GetYear, 0), true, false, true),
+                ["getUTCFullYear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getUTCFullYear", GetUTCFullYear, 0), true, false, true),
+                ["getMonth"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getMonth", GetMonth, 0), true, false, true),
+                ["getUTCMonth"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getUTCMonth", GetUTCMonth, 0), true, false, true),
+                ["getDate"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getDate", GetDate, 0), true, false, true),
+                ["getUTCDate"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getUTCDate", GetUTCDate, 0), true, false, true),
+                ["getDay"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getDay", GetDay, 0), true, false, true),
+                ["getUTCDay"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getUTCDay", GetUTCDay, 0), true, false, true),
+                ["getHours"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getHours", GetHours, 0), true, false, true),
+                ["getUTCHours"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getUTCHours", GetUTCHours, 0), true, false, true),
+                ["getMinutes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getMinutes", GetMinutes, 0), true, false, true),
+                ["getUTCMinutes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getUTCMInutes", GetUTCMinutes, 0), true, false, true),
+                ["getSeconds"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getSeconds", GetSeconds, 0), true, false, true),
+                ["getUTCSeconds"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getUTCSeconds", GetUTCSeconds, 0), true, false, true),
+                ["getMilliseconds"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getMilliseconds", GetMilliseconds, 0), true, false, true),
+                ["getUTCMilliseconds"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getUTCMilliseconds", GetUTCMilliseconds, 0), true, false, true),
+                ["getTimezoneOffset"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getTimezoneOffset", GetTimezoneOffset, 0), true, false, true),
+                ["setTime"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setTime", SetTime, 1), true, false, true),
+                ["setMilliseconds"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setMilliseconds", SetMilliseconds, 1), true, false, true),
+                ["setUTCMilliseconds"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setUTCMilliseconds", SetUTCMilliseconds, 1), true, false, true),
+                ["setSeconds"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setSeconds", SetSeconds, 2), true, false, true),
+                ["setUTCSeconds"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setUTCSeconds", SetUTCSeconds, 2), true, false, true),
+                ["setMinutes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setMinutes", SetMinutes, 3), true, false, true),
+                ["setUTCMinutes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setUTCMinutes", SetUTCMinutes, 3), true, false, true),
+                ["setHours"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setHours", SetHours, 4), true, false, true),
+                ["setUTCHours"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setUTCHours", SetUTCHours, 4), true, false, true),
+                ["setDate"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setDate", SetDate, 1), true, false, true),
+                ["setUTCDate"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setUTCDate", SetUTCDate, 1), true, false, true),
+                ["setMonth"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setMonth", SetMonth, 2), true, false, true),
+                ["setUTCMonth"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setUTCMonth", SetUTCMonth, 2), true, false, true),
+                ["setFullYear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setFullYear", SetFullYear, 3), true, false, true),
+                ["setYear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setYear", SetYear, 1), true, false, true),
+                ["setUTCFullYear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setUTCFullYear     ", SetUTCFullYear, 3), true, false, true),
+                ["toUTCString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toUTCString", ToUtcString, 0), true, false, true),
+                ["toISOString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toISOString", ToISOString, 0), true, false, true),
+                ["toJSON"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toJSON", ToJSON, 1), true, false, true)
+            };
         }
 
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)

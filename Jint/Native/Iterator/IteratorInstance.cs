@@ -63,7 +63,9 @@ namespace Jint.Native.Iterator
                     arrayInstance.SetIndexValue(1, value, false);
                     SetOwnProperty("value", new PropertyDescriptor(arrayInstance, PropertyFlag.AllForbidden));
                 }
-                SetOwnProperty("done", new PropertyDescriptor(done, PropertyFlag.AllForbidden));
+                SetOwnProperty(
+                    "done",
+                    done ? PropertyDescriptor.AllForbiddenDescriptor.BooleanTrue : PropertyDescriptor.AllForbiddenDescriptor.BooleanFalse);
             }
         }
 

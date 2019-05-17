@@ -1,4 +1,5 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Collections;
+using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -11,7 +12,10 @@ namespace Jint.Native.Set
 {
     public sealed class SetConstructor : FunctionInstance, IConstructor
     {
-        private SetConstructor(Engine engine, string name) : base(engine, name, null, null, false)
+        private static readonly JsString _functionName = new JsString("Set");
+
+        private SetConstructor(Engine engine)
+            : base(engine, _functionName, false)
         {
         }
 
@@ -19,35 +23,29 @@ namespace Jint.Native.Set
 
         public static SetConstructor CreateSetConstructor(Engine engine)
         {
-            SetConstructor CreateSetConstructorTemplate(string name)
+            var obj = new SetConstructor(engine)
             {
-                var ctr = new SetConstructor(engine, name);
-                ctr.Extensible = true;
+                Extensible = true,
+                Prototype = engine.Function.PrototypeObject
+            };
 
-                // The value of the [[Prototype]] internal property of the Set constructor is the Function prototype object
-                ctr.Prototype = engine.Function.PrototypeObject;
-                ctr.PrototypeObject = SetPrototype.CreatePrototypeObject(engine, ctr);
+            // The value of the [[Prototype]] internal property of the Set constructor is the Function prototype object
+            obj.PrototypeObject = SetPrototype.CreatePrototypeObject(engine, obj);
 
-                ctr.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Configurable));
-                return ctr;
-            }
-
-            var obj = CreateSetConstructorTemplate("Set");
+            obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
 
             // The initial value of Set.prototype is the Set prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
-
-            obj.SetOwnProperty(GlobalSymbolRegistry.Species._value,
-                new GetSetPropertyDescriptor(
-                    get: new ClrFunctionInstance(engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable),
-                    set: Undefined,
-                    PropertyFlag.Configurable));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
+            _properties = new StringDictionarySlim<PropertyDescriptor>(2)
+            {
+                [GlobalSymbolRegistry.Species._value] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
+            };
         }
 
         private static JsValue Species(JsValue thisObject, JsValue[] arguments)

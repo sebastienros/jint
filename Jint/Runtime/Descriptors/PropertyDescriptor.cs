@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors.Specialized;
@@ -307,20 +308,21 @@ namespace Jint.Runtime.Descriptors
             }
 
             var obj = engine.Object.Construct(Arguments.Empty);
+            obj._properties = new StringDictionarySlim<PropertyDescriptor>(4);
 
             if (desc.IsDataDescriptor())
             {
-                obj.SetOwnProperty("value", new PropertyDescriptor(desc.Value ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable));
-                obj.SetOwnProperty("writable", new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable));
+                obj._properties["value"] =  new PropertyDescriptor(desc.Value ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
+                obj._properties["writable"] = new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable);
             }
             else
             {
-                obj.SetOwnProperty("get", new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable));
-                obj.SetOwnProperty("set", new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable));
+                obj._properties["get"] = new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
+                obj._properties["set"] = new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
-            obj.SetOwnProperty("enumerable", new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable));
-            obj.SetOwnProperty("configurable", new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable));
+            obj._properties["enumerable"] = new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable);
+            obj._properties["configurable"] = new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable);
 
             return obj;
         }
@@ -393,6 +395,37 @@ namespace Jint.Runtime.Descriptors
             protected internal override JsValue CustomValue
             {
                 set => ExceptionHelper.ThrowInvalidOperationException("making changes to undefined property's descriptor is not allowed");
+            }
+        }
+
+        internal sealed class AllForbiddenDescriptor : PropertyDescriptor
+        {
+            public static readonly AllForbiddenDescriptor NumberZero = new AllForbiddenDescriptor(JsNumber.Create(0));
+            public static readonly AllForbiddenDescriptor NumberOne = new AllForbiddenDescriptor(JsNumber.Create(1));
+            public static readonly AllForbiddenDescriptor NumberTwo = new AllForbiddenDescriptor(JsNumber.Create(2));
+
+            public static readonly AllForbiddenDescriptor BooleanFalse = new AllForbiddenDescriptor(JsBoolean.False);
+            public static readonly AllForbiddenDescriptor BooleanTrue = new AllForbiddenDescriptor(JsBoolean.True);
+
+            private AllForbiddenDescriptor(JsValue value)
+                : base(PropertyFlag.AllForbidden)
+            {
+                _value = value;
+            }
+
+            public static PropertyDescriptor ForNumber(int number)
+            {
+                switch (number)
+                {
+                    case 2:
+                        return NumberTwo;
+                    case 1:
+                        return NumberOne;
+                    case 0:
+                        return NumberZero;
+                    default:
+                        return new PropertyDescriptor(number, PropertyFlag.AllForbidden);
+                }
             }
         }
     }

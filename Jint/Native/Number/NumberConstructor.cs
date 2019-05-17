@@ -1,4 +1,5 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Collections;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -8,53 +9,58 @@ namespace Jint.Native.Number
 {
     public sealed class NumberConstructor : FunctionInstance, IConstructor
     {
+        private static readonly JsString _functionName = new JsString("Number");
+
         private const long MinSafeInteger = -9007199254740991;
         internal const long MaxSafeInteger = 9007199254740991;
 
         public NumberConstructor(Engine engine)
-            : base(engine, "Number", null, null, false)
+            : base(engine, _functionName, strict: false)
         {
 
         }
 
         public static NumberConstructor CreateNumberConstructor(Engine engine)
         {
-            var obj = new NumberConstructor(engine);
-            obj.Extensible = true;
+            var obj = new NumberConstructor(engine)
+            {
+                Extensible = true,
+                Prototype = engine.Function.PrototypeObject
+            };
 
             // The value of the [[Prototype]] internal property of the Number constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = NumberPrototype.CreatePrototypeObject(engine, obj);
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(1, PropertyFlag.AllForbidden));
+            obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
 
             // The initial value of Number.prototype is the Number prototype object
-            obj.SetOwnProperty("prototype", new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden));
+            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
-            SetOwnProperty("MAX_VALUE", new PropertyDescriptor(double.MaxValue, PropertyFlag.AllForbidden));
-            SetOwnProperty("MIN_VALUE", new PropertyDescriptor(double.Epsilon, PropertyFlag.AllForbidden));
-            SetOwnProperty("NaN", new PropertyDescriptor(double.NaN, PropertyFlag.AllForbidden));
-            SetOwnProperty("NEGATIVE_INFINITY", new PropertyDescriptor(double.NegativeInfinity, PropertyFlag.AllForbidden));
-            SetOwnProperty("POSITIVE_INFINITY", new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.AllForbidden));
-            SetOwnProperty("EPSILON", new PropertyDescriptor(JsNumber.JavaScriptEpsilon, PropertyFlag.AllForbidden));
-            SetOwnProperty("MIN_SAFE_INTEGER", new PropertyDescriptor(MinSafeInteger, PropertyFlag.AllForbidden));
-            SetOwnProperty("MAX_SAFE_INTEGER", new PropertyDescriptor(MaxSafeInteger, PropertyFlag.AllForbidden));
-
-            FastAddProperty("isFinite", new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("isInteger", new ClrFunctionInstance(Engine, "isInteger", IsInteger, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("isNaN", new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("isSafeInteger", new ClrFunctionInstance(Engine, "isSafeInteger", IsSafeInteger, 1, PropertyFlag.Configurable), true, false, true);
-
-            FastAddProperty("parseFloat", new ClrFunctionInstance(Engine, "parseFloat", _engine.Global.ParseFloat, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("parseInt", new ClrFunctionInstance(Engine, "parseInt", _engine.Global.ParseInt, 0, PropertyFlag.Configurable), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            {
+                ["MAX_VALUE"] = new PropertyDescriptor(new PropertyDescriptor(double.MaxValue, PropertyFlag.AllForbidden)),
+                ["MIN_VALUE"] = new PropertyDescriptor(new PropertyDescriptor(double.Epsilon, PropertyFlag.AllForbidden)),
+                ["NaN"] = new PropertyDescriptor(new PropertyDescriptor(double.NaN, PropertyFlag.AllForbidden)),
+                ["NEGATIVE_INFINITY"] = new PropertyDescriptor(new PropertyDescriptor(double.NegativeInfinity, PropertyFlag.AllForbidden)),
+                ["POSITIVE_INFINITY"] = new PropertyDescriptor(new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.AllForbidden)),
+                ["EPSILON"] = new PropertyDescriptor(new PropertyDescriptor(JsNumber.JavaScriptEpsilon, PropertyFlag.AllForbidden)),
+                ["MIN_SAFE_INTEGER"] = new PropertyDescriptor(new PropertyDescriptor(MinSafeInteger, PropertyFlag.AllForbidden)),
+                ["MAX_SAFE_INTEGER"] = new PropertyDescriptor(new PropertyDescriptor(MaxSafeInteger, PropertyFlag.AllForbidden)),
+                ["isFinite"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1, PropertyFlag.Configurable), true, false, true),
+                ["isInteger"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isInteger", IsInteger, 1, PropertyFlag.Configurable), true, false, true),
+                ["isNaN"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1, PropertyFlag.Configurable), true, false, true),
+                ["isSafeInteger"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isSafeInteger", IsSafeInteger, 1, PropertyFlag.Configurable), true, false, true),
+                ["parseFloat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseFloat", _engine.Global.ParseFloat, 0, PropertyFlag.Configurable), true, false, true),
+                ["parseInt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseInt", _engine.Global.ParseInt, 0, PropertyFlag.Configurable), true, false, true)
+            };
         }
 
-        private JsValue IsFinite(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsFinite(JsValue thisObj, JsValue[] arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -64,7 +70,7 @@ namespace Jint.Native.Number
             return double.IsInfinity(num._value) || double.IsNaN(num._value) ? JsBoolean.False : JsBoolean.True;
         }
 
-        private JsValue IsInteger(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsInteger(JsValue thisObj, JsValue[] arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -81,7 +87,7 @@ namespace Jint.Native.Number
             return integer == num._value;
         }
 
-        private JsValue IsNaN(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsNaN(JsValue thisObj, JsValue[] arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -91,7 +97,7 @@ namespace Jint.Native.Number
             return double.IsNaN(num._value);
         }
 
-        private JsValue IsSafeInteger(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsSafeInteger(JsValue thisObj, JsValue[] arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {

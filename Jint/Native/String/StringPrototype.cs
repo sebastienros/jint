@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -19,6 +20,8 @@ namespace Jint.Native.String
     /// </summary>
     public sealed class StringPrototype : StringInstance
     {
+        private StringConstructor _stringConstructor;
+
         private StringPrototype(Engine engine)
             : base(engine)
         {
@@ -26,50 +29,55 @@ namespace Jint.Native.String
 
         public static StringPrototype CreatePrototypeObject(Engine engine, StringConstructor stringConstructor)
         {
-            var obj = new StringPrototype(engine);
-            obj.Prototype = engine.Object.PrototypeObject;
-            obj.PrimitiveValue = JsString.Empty;
-            obj.Extensible = true;
-            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.AllForbidden));
-            obj.SetOwnProperty("constructor", new PropertyDescriptor(stringConstructor, PropertyFlag.NonEnumerable));
+            var obj = new StringPrototype(engine)
+            {
+                Prototype = engine.Object.PrototypeObject,
+                PrimitiveValue = JsString.Empty,
+                Extensible = true,
+                _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero,
+                _stringConstructor = stringConstructor,
+            };
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToStringString, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("charAt", new ClrFunctionInstance(Engine, "charAt", CharAt, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("charCodeAt", new ClrFunctionInstance(Engine, "charCodeAt", CharCodeAt, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("codePointAt", new ClrFunctionInstance(Engine, "codePointAt", CodePointAt, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("endsWith", new ClrFunctionInstance(Engine, "endsWith", EndsWith, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("startsWith", new ClrFunctionInstance(Engine, "startsWith", StartsWith, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("localeCompare", new ClrFunctionInstance(Engine, "localeCompare", LocaleCompare, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("match", new ClrFunctionInstance(Engine, "match", Match, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("replace", new ClrFunctionInstance(Engine, "replace", Replace, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("search", new ClrFunctionInstance(Engine, "search", Search, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("slice", new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("split", new ClrFunctionInstance(Engine, "split", Split, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("substr", new ClrFunctionInstance(Engine, "substr", Substr, 2), true, false, true);
-            FastAddProperty("substring", new ClrFunctionInstance(Engine, "substring", Substring, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("toLowerCase", new ClrFunctionInstance(Engine, "toLowerCase", ToLowerCase, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("toLocaleLowerCase", new ClrFunctionInstance(Engine, "toLocaleLowerCase", ToLocaleLowerCase, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("toUpperCase", new ClrFunctionInstance(Engine, "toUpperCase", ToUpperCase, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("toLocaleUpperCase", new ClrFunctionInstance(Engine, "toLocaleUpperCase", ToLocaleUpperCase, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("trim", new ClrFunctionInstance(Engine, "trim", Trim, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("trimStart", new ClrFunctionInstance(Engine, "trimStart", TrimStart, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("trimEnd", new ClrFunctionInstance(Engine, "trimEnd", TrimEnd, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("padStart", new ClrFunctionInstance(Engine, "padStart", PadStart, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("padEnd", new ClrFunctionInstance(Engine, "padEnd", PadEnd, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("includes", new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("normalize", new ClrFunctionInstance(Engine, "normalize", Normalize, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("repeat", new ClrFunctionInstance(Engine, "repeat", Repeat, 1, PropertyFlag.Configurable), true, false, true);
-
-            FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "[Symbol.iterator]", Iterator, 0, PropertyFlag.Configurable), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(40)
+            {
+                ["constructor"] = new PropertyDescriptor(_stringConstructor, PropertyFlag.NonEnumerable),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 0, PropertyFlag.Configurable), true, false, true),
+                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),
+                ["charAt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "charAt", CharAt, 1, PropertyFlag.Configurable), true, false, true),
+                ["charCodeAt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "charCodeAt", CharCodeAt, 1, PropertyFlag.Configurable), true, false, true),
+                ["codePointAt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "codePointAt", CodePointAt, 1, PropertyFlag.Configurable), true, false, true),
+                ["concat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), true, false, true),
+                ["indexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), true, false, true),
+                ["endsWith"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "endsWith", EndsWith, 1, PropertyFlag.Configurable), true, false, true),
+                ["startsWith"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "startsWith", StartsWith, 1, PropertyFlag.Configurable), true, false, true),
+                ["lastIndexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), true, false, true),
+                ["localeCompare"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "localeCompare", LocaleCompare, 1, PropertyFlag.Configurable), true, false, true),
+                ["match"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "match", Match, 1, PropertyFlag.Configurable), true, false, true),
+                ["replace"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "replace", Replace, 2, PropertyFlag.Configurable), true, false, true),
+                ["search"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "search", Search, 1, PropertyFlag.Configurable), true, false, true),
+                ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), true, false, true),
+                ["split"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "split", Split, 2, PropertyFlag.Configurable), true, false, true),
+                ["substr"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "substr", Substr, 2), true, false, true),
+                ["substring"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "substring", Substring, 2, PropertyFlag.Configurable), true, false, true),
+                ["toLowerCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLowerCase", ToLowerCase, 0, PropertyFlag.Configurable), true, false, true),
+                ["toLocaleLowerCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleLowerCase", ToLocaleLowerCase, 0, PropertyFlag.Configurable), true, false, true),
+                ["toUpperCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toUpperCase", ToUpperCase, 0, PropertyFlag.Configurable), true, false, true),
+                ["toLocaleUpperCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleUpperCase", ToLocaleUpperCase, 0, PropertyFlag.Configurable), true, false, true),
+                ["trim"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trim", Trim, 0, PropertyFlag.Configurable), true, false, true),
+                ["trimStart"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trimStart", TrimStart, 0, PropertyFlag.Configurable), true, false, true),
+                ["trimEnd"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trimEnd", TrimEnd, 0, PropertyFlag.Configurable), true, false, true),
+                ["padStart"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "padStart", PadStart, 1, PropertyFlag.Configurable), true, false, true),
+                ["padEnd"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "padEnd", PadEnd, 1, PropertyFlag.Configurable), true, false, true),
+                ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true),
+                ["normalize"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "normalize", Normalize, 0, PropertyFlag.Configurable), true, false, true),
+                ["repeat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "repeat", Repeat, 1, PropertyFlag.Configurable), true, false, true),
+                [GlobalSymbolRegistry.Iterator._value] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.iterator]", Iterator, 0, PropertyFlag.Configurable), true, false, true)
+            };
         }
 
         private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)

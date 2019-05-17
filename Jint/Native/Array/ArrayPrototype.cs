@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Jint.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -18,6 +19,8 @@ namespace Jint.Native.Array
     /// </summary>
     public sealed class ArrayPrototype : ArrayInstance
     {
+        private ArrayConstructor _arrayConstructor;
+
         private ArrayPrototype(Engine engine) : base(engine)
         {
         }
@@ -27,48 +30,51 @@ namespace Jint.Native.Array
             var obj = new ArrayPrototype(engine)
             {
                 Extensible = true,
-                Prototype = engine.Object.PrototypeObject
+                Prototype = engine.Object.PrototypeObject,
+                _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable),
+                _arrayConstructor = arrayConstructor,
             };
 
-            obj.SetOwnProperty("length", new PropertyDescriptor(0, PropertyFlag.Writable));
-            obj.SetOwnProperty("constructor", new PropertyDescriptor(arrayConstructor, PropertyFlag.NonEnumerable));
 
             return obj;
         }
 
-        public void Configure()
+        protected override void Initialize()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("toLocaleString", new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("concat", new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("copyWithin", new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("entries", new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("fill", new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("join", new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("pop", new ClrFunctionInstance(Engine, "pop", Pop, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("push", new ClrFunctionInstance(Engine, "push", Push, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("reverse", new ClrFunctionInstance(Engine, "reverse", Reverse, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("shift", new ClrFunctionInstance(Engine, "shift", Shift, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("slice", new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("sort", new ClrFunctionInstance(Engine, "sort", Sort, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("splice", new ClrFunctionInstance(Engine, "splice", Splice, 2, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("unshift", new ClrFunctionInstance(Engine, "unshift", Unshift, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("includes", new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("indexOf", new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("lastIndexOf", new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("every", new ClrFunctionInstance(Engine, "every", Every, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("some", new ClrFunctionInstance(Engine, "some", Some, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("forEach", new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("map", new ClrFunctionInstance(Engine, "map", Map, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("filter", new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("reduce", new ClrFunctionInstance(Engine, "reduce", Reduce, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("reduceRight", new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("find", new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("findIndex", new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), true, false, true);
-
-            FastAddProperty("keys", new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty("values", new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true);
-            FastAddProperty(GlobalSymbolRegistry.Iterator._value, new ClrFunctionInstance(Engine, "iterator", Values, 1), true, false, true);
+            _properties = new StringDictionarySlim<PropertyDescriptor>(35)
+            {
+                ["constructor"] = new PropertyDescriptor(_arrayConstructor, PropertyFlag.NonEnumerable),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), true, false, true),
+                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
+                ["concat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), true, false, true),
+                ["copyWithin"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), true, false, true),
+                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), true, false, true),
+                ["fill"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), true, false, true),
+                ["join"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), true, false, true),
+                ["pop"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "pop", Pop, 0, PropertyFlag.Configurable), true, false, true),
+                ["push"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "push", Push, 1, PropertyFlag.Configurable), true, false, true),
+                ["reverse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reverse", Reverse, 0, PropertyFlag.Configurable), true, false, true),
+                ["shift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "shift", Shift, 0, PropertyFlag.Configurable), true, false, true),
+                ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), true, false, true),
+                ["sort"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "sort", Sort, 1, PropertyFlag.Configurable), true, false, true),
+                ["splice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "splice", Splice, 2, PropertyFlag.Configurable), true, false, true),
+                ["unshift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unshift", Unshift, 1, PropertyFlag.Configurable), true, false, true),
+                ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true),
+                ["indexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), true, false, true),
+                ["lastIndexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), true, false, true),
+                ["every"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "every", Every, 1, PropertyFlag.Configurable), true, false, true),
+                ["some"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "some", Some, 1, PropertyFlag.Configurable), true, false, true),
+                ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), true, false, true),
+                ["map"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "map", Map, 1, PropertyFlag.Configurable), true, false, true),
+                ["filter"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), true, false, true),
+                ["reduce"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduce", Reduce, 1, PropertyFlag.Configurable), true, false, true),
+                ["reduceRight"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), true, false, true),
+                ["find"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), true, false, true),
+                ["findIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), true, false, true),
+                ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), true, false, true),
+                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true),
+                [GlobalSymbolRegistry.Iterator._value] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Values, 1), true, false, true)
+            };
         }
         
         private ObjectInstance Keys(JsValue thisObj, JsValue[] arguments)
