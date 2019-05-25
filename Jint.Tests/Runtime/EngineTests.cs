@@ -436,6 +436,12 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void DateConstructorWithInvalidParameters()
+        {
+            Assert.Throws<JavaScriptException>(() => RunTest("new Date (1,  Infinity);"));
+        }
+
+        [Fact]
         public void ShouldConvertDateToNumber()
         {
             RunTest(@"

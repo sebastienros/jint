@@ -158,13 +158,24 @@ namespace Jint.Native.Date
                 ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(arguments), "There must be at least two arguments.");
             }
 
+            int SafeInteger(JsValue value)
+            {
+                var integer = TypeConverter.ToInteger(value);
+                if (integer > int.MaxValue || integer < int.MinValue)
+                {
+                    ExceptionHelper.ThrowTypeError(_engine, "Invalid Date.");
+                }
+
+                return (int) integer;
+            }
+
             var y = TypeConverter.ToNumber(arguments[0]);
-            var m = (int)TypeConverter.ToInteger(arguments[1]);
-            var dt = arguments.Length > 2 ? (int)TypeConverter.ToInteger(arguments[2]) : 1;
-            var h = arguments.Length > 3 ? (int)TypeConverter.ToInteger(arguments[3]) : 0;
-            var min = arguments.Length > 4 ? (int)TypeConverter.ToInteger(arguments[4]) : 0;
-            var s = arguments.Length > 5 ? (int)TypeConverter.ToInteger(arguments[5]) : 0;
-            var milli = arguments.Length > 6 ? (int)TypeConverter.ToInteger(arguments[6]) : 0;
+            var m = SafeInteger(arguments[1]);
+            var dt = arguments.Length > 2 ? SafeInteger(arguments[2]) : 1;
+            var h = arguments.Length > 3 ? SafeInteger(arguments[3]) : 0;
+            var min = arguments.Length > 4 ? SafeInteger(arguments[4]) : 0;
+            var s = arguments.Length > 5 ? SafeInteger(arguments[5]) : 0;
+            var milli = arguments.Length > 6 ? SafeInteger(arguments[6]) : 0;
 
             for (int i = 2; i < arguments.Length; i++)
             {
