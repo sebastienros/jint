@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text.RegularExpressions;
+using Jint.Native.Array;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -29,6 +30,16 @@ namespace Jint.Tests.Runtime
             {
                engine.Execute($"'{testedValue}'.match(new RegExp(/{testRegex}/))");
             });
+        }
+
+        [Fact]
+        public void PreventsInfiniteLoop()
+        {
+            var engine = new Engine();
+            var result = (ArrayInstance) engine.Execute("'x'.match(/|/g);").GetCompletionValue();
+            Assert.Equal((uint) 2, result.Length);
+            Assert.Equal("", result[0]);
+            Assert.Equal("", result[1]);
         }
     }
 }

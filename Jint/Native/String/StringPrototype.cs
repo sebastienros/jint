@@ -680,7 +680,7 @@ namespace Jint.Native.String
             {
                 rx.Put("lastIndex", 0, false);
                 var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
-                double previousLastIndex = 0;
+                int previousLastIndex = 0;
                 uint n = 0;
                 var lastMatch = true;
                 while (lastMatch)
@@ -692,11 +692,11 @@ namespace Jint.Native.String
                     }
                     else
                     {
-                        var thisIndex = ((JsNumber) rx.Get("lastIndex"))._value;
+                        var thisIndex = (int) ((JsNumber) rx.Get("lastIndex"))._value;
                         if (thisIndex == previousLastIndex)
                         {
                             rx.Put("lastIndex", thisIndex + 1, false);
-                            previousLastIndex = thisIndex;
+                            previousLastIndex = thisIndex + 1;
                         }
 
                         var matchStr = result.Get("0");
