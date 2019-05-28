@@ -1,31 +1,14 @@
 ﻿using System;
-using System.IO;
 using System.Linq;
-using System.Reflection;
 using Esprima;
 using Esprima.Ast;
+using Jint.Runtime;
 using Xunit;
 
 namespace Jint.Tests.Parser
 {
     public class JavascriptParserTests
     {
-        private string GetEmbeddedFile(string filename)
-        {
-            const string prefix = "Jint.Tests.Parser.Scripts.";
-
-            var assembly = typeof(JavascriptParserTests).GetTypeInfo().Assembly;
-            var scriptPath = prefix + filename;
-
-            using (var stream = assembly.GetManifestResourceStream(scriptPath))
-            {
-                using (var sr = new StreamReader(stream))
-                {
-                    return sr.ReadToEnd();
-                }
-            }
-        }
-
         [Fact]
         public void ShouldParseThis()
         {
@@ -184,5 +167,10 @@ namespace Jint.Tests.Parser
             Assert.Equal(1, expr.Location.End.Column);
         }
 
+        [Fact]
+        public void ShouldThrowErrorForInvalidLeftHandOperation()
+        {
+            Assert.Throws<JavaScriptException>(() => new Engine().Execute("~ (WE0=1)--- l('1');"));
+        }
     }
 }
