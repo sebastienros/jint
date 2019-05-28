@@ -2756,5 +2756,16 @@ function output(x) {
             result = function.Invoke(3, JsValue.Undefined).ToString();
             Assert.Equal("15", result);
         }
+
+        [Fact]
+        public void ShouldReportErrorForInvalidJson()
+        {
+            var engine = new Engine();
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("JSON.parse('[01]')"));
+            Assert.Equal("Unexpected token '1'", ex.Message);
+
+            var voidCompletion = engine.Execute("try { JSON.parse('01') } catch (e) {}").GetCompletionValue();
+            Assert.Equal(JsValue.Undefined, voidCompletion);
+        }
     }
 }
