@@ -45,14 +45,19 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private object UpdateNonIdentifier()
         {
-            var value = (Reference) _argument.Evaluate();
-            value.AssertValid(_engine);
+            if (!(_argument.Evaluate() is Reference reference))
+            {
+                ExceptionHelper.ThrowError(_engine, "Invalid left-hand side expression");
+                return null;
+            }
 
-            var oldValue = TypeConverter.ToNumber(_engine.GetValue(value, false));
+            reference.AssertValid(_engine);
+
+            var oldValue = TypeConverter.ToNumber(_engine.GetValue(reference, false));
             var newValue = oldValue + _change;
 
-            _engine.PutValue(value, newValue);
-            _engine._referencePool.Return(value);
+            _engine.PutValue(reference, newValue);
+            _engine._referencePool.Return(reference);
 
             return JsNumber.Create(_prefix ? newValue : oldValue);
         }
