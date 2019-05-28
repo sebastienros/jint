@@ -183,7 +183,7 @@ namespace Jint.Native.Json
                     // decimal number starts with '0' such as '09' is illegal.
                     if (ch > 0 && IsDecimalDigit(ch))
                     {
-                        ExceptionHelper.ThrowArgumentException(Messages.UnexpectedToken);
+                        ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, ch));
                     }
                 }
 
@@ -222,7 +222,7 @@ namespace Jint.Native.Json
                 }
                 else
                 {
-                    ExceptionHelper.ThrowArgumentException(Messages.UnexpectedToken);
+                    ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, _source.CharCodeAt(_index)));
                 }
             }
 
@@ -838,8 +838,7 @@ namespace Jint.Native.Json
                 JsValue jsv = ParseJsonValue();
 
                 Peek();
-                Tokens type = _lookahead.Type;
-                object value = _lookahead.Value;
+
                 if(_lookahead.Type != Tokens.EOF)
                 {
                     ExceptionHelper.ThrowSyntaxError(_engine, $"Unexpected {_lookahead.Type} {_lookahead.Value}");
@@ -881,7 +880,7 @@ namespace Jint.Native.Json
 
         static class Messages
         {
-            public const string UnexpectedToken = "Unexpected token {0}";
+            public const string UnexpectedToken = "Unexpected token '{0}'";
             public const string UnexpectedNumber = "Unexpected number";
             public const string UnexpectedString = "Unexpected string";
             public const string UnexpectedEOS = "Unexpected end of input";
