@@ -200,10 +200,7 @@ namespace Jint.Native
 
             public override int Length => _stringBuilder?.Length ?? _value?.Length ?? 0;
 
-            public override object ToObject()
-            {
-                return _stringBuilder.ToString();
-            }
+            public override object ToObject() => ToString();
 
             public override bool Equals(JsValue other)
             {
