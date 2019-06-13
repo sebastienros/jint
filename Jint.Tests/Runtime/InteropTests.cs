@@ -1814,5 +1814,15 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void ShouldBeAbleToPlusAssignStringProperty()
+        {
+            var p = new Person();
+            var engine = new Engine();
+            engine.SetValue("P", p);
+            engine.Execute("P.Name = 'b';");
+            engine.Execute("P.Name += 'c';");
+            Assert.Equal("bc", p.Name);
+        } 
     }
 }
