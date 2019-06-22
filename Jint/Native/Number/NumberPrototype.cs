@@ -106,10 +106,16 @@ namespace Jint.Native.Number
 
         private JsValue ToFixed(JsValue thisObj, JsValue[] arguments)
         {
-            var f = (int)TypeConverter.ToInteger(arguments.At(0, 0));
+            var f = (int) TypeConverter.ToInteger(arguments.At(0, 0));
             if (f < 0 || f > 100)
             {
                 ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 100");
+            }
+
+            // limitation with .NET, max is 99
+            if (f == 100)
+            {
+                ExceptionHelper.ThrowRangeError(_engine, "100 fraction digits is not supported due to .NET format specifier limitation");
             }
 
             var x = TypeConverter.ToNumber(thisObj);
@@ -180,9 +186,10 @@ namespace Jint.Native.Number
             }
 
             int decimalPoint;
-            var dtoaBuilder = new DtoaBuilder();
+            DtoaBuilder dtoaBuilder;
             if (f == -1)
             {
+                dtoaBuilder = new DtoaBuilder();
                 DtoaNumberFormatter.DoubleToAscii(
                     dtoaBuilder,
                     x,
@@ -194,6 +201,7 @@ namespace Jint.Native.Number
             }
             else
             {
+                dtoaBuilder = new DtoaBuilder(101);
                 DtoaNumberFormatter.DoubleToAscii(
                     dtoaBuilder,
                     x,
@@ -243,7 +251,7 @@ namespace Jint.Native.Number
                 ExceptionHelper.ThrowRangeError(_engine, "precision must be between 1 and 100");
             }
 
-            var dtoaBuilder = new DtoaBuilder();
+            var dtoaBuilder = new DtoaBuilder(101);
             DtoaNumberFormatter.DoubleToAscii(
                 dtoaBuilder,
                 x,
