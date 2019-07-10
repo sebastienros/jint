@@ -56,7 +56,8 @@ namespace Jint.Runtime.Interpreter.Statements
                     Left = left,
                     LeftPattern = bindingPattern,
                     LeftIdentifier = leftIdentifier,
-                    EvalOrArguments = leftIdentifier?._expressionName == "eval" || leftIdentifier?._expressionName == "arguments",
+                    EvalOrArguments = leftIdentifier?.ExpressionName == KnownIdentifiers.Eval
+                                      || leftIdentifier?.ExpressionName == KnownIdentifiers.Arguments,
                     Init = init
                 };
             }

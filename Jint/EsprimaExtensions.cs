@@ -16,7 +16,7 @@ namespace Jint
                 return literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
             }
 
-            if (expression is Identifier identifier)
+            if (expression is Esprima.Ast.Identifier identifier)
             {
                 return identifier.Name;
             }

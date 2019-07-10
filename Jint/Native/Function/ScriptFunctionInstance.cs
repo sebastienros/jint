@@ -48,8 +48,8 @@ namespace Jint.Native.Function
 
             if (strict)
             {
-                DefineOwnProperty("caller", engine._getSetThrower, false);
-                DefineOwnProperty("arguments", engine._getSetThrower, false);
+                DefineOwnProperty(KnownIdentifiers.Caller, engine._getSetThrower, false);
+                DefineOwnProperty(KnownIdentifiers.Arguments, engine._getSetThrower, false);
             }
         }
 
@@ -134,7 +134,7 @@ namespace Jint.Native.Function
         /// <returns></returns>
         public ObjectInstance Construct(JsValue[] arguments)
         {
-            var proto = Get("prototype").TryCast<ObjectInstance>();
+            var proto = Get(KnownIdentifiers.Prototype).TryCast<ObjectInstance>();
 
             var obj = new ObjectInstance(_engine)
             {
@@ -153,8 +153,6 @@ namespace Jint.Native.Function
 
         private class ObjectInstanceWithConstructor : ObjectInstance
         {
-            private const string PropertyNameConstructor = "constructor";
-            private const int PropertyNameConstructorLength = 11;
             private PropertyDescriptor _constructor;
 
             public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine)
@@ -166,7 +164,7 @@ namespace Jint.Native.Function
             {
                 if (_constructor != null)
                 {
-                    yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameConstructor, _constructor);
+                    yield return new KeyValuePair<string, PropertyDescriptor>(KnownIdentifiers.Constructor, _constructor);
                 }
 
                 foreach (var entry in base.GetOwnProperties())
@@ -175,9 +173,9 @@ namespace Jint.Native.Function
                 }
             }
 
-            public override PropertyDescriptor GetOwnProperty(string propertyName)
+            public override PropertyDescriptor GetOwnProperty(in Identifier propertyName)
             {
-                if (propertyName.Length == PropertyNameConstructorLength && propertyName == PropertyNameConstructor)
+                if (propertyName == KnownIdentifiers.Constructor)
                 {
                     return _constructor ?? PropertyDescriptor.Undefined;
                 }
@@ -185,9 +183,9 @@ namespace Jint.Native.Function
                 return base.GetOwnProperty(propertyName);
             }
 
-            protected internal override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
+            protected internal override void SetOwnProperty(in Identifier propertyName, PropertyDescriptor desc)
             {
-                if (propertyName.Length == PropertyNameConstructorLength && propertyName == PropertyNameConstructor)
+                if (propertyName == KnownIdentifiers.Constructor)
                 {
                     _constructor = desc;
                 }
@@ -197,9 +195,9 @@ namespace Jint.Native.Function
                 }
             }
 
-            public override bool HasOwnProperty(string propertyName)
+            public override bool HasOwnProperty(in Identifier propertyName)
             {
-                if (propertyName.Length == PropertyNameConstructorLength && propertyName == PropertyNameConstructor)
+                if (propertyName == KnownIdentifiers.Constructor)
                 {
                     return _constructor != null;
                 }
@@ -207,9 +205,9 @@ namespace Jint.Native.Function
                 return base.HasOwnProperty(propertyName);
             }
 
-            public override void RemoveOwnProperty(string propertyName)
+            public override void RemoveOwnProperty(in Identifier propertyName)
             {
-                if (propertyName.Length == PropertyNameConstructorLength && propertyName == PropertyNameConstructor)
+                if (propertyName == KnownIdentifiers.Constructor)
                 {
                     _constructor = null;
                 }

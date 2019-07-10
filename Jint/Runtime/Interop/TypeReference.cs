@@ -108,7 +108,7 @@ namespace Jint.Runtime.Interop
             return base.HasInstance(v);
         }
 
-        public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(in Identifier propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             if (throwOnError)
             {
@@ -118,7 +118,7 @@ namespace Jint.Runtime.Interop
             return false;
         }
 
-        public override bool Delete(string propertyName, bool throwOnError)
+        public override bool Delete(in Identifier propertyName, bool throwOnError)
         {
             if (throwOnError)
             {
@@ -128,7 +128,7 @@ namespace Jint.Runtime.Interop
             return false;
         }
 
-        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        public override void Put(in Identifier propertyName, JsValue value, bool throwOnError)
         {
             if (!CanPut(propertyName))
             {
@@ -157,8 +157,10 @@ namespace Jint.Runtime.Interop
             ownDesc.Value = value;
         }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Identifier identifier)
         {
+            var (propertyName, _) = identifier;
+
             // todo: cache members locally
 
             if (ReferenceType.IsEnum)

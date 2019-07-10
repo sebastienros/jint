@@ -1,4 +1,3 @@
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
@@ -7,17 +6,19 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintIdentifierExpression : JintExpression
     {
-        internal readonly string _expressionName;
+        private readonly Identifier _expressionName;
         private readonly JsValue _calculatedValue;
 
-        public JintIdentifierExpression(Engine engine, Identifier expression) : base(engine, expression)
+        public JintIdentifierExpression(Engine engine, Esprima.Ast.Identifier expression) : base(engine, expression)
         {
             _expressionName = expression.Name;
-            if (_expressionName == "undefined")
+            if (expression.Name == "undefined")
             {
                 _calculatedValue = JsValue.Undefined;
             }
         }
+
+        public ref readonly Identifier ExpressionName => ref _expressionName;
 
         protected override object EvaluateInternal()
         {

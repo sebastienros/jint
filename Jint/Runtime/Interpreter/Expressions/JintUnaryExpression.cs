@@ -54,7 +54,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (r.IsPropertyReference())
                     {
                         var o = TypeConverter.ToObject(_engine, r.GetBase());
-                        var jsValue = o.Delete(r._name, r._strict);
+                        var jsValue = o.Delete(r.GetReferencedName(), r._strict);
                         _engine._referencePool.Return(r);
                         return jsValue ? JsBoolean.True : JsBoolean.False;
                     }

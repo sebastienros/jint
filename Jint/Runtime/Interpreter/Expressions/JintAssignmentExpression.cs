@@ -150,7 +150,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     _left = Build(engine, (Expression) expression.Left);
                     _leftIdentifier = _left as JintIdentifierExpression;
-                    _evalOrArguments = _leftIdentifier?._expressionName == "eval" || _leftIdentifier?._expressionName == "arguments";
+                    _evalOrArguments = _leftIdentifier?.ExpressionName == KnownIdentifiers.Eval
+                                       || _leftIdentifier?.ExpressionName == KnownIdentifiers.Arguments;
                 }
 
                 _right = Build(engine, expression.Right);
@@ -202,7 +203,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var strict = StrictModeScope.IsStrictModeCode;
                 if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                     env,
-                    left._expressionName,
+                    left.ExpressionName,
                     strict,
                     out var environmentRecord,
                     out _))
@@ -216,10 +217,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (right._expression.IsFunctionWithName())
                     {
-                        ((FunctionInstance) rval).SetFunctionName(left._expressionName);
+                        ((FunctionInstance) rval).SetFunctionName(left.ExpressionName);
                     }
 
-                    environmentRecord.SetMutableBinding(left._expressionName, rval, strict);
+                    environmentRecord.SetMutableBinding(left.ExpressionName, rval, strict);
                     return rval;
                 }
 

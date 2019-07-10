@@ -19,10 +19,9 @@ namespace Jint.Runtime.Environments
     {
         private StringDictionarySlim<Binding> _dictionary;
         private bool _set;
-        private string _key;
+        private Identifier _key;
         private Binding _value;
 
-        private const string BindingNameArguments = "arguments";
         private Binding _argumentsBinding;
 
         // false = not accessed, true = accessed, null = values copied
@@ -32,7 +31,7 @@ namespace Jint.Runtime.Environments
         {
         }
 
-        private void SetItem(string key, in Binding value)
+        private void SetItem(in Identifier key, in Binding value)
         {
             if (_set && _key != key)
             {
@@ -54,25 +53,25 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        private ref Binding GetExistingItem(string key)
+        private ref Binding GetExistingItem(in Identifier key)
         {
             if (_set && _key == key)
             {
                 return ref _value;
             }
 
-            if (key.Length == 9 && key == BindingNameArguments)
+            if (key == KnownIdentifiers.Arguments)
             {
                 _argumentsBindingWasAccessed = true;
                 return ref _argumentsBinding;
             }
 
-            return ref _dictionary[key];
+            return ref _dictionary.GetOrAddValueRef(key);
         }
 
-        private bool ContainsKey(string key)
+        private bool ContainsKey(in Identifier key)
         {
-            if (key.Length == 9 && key == BindingNameArguments)
+            if (key == KnownIdentifiers.Arguments)
             {
                 return !ReferenceEquals(_argumentsBinding.Value, null);
             }
@@ -85,7 +84,7 @@ namespace Jint.Runtime.Environments
             return _dictionary?.ContainsKey(key) == true;
         }
 
-        private void Remove(string key)
+        private void Remove(in Identifier key)
         {
             if (_set && key == _key)
             {
@@ -93,8 +92,8 @@ namespace Jint.Runtime.Environments
                 _key = null;
                 _value = default;
             }
-            
-            if (key == BindingNameArguments)
+
+            if (key == KnownIdentifiers.Arguments)
             {
                 _argumentsBinding.Value = null;
             }
@@ -104,7 +103,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        private bool TryGetValue(string key, out Binding value)
+        private bool TryGetValue(in Identifier key, out Binding value)
         {
             value = default;
             if (_set && _key == key)
@@ -116,43 +115,51 @@ namespace Jint.Runtime.Environments
             return _dictionary != null && _dictionary.TryGetValue(key, out value);
         }
 
-        public override bool HasBinding(string name)
+        public override bool HasBinding(in Identifier name)
         {
             return ContainsKey(name);
         }
 
-        internal override bool TryGetBinding(string name, bool strict, out Binding binding)
+        internal override bool TryGetBinding(
+            in Identifier name,
+            bool strict,
+            out Binding binding,
+            out JsValue value)
         {
             if (_set && _key == name)
             {
                 binding = _value;
+                value = UnwrapBindingValue(strict, _value);
                 return true;
             }
 
-            if (name.Length == 9
-                && name == BindingNameArguments
+            if (name == KnownIdentifiers.Arguments
                 && !ReferenceEquals(_argumentsBinding.Value, null))
             {
                 _argumentsBindingWasAccessed = true;
                 binding = _argumentsBinding;
+                value = UnwrapBindingValue(strict, _argumentsBinding);
                 return true;
             }
 
             if (_dictionary != null)
             {
-                return _dictionary.TryGetValue(name, out binding);
+                var success = _dictionary.TryGetValue(name, out binding);
+                value = success ? UnwrapBindingValue(strict, binding) : default;
+                return success;
             }
 
             binding = default;
+            value = default;
             return false;
         }
 
-        public override void CreateMutableBinding(string name, JsValue value, bool canBeDeleted = false)
+        public override void CreateMutableBinding(in Identifier name, JsValue value, bool canBeDeleted = true)
         {
             SetItem(name, new Binding(value, canBeDeleted, mutable: true));
         }
 
-        public override void SetMutableBinding(string name, JsValue value, bool strict)
+        public override void SetMutableBinding(in Identifier name, JsValue value, bool strict)
         {
             ref var binding = ref GetExistingItem(name);
 
@@ -169,19 +176,14 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        public override JsValue GetBindingValue(string name, bool strict)
+        public override JsValue GetBindingValue(in Identifier name, bool strict)
         {
             ref var binding = ref GetExistingItem(name);
-            return UnwrapBindingValue(name, strict, binding);
-        }
-
-        internal override JsValue UnwrapBindingValue(string name, bool strict, in Binding binding)
-        {
-            return UnwrapBindingValueInternal(strict, binding);
+            return UnwrapBindingValue(strict, binding);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private JsValue UnwrapBindingValueInternal(bool strict, in Binding binding)
+        private JsValue UnwrapBindingValue(bool strict, in Binding binding)
         {
             if (!binding.Mutable && binding.Value._type == Types.Undefined)
             {
@@ -201,7 +203,7 @@ namespace Jint.Runtime.Environments
             throw new JavaScriptException(_engine.ReferenceError, "Can't access an uninitialized immutable binding.");
         }
 
-        public override bool DeleteBinding(string name)
+        public override bool DeleteBinding(in Identifier name)
         {
             ref Binding binding = ref GetExistingItem(name);
 
@@ -248,10 +250,18 @@ namespace Jint.Runtime.Environments
 
             if (!ReferenceEquals(_argumentsBinding.Value, null))
             {
-                keys[n++] = BindingNameArguments;
+                keys[n++] = KnownIdentifiers.Arguments;
             }
 
-            _dictionary?.Keys.CopyTo(keys, n);
+            if (_dictionary == null)
+            {
+                return keys;
+            }
+
+            foreach (var entry in _dictionary)
+            {
+                keys[n++] = entry.Key;
+            }
 
             return keys;
         }
@@ -287,7 +297,7 @@ namespace Jint.Runtime.Environments
         {
             var argument = arguments.Length > index ? arguments[index] : Undefined;
 
-            if (parameter is Identifier identifier)
+            if (parameter is Esprima.Ast.Identifier identifier)
             {
                 SetItemSafely(identifier.Name, argument, initiallyEmpty);
             }
@@ -307,7 +317,7 @@ namespace Jint.Runtime.Environments
 
                 argument = rest;
 
-                if (restElement.Argument is Identifier restIdentifier)
+                if (restElement.Argument is Esprima.Ast.Identifier restIdentifier)
                 {
                     SetItemSafely(restIdentifier.Name, argument, initiallyEmpty);
                 }
@@ -372,7 +382,7 @@ namespace Jint.Runtime.Environments
                 var jsValues = _engine._jsValueArrayPool.RentArray(1);
                 foreach (var property in objectPattern.Properties)
                 {
-                    if (property.Key is Identifier propertyIdentifier)
+                    if (property.Key is Esprima.Ast.Identifier propertyIdentifier)
                     {
                         argument = argumentObject.Get(propertyIdentifier.Name);
                     }
@@ -393,9 +403,9 @@ namespace Jint.Runtime.Environments
             }
             else if (parameter is AssignmentPattern assignmentPattern)
             {
-                var idLeft = assignmentPattern.Left as Identifier;
+                var idLeft = assignmentPattern.Left as Esprima.Ast.Identifier;
                 if (idLeft != null
-                    && assignmentPattern.Right is Identifier idRight
+                    && assignmentPattern.Right is Esprima.Ast.Identifier idRight
                     && idLeft.Name == idRight.Name)
                 {
                     ExceptionHelper.ThrowReferenceError(_engine, idRight.Name);
@@ -432,12 +442,12 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        private void SetItemSafely(string name, JsValue argument, bool initiallyEmpty)
+        private void SetItemSafely(in Identifier name, JsValue argument, bool initiallyEmpty)
         {
             if (initiallyEmpty || !TryGetValue(name, out var existing))
             {
                 var binding = new Binding(argument, false, true);
-                if (name.Length == 9 && name == BindingNameArguments)
+                if (name == KnownIdentifiers.Arguments)
                 {
                     _argumentsBinding = binding;
                 }
@@ -470,9 +480,9 @@ namespace Jint.Runtime.Environments
                 for (var j = 0; j < declarationsCount; j++)
                 {
                     var d = variableDeclaration.Declarations[j];
-                    if (d.Id is Identifier id)
+                    if (d.Id is Esprima.Ast.Identifier id)
                     {
-                        var dn = id.Name;
+                        Identifier dn = id.Name;
                         if (!ContainsKey(dn))
                         {
                             var binding = new Binding(Undefined, canBeDeleted: false, mutable: true);

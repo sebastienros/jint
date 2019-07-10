@@ -400,12 +400,23 @@ namespace Jint.Runtime.Descriptors
 
         internal sealed class AllForbiddenDescriptor : PropertyDescriptor
         {
+            private static readonly PropertyDescriptor[] _cache;
+
             public static readonly AllForbiddenDescriptor NumberZero = new AllForbiddenDescriptor(JsNumber.Create(0));
             public static readonly AllForbiddenDescriptor NumberOne = new AllForbiddenDescriptor(JsNumber.Create(1));
             public static readonly AllForbiddenDescriptor NumberTwo = new AllForbiddenDescriptor(JsNumber.Create(2));
 
             public static readonly AllForbiddenDescriptor BooleanFalse = new AllForbiddenDescriptor(JsBoolean.False);
             public static readonly AllForbiddenDescriptor BooleanTrue = new AllForbiddenDescriptor(JsBoolean.True);
+
+            static AllForbiddenDescriptor()
+            {
+                _cache = new PropertyDescriptor[10];
+                for (int i = 0; i < _cache.Length; ++i)
+                {
+                    _cache[i] = new AllForbiddenDescriptor(JsNumber.Create(i));
+                }
+            }
 
             private AllForbiddenDescriptor(JsValue value)
                 : base(PropertyFlag.AllForbidden)
@@ -415,17 +426,10 @@ namespace Jint.Runtime.Descriptors
 
             public static PropertyDescriptor ForNumber(int number)
             {
-                switch (number)
-                {
-                    case 2:
-                        return NumberTwo;
-                    case 1:
-                        return NumberOne;
-                    case 0:
-                        return NumberZero;
-                    default:
-                        return new PropertyDescriptor(number, PropertyFlag.AllForbidden);
-                }
+                var temp = _cache;
+                return (uint) number < temp.Length
+                    ? temp[number]
+                    : new PropertyDescriptor(number, PropertyFlag.AllForbidden);
             }
         }
     }

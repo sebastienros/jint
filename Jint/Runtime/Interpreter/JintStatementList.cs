@@ -28,16 +28,17 @@ namespace Jint.Runtime.Interpreter
 
         private void Initialize()
         {
-            _jintStatements = new Pair[_statements.Count];
-            for (var i = 0; i < _jintStatements.Length; i++)
+            var jintStatements = new Pair[_statements.Count];
+            for (var i = 0; i < jintStatements.Length; i++)
             {
-                var statement = JintStatement.Build(_engine, (Statement) _statements[i]);
-                _jintStatements[i] = new Pair
+                var esprimaStatement = (Statement) _statements[i];
+                jintStatements[i] = new Pair
                 {
-                    Statement = statement,
-                    Value = JintStatement.FastResolve(_statements[i])
+                    Statement = JintStatement.Build(_engine, esprimaStatement),
+                    Value = JintStatement.FastResolve(esprimaStatement)
                 };
             }
+            _jintStatements = jintStatements;
         }
 
         public Completion Execute()
@@ -62,21 +63,17 @@ namespace Jint.Runtime.Interpreter
             Completion sl = c;
             try
             {
-                var statements = _jintStatements;
-                for (var i = 0; i < (uint) statements.Length; i++)
+                foreach (var pair in _jintStatements)
                 {
-                    var pair = statements[i];
                     s = pair.Statement;
                     c = pair.Value ?? s.Execute();
                     if (c.Type != CompletionType.Normal)
                     {
-                        var executeStatementList = new Completion(
+                        return new Completion(
                             c.Type,
                             c.Value ?? sl.Value,
                             c.Identifier,
                             c.Location);
-
-                        return executeStatementList;
                     }
 
                     sl = c;
@@ -105,11 +102,6 @@ namespace Jint.Runtime.Interpreter
                 c = new Completion(CompletionType.Throw, error, null, s.Location);
             }
             return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier, c.Location);
-        }
-
-        internal Completion? FastResolve()
-        {
-            return _statements.Count == 1 ? JintStatement.FastResolve(_statements[0]) : null;
-        }
+        } 
     }
 }

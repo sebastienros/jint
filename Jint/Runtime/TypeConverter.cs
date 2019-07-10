@@ -55,7 +55,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.None)
         {
-            if (input._type > Types.None && input._type < Types.Object) 
+            if (input._type > Types.None && input._type < Types.Object)
             {
                 return input;
             }
@@ -89,13 +89,18 @@ namespace Jint.Runtime
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.3
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double ToNumber(JsValue o)
+        {
+            return o._type == Types.Number
+                ? ((JsNumber) o)._value
+                : ToNumberUnlikely(o);
+        }
+
+        private static double ToNumberUnlikely(JsValue o)
         {
             switch (o._type)
             {
-                // check number first as this is what is usually expected
-                case Types.Number:
-                    return ((JsNumber) o)._value;
                 case Types.Undefined:
                     return double.NaN;
                 case Types.Null:
@@ -367,12 +372,21 @@ namespace Jint.Runtime
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/#sec-tostring
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string ToString(JsValue o)
+        {
+            if (o._type == Types.String)
+            {
+                return o.AsStringWithoutTypeCheck();
+            }
+
+            return ToStringUnlikely(o);
+        }
+
+        private static string ToStringUnlikely(JsValue o)
         {
             switch (o._type)
             {
-                case Types.String:
-                    return o.AsStringWithoutTypeCheck();
                 case Types.Boolean:
                     return ((JsBoolean) o)._value ? "true" : "false";
                 case Types.Number:
@@ -467,9 +481,9 @@ namespace Jint.Runtime
         }
 
         private static void ThrowTypeError(
-            Engine engine, 
+            Engine engine,
             JsValue o,
-            MemberExpression expression, 
+            MemberExpression expression,
             object baseReference)
         {
             ThrowTypeError(engine, o, expression, (baseReference as Reference)?.GetReferencedName());

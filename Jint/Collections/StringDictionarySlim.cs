@@ -6,20 +6,20 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.CompilerServices;
-using Jint.Runtime;
 
 namespace Jint.Collections
 {
     /// <summary>
-    /// DictionarySlim<TKey, TValue> is similar to Dictionary<TKey, TValue> but optimized in three ways:
+    /// DictionarySlim<string, TValue> is similar to Dictionary<TKey, TValue> but optimized in three ways:
     /// 1) It allows access to the value by ref replacing the common TryGetValue and Add pattern.
     /// 2) It does not store the hash code (assumes it is cheap to equate values).
     /// 3) It does not accept an equality comparer (assumes Object.GetHashCode() and Object.Equals() or overridden implementation are cheap and sufficient).
     /// </summary>
     [DebuggerTypeProxy(typeof(DictionarySlimDebugView<>))]
     [DebuggerDisplay("Count = {Count}")]
-    internal sealed class StringDictionarySlim<TValue>
+    internal sealed class StringDictionarySlim<TValue> : IReadOnlyCollection<KeyValuePair<string, TValue>>
     {
         // We want to initialize without allocating arrays. We also want to avoid null checks.
         // Array.Empty would give divide by zero in modulo operation. So we use static one element arrays.
@@ -27,6 +27,8 @@ namespace Jint.Collections
         // Arrays are wrapped in a class to avoid being duplicated for each <TKey, TValue>
         private static readonly Entry[] InitialEntries = new Entry[1];
         private int _count;
+        // 0-based index into _entries of head of free chain: -1 means empty
+        private int _freeList = -1;
         // 1-based index into _entries; 0 means empty
         private int[] _buckets;
         private Entry[] _entries;
@@ -37,18 +39,21 @@ namespace Jint.Collections
             public string key;
             public TValue value;
             // 0-based index of next entry in chain: -1 means end of chain
+            // also encodes whether this entry _itself_ is part of the free list by changing sign and subtracting 3,
+            // so -2 means end of free list, -3 means index 0 but on free list, -4 means index 1 but on free list, etc.
             public int next;
         }
 
         public StringDictionarySlim()
         {
-            _buckets = HashHelpers.DictionarySlimSizeOneIntArray;
+            _buckets = HashHelpers.SizeOneIntArray;
             _entries = InitialEntries;
         }
 
         public StringDictionarySlim(int capacity)
         {
-            if (capacity < 2) ExceptionHelper.ThrowArgumentOutOfRangeException();
+            if (capacity < 2)
+                capacity = 2; // 1 would indicate the dummy array
             capacity = HashHelpers.PowerOf2(capacity);
             _buckets = new int[capacity];
             _entries = new Entry[capacity];
@@ -56,13 +61,23 @@ namespace Jint.Collections
 
         public int Count => _count;
 
-        public int Capacity => _entries.Length;
-
-        public bool ContainsKey(string key)
+        /// <summary>
+        /// Clears the dictionary. Note that this invalidates any active enumerators.
+        /// </summary>
+        public void Clear()
         {
+            _count = 0;
+            _freeList = -1;
+            _buckets = HashHelpers.SizeOneIntArray;
+            _entries = InitialEntries;
+        }
+
+        public bool ContainsKey(in Identifier identifier)
+        {
+            var (key, hashCode) = identifier;
             Entry[] entries = _entries;
-            for (int i = _buckets[key.GetHashCode() & (_buckets.Length - 1)] - 1;
-                    (uint)i < (uint)entries.Length; i = entries[i].next)
+            for (int i = _buckets[hashCode & (_buckets.Length-1)] - 1;
+                (uint)i < (uint)entries.Length; i = entries[i].next)
             {
                 if (key == entries[i].key)
                     return true;
@@ -71,17 +86,12 @@ namespace Jint.Collections
             return false;
         }
 
-        public TValue GetValueOrDefault(string key)
+        public bool TryGetValue(in Identifier identifier, out TValue value)
         {
-            bool result = TryGetValue(key, out TValue value);
-            return value;
-        }
-
-        public bool TryGetValue(string key, out TValue value)
-        {
+            var (key, hashCode) = identifier;
             Entry[] entries = _entries;
-            for (int i = _buckets[key.GetHashCode() & (_buckets.Length - 1)] - 1;
-                    (uint)i < (uint)entries.Length; i = entries[i].next)
+            for (int i = _buckets[hashCode & (_buckets.Length - 1)] - 1;
+                (uint)i < (uint)entries.Length; i = entries[i].next)
             {
                 if (key == entries[i].key)
                 {
@@ -94,10 +104,11 @@ namespace Jint.Collections
             return false;
         }
 
-        public bool Remove(string key)
+        public bool Remove(in Identifier identifier)
         {
+            var (key, hashCode) = identifier;
             Entry[] entries = _entries;
-            int bucketIndex = key.GetHashCode() & (_buckets.Length - 1);
+            int bucketIndex = hashCode & (_buckets.Length - 1);
             int entryIndex = _buckets[bucketIndex] - 1;
 
             int lastIndex = -1;
@@ -106,39 +117,21 @@ namespace Jint.Collections
                 Entry candidate = entries[entryIndex];
                 if (candidate.key == key)
                 {
-                    if (lastIndex == -1)
-                    {
-                        // Fixup bucket to new head (if any)
-                        _buckets[bucketIndex] = candidate.next + 1;
-                    }
-                    else
-                    {
-                        // Fixup preceding element in chain to point to next (if any)
+                    if (lastIndex != -1)
+                    {   // Fixup preceding element in chain to point to next (if any)
                         entries[lastIndex].next = candidate.next;
                     }
-
-                    // move last item to this index and fix link to it
-                    if (entryIndex != --_count)
-                    {
-                        entries[entryIndex] = entries[_count];
-
-                        bucketIndex = entries[entryIndex].key.GetHashCode() & (_buckets.Length - 1);
-                        lastIndex = _buckets[bucketIndex] - 1;
-
-                        if (lastIndex == _count)
-                        {
-                            // Fixup bucket to this index
-                            _buckets[bucketIndex] = entryIndex + 1;
-                        }
-                        else
-                        {
-                            // Find preceding element in chain and point to this index
-                            while (entries[lastIndex].next != _count)
-                                lastIndex = entries[lastIndex].next;
-                            entries[lastIndex].next = entryIndex;
-                        }
+                    else
+                    {   // Fixup bucket to new head (if any)
+                        _buckets[bucketIndex] = candidate.next + 1;
                     }
-                    entries[_count] = default;
+
+                    entries[entryIndex] = default;
+
+                    entries[entryIndex].next = -3 - _freeList; // New head of free list
+                    _freeList = entryIndex;
+
+                    _count--;
                     return true;
                 }
                 lastIndex = entryIndex;
@@ -148,57 +141,76 @@ namespace Jint.Collections
             return false;
         }
 
-        public void Clear()
+       // Not safe for concurrent _reads_ (at least, if either of them add)
+        // For concurrent reads, prefer TryGetValue(key, out value)
+        /// <summary>
+        /// Gets the value for the specified key, or, if the key is not present,
+        /// adds an entry and returns the value by ref. This makes it possible to
+        /// add or update a value in a single look up operation.
+        /// </summary>
+        /// <param name="key">Key to look for</param>
+        /// <returns>Reference to the new or existing value</returns>
+        public ref TValue GetOrAddValueRef(in Identifier identifier)
         {
-            int count = _count;
-            if (count > 0)
+            var (key, hashCode) = identifier;
+            Entry[] entries = _entries;
+            int collisionCount = 0;
+            int bucketIndex = hashCode & (_buckets.Length - 1);
+            for (int i = _buckets[bucketIndex] - 1;
+                    (uint)i < (uint)entries.Length; i = entries[i].next)
             {
-                Array.Clear(_buckets, 0, _buckets.Length);
-                _count = 0;
-                Array.Clear(_entries, 0, count);
+                if (key == entries[i].key)
+                    return ref entries[i].value;
+                collisionCount++;
             }
+
+            return ref AddKey(identifier, bucketIndex);
         }
 
-        public ref TValue this[string key]
+        public ref TValue this[in Identifier identifier]
         {
-            get
-            {
-                Entry[] entries = _entries;
-                int bucketIndex = key.GetHashCode() & (_buckets.Length - 1);
-                for (int i = _buckets[bucketIndex] - 1;
-                        (uint)i < (uint)entries.Length; i = entries[i].next)
-                {
-                    if (key == entries[i].key)
-                        return ref entries[i].value;
-                }
-
-                return ref AddKey(key, bucketIndex);
-            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref GetOrAddValueRef(identifier);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private ref TValue AddKey(string key, int bucketIndex)
+        private ref TValue AddKey(in Identifier identifier, int bucketIndex)
         {
+            var (key, hashCode) = identifier;
             Entry[] entries = _entries;
-
-            if (_count == entries.Length || entries.Length == 1)
+            int entryIndex;
+            if (_freeList != -1)
             {
-                entries = Resize();
-                bucketIndex = key.GetHashCode() & (_buckets.Length - 1);
-                // entry indexes were not changed by Resize
+                entryIndex = _freeList;
+                _freeList = -3 - entries[_freeList].next;
+            }
+            else
+            {
+                if (_count == entries.Length || entries.Length == 1)
+                {
+                    entries = Resize();
+                    bucketIndex = hashCode & (_buckets.Length - 1);
+                    // entry indexes were not changed by Resize
+                }
+                entryIndex = _count;
             }
 
-            int entryIndex = _count++;
             entries[entryIndex].key = key;
             entries[entryIndex].next = _buckets[bucketIndex] - 1;
             _buckets[bucketIndex] = entryIndex + 1;
+            _count++;
             return ref entries[entryIndex].value;
         }
 
         private Entry[] Resize()
         {
+            Debug.Assert(_entries.Length == _count || _entries.Length == 1); // We only copy _count, so if it's longer we will miss some
             int count = _count;
-            var entries = new Entry[_entries.Length * 2];
+            int newSize = _entries.Length * 2;
+            if ((uint)newSize > (uint)int.MaxValue) // uint cast handles overflow
+                throw new InvalidOperationException("Capacity Overflow");
+
+            var entries = new Entry[newSize];
             Array.Copy(_entries, 0, entries, 0, count);
 
             var newBuckets = new int[entries.Length];
@@ -214,23 +226,22 @@ namespace Jint.Collections
 
             return entries;
         }
-
-        public KeyCollection Keys => new KeyCollection(this);
-
-        public ValueCollection Values => new ValueCollection(this);
-
-        public void CopyTo(KeyValuePair<string, TValue>[] array, int index)
-        {
-            Entry[] entries = _entries;
-            for (int i = 0; i < _count; i++)
-            {
-                array[index++] = new KeyValuePair<string, TValue>(
-                    entries[i].key,
-                    entries[i].value);
-            }
-        }
-
+        
+        /// <summary>
+        /// Gets an enumerator over the dictionary
+        /// </summary>
         public Enumerator GetEnumerator() => new Enumerator(this); // avoid boxing
+
+        /// <summary>
+        /// Gets an enumerator over the dictionary
+        /// </summary>
+        IEnumerator<KeyValuePair<string, TValue>> IEnumerable<KeyValuePair<string, TValue>>.GetEnumerator() =>
+            new Enumerator(this);
+
+        /// <summary>
+        /// Gets an enumerator over the dictionary
+        /// </summary>
+        IEnumerator IEnumerable.GetEnumerator() => new Enumerator(this);
 
         public struct Enumerator : IEnumerator<KeyValuePair<string, TValue>>
         {
@@ -270,161 +281,10 @@ namespace Jint.Collections
 
             public void Dispose() { }
         }
-
-        public struct KeyCollection : ICollection<string>, IReadOnlyCollection<string>
-        {
-            private readonly StringDictionarySlim<TValue> _dictionary;
-
-            internal KeyCollection(StringDictionarySlim<TValue> dictionary)
-            {
-                _dictionary = dictionary;
-            }
-
-            public int Count => _dictionary._count;
-
-            bool ICollection<string>.IsReadOnly => true;
-
-            void ICollection<string>.Add(string item) =>
-                ExceptionHelper.ThrowNotSupportedException();
-
-            void ICollection<string>.Clear() =>
-                ExceptionHelper.ThrowNotSupportedException();
-
-            public bool Contains(string item) => _dictionary.ContainsKey(item);
-
-            bool ICollection<string>.Remove(string item) =>
-                ExceptionHelper.ThrowNotSupportedException<bool>();
-
-            public void CopyTo(string[] array, int index)
-            {
-                Entry[] entries = _dictionary._entries;
-                for (int i = 0; i < _dictionary._count; i++)
-                {
-                    array[index++] = entries[i].key;
-                }
-            }
-
-            public Enumerator GetEnumerator() => new Enumerator(_dictionary); // avoid boxing
-            IEnumerator<string> IEnumerable<string>.GetEnumerator() => new Enumerator(_dictionary);
-            IEnumerator IEnumerable.GetEnumerator() => new Enumerator(_dictionary);
-
-            public struct Enumerator : IEnumerator<string>
-            {
-                private readonly StringDictionarySlim<TValue> _dictionary;
-                private int _index;
-                private string _current;
-
-                internal Enumerator(StringDictionarySlim<TValue> dictionary)
-                {
-                    _dictionary = dictionary;
-                    _index = 0;
-                    _current = default;
-                }
-
-                public string Current => _current;
-
-                object IEnumerator.Current => _current;
-
-                public void Dispose() { }
-
-                public bool MoveNext()
-                {
-                    if (_index == _dictionary._count)
-                    {
-                        _current = default;
-                        return false;
-                    }
-
-                    _current = _dictionary._entries[_index++].key;
-                    return true;
-                }
-
-                public void Reset()
-                {
-                    _index = 0;
-                }
-            }
-        }
-
-        public struct ValueCollection : ICollection<TValue>, IReadOnlyCollection<TValue>
-        {
-            private readonly StringDictionarySlim<TValue> _dictionary;
-
-            internal ValueCollection(StringDictionarySlim<TValue> dictionary)
-            {
-                _dictionary = dictionary;
-            }
-
-            public int Count => _dictionary._count;
-
-            bool ICollection<TValue>.IsReadOnly => true;
-
-            void ICollection<TValue>.Add(TValue item) =>
-                ExceptionHelper.ThrowNotSupportedException();
-
-            void ICollection<TValue>.Clear() =>
-                ExceptionHelper.ThrowNotSupportedException();
-
-            bool ICollection<TValue>.Contains(TValue item) =>
-                ExceptionHelper.ThrowNotSupportedException<bool>(); // performance antipattern
-
-            bool ICollection<TValue>.Remove(TValue item) =>
-                ExceptionHelper.ThrowNotSupportedException<bool>();
-
-            public void CopyTo(TValue[] array, int index)
-            {
-                Entry[] entries = _dictionary._entries;
-                for (int i = 0; i < _dictionary._count; i++)
-                {
-                    array[index++] = entries[i].value;
-                }
-            }
-
-            public Enumerator GetEnumerator() => new Enumerator(_dictionary); // avoid boxing
-            IEnumerator<TValue> IEnumerable<TValue>.GetEnumerator() => new Enumerator(_dictionary);
-            IEnumerator IEnumerable.GetEnumerator() => new Enumerator(_dictionary);
-
-            public struct Enumerator : IEnumerator<TValue>
-            {
-                private readonly StringDictionarySlim<TValue> _dictionary;
-                private int _index;
-                private TValue _current;
-
-                internal Enumerator(StringDictionarySlim<TValue> dictionary)
-                {
-                    _dictionary = dictionary;
-                    _index = 0;
-                    _current = default;
-                }
-
-                public TValue Current => _current;
-
-                object IEnumerator.Current => _current;
-
-                public void Dispose() { }
-
-                public bool MoveNext()
-                {
-                    if (_index == _dictionary._count)
-                    {
-                        _current = default;
-                        return false;
-                    }
-
-                    _current = _dictionary._entries[_index++].value;
-                    return true;
-                }
-
-                public void Reset()
-                {
-                    _index = 0;
-                }
-            }
-        }
-
+        
         internal static class HashHelpers
         {
-            internal static readonly int[] DictionarySlimSizeOneIntArray = new int[1];
+            internal static readonly int[] SizeOneIntArray = new int[1];
 
             internal static int PowerOf2(int v)
             {
@@ -449,9 +309,7 @@ namespace Jint.Collections
             {
                 get
                 {
-                    var array = new KeyValuePair<string, V>[_dictionary.Count];
-                    _dictionary.CopyTo(array, 0);
-                    return array;
+                    return _dictionary.ToArray();
                 }
             }
         }

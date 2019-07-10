@@ -8,9 +8,6 @@ namespace Jint.Native.Array
 {
     public class ArrayInstance : ObjectInstance
     {
-        private const string PropertyNameLength = "length";
-        private const int PropertyNameLengthLength = 6;
-
         internal PropertyDescriptor _length;
 
         private const int MaxDenseArrayLength = 1024 * 10;
@@ -65,7 +62,7 @@ namespace Jint.Native.Array
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
-        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        public override void Put(in Identifier propertyName, JsValue value, bool throwOnError)
         {
             if (!CanPut(propertyName))
             {
@@ -101,12 +98,12 @@ namespace Jint.Native.Array
             }
         }
 
-        public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(in Identifier propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             var oldLenDesc = _length;
             var oldLen = (uint) TypeConverter.ToNumber(oldLenDesc.Value);
 
-            if (propertyName.Length == 6 && propertyName == "length")
+            if (propertyName == KnownIdentifiers.Length)
             {
                 var value = desc.Value;
                 if (ReferenceEquals(value, null))
@@ -300,9 +297,9 @@ namespace Jint.Native.Array
             return (uint) ((JsNumber) _length._value)._value;
         }
 
-        protected override void AddProperty(string propertyName, PropertyDescriptor descriptor)
+        protected override void AddProperty(in Identifier propertyName, PropertyDescriptor descriptor)
         {
-            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
+            if (propertyName == KnownIdentifiers.Length)
             {
                 _length = descriptor;
                 return;
@@ -311,9 +308,9 @@ namespace Jint.Native.Array
             base.AddProperty(propertyName, descriptor);
         }
 
-        protected override bool TryGetProperty(string propertyName, out PropertyDescriptor descriptor)
+        protected override bool TryGetProperty(in Identifier propertyName, out PropertyDescriptor descriptor)
         {
-            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
+            if (propertyName == KnownIdentifiers.Length)
             {
                 descriptor = _length;
                 return _length != null;
@@ -326,7 +323,7 @@ namespace Jint.Native.Array
         {
             if (_length != null)
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameLength, _length);
+                yield return new KeyValuePair<string, PropertyDescriptor>(KnownIdentifiers.Length, _length);
             }
 
             if (_dense != null)
@@ -354,7 +351,7 @@ namespace Jint.Native.Array
             }
         }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Identifier propertyName)
         {
             if (IsArrayIndex(propertyName, out var index))
             {
@@ -366,7 +363,7 @@ namespace Jint.Native.Array
                 return PropertyDescriptor.Undefined;
             }
 
-            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
+            if (propertyName == KnownIdentifiers.Length)
             {
                 return _length ?? PropertyDescriptor.Undefined;
             }
@@ -400,13 +397,13 @@ namespace Jint.Native.Array
             return Prototype?.GetProperty(TypeConverter.ToString(index)) ?? PropertyDescriptor.Undefined;
         }
 
-        protected internal override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
+        protected internal override void SetOwnProperty(in Identifier propertyName, PropertyDescriptor desc)
         {
             if (IsArrayIndex(propertyName, out var index))
             {
                 WriteArrayValue(index, desc);
             }
-            else if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
+            else if (propertyName == KnownIdentifiers.Length)
             {
                 _length = desc;
             }
@@ -416,7 +413,7 @@ namespace Jint.Native.Array
             }
         }
 
-        public override bool HasOwnProperty(string p)
+        public override bool HasOwnProperty(in Identifier p)
         {
             if (IsArrayIndex(p, out var index))
             {
@@ -425,7 +422,7 @@ namespace Jint.Native.Array
                        && (_dense == null || (index < (uint) _dense.Length && _dense[index] != null));
             }
 
-            if (p == PropertyNameLength)
+            if (p == KnownIdentifiers.Length)
             {
                 return _length != null;
             }
@@ -433,14 +430,14 @@ namespace Jint.Native.Array
             return base.HasOwnProperty(p);
         }
 
-        public override void RemoveOwnProperty(string p)
+        public override void RemoveOwnProperty(in Identifier p)
         {
             if (IsArrayIndex(p, out var index))
             {
                 DeleteAt(index);
             }
 
-            if (p == PropertyNameLength)
+            if (p == KnownIdentifiers.Length)
             {
                 _length = null;
             }
@@ -548,27 +545,6 @@ namespace Jint.Native.Array
             }
 
             return smallest;
-        }
-
-        internal uint GetLargestIndex()
-        {
-            if (_dense != null)
-            {
-                return (uint) (_dense.Length - 1);
-            }
-
-            uint largest = uint.MaxValue;
-            // only try to help if collection reasonable small
-            if (_sparse.Count > 0 && _sparse.Count < 100)
-            {
-                largest = 0;
-                foreach (var key in _sparse.Keys)
-                {
-                    largest = System.Math.Max(key, largest);
-                }
-            }
-
-            return largest;
         }
 
         public bool TryGetValue(uint index, out JsValue value)
@@ -720,13 +696,13 @@ namespace Jint.Native.Array
             }
 
             // check if we can set length fast without breaking ECMA specification
-            if (n < uint.MaxValue && CanPut(PropertyNameLength))
+            if (n < uint.MaxValue && CanPut(KnownIdentifiers.Length))
             {
                 _length.Value = (uint) n;
             }
             else
             {
-                Put(PropertyNameLength, newLength, true);
+                Put(KnownIdentifiers.Length, newLength, true);
             }
 
             return (uint) n;

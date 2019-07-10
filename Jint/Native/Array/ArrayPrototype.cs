@@ -1262,8 +1262,6 @@ namespace Jint.Native.Array
 
             public abstract ulong GetSmallestIndex(ulong length);
 
-            public abstract ulong GetLargestIndex();
-
             public abstract uint GetLength();
 
             public abstract ulong GetLongLength();
@@ -1337,9 +1335,9 @@ namespace Jint.Native.Array
                     }
 
                     ulong min = length;
-                    foreach (var key in _instance._properties.Keys)
+                    foreach (var entry in _instance._properties)
                     {
-                        if (ulong.TryParse(key, out var index))
+                        if (ulong.TryParse(entry.Key, out var index))
                         {
                             min = System.Math.Min(index, min);
                         }
@@ -1347,9 +1345,9 @@ namespace Jint.Native.Array
 
                     if (_instance.Prototype?._properties != null)
                     {
-                        foreach (var key in _instance.Prototype._properties.Keys)
+                        foreach (var entry  in _instance.Prototype._properties)
                         {
-                            if (ulong.TryParse(key, out var index))
+                            if (ulong.TryParse(entry.Key, out var index))
                             {
                                 min = System.Math.Min(index, min);
                             }
@@ -1357,38 +1355,6 @@ namespace Jint.Native.Array
                     }
 
                     return min;
-                }
-
-                public override ulong GetLargestIndex()
-                {
-                    if (_instance._properties == null)
-                    {
-                        return 0;
-                    }
-
-                    long? max = null;
-                    foreach (var key in _instance._properties.Keys)
-                    {
-                        max = max ?? long.MinValue;
-                        if (ulong.TryParse(key, out var index))
-                        {
-                            max = System.Math.Max((long) index, max.Value);
-                        }
-                    }
-
-                    if (_instance.Prototype?._properties != null)
-                    {
-                        max = max ?? long.MinValue;
-                        foreach (var key in _instance.Prototype._properties.Keys)
-                        {
-                            if (ulong.TryParse(key, out var index))
-                            {
-                                max = System.Math.Max((long) index, max.Value);
-                            }
-                        }
-                    }
-
-                    return (ulong) (max ?? 0);
                 }
 
                 public override uint GetLength()
@@ -1440,8 +1406,6 @@ namespace Jint.Native.Array
                 public override ObjectInstance Target => _array;
 
                 public override ulong GetSmallestIndex(ulong length) => _array.GetSmallestIndex();
-
-                public override ulong GetLargestIndex() => _array.GetLargestIndex();
 
                 public override uint GetLength()
                 {

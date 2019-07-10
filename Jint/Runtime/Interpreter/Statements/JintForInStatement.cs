@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             if (_statement.Left.Type == Nodes.VariableDeclaration)
             {
-                _identifier = JintExpression.Build(engine, (Identifier) ((VariableDeclaration) _statement.Left).Declarations[0].Id);
+                _identifier = JintExpression.Build(engine, (Esprima.Ast.Identifier) ((VariableDeclaration) _statement.Left).Declarations[0].Id);
             }
             else if (_statement.Left.Type == Nodes.MemberExpression)
             {
@@ -28,7 +28,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             else
             {
-                _identifier = JintExpression.Build(engine, (Identifier) _statement.Left);
+                _identifier = JintExpression.Build(engine, (Esprima.Ast.Identifier) _statement.Left);
             }
 
             _body = Build(engine, _statement.Body);

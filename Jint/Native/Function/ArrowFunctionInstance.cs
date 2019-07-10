@@ -98,22 +98,24 @@ namespace Jint.Native.Function
             }
         }
 
-        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        public override void Put(in Identifier propertyName, JsValue value, bool throwOnError)
         {
             AssertValidPropertyName(propertyName);
             base.Put(propertyName, value, throwOnError);
         }
 
-        public override JsValue Get(string propertyName)
+        public override JsValue Get(in Identifier propertyName)
         {
             AssertValidPropertyName(propertyName);
             return base.Get(propertyName);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void AssertValidPropertyName(string propertyName)
+        private void AssertValidPropertyName(in Identifier propertyName)
         {
-            if (propertyName == "caller" || propertyName ==  "callee" || propertyName == "arguments")
+            if (propertyName == KnownIdentifiers.Caller
+                || propertyName ==  KnownIdentifiers.Callee
+                || propertyName == KnownIdentifiers.Arguments)
             {
                 ExceptionHelper.ThrowTypeError(_engine, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
             }

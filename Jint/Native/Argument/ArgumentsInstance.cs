@@ -80,19 +80,19 @@ namespace Jint.Native.Argument
             // step 13
             if (!_strict)
             {
-                SetOwnProperty("callee", new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
+                SetOwnProperty(KnownIdentifiers.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
             }
             // step 14
             else
             {
-                DefineOwnProperty("caller", _engine._getSetThrower, false);
-                DefineOwnProperty("callee", _engine._getSetThrower, false);
+                DefineOwnProperty(KnownIdentifiers.Caller, _engine._getSetThrower, false);
+                DefineOwnProperty(KnownIdentifiers.Callee, _engine._getSetThrower, false);
             }
         }
 
         public ObjectInstance ParameterMap { get; set; }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Identifier propertyName)
         {
             EnsureInitialized();
 
@@ -118,7 +118,7 @@ namespace Jint.Native.Argument
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
-        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        public override void Put(in Identifier propertyName, JsValue value, bool throwOnError)
         {
             EnsureInitialized();
 
@@ -156,7 +156,7 @@ namespace Jint.Native.Argument
             }
         }
 
-        public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(in Identifier propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             if (_func is ScriptFunctionInstance scriptFunctionInstance && scriptFunctionInstance._function._hasRestParameter)
             {
@@ -206,7 +206,7 @@ namespace Jint.Native.Argument
             return base.DefineOwnProperty(propertyName, desc, throwOnError);
         }
 
-        public override bool Delete(string propertyName, bool throwOnError)
+        public override bool Delete(in Identifier propertyName, bool throwOnError)
         {
             EnsureInitialized();
 

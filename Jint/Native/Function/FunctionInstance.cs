@@ -8,16 +8,10 @@ namespace Jint.Native.Function
 {
     public abstract class FunctionInstance : ObjectInstance, ICallable
     {
-        private const string PropertyNamePrototype = "prototype";
-        private const int PropertyNamePrototypeLength = 9;
         protected internal PropertyDescriptor _prototype;
 
-        private const string PropertyNameLength = "length";
-        private const int PropertyNameLengthLength = 6;
         protected PropertyDescriptor _length;
 
-        private const string PropertyNameName = "name";
-        private const int PropertyNameNameLength = 4;
         private JsValue _name;
         private PropertyDescriptor _nameDescriptor;
 
@@ -82,7 +76,7 @@ namespace Jint.Native.Function
                 return false;
             }
 
-            var po = Get("prototype");
+            var po = Get(KnownIdentifiers.Prototype);
             if (!po.IsObject())
             {
                 ExceptionHelper.ThrowTypeError(_engine, $"Function has non-object prototype '{TypeConverter.ToString(po)}' in instanceof check");
@@ -116,12 +110,11 @@ namespace Jint.Native.Function
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public override JsValue Get(string propertyName)
+        public override JsValue Get(in Identifier propertyName)
         {
             var v = base.Get(propertyName);
 
-            if (propertyName.Length == 6
-                && propertyName == "caller"
+            if (propertyName == KnownIdentifiers.Caller
                 && ((v.As<FunctionInstance>()?._strict).GetValueOrDefault()))
             {
                 ExceptionHelper.ThrowTypeError(_engine);
@@ -134,15 +127,15 @@ namespace Jint.Native.Function
         {
             if (_prototype != null)
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNamePrototype, _prototype);
+                yield return new KeyValuePair<string, PropertyDescriptor>(KnownIdentifiers.Prototype, _prototype);
             }
             if (_length != null)
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameLength, _length);
+                yield return new KeyValuePair<string, PropertyDescriptor>(KnownIdentifiers.Length, _length);
             }
             if (!(_name is null))
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameName, GetOwnProperty(PropertyNameName));
+                yield return new KeyValuePair<string, PropertyDescriptor>(KnownIdentifiers.Name, GetOwnProperty(KnownIdentifiers.Name));
             }
 
             foreach (var entry in base.GetOwnProperties())
@@ -151,17 +144,17 @@ namespace Jint.Native.Function
             }
         }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Identifier propertyName)
         {
-            if (propertyName.Length == PropertyNamePrototypeLength && propertyName == PropertyNamePrototype)
+            if (propertyName == KnownIdentifiers.Prototype)
             {
                 return _prototype ?? PropertyDescriptor.Undefined;
             }
-            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
+            if (propertyName == KnownIdentifiers.Length)
             {
                 return _length ?? PropertyDescriptor.Undefined;
             }
-            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
+            if (propertyName == KnownIdentifiers.Name)
             {
                 return !(_name is null)
                     ? _nameDescriptor ?? (_nameDescriptor = new PropertyDescriptor(_name, PropertyFlag.Configurable))
@@ -171,17 +164,17 @@ namespace Jint.Native.Function
             return base.GetOwnProperty(propertyName);
         }
 
-        protected internal override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
+        protected internal override void SetOwnProperty(in Identifier propertyName, PropertyDescriptor desc)
         {
-            if (propertyName.Length == PropertyNamePrototypeLength && propertyName == PropertyNamePrototype)
+            if (propertyName == KnownIdentifiers.Prototype)
             {
                 _prototype = desc;
             }
-            else if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
+            else if (propertyName == KnownIdentifiers.Length)
             {
                 _length = desc;
             }
-            else if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
+            else if (propertyName == KnownIdentifiers.Name)
             {
                 _name = desc._value;
                 _nameDescriptor = desc;
@@ -192,17 +185,17 @@ namespace Jint.Native.Function
             }
         }
 
-        public override bool HasOwnProperty(string propertyName)
+        public override bool HasOwnProperty(in Identifier propertyName)
         {
-            if (propertyName.Length == PropertyNamePrototypeLength && propertyName == PropertyNamePrototype)
+            if (propertyName == KnownIdentifiers.Prototype)
             {
                 return _prototype != null;
             }
-            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
+            if (propertyName == KnownIdentifiers.Length)
             {
                 return _length != null;
             }
-            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
+            if (propertyName == KnownIdentifiers.Name)
             {
                 return !(_name is null);
             }
@@ -210,17 +203,17 @@ namespace Jint.Native.Function
             return base.HasOwnProperty(propertyName);
         }
 
-        public override void RemoveOwnProperty(string propertyName)
+        public override void RemoveOwnProperty(in Identifier propertyName)
         {
-            if (propertyName.Length == PropertyNamePrototypeLength && propertyName == PropertyNamePrototype)
+            if (propertyName == KnownIdentifiers.Prototype)
             {
                 _prototype = null;
             }
-            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
+            if (propertyName == KnownIdentifiers.Length)
             {
                 _length = null;
             }
-            if (propertyName.Length == PropertyNameNameLength && propertyName == PropertyNameName)
+            if (propertyName == KnownIdentifiers.Name)
             {
                 _name = null;
                 _nameDescriptor = null;
@@ -229,11 +222,11 @@ namespace Jint.Native.Function
             base.RemoveOwnProperty(propertyName);
         }
 
-        internal void SetFunctionName(string name, bool throwIfExists = false)
+        internal void SetFunctionName(in Identifier identifier, bool throwIfExists = false)
         {
             if (_name is null)
             {
-                _name = name;
+                _name = identifier.Name;
             }
             else if (throwIfExists)
             {
