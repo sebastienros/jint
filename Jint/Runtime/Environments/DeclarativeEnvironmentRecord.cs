@@ -89,7 +89,7 @@ namespace Jint.Runtime.Environments
             if (_set && key == _key)
             {
                 _set = false;
-                _key = null;
+                _key = default;
                 _value = default;
             }
 

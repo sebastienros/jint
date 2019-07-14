@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Jint.Runtime;
 
 namespace Jint
@@ -7,6 +8,7 @@ namespace Jint
     /// Represents identifier that Jint uses with pre-calculated hash code
     /// as runtime is calculation-heavy.
     /// </summary>
+    [DebuggerDisplay("{" + nameof(Name) + "}")]
     public readonly struct Identifier : IEquatable<Identifier>
     {
         public Identifier(string name)
@@ -20,13 +22,7 @@ namespace Jint
         }
 
         public readonly string Name;
-        public readonly int HashCode;
-
-        public void Deconstruct(out string name, out int hashCode)
-        {
-            name = Name;
-            hashCode = HashCode;
-        }
+        internal readonly int HashCode;
 
         public static implicit operator Identifier(string name)
         {
@@ -47,18 +43,17 @@ namespace Jint
 
         public static bool operator ==(in Identifier a, string b)
         {
-            return a.Name.Equals(b);
+            return a.Name == b;
         }
 
         public static bool operator !=(in Identifier a, string b)
         {
-            return !a.Name.Equals(b);
+            return a.Name != b;
         }
 
         public bool Equals(Identifier other)
         {
-            var (name, hashCode) = other;
-            return HashCode == hashCode && Name == name;
+            return HashCode == other.HashCode && Name == other.Name;
         }
 
         public override bool Equals(object obj)

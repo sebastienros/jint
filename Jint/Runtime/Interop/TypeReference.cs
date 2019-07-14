@@ -159,8 +159,6 @@ namespace Jint.Runtime.Interop
 
         public override PropertyDescriptor GetOwnProperty(in Identifier identifier)
         {
-            var (propertyName, _) = identifier;
-
             // todo: cache members locally
 
             if (ReferenceType.IsEnum)
@@ -170,7 +168,7 @@ namespace Jint.Runtime.Interop
 
                 for (int i = 0; i < enumValues.Length; i++)
                 {
-                    if (enumNames.GetValue(i) as string == propertyName)
+                    if (enumNames.GetValue(i) as string == identifier.Name)
                     {
                         return new PropertyDescriptor((int) enumValues.GetValue(i), PropertyFlag.AllForbidden);
                     }
@@ -178,13 +176,13 @@ namespace Jint.Runtime.Interop
                 return PropertyDescriptor.Undefined;
             }
 
-            var propertyInfo = ReferenceType.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Static);
+            var propertyInfo = ReferenceType.GetProperty(identifier.Name, BindingFlags.Public | BindingFlags.Static);
             if (propertyInfo != null)
             {
                 return new PropertyInfoDescriptor(Engine, propertyInfo, Type);
             }
 
-            var fieldInfo = ReferenceType.GetField(propertyName, BindingFlags.Public | BindingFlags.Static);
+            var fieldInfo = ReferenceType.GetField(identifier.Name, BindingFlags.Public | BindingFlags.Static);
             if (fieldInfo != null)
             {
                 return new FieldInfoDescriptor(Engine, fieldInfo, Type);
@@ -193,7 +191,7 @@ namespace Jint.Runtime.Interop
             List<MethodInfo> methodInfo = null;
             foreach (var mi in ReferenceType.GetMethods(BindingFlags.Public | BindingFlags.Static))
             {
-                if (mi.Name == propertyName)
+                if (mi.Name == identifier.Name)
                 {
                     methodInfo = methodInfo ?? new List<MethodInfo>();
                     methodInfo.Add(mi);
