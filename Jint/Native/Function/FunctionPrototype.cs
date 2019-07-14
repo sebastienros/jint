@@ -103,12 +103,11 @@ namespace Jint.Native.Function
             var argArrayObj = argArray as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
             var operations = ArrayPrototype.ArrayOperations.For(argArrayObj);
 
-            uint n = operations.GetLength();
-            var argList = _engine._jsValueArrayPool.RentArray((int) n);
-            for (uint i = 0; i < n; i++)
+            var n = (int) operations.GetLength();
+            var argList = _engine._jsValueArrayPool.RentArray(n);
+            for (uint i = 0; i < argList.Length; i++)
             {
-                var nextArg = operations.Get(i);
-                argList[i] = nextArg;
+                argList[i] = operations.Get(i);
             }
 
             var result = func.Call(thisArg, argList);
