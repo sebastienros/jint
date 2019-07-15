@@ -68,7 +68,7 @@ namespace Jint.Native
             // we can cache positive double zero, but not negative, -0 == 0 in C# but in JS it's a different story
             var temp = _doubleToJsValue;
             if ((value == 0 && BitConverter.DoubleToInt64Bits(value) != NegativeZeroBits || value >= 1)
-                && (uint) value < temp.Length
+                && value < temp.Length
                 && System.Math.Abs(value % 1) <= DoubleIsIntegerTolerance)
             {
                 return temp[(uint) value];
