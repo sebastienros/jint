@@ -122,6 +122,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var objectProperty = _properties[i];
                 var property = objectProperty._value;
+                var propName = !string.IsNullOrEmpty(objectProperty.Name)
+                    ? objectProperty.Name
+                    : (Identifier) objectProperty._value.Key.GetKey(_engine);
+
                 PropertyDescriptor propDesc;
 
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
@@ -158,14 +162,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return ExceptionHelper.ThrowArgumentOutOfRangeException<object>();
                 }
 
-                if (string.IsNullOrEmpty(objectProperty.Name))
-                {
-                    obj.DefineOwnProperty(objectProperty._value.Key.GetKey(_engine), propDesc, false);
-                }
-                else
-                {
-                    obj.DefineOwnProperty(objectProperty.Name, propDesc, false);
-                }
+                obj.DefineOwnProperty(propName, propDesc, false);
             }
 
             return obj;
