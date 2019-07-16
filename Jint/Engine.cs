@@ -808,10 +808,11 @@ namespace Jint
                 for (var i = 0; i < variableDeclarationsCount; i++)
                 {
                     var variableDeclaration = variableDeclarations[i];
-                    var declarationsCount = variableDeclaration.Declarations.Count;
+                    var declarations = variableDeclaration.Declarations;
+                    var declarationsCount = declarations.Count;
                     for (var j = 0; j < declarationsCount; j++)
                     {
-                        var d = variableDeclaration.Declarations[j];
+                        var d = declarations[j];
                         if (d.Id is Esprima.Ast.Identifier id1)
                         {
                             Identifier name = id1.Name;
