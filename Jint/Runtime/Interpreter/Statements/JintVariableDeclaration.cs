@@ -65,10 +65,8 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
-            var declarations = _declarations;
-            for (var i = 0; i < (uint) declarations.Length; i++)
+            foreach (var declaration in _declarations)
             {
-                var declaration = declarations[i];
                 if (declaration.Init != null)
                 {
                     if (declaration.LeftPattern != null)

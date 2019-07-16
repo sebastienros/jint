@@ -154,7 +154,7 @@ namespace Jint.Runtime.Environments
             return false;
         }
 
-        public override void CreateMutableBinding(in Identifier name, JsValue value, bool canBeDeleted = true)
+        public override void CreateMutableBinding(in Identifier name, JsValue value, bool canBeDeleted = false)
         {
             SetItem(name, new Binding(value, canBeDeleted, mutable: true));
         }
