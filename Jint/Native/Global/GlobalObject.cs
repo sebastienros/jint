@@ -530,6 +530,8 @@ namespace Jint.Native.Global
             _stringBuilder.EnsureCapacity(strLen);
             _stringBuilder.Clear();
 
+            var octets = ArrayExt.Empty<byte>();
+
             for (var k = 0; k < strLen; k++)
             {
                 var C = uriString[k];
@@ -575,8 +577,11 @@ namespace Jint.Native.Global
                             ExceptionHelper.ThrowUriError(_engine);
                         }
 
-                        var Octets = new byte[n];
-                        Octets[0] = B;
+                        octets = octets.Length == n
+                            ? octets
+                            : new byte[n];
+
+                        octets[0] = B;
 
                         if (k + (3 * (n - 1)) >= strLen)
                         {
@@ -606,10 +611,10 @@ namespace Jint.Native.Global
 
                             k += 2;
 
-                            Octets[j] = B;
+                            octets[j] = B;
                         }
 
-                        _stringBuilder.Append(Encoding.UTF8.GetString(Octets, 0, Octets.Length));
+                        _stringBuilder.Append(Encoding.UTF8.GetString(octets, 0, octets.Length));
                     }
                 }
             }
