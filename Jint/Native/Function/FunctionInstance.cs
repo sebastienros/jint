@@ -110,7 +110,7 @@ namespace Jint.Native.Function
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public override JsValue Get(in Identifier propertyName)
+        public override JsValue Get(in Key propertyName)
         {
             var v = base.Get(propertyName);
 
@@ -144,7 +144,7 @@ namespace Jint.Native.Function
             }
         }
 
-        public override PropertyDescriptor GetOwnProperty(in Identifier propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
             if (propertyName == KnownIdentifiers.Prototype)
             {
@@ -164,7 +164,7 @@ namespace Jint.Native.Function
             return base.GetOwnProperty(propertyName);
         }
 
-        protected internal override void SetOwnProperty(in Identifier propertyName, PropertyDescriptor desc)
+        protected internal override void SetOwnProperty(in Key propertyName, PropertyDescriptor desc)
         {
             if (propertyName == KnownIdentifiers.Prototype)
             {
@@ -185,7 +185,7 @@ namespace Jint.Native.Function
             }
         }
 
-        public override bool HasOwnProperty(in Identifier propertyName)
+        public override bool HasOwnProperty(in Key propertyName)
         {
             if (propertyName == KnownIdentifiers.Prototype)
             {
@@ -203,7 +203,7 @@ namespace Jint.Native.Function
             return base.HasOwnProperty(propertyName);
         }
 
-        public override void RemoveOwnProperty(in Identifier propertyName)
+        public override void RemoveOwnProperty(in Key propertyName)
         {
             if (propertyName == KnownIdentifiers.Prototype)
             {
@@ -222,11 +222,11 @@ namespace Jint.Native.Function
             base.RemoveOwnProperty(propertyName);
         }
 
-        internal void SetFunctionName(in Identifier identifier, bool throwIfExists = false)
+        internal void SetFunctionName(in Key key, bool throwIfExists = false)
         {
             if (_name is null)
             {
-                _name = identifier.Name;
+                _name = key.Name;
             }
             else if (throwIfExists)
             {

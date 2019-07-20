@@ -2,26 +2,26 @@ namespace Jint.Runtime
 {
     internal static class KnownIdentifiers
     {
-        private static readonly Identifier _arguments = "arguments";
-        private static readonly Identifier _caller = "caller";
-        private static readonly Identifier _callee = "callee";
-        private static readonly Identifier _constructor = "constructor";
-        private static readonly Identifier _eval = "eval";
-        private static readonly Identifier _infinity = "Infinity";
-        private static readonly Identifier _length = "length";
-        private static readonly Identifier _name = "name";
-        private static readonly Identifier _prototype = "prototype";
-        private static readonly Identifier _size = "size";
+        private static readonly Key _arguments = "arguments";
+        private static readonly Key _caller = "caller";
+        private static readonly Key _callee = "callee";
+        private static readonly Key _constructor = "constructor";
+        private static readonly Key _eval = "eval";
+        private static readonly Key _infinity = "Infinity";
+        private static readonly Key _length = "length";
+        private static readonly Key _name = "name";
+        private static readonly Key _prototype = "prototype";
+        private static readonly Key _size = "size";
 
-        internal static ref readonly Identifier Arguments => ref _arguments;
-        internal static ref readonly Identifier Caller => ref _caller;
-        internal static ref readonly Identifier Callee => ref _callee;
-        internal static ref readonly Identifier Constructor => ref _constructor;
-        internal static ref readonly Identifier Eval => ref _eval;
-        internal static ref readonly Identifier Infinity => ref _infinity;
-        internal static ref readonly Identifier Length => ref _length;
-        internal static ref readonly Identifier Name => ref _name;
-        internal static ref readonly Identifier Prototype => ref _prototype;
-        internal static ref readonly Identifier Size => ref _size;
+        internal static ref readonly Key Arguments => ref _arguments;
+        internal static ref readonly Key Caller => ref _caller;
+        internal static ref readonly Key Callee => ref _callee;
+        internal static ref readonly Key Constructor => ref _constructor;
+        internal static ref readonly Key Eval => ref _eval;
+        internal static ref readonly Key Infinity => ref _infinity;
+        internal static ref readonly Key Length => ref _length;
+        internal static ref readonly Key Name => ref _name;
+        internal static ref readonly Key Prototype => ref _prototype;
+        internal static ref readonly Key Size => ref _size;
     }
 }

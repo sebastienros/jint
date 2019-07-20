@@ -23,7 +23,7 @@ namespace Jint.Runtime.Interop
             _path = path;
         }
 
-        public override bool DefineOwnProperty(in Identifier propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             if (throwOnError)
             {
@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interop
             return false;
         }
 
-        public override bool Delete(in Identifier propertyName, bool throwOnError)
+        public override bool Delete(in Key propertyName, bool throwOnError)
         {
             if (throwOnError)
             {
@@ -80,7 +80,7 @@ namespace Jint.Runtime.Interop
             }
         }
 
-        public override JsValue Get(in Identifier propertyName)
+        public override JsValue Get(in Key propertyName)
         {
             var newPath = _path + "." + propertyName;
 
@@ -196,7 +196,7 @@ namespace Jint.Runtime.Interop
             }
         }
 
-        public override PropertyDescriptor GetOwnProperty(in Identifier propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
             return PropertyDescriptor.Undefined;
         }

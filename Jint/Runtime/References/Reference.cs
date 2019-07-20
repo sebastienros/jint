@@ -12,10 +12,10 @@ namespace Jint.Runtime.References
     public sealed class Reference
     {
         internal JsValue _baseValue;
-        private Identifier _name;
+        private Key _name;
         internal bool _strict;
 
-        public Reference(JsValue baseValue, in Identifier name, bool strict)
+        public Reference(JsValue baseValue, in Key name, bool strict)
         {
             _baseValue = baseValue;
             _name = name;
@@ -28,7 +28,7 @@ namespace Jint.Runtime.References
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref readonly Identifier GetReferencedName()
+        public ref readonly Key GetReferencedName()
         {
             return ref _name;
         }
@@ -59,7 +59,7 @@ namespace Jint.Runtime.References
                    || _baseValue._type == Types.Object && !(_baseValue is EnvironmentRecord);
         }
 
-        internal Reference Reassign(JsValue baseValue, in Identifier name, bool strict)
+        internal Reference Reassign(JsValue baseValue, in Key name, bool strict)
         {
             _baseValue = baseValue;
             _name = name;

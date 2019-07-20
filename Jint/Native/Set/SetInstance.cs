@@ -17,7 +17,7 @@ namespace Jint.Native.Set
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
-        public override void Put(in Identifier propertyName, JsValue value, bool throwOnError)
+        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
         {
             if (!CanPut(propertyName))
             {
@@ -53,7 +53,7 @@ namespace Jint.Native.Set
             }
         }
 
-        public override PropertyDescriptor GetOwnProperty(in Identifier propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
             if (propertyName == KnownIdentifiers.Size)
             {
@@ -63,7 +63,7 @@ namespace Jint.Native.Set
             return base.GetOwnProperty(propertyName);
         }
 
-        protected override bool TryGetProperty(in Identifier propertyName, out PropertyDescriptor descriptor)
+        protected override bool TryGetProperty(in Key propertyName, out PropertyDescriptor descriptor)
         {
             if (propertyName == KnownIdentifiers.Size)
             {

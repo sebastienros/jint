@@ -32,7 +32,7 @@ namespace Jint.Runtime.Interop
 
         internal override bool IsArrayLike { get; }
 
-        public override void Put(in Identifier propertyName, JsValue value, bool throwOnError)
+        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
         {
             if (!CanPut(propertyName))
             {
@@ -59,7 +59,7 @@ namespace Jint.Runtime.Interop
             }
         }
 
-        public override PropertyDescriptor GetOwnProperty(in Identifier propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
             if (TryGetProperty(propertyName, out var x))
             {

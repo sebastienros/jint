@@ -92,7 +92,7 @@ namespace Jint.Native.Argument
 
         public ObjectInstance ParameterMap { get; set; }
 
-        public override PropertyDescriptor GetOwnProperty(in Identifier propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
             EnsureInitialized();
 
@@ -118,7 +118,7 @@ namespace Jint.Native.Argument
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
-        public override void Put(in Identifier propertyName, JsValue value, bool throwOnError)
+        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
         {
             EnsureInitialized();
 
@@ -156,7 +156,7 @@ namespace Jint.Native.Argument
             }
         }
 
-        public override bool DefineOwnProperty(in Identifier propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             if (_func is ScriptFunctionInstance scriptFunctionInstance && scriptFunctionInstance._function._hasRestParameter)
             {
@@ -206,7 +206,7 @@ namespace Jint.Native.Argument
             return base.DefineOwnProperty(propertyName, desc, throwOnError);
         }
 
-        public override bool Delete(in Identifier propertyName, bool throwOnError)
+        public override bool Delete(in Key propertyName, bool throwOnError)
         {
             EnsureInitialized();
 

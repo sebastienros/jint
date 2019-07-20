@@ -19,7 +19,7 @@ namespace Jint.Runtime.Environments
     {
         private StringDictionarySlim<Binding> _dictionary;
         private bool _set;
-        private Identifier _key;
+        private Key _key;
         private Binding _value;
 
         private Binding _argumentsBinding;
@@ -31,7 +31,7 @@ namespace Jint.Runtime.Environments
         {
         }
 
-        private void SetItem(in Identifier key, in Binding value)
+        private void SetItem(in Key key, in Binding value)
         {
             if (_set && _key != key)
             {
@@ -53,7 +53,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        private ref Binding GetExistingItem(in Identifier key)
+        private ref Binding GetExistingItem(in Key key)
         {
             if (_set && _key == key)
             {
@@ -69,7 +69,7 @@ namespace Jint.Runtime.Environments
             return ref _dictionary.GetOrAddValueRef(key);
         }
 
-        private bool ContainsKey(in Identifier key)
+        private bool ContainsKey(in Key key)
         {
             if (key == KnownIdentifiers.Arguments)
             {
@@ -84,7 +84,7 @@ namespace Jint.Runtime.Environments
             return _dictionary?.ContainsKey(key) == true;
         }
 
-        private void Remove(in Identifier key)
+        private void Remove(in Key key)
         {
             if (_set && key == _key)
             {
@@ -103,7 +103,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        private bool TryGetValue(in Identifier key, out Binding value)
+        private bool TryGetValue(in Key key, out Binding value)
         {
             value = default;
             if (_set && _key == key)
@@ -115,13 +115,13 @@ namespace Jint.Runtime.Environments
             return _dictionary != null && _dictionary.TryGetValue(key, out value);
         }
 
-        public override bool HasBinding(in Identifier name)
+        public override bool HasBinding(in Key name)
         {
             return ContainsKey(name);
         }
 
         internal override bool TryGetBinding(
-            in Identifier name,
+            in Key name,
             bool strict,
             out Binding binding,
             out JsValue value)
@@ -154,12 +154,12 @@ namespace Jint.Runtime.Environments
             return false;
         }
 
-        public override void CreateMutableBinding(in Identifier name, JsValue value, bool canBeDeleted = false)
+        public override void CreateMutableBinding(in Key name, JsValue value, bool canBeDeleted = false)
         {
             SetItem(name, new Binding(value, canBeDeleted, mutable: true));
         }
 
-        public override void SetMutableBinding(in Identifier name, JsValue value, bool strict)
+        public override void SetMutableBinding(in Key name, JsValue value, bool strict)
         {
             ref var binding = ref GetExistingItem(name);
 
@@ -176,7 +176,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        public override JsValue GetBindingValue(in Identifier name, bool strict)
+        public override JsValue GetBindingValue(in Key name, bool strict)
         {
             ref var binding = ref GetExistingItem(name);
             return UnwrapBindingValue(strict, binding);
@@ -203,7 +203,7 @@ namespace Jint.Runtime.Environments
             throw new JavaScriptException(_engine.ReferenceError, "Can't access an uninitialized immutable binding.");
         }
 
-        public override bool DeleteBinding(in Identifier name)
+        public override bool DeleteBinding(in Key name)
         {
             ref Binding binding = ref GetExistingItem(name);
 
@@ -442,7 +442,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        private void SetItemSafely(in Identifier name, JsValue argument, bool initiallyEmpty)
+        private void SetItemSafely(in Key name, JsValue argument, bool initiallyEmpty)
         {
             if (initiallyEmpty || !TryGetValue(name, out var existing))
             {
@@ -482,7 +482,7 @@ namespace Jint.Runtime.Environments
                     var d = variableDeclaration.Declarations[j];
                     if (d.Id is Esprima.Ast.Identifier id)
                     {
-                        Identifier dn = id.Name;
+                        Key dn = id.Name;
                         if (!ContainsKey(dn))
                         {
                             var binding = new Binding(Undefined, canBeDeleted: false, mutable: true);

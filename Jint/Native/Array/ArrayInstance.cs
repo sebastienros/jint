@@ -62,7 +62,7 @@ namespace Jint.Native.Array
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
-        public override void Put(in Identifier propertyName, JsValue value, bool throwOnError)
+        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
         {
             if (!CanPut(propertyName))
             {
@@ -98,7 +98,7 @@ namespace Jint.Native.Array
             }
         }
 
-        public override bool DefineOwnProperty(in Identifier propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             var oldLenDesc = _length;
             var oldLen = (uint) TypeConverter.ToNumber(oldLenDesc.Value);
@@ -297,7 +297,7 @@ namespace Jint.Native.Array
             return (uint) ((JsNumber) _length._value)._value;
         }
 
-        protected override void AddProperty(in Identifier propertyName, PropertyDescriptor descriptor)
+        protected override void AddProperty(in Key propertyName, PropertyDescriptor descriptor)
         {
             if (propertyName == KnownIdentifiers.Length)
             {
@@ -308,7 +308,7 @@ namespace Jint.Native.Array
             base.AddProperty(propertyName, descriptor);
         }
 
-        protected override bool TryGetProperty(in Identifier propertyName, out PropertyDescriptor descriptor)
+        protected override bool TryGetProperty(in Key propertyName, out PropertyDescriptor descriptor)
         {
             if (propertyName == KnownIdentifiers.Length)
             {
@@ -351,7 +351,7 @@ namespace Jint.Native.Array
             }
         }
 
-        public override PropertyDescriptor GetOwnProperty(in Identifier propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
             if (IsArrayIndex(propertyName, out var index))
             {
@@ -397,7 +397,7 @@ namespace Jint.Native.Array
             return Prototype?.GetProperty(TypeConverter.ToString(index)) ?? PropertyDescriptor.Undefined;
         }
 
-        protected internal override void SetOwnProperty(in Identifier propertyName, PropertyDescriptor desc)
+        protected internal override void SetOwnProperty(in Key propertyName, PropertyDescriptor desc)
         {
             if (IsArrayIndex(propertyName, out var index))
             {
@@ -413,7 +413,7 @@ namespace Jint.Native.Array
             }
         }
 
-        public override bool HasOwnProperty(in Identifier p)
+        public override bool HasOwnProperty(in Key p)
         {
             if (IsArrayIndex(p, out var index))
             {
@@ -430,7 +430,7 @@ namespace Jint.Native.Array
             return base.HasOwnProperty(p);
         }
 
-        public override void RemoveOwnProperty(in Identifier p)
+        public override void RemoveOwnProperty(in Key p)
         {
             if (IsArrayIndex(p, out var index))
             {

@@ -21,13 +21,13 @@ namespace Jint.Runtime.Environments
             _provideThis = provideThis;
         }
 
-        public override bool HasBinding(in Identifier name)
+        public override bool HasBinding(in Key name)
         {
             return _bindingObject.HasProperty(name);
         }
 
         internal override bool TryGetBinding(
-            in Identifier name,
+            in Key name,
             bool strict,
             out Binding binding,
             out JsValue value)
@@ -49,7 +49,7 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2.2
         /// </summary>
-        public override void CreateMutableBinding(in Identifier name, JsValue value, bool configurable = true)
+        public override void CreateMutableBinding(in Key name, JsValue value, bool configurable = true)
         {
             var propertyDescriptor = configurable
                 ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable)
@@ -58,12 +58,12 @@ namespace Jint.Runtime.Environments
             _bindingObject.SetOwnProperty(name, propertyDescriptor);
         }
 
-        public override void SetMutableBinding(in Identifier name, JsValue value, bool strict)
+        public override void SetMutableBinding(in Key name, JsValue value, bool strict)
         {
             _bindingObject.Put(name, value, strict);
         }
 
-        public override JsValue GetBindingValue(in Identifier name, bool strict)
+        public override JsValue GetBindingValue(in Key name, bool strict)
         {
             var desc = _bindingObject.GetProperty(name);
             if (strict && desc == PropertyDescriptor.Undefined)
@@ -74,7 +74,7 @@ namespace Jint.Runtime.Environments
             return ObjectInstance.UnwrapJsValue(desc, this);
         }
 
-        public override bool DeleteBinding(in Identifier name)
+        public override bool DeleteBinding(in Key name)
         {
             return _bindingObject.Delete(name, false);
         }

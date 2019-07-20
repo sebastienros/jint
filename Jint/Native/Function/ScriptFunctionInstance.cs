@@ -173,7 +173,7 @@ namespace Jint.Native.Function
                 }
             }
 
-            public override PropertyDescriptor GetOwnProperty(in Identifier propertyName)
+            public override PropertyDescriptor GetOwnProperty(in Key propertyName)
             {
                 if (propertyName == KnownIdentifiers.Constructor)
                 {
@@ -183,7 +183,7 @@ namespace Jint.Native.Function
                 return base.GetOwnProperty(propertyName);
             }
 
-            protected internal override void SetOwnProperty(in Identifier propertyName, PropertyDescriptor desc)
+            protected internal override void SetOwnProperty(in Key propertyName, PropertyDescriptor desc)
             {
                 if (propertyName == KnownIdentifiers.Constructor)
                 {
@@ -195,7 +195,7 @@ namespace Jint.Native.Function
                 }
             }
 
-            public override bool HasOwnProperty(in Identifier propertyName)
+            public override bool HasOwnProperty(in Key propertyName)
             {
                 if (propertyName == KnownIdentifiers.Constructor)
                 {
@@ -205,7 +205,7 @@ namespace Jint.Native.Function
                 return base.HasOwnProperty(propertyName);
             }
 
-            public override void RemoveOwnProperty(in Identifier propertyName)
+            public override void RemoveOwnProperty(in Key propertyName)
             {
                 if (propertyName == KnownIdentifiers.Constructor)
                 {

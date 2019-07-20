@@ -111,14 +111,14 @@ namespace Jint
 
         internal readonly struct ClrPropertyDescriptorFactoriesKey : IEquatable<ClrPropertyDescriptorFactoriesKey>
         {
-            public ClrPropertyDescriptorFactoriesKey(Type type, in Identifier propertyName)
+            public ClrPropertyDescriptorFactoriesKey(Type type, in Key propertyName)
             {
                 Type = type;
                 PropertyName = propertyName;
             }
 
             private readonly Type Type;
-            private readonly Identifier PropertyName;
+            private readonly Key PropertyName;
 
             public bool Equals(ClrPropertyDescriptorFactoriesKey other)
             {
@@ -306,39 +306,39 @@ namespace Jint
             _executionContexts.Push(context);
         }
 
-        public Engine SetValue(in Identifier name, Delegate value)
+        public Engine SetValue(in Key name, Delegate value)
         {
             Global.FastAddProperty(name, new DelegateWrapper(this, value), true, false, true);
             return this;
         }
 
-        public Engine SetValue(in Identifier name, string value)
+        public Engine SetValue(in Key name, string value)
         {
             return SetValue(name, (JsValue) value);
         }
 
-        public Engine SetValue(in Identifier name, double value)
+        public Engine SetValue(in Key name, double value)
         {
             return SetValue(name, JsNumber.Create(value));
         }
 
-        public Engine SetValue(in Identifier name, int value)
+        public Engine SetValue(in Key name, int value)
         {
             return SetValue(name, JsNumber.Create(value));
         }
 
-        public Engine SetValue(in Identifier name, bool value)
+        public Engine SetValue(in Key name, bool value)
         {
             return SetValue(name, value ? JsBoolean.True : JsBoolean.False);
         }
 
-        public Engine SetValue(in Identifier name, JsValue value)
+        public Engine SetValue(in Key name, JsValue value)
         {
             Global.Put(name, value, false);
             return this;
         }
 
-        public Engine SetValue(in Identifier name, object obj)
+        public Engine SetValue(in Key name, object obj)
         {
             return SetValue(name, JsValue.FromObject(this, obj));
         }
@@ -606,7 +606,7 @@ namespace Jint
         /// <summary>
         /// Used by PutValue when the reference has a primitive base value
         /// </summary>
-        public void PutPrimitiveBase(JsValue b, in Identifier name, JsValue value, bool throwOnError)
+        public void PutPrimitiveBase(JsValue b, in Key name, JsValue value, bool throwOnError)
         {
             var o = TypeConverter.ToObject(this, b);
             if (!o.CanPut(name))
@@ -726,7 +726,7 @@ namespace Jint
         /// </summary>
         /// <param name="scope">The scope to get the property from.</param>
         /// <param name="propertyName">The name of the property to return.</param>
-        public JsValue GetValue(JsValue scope, in Identifier propertyName)
+        public JsValue GetValue(JsValue scope, in Key propertyName)
         {
             AssertNotNullOrEmpty(nameof(propertyName), propertyName);
 
@@ -768,7 +768,7 @@ namespace Jint
                     var parameters = functionInstance._formalParameters;
                     for (var i = 0; i < parameters.Length; i++)
                     {
-                        Identifier argName = parameters[i];
+                        Key argName = parameters[i];
                         var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
                         v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionDeclaration, v, i);
 
@@ -815,7 +815,7 @@ namespace Jint
                         var d = declarations[j];
                         if (d.Id is Esprima.Ast.Identifier id1)
                         {
-                            Identifier name = id1.Name;
+                            Key name = id1.Name;
                             var varAlreadyDeclared = env.HasBinding(name);
                             if (!varAlreadyDeclared)
                             {
@@ -839,7 +839,7 @@ namespace Jint
             for (var i = 0; i < functionDeclarationsCount; i++)
             {
                 var f = functionDeclarations[i];
-                Identifier fn = f.Id.Name;
+                Key fn = f.Id.Name;
                 var fo = Function.CreateFunctionObject(f);
                 var funcAlreadyDeclared = env.HasBinding(fn);
                 if (!funcAlreadyDeclared)

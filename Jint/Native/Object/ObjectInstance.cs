@@ -71,7 +71,7 @@ namespace Jint.Native.Object
             }
         }
 
-        protected virtual void AddProperty(in Identifier propertyName, PropertyDescriptor descriptor)
+        protected virtual void AddProperty(in Key propertyName, PropertyDescriptor descriptor)
         {
             if (_properties == null)
             {
@@ -81,7 +81,7 @@ namespace Jint.Native.Object
             _properties[propertyName] = descriptor;
         }
 
-        protected virtual bool TryGetProperty(in Identifier propertyName, out PropertyDescriptor descriptor)
+        protected virtual bool TryGetProperty(in Key propertyName, out PropertyDescriptor descriptor)
         {
             if (_properties == null)
             {
@@ -92,14 +92,14 @@ namespace Jint.Native.Object
             return _properties.TryGetValue(propertyName, out descriptor);
         }
 
-        public virtual bool HasOwnProperty(in Identifier propertyName)
+        public virtual bool HasOwnProperty(in Key propertyName)
         {
             EnsureInitialized();
 
             return _properties?.ContainsKey(propertyName) == true;
         }
 
-        public virtual void RemoveOwnProperty(in Identifier propertyName)
+        public virtual void RemoveOwnProperty(in Key propertyName)
         {
             EnsureInitialized();
 
@@ -112,7 +112,7 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public virtual JsValue Get(in Identifier propertyName)
+        public virtual JsValue Get(in Key propertyName)
         {
             var desc = GetProperty(propertyName);
             return UnwrapJsValue(desc);
@@ -161,7 +161,7 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public virtual PropertyDescriptor GetOwnProperty(in Identifier propertyName)
+        public virtual PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
             EnsureInitialized();
 
@@ -170,7 +170,7 @@ namespace Jint.Native.Object
             return descriptor ?? PropertyDescriptor.Undefined;
         }
 
-        protected internal virtual void SetOwnProperty(in Identifier propertyName, PropertyDescriptor desc)
+        protected internal virtual void SetOwnProperty(in Key propertyName, PropertyDescriptor desc)
         {
             EnsureInitialized();
 
@@ -188,7 +188,7 @@ namespace Jint.Native.Object
         /// <param name="propertyName"></param>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public PropertyDescriptor GetProperty(in Identifier propertyName)
+        public PropertyDescriptor GetProperty(in Key propertyName)
         {
             var prop = GetOwnProperty(propertyName);
 
@@ -200,7 +200,7 @@ namespace Jint.Native.Object
             return Prototype?.GetProperty(propertyName) ?? PropertyDescriptor.Undefined;
         }
 
-        public bool TryGetValue(in Identifier propertyName, out JsValue value)
+        public bool TryGetValue(in Key propertyName, out JsValue value)
         {
             value = Undefined;
             var desc = GetOwnProperty(propertyName);
@@ -247,7 +247,7 @@ namespace Jint.Native.Object
         /// <param name="propertyName"></param>
         /// <param name="value"></param>
         /// <param name="throwOnError"></param>
-        public virtual void Put(in Identifier propertyName, JsValue value, bool throwOnError)
+        public virtual void Put(in Key propertyName, JsValue value, bool throwOnError)
         {
             if (!CanPut(propertyName))
             {
@@ -295,7 +295,7 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public bool CanPut(in Identifier propertyName)
+        public bool CanPut(in Key propertyName)
         {
             var desc = GetOwnProperty(propertyName);
 
@@ -354,7 +354,7 @@ namespace Jint.Native.Object
         /// <param name="propertyName"></param>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool HasProperty(in Identifier propertyName)
+        public bool HasProperty(in Key propertyName)
         {
             return GetProperty(propertyName) != PropertyDescriptor.Undefined;
         }
@@ -367,7 +367,7 @@ namespace Jint.Native.Object
         /// <param name="propertyName"></param>
         /// <param name="throwOnError"></param>
         /// <returns></returns>
-        public virtual bool Delete(in Identifier propertyName, bool throwOnError)
+        public virtual bool Delete(in Key propertyName, bool throwOnError)
         {
             var desc = GetOwnProperty(propertyName);
 
@@ -496,7 +496,7 @@ namespace Jint.Native.Object
         /// <param name="desc"></param>
         /// <param name="throwOnError"></param>
         /// <returns></returns>
-        public virtual bool DefineOwnProperty(in Identifier propertyName, PropertyDescriptor desc, bool throwOnError)
+        public virtual bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             var current = GetOwnProperty(propertyName);
 
@@ -739,7 +739,7 @@ namespace Jint.Native.Object
         /// </summary>
         /// <param name="name"></param>
         /// <param name="value"></param>
-        public void FastSetProperty(in Identifier name, PropertyDescriptor value)
+        public void FastSetProperty(in Key name, PropertyDescriptor value)
         {
             SetOwnProperty(name, value);
         }

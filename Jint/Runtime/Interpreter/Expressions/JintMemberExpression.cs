@@ -14,7 +14,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintThisExpression _objectThisExpression;
 
         private readonly JintExpression _propertyExpression;
-        private readonly Identifier _determinedPropertyName;
+        private readonly Key _determinedPropertyName;
 
         public JintMemberExpression(Engine engine, MemberExpression expression) : base(engine, expression)
         {
@@ -72,7 +72,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var propertyName = !string.IsNullOrEmpty(_determinedPropertyName.Name)
                 ? _determinedPropertyName
-                : (Identifier) TypeConverter.ToPropertyKey(_propertyExpression.GetValue());
+                : (Key) TypeConverter.ToPropertyKey(_propertyExpression.GetValue());
 
             TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, baseReferenceName);
 

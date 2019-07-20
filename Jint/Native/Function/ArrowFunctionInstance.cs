@@ -98,20 +98,20 @@ namespace Jint.Native.Function
             }
         }
 
-        public override void Put(in Identifier propertyName, JsValue value, bool throwOnError)
+        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
         {
             AssertValidPropertyName(propertyName);
             base.Put(propertyName, value, throwOnError);
         }
 
-        public override JsValue Get(in Identifier propertyName)
+        public override JsValue Get(in Key propertyName)
         {
             AssertValidPropertyName(propertyName);
             return base.Get(propertyName);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void AssertValidPropertyName(in Identifier propertyName)
+        private void AssertValidPropertyName(in Key propertyName)
         {
             if (propertyName == KnownIdentifiers.Caller
                 || propertyName ==  KnownIdentifiers.Callee

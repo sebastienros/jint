@@ -21,7 +21,7 @@ namespace Jint.Pooling
             return new Reference(JsValue.Undefined, string.Empty, false);
         }
 
-        public Reference Rent(JsValue baseValue, in Identifier name, bool strict)
+        public Reference Rent(JsValue baseValue, in Key name, bool strict)
         {
             return _pool.Allocate().Reassign(baseValue, name, strict);
         }

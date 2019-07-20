@@ -8,7 +8,7 @@ namespace Jint.Runtime.Descriptors.Specialized
     {
         private readonly EnvironmentRecord _env;
         private readonly Engine _engine;
-        private readonly Identifier _name;
+        private readonly Key _name;
 
         private GetterFunctionInstance _get;
         private SetterFunctionInstance _set;
@@ -21,7 +21,7 @@ namespace Jint.Runtime.Descriptors.Specialized
         {
             _env = env;
             _engine = engine;
-            _name = new Identifier(name);
+            _name = new Key(name);
         }
 
         public override JsValue Get => _get = _get ?? new GetterFunctionInstance(_engine, DoGet);

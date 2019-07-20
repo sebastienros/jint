@@ -36,7 +36,7 @@ namespace Jint.Collections
         [DebuggerDisplay("({key}, {value})->{next}")]
         private struct Entry
         {
-            public Identifier key;
+            public Key key;
             public TValue value;
             // 0-based index of next entry in chain: -1 means end of chain
             // also encodes whether this entry _itself_ is part of the free list by changing sign and subtracting 3,
@@ -72,26 +72,26 @@ namespace Jint.Collections
             _entries = InitialEntries;
         }
 
-        public bool ContainsKey(in Identifier identifier)
+        public bool ContainsKey(in Key key)
         {
             Entry[] entries = _entries;
-            for (int i = _buckets[identifier.HashCode & (_buckets.Length-1)] - 1;
+            for (int i = _buckets[key.HashCode & (_buckets.Length-1)] - 1;
                 (uint)i < (uint)entries.Length; i = entries[i].next)
             {
-                if (identifier == entries[i].key)
+                if (key == entries[i].key)
                     return true;
             }
 
             return false;
         }
 
-        public bool TryGetValue(in Identifier identifier, out TValue value)
+        public bool TryGetValue(in Key key, out TValue value)
         {
             Entry[] entries = _entries;
-            for (int i = _buckets[identifier.HashCode & (_buckets.Length - 1)] - 1;
+            for (int i = _buckets[key.HashCode & (_buckets.Length - 1)] - 1;
                 (uint)i < (uint)entries.Length; i = entries[i].next)
             {
-                if (identifier == entries[i].key)
+                if (key == entries[i].key)
                 {
                     value = entries[i].value;
                     return true;
@@ -102,17 +102,17 @@ namespace Jint.Collections
             return false;
         }
 
-        public bool Remove(in Identifier identifier)
+        public bool Remove(in Key key)
         {
             Entry[] entries = _entries;
-            int bucketIndex = identifier.HashCode & (_buckets.Length - 1);
+            int bucketIndex = key.HashCode & (_buckets.Length - 1);
             int entryIndex = _buckets[bucketIndex] - 1;
 
             int lastIndex = -1;
             while (entryIndex != -1)
             {
                 Entry candidate = entries[entryIndex];
-                if (candidate.key == identifier)
+                if (candidate.key == key)
                 {
                     if (lastIndex != -1)
                     {   // Fixup preceding element in chain to point to next (if any)
@@ -147,28 +147,28 @@ namespace Jint.Collections
         /// </summary>
         /// <param name="key">Key to look for</param>
         /// <returns>Reference to the new or existing value</returns>
-        public ref TValue GetOrAddValueRef(in Identifier identifier)
+        public ref TValue GetOrAddValueRef(in Key key)
         {
             Entry[] entries = _entries;
-            int bucketIndex = identifier.HashCode & (_buckets.Length - 1);
+            int bucketIndex = key.HashCode & (_buckets.Length - 1);
             for (int i = _buckets[bucketIndex] - 1;
                     (uint)i < (uint)entries.Length; i = entries[i].next)
             {
-                if (identifier == entries[i].key)
+                if (key == entries[i].key)
                     return ref entries[i].value;
             }
 
-            return ref AddKey(identifier, bucketIndex);
+            return ref AddKey(key, bucketIndex);
         }
 
-        public ref TValue this[in Identifier identifier]
+        public ref TValue this[in Key key]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref AddKey(identifier, identifier.HashCode & (_buckets.Length - 1));
+            get => ref AddKey(key, key.HashCode & (_buckets.Length - 1));
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private ref TValue AddKey(in Identifier identifier, int bucketIndex)
+        private ref TValue AddKey(in Key key, int bucketIndex)
         {
             Entry[] entries = _entries;
             int entryIndex;
@@ -182,13 +182,13 @@ namespace Jint.Collections
                 if (_count == entries.Length || entries.Length == 1)
                 {
                     entries = Resize();
-                    bucketIndex = identifier.HashCode & (_buckets.Length - 1);
+                    bucketIndex = key.HashCode & (_buckets.Length - 1);
                     // entry indexes were not changed by Resize
                 }
                 entryIndex = _count;
             }
 
-            entries[entryIndex].key = identifier;
+            entries[entryIndex].key = key;
             entries[entryIndex].next = _buckets[bucketIndex] - 1;
             _buckets[bucketIndex] = entryIndex + 1;
             _count++;

@@ -28,7 +28,7 @@ namespace Jint.Runtime.Environments
         public LexicalEnvironment Outer => _outer;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Reference GetIdentifierReference(LexicalEnvironment lex, in Identifier name, bool strict)
+        public static Reference GetIdentifierReference(LexicalEnvironment lex, in Key name, bool strict)
         {
             var identifierEnvironment = TryGetIdentifierEnvironmentWithBindingValue(lex, name, strict, out var temp, out _)
                 ? temp
@@ -39,7 +39,7 @@ namespace Jint.Runtime.Environments
 
         internal static bool TryGetIdentifierEnvironmentWithBindingValue(
             LexicalEnvironment lex,
-            in Identifier name,
+            in Key name,
             bool strict,
             out EnvironmentRecord record,
             out JsValue value)

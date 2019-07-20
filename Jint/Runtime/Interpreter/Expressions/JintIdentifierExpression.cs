@@ -6,7 +6,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintIdentifierExpression : JintExpression
     {
-        private readonly Identifier _expressionName;
+        private readonly Key _expressionName;
         private readonly JsValue _calculatedValue;
 
         public JintIdentifierExpression(Engine engine, Esprima.Ast.Identifier expression) : base(engine, expression)
@@ -18,7 +18,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        public ref readonly Identifier ExpressionName => ref _expressionName;
+        public ref readonly Key ExpressionName => ref _expressionName;
 
         protected override object EvaluateInternal()
         {

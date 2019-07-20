@@ -26,16 +26,16 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private class ObjectProperty
         {
-            private readonly Identifier _name;
+            private readonly Key _name;
             internal readonly Property _value;
 
-            public ObjectProperty(in Identifier propName, Property property)
+            public ObjectProperty(in Key propName, Property property)
             {
                 _name = propName;
                 _value = property;
             }
 
-            public ref readonly Identifier Name => ref _name;
+            public ref readonly Key Name => ref _name;
         }
 
         public JintObjectExpression(Engine engine, ObjectExpression expression) : base(engine, expression)
@@ -124,7 +124,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var property = objectProperty._value;
                 var propName = !string.IsNullOrEmpty(objectProperty.Name)
                     ? objectProperty.Name
-                    : (Identifier) objectProperty._value.Key.GetKey(_engine);
+                    : (Key) objectProperty._value.Key.GetKey(_engine);
 
                 PropertyDescriptor propDesc;
 
