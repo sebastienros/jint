@@ -50,7 +50,7 @@ namespace Jint.Native.Argument
         protected override void Initialize()
         {
             var args = _args;
-            SetOwnProperty("length", new PropertyDescriptor(args.Length, PropertyFlag.NonEnumerable));
+            SetOwnProperty(KnownIdentifiers.Length, new PropertyDescriptor(args.Length, PropertyFlag.NonEnumerable));
 
             ObjectInstance map = null;
             if (args.Length > 0)
@@ -59,7 +59,7 @@ namespace Jint.Native.Argument
                 mappedNamed.Clear();
                 for (var i = 0; i < (uint) args.Length; i++)
                 {
-                    var indxStr = TypeConverter.ToString(i);
+                    var indxStr = (Key) TypeConverter.ToString(i);
                     var val = args[i];
                     SetOwnProperty(indxStr, new PropertyDescriptor(val, PropertyFlag.ConfigurableEnumerableWritable));
                     if (i < _names.Length)

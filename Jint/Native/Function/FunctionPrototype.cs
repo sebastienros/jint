@@ -66,15 +66,15 @@ namespace Jint.Native.Function
             if (target is FunctionInstance functionInstance)
             {
                 var l = TypeConverter.ToNumber(functionInstance.Get("length")) - (arguments.Length - 1);
-                f.SetOwnProperty("length", new PropertyDescriptor(System.Math.Max(l, 0), PropertyFlag.AllForbidden));
+                f.SetOwnProperty(KnownIdentifiers.Length, new PropertyDescriptor(System.Math.Max(l, 0), PropertyFlag.AllForbidden));
             }
             else
             {
-                f.SetOwnProperty("length", PropertyDescriptor.AllForbiddenDescriptor.NumberZero);
+                f.SetOwnProperty(KnownIdentifiers.Length, PropertyDescriptor.AllForbiddenDescriptor.NumberZero);
             }
 
-            f.DefineOwnProperty("caller", _engine._getSetThrower, false);
-            f.DefineOwnProperty("arguments", _engine._getSetThrower, false);
+            f.DefineOwnProperty(KnownIdentifiers.Caller, _engine._getSetThrower, false);
+            f.DefineOwnProperty(KnownIdentifiers.Arguments, _engine._getSetThrower, false);
 
             return f;
         }

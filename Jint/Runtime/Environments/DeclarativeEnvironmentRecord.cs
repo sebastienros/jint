@@ -354,9 +354,9 @@ namespace Jint.Runtime.Environments
                 {
                     arrayContents = new JsValue[array.Length];
 
-                    for (uint contentsIndex = 0; contentsIndex < array.Length; contentsIndex++)
+                    for (uint i = 0; i < (uint) arrayContents.Length; i++)
                     {
-                        arrayContents[contentsIndex] = array.Get(contentsIndex);
+                        arrayContents[i] = array.Get(i);
                     }
                 }
 

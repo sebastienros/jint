@@ -371,23 +371,27 @@ namespace Jint.Native.Array
             return base.GetOwnProperty(propertyName);
         }
 
-        internal PropertyDescriptor GetOwnProperty(uint index)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PropertyDescriptor GetOwnProperty(uint index)
         {
-            if (TryGetDescriptor(index, out var result))
-            {
-                return result;
-            }
-
-            return PropertyDescriptor.Undefined;
+            return TryGetDescriptor(index, out var result)
+                ? result
+                : PropertyDescriptor.Undefined;
         }
 
         internal JsValue Get(uint index)
         {
-            var desc = GetProperty(index);
-            return UnwrapJsValue(desc);
+            var prop = GetOwnProperty(index);
+            if (prop == PropertyDescriptor.Undefined)
+            {
+                prop = Prototype?.GetProperty(TypeConverter.ToString(index)) ?? PropertyDescriptor.Undefined;
+            }
+
+            return UnwrapJsValue(prop);
         }
 
-        internal PropertyDescriptor GetProperty(uint index)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PropertyDescriptor GetProperty(uint index)
         {
             var prop = GetOwnProperty(index);
             if (prop != PropertyDescriptor.Undefined)
@@ -577,14 +581,10 @@ namespace Jint.Native.Array
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool TryGetDescriptor(uint index, out PropertyDescriptor descriptor)
         {
-            if (_dense != null)
+            var temp = _dense;
+            if (temp != null && index < (uint) temp.Length)
             {
-                descriptor = null;
-                if (index < (uint) _dense.Length)
-                {
-                    descriptor = _dense[index];
-                }
-
+                descriptor = temp[index];
                 return descriptor != null;
             }
 

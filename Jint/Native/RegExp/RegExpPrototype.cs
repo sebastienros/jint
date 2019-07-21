@@ -140,7 +140,7 @@ namespace Jint.Native.RegExp
         {
             array.SetOwnProperty("index", new PropertyDescriptor(indexValue, PropertyFlag.ConfigurableEnumerableWritable));
             array.SetOwnProperty("input", new PropertyDescriptor(inputValue, PropertyFlag.ConfigurableEnumerableWritable));
-            array.SetOwnProperty("length", new PropertyDescriptor(lengthValue, PropertyFlag.OnlyWritable));
+            array.SetOwnProperty(KnownIdentifiers.Length, new PropertyDescriptor(lengthValue, PropertyFlag.OnlyWritable));
             return array;
         }
     }
