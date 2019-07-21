@@ -638,7 +638,6 @@ namespace Jint.Native.Array
             _dense = null;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void EnsureCapacity(uint capacity)
         {
             if (capacity <= MaxDenseArrayLength && capacity > (uint) _dense.Length)
@@ -676,22 +675,21 @@ namespace Jint.Native.Array
                 EnsureCapacity((uint) newLength);
             }
 
+            var canUseDirectIndexSet = _dense != null && newLength <= _dense.Length;
+
             double n = initialLength;
-            for (var i = 0; i < arguments.Length; i++)
+            foreach (var argument in arguments)
             {
-                var desc = new PropertyDescriptor(arguments[i], PropertyFlag.ConfigurableEnumerableWritable);
-                if (_dense != null && n < _dense.Length)
+                var desc = new PropertyDescriptor(argument, PropertyFlag.ConfigurableEnumerableWritable);
+                if (canUseDirectIndexSet)
                 {
                     _dense[(uint) n] = desc;
                 }
-                else if (n < uint.MaxValue)
-                {
-                    WriteArrayValue((uint) n, desc);
-                }
                 else
                 {
-                    DefineOwnProperty(TypeConverter.ToString((uint) n), desc, true);
+                    WriteValueSlow(n, desc);
                 }
+
                 n++;
             }
 
@@ -706,6 +704,19 @@ namespace Jint.Native.Array
             }
 
             return (uint) n;
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void WriteValueSlow(double n, PropertyDescriptor desc)
+        {
+            if (n < uint.MaxValue)
+            {
+                WriteArrayValue((uint) n, desc);
+            }
+            else
+            {
+                DefineOwnProperty(TypeConverter.ToString((uint) n), desc, true);
+            }
         }
 
         internal ArrayInstance Map(JsValue[] arguments)
