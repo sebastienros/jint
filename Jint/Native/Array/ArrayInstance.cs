@@ -582,9 +582,13 @@ namespace Jint.Native.Array
         private bool TryGetDescriptor(uint index, out PropertyDescriptor descriptor)
         {
             var temp = _dense;
-            if (temp != null && index < (uint) temp.Length)
+            if (temp != null)
             {
-                descriptor = temp[index];
+                descriptor = null;
+                if (index < (uint) temp.Length)
+                {
+                    descriptor = temp[index];
+                }
                 return descriptor != null;
             }
 
