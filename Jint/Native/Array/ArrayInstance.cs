@@ -698,7 +698,7 @@ namespace Jint.Native.Array
             }
 
             // check if we can set length fast without breaking ECMA specification
-            if (n < uint.MaxValue && CanPut(KnownKeys.Length))
+            if (n < uint.MaxValue && CanSetLength())
             {
                 _length.Value = (uint) n;
             }
@@ -708,6 +708,16 @@ namespace Jint.Native.Array
             }
 
             return (uint) n;
+        }
+
+        private bool CanSetLength()
+        {
+            if (!_length.IsAccessorDescriptor())
+            {
+                return _length.Writable;
+            }
+            var set = _length.Set;
+            return !(set is null) && !set.IsUndefined();
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
