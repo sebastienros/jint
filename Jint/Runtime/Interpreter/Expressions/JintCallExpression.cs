@@ -103,10 +103,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
+
+            var func = _engine.GetValue(callee, false);
             var r = callee as Reference;
-            var func = r is null
-                ?_engine.GetValue(callee, false)
-                : _engine.GetValue(r, false);
 
             if (_maxRecursionDepth >= 0)
             {
