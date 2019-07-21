@@ -113,9 +113,9 @@ namespace Jint.Native.Function
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void AssertValidPropertyName(in Key propertyName)
         {
-            if (propertyName == KnownIdentifiers.Caller
-                || propertyName ==  KnownIdentifiers.Callee
-                || propertyName == KnownIdentifiers.Arguments)
+            if (propertyName == KnownKeys.Caller
+                || propertyName ==  KnownKeys.Callee
+                || propertyName == KnownKeys.Arguments)
             {
                 ExceptionHelper.ThrowTypeError(_engine, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
             }

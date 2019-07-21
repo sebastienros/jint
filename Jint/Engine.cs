@@ -220,7 +220,7 @@ namespace Jint
             _jsValueArrayPool = new JsValueArrayPool();
 
             Eval = new EvalFunctionInstance(this, System.ArrayExt.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
-            Global._properties[KnownIdentifiers.Eval] = new PropertyDescriptor(Eval, true, false, true);
+            Global._properties[KnownKeys.Eval] = new PropertyDescriptor(Eval, true, false, true);
 
             if (Options._IsClrAllowed)
             {
@@ -780,7 +780,7 @@ namespace Jint
 
                         env.SetMutableBinding(argName, v, strict);
                     }
-                    env.CreateMutableBinding(KnownIdentifiers.Arguments, argsObj);
+                    env.CreateMutableBinding(KnownKeys.Arguments, argsObj);
                 }
             }
 

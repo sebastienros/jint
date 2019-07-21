@@ -60,7 +60,7 @@ namespace Jint.Runtime.Environments
                 return ref _value;
             }
 
-            if (key == KnownIdentifiers.Arguments)
+            if (key == KnownKeys.Arguments)
             {
                 _argumentsBindingWasAccessed = true;
                 return ref _argumentsBinding;
@@ -71,7 +71,7 @@ namespace Jint.Runtime.Environments
 
         private bool ContainsKey(in Key key)
         {
-            if (key == KnownIdentifiers.Arguments)
+            if (key == KnownKeys.Arguments)
             {
                 return !ReferenceEquals(_argumentsBinding.Value, null);
             }
@@ -93,7 +93,7 @@ namespace Jint.Runtime.Environments
                 _value = default;
             }
 
-            if (key == KnownIdentifiers.Arguments)
+            if (key == KnownKeys.Arguments)
             {
                 _argumentsBinding.Value = null;
             }
@@ -133,7 +133,7 @@ namespace Jint.Runtime.Environments
                 return true;
             }
 
-            if (name == KnownIdentifiers.Arguments
+            if (name == KnownKeys.Arguments
                 && !ReferenceEquals(_argumentsBinding.Value, null))
             {
                 _argumentsBindingWasAccessed = true;
@@ -250,7 +250,7 @@ namespace Jint.Runtime.Environments
 
             if (!ReferenceEquals(_argumentsBinding.Value, null))
             {
-                keys[n++] = KnownIdentifiers.Arguments;
+                keys[n++] = KnownKeys.Arguments;
             }
 
             if (_dictionary == null)
@@ -447,7 +447,7 @@ namespace Jint.Runtime.Environments
             if (initiallyEmpty || !TryGetValue(name, out var existing))
             {
                 var binding = new Binding(argument, false, true);
-                if (name == KnownIdentifiers.Arguments)
+                if (name == KnownKeys.Arguments)
                 {
                     _argumentsBinding = binding;
                 }

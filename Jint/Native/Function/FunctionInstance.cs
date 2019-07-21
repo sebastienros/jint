@@ -76,7 +76,7 @@ namespace Jint.Native.Function
                 return false;
             }
 
-            var po = Get(KnownIdentifiers.Prototype);
+            var po = Get(KnownKeys.Prototype);
             if (!po.IsObject())
             {
                 ExceptionHelper.ThrowTypeError(_engine, $"Function has non-object prototype '{TypeConverter.ToString(po)}' in instanceof check");
@@ -114,7 +114,7 @@ namespace Jint.Native.Function
         {
             var v = base.Get(propertyName);
 
-            if (propertyName == KnownIdentifiers.Caller
+            if (propertyName == KnownKeys.Caller
                 && ((v.As<FunctionInstance>()?._strict).GetValueOrDefault()))
             {
                 ExceptionHelper.ThrowTypeError(_engine);
@@ -127,15 +127,15 @@ namespace Jint.Native.Function
         {
             if (_prototype != null)
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(KnownIdentifiers.Prototype, _prototype);
+                yield return new KeyValuePair<string, PropertyDescriptor>(KnownKeys.Prototype, _prototype);
             }
             if (_length != null)
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(KnownIdentifiers.Length, _length);
+                yield return new KeyValuePair<string, PropertyDescriptor>(KnownKeys.Length, _length);
             }
             if (!(_name is null))
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(KnownIdentifiers.Name, GetOwnProperty(KnownIdentifiers.Name));
+                yield return new KeyValuePair<string, PropertyDescriptor>(KnownKeys.Name, GetOwnProperty(KnownKeys.Name));
             }
 
             foreach (var entry in base.GetOwnProperties())
@@ -146,15 +146,15 @@ namespace Jint.Native.Function
 
         public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
-            if (propertyName == KnownIdentifiers.Prototype)
+            if (propertyName == KnownKeys.Prototype)
             {
                 return _prototype ?? PropertyDescriptor.Undefined;
             }
-            if (propertyName == KnownIdentifiers.Length)
+            if (propertyName == KnownKeys.Length)
             {
                 return _length ?? PropertyDescriptor.Undefined;
             }
-            if (propertyName == KnownIdentifiers.Name)
+            if (propertyName == KnownKeys.Name)
             {
                 return !(_name is null)
                     ? _nameDescriptor ?? (_nameDescriptor = new PropertyDescriptor(_name, PropertyFlag.Configurable))
@@ -166,15 +166,15 @@ namespace Jint.Native.Function
 
         protected internal override void SetOwnProperty(in Key propertyName, PropertyDescriptor desc)
         {
-            if (propertyName == KnownIdentifiers.Prototype)
+            if (propertyName == KnownKeys.Prototype)
             {
                 _prototype = desc;
             }
-            else if (propertyName == KnownIdentifiers.Length)
+            else if (propertyName == KnownKeys.Length)
             {
                 _length = desc;
             }
-            else if (propertyName == KnownIdentifiers.Name)
+            else if (propertyName == KnownKeys.Name)
             {
                 _name = desc._value;
                 _nameDescriptor = desc;
@@ -187,15 +187,15 @@ namespace Jint.Native.Function
 
         public override bool HasOwnProperty(in Key propertyName)
         {
-            if (propertyName == KnownIdentifiers.Prototype)
+            if (propertyName == KnownKeys.Prototype)
             {
                 return _prototype != null;
             }
-            if (propertyName == KnownIdentifiers.Length)
+            if (propertyName == KnownKeys.Length)
             {
                 return _length != null;
             }
-            if (propertyName == KnownIdentifiers.Name)
+            if (propertyName == KnownKeys.Name)
             {
                 return !(_name is null);
             }
@@ -205,15 +205,15 @@ namespace Jint.Native.Function
 
         public override void RemoveOwnProperty(in Key propertyName)
         {
-            if (propertyName == KnownIdentifiers.Prototype)
+            if (propertyName == KnownKeys.Prototype)
             {
                 _prototype = null;
             }
-            if (propertyName == KnownIdentifiers.Length)
+            if (propertyName == KnownKeys.Length)
             {
                 _length = null;
             }
-            if (propertyName == KnownIdentifiers.Name)
+            if (propertyName == KnownKeys.Name)
             {
                 _name = null;
                 _nameDescriptor = null;

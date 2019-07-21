@@ -33,12 +33,12 @@ namespace Jint.Native.String
 
         public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
-            if (propertyName == KnownIdentifiers.Infinity)
+            if (propertyName == KnownKeys.Infinity)
             {
                 return PropertyDescriptor.Undefined;
             }
 
-            if (propertyName == KnownIdentifiers.Length)
+            if (propertyName == KnownKeys.Length)
             {
                 return _length ?? PropertyDescriptor.Undefined;
             }
@@ -75,7 +75,7 @@ namespace Jint.Native.String
         {
             if (_length != null)
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(KnownIdentifiers.Length, _length);
+                yield return new KeyValuePair<string, PropertyDescriptor>(KnownKeys.Length, _length);
             }
 
             foreach (var entry in base.GetOwnProperties())
@@ -86,7 +86,7 @@ namespace Jint.Native.String
 
         protected internal override void SetOwnProperty(in Key propertyName, PropertyDescriptor desc)
         {
-            if (propertyName == KnownIdentifiers.Length)
+            if (propertyName == KnownKeys.Length)
             {
                 _length = desc;
             }
@@ -98,7 +98,7 @@ namespace Jint.Native.String
 
         public override bool HasOwnProperty(in Key propertyName)
         {
-            if (propertyName == KnownIdentifiers.Length)
+            if (propertyName == KnownKeys.Length)
             {
                 return _length != null;
             }
@@ -108,7 +108,7 @@ namespace Jint.Native.String
 
         public override void RemoveOwnProperty(in Key propertyName)
         {
-            if (propertyName == KnownIdentifiers.Length)
+            if (propertyName == KnownKeys.Length)
             {
                 _length = null;
             }

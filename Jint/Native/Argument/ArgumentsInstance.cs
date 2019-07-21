@@ -50,7 +50,7 @@ namespace Jint.Native.Argument
         protected override void Initialize()
         {
             var args = _args;
-            SetOwnProperty(KnownIdentifiers.Length, new PropertyDescriptor(args.Length, PropertyFlag.NonEnumerable));
+            SetOwnProperty(KnownKeys.Length, new PropertyDescriptor(args.Length, PropertyFlag.NonEnumerable));
 
             ObjectInstance map = null;
             if (args.Length > 0)
@@ -80,13 +80,13 @@ namespace Jint.Native.Argument
             // step 13
             if (!_strict)
             {
-                SetOwnProperty(KnownIdentifiers.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
+                SetOwnProperty(KnownKeys.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
             }
             // step 14
             else
             {
-                DefineOwnProperty(KnownIdentifiers.Caller, _engine._getSetThrower, false);
-                DefineOwnProperty(KnownIdentifiers.Callee, _engine._getSetThrower, false);
+                DefineOwnProperty(KnownKeys.Caller, _engine._getSetThrower, false);
+                DefineOwnProperty(KnownKeys.Callee, _engine._getSetThrower, false);
             }
         }
 

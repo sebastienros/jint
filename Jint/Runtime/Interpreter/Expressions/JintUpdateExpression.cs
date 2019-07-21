@@ -31,8 +31,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             _leftIdentifier = _argument as JintIdentifierExpression;
-            _evalOrArguments = _leftIdentifier?.ExpressionName == KnownIdentifiers.Eval
-                               || _leftIdentifier?.ExpressionName == KnownIdentifiers.Arguments;
+            _evalOrArguments = _leftIdentifier?.ExpressionName == KnownKeys.Eval
+                               || _leftIdentifier?.ExpressionName == KnownKeys.Arguments;
         }
 
         protected override object EvaluateInternal()

@@ -103,7 +103,7 @@ namespace Jint.Native.Array
             var oldLenDesc = _length;
             var oldLen = (uint) TypeConverter.ToNumber(oldLenDesc.Value);
 
-            if (propertyName == KnownIdentifiers.Length)
+            if (propertyName == KnownKeys.Length)
             {
                 var value = desc.Value;
                 if (ReferenceEquals(value, null))
@@ -299,7 +299,7 @@ namespace Jint.Native.Array
 
         protected override void AddProperty(in Key propertyName, PropertyDescriptor descriptor)
         {
-            if (propertyName == KnownIdentifiers.Length)
+            if (propertyName == KnownKeys.Length)
             {
                 _length = descriptor;
                 return;
@@ -310,7 +310,7 @@ namespace Jint.Native.Array
 
         protected override bool TryGetProperty(in Key propertyName, out PropertyDescriptor descriptor)
         {
-            if (propertyName == KnownIdentifiers.Length)
+            if (propertyName == KnownKeys.Length)
             {
                 descriptor = _length;
                 return _length != null;
@@ -323,7 +323,7 @@ namespace Jint.Native.Array
         {
             if (_length != null)
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(KnownIdentifiers.Length, _length);
+                yield return new KeyValuePair<string, PropertyDescriptor>(KnownKeys.Length, _length);
             }
 
             if (_dense != null)
@@ -363,7 +363,7 @@ namespace Jint.Native.Array
                 return PropertyDescriptor.Undefined;
             }
 
-            if (propertyName == KnownIdentifiers.Length)
+            if (propertyName == KnownKeys.Length)
             {
                 return _length ?? PropertyDescriptor.Undefined;
             }
@@ -407,7 +407,7 @@ namespace Jint.Native.Array
             {
                 WriteArrayValue(index, desc);
             }
-            else if (propertyName == KnownIdentifiers.Length)
+            else if (propertyName == KnownKeys.Length)
             {
                 _length = desc;
             }
@@ -426,7 +426,7 @@ namespace Jint.Native.Array
                        && (_dense == null || (index < (uint) _dense.Length && _dense[index] != null));
             }
 
-            if (p == KnownIdentifiers.Length)
+            if (p == KnownKeys.Length)
             {
                 return _length != null;
             }
@@ -441,7 +441,7 @@ namespace Jint.Native.Array
                 DeleteAt(index);
             }
 
-            if (p == KnownIdentifiers.Length)
+            if (p == KnownKeys.Length)
             {
                 _length = null;
             }
@@ -694,13 +694,13 @@ namespace Jint.Native.Array
             }
 
             // check if we can set length fast without breaking ECMA specification
-            if (n < uint.MaxValue && CanPut(KnownIdentifiers.Length))
+            if (n < uint.MaxValue && CanPut(KnownKeys.Length))
             {
                 _length.Value = (uint) n;
             }
             else
             {
-                Put(KnownIdentifiers.Length, newLength, true);
+                Put(KnownKeys.Length, newLength, true);
             }
 
             return (uint) n;

@@ -1,6 +1,6 @@
 namespace Jint.Runtime
 {
-    internal static class KnownIdentifiers
+    internal static class KnownKeys
     {
         private static readonly Key _arguments = "arguments";
         private static readonly Key _caller = "caller";

@@ -56,7 +56,7 @@ namespace Jint.Native.Map
 
         public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
-            if (propertyName == KnownIdentifiers.Size)
+            if (propertyName == KnownKeys.Size)
             {
                 return new PropertyDescriptor(_map.Count, PropertyFlag.None);
             }
@@ -66,7 +66,7 @@ namespace Jint.Native.Map
 
         protected override bool TryGetProperty(in Key propertyName, out PropertyDescriptor descriptor)
         {
-            if (propertyName == KnownIdentifiers.Size)
+            if (propertyName == KnownKeys.Size)
             {
                 descriptor = new PropertyDescriptor(_map.Count, PropertyFlag.None);
                 return true;

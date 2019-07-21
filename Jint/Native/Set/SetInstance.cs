@@ -55,7 +55,7 @@ namespace Jint.Native.Set
 
         public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
-            if (propertyName == KnownIdentifiers.Size)
+            if (propertyName == KnownKeys.Size)
             {
                 return new PropertyDescriptor(_set.Count, PropertyFlag.None);
             }
@@ -65,7 +65,7 @@ namespace Jint.Native.Set
 
         protected override bool TryGetProperty(in Key propertyName, out PropertyDescriptor descriptor)
         {
-            if (propertyName == KnownIdentifiers.Size)
+            if (propertyName == KnownKeys.Size)
             {
                 descriptor = new PropertyDescriptor(_set.Count, PropertyFlag.None);
                 return true;
