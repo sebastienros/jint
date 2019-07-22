@@ -846,18 +846,21 @@ namespace Jint.Native.Array
                 return;
             }
 
-            if (_dense != null && source._dense != null
-                               && _dense.Length >= targetStartIndex + length
-                               && ReferenceEquals(_dense[targetStartIndex], null))
+            var dense = _dense;
+            var sourceDense = source._dense;
+
+            if (dense != null && sourceDense != null
+                               && (uint) dense.Length >= targetStartIndex + length
+                               && dense[targetStartIndex] is null)
             {
                 uint j = 0;
                 for (uint i = sourceStartIndex; i < sourceStartIndex + length; ++i, j++)
                 {
-                    var sourcePropertyDescriptor = i < source._dense.Length && source._dense[i] != null
-                        ? source._dense[i]
+                    var sourcePropertyDescriptor = i < (uint) sourceDense.Length && sourceDense[i] != null
+                        ? sourceDense[i]
                         : source.GetProperty(i.ToString());
 
-                    _dense[targetStartIndex + j] = sourcePropertyDescriptor?._value != null
+                    dense[targetStartIndex + j] = sourcePropertyDescriptor?._value != null
                         ? new PropertyDescriptor(sourcePropertyDescriptor._value, PropertyFlag.ConfigurableEnumerableWritable)
                         : null;
                 }
