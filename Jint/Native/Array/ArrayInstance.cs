@@ -13,7 +13,7 @@ namespace Jint.Native.Array
         private const int MaxDenseArrayLength = 1024 * 10;
 
         // we have dense and sparse, we usually can start with dense and fall back to sparse when necessary
-        private PropertyDescriptor[] _dense;
+        internal PropertyDescriptor[] _dense;
         private Dictionary<uint, PropertyDescriptor> _sparse;
 
         public ArrayInstance(Engine engine, uint capacity = 0) : base(engine, objectClass: "Array")
@@ -353,6 +353,11 @@ namespace Jint.Native.Array
 
         public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
+            if (propertyName == KnownKeys.Length)
+            {
+                return _length ?? PropertyDescriptor.Undefined;
+            }
+
             if (IsArrayIndex(propertyName, out var index))
             {
                 if (TryGetDescriptor(index, out var result))
@@ -361,11 +366,6 @@ namespace Jint.Native.Array
                 }
 
                 return PropertyDescriptor.Undefined;
-            }
-
-            if (propertyName == KnownKeys.Length)
-            {
-                return _length ?? PropertyDescriptor.Undefined;
             }
 
             return base.GetOwnProperty(propertyName);

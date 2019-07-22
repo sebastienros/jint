@@ -1272,6 +1272,18 @@ namespace Jint.Native.Array
 
             public abstract JsValue Get(ulong index);
 
+            public virtual JsValue[] GetAll()
+            {
+                var n = (int) GetLength();
+                var jsValues = new JsValue[n];
+                for (uint i = 0; i < (uint) jsValues.Length; i++)
+                {
+                    jsValues[i] = Get(i);
+                }
+
+                return jsValues;
+            }
+
             public abstract bool TryGetValue(ulong index, out JsValue value);
 
             public abstract void Put(ulong index, JsValue value, bool throwOnError);
@@ -1431,6 +1443,31 @@ namespace Jint.Native.Array
                 }
 
                 public override JsValue Get(ulong index) => _array.Get((uint) index);
+
+                public override JsValue[] GetAll()
+                {
+                    var n = _array.Length;
+
+                    if (_array._dense == null || _array._dense.Length < n)
+                    {
+                        return base.GetAll();
+                    }
+
+                    // optimized
+                    var jsValues = new JsValue[n];
+                    for (uint i = 0; i < (uint) jsValues.Length; i++)
+                    {
+                        var prop = _array._dense[i] ?? PropertyDescriptor.Undefined;
+                        if (prop == PropertyDescriptor.Undefined)
+                        {
+                            prop = _array.Prototype?.GetProperty(TypeConverter.ToString(i)) ?? PropertyDescriptor.Undefined;
+                        }
+
+                        jsValues[i] = _array.UnwrapJsValue(prop);
+                    }
+
+                    return jsValues;
+                }
 
                 public override void DeleteAt(ulong index) => _array.DeleteAt((uint) index);
 
