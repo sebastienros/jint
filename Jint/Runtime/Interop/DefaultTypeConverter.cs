@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Dynamic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Jint.Extensions;
 using Jint.Native;
 
 namespace Jint.Runtime.Interop
@@ -198,6 +202,29 @@ namespace Jint.Runtime.Interop
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
             {
                 type = Nullable.GetUnderlyingType(type);
+            }
+
+            if (value is ExpandoObject eObj)
+            {
+                // public empty constructor required
+                if (!type.GetConstructors().Any(x => x.GetParameters().Length == 0 && x.IsPublic)) return null;
+
+                var dict = (IDictionary<string, object>) eObj;
+                var obj = Activator.CreateInstance(type, new object[0]);
+
+                var members = type.GetMembers().Where(x => x.MemberType == MemberTypes.Property || x.MemberType == MemberTypes.Field).ToArray();
+                foreach (var member in members)
+                {
+                    // TODO fix naming conventions
+                    var name = member.Name.ToLower();
+                    if (dict.TryGetValue(name, out var val))
+                    {
+                        var output = Convert(val, member.GetDefinedType(), formatProvider);
+                        member.SetValue(obj, output);
+                    }
+                }
+
+                return obj;
             }
 
             return System.Convert.ChangeType(value, type, formatProvider);
