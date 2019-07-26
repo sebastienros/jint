@@ -2026,7 +2026,7 @@ var prep = function (fn) { fn(); };
         [Fact]
         public void RegExpPrototypeToString()
         {
-            RunTest("assert(RegExp.prototype.toString() === '//');");
+            RunTest("assert(RegExp.prototype.toString() === '/(?:)/');");
         }
 
         [Fact]

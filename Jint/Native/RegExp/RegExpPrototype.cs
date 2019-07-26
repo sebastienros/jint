@@ -41,6 +41,7 @@ namespace Jint.Native.RegExp
                 ["ignoreCase"] = new PropertyDescriptor(false, false, false, false),
                 ["multiline"] = new PropertyDescriptor(false, false, false, false),
                 ["source"] = new PropertyDescriptor("(?:)", false, false, false),
+                ["flags"] = new PropertyDescriptor("", false, false, false),
                 ["lastIndex"] = new PropertyDescriptor(0, true, false, false)
             };
         }
@@ -48,7 +49,7 @@ namespace Jint.Native.RegExp
         private static JsValue ToRegExpString(JsValue thisObj, JsValue[] arguments)
         {
             var regexObj = thisObj.TryCast<ObjectInstance>();
-
+            
             if (regexObj.TryGetValue("source", out var source) == false)
                 source = Undefined.ToString();
 
