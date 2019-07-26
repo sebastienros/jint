@@ -104,32 +104,62 @@ namespace Jint.Native.Date
 
         public JsValue ToString(JsValue thisObj, JsValue[] arg2)
         {
-            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'K", CultureInfo.InvariantCulture);
+            var dateInstance = EnsureDateInstance(thisObj);
+
+            if (double.IsNaN(dateInstance.PrimitiveValue))
+                return "Invalid Date";
+
+            return ToLocalTime(dateInstance.ToDateTime()).ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'K", CultureInfo.InvariantCulture);
         }
 
         private JsValue ToDateString(JsValue thisObj, JsValue[] arguments)
         {
-            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("ddd MMM dd yyyy", CultureInfo.InvariantCulture);
+            var dateInstance = EnsureDateInstance(thisObj);
+
+            if (double.IsNaN(dateInstance.PrimitiveValue))
+                return "Invalid Date";
+
+            return ToLocalTime(dateInstance.ToDateTime()).ToString("ddd MMM dd yyyy", CultureInfo.InvariantCulture);
         }
 
         private JsValue ToTimeString(JsValue thisObj, JsValue[] arguments)
         {
-            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("HH:mm:ss 'GMT'K", CultureInfo.InvariantCulture);
+            var dateInstance = EnsureDateInstance(thisObj);
+
+            if (double.IsNaN(dateInstance.PrimitiveValue))
+                return "Invalid Date";
+
+            return ToLocalTime(dateInstance.ToDateTime()).ToString("HH:mm:ss 'GMT'K", CultureInfo.InvariantCulture);
         }
 
         private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
         {
-            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("F", Engine.Options._Culture);
+            var dateInstance = EnsureDateInstance(thisObj);
+
+            if (double.IsNaN(dateInstance.PrimitiveValue))
+                return "Invalid Date";
+
+            return ToLocalTime(dateInstance.ToDateTime()).ToString("F", Engine.Options._Culture);
         }
 
         private JsValue ToLocaleDateString(JsValue thisObj, JsValue[] arguments)
         {
-            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("D", Engine.Options._Culture);
+            var dateInstance = EnsureDateInstance(thisObj);
+
+            if (double.IsNaN(dateInstance.PrimitiveValue))
+                return "Invalid Date";
+
+            return ToLocalTime(dateInstance.ToDateTime()).ToString("D", Engine.Options._Culture);
         }
 
         private JsValue ToLocaleTimeString(JsValue thisObj, JsValue[] arguments)
         {
-            return ToLocalTime(EnsureDateInstance(thisObj).ToDateTime()).ToString("T", Engine.Options._Culture);
+            var dateInstance = EnsureDateInstance(thisObj);
+
+            if (double.IsNaN(dateInstance.PrimitiveValue))
+                return "Invalid Date";
+
+            return ToLocalTime(dateInstance.ToDateTime()).ToString("T", Engine.Options._Culture);
         }
 
         private JsValue GetTime(JsValue thisObj, JsValue[] arguments)
