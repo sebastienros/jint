@@ -1,6 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using Jint.Collections;
 using Jint.Native.Array;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -40,24 +41,22 @@ namespace Jint.Native.RegExp
                 ["ignoreCase"] = new PropertyDescriptor(false, false, false, false),
                 ["multiline"] = new PropertyDescriptor(false, false, false, false),
                 ["source"] = new PropertyDescriptor("(?:)", false, false, false),
+                ["flags"] = new PropertyDescriptor("", false, false, false),
                 ["lastIndex"] = new PropertyDescriptor(0, true, false, false)
             };
         }
 
         private static JsValue ToRegExpString(JsValue thisObj, JsValue[] arguments)
         {
-            var regExp = thisObj.TryCast<RegExpInstance>();
+            var regexObj = thisObj.TryCast<ObjectInstance>();
+            
+            if (regexObj.TryGetValue("source", out var source) == false)
+                source = Undefined.ToString();
 
-            string res = "/" + regExp.Source + "/";
-            if (regExp.Flags != null)
-            {
-                res += (regExp.Flags.Contains("g") ? "g" : "")
-                    + (regExp.Flags.Contains("i") ? "i" : "")
-                    + (regExp.Flags.Contains("m") ? "m" : "")
-                ;
-            }
+            if (regexObj.TryGetValue("flags", out var flags) == false)
+                flags = Undefined.ToString();
 
-            return res;
+            return $"/{source.AsString()}/{flags.AsString()}";
         }
 
         private JsValue Test(JsValue thisObj, JsValue[] arguments)
