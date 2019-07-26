@@ -1141,11 +1141,15 @@ namespace Jint.Native.Array
         private JsValue ToString(JsValue thisObj, JsValue[] arguments)
         {
             var array = TypeConverter.ToObject(Engine, thisObj);
+
             ICallable func;
             func = array.Get("join").TryCast<ICallable>(x =>
             {
                 func = Engine.Object.PrototypeObject.Get("toString").TryCast<ICallable>(y => ExceptionHelper.ThrowArgumentException());
             });
+
+            if (array.IsArrayLike == false || func == null)
+                return _engine.Object.PrototypeObject.ToObjectString(array, Arguments.Empty);
 
             return func.Call(array, Arguments.Empty);
         }
