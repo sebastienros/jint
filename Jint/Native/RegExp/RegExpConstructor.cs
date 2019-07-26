@@ -182,6 +182,7 @@ namespace Jint.Native.RegExp
             r.SetOwnProperty("ignoreCase", new PropertyDescriptor(r.IgnoreCase, PropertyFlag.AllForbidden));
             r.SetOwnProperty("multiline", new PropertyDescriptor(r.Multiline, PropertyFlag.AllForbidden));
             r.SetOwnProperty("source", new PropertyDescriptor(r.Source, PropertyFlag.AllForbidden));
+            r.SetOwnProperty("flags", new PropertyDescriptor(r.Flags, PropertyFlag.AllForbidden));
             r.SetOwnProperty("lastIndex", new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
         }
 

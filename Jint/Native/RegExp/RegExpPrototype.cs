@@ -1,6 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using Jint.Collections;
 using Jint.Native.Array;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -46,18 +47,15 @@ namespace Jint.Native.RegExp
 
         private static JsValue ToRegExpString(JsValue thisObj, JsValue[] arguments)
         {
-            var regExp = thisObj.TryCast<RegExpInstance>();
+            var regexObj = thisObj.TryCast<ObjectInstance>();
 
-            string res = "/" + regExp.Source + "/";
-            if (regExp.Flags != null)
-            {
-                res += (regExp.Flags.Contains("g") ? "g" : "")
-                    + (regExp.Flags.Contains("i") ? "i" : "")
-                    + (regExp.Flags.Contains("m") ? "m" : "")
-                ;
-            }
+            if (regexObj.TryGetValue("source", out var source) == false)
+                source = Undefined.ToString();
 
-            return res;
+            if (regexObj.TryGetValue("flags", out var flags) == false)
+                flags = Undefined.ToString();
+
+            return $"/{source.AsString()}/{flags.AsString()}";
         }
 
         private JsValue Test(JsValue thisObj, JsValue[] arguments)
