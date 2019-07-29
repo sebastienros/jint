@@ -14,6 +14,7 @@ namespace Jint.Native.Object
         Math,
         Number,
         Object,
+        Promise,
         Proxy,
         Reflect,
         RegExp,

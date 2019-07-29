@@ -28,7 +28,7 @@ namespace Jint.Native.Global
         }
 
         protected override void Initialize()
-        {
+            {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             var properties = new PropertyDictionary(40, checkExistingKeys: false)
@@ -39,6 +39,7 @@ namespace Jint.Native.Global
                 ["Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
                 ["Map"] = new PropertyDescriptor(Engine.Map, propertyFlags),
                 ["Set"] = new PropertyDescriptor(Engine.Set, propertyFlags),
+                ["Promise"] = new PropertyDescriptor(Engine.Promise, propertyFlags),
                 ["String"] = new PropertyDescriptor(Engine.String, propertyFlags),
                 ["RegExp"] = new PropertyDescriptor(Engine.RegExp, propertyFlags),
                 ["Number"] = new PropertyDescriptor(Engine.Number, propertyFlags),
@@ -710,7 +711,7 @@ namespace Jint.Native.Global
         internal bool HasProperty(in Key property)
         {
             return GetOwnProperty(property) != PropertyDescriptor.Undefined;
-        }
+    }
 
         internal PropertyDescriptor GetProperty(in Key property) => GetOwnProperty(property);
 

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -19,6 +21,7 @@ using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Proxy;
 using Jint.Native.Reflect;
+using Jint.Native.Promise;
 using Jint.Native.RegExp;
 using Jint.Native.Set;
 using Jint.Native.String;
@@ -61,6 +64,11 @@ namespace Jint
         private long _initialMemoryUsage;
         private long _timeoutTicks;
         internal INode _lastSyntaxNode;
+
+        private readonly object _promiseContinuationsPadlock = new object();
+        private readonly SemaphoreSlim _threadLock = new SemaphoreSlim(1, 1);
+        private readonly Queue<Action> _promiseContinuations = new Queue<Action>();
+        private bool _continuationsTaskActive = false;
 
         // lazy properties
         private ErrorConstructor _error;
@@ -180,6 +188,7 @@ namespace Jint
             Array = ArrayConstructor.CreateArrayConstructor(this);
             Map = MapConstructor.CreateMapConstructor(this);
             Set = SetConstructor.CreateSetConstructor(this);
+            Promise = PromiseConstructor.CreatePromiseConstructor(this);
             Iterator = IteratorConstructor.CreateIteratorConstructor(this);
             String = StringConstructor.CreateStringConstructor(this);
             RegExp = RegExpConstructor.CreateRegExpConstructor(this);
@@ -250,6 +259,7 @@ namespace Jint
         public ArrayConstructor Array { get; }
         public MapConstructor Map { get; }
         public SetConstructor Set { get; }
+        public PromiseConstructor Promise { get; }
         public IteratorConstructor Iterator { get; }
         public StringConstructor String { get; }
         public RegExpConstructor RegExp { get; }
@@ -404,37 +414,101 @@ namespace Jint
 
         public Engine Execute(Script program)
         {
-            ResetStatementsCount();
+            _threadLock.Wait();
 
-            if (_memoryLimit > 0)
+            try
             {
-                ResetMemoryUsage();
-            }
+                ResetStatementsCount();
 
-            ResetTimeoutTicks();
-            ResetLastStatement();
-            ResetCallStack();
-
-            using (new StrictModeScope(_isStrict || program.Strict))
-            {
-                DeclarationBindingInstantiation(
-                    DeclarationBindingType.GlobalCode,
-                    program.HoistingScope,
-                    functionInstance: null,
-                    arguments: null);
-
-                var list = new JintStatementList(this, null, program.Body);
-                var result = list.Execute();
-                if (result.Type == CompletionType.Throw)
+                if (_memoryLimit > 0)
                 {
-                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
-                    throw ex;
+                    ResetMemoryUsage();
                 }
 
-                _completionValue = result.GetValueOrDefault();
+                ResetTimeoutTicks();
+                ResetLastStatement();
+                ResetCallStack();
+
+                using (new StrictModeScope(_isStrict || program.Strict))
+                {
+                    DeclarationBindingInstantiation(
+                        DeclarationBindingType.GlobalCode,
+                        program.HoistingScope,
+                        functionInstance: null,
+                        arguments: null);
+
+                    var list = new JintStatementList(this, null, program.Body);
+                    var result = list.Execute();
+                    if (result.Type == CompletionType.Throw)
+                    {
+                        var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                        throw ex;
+                    }
+
+                    _completionValue = result.GetValueOrDefault();
+                }
+            }
+            finally
+            {
+                _threadLock.Release();
             }
 
             return this;
+        }
+        
+        internal void QueuePromiseContinuation(Action continuation)
+        {
+            var startContinuationsTask = false;
+
+            lock (_promiseContinuationsPadlock)
+            {
+                _promiseContinuations.Enqueue(continuation);
+
+                if (_continuationsTaskActive == false)
+                {
+                    startContinuationsTask = true;
+                    _continuationsTaskActive = true;
+                }
+            }
+
+            if (startContinuationsTask)
+            {
+                Task.Run(async () =>
+                {
+                    while (true)
+                    {
+                        Action nextContinuation;
+
+                        lock (_promiseContinuationsPadlock)
+                        {
+                            //  End task if no more continuations to process
+                            if (_promiseContinuations.Count == 0)
+                            {
+                                _continuationsTaskActive = false;
+                                return;
+                            }
+
+                            nextContinuation = _promiseContinuations.Dequeue();
+                        }
+
+                        //  Prevent a continuation using this engine concurrently with the user
+                        await _threadLock.WaitAsync();
+
+                        try
+                        {
+                            nextContinuation();
+                        }
+                        catch
+                        {
+                            continue;
+                        }
+                        finally
+                        {
+                            _threadLock.Release();
+                        }
+                    }
+                });
+            }
         }
 
         private void ResetLastStatement()
@@ -448,6 +522,28 @@ namespace Jint
         public JsValue GetCompletionValue()
         {
             return _completionValue;
+        }
+
+        /// <summary>
+        /// Gets the last evaluated statement completion value.  If the completion value is a promise then the method asynchronously waits for the promise to resolve and returns the resolve result
+        /// </summary>
+        /// <returns></returns>
+        public async Task<JsValue> GetCompletionValueAsync()
+        {
+            if (_completionValue is PromiseInstance promise)
+                _completionValue = await promise.Task;
+
+            return _completionValue;
+        }
+
+        /// <summary>
+        /// Asynchronously waits for a completion promise to resolve.  Returns immediately if the completion value is not a promise.
+        /// </summary>
+        /// <returns></returns>
+        public async Task WaitForCompletionAsync()
+        {
+            if (_completionValue is PromiseInstance promise)
+                await promise.Task;
         }
 
         internal void RunBeforeExecuteStatementChecks(Statement statement)
@@ -526,8 +622,8 @@ namespace Jint
                 && (baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0
                 && _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
             {
-                return baseValue;
-            }
+                    return baseValue;
+                }
             
             if (reference.IsPropertyReference())
             {
@@ -672,10 +768,10 @@ namespace Jint
             if (reference.IsSuperReference())
             {
                 return ExceptionHelper.ThrowNotImplementedException<JsValue>();
-            }
+                }
 
             return reference.GetBase();
-        }
+                }
 
         /// <summary>
         /// Invoke the current value as function.
