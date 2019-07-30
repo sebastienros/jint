@@ -15,38 +15,11 @@ namespace Jint.Native.Promise
         public Task<JsValue> Task => _tcs.Task;
         public PromiseState State { get; private set; }
 
-        private PromiseInstance(Engine engine) : base(engine, ObjectClass.Promise)
+        internal PromiseInstance(Engine engine) : base(engine, ObjectClass.Promise)
         {
 
         }
-
-        public PromiseInstance(Engine engine, PromiseInstance chainTo) : this(engine)
-        {
-            /*
-            chainTo.Task.ContinueWith(t =>
-            {
-                if (t.Status == TaskStatus.RanToCompletion)
-                {
-                    _tcs.SetResult(t.Result);
-                    State = PromiseState.Resolved;
-                }
-
-                else if (t.IsFaulted)
-                {
-                    _tcs.SetException(t.Exception?.InnerExceptions.FirstOrDefault() ?? new PromiseRejectedException(Undefined));
-                    State = PromiseState.Rejected;
-                }
-
-                //  Else cancelled
-                else
-                {
-                    _tcs.SetException(new PromiseRejectedException(Undefined));
-                    State = PromiseState.Rejected;
-                }
-            });
-            */
-        }
-
+        
         public PromiseInstance(Engine engine, FunctionInstance promiseResolver)
             : this(engine)
         {

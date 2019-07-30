@@ -39,13 +39,13 @@ namespace Jint.Native.Promise
             };
             SetProperties(properties);
         }
-        
+
         public JsValue Then(JsValue thisValue, JsValue[] args)
         {
             if (!(thisValue is PromiseInstance promise))
                 throw ExceptionHelper.ThrowTypeError(_engine, "Method Promise.prototype.then called on incompatible receiver");
 
-            var chainedPromise = new PromiseInstance(Engine, promise)
+            var chainedPromise = new PromiseInstance(Engine)
             {
                 _prototype = _promiseConstructor.PrototypeObject
             };
@@ -71,8 +71,50 @@ namespace Jint.Native.Promise
                     {
                         continuation = () =>
                         {
-                            var result = resolvedCallback.Invoke(t.Result);
-                            chainedPromise.Resolve(null, new[] {result});
+                            JsValue result;
+
+                            try
+                            {
+                                result = resolvedCallback.Invoke(t.Result);
+                            }
+                            catch (Exception ex)
+                            {
+                                var error = Undefined;
+
+                                if (ex is JavaScriptException jsEx)
+                                    error = jsEx.Error;
+
+                                chainedPromise.Reject(Undefined, new[] {error});
+                                return;
+                            }
+
+                            void HandleNestedPromiseResult(JsValue nestedResult)
+                            {
+                                //  If the result is a promise then we want to chain to this result instead!
+                                if (nestedResult is PromiseInstance resultPromise)
+                                {
+                                    resultPromise.Task.ContinueWith(ct =>
+                                    {
+                                        if (ct.Status == TaskStatus.RanToCompletion)
+                                            HandleNestedPromiseResult(ct.Result);
+
+                                        else if (ct.Status == TaskStatus.Faulted || ct.Status == TaskStatus.Canceled)
+                                        {
+                                            var rejectValue = Undefined;
+
+                                            if (ct.Exception?.InnerExceptions.FirstOrDefault() is PromiseRejectedException promiseRejection)
+                                                rejectValue = promiseRejection.RejectedValue;
+
+                                            _engine.QueuePromiseContinuation(() => chainedPromise.Reject(null, new[] {rejectValue}));
+                                        }
+
+                                    });
+                                }
+                                else
+                                    _engine.QueuePromiseContinuation(() => chainedPromise.Resolve(null, new[] {nestedResult}));
+                            }
+
+                            HandleNestedPromiseResult(result);
                         };
                     }
 
