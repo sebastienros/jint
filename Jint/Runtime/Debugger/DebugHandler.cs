@@ -40,7 +40,7 @@ namespace Jint.Runtime.Debugger
 
         internal void AddToDebugCallStack(CallExpression callExpression)
         {
-            var identifier = callExpression.Callee as Identifier;
+            var identifier = callExpression.Callee as Esprima.Ast.Identifier;
             if (identifier != null)
             {
                 var stack = identifier.Name + "(";
@@ -50,7 +50,7 @@ namespace Jint.Runtime.Debugger
                 {
                     if (argument != null)
                     {
-                        var argIdentifier = argument as Identifier;
+                        var argIdentifier = argument as Esprima.Ast.Identifier;
                         paramStrings.Add(argIdentifier != null ? argIdentifier.Name : "null");
                     }
                     else

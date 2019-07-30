@@ -79,7 +79,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return new JintFunctionExpression(engine, (IFunction) expression);
 
                 case Nodes.Identifier:
-                    return new JintIdentifierExpression(engine, (Identifier) expression);
+                    return new JintIdentifierExpression(engine, (Esprima.Ast.Identifier) expression);
 
                 case Nodes.Literal:
                     return new JintLiteralExpression(engine, (Literal) expression);
@@ -337,6 +337,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static void BuildArguments(JintExpression[] jintExpressions, JsValue[] targetArray)
         {
             for (var i = 0; i < jintExpressions.Length; i++)
@@ -402,7 +403,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected bool TryGetIdentifierEnvironmentWithBindingValue(
-            string expressionName,
+            in Key expressionName,
             out EnvironmentRecord record,
             out JsValue value)
         {
@@ -419,7 +420,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected bool TryGetIdentifierEnvironmentWithBindingValue(
             bool strict,
-            string expressionName,
+            in Key expressionName,
             out EnvironmentRecord record,
             out JsValue value)
         {

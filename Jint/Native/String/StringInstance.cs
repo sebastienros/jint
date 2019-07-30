@@ -7,9 +7,6 @@ namespace Jint.Native.String
 {
     public class StringInstance : ObjectInstance, IPrimitiveInstance
     {
-        private const string PropertyNameLength = "length";
-        private const int PropertyNameLengthLength = 6;
-
         internal PropertyDescriptor _length;
 
         public StringInstance(Engine engine)
@@ -34,14 +31,14 @@ namespace Jint.Native.String
             return false;
         }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
-            if (propertyName.Length == 8 && propertyName == "Infinity")
+            if (propertyName == KnownKeys.Infinity)
             {
                 return PropertyDescriptor.Undefined;
             }
 
-            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
+            if (propertyName == KnownKeys.Length)
             {
                 return _length ?? PropertyDescriptor.Undefined;
             }
@@ -78,7 +75,7 @@ namespace Jint.Native.String
         {
             if (_length != null)
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(PropertyNameLength, _length);
+                yield return new KeyValuePair<string, PropertyDescriptor>(KnownKeys.Length, _length);
             }
 
             foreach (var entry in base.GetOwnProperties())
@@ -87,9 +84,9 @@ namespace Jint.Native.String
             }
         }
 
-        protected internal override void SetOwnProperty(string propertyName, PropertyDescriptor desc)
+        protected internal override void SetOwnProperty(in Key propertyName, PropertyDescriptor desc)
         {
-            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
+            if (propertyName == KnownKeys.Length)
             {
                 _length = desc;
             }
@@ -99,9 +96,9 @@ namespace Jint.Native.String
             }
         }
 
-        public override bool HasOwnProperty(string propertyName)
+        public override bool HasOwnProperty(in Key propertyName)
         {
-            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
+            if (propertyName == KnownKeys.Length)
             {
                 return _length != null;
             }
@@ -109,9 +106,9 @@ namespace Jint.Native.String
             return base.HasOwnProperty(propertyName);
         }
 
-        public override void RemoveOwnProperty(string propertyName)
+        public override void RemoveOwnProperty(in Key propertyName)
         {
-            if (propertyName.Length == PropertyNameLengthLength && propertyName == PropertyNameLength)
+            if (propertyName == KnownKeys.Length)
             {
                 _length = null;
             }

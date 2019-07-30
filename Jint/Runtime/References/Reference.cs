@@ -12,10 +12,10 @@ namespace Jint.Runtime.References
     public sealed class Reference
     {
         internal JsValue _baseValue;
-        internal string _name;
+        private Key _name;
         internal bool _strict;
 
-        public Reference(JsValue baseValue, string name, bool strict)
+        public Reference(JsValue baseValue, in Key name, bool strict)
         {
             _baseValue = baseValue;
             _name = name;
@@ -28,9 +28,9 @@ namespace Jint.Runtime.References
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public string GetReferencedName()
+        public ref readonly Key GetReferencedName()
         {
-            return _name;
+            return ref _name;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -59,7 +59,7 @@ namespace Jint.Runtime.References
                    || _baseValue._type == Types.Object && !(_baseValue is EnvironmentRecord);
         }
 
-        internal Reference Reassign(JsValue baseValue, string name, bool strict)
+        internal Reference Reassign(JsValue baseValue, in Key name, bool strict)
         {
             _baseValue = baseValue;
             _name = name;
@@ -70,7 +70,7 @@ namespace Jint.Runtime.References
 
         internal void AssertValid(Engine engine)
         {
-            if (_strict && (_name == "eval" || _name == "arguments") && _baseValue is EnvironmentRecord)
+            if (_strict && (_name == KnownKeys.Eval || _name == KnownKeys.Arguments) && _baseValue is EnvironmentRecord)
             {
                 ExceptionHelper.ThrowSyntaxError(engine);
             }

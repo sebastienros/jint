@@ -18,7 +18,7 @@ namespace Jint.Native.Map
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
-        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
         {
             if (!CanPut(propertyName))
             {
@@ -54,9 +54,9 @@ namespace Jint.Native.Map
             }
         }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
-            if (propertyName.Length == 4 && propertyName == "size")
+            if (propertyName == KnownKeys.Size)
             {
                 return new PropertyDescriptor(_map.Count, PropertyFlag.None);
             }
@@ -64,9 +64,9 @@ namespace Jint.Native.Map
             return base.GetOwnProperty(propertyName);
         }
 
-        protected override bool TryGetProperty(string propertyName, out PropertyDescriptor descriptor)
+        protected override bool TryGetProperty(in Key propertyName, out PropertyDescriptor descriptor)
         {
-            if (propertyName.Length == 4 && propertyName == "size")
+            if (propertyName == KnownKeys.Size)
             {
                 descriptor = new PropertyDescriptor(_map.Count, PropertyFlag.None);
                 return true;

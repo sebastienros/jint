@@ -26,8 +26,16 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private class ObjectProperty
         {
-            internal string _name;
-            internal Property _value;
+            private readonly Key _name;
+            internal readonly Property _value;
+
+            public ObjectProperty(in Key propName, Property property)
+            {
+                _name = propName;
+                _value = property;
+            }
+
+            public ref readonly Key Name => ref _name;
         }
 
         public JintObjectExpression(Engine engine, ObjectExpression expression) : base(engine, expression)
@@ -55,16 +63,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                     propName = literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
                 }
 
-                if (property.Key is Identifier identifier)
+                if (property.Key is Esprima.Ast.Identifier identifier)
                 {
                     propName = identifier.Name;
                 }
 
-                _properties[i] = new ObjectProperty
-                {
-                    _name = propName,
-                    _value = property
-                };
+                _properties[i] = new ObjectProperty(propName ?? "", property);
 
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
                 {
@@ -95,16 +99,14 @@ namespace Jint.Runtime.Interpreter.Expressions
         private object BuildObjectFast()
         {
             var obj = _engine.Object.Construct(0);
-            var properties = _properties.Length > 1
-                ? new StringDictionarySlim<PropertyDescriptor>(_properties.Length)
-                : new StringDictionarySlim<PropertyDescriptor>();
+            var properties = new StringDictionarySlim<PropertyDescriptor>(_properties.Length);
 
             for (var i = 0; i < _properties.Length; i++)
             {
                 var objectProperty = _properties[i];
                 var valueExpression = _valueExpressions[i];
                 var propValue = valueExpression.GetValue();
-                properties[objectProperty._name] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+                properties[objectProperty.Name] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
             obj._properties = properties;
@@ -120,7 +122,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var objectProperty = _properties[i];
                 var property = objectProperty._value;
-                var propName = objectProperty._name ?? objectProperty._value.Key.GetKey(_engine);
+                var propName = !string.IsNullOrEmpty(objectProperty.Name)
+                    ? objectProperty.Name
+                    : (Key) objectProperty._value.Key.GetKey(_engine);
 
                 PropertyDescriptor propDesc;
 
@@ -131,7 +135,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (expr._expression.IsFunctionWithName())
                     {
                         var functionInstance = (FunctionInstance) propValue;
-                        functionInstance.SetFunctionName(objectProperty._name);
+                        functionInstance.SetFunctionName(objectProperty.Name);
                     }
                     propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
                 }
@@ -145,7 +149,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         _engine.ExecutionContext.LexicalEnvironment,
                         isStrictModeCode
                     );
-                    functionInstance.SetFunctionName(objectProperty._name);
+                    functionInstance.SetFunctionName(objectProperty.Name);
                     functionInstance._prototype = null;
 
                     propDesc = new GetSetPropertyDescriptor(

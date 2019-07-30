@@ -56,7 +56,8 @@ namespace Jint.Runtime.Interpreter.Statements
                     Left = left,
                     LeftPattern = bindingPattern,
                     LeftIdentifier = leftIdentifier,
-                    EvalOrArguments = leftIdentifier?._expressionName == "eval" || leftIdentifier?._expressionName == "arguments",
+                    EvalOrArguments = leftIdentifier?.ExpressionName == KnownKeys.Eval
+                                      || leftIdentifier?.ExpressionName == KnownKeys.Arguments,
                     Init = init
                 };
             }
@@ -64,10 +65,8 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
-            var declarations = _declarations;
-            for (var i = 0; i < (uint) declarations.Length; i++)
+            foreach (var declaration in _declarations)
             {
-                var declaration = declarations[i];
                 if (declaration.Init != null)
                 {
                     if (declaration.LeftPattern != null)

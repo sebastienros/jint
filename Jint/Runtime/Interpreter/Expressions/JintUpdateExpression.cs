@@ -31,7 +31,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             _leftIdentifier = _argument as JintIdentifierExpression;
-            _evalOrArguments = _leftIdentifier?._expressionName == "eval" || _leftIdentifier?._expressionName == "arguments";
+            _evalOrArguments = _leftIdentifier?.ExpressionName == KnownKeys.Eval
+                               || _leftIdentifier?.ExpressionName == KnownKeys.Arguments;
         }
 
         protected override object EvaluateInternal()
@@ -65,7 +66,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JsValue UpdateIdentifier()
         {
             var strict = StrictModeScope.IsStrictModeCode;
-            var name = _leftIdentifier._expressionName;
+            ref readonly var name = ref _leftIdentifier.ExpressionName;
             if (TryGetIdentifierEnvironmentWithBindingValue(
                 name,
                 out var environmentRecord,

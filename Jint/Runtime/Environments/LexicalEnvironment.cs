@@ -28,7 +28,7 @@ namespace Jint.Runtime.Environments
         public LexicalEnvironment Outer => _outer;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Reference GetIdentifierReference(LexicalEnvironment lex, string name, bool strict)
+        public static Reference GetIdentifierReference(LexicalEnvironment lex, in Key name, bool strict)
         {
             var identifierEnvironment = TryGetIdentifierEnvironmentWithBindingValue(lex, name, strict, out var temp, out _)
                 ? temp
@@ -37,45 +37,22 @@ namespace Jint.Runtime.Environments
             return lex._engine._referencePool.Rent(identifierEnvironment, name, strict);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool TryGetIdentifierEnvironmentWithBindingValue(
             LexicalEnvironment lex,
-            string name,
-            bool strict,
-            out EnvironmentRecord record,
-            out JsValue value)
-        {
-            // optimize for common case where result is in one of the nearest scopes
-            if (lex._record.TryGetBinding(name, strict, out var binding))
-            {
-                record = lex._record;
-                value = lex._record.UnwrapBindingValue(name, strict, binding);
-                return true;
-            }
-
-            if (lex._outer == null)
-            {
-                record = default;
-                value = default;
-                return false;
-            }
-
-            return TryGetIdentifierReferenceLooping(lex._outer, name, strict, out record, out value);
-        }
-
-        private static bool TryGetIdentifierReferenceLooping(
-            LexicalEnvironment lex,
-            string name,
+            in Key name,
             bool strict,
             out EnvironmentRecord record,
             out JsValue value)
         {
             while (true)
             {
-                if (lex._record.TryGetBinding(name, strict, out var binding))
+                if (lex._record.TryGetBinding(
+                    name,
+                    strict,
+                    out _,
+                    out value))
                 {
                     record = lex._record;
-                    value = lex._record.UnwrapBindingValue(name, strict, binding);
                     return true;
                 }
 

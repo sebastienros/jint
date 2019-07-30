@@ -37,7 +37,7 @@ namespace Jint.Runtime
 
         public static void ThrowReferenceError(Engine engine, Reference reference)
         {
-            ThrowReferenceError(engine, reference?.GetReferencedName());
+            ThrowReferenceError(engine, reference?.GetReferencedName().Name);
         }
 
         public static void ThrowReferenceError(Engine engine, string name)

@@ -21,33 +21,35 @@ namespace Jint.Runtime.Environments
             _provideThis = provideThis;
         }
 
-        public override bool HasBinding(string name)
+        public override bool HasBinding(in Key name)
         {
             return _bindingObject.HasProperty(name);
         }
 
-        internal override bool TryGetBinding(string name, bool strict, out Binding binding)
+        internal override bool TryGetBinding(
+            in Key name,
+            bool strict,
+            out Binding binding,
+            out JsValue value)
         {
-            if (!_bindingObject.HasProperty(name))
+            // we unwrap by name
+            binding = default;
+
+            var desc = _bindingObject.GetProperty(name);
+            if (desc == PropertyDescriptor.Undefined)
             {
-                binding = default;
+                value = default;
                 return false;
             }
 
-            // we unwrap by name
-            binding = default;
+            value = ObjectInstance.UnwrapJsValue(desc, this);
             return true;
-        }
-
-        internal override JsValue UnwrapBindingValue(string name, bool strict, in Binding binding)
-        {
-            return GetBindingValue(name, strict);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2.2
         /// </summary>
-        public override void CreateMutableBinding(string name, JsValue value, bool configurable = true)
+        public override void CreateMutableBinding(in Key name, JsValue value, bool configurable = true)
         {
             var propertyDescriptor = configurable
                 ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable)
@@ -56,12 +58,12 @@ namespace Jint.Runtime.Environments
             _bindingObject.SetOwnProperty(name, propertyDescriptor);
         }
 
-        public override void SetMutableBinding(string name, JsValue value, bool strict)
+        public override void SetMutableBinding(in Key name, JsValue value, bool strict)
         {
             _bindingObject.Put(name, value, strict);
         }
 
-        public override JsValue GetBindingValue(string name, bool strict)
+        public override JsValue GetBindingValue(in Key name, bool strict)
         {
             var desc = _bindingObject.GetProperty(name);
             if (strict && desc == PropertyDescriptor.Undefined)
@@ -72,7 +74,7 @@ namespace Jint.Runtime.Environments
             return ObjectInstance.UnwrapJsValue(desc, this);
         }
 
-        public override bool DeleteBinding(string name)
+        public override bool DeleteBinding(in Key name)
         {
             return _bindingObject.Delete(name, false);
         }

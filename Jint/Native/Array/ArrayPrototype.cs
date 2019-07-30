@@ -1266,8 +1266,6 @@ namespace Jint.Native.Array
 
             public abstract ulong GetSmallestIndex(ulong length);
 
-            public abstract ulong GetLargestIndex();
-
             public abstract uint GetLength();
 
             public abstract ulong GetLongLength();
@@ -1277,6 +1275,18 @@ namespace Jint.Native.Array
             public abstract void EnsureCapacity(ulong capacity);
 
             public abstract JsValue Get(ulong index);
+
+            public virtual JsValue[] GetAll()
+            {
+                var n = (int) GetLength();
+                var jsValues = new JsValue[n];
+                for (uint i = 0; i < (uint) jsValues.Length; i++)
+                {
+                    jsValues[i] = Get(i);
+                }
+
+                return jsValues;
+            }
 
             public abstract bool TryGetValue(ulong index, out JsValue value);
 
@@ -1341,9 +1351,9 @@ namespace Jint.Native.Array
                     }
 
                     ulong min = length;
-                    foreach (var key in _instance._properties.Keys)
+                    foreach (var entry in _instance._properties)
                     {
-                        if (ulong.TryParse(key, out var index))
+                        if (ulong.TryParse(entry.Key, out var index))
                         {
                             min = System.Math.Min(index, min);
                         }
@@ -1351,9 +1361,9 @@ namespace Jint.Native.Array
 
                     if (_instance.Prototype?._properties != null)
                     {
-                        foreach (var key in _instance.Prototype._properties.Keys)
+                        foreach (var entry  in _instance.Prototype._properties)
                         {
-                            if (ulong.TryParse(key, out var index))
+                            if (ulong.TryParse(entry.Key, out var index))
                             {
                                 min = System.Math.Min(index, min);
                             }
@@ -1361,38 +1371,6 @@ namespace Jint.Native.Array
                     }
 
                     return min;
-                }
-
-                public override ulong GetLargestIndex()
-                {
-                    if (_instance._properties == null)
-                    {
-                        return 0;
-                    }
-
-                    long? max = null;
-                    foreach (var key in _instance._properties.Keys)
-                    {
-                        max = max ?? long.MinValue;
-                        if (ulong.TryParse(key, out var index))
-                        {
-                            max = System.Math.Max((long) index, max.Value);
-                        }
-                    }
-
-                    if (_instance.Prototype?._properties != null)
-                    {
-                        max = max ?? long.MinValue;
-                        foreach (var key in _instance.Prototype._properties.Keys)
-                        {
-                            if (ulong.TryParse(key, out var index))
-                            {
-                                max = System.Math.Max((long) index, max.Value);
-                            }
-                        }
-                    }
-
-                    return (ulong) (max ?? 0);
                 }
 
                 public override uint GetLength()
@@ -1445,8 +1423,6 @@ namespace Jint.Native.Array
 
                 public override ulong GetSmallestIndex(ulong length) => _array.GetSmallestIndex();
 
-                public override ulong GetLargestIndex() => _array.GetLargestIndex();
-
                 public override uint GetLength()
                 {
                     return (uint) ((JsNumber) _array._length._value)._value;
@@ -1471,6 +1447,31 @@ namespace Jint.Native.Array
                 }
 
                 public override JsValue Get(ulong index) => _array.Get((uint) index);
+
+                public override JsValue[] GetAll()
+                {
+                    var n = _array.Length;
+
+                    if (_array._dense == null || _array._dense.Length < n)
+                    {
+                        return base.GetAll();
+                    }
+
+                    // optimized
+                    var jsValues = new JsValue[n];
+                    for (uint i = 0; i < (uint) jsValues.Length; i++)
+                    {
+                        var prop = _array._dense[i] ?? PropertyDescriptor.Undefined;
+                        if (prop == PropertyDescriptor.Undefined)
+                        {
+                            prop = _array.Prototype?.GetProperty(TypeConverter.ToString(i)) ?? PropertyDescriptor.Undefined;
+                        }
+
+                        jsValues[i] = _array.UnwrapJsValue(prop);
+                    }
+
+                    return jsValues;
+                }
 
                 public override void DeleteAt(ulong index) => _array.DeleteAt((uint) index);
 

@@ -50,7 +50,7 @@ namespace Jint.Native.Argument
         protected override void Initialize()
         {
             var args = _args;
-            SetOwnProperty("length", new PropertyDescriptor(args.Length, PropertyFlag.NonEnumerable));
+            SetOwnProperty(KnownKeys.Length, new PropertyDescriptor(args.Length, PropertyFlag.NonEnumerable));
 
             ObjectInstance map = null;
             if (args.Length > 0)
@@ -59,7 +59,7 @@ namespace Jint.Native.Argument
                 mappedNamed.Clear();
                 for (var i = 0; i < (uint) args.Length; i++)
                 {
-                    var indxStr = TypeConverter.ToString(i);
+                    var indxStr = (Key) TypeConverter.ToString(i);
                     var val = args[i];
                     SetOwnProperty(indxStr, new PropertyDescriptor(val, PropertyFlag.ConfigurableEnumerableWritable));
                     if (i < _names.Length)
@@ -80,19 +80,19 @@ namespace Jint.Native.Argument
             // step 13
             if (!_strict)
             {
-                SetOwnProperty("callee", new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
+                SetOwnProperty(KnownKeys.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
             }
             // step 14
             else
             {
-                DefineOwnProperty("caller", _engine._getSetThrower, false);
-                DefineOwnProperty("callee", _engine._getSetThrower, false);
+                DefineOwnProperty(KnownKeys.Caller, _engine._getSetThrower, false);
+                DefineOwnProperty(KnownKeys.Callee, _engine._getSetThrower, false);
             }
         }
 
         public ObjectInstance ParameterMap { get; set; }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
             EnsureInitialized();
 
@@ -118,7 +118,7 @@ namespace Jint.Native.Argument
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
-        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
         {
             EnsureInitialized();
 
@@ -156,7 +156,7 @@ namespace Jint.Native.Argument
             }
         }
 
-        public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc, bool throwOnError)
         {
             if (_func is ScriptFunctionInstance scriptFunctionInstance && scriptFunctionInstance._function._hasRestParameter)
             {
@@ -206,7 +206,7 @@ namespace Jint.Native.Argument
             return base.DefineOwnProperty(propertyName, desc, throwOnError);
         }
 
-        public override bool Delete(string propertyName, bool throwOnError)
+        public override bool Delete(in Key propertyName, bool throwOnError)
         {
             EnsureInitialized();
 

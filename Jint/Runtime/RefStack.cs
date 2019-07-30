@@ -7,13 +7,13 @@ namespace Jint.Runtime
     internal sealed class ExecutionContextStack
     {
         private ExecutionContext[] _array;
-        private uint _size;
+        private int _size;
 
-        private const int DefaultCapacity = 4;
+        private const int DefaultCapacity = 2;
 
-        public ExecutionContextStack()
+        public ExecutionContextStack(int capacity)
         {
-            _array = new ExecutionContext[4];
+            _array = new ExecutionContext[capacity];
             _size = 0;
         }
 
@@ -40,15 +40,48 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Push(in ExecutionContext item)
         {
-            if (_size == (uint) _array.Length)
+            if (_size == _array.Length)
             {
-                var newSize = 2 * _array.Length;
-                var newArray = new ExecutionContext[newSize];
-                Array.Copy(_array, 0, newArray, 0, _size);
-                _array = newArray;
+                EnsureCapacity(_size + 1);
             }
-
             _array[_size++] = item;
+        }
+
+        private void EnsureCapacity(int min)
+        {
+            if (_array.Length < min)
+            {
+                int newCapacity = _array.Length == 0
+                    ? DefaultCapacity
+                    : _array.Length * 2;
+
+                if (newCapacity < min)
+                {
+                    newCapacity = min;
+                }
+                Resize(newCapacity);
+            }
+        }
+
+        private void Resize(int value)
+        {
+            if (value != _array.Length)
+            {
+                if (value > 0)
+                {
+                    var newItems = new ExecutionContext[value];
+                    if (_size > 0)
+                    {
+                        Array.Copy(_array, 0, newItems, 0, _size);
+                    }
+
+                    _array = newItems;
+                }
+                else
+                {
+                    _array = ArrayExt.Empty<ExecutionContext>();
+                }
+            }
         }
 
         public void ReplaceTopLexicalEnvironment(LexicalEnvironment newEnv)

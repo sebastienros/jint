@@ -1,5 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -18,7 +17,7 @@ namespace Jint.Native.Set
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
-        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
         {
             if (!CanPut(propertyName))
             {
@@ -54,9 +53,9 @@ namespace Jint.Native.Set
             }
         }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
-            if (propertyName.Length == 4 && propertyName == "size")
+            if (propertyName == KnownKeys.Size)
             {
                 return new PropertyDescriptor(_set.Count, PropertyFlag.None);
             }
@@ -64,9 +63,9 @@ namespace Jint.Native.Set
             return base.GetOwnProperty(propertyName);
         }
 
-        protected override bool TryGetProperty(string propertyName, out PropertyDescriptor descriptor)
+        protected override bool TryGetProperty(in Key propertyName, out PropertyDescriptor descriptor)
         {
-            if (propertyName.Length == 4 && propertyName == "size")
+            if (propertyName == KnownKeys.Size)
             {
                 descriptor = new PropertyDescriptor(_set.Count, PropertyFlag.None);
                 return true;
@@ -119,12 +118,6 @@ namespace Jint.Native.Set
         public ObjectInstance Values()
         {
             return _engine.Iterator.Construct(_set._list);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal uint GetSize()
-        {
-            return (uint) _set.Count;
         }
     }
 }

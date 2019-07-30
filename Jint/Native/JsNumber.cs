@@ -62,24 +62,21 @@ namespace Jint.Native
             return _value;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static JsNumber Create(double value)
         {
             // we can cache positive double zero, but not negative, -0 == 0 in C# but in JS it's a different story
+            var temp = _doubleToJsValue;
             if ((value == 0 && BitConverter.DoubleToInt64Bits(value) != NegativeZeroBits || value >= 1)
-                && value < _doubleToJsValue.Length
+                && value < temp.Length
                 && System.Math.Abs(value % 1) <= DoubleIsIntegerTolerance)
             {
-                return _doubleToJsValue[(int) value];
+                return temp[(uint) value];
             }
 
             if (value == -1)
             {
                 return DoubleNegativeOne;
-            }
-
-            if (value <= double.MaxValue && value >= double.MinValue)
-            {
-                return new JsNumber(value);
             }
 
             return CreateNumberUnlikely(value);
@@ -88,6 +85,11 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static JsNumber CreateNumberUnlikely(double value)
         {
+            if (value <= double.MaxValue && value >= double.MinValue)
+            {
+                return new JsNumber(value);
+            }
+
             if (value == double.NegativeInfinity)
             {
                 return DoubleNegativeInfinity;
@@ -108,9 +110,10 @@ namespace Jint.Native
 
         internal static JsNumber Create(int value)
         {
-            if ((uint) value < (uint) _intToJsValue.Length)
+            var temp = _intToJsValue;
+            if ((uint) value < (uint) temp.Length)
             {
-                return _intToJsValue[value];
+                return temp[value];
             }
 
             if (value == -1)
@@ -123,9 +126,10 @@ namespace Jint.Native
 
         internal static JsNumber Create(uint value)
         {
-            if (value < (uint) _intToJsValue.Length)
+            var temp = _intToJsValue;
+            if (value < (uint) temp.Length)
             {
-                return _intToJsValue[value];
+                return temp[value];
             }
 
             return new JsNumber(value);

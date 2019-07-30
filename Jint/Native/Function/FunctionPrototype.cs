@@ -66,15 +66,15 @@ namespace Jint.Native.Function
             if (target is FunctionInstance functionInstance)
             {
                 var l = TypeConverter.ToNumber(functionInstance.Get("length")) - (arguments.Length - 1);
-                f.SetOwnProperty("length", new PropertyDescriptor(System.Math.Max(l, 0), PropertyFlag.AllForbidden));
+                f.SetOwnProperty(KnownKeys.Length, new PropertyDescriptor(System.Math.Max(l, 0), PropertyFlag.AllForbidden));
             }
             else
             {
-                f.SetOwnProperty("length", PropertyDescriptor.AllForbiddenDescriptor.NumberZero);
+                f.SetOwnProperty(KnownKeys.Length, PropertyDescriptor.AllForbiddenDescriptor.NumberZero);
             }
 
-            f.DefineOwnProperty("caller", _engine._getSetThrower, false);
-            f.DefineOwnProperty("arguments", _engine._getSetThrower, false);
+            f.DefineOwnProperty(KnownKeys.Caller, _engine._getSetThrower, false);
+            f.DefineOwnProperty(KnownKeys.Arguments, _engine._getSetThrower, false);
 
             return f;
         }
@@ -102,17 +102,9 @@ namespace Jint.Native.Function
 
             var argArrayObj = argArray as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
             var operations = ArrayPrototype.ArrayOperations.For(argArrayObj);
-
-            uint n = operations.GetLength();
-            var argList = _engine._jsValueArrayPool.RentArray((int) n);
-            for (uint i = 0; i < n; i++)
-            {
-                var nextArg = operations.Get(i);
-                argList[i] = nextArg;
-            }
+            var argList = operations.GetAll();
 
             var result = func.Call(thisArg, argList);
-            _engine._jsValueArrayPool.ReturnArray(argList);
 
             return result;
         }

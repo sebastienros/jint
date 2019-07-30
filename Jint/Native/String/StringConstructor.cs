@@ -178,9 +178,7 @@ namespace Jint.Native.String
                 Prototype = PrototypeObject,
                 PrimitiveValue = value,
                 Extensible = true,
-                _length = value.Length == 0
-                    ? PropertyDescriptor.AllForbiddenDescriptor.NumberZero
-                    : new PropertyDescriptor(value.Length, PropertyFlag.AllForbidden)
+                _length = PropertyDescriptor.AllForbiddenDescriptor.ForNumber(value.Length)
             };
 
             return instance;

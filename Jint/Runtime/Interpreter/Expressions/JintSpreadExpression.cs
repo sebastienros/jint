@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         public JintSpreadExpression(Engine engine, SpreadElement expression) : base(engine, expression)
         {
             _argument = Build(engine, expression.Argument);
-            _argumentName = (expression.Argument as Identifier)?.Name;
+            _argumentName = (expression.Argument as Esprima.Ast.Identifier)?.Name;
         }
 
         protected override object EvaluateInternal()

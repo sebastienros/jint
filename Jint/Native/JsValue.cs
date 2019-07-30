@@ -367,7 +367,7 @@ namespace Jint.Native
                 jsArray.WriteArrayValue(i, new PropertyDescriptor(jsItem, PropertyFlag.ConfigurableEnumerableWritable));
             }
 
-            jsArray.SetOwnProperty("length", new PropertyDescriptor(arrayLength, PropertyFlag.OnlyWritable));
+            jsArray.SetOwnProperty(KnownKeys.Length, new PropertyDescriptor(arrayLength, PropertyFlag.OnlyWritable));
 
             return jsArray;
         }
