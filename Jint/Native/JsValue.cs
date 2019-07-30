@@ -4,11 +4,13 @@ using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Jint.Native.Array;
 using Jint.Native.Date;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Native.RegExp;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -345,6 +347,11 @@ namespace Jint.Native
 
                 return JsNumber.Create(System.Convert.ToInt32(value));
             }
+
+            //  If a net task we want to wrap as a js promise
+            //  todo - custom task types eg ValueTask<>.  Not sure these can be supported generically without writing the associated state machine code
+            if (value is Task task)
+                return new PromiseInstance(engine, task);
 
             // if no known type could be guessed, wrap it as an ObjectInstance
             var h = engine.Options._WrapObjectHandler;

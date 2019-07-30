@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -42,35 +44,77 @@ namespace Jint.Native.Promise
         {
             if (!(thisValue is PromiseInstance promise))
                 throw ExceptionHelper.ThrowTypeError(_engine, "Method Promise.prototype.then called on incompatible receiver");
-            
-            promise.Task.ContinueWith(t =>
+
+            var chainedPromise = new PromiseInstance(Engine, promise)
             {
-                if (args.Length == 0 || !(args[0] is FunctionInstance thenCallback))
-                    return;
+                _prototype = _promiseConstructor.PrototypeObject
+            };
 
-                _engine.QueuePromiseContinuation(() => thenCallback.Invoke(t.Result));
-
-            }, TaskContinuationOptions.OnlyOnRanToCompletion);
-
-            return promise;
-        }
-
-        public JsValue Catch(JsValue thisValue, JsValue[] args)
-        {
-            if (!(thisValue is PromiseInstance promise))
-                throw ExceptionHelper.ThrowTypeError(_engine, "Method Promise.prototype.catch called on incompatible receiver");
+            var resolvedCallback = (args.Length >= 1 ? args[0] : null) as FunctionInstance ?? Undefined;
+            var rejectedCallback = (args.Length >= 2 ? args[1] : null) as FunctionInstance ?? Undefined;
 
             promise.Task.ContinueWith(t =>
             {
-                if (args.Length == 0 || !(args[0] is FunctionInstance catchCallback))
-                    return;
+                var continuation = (Action) (() => { });
 
-                _engine.QueuePromiseContinuation(() => catchCallback.Invoke(Undefined));
+                if (t.Status == TaskStatus.RanToCompletion)
+                {
+                    if (resolvedCallback == Undefined)
+                    {
+                        continuation = () =>
+                        {
+                            //  If no success callback then simply pass the return value to the next promise in chain
+                            chainedPromise.Resolve(null, new[] { t.Result });
+                        };
+                    }
+                    else
+                    {
+                        continuation = () =>
+                        {
+                            var result = resolvedCallback.Invoke(t.Result);
+                            chainedPromise.Resolve(null, new[] {result});
+                        };
+                    }
 
-            }, TaskContinuationOptions.OnlyOnFaulted);
+                }
+                
 
-            return promise;
+                else if (t.IsFaulted || t.IsCanceled)
+                {
+                    var rejectValue = Undefined;
+
+                    if (t.Exception?.InnerExceptions.FirstOrDefault() is PromiseRejectedException promiseRejection)
+                        rejectValue = promiseRejection.RejectedValue;
+
+                    if (rejectedCallback == Undefined)
+                    {
+                        continuation = () =>
+                        {
+                            //  If no error callback then simply pass the error value to the next promise in chain
+                            chainedPromise.Reject(null, new[] { rejectValue });
+                        };
+                    }
+                    else
+                    {
+                        continuation = () =>
+                        {
+                            var result = rejectedCallback.Invoke(rejectValue);
+
+                            //todo - if the above throws or returns a promise which is rejected then reject the chained promise too
+
+                            //  Else chain is restored
+                            chainedPromise.Resolve(Undefined, new[] {Undefined});
+                        };
+                    }
+                }
+
+                _engine.QueuePromiseContinuation(continuation);
+            });
+
+            return chainedPromise;
         }
+
+        public JsValue Catch(JsValue thisValue, JsValue[] args) => Then(thisValue, new [] {Undefined, args.Length >= 1 ? args[0] : Undefined});
 
     }
 }

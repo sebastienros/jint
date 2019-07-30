@@ -1,7 +1,9 @@
-﻿using Jint.Native.Function;
+﻿using Jint.Collections;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise
 {
@@ -31,6 +33,16 @@ namespace Jint.Native.Promise
             return obj;
         }
 
+        protected override void Initialize()
+        {
+            var properties = new PropertyDictionary(2, checkExistingKeys: false)
+            {
+                ["resolve"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "resolve", Resolve, 1), PropertyFlag.NonEnumerable)),
+                ["reject"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "reject", Reject, 1), PropertyFlag.NonEnumerable)),
+            };
+            SetProperties(properties);
+        }
+
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             if (thisObject.IsUndefined())
@@ -57,5 +69,8 @@ namespace Jint.Native.Promise
 
             return instance;
         }
+
+        public PromiseInstance Resolve(JsValue thisRef, JsValue[] args) => PromiseInstance.CreateResolved(Engine, args.Length >= 1 ? args[0] : Undefined);
+        public PromiseInstance Reject(JsValue thisRef, JsValue[] args) => PromiseInstance.CreateRejected(Engine, args.Length >= 1 ? args[0] : Undefined);
     }
 }
