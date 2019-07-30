@@ -1363,7 +1363,6 @@ namespace Jint.Tests.Runtime
             ");
         }
 
-
         [Fact]
         public void ShouldUseExplicitMethod()
         {
@@ -1679,6 +1678,109 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(engine.Invoke("throwException1").AsString(), exceptionMessage);
             Assert.Equal(engine.Invoke("throwException2").AsString(), exceptionMessage);
+        }
+
+        class MemberExceptionTest
+        {
+            public MemberExceptionTest(bool throwOnCreate)
+            {
+                if (throwOnCreate)
+                    throw new InvalidOperationException();
+            }
+
+            public JsValue ThrowingProperty1
+            {
+                get { throw new InvalidOperationException(); }
+                set { throw new InvalidOperationException(); }
+            }
+
+            public object ThrowingProperty2
+            {
+                get { throw new InvalidOperationException(); }
+                set { throw new InvalidOperationException(); }
+            }
+
+            public void ThrowingFunction()
+            {
+                throw new InvalidOperationException();
+            }
+        }
+
+        [Fact]
+        public void ShouldCatchClrMemberExceptions()
+        {
+            var engine = new Engine(cfg =>
+            {
+                cfg.AllowClr();
+                cfg.CatchClrExceptions();
+            });
+
+            engine.SetValue("assert", new Action<bool>(Assert.True));
+            engine.SetValue("log", new Action<object>(Console.WriteLine));
+            engine.SetValue("create", typeof(MemberExceptionTest));
+            engine.SetValue("instance", new MemberExceptionTest(throwOnCreate: false));
+
+            // Test calling a constructor that throws an exception
+            engine.Execute(@"
+                try
+                {
+                    create(true);
+                    assert(false);
+                }
+                catch (e)
+                {
+                    assert(true);
+                }
+            ");
+
+            // Test calling a member function that throws an exception
+            engine.Execute(@"
+                try
+                {
+                    instance.ThrowingFunction();
+                    assert(false);
+                }
+                catch (e)
+                {
+                    assert(true);
+                }
+            ");
+
+            // Test using a property getter that throws an exception
+            engine.Execute(@"
+                try
+                {
+                    log(o.ThrowingProperty);
+                    assert(false);
+                }
+                catch (e)
+                {
+                    assert(true);
+                }
+            ");
+
+            // Test using a property setter that throws an exception
+            engine.Execute(@"
+                try
+                {
+                    instance.ThrowingProperty1 = 123;
+                    assert(false);
+                }
+                catch (e)
+                {
+                    assert(true);
+                }
+
+                try
+                {
+                    instance.ThrowingProperty2 = 456;
+                    assert(false);
+                }
+                catch (e)
+                {
+                    assert(true);
+                }
+            ");
         }
 
         [Fact]

@@ -33,7 +33,7 @@ using Jint.Runtime.References;
 
 namespace Jint
 {
-    public sealed class Engine
+    public class Engine
     {
         private static readonly ParserOptions DefaultParserOptions = new ParserOptions
         {

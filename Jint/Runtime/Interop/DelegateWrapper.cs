@@ -37,7 +37,7 @@ namespace Jint.Runtime.Interop
         public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
         {
             var parameterInfos = _d.Method.GetParameters();
-            
+
 #if NETFRAMEWORK
             if (parameterInfos.Length > 0 && parameterInfos[0].ParameterType == typeof(System.Runtime.CompilerServices.Closure))
             {
@@ -61,7 +61,7 @@ namespace Jint.Runtime.Interop
             {
                 var parameterType = parameterInfos[i].ParameterType;
 
-                if (parameterType == typeof (JsValue))
+                if (parameterType == typeof(JsValue))
                 {
                     parameters[i] = jsArguments[i];
                 }
@@ -88,7 +88,7 @@ namespace Jint.Runtime.Interop
             }
 
             // assign params to array and converts each objet to expected type
-            if(_delegateContainsParamsArgument)
+            if (_delegateContainsParamsArgument)
             {
                 int paramsArgumentIndex = delegateArgumentsCount - 1;
                 int paramsCount = Math.Max(0, jsArgumentsCount - delegateNonParamsArgumentsCount);
@@ -120,15 +120,8 @@ namespace Jint.Runtime.Interop
             }
             catch (TargetInvocationException exception)
             {
-                var meaningfulException = exception.InnerException ?? exception;
-                var handler = Engine.Options._ClrExceptionsHandler;
-
-                if (handler != null && handler(meaningfulException))
-                {
-                    ExceptionHelper.ThrowError(_engine, meaningfulException.Message);
-                }
-
-                throw meaningfulException;
+                ExceptionHelper.ThrowMeaningfulException(_engine, exception);
+                throw;
             }
         }
     }
