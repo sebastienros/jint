@@ -3,9 +3,9 @@ using System.Reflection;
 
 namespace Jint.Extensions
 {
-    public static class ReflectionExtensions
+    internal static class ReflectionExtensions
     {
-        public static void SetValue(this MemberInfo memberInfo, object forObject, object value)
+        internal static void SetValue(this MemberInfo memberInfo, object forObject, object value)
         {
             switch (memberInfo.MemberType)
             {
@@ -27,7 +27,7 @@ namespace Jint.Extensions
             }
         }
 
-        public static Type GetDefinedType(this MemberInfo memberInfo)
+        internal static Type GetDefinedType(this MemberInfo memberInfo)
         {
             switch (memberInfo)
             {

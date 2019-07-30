@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Dynamic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Extensions;
@@ -207,15 +206,46 @@ namespace Jint.Runtime.Interop
             if (value is ExpandoObject eObj)
             {
                 // public empty constructor required
-                if (type.IsValueType && type.GetConstructors().Length > 0 ||
-                    !type.IsValueType && !type.GetConstructors().Any(x => x.GetParameters().Length == 0 && x.IsPublic)) return null;
+                var constructors = type.GetConstructors();
+                // value types
+                if (type.IsValueType && constructors.Length > 0)
+                {
+                    return null;
+                }
+
+                // reference types - return null if no valid constructor is found
+                if(!type.IsValueType)
+                {
+                    var found = false;
+                    foreach (var constructor in constructors)
+                    {
+                        if (constructor.GetParameters().Length == 0 && constructor.IsPublic)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        // found no valid constructor
+                        return null;
+                    }
+                }
 
                 var dict = (IDictionary<string, object>) eObj;
-                var obj = Activator.CreateInstance(type, new object[0]);
+                var obj = Activator.CreateInstance(type, ArrayExt.Empty<object>());
 
-                var members = type.GetMembers().Where(x => x.MemberType == MemberTypes.Property || x.MemberType == MemberTypes.Field).ToArray();
+                var members = type.GetMembers();
                 foreach (var member in members)
                 {
+                    // only use fields an properties
+                    if (member.MemberType != MemberTypes.Property &&
+                        member.MemberType != MemberTypes.Field)
+                    {
+                        continue;
+                    }
+
                     var name = member.Name.UpperToLowerCamelCase();
                     if (dict.TryGetValue(name, out var val))
                     {

@@ -2,9 +2,9 @@ using System.Text;
 
 namespace Jint.Extensions
 {
-    public static class JavascriptExtensions
+    internal static class JavascriptExtensions
     {
-        public static string UpperToLowerCamelCase(this string str)
+        internal static string UpperToLowerCamelCase(this string str)
         {
             var sb = new StringBuilder();
             sb.Append(char.ToLowerInvariant(str[0]));
