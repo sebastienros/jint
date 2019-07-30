@@ -140,11 +140,9 @@ namespace Jint.Native.Promise
                     {
                         continuation = () =>
                         {
-                            var result = rejectedCallback.Invoke(rejectValue);
+                            rejectedCallback.Invoke(rejectValue);
 
-                            //todo - if the above throws or returns a promise which is rejected then reject the chained promise too
-
-                            //  Else chain is restored
+                            //  Chain is restored after handling catch
                             chainedPromise.Resolve(Undefined, new[] {Undefined});
                         };
                     }

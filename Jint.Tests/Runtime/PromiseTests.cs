@@ -142,6 +142,14 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public async Task PromiseResolveChainedWithHandler_ResolvedAsUndefined()
+        {
+            var engine = new Engine();
+
+            Assert.Equal(JsValue.Undefined, await engine.Execute("Promise.resolve(33).then(() => {});").GetCompletionValueAsync());
+        }
+
+        [Fact]
         public async Task PromiseChainedThenWithUndefinedCallback_PassesThroughValueCorrectly()
         {
             var engine = new Engine();
@@ -199,6 +207,14 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
 
             Assert.Equal("Could not connect", await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).then(undefined, result => resolve(result)); });").GetCompletionValueAsync());
+        }
+
+        [Fact]
+        public async Task PromiseChainedWithHandler_ResolvedAsUndefined()
+        {
+            var engine = new Engine();
+
+            Assert.Equal(JsValue.Undefined, await engine.Execute("Promise.reject('error').catch(() => {});").GetCompletionValueAsync());
         }
 
         [Fact]

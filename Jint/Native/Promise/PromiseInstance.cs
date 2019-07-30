@@ -49,7 +49,11 @@ namespace Jint.Native.Promise
 
         public static PromiseInstance CreateResolved(Engine engine, JsValue result)
         {
-            var resolved = new PromiseInstance(engine);
+            var resolved = new PromiseInstance(engine)
+            {
+                Prototype = engine.Promise.PrototypeObject,
+                Extensible = true
+            };
 
             resolved._tcs.SetResult(result);
             resolved.State = PromiseState.Resolved;
@@ -59,7 +63,11 @@ namespace Jint.Native.Promise
 
         public static PromiseInstance CreateRejected(Engine engine, JsValue result)
         {
-            var rejected = new PromiseInstance(engine);
+            var rejected = new PromiseInstance(engine)
+            {
+                Prototype = engine.Promise.PrototypeObject,
+                Extensible = true
+            };
 
             rejected._tcs.SetException(new PromiseRejectedException(result));
             rejected.State = PromiseState.Rejected;
