@@ -207,7 +207,8 @@ namespace Jint.Runtime.Interop
             if (value is ExpandoObject eObj)
             {
                 // public empty constructor required
-                if (!type.GetConstructors().Any(x => x.GetParameters().Length == 0 && x.IsPublic)) return null;
+                if (type.IsValueType && type.GetConstructors().Length > 0 ||
+                    !type.IsValueType && !type.GetConstructors().Any(x => x.GetParameters().Length == 0 && x.IsPublic)) return null;
 
                 var dict = (IDictionary<string, object>) eObj;
                 var obj = Activator.CreateInstance(type, new object[0]);
@@ -215,8 +216,7 @@ namespace Jint.Runtime.Interop
                 var members = type.GetMembers().Where(x => x.MemberType == MemberTypes.Property || x.MemberType == MemberTypes.Field).ToArray();
                 foreach (var member in members)
                 {
-                    // TODO fix naming conventions
-                    var name = member.Name.ToLower();
+                    var name = member.Name.UpperToLowerCamelCase();
                     if (dict.TryGetValue(name, out var val))
                     {
                         var output = Convert(val, member.GetDefinedType(), formatProvider);
