@@ -51,8 +51,7 @@ namespace Jint.Native.Promise
         {
             var resolved = new PromiseInstance(engine)
             {
-                Prototype = engine.Promise.PrototypeObject,
-                Extensible = true
+                _prototype = engine.Promise.PrototypeObject
             };
 
             resolved._tcs.SetResult(result);
@@ -65,8 +64,7 @@ namespace Jint.Native.Promise
         {
             var rejected = new PromiseInstance(engine)
             {
-                Prototype = engine.Promise.PrototypeObject,
-                Extensible = true
+                _prototype = engine.Promise.PrototypeObject
             };
 
             rejected._tcs.SetException(new PromiseRejectedException(result));

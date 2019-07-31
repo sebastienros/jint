@@ -82,7 +82,7 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(66, await engine.Execute("Promise.resolve(66);").GetCompletionValueAsync());
         }
-
+        
         #endregion
 
         #region Reject
@@ -231,6 +231,58 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
 
             Assert.Equal("Could not connect", await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).catch().catch(result => resolve(result)); });").GetCompletionValueAsync());
+        }
+
+        #endregion
+
+        #region Finally
+
+        [Fact]
+        public async Task PromiseChainedFinally_HandlerCalled()
+        {
+            var engine = new Engine();
+
+            Assert.Equal(16, await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).finally(() => resolve(16)); });").GetCompletionValueAsync());
+        }
+
+        [Fact]
+        public void PromiseFinally_ReturnsNewPromiseInstance()
+        {
+            var engine = new Engine();
+
+            Assert.Equal(false, engine.Execute("var promise1 = new Promise((resolve, reject) => { resolve(1); }); var promise2 = promise1.finally();  promise1 === promise2").GetCompletionValue());
+        }
+
+        [Fact]
+        public async Task PromiseFinally_ResolvesWithCorrectValue()
+        {
+            var engine = new Engine();
+
+            Assert.Equal(2, await engine.Execute("Promise.resolve(2).finally(() => {})").GetCompletionValueAsync());
+        }
+
+        [Fact]
+        public async Task PromiseFinallyWithNoCallback_ResolvesWithCorrectValue()
+        {
+            var engine = new Engine();
+
+            Assert.Equal(2, await engine.Execute("Promise.resolve(2).finally()").GetCompletionValueAsync());
+        }
+
+        [Fact]
+        public async Task PromiseFinallyChained_ResolvesWithCorrectValue()
+        {
+            var engine = new Engine();
+
+            Assert.Equal(2, await engine.Execute("Promise.resolve(2).finally(() => 6).finally(() => 9);").GetCompletionValueAsync());
+        }
+
+        [Fact]
+        public async Task PromiseFinallyWhichThrows_ResolvesWithError()
+        {
+            var engine = new Engine();
+
+            Assert.Equal("Could not connect", await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(5)}).finally(() => {throw 'Could not connect';}).catch(result => resolve(result)); });").GetCompletionValueAsync());
         }
 
         #endregion

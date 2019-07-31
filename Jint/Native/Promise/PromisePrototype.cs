@@ -31,11 +31,12 @@ namespace Jint.Native.Promise
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(15, checkExistingKeys: false)
+            var properties = new PropertyDictionary(4, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_promiseConstructor, PropertyFlag.NonEnumerable),
                 ["then"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "then", Then, 1, PropertyFlag.Configurable), true, false, true),
-                ["catch"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "catch", Catch, 1, PropertyFlag.Configurable), true, false, true)
+                ["catch"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "catch", Catch, 1, PropertyFlag.Configurable), true, false, true),
+                ["finally"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "finally", Finally, 0, PropertyFlag.Configurable), true, false, true)
             };
             SetProperties(properties);
         }
@@ -154,7 +155,46 @@ namespace Jint.Native.Promise
             return chainedPromise;
         }
 
-        public JsValue Catch(JsValue thisValue, JsValue[] args) => Then(thisValue, new [] {Undefined, args.Length >= 1 ? args[0] : Undefined});
+        public JsValue Catch(JsValue thisValue, JsValue[] args) => Then(thisValue, new[] { Undefined, args.Length >= 1 ? args[0] : Undefined });
+
+        public JsValue Finally(JsValue thisValue, JsValue[] args)
+        {
+            if (!(thisValue is PromiseInstance promise))
+                throw ExceptionHelper.ThrowTypeError(_engine, "Method Promise.prototype.then called on incompatible receiver");
+
+            var chainedPromise = new PromiseInstance(Engine)
+            {
+                _prototype = _promiseConstructor.PrototypeObject
+            };
+
+            var callback = (args.Length >= 1 ? args[0] : null) as FunctionInstance ?? Undefined;
+
+            promise.Task.ContinueWith(t =>
+            {
+                _engine.QueuePromiseContinuation(() =>
+                {
+                    try
+                    {
+                        if (callback != Undefined)
+                            callback.Invoke();
+                    }
+                    catch (Exception ex)
+                    {
+                        var error = Undefined;
+
+                        if (ex is JavaScriptException jsEx)
+                            error = jsEx.Error;
+
+                        chainedPromise.Reject(Undefined, new[] {error});
+                        return;
+                    }
+
+                    chainedPromise.Resolve(Undefined, new[] {t.Result});
+                });
+            });
+
+            return chainedPromise;
+        }
 
     }
 }
