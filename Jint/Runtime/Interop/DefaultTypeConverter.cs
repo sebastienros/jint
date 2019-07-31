@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Dynamic;
 using System.Linq.Expressions;
 using System.Reflection;
+using Jint.Extensions;
 using Jint.Native;
 
 namespace Jint.Runtime.Interop
@@ -198,6 +201,60 @@ namespace Jint.Runtime.Interop
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
             {
                 type = Nullable.GetUnderlyingType(type);
+            }
+
+            if (value is ExpandoObject eObj)
+            {
+                // public empty constructor required
+                var constructors = type.GetConstructors();
+                // value types
+                if (type.IsValueType && constructors.Length > 0)
+                {
+                    return null;
+                }
+
+                // reference types - return null if no valid constructor is found
+                if(!type.IsValueType)
+                {
+                    var found = false;
+                    foreach (var constructor in constructors)
+                    {
+                        if (constructor.GetParameters().Length == 0 && constructor.IsPublic)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        // found no valid constructor
+                        return null;
+                    }
+                }
+
+                var dict = (IDictionary<string, object>) eObj;
+                var obj = Activator.CreateInstance(type, ArrayExt.Empty<object>());
+
+                var members = type.GetMembers();
+                foreach (var member in members)
+                {
+                    // only use fields an properties
+                    if (member.MemberType != MemberTypes.Property &&
+                        member.MemberType != MemberTypes.Field)
+                    {
+                        continue;
+                    }
+
+                    var name = member.Name.UpperToLowerCamelCase();
+                    if (dict.TryGetValue(name, out var val))
+                    {
+                        var output = Convert(val, member.GetDefinedType(), formatProvider);
+                        member.SetValue(obj, output);
+                    }
+                }
+
+                return obj;
             }
 
             return System.Convert.ChangeType(value, type, formatProvider);

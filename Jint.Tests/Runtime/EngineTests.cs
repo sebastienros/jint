@@ -2641,8 +2641,8 @@ function output(x) {
 	var values = x.Values;
 	var generated = x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {});
 	return {
-        TestDictionary1 : values, 
-        TestDictionary2 : x.Values, 
+        TestDictionary1 : values,
+        TestDictionary2 : x.Values,
         TestDictionaryDirectAccess1 : Object.keys(x.Values).length,
         TestDictionaryDirectAccess2 : Object.keys(x.Values),
         TestDictionaryDirectAccess4 : Object.keys(x.Values).map(function(a){return x.Values[a];}),
@@ -2660,11 +2660,11 @@ function output(x) {
         TestGeneratedDictionarySum1 : Object.keys(generated).map(function(a){return{Key: a,Value:generated[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0),
         TestGeneratedDictionarySum2 : Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).map(function(a){return{Key: a,Value:x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0),
         TestGeneratedDictionaryAverage1 : Object.keys(generated).map(function(a){return{Key: a,Value:generated[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(generated).length||1),
-        TestGeneratedDictionaryAverage2 : Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).map(function(a){return{Key: a,Value:x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).length||1), 
+        TestGeneratedDictionaryAverage2 : Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).map(function(a){return{Key: a,Value:x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).length||1),
         TestGeneratedDictionaryDirectAccess1 : Object.keys(generated),
         TestGeneratedDictionaryDirectAccess2 : Object.keys(generated).map(function(a){return generated[a];}),
-        TestGeneratedDictionaryDirectAccess3 : Object.keys(generated).length, 
-        TestList1 : elements.reduce(function(a, b) { return a + b; }, 0), 
+        TestGeneratedDictionaryDirectAccess3 : Object.keys(generated).length,
+        TestList1 : elements.reduce(function(a, b) { return a + b; }, 0),
         TestList2 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0),
         TestList3 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0),
         TestList4 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0)/(x.Elements.length||1),
@@ -2766,6 +2766,36 @@ function output(x) {
 
             var voidCompletion = engine.Execute("try { JSON.parse('01') } catch (e) {}").GetCompletionValue();
             Assert.Equal(JsValue.Undefined, voidCompletion);
+        }
+
+        [Fact]
+        public void ShouldParseAnonymousToTypeObject()
+        {
+            var obj = new Wrapper();
+            var engine = new Engine()
+                .SetValue("x", obj);
+            var js = @"
+x.test = {
+    name: 'Testificate',
+    init (a, b) {
+        return a + b
+    }
+}";
+            engine.Execute(js);
+
+            Assert.Equal("Testificate", obj.Test.Name);
+            Assert.Equal(5, obj.Test.Init(2, 3));
+        }
+
+        private class Wrapper
+        {
+            public Testificate Test { get; set; }
+        }
+
+        private class Testificate
+        {
+            public string Name { get; set; }
+            public Func<int, int, int> Init { get; set; }
         }
     }
 }
