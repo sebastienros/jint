@@ -1,8 +1,5 @@
-﻿using System;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Native.Promise;
 using Jint.Runtime;
 using Xunit;
@@ -283,6 +280,116 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
 
             Assert.Equal("Could not connect", await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(5)}).finally(() => {throw 'Could not connect';}).catch(result => resolve(result)); });").GetCompletionValueAsync());
+        }
+
+        #endregion
+
+        #region All
+
+        [Fact]
+        public void PromiseAllNoArg_Throws()
+        {
+            var engine = new Engine();
+
+            Assert.Throws<JavaScriptException>(() => { engine.Execute("Promise.all();"); });
+        }
+
+        [Fact]
+        public void PromiseAllInvalidIterator_Throws()
+        {
+            var engine = new Engine();
+
+            Assert.Throws<JavaScriptException>(() => { engine.Execute("Promise.all({});"); });
+        }
+
+        [Fact]
+        public async Task PromiseAllNoPromises_ResolvesCorrectly()
+        {
+            var engine = new Engine();
+
+            Assert.Equal(new object[] { 1d, 2d, 3d }, (await engine.Execute("Promise.all([1,2,3]);").GetCompletionValueAsync()).ToObject());
+        }
+
+        [Fact]
+        public async Task PromiseAllMixturePromisesNoPromises_ResolvesCorrectly()
+        {
+            var engine = new Engine();
+
+            Assert.Equal(new object[] { 1d, 2d, 3d }, (await engine.Execute("Promise.all([1,Promise.resolve(2),3]);").GetCompletionValueAsync()).ToObject());
+        }
+
+        [Fact]
+        public async Task PromiseAllMixturePromisesNoPromisesOneRejects_ResolvesCorrectly()
+        {
+            var engine = new Engine();
+
+            await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+            {
+                await engine.Execute("Promise.all([1,Promise.resolve(2),3, Promise.reject('Cannot connect')]);").GetCompletionValueAsync();
+            });
+        }
+
+        #endregion
+
+        #region Race
+
+        [Fact]
+        public void PromiseRaceNoArg_Throws()
+        {
+            var engine = new Engine();
+
+            Assert.Throws<JavaScriptException>(() => { engine.Execute("Promise.race();"); });
+        }
+
+        [Fact]
+        public void PromiseRaceInvalidIterator_Throws()
+        {
+            var engine = new Engine();
+
+            Assert.Throws<JavaScriptException>(() => { engine.Execute("Promise.race({});"); });
+        }
+
+        [Fact]
+        public async Task PromiseRaceNoPromises_ResolvesCorrectly()
+        {
+            var engine = new Engine();
+
+            Assert.Equal(12d, (await engine.Execute("Promise.race([12,2,3]);").GetCompletionValueAsync()).ToObject());
+        }
+
+        [Fact]
+        public async Task PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly()
+        {
+            var engine = new Engine();
+
+            Assert.Equal(12d, (await engine.Execute("Promise.race([12,Promise.resolve(2),3]);").GetCompletionValueAsync()).ToObject());
+        }
+
+        [Fact]
+        public async Task PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly2()
+        {
+            var engine = new Engine();
+
+            Assert.Equal(2d, (await engine.Execute("Promise.race([Promise.resolve(2),6,3]);").GetCompletionValueAsync()).ToObject());
+        }
+
+        [Fact]
+        public async Task PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly3()
+        {
+            var engine = new Engine();
+            
+            Assert.Equal(55d, (await engine.Execute("Promise.race([new Promise((resolve,reject)=>{}),Promise.resolve(55),3]);").GetCompletionValueAsync()).ToObject());
+        }
+
+        [Fact]
+        public async Task PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly4()
+        {
+            var engine = new Engine();
+
+            await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+            {
+                await engine.Execute("Promise.race([new Promise((resolve,reject)=>{}),Promise.reject('Could not connect'),3]);").GetCompletionValueAsync();
+            });
         }
 
         #endregion
