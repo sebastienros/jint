@@ -6,10 +6,9 @@ namespace Jint.Extensions
     {
         internal static string UpperToLowerCamelCase(this string str)
         {
-            var sb = new StringBuilder();
-            sb.Append(char.ToLowerInvariant(str[0]));
-            sb.Append(str.Substring(1));
-            return sb.ToString();
+            var arr = str.ToCharArray();
+            arr[0] = char.ToLowerInvariant(arr[0]);
+            return new string(arr);
         }
     }
 }
