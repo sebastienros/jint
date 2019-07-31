@@ -1,4 +1,6 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -39,11 +41,14 @@ namespace Jint.Native.Promise
                     var taskType = t.GetType();
                     var resultProperty = taskType.GetProperty("Result", BindingFlags.Instance | BindingFlags.Public);
 
-                    if (resultProperty != null)
+                    if (resultProperty != null && resultProperty.PropertyType.Name != "VoidTaskResult")
                         returnValue = FromObject(_engine, resultProperty.GetValue(t));
                     
                     _tcs.SetResult(returnValue);
+                    return;
                 }
+
+                _tcs.SetException(new PromiseRejectedException(FromObject(Engine, t.Exception?.InnerExceptions.FirstOrDefault() ?? new Exception("An unhandled exception was thrown"))));
             });
         }
 

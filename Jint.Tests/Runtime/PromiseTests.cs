@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime;
@@ -18,6 +19,17 @@ namespace Jint.Tests.Runtime
             await Task.Delay(100);
 
             return x * y;
+        }
+
+        public async Task TestAsyncMethodNoReturnValue()
+        {
+            await Task.Delay(100);
+        }
+
+        public async Task TestAsyncMethodThrowsException()
+        {
+            await Task.Delay(100);
+            throw new Exception("Could not connect");
         }
 
         #region Ctor
@@ -390,6 +402,80 @@ namespace Jint.Tests.Runtime
             {
                 await engine.Execute("Promise.race([new Promise((resolve,reject)=>{}),Promise.reject('Could not connect'),3]);").GetCompletionValueAsync();
             });
+        }
+
+        #endregion
+
+        #region TaskToPromise
+
+        [Fact]
+        public async Task MethodTaskToPromise_CompletesCorrectly()
+        {
+            var engine = new Engine();
+
+            engine.SetValue("TestObject", this);
+
+            Assert.Equal(12d, await engine.Execute("TestObject.testAsyncMethod(3,4);").GetCompletionValueAsync());
+        }
+
+        [Fact]
+        public async Task MethodTaskToPromiseWrapped_CompletesCorrectly()
+        {
+            var engine = new Engine();
+
+            engine.SetValue("TestObject", this);
+
+            Assert.Equal(12d, await engine.Execute("new Promise((resolve, reject) =>  TestObject.testAsyncMethod(3,4).then(res => resolve(res)));").GetCompletionValueAsync());
+        }
+
+        [Fact]
+        public async Task PropertyTaskToPromiseWrapped_CompletesCorrectly()
+        {
+            var engine = new Engine();
+
+            engine.SetValue("TestObject", this);
+
+            Assert.Equal(66d, await engine.Execute("new Promise((resolve, reject) =>  TestObject.testAsyncProperty.then(res => resolve(res)));").GetCompletionValueAsync());
+        }
+
+        [Fact]
+        public async Task MethodTaskToPromiseWrappedWithoutReturnValue_ReturnsUndefined()
+        {
+            var engine = new Engine();
+
+            engine.SetValue("TestObject", this);
+
+            Assert.Equal(JsValue.Undefined, await engine.Execute("new Promise((resolve, reject) =>  TestObject.testAsyncMethodNoReturnValue().then(res => resolve(res)));").GetCompletionValueAsync());
+        }
+
+        [Fact]
+        public async Task PropertyTaskToPromiseThatThrowsException_ThrowsPromiseRejectedException()
+        {
+            var engine = new Engine();
+
+            engine.SetValue("TestObject", this);
+
+            var ex = await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+            {
+                await engine.Execute("TestObject.testAsyncMethodThrowsException();").GetCompletionValueAsync();
+            });
+
+            Assert.Equal("Could not connect", ((Exception)ex.RejectedValue.ToObject()).Message);
+        }
+
+        [Fact]
+        public async Task PropertyTaskToPromiseThatThrowsExceptionWrapped_ThrowsPromiseRejectedException()
+        {
+            var engine = new Engine();
+
+            engine.SetValue("TestObject", this);
+
+            var ex = await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
+            {
+                await engine.Execute("new Promise((resolve, reject) =>  TestObject.testAsyncMethodThrowsException().then(res => resolve(res)).catch(err => reject(err)));").GetCompletionValueAsync();
+            });
+
+            Assert.Equal("Could not connect", ((Exception) ex.RejectedValue.ToObject()).Message);
         }
 
         #endregion
