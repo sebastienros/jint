@@ -34,7 +34,7 @@ namespace Jint.Tests.Runtime
 
         #region Ctor
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public void PromiseCtorWithNoResolver_Throws()
         {
             var engine = new Engine();
@@ -45,7 +45,7 @@ namespace Jint.Tests.Runtime
             });
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public void PromiseCtorWithInvalidResolver_Throws()
         {
             var engine = new Engine();
@@ -56,7 +56,7 @@ namespace Jint.Tests.Runtime
             });
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public void PromiseCtorWithValidResolver_DoesNotThrow()
         {
             var engine = new Engine();
@@ -64,7 +64,7 @@ namespace Jint.Tests.Runtime
             engine.Execute("new Promise((resolve, reject)=>{});");
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public void PromiseCtor_ReturnsPromiseJsValue()
         {
             var engine = new Engine();
@@ -76,7 +76,7 @@ namespace Jint.Tests.Runtime
 
         #region Resolve
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseResolveViaResolver_ReturnsCorrectValue()
         {
             var engine = new Engine();
@@ -84,7 +84,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(66, await engine.Execute("new Promise((resolve, reject)=>{resolve(66);});").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseResolveViaStatic_ReturnsCorrectValue()
         {
             var engine = new Engine();
@@ -96,7 +96,7 @@ namespace Jint.Tests.Runtime
 
         #region Reject
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseRejectViaResolver_ThrowsPromiseRejectedException()
         {
             var engine = new Engine();
@@ -109,7 +109,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal("Could not connect", ex.RejectedValue.AsString());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseRejectViaStatic_ThrowsPromiseRejectedException()
         {
             var engine = new Engine();
@@ -126,7 +126,7 @@ namespace Jint.Tests.Runtime
 
         #region Then
         
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseChainedThen_HandlerCalledWithCorrectValue()
         {
             var engine = new Engine();
@@ -134,7 +134,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(44, await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => 44).then(result => resolve(result)); });").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public void PromiseThen_ReturnsNewPromiseInstance()
         {
             var engine = new Engine();
@@ -142,7 +142,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(false, engine.Execute("var promise1 = new Promise((resolve, reject) => { resolve(1); }); var promise2 = promise1.then();  promise1 === promise2").GetCompletionValue());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseThen_CalledCorrectlyOnResolve()
         {
             var engine = new Engine();
@@ -150,7 +150,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(66, await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(result => resolve(result)); });").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseResolveChainedWithHandler_ResolvedAsUndefined()
         {
             var engine = new Engine();
@@ -158,7 +158,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(JsValue.Undefined, await engine.Execute("Promise.resolve(33).then(() => {});").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseChainedThenWithUndefinedCallback_PassesThroughValueCorrectly()
         {
             var engine = new Engine();
@@ -166,7 +166,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(66, await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then().then(result => resolve(result)); });").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseChainedThenWithCallbackReturningUndefined_PassesThroughUndefinedCorrectly()
         {
             var engine = new Engine();
@@ -174,7 +174,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(JsValue.Undefined, await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => {}).then(result => resolve(result)); });").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseChainedThenThrowsError_ChainedCallsCatchWithThrownError()
         {
             var engine = new Engine();
@@ -182,7 +182,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal("Thrown Error", await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => { throw 'Thrown Error'; }).catch(result => resolve(result)); });").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseChainedThenReturnsResolvedPromise_ChainedCallsThenWithPromiseValue()
         {
             var engine = new Engine();
@@ -190,7 +190,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(55, await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => Promise.resolve(55)).then(result => resolve(result)); });").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseChainedThenReturnsRejectedPromise_ChainedCallsCatchWithPromiseValue()
         {
             var engine = new Engine();
@@ -202,7 +202,7 @@ namespace Jint.Tests.Runtime
 
         #region Catch
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseCatch_CalledCorrectlyOnReject()
         {
             var engine = new Engine();
@@ -210,7 +210,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal("Could not connect", await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).catch(result => resolve(result)); });").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseThenWithCatch_CalledCorrectlyOnReject()
         {
             var engine = new Engine();
@@ -218,7 +218,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal("Could not connect", await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).then(undefined, result => resolve(result)); });").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseChainedWithHandler_ResolvedAsUndefined()
         {
             var engine = new Engine();
@@ -226,7 +226,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(JsValue.Undefined, await engine.Execute("Promise.reject('error').catch(() => {});").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseChainedCatchThen_ThenCallWithUndefined()
         {
             var engine = new Engine();
@@ -234,7 +234,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(JsValue.Undefined, await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).catch(ex => {}).then(result => resolve(result)); });").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseChainedCatchWithUndefinedHandler_CatchChainedCorrectly()
         {
             var engine = new Engine();
@@ -246,7 +246,7 @@ namespace Jint.Tests.Runtime
 
         #region Finally
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseChainedFinally_HandlerCalled()
         {
             var engine = new Engine();
@@ -254,7 +254,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(16, await engine.Execute("new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).finally(() => resolve(16)); });").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public void PromiseFinally_ReturnsNewPromiseInstance()
         {
             var engine = new Engine();
@@ -262,7 +262,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(false, engine.Execute("var promise1 = new Promise((resolve, reject) => { resolve(1); }); var promise2 = promise1.finally();  promise1 === promise2").GetCompletionValue());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseFinally_ResolvesWithCorrectValue()
         {
             var engine = new Engine();
@@ -270,7 +270,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(2, await engine.Execute("Promise.resolve(2).finally(() => {})").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseFinallyWithNoCallback_ResolvesWithCorrectValue()
         {
             var engine = new Engine();
@@ -278,7 +278,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(2, await engine.Execute("Promise.resolve(2).finally()").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseFinallyChained_ResolvesWithCorrectValue()
         {
             var engine = new Engine();
@@ -286,7 +286,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(2, await engine.Execute("Promise.resolve(2).finally(() => 6).finally(() => 9);").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseFinallyWhichThrows_ResolvesWithError()
         {
             var engine = new Engine();
@@ -298,7 +298,7 @@ namespace Jint.Tests.Runtime
 
         #region All
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public void PromiseAllNoArg_Throws()
         {
             var engine = new Engine();
@@ -306,7 +306,7 @@ namespace Jint.Tests.Runtime
             Assert.Throws<JavaScriptException>(() => { engine.Execute("Promise.all();"); });
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public void PromiseAllInvalidIterator_Throws()
         {
             var engine = new Engine();
@@ -314,7 +314,7 @@ namespace Jint.Tests.Runtime
             Assert.Throws<JavaScriptException>(() => { engine.Execute("Promise.all({});"); });
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseAllNoPromises_ResolvesCorrectly()
         {
             var engine = new Engine();
@@ -322,7 +322,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(new object[] { 1d, 2d, 3d }, (await engine.Execute("Promise.all([1,2,3]);").GetCompletionValueAsync()).ToObject());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseAllMixturePromisesNoPromises_ResolvesCorrectly()
         {
             var engine = new Engine();
@@ -330,7 +330,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(new object[] { 1d, 2d, 3d }, (await engine.Execute("Promise.all([1,Promise.resolve(2),3]);").GetCompletionValueAsync()).ToObject());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseAllMixturePromisesNoPromisesOneRejects_ResolvesCorrectly()
         {
             var engine = new Engine();
@@ -345,7 +345,7 @@ namespace Jint.Tests.Runtime
 
         #region Race
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public void PromiseRaceNoArg_Throws()
         {
             var engine = new Engine();
@@ -353,7 +353,7 @@ namespace Jint.Tests.Runtime
             Assert.Throws<JavaScriptException>(() => { engine.Execute("Promise.race();"); });
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public void PromiseRaceInvalidIterator_Throws()
         {
             var engine = new Engine();
@@ -361,7 +361,7 @@ namespace Jint.Tests.Runtime
             Assert.Throws<JavaScriptException>(() => { engine.Execute("Promise.race({});"); });
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseRaceNoPromises_ResolvesCorrectly()
         {
             var engine = new Engine();
@@ -369,7 +369,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(12d, (await engine.Execute("Promise.race([12,2,3]);").GetCompletionValueAsync()).ToObject());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly()
         {
             var engine = new Engine();
@@ -377,7 +377,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(12d, (await engine.Execute("Promise.race([12,Promise.resolve(2),3]);").GetCompletionValueAsync()).ToObject());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly2()
         {
             var engine = new Engine();
@@ -385,7 +385,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(2d, (await engine.Execute("Promise.race([Promise.resolve(2),6,3]);").GetCompletionValueAsync()).ToObject());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly3()
         {
             var engine = new Engine();
@@ -393,7 +393,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(55d, (await engine.Execute("Promise.race([new Promise((resolve,reject)=>{}),Promise.resolve(55),3]);").GetCompletionValueAsync()).ToObject());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly4()
         {
             var engine = new Engine();
@@ -408,7 +408,7 @@ namespace Jint.Tests.Runtime
 
         #region TaskToPromise
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task MethodTaskToPromise_CompletesCorrectly()
         {
             var engine = new Engine();
@@ -418,7 +418,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(12d, await engine.Execute("TestObject.testAsyncMethod(3,4);").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task MethodTaskToPromiseWrapped_CompletesCorrectly()
         {
             var engine = new Engine();
@@ -428,7 +428,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(12d, await engine.Execute("new Promise((resolve, reject) =>  TestObject.testAsyncMethod(3,4).then(res => resolve(res)));").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PropertyTaskToPromiseWrapped_CompletesCorrectly()
         {
             var engine = new Engine();
@@ -438,7 +438,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(66d, await engine.Execute("new Promise((resolve, reject) =>  TestObject.testAsyncProperty.then(res => resolve(res)));").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task MethodTaskToPromiseWrappedWithoutReturnValue_ReturnsUndefined()
         {
             var engine = new Engine();
@@ -448,7 +448,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(JsValue.Undefined, await engine.Execute("new Promise((resolve, reject) =>  TestObject.testAsyncMethodNoReturnValue().then(res => resolve(res)));").GetCompletionValueAsync());
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PropertyTaskToPromiseThatThrowsException_ThrowsPromiseRejectedException()
         {
             var engine = new Engine();
@@ -463,7 +463,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal("Could not connect", ((Exception)ex.RejectedValue.ToObject()).Message);
         }
 
-        [Fact]
+        [Fact(Timeout = 5000)]
         public async Task PropertyTaskToPromiseThatThrowsExceptionWrapped_ThrowsPromiseRejectedException()
         {
             var engine = new Engine();
