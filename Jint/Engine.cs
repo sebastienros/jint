@@ -401,20 +401,25 @@ namespace Jint
             CallStack.Clear();
         }
 
-        public Engine Execute(string source)
+        public Engine Execute(string source) => Execute(source, true);
+        public Engine Execute(string source, ParserOptions parserOptions) => Execute(source, parserOptions, true);
+        public Engine Execute(Script program) => Execute(program, true);
+
+        internal Engine Execute(string source, bool threadLock)
         {
-            return Execute(source, DefaultParserOptions);
+            return Execute(source, DefaultParserOptions, threadLock);
         }
 
-        public Engine Execute(string source, ParserOptions parserOptions)
+        internal Engine Execute(string source, ParserOptions parserOptions, bool threadLock)
         {
             var parser = new JavaScriptParser(source, parserOptions);
-            return Execute(parser.ParseScript());
+            return Execute(parser.ParseScript(), threadLock);
         }
 
-        public Engine Execute(Script program)
+        internal Engine Execute(Script program, bool threadLock)
         {
-            _threadLock.Wait();
+            if (threadLock)
+                _threadLock.Wait();
 
             try
             {
@@ -450,7 +455,8 @@ namespace Jint
             }
             finally
             {
-                _threadLock.Release();
+                if (threadLock)
+                    _threadLock.Release();
             }
 
             return this;
@@ -649,10 +655,10 @@ namespace Jint
                         && TryHandleStringValue(property, s, ref o, out var jsValue))
                     {
                         return jsValue;
-                    }
+                        }
 
                     if (o is null)
-                    {
+                        {
                         o = TypeConverter.ToObject(this, baseValue);
                     }
 
