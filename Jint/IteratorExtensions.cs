@@ -6,7 +6,7 @@ namespace Jint
 {
     internal static class IteratorExtensions
     {
-        internal static JsValue[] CopyToArray(this IteratorInstance iterator)
+        internal static List<JsValue> CopyToList(this IteratorInstance iterator)
         {
             var items = new List<JsValue>();
 
@@ -18,7 +18,7 @@ namespace Jint
                 item = iterator.Next();
             }
 
-            return items.ToArray();
+            return items;
         }
     }
 }

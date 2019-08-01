@@ -62,7 +62,7 @@ namespace Jint.Runtime
             return default;
         }
 
-        public static Exception ThrowTypeError(Engine engine, string message = null, Exception exception = null)
+        public static void ThrowTypeError(Engine engine, string message = null, Exception exception = null)
         {
             throw new JavaScriptException(engine.TypeError, message, exception);
         }

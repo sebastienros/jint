@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Jint.Tests.Runtime
 {
-    public class PromiseTests
+    public class PromiseTestClass
     {
         public Task<int> TestAsyncProperty
         {
@@ -31,7 +31,10 @@ namespace Jint.Tests.Runtime
             await Task.Delay(100);
             throw new Exception("Could not connect");
         }
+    }
 
+    public class PromiseTests
+    {
         #region Ctor
 
         [Fact(Timeout = 5000)]
@@ -413,7 +416,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            engine.SetValue("TestObject", this);
+            engine.SetValue("TestObject", new PromiseTestClass());
 
             Assert.Equal(12d, await engine.Execute("TestObject.testAsyncMethod(3,4);").GetCompletionValueAsync());
         }
@@ -423,7 +426,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            engine.SetValue("TestObject", this);
+            engine.SetValue("TestObject", new PromiseTestClass());
 
             Assert.Equal(12d, await engine.Execute("new Promise((resolve, reject) =>  TestObject.testAsyncMethod(3,4).then(res => resolve(res)));").GetCompletionValueAsync());
         }
@@ -433,7 +436,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            engine.SetValue("TestObject", this);
+            engine.SetValue("TestObject", new PromiseTestClass());
 
             Assert.Equal(66d, await engine.Execute("new Promise((resolve, reject) =>  TestObject.testAsyncProperty.then(res => resolve(res)));").GetCompletionValueAsync());
         }
@@ -443,7 +446,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            engine.SetValue("TestObject", this);
+            engine.SetValue("TestObject", new PromiseTestClass());
 
             Assert.Equal(JsValue.Undefined, await engine.Execute("new Promise((resolve, reject) =>  TestObject.testAsyncMethodNoReturnValue().then(res => resolve(res)));").GetCompletionValueAsync());
         }
@@ -453,7 +456,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            engine.SetValue("TestObject", this);
+            engine.SetValue("TestObject", new PromiseTestClass());
 
             var ex = await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
             {
@@ -468,7 +471,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            engine.SetValue("TestObject", this);
+            engine.SetValue("TestObject", new PromiseTestClass());
 
             var ex = await Assert.ThrowsAsync<PromiseRejectedException>(async () =>
             {

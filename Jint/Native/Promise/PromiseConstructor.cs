@@ -53,7 +53,7 @@ namespace Jint.Native.Promise
         {
             if (thisObject.IsUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Constructor Set requires 'new'");
+                ExceptionHelper.ThrowTypeError(_engine, "undefined is not a promise");
             }
 
             return Construct(arguments, thisObject);
@@ -64,7 +64,9 @@ namespace Jint.Native.Promise
             FunctionInstance promiseResolver = null;
 
             if (arguments.Length == 0 || (promiseResolver = arguments[0] as FunctionInstance) == null)
+            {
                 ExceptionHelper.ThrowTypeError(_engine, $"Promise resolver {(arguments.Length >= 1 ? arguments[0].Type.ToString() : Undefined.ToString())} is not a function");
+            }
 
             var instance = new PromiseInstance(Engine, promiseResolver)
             {
@@ -82,14 +84,17 @@ namespace Jint.Native.Promise
         public PromiseInstance All(JsValue thisRef, JsValue[] args)
         {
             if (args.Length == 0 || !(args[0] is ObjectInstance iteratorObj) || iteratorObj.HasProperty(GlobalSymbolRegistry.Iterator) == false)
-                throw ExceptionHelper.ThrowTypeError(Engine, $"undefined is not iterable (cannot read property {GlobalSymbolRegistry.Iterator})");
+            {
+                ExceptionHelper.ThrowTypeError(Engine, $"undefined is not iterable (cannot read property {GlobalSymbolRegistry.Iterator})");
+                return null;
+            }
 
             var iteratorCtor = iteratorObj.GetProperty(GlobalSymbolRegistry.Iterator).Value;
             var iterator = iteratorCtor.Invoke(iteratorObj, new JsValue[0]) as IteratorInstance;
-            var items = iterator.CopyToArray();
+            var items = iterator.CopyToList();
 
-            if (items.Length == 0)
-                return Resolve(Undefined, new[] { Engine.Array.ConstructFast(0) });
+            if (items.Count == 0)
+                return Resolve(Undefined, new JsValue[] { Engine.Array.ConstructFast(0) });
 
             var chainedPromise = new PromiseInstance(Engine)
             {
@@ -102,7 +107,7 @@ namespace Jint.Native.Promise
             {
                 Engine.QueuePromiseContinuation(() =>
                 {
-                    chainedPromise.Resolve(Undefined, new JsValue[] { Engine.Array.Construct(items) });
+                    chainedPromise.Resolve(Undefined, new JsValue[] { Engine.Array.Construct(items.ToArray()) });
                 });
             }
             else
@@ -148,11 +153,14 @@ namespace Jint.Native.Promise
         public PromiseInstance Race(JsValue thisRef, JsValue[] args)
         {
             if (args.Length == 0 || !(args[0] is ObjectInstance iteratorObj) || iteratorObj.HasProperty(GlobalSymbolRegistry.Iterator) == false)
-                throw ExceptionHelper.ThrowTypeError(Engine, $"undefined is not iterable (cannot read property {GlobalSymbolRegistry.Iterator})");
+            {
+                ExceptionHelper.ThrowTypeError(Engine, $"undefined is not iterable (cannot read property {GlobalSymbolRegistry.Iterator})");
+                return null;
+            }
 
             var iteratorCtor = iteratorObj.GetProperty(GlobalSymbolRegistry.Iterator).Value;
             var iterator = iteratorCtor.Invoke(iteratorObj, new JsValue[0]) as IteratorInstance;
-            var items = iterator.CopyToArray();
+            var items = iterator.CopyToList();
 
             var chainedPromise = new PromiseInstance(Engine)
             {
@@ -160,10 +168,10 @@ namespace Jint.Native.Promise
             };
 
             //  If no promises passed then the spec says to pend forever!
-            if (items.Length == 0)
+            if (items.Count == 0)
                 return chainedPromise;
 
-            for (var i = 0; i < items.Length; i++)
+            for (var i = 0; i < items.Count; i++)
             {
                 var item = items[i];
 

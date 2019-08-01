@@ -43,8 +43,13 @@ namespace Jint.Native.Promise
 
         public JsValue Then(JsValue thisValue, JsValue[] args)
         {
-            if (!(thisValue is PromiseInstance promise))
-                throw ExceptionHelper.ThrowTypeError(_engine, "Method Promise.prototype.then called on incompatible receiver");
+            var promise = thisValue as PromiseInstance;
+
+            if (promise == null)
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "Method Promise.prototype.then called on incompatible receiver");
+                return null;
+            }
 
             var chainedPromise = new PromiseInstance(Engine)
             {
@@ -159,8 +164,13 @@ namespace Jint.Native.Promise
 
         public JsValue Finally(JsValue thisValue, JsValue[] args)
         {
-            if (!(thisValue is PromiseInstance promise))
-                throw ExceptionHelper.ThrowTypeError(_engine, "Method Promise.prototype.then called on incompatible receiver");
+            var promise = thisValue as PromiseInstance;
+
+            if (promise == null)
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "Method Promise.prototype.then called on incompatible receiver");
+                return null;
+            }
 
             var chainedPromise = new PromiseInstance(Engine)
             {
