@@ -3,7 +3,6 @@ using Jint.Native;
 
 namespace Jint.Runtime
 {
-    [Serializable]
     public class PromiseRejectedException : Exception
     {
         public JsValue RejectedValue { get; }
