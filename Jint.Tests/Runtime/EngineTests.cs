@@ -726,15 +726,6 @@ namespace Jint.Tests.Runtime
             );
         }
 
-#if NET452
-        [Fact]
-        public void ShouldThrowMemoryLimitExceeded()
-        {
-            Assert.Throws<PlatformNotSupportedException>(
-                () => new Engine(cfg => cfg.LimitMemory(2048)).Execute("a=[]; while(true){ a.push(0); }")
-            );
-        }
-#else
         [Fact]
         public void ShouldThrowMemoryLimitExceeded()
         {
@@ -742,7 +733,6 @@ namespace Jint.Tests.Runtime
                 () => new Engine(cfg => cfg.LimitMemory(2048)).Execute("a=[]; while(true){ a.push(0); }")
             );
         }
-#endif
 
         [Fact]
         public void ShouldThrowTimeout()
