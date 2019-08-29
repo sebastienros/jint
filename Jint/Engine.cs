@@ -80,7 +80,7 @@ namespace Jint
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
 
-        public readonly ITypeConverter ClrTypeConverter;
+        public ITypeConverter ClrTypeConverter { get; set; }
 
         // cache of types used when resolving CLR type names
         internal readonly Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
