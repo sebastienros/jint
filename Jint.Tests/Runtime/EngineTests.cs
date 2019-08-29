@@ -2663,8 +2663,8 @@ function output(x) {
 };
 ";
             _engine.Execute(program);
-            var result1 = (ObjectInstance) _engine.Execute("output(x1)").GetCompletionValue();
-            var result2 = (ObjectInstance) _engine.Execute("output(x2)").GetCompletionValue();
+            var result1 = (ObjectInstance)_engine.Execute("output(x1)").GetCompletionValue();
+            var result2 = (ObjectInstance)_engine.Execute("output(x2)").GetCompletionValue();
 
             Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum1")));
             Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum2")));
@@ -2714,13 +2714,13 @@ function output(x) {
                 var r = [...arr2, ...arr1];
             ");
 
-            var arrayInstance = (ArrayInstance) _engine.GetValue("r");
+            var arrayInstance = (ArrayInstance)_engine.GetValue("r");
             Assert.Equal(arrayInstance[0], 3);
             Assert.Equal(arrayInstance[1], 4);
             Assert.Equal(arrayInstance[2], 1);
             Assert.Equal(arrayInstance[3], 2);
 
-            arrayInstance = (ArrayInstance) _engine.GetValue("s");
+            arrayInstance = (ArrayInstance)_engine.GetValue("s");
             Assert.Equal(arrayInstance[0], 'a');
             Assert.Equal(arrayInstance[1], 'b');
             Assert.Equal(arrayInstance[2], 'c');
@@ -2777,6 +2777,18 @@ x.test = {
             Assert.Equal(5, obj.Test.Init(2, 3));
         }
 
+        [Fact]
+        public void ShouldOverrideDefaultTypeConverter()
+        {
+            var engine = new Engine
+            {
+                ClrTypeConverter = new TestTypeConverter()
+            };
+            Assert.IsType<TestTypeConverter>(engine.ClrTypeConverter);
+            engine.SetValue("x", new Testificate());
+            Assert.Throws<JavaScriptException>(() => engine.Execute("c.Name"));
+        }
+
         private class Wrapper
         {
             public Testificate Test { get; set; }
@@ -2786,6 +2798,20 @@ x.test = {
         {
             public string Name { get; set; }
             public Func<int, int, int> Init { get; set; }
+        }
+
+        private class TestTypeConverter : Jint.Runtime.Interop.ITypeConverter
+        {
+
+            public object Convert(object value, Type type, IFormatProvider formatProvider)
+            {
+                throw new NotImplementedException();
+            }
+
+            public bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)
+            {
+                throw new NotImplementedException();
+            }
         }
     }
 }
