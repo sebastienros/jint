@@ -462,6 +462,11 @@ namespace Jint.Native.Array
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static uint ParseArrayIndex(string p)
         {
+            if (p.Length == 0)
+            {
+                return uint.MaxValue;
+            }
+
             int d = p[0] - '0';
 
             if (d < 0 || d > 9)
