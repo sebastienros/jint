@@ -172,5 +172,16 @@ namespace Jint.Tests.Parser
         {
             Assert.Throws<JavaScriptException>(() => new Engine().Execute("~ (WE0=1)--- l('1');"));
         }
+
+
+        [Theory]
+        [InlineData("....")]
+        [InlineData("while")]
+        [InlineData("var")]
+        [InlineData("-.-")]
+        public void ShouldThrowParserExceptionForInvalidCode(string code)
+        {
+            Assert.Throws<ParserException>(() => new JavaScriptParser(code).ParseProgram());
+        }
     }
 }
