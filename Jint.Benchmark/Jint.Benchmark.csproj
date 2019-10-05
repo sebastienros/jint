@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
     <AssemblyName>Jint.Benchmark</AssemblyName>
     <OutputType>Exe</OutputType>
     <PackageId>Jint.Benchmark</PackageId>
