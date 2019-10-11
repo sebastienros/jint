@@ -1,4 +1,4 @@
-image: Visual Studio 2017
+image: Visual Studio 2019
 
 # Do not build feature branch with open Pull Requests
 skip_branch_with_pr: true
@@ -19,11 +19,11 @@ build_script:
   - dotnet --version
   - dotnet pack -c Release
 test_script:
-  - dotnet test .\Jint.Tests\Jint.Tests.csproj -c Release -f netcoreapp2.1
+  - dotnet test .\Jint.Tests\Jint.Tests.csproj -c Release -f netcoreapp3.0
   - dotnet test .\Jint.Tests\Jint.Tests.csproj -c Release -f net452
-  - dotnet test .\Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj -c Release -f netcoreapp2.1
-  - dotnet test .\Jint.Tests.Ecma\Jint.Tests.Ecma.csproj -c Release -f netcoreapp2.1
-  - dotnet test .\Jint.Tests.Test262\Jint.Tests.Test262.csproj -c Release -f netcoreapp2.1
+  - dotnet test .\Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj -c Release -f netcoreapp3.0
+  - dotnet test .\Jint.Tests.Ecma\Jint.Tests.Ecma.csproj -c Release -f netcoreapp3.0
+  - dotnet test .\Jint.Tests.Test262\Jint.Tests.Test262.csproj -c Release -f netcoreapp3.0
 artifacts:
   - path: 'Jint\**\*.nupkg'
 deploy:  
