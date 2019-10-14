@@ -12,6 +12,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         // require sub-classes to set to false explicitly to skip virtual call
         protected bool _initialized = true;
+        protected object _initializeLock = new object();
 
         protected readonly Engine _engine;
         protected internal readonly INode _expression;
@@ -38,8 +39,14 @@ namespace Jint.Runtime.Interpreter.Expressions
             _engine._lastSyntaxNode = _expression;
             if (!_initialized)
             {
-                Initialize();
-                _initialized = true;
+                lock (_initializeLock)
+                {
+                    if (!_initialized)
+                    {
+                        Initialize();
+                        _initialized = true;
+                    }
+                }
             }
             return EvaluateInternal();
         }

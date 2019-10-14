@@ -9,11 +9,11 @@ namespace Jint.Pooling
     internal sealed class ReferencePool
     {
         private const int PoolSize = 10;
-        private readonly ObjectPool<Reference> _pool;
+        private readonly ConcurrentObjectPool<Reference> _pool;
 
         public ReferencePool()
         {
-            _pool = new ObjectPool<Reference>(Factory, PoolSize);
+            _pool = new ConcurrentObjectPool<Reference>(Factory, PoolSize);
         }
 
         private static Reference Factory()

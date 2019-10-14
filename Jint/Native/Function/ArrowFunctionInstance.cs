@@ -29,7 +29,7 @@ namespace Jint.Native.Function
             JintFunctionDefinition function,
             LexicalEnvironment scope,
             bool strict)
-            : base(engine, (string) null, function._parameterNames, scope, strict)
+            : base(engine, (string)null, function._parameterNames, scope, strict)
         {
             _function = function;
 
@@ -54,48 +54,44 @@ namespace Jint.Native.Function
             var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
 
             var strict = Strict || _engine._isStrict;
-            using (new StrictModeScope(strict, true))
+            return StrictModeScope.WithStrictModeScope(() =>
             {
-                _engine.EnterExecutionContext(
+                return _engine.WithExecutionContext(
                     localEnv,
                     localEnv,
-                    _thisBinding);
-
-                try
-                {
-                    var argumentInstanceRented = _engine.DeclarationBindingInstantiation(
+                    _thisBinding,
+                    () =>
+                    {
+                        var argumentInstanceRented = _engine.DeclarationBindingInstantiation(
                         DeclarationBindingType.FunctionCode,
                         _function._hoistingScope,
                         functionInstance: this,
                         arguments);
 
-                    var result = _function._body.Execute();
+                        var result = _function._body.Execute();
 
-                    var value = result.GetValueOrDefault();
+                        var value = result.GetValueOrDefault();
 
-                    if (argumentInstanceRented)
-                    {
-                        _engine.ExecutionContext.LexicalEnvironment?._record?.FunctionWasCalled();
-                        _engine.ExecutionContext.VariableEnvironment?._record?.FunctionWasCalled();
-                    }
+                        if (argumentInstanceRented)
+                        {
+                            _engine.ExecutionContext.LexicalEnvironment?._record?.FunctionWasCalled();
+                            _engine.ExecutionContext.VariableEnvironment?._record?.FunctionWasCalled();
+                        }
 
-                    if (result.Type == CompletionType.Throw)
-                    {
-                        ExceptionHelper.ThrowJavaScriptException(_engine, value, result);
-                    }
+                        if (result.Type == CompletionType.Throw)
+                        {
+                            ExceptionHelper.ThrowJavaScriptException(_engine, value, result);
+                        }
 
-                    if (result.Type == CompletionType.Return)
-                    {
-                        return value;
-                    }
-                }
-                finally
-                {
-                    _engine.LeaveExecutionContext();
-                }
+                        if (result.Type == CompletionType.Return)
+                        {
+                            return value;
+                        }
 
-                return Undefined;
-            }
+                        return Undefined;
+                    });
+
+            }, strict, true).GetAwaiter().GetResult();
         }
 
         public override void Put(in Key propertyName, JsValue value, bool throwOnError)
@@ -114,7 +110,7 @@ namespace Jint.Native.Function
         private void AssertValidPropertyName(in Key propertyName)
         {
             if (propertyName == KnownKeys.Caller
-                || propertyName ==  KnownKeys.Callee
+                || propertyName == KnownKeys.Callee
                 || propertyName == KnownKeys.Arguments)
             {
                 ExceptionHelper.ThrowTypeError(_engine, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");

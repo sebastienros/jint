@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -724,6 +726,49 @@ namespace Jint.Tests.Runtime
             Assert.Throws<StatementsCountOverflowException>(
                 () => new Engine(cfg => cfg.MaxStatements(100)).Execute("while(true);")
             );
+        }
+
+        [Fact]
+        public async Task ShouldHandleConcurrentCallsUsingInvoke()
+        {
+
+            var script = @"var recurse = function(n) {
+                if (n <= 0) {
+                    return;
+                }
+                recurse(n - 1)
+            };";
+
+            var engine = new Engine(cfg => cfg.LimitRecursion(10));
+            engine.Execute(script);
+
+            // Should not throw
+            await Task.WhenAll(Enumerable.Range(0, 20).Select(async _ =>
+            {
+                await Task.Yield();
+                engine.Invoke("recurse", 10);
+            }));
+        }
+
+        [Fact]
+        public async Task ShouldHandleConcurrentCallsUsingExecute()
+        {
+            var script = @"var recurse = function(n) {
+                if (n <= 0) {
+                    return;
+                }
+                recurse(n - 1)
+            };";
+
+            var engine = new Engine(cfg => cfg.LimitRecursion(10));
+            engine.Execute(script);
+
+            // Should not throw
+            await Task.WhenAll(Enumerable.Range(0, 20).Select(async _ =>
+            {
+                await Task.Yield();
+                engine.Execute("recurse(10)");
+            }));
         }
 
         [Fact]

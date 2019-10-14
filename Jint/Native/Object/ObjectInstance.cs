@@ -25,6 +25,7 @@ namespace Jint.Native.Object
 
         internal StringDictionarySlim<PropertyDescriptor> _properties;
 
+        private object _initializeLock = new object();
         private bool _initialized;
         private readonly string _class;
         protected readonly Engine _engine;
@@ -748,9 +749,15 @@ namespace Jint.Native.Object
         {
             if (!_initialized)
             {
-                // we need to set flag eagerly to prevent wrong recursion
-                _initialized = true;
-                Initialize();
+                lock (_initializeLock)
+                {
+                    if (!_initialized)
+                    {
+                        // we need to set flag eagerly to prevent wrong recursion
+                        _initialized = true;
+                        Initialize();
+                    }
+                }
             }
         }
 

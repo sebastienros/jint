@@ -37,13 +37,14 @@ namespace Jint.Runtime.Interpreter.Statements
                 if (_catch != null)
                 {
                     var c = b.Value;
-                    var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                    var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                    catchEnv._record.CreateMutableBinding(_catchParamName, c);
+                    var oldEnv = _engine.ExecutionContext;
+                    var lex = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv.LexicalEnvironment);
+                    lex._record.CreateMutableBinding(_catchParamName, c);
+                    b = _engine.WithExecutionContext(lex, oldEnv.VariableEnvironment, oldEnv.ThisBinding, () =>
+                    {
+                        return _catch.Execute();
+                    }).GetAwaiter().GetResult();
 
-                    _engine.UpdateLexicalEnvironment(catchEnv);
-                    b = _catch.Execute();
-                    _engine.UpdateLexicalEnvironment(oldEnv);
                 }
             }
 

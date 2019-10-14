@@ -13,12 +13,12 @@ namespace Jint.Pooling
     {
         private const int PoolSize = 10;
         private readonly Engine _engine;
-        private readonly ObjectPool<ArgumentsInstance> _pool;
+        private readonly ConcurrentObjectPool<ArgumentsInstance> _pool;
 
         public ArgumentsInstancePool(Engine engine)
         {
             _engine = engine;
-            _pool = new ObjectPool<ArgumentsInstance>(Factory, PoolSize);
+            _pool = new ConcurrentObjectPool<ArgumentsInstance>(Factory, PoolSize);
         }
 
         private ArgumentsInstance Factory()

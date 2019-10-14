@@ -22,25 +22,22 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             var jsValue = _object.GetValue();
             var obj = TypeConverter.ToObject(_engine, jsValue);
-            var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-            var newEnv = LexicalEnvironment.NewObjectEnvironment(_engine, obj, oldEnv, true);
-            _engine.UpdateLexicalEnvironment(newEnv);
+            var oldEnv = _engine.ExecutionContext;
 
-            Completion c;
-            try
-            {
-                c = _body.Execute();
-            }
-            catch (JavaScriptException e)
-            {
-                c = new Completion(CompletionType.Throw, e.Error, null, _statement.Location);
-            }
-            finally
-            {
-                _engine.UpdateLexicalEnvironment(oldEnv);
-            }
-
-            return c;
+            return _engine.WithExecutionContext(
+                LexicalEnvironment.NewObjectEnvironment(_engine, obj, oldEnv.LexicalEnvironment, true),
+                oldEnv.VariableEnvironment,
+                oldEnv.ThisBinding, () =>
+                {
+                    try
+                    {
+                        return _body.Execute();
+                    }
+                    catch (JavaScriptException e)
+                    {
+                        return new Completion(CompletionType.Throw, e.Error, null, _statement.Location);
+                    }
+                }).GetAwaiter().GetResult();
         }
     }
 }

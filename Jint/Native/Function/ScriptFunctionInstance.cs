@@ -65,7 +65,7 @@ namespace Jint.Native.Function
         public override JsValue Call(JsValue thisArg, JsValue[] arguments)
         {
             var strict = _strict || _engine._isStrict;
-            using (new StrictModeScope(strict, true))
+            return StrictModeScope.WithStrictModeScope(() =>
             {
                 // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
                 JsValue thisBinding;
@@ -88,9 +88,7 @@ namespace Jint.Native.Function
 
                 var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
 
-                _engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
-
-                try
+                return _engine.WithExecutionContext(localEnv, localEnv, thisBinding, () =>
                 {
                     var argumentInstanceRented = _engine.DeclarationBindingInstantiation(
                         DeclarationBindingType.FunctionCode,
@@ -117,14 +115,12 @@ namespace Jint.Native.Function
                     {
                         return value;
                     }
-                }
-                finally
-                {
-                    _engine.LeaveExecutionContext();
-                }
 
-                return Undefined;
-            }
+                    return Undefined;
+
+                }).GetAwaiter().GetResult();
+
+            }, strict, true).GetAwaiter().GetResult();
         }
 
         /// <summary>
