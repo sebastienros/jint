@@ -494,6 +494,11 @@ namespace Jint.Native
             return JsNumber.Create(value);
         }
 
+        public static implicit operator JsValue(long value)
+        {
+            return JsNumber.Create(value);
+        }
+
         public static implicit operator JsValue(ulong value)
         {
             return JsNumber.Create(value);

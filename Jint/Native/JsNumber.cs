@@ -20,7 +20,6 @@ namespace Jint.Native
         // we can cache most common values, doubles are used in indexing too at times so we also cache
         // integer values converted to doubles
         private const int NumbersMax = 1024 * 10;
-        private static readonly JsNumber[] _doubleToJsValue = new JsNumber[NumbersMax];
         private static readonly JsNumber[] _intToJsValue = new JsNumber[NumbersMax];
 
         internal static readonly JsNumber DoubleNaN = new JsNumber(double.NaN);
@@ -38,7 +37,6 @@ namespace Jint.Native
             for (int i = 0; i < NumbersMax; i++)
             {
                 _intToJsValue[i] = new JsNumber(i);
-                _doubleToJsValue[i] = new JsNumber((double) i);
             }
         }
 
@@ -76,7 +74,7 @@ namespace Jint.Native
         internal static JsNumber Create(double value)
         {
             // we can cache positive double zero, but not negative, -0 == 0 in C# but in JS it's a different story
-            var temp = _doubleToJsValue;
+            var temp = _intToJsValue;
             if ((value == 0 && BitConverter.DoubleToInt64Bits(value) != NegativeZeroBits || value >= 1)
                 && value < temp.Length
                 && System.Math.Abs(value % 1) <= DoubleIsIntegerTolerance)
