@@ -42,21 +42,21 @@ namespace Jint.Runtime.References
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasPrimitiveBase()
         {
-            return _baseValue._type != Types.Object && _baseValue._type != Types.None;
+            return _baseValue._type != InternalTypes.Object && _baseValue._type != InternalTypes.None;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsUnresolvableReference()
         {
-            return _baseValue._type == Types.Undefined;
+            return _baseValue._type == InternalTypes.Undefined;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPropertyReference()
         {
             // http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
-            return _baseValue._type != Types.Object && _baseValue._type != Types.None
-                   || _baseValue._type == Types.Object && !(_baseValue is EnvironmentRecord);
+            return _baseValue._type != InternalTypes.Object && _baseValue._type != InternalTypes.None
+                   || _baseValue._type == InternalTypes.Object && !(_baseValue is EnvironmentRecord);
         }
 
         internal Reference Reassign(JsValue baseValue, in Key name, bool strict)

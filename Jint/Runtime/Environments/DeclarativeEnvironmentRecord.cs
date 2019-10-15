@@ -185,7 +185,7 @@ namespace Jint.Runtime.Environments
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private JsValue UnwrapBindingValue(bool strict, in Binding binding)
         {
-            if (!binding.Mutable && binding.Value._type == Types.Undefined)
+            if (!binding.Mutable && binding.Value._type == InternalTypes.Undefined)
             {
                 if (strict)
                 {

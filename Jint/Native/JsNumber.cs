@@ -15,7 +15,7 @@ namespace Jint.Native
         // how many decimals to check when determining if double is actually an int
         internal const double DoubleIsIntegerTolerance = double.Epsilon * 100;
 
-        private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
+        internal static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
 
         // we can cache most common values, doubles are used in indexing too at times so we also cache
         // integer values converted to doubles
@@ -47,12 +47,17 @@ namespace Jint.Native
             _value = value;
         }
 
-        public JsNumber(int value) : base(Types.Number)
+        public JsNumber(int value) : base(InternalTypes.Integer)
         {
             _value = value;
         }
 
-        public JsNumber(uint value) : base(Types.Number)
+        public JsNumber(uint value) : base(value < int.MaxValue ? InternalTypes.Integer : InternalTypes.Number)
+        {
+            _value = value;
+        }
+
+        public JsNumber(ulong value) : base(value < int.MaxValue ? InternalTypes.Integer : InternalTypes.Number)
         {
             _value = value;
         }

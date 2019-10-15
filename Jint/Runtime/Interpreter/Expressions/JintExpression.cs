@@ -79,7 +79,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return new JintFunctionExpression(engine, (IFunction) expression);
 
                 case Nodes.Identifier:
-                    return new JintIdentifierExpression(engine, (Esprima.Ast.Identifier) expression);
+                    return new JintIdentifierExpression(engine, (Identifier) expression);
 
                 case Nodes.Literal:
                     return new JintLiteralExpression(engine, (Literal) expression);
@@ -132,7 +132,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        protected JsValue Divide(JsValue lval, JsValue rval)
+        protected JsValue Divide(JsValue lval, JsValue rval, bool integerOperation)
         {
             if (lval.IsUndefined() || rval.IsUndefined())
             {
@@ -182,50 +182,54 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-
         protected static bool Equal(JsValue x, JsValue y)
         {
-            if (x._type == y._type)
+            if (x._type == y._type || x.IsNumber() && y.IsNumber())
             {
                 return JintBinaryExpression.StrictlyEqual(x, y);
             }
 
-            if (x._type == Types.Null && y._type == Types.Undefined)
+            return EqualUnlikely(x, y);
+        }
+
+        private static bool EqualUnlikely(JsValue x, JsValue y)
+        {
+            if (x._type == InternalTypes.Null && y._type == InternalTypes.Undefined)
             {
                 return true;
             }
 
-            if (x._type == Types.Undefined && y._type == Types.Null)
+            if (x._type == InternalTypes.Undefined && y._type == InternalTypes.Null)
             {
                 return true;
             }
 
-            if (x._type == Types.Number && y._type == Types.String)
+            if (x.IsNumber() && y._type == InternalTypes.String)
             {
                 return Equal(x, TypeConverter.ToNumber(y));
             }
 
-            if (x._type == Types.String && y._type == Types.Number)
+            if (x._type == InternalTypes.String && y.IsNumber())
             {
                 return Equal(TypeConverter.ToNumber(x), y);
             }
 
-            if (x._type == Types.Boolean)
+            if (x._type == InternalTypes.Boolean)
             {
                 return Equal(TypeConverter.ToNumber(x), y);
             }
 
-            if (y._type == Types.Boolean)
+            if (y._type == InternalTypes.Boolean)
             {
                 return Equal(x, TypeConverter.ToNumber(y));
             }
 
-            if (y._type == Types.Object && (x._type == Types.String || x._type == Types.Number))
+            if (y._type == InternalTypes.Object && (x._type == InternalTypes.String || x.IsNumber()))
             {
                 return Equal(x, TypeConverter.ToPrimitive(y));
             }
 
-            if (x._type == Types.Object && (y._type == Types.String || y._type == Types.Number))
+            if (x._type == InternalTypes.Object && (y._type == InternalTypes.String || y.IsNumber()))
             {
                 return Equal(TypeConverter.ToPrimitive(x), y);
             }
@@ -235,19 +239,35 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected internal static bool SameValue(JsValue x, JsValue y)
         {
-            var typea = TypeConverter.GetPrimitiveType(x);
-            var typeb = TypeConverter.GetPrimitiveType(y);
+            var typea = TypeConverter.GetInternalPrimitiveType(x);
+            var typeb = TypeConverter.GetInternalPrimitiveType(y);
 
             if (typea != typeb)
             {
-                return false;
+                if (typea == InternalTypes.Integer)
+                {
+                    typea = InternalTypes.Number;
+                }
+                if (typeb == InternalTypes.Integer)
+                {
+                    typeb = InternalTypes.Number;
+                }
+
+                if (typea != typeb)
+                {
+                    return false;
+                }
             }
 
             switch (typea)
             {
-                case Types.None:
+                case InternalTypes.None:
                     return true;
-                case Types.Number:
+
+                case InternalTypes.Integer:
+                    return x.AsInteger() == y.AsInteger();
+
+                case InternalTypes.Number:
                     var nx = TypeConverter.ToNumber(x);
                     var ny = TypeConverter.ToNumber(y);
 
@@ -268,16 +288,39 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     return false;
-                case Types.String:
+                case InternalTypes.String:
                     return TypeConverter.ToString(x) == TypeConverter.ToString(y);
-                case Types.Boolean:
+                case InternalTypes.Boolean:
                     return TypeConverter.ToBoolean(x) == TypeConverter.ToBoolean(y);
                 default:
                     return x == y;
             }
         }
 
-        protected static JsValue Compare(JsValue x, JsValue y, bool leftFirst = true)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static JsValue Compare(JsValue x, JsValue y, bool leftFirst = true) =>
+            x._type == y._type && x._type == InternalTypes.Integer
+                ? CompareInteger(x, y, leftFirst)
+                : CompareComplex(x, y, leftFirst);
+
+        private static JsValue CompareInteger(JsValue x, JsValue y, bool leftFirst = true)
+        {
+            int nx, ny;
+            if (leftFirst)
+            {
+                nx = x.AsInteger();
+                ny = y.AsInteger();
+            }
+            else
+            {
+                ny = y.AsInteger();
+                nx = x.AsInteger();
+            }
+
+            return nx < ny;
+        }
+
+        private static  JsValue CompareComplex(JsValue x, JsValue y, bool leftFirst = true)
         {
             JsValue px, py;
             if (leftFirst)
@@ -331,10 +374,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 return nx < ny;
             }
-            else
-            {
-                return string.CompareOrdinal(TypeConverter.ToString(x), TypeConverter.ToString(y)) < 0;
-            }
+
+            return string.CompareOrdinal(TypeConverter.ToString(x), TypeConverter.ToString(y)) < 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

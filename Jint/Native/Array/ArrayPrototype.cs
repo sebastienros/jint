@@ -1464,7 +1464,7 @@ namespace Jint.Native.Array
                         var prop = _array._dense[i] ?? PropertyDescriptor.Undefined;
                         if (prop == PropertyDescriptor.Undefined)
                         {
-                            prop = _array.Prototype?.GetProperty(TypeConverter.ToString(i)) ?? PropertyDescriptor.Undefined;
+                            prop = _array.Prototype?.GetProperty(i) ?? PropertyDescriptor.Undefined;
                         }
 
                         jsValues[i] = _array.UnwrapJsValue(prop);

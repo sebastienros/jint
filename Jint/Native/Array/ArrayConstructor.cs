@@ -220,7 +220,7 @@ namespace Jint.Native.Array
         {
             // check if we can figure out good size
             var capacity = arguments.Length > 0 ? (uint) arguments.Length : 0;
-            if (arguments.Length == 1 && arguments[0].Type == Types.Number)
+            if (arguments.Length == 1 && arguments[0].IsNumber())
             {
                 var number = ((JsNumber) arguments[0])._value;
                 if (number > 0)

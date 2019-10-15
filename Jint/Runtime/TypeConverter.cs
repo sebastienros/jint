@@ -24,7 +24,21 @@ namespace Jint.Runtime
         Number = 5,
         Symbol = 9,
         Object = 10,
-        Completion = 20,
+        Completion = 20
+    }
+
+    internal enum InternalTypes
+    {
+        None = 0,
+        Undefined = 1,
+        Null = 2,
+        Boolean = 3,
+        String = 4,
+        Number = 5,
+        Integer = 6,
+        Symbol = 9,
+        Object = 10,
+        Completion = 20
     }
 
     public static class TypeConverter
@@ -32,7 +46,7 @@ namespace Jint.Runtime
         // how many decimals to check when determining if double is actually an int
         private const double DoubleIsIntegerTolerance = double.Epsilon * 100;
 
-        private static readonly string[] intToString = new string[1024];
+        internal static readonly string[] intToString = new string[1024];
         private static readonly string[] charToString = new string[256];
 
         static TypeConverter()
@@ -55,7 +69,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.None)
         {
-            if (input._type > Types.None && input._type < Types.Object)
+            if (input._type > InternalTypes.None && input._type < InternalTypes.Object)
             {
                 return input;
             }
@@ -71,15 +85,17 @@ namespace Jint.Runtime
         {
             switch (o._type)
             {
-                case Types.Boolean:
+                case InternalTypes.Boolean:
                     return ((JsBoolean) o)._value;
-                case Types.Undefined:
-                case Types.Null:
+                case InternalTypes.Undefined:
+                case InternalTypes.Null:
                     return false;
-                case Types.Number:
+                case InternalTypes.Integer:
+                    return (int) ((JsNumber) o)._value != 0;
+                case InternalTypes.Number:
                     var n = ((JsNumber) o)._value;
                     return n != 0 && !double.IsNaN(n);
-                case Types.String:
+                case InternalTypes.String:
                     return !((JsString) o).IsNullOrEmpty();
                 default:
                     return true;
@@ -92,7 +108,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double ToNumber(JsValue o)
         {
-            return o._type == Types.Number
+            return o.IsNumber()
                 ? ((JsNumber) o)._value
                 : ToNumberUnlikely(o);
         }
@@ -101,17 +117,17 @@ namespace Jint.Runtime
         {
             switch (o._type)
             {
-                case Types.Undefined:
+                case InternalTypes.Undefined:
                     return double.NaN;
-                case Types.Null:
+                case InternalTypes.Null:
                     return 0;
-                case Types.Object when o is IPrimitiveInstance p:
+                case InternalTypes.Object when o is IPrimitiveInstance p:
                     return ToNumber(ToPrimitive(p.PrimitiveValue, Types.Number));
-                case Types.Boolean:
+                case InternalTypes.Boolean:
                     return ((JsBoolean) o)._value ? 1 : 0;
-                case Types.String:
+                case InternalTypes.String:
                     return ToNumber(o.AsStringWithoutTypeCheck());
-                case Types.Symbol:
+                case InternalTypes.Symbol:
                     // TODO proper TypeError would require Engine instance and a lot of API changes
                     return ExceptionHelper.ThrowTypeErrorNoEngine<double>("Cannot convert a Symbol value to a number");
                 default:
@@ -330,7 +346,6 @@ namespace Jint.Runtime
                 : c.ToString();
         }
 
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(ulong i)
         {
@@ -340,7 +355,7 @@ namespace Jint.Runtime
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static string ToString(double d)
+        internal static string  ToString(double d)
         {
             if (d > long.MinValue && d < long.MaxValue  && Math.Abs(d % 1) <= DoubleIsIntegerTolerance)
             {
@@ -375,9 +390,14 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string ToString(JsValue o)
         {
-            if (o._type == Types.String)
+            if (o._type == InternalTypes.String)
             {
                 return o.AsStringWithoutTypeCheck();
+            }
+
+            if (o._type == InternalTypes.Integer)
+            {
+                return ToString((int) ((JsNumber) o)._value);
             }
 
             return ToStringUnlikely(o);
@@ -387,17 +407,17 @@ namespace Jint.Runtime
         {
             switch (o._type)
             {
-                case Types.Boolean:
+                case InternalTypes.Boolean:
                     return ((JsBoolean) o)._value ? "true" : "false";
-                case Types.Number:
+                case InternalTypes.Number:
                     return ToString(((JsNumber) o)._value);
-                case Types.Symbol:
+                case InternalTypes.Symbol:
                     return ExceptionHelper.ThrowTypeErrorNoEngine<string>("Cannot convert a Symbol value to a string");
-                case Types.Undefined:
+                case InternalTypes.Undefined:
                     return Undefined.Text;
-                case Types.Null:
+                case InternalTypes.Null:
                     return Null.Text;
-                case Types.Object when o is IPrimitiveInstance p:
+                case InternalTypes.Object when o is IPrimitiveInstance p:
                     return ToString(ToPrimitive(p.PrimitiveValue, Types.String));
                 default:
                     return ToString(ToPrimitive(o, Types.String));
@@ -409,15 +429,16 @@ namespace Jint.Runtime
         {
             switch (value._type)
             {
-                case Types.Object:
+                case InternalTypes.Object:
                     return (ObjectInstance) value;
-                case Types.Boolean:
+                case InternalTypes.Boolean:
                     return engine.Boolean.Construct(((JsBoolean) value)._value);
-                case Types.Number:
+                case InternalTypes.Number:
+                case InternalTypes.Integer:
                     return engine.Number.Construct(((JsNumber) value)._value);
-                case Types.String:
+                case InternalTypes.String:
                     return engine.String.Construct(value.AsStringWithoutTypeCheck());
-                case Types.Symbol:
+                case InternalTypes.Symbol:
                     return engine.Symbol.Construct(((JsSymbol) value)._value);
                 default:
                     ExceptionHelper.ThrowTypeError(engine);
@@ -427,17 +448,23 @@ namespace Jint.Runtime
 
         public static Types GetPrimitiveType(JsValue value)
         {
-            if (value._type == Types.Object)
-            {
-                if (value is IPrimitiveInstance primitive)
-                {
-                    return primitive.Type;
-                }
+            var type = GetInternalPrimitiveType(value);
+            return type == InternalTypes.Integer ? Types.Number : (Types) type;
+        }
 
-                return Types.Object;
+        internal static InternalTypes GetInternalPrimitiveType(JsValue value)
+        {
+            if (value._type != InternalTypes.Object)
+            {
+                return value._type;
             }
 
-            return value.Type;
+            if (value is IPrimitiveInstance primitive)
+            {
+                return (InternalTypes) primitive.Type;
+            }
+
+            return InternalTypes.Object;
         }
 
         public static void CheckObjectCoercible(
@@ -446,7 +473,7 @@ namespace Jint.Runtime
             MemberExpression expression,
             object baseReference)
         {
-            if (o._type > Types.Null)
+            if (o._type > InternalTypes.Null)
             {
                 return;
             }
@@ -466,7 +493,7 @@ namespace Jint.Runtime
             MemberExpression expression,
             string referenceName)
         {
-            if (o._type > Types.Null)
+            if (o._type > InternalTypes.Null)
             {
                 return;
             }
@@ -502,7 +529,7 @@ namespace Jint.Runtime
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)
         {
-            if (o._type == Types.Undefined || o._type == Types.Null)
+            if (o._type == InternalTypes.Undefined || o._type == InternalTypes.Null)
             {
                 ExceptionHelper.ThrowTypeError(engine);
             }

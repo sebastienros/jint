@@ -496,7 +496,7 @@ namespace Jint
 
         internal JsValue GetValue(Reference reference, bool returnReferenceToPool)
         {
-            if (reference._baseValue._type == Types.Undefined)
+            if (reference._baseValue._type == InternalTypes.Undefined)
             {
                 if (_referenceResolver != null &&
                     _referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
@@ -523,7 +523,7 @@ namespace Jint
                     _referencePool.Return(reference);
                 }
 
-                if (reference._baseValue._type == Types.Object)
+                if (reference._baseValue._type == InternalTypes.Object)
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
                     var v = o.Get(referencedName);
@@ -575,7 +575,7 @@ namespace Jint
         public void PutValue(Reference reference, JsValue value)
         {
             ref readonly var referencedName = ref reference.GetReferencedName();
-            if (reference._baseValue._type == Types.Undefined)
+            if (reference._baseValue._type == InternalTypes.Undefined)
             {
                 if (reference._strict)
                 {
@@ -587,7 +587,7 @@ namespace Jint
             else if (reference.IsPropertyReference())
             {
                 var baseValue = reference._baseValue;
-                if (reference._baseValue._type == Types.Object || reference._baseValue._type == Types.None)
+                if (reference._baseValue._type == InternalTypes.Object || reference._baseValue._type == InternalTypes.None)
                 {
                     ((ObjectInstance) baseValue).Put(referencedName, value, reference._strict);
                 }

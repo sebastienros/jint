@@ -123,12 +123,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            if (func._type == Types.Undefined)
+            if (func._type == InternalTypes.Undefined)
             {
                 ExceptionHelper.ThrowTypeError(_engine, r == null ? "" : $"Object has no method '{r.GetReferencedName()}'");
             }
 
-            if (func._type != Types.Object)
+            if (func._type != InternalTypes.Object)
             {
                 if (_engine._referenceResolver == null || !_engine._referenceResolver.TryGetCallable(_engine, callee, out func))
                 {

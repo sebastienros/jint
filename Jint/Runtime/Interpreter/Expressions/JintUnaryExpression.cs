@@ -21,10 +21,18 @@ namespace Jint.Runtime.Interpreter.Expressions
             switch (_operator)
             {
                 case UnaryOperator.Plus:
-                    return JsNumber.Create(TypeConverter.ToNumber(_argument.GetValue()));
+                    var plusValue = _argument.GetValue();
+                    return plusValue.IsInteger()
+                        ? plusValue
+                        : JsNumber.Create(TypeConverter.ToNumber(plusValue));
 
                 case UnaryOperator.Minus:
-                    var n = TypeConverter.ToNumber(_argument.GetValue());
+                    var minusValue = _argument.GetValue();
+                    if (minusValue.IsInteger())
+                    {
+                        return JsNumber.Create(minusValue.AsInteger() * -1);
+                    }
+                    var n = TypeConverter.ToNumber(minusValue);
                     return JsNumber.Create(double.IsNaN(n) ? double.NaN : n * -1);
 
                 case UnaryOperator.BitwiseNot:

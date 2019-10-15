@@ -73,11 +73,11 @@ namespace Jint.Native.Function
                 {
                     thisBinding = thisArg;
                 }
-                else if (thisArg._type == Types.Undefined || thisArg._type == Types.Null)
+                else if (thisArg._type == InternalTypes.Undefined || thisArg._type == InternalTypes.Null)
                 {
                     thisBinding = _engine.Global;
                 }
-                else if (thisArg._type != Types.Object)
+                else if (thisArg._type != InternalTypes.Object)
                 {
                     thisBinding = TypeConverter.ToObject(_engine, thisArg);
                 }

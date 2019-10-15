@@ -38,38 +38,54 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected override object EvaluateInternal()
         {
             var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
-            JsValue rval = _right.GetValue();
 
-            JsValue lval = _engine.GetValue(lref, false);
+            var rval = _right.GetValue();
+            var lval = _engine.GetValue(lref, false);
+
+            var isIntegerOperation = rval.IsInteger() && lval.IsInteger();
 
             var expression = (AssignmentExpression) _expression;
             switch (expression.Operator)
             {
                 case AssignmentOperator.PlusAssign:
-                    var lprim = TypeConverter.ToPrimitive(lval);
-                    var rprim = TypeConverter.ToPrimitive(rval);
-                    if (lprim.IsString() || rprim.IsString())
+                    if (isIntegerOperation)
                     {
-                        if (!(lprim is JsString jsString))
-                        {
-                            jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
-                        }
-
-                        lval = jsString.Append(rprim);
+                        lval = lval.AsInteger() + rval.AsInteger();
                     }
                     else
                     {
-                        lval = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
+                        var lprim = TypeConverter.ToPrimitive(lval);
+                        var rprim = TypeConverter.ToPrimitive(rval);
+
+                        if (lprim.IsString() || rprim.IsString())
+                        {
+                            if (!(lprim is JsString jsString))
+                            {
+                                jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
+                            }
+
+                            lval = jsString.Append(rprim);
+                        }
+                        else
+                        {
+                            lval = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
+                        }
                     }
 
                     break;
 
                 case AssignmentOperator.MinusAssign:
-                    lval = TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval);
+                    lval = isIntegerOperation
+                        ? JsNumber.Create(lval.AsInteger() - rval.AsInteger())
+                        : JsNumber.Create(TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval));
                     break;
 
                 case AssignmentOperator.TimesAssign:
-                    if (lval.IsUndefined() || rval.IsUndefined())
+                    if (isIntegerOperation)
+                    {
+                        lval = (long) lval.AsInteger() * rval.AsInteger();
+                    }
+                    else if (lval.IsUndefined() || rval.IsUndefined())
                     {
                         lval = Undefined.Instance;
                     }
@@ -81,7 +97,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     break;
 
                 case AssignmentOperator.DivideAssign:
-                    lval = Divide(lval, rval);
+                    lval = Divide(lval, rval, false);
                     break;
 
                 case AssignmentOperator.ModuloAssign:
