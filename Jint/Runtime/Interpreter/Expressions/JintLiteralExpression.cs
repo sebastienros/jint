@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal class JintLiteralExpression : JintExpression
     {
-        internal readonly JsValue _cachedValue;
+        private readonly JsValue _cachedValue;
 
         public JintLiteralExpression(Engine engine, Literal expression) : base(engine, expression)
         {
@@ -28,7 +28,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (literal.TokenType == TokenType.NumericLiteral)
             {
-                return int.TryParse(literal.Raw, out var intValue) && (intValue != 0 || BitConverter.DoubleToInt64Bits(literal.NumericValue) == JsNumber.NegativeZeroBits)
+                var validInteger = int.TryParse(literal.Raw, out var intValue)
+                                   && (intValue != 0 || BitConverter.DoubleToInt64Bits(literal.NumericValue) != JsNumber.NegativeZeroBits);
+
+                return validInteger
                     ? JsNumber.Create(intValue)
                     : JsNumber.Create(literal.NumericValue);
             }

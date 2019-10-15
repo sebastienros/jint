@@ -22,7 +22,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 case UnaryOperator.Plus:
                     var plusValue = _argument.GetValue();
-                    return plusValue.IsInteger()
+                    return plusValue.IsInteger() && plusValue.AsInteger() != 0
                         ? plusValue
                         : JsNumber.Create(TypeConverter.ToNumber(plusValue));
 
@@ -30,7 +30,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var minusValue = _argument.GetValue();
                     if (minusValue.IsInteger())
                     {
-                        return JsNumber.Create(minusValue.AsInteger() * -1);
+                        var asInteger = minusValue.AsInteger();
+                        if (asInteger != 0)
+                        {
+                            return JsNumber.Create(asInteger * -1);
+                        }
                     }
                     var n = TypeConverter.ToNumber(minusValue);
                     return JsNumber.Create(double.IsNaN(n) ? double.NaN : n * -1);

@@ -132,7 +132,32 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        protected JsValue Divide(JsValue lval, JsValue rval, bool integerOperation)
+        protected static JsValue Divide(JsValue lval, JsValue rval, bool integerOperation)
+        {
+            return integerOperation
+                ? DivideInteger(lval, rval)
+                : DivideComplex(lval, rval);
+        }
+
+        private static JsValue DivideInteger(JsValue lval, JsValue rval)
+        {
+            var lN = lval.AsInteger();
+            var rN = rval.AsInteger();
+
+            if (lN == 0 && rN == 0)
+            {
+                return JsNumber.DoubleNaN;
+            }
+
+            if (rN == 0)
+            {
+                return lN > 0 ? double.PositiveInfinity : double.NegativeInfinity;
+            }
+
+            return (double) lN / rN;
+        }
+
+        private static JsValue DivideComplex(JsValue lval, JsValue rval)
         {
             if (lval.IsUndefined() || rval.IsUndefined())
             {
@@ -180,6 +205,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 return lN / rN;
             }
+
         }
 
         protected static bool Equal(JsValue x, JsValue y)

@@ -160,10 +160,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             if (integerOperation)
                             {
-                                var asInteger = left.AsInteger();
-                                if (asInteger > 0)
+                                var leftInteger = left.AsInteger();
+                                var rightInteger = right.AsInteger();
+                                if (leftInteger > 0 && rightInteger != 0)
                                 {
-                                    return asInteger % right.AsInteger();
+                                    return leftInteger % rightInteger;
                                 }
                             }
 

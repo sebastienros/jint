@@ -62,6 +62,11 @@ namespace Jint.Native
             _value = value;
         }
 
+        public JsNumber(long value) : base(value < int.MaxValue && value > int.MinValue ? InternalTypes.Integer : InternalTypes.Number)
+        {
+            _value = value;
+        }
+
         public override object ToObject()
         {
             return _value;
@@ -143,6 +148,16 @@ namespace Jint.Native
         internal static JsNumber Create(ulong value)
         {
             if (value < (ulong) _intToJsValue.Length)
+            {
+                return _intToJsValue[value];
+            }
+
+            return new JsNumber(value);
+        }
+
+        internal static JsNumber Create(long value)
+        {
+            if ((ulong) value < (ulong) _intToJsValue.Length)
             {
                 return _intToJsValue[value];
             }
