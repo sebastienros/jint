@@ -10,7 +10,6 @@ using Jint.Native.Number.Dtoa;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Pooling;
-using Jint.Runtime.References;
 
 namespace Jint.Runtime
 {
@@ -467,53 +466,16 @@ namespace Jint.Runtime
             return InternalTypes.Object;
         }
 
-        public static void CheckObjectCoercible(
-            Engine engine,
-            JsValue o,
-            MemberExpression expression,
-            object baseReference)
-        {
-            if (o._type > InternalTypes.Null)
-            {
-                return;
-            }
-
-            var referenceResolver = engine.Options.ReferenceResolver;
-            if (referenceResolver != null && referenceResolver.CheckCoercible(o))
-            {
-                return;
-            }
-
-            ThrowTypeError(engine, o, expression, baseReference);
-        }
-
         internal static void CheckObjectCoercible(
             Engine engine,
             JsValue o,
             MemberExpression expression,
             string referenceName)
         {
-            if (o._type > InternalTypes.Null)
+            if (o._type <= InternalTypes.Null || !engine.Options.ReferenceResolver?.CheckCoercible(o) == false)
             {
-                return;
+                ThrowTypeError(engine, o, expression, referenceName);
             }
-
-            var referenceResolver = engine.Options.ReferenceResolver;
-            if (referenceResolver != null && referenceResolver.CheckCoercible(o))
-            {
-                return;
-            }
-
-            ThrowTypeError(engine, o, expression, referenceName);
-        }
-
-        private static void ThrowTypeError(
-            Engine engine,
-            JsValue o,
-            MemberExpression expression,
-            object baseReference)
-        {
-            ThrowTypeError(engine, o, expression, (baseReference as Reference)?.GetReferencedName());
         }
 
         private static void ThrowTypeError(
