@@ -10,11 +10,13 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly JintExpression _left;
         private readonly JintExpression _right;
+        private readonly AssignmentOperator _operator;
 
         private JintAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
         {
             _left = Build(engine, (Expression) expression.Left);
             _right = Build(engine, expression.Right);
+            _operator = expression.Operator;
         }
 
         internal static JintExpression Build(Engine engine, AssignmentExpression expression)
@@ -42,10 +44,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             var rval = _right.GetValue();
             var lval = _engine.GetValue(lref, false);
 
-            var isIntegerOperation = rval.IsInteger() && lval.IsInteger();
+            var isIntegerOperation = AreIntegerOperands(lval, rval);
 
-            var expression = (AssignmentExpression) _expression;
-            switch (expression.Operator)
+            switch (_operator)
             {
                 case AssignmentOperator.PlusAssign:
                     if (isIntegerOperation)

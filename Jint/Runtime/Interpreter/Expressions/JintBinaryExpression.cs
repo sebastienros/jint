@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
@@ -149,12 +148,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool HasIntegerOperands(JsValue left, JsValue right)
-        {
-            return left._type == right._type && left._type == InternalTypes.Integer;
-        }
-
         private sealed class StrictlyEqualBinaryExpression : JintBinaryExpression
         {
             public StrictlyEqualBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
@@ -234,7 +227,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
                 
-                if (HasIntegerOperands(left, right))
+                if (AreIntegerOperands(left, right))
                 {
                     return JsNumber.Create(left.AsInteger() + right.AsInteger());
                 }
@@ -257,7 +250,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
                 
-                return HasIntegerOperands(left, right)
+                return AreIntegerOperands(left, right)
                     ? JsNumber.Create(left.AsInteger() - right.AsInteger())
                     : JsNumber.Create(TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right));
             }
@@ -274,7 +267,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
                 
-                if (HasIntegerOperands(left, left))
+                if (AreIntegerOperands(left, left))
                 {
                     return JsNumber.Create((long) left.AsInteger() * right.AsInteger());
                 }
@@ -299,7 +292,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                return Divide(left, left, HasIntegerOperands(left, left));
+                return Divide(left, left, AreIntegerOperands(left, left));
             }
         }
 
@@ -408,7 +401,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                if (HasIntegerOperands(left, right))
+                if (AreIntegerOperands(left, right))
                 {
                     var leftInteger = left.AsInteger();
                     var rightInteger = right.AsInteger();

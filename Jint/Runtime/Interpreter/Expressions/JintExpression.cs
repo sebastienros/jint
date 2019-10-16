@@ -500,5 +500,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 out record,
                 out value);
         }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static bool AreIntegerOperands(JsValue left, JsValue right)
+        {
+            return left._type == right._type && left._type == InternalTypes.Integer;
+        }
     }
 }
