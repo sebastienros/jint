@@ -472,7 +472,7 @@ namespace Jint.Runtime
             MemberExpression expression,
             string referenceName)
         {
-            if (o._type <= InternalTypes.Null || !engine.Options.ReferenceResolver?.CheckCoercible(o) == false)
+            if (o._type < InternalTypes.Boolean && (engine.Options.ReferenceResolver?.CheckCoercible(o)).GetValueOrDefault() != true)
             {
                 ThrowTypeError(engine, o, expression, referenceName);
             }
@@ -491,7 +491,7 @@ namespace Jint.Runtime
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)
         {
-            if (o._type == InternalTypes.Undefined || o._type == InternalTypes.Null)
+            if (o._type < InternalTypes.Boolean)
             {
                 ExceptionHelper.ThrowTypeError(engine);
             }
