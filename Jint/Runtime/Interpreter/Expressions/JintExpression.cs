@@ -133,9 +133,9 @@ namespace Jint.Runtime.Interpreter.Expressions
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static JsValue Divide(JsValue lval, JsValue rval, bool integerOperation)
+        protected static JsValue Divide(JsValue lval, JsValue rval)
         {
-            return integerOperation
+            return AreIntegerOperands(lval, rval)
                 ? DivideInteger(lval, rval)
                 : DivideComplex(lval, rval);
         }
@@ -330,7 +330,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? CompareInteger(x, y, leftFirst)
                 : CompareComplex(x, y, leftFirst);
 
-        private static JsValue CompareInteger(JsValue x, JsValue y, bool leftFirst = true)
+        private static JsValue CompareInteger(JsValue x, JsValue y, bool leftFirst)
         {
             int nx, ny;
             if (leftFirst)
@@ -347,7 +347,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return nx < ny;
         }
 
-        private static  JsValue CompareComplex(JsValue x, JsValue y, bool leftFirst = true)
+        private static  JsValue CompareComplex(JsValue x, JsValue y, bool leftFirst)
         {
             JsValue px, py;
             if (leftFirst)

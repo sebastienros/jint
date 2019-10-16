@@ -267,7 +267,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
                 
-                if (AreIntegerOperands(left, left))
+                if (AreIntegerOperands(left, right))
                 {
                     return JsNumber.Create((long) left.AsInteger() * right.AsInteger());
                 }
@@ -292,7 +292,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                return Divide(left, left, AreIntegerOperands(left, left));
+                return Divide(left, right);
             }
         }
 
@@ -320,20 +320,24 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             private readonly bool _leftFirst;
 
-            public CompareBinaryExpression(Engine engine, BinaryExpression expression, bool leftFirst = true) : base(engine, expression)
+            public CompareBinaryExpression(Engine engine, BinaryExpression expression, bool leftFirst) : base(engine, expression)
             {
                 _leftFirst = leftFirst;
             }
 
             protected override object EvaluateInternal()
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var leftValue = _left.GetValue();
+                var rightValue = _right.GetValue();
+                
+                var left = _leftFirst ? leftValue : rightValue;
+                var right = _leftFirst ? rightValue : leftValue;
 
                 var value = Compare(left, right, _leftFirst);
                 return value.IsUndefined() || ((JsBoolean) value)._value
                     ? JsBoolean.False
-                    : JsBoolean.True;            }
+                    : JsBoolean.True;
+            }
         }
 
         private sealed class InstanceOfBinaryExpression : JintBinaryExpression
@@ -433,6 +437,44 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
+                if (AreIntegerOperands(left, right))
+                {
+                    int leftValue = left.AsInteger();
+                    int rightValue = right.AsInteger();
+                    
+                    switch (_operator)
+                    {
+                        case BinaryOperator.BitwiseAnd:
+                            return JsNumber.Create(leftValue & rightValue);
+
+                        case BinaryOperator.BitwiseOr:
+                            return
+                                JsNumber.Create(leftValue | rightValue);
+
+                        case BinaryOperator.BitwiseXOr:
+                            return
+                                JsNumber.Create(leftValue ^ rightValue);
+
+                        case BinaryOperator.LeftShift:
+                            return JsNumber.Create(leftValue << (int) ((uint) rightValue & 0x1F));
+
+                        case BinaryOperator.RightShift:
+                            return JsNumber.Create(leftValue >> (int) ((uint) rightValue & 0x1F));
+
+                        case BinaryOperator.UnsignedRightShift:
+                            return JsNumber.Create((uint) leftValue >> (int) ((uint) rightValue & 0x1F));
+                        default:
+                            return ExceptionHelper.ThrowArgumentOutOfRangeException<object>(nameof(_operator),
+                                "unknown shift operator");
+                    }
+  
+                }
+                
+                return EvaluateNonInteger(left, right);
+            }
+
+            private object EvaluateNonInteger(JsValue left, JsValue right)
+            {
                 switch (_operator)
                 {
                     case BinaryOperator.BitwiseAnd:
@@ -458,7 +500,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return JsNumber.Create((uint) TypeConverter.ToInt32(left) >>
                                                (int) (TypeConverter.ToUint32(right) & 0x1F));
                     default:
-                        return ExceptionHelper.ThrowArgumentOutOfRangeException<object>(nameof(_operator), "unknown shift operator");
+                        return ExceptionHelper.ThrowArgumentOutOfRangeException<object>(nameof(_operator),
+                            "unknown shift operator");
                 }
             }
         }

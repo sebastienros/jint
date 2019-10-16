@@ -98,7 +98,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     break;
 
                 case AssignmentOperator.DivideAssign:
-                    lval = Divide(lval, rval, false);
+                    lval = Divide(lval, rval);
                     break;
 
                 case AssignmentOperator.ModuloAssign:
