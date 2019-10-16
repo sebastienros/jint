@@ -44,12 +44,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             var rval = _right.GetValue();
             var lval = _engine.GetValue(lref, false);
 
-            var isIntegerOperation = AreIntegerOperands(lval, rval);
-
             switch (_operator)
             {
                 case AssignmentOperator.PlusAssign:
-                    if (isIntegerOperation)
+                    if (AreIntegerOperands(lval, rval))
                     {
                         lval = lval.AsInteger() + rval.AsInteger();
                     }
@@ -76,13 +74,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                     break;
 
                 case AssignmentOperator.MinusAssign:
-                    lval = isIntegerOperation
+                    lval = AreIntegerOperands(lval, rval)
                         ? JsNumber.Create(lval.AsInteger() - rval.AsInteger())
                         : JsNumber.Create(TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval));
                     break;
 
                 case AssignmentOperator.TimesAssign:
-                    if (isIntegerOperation)
+                    if (AreIntegerOperands(lval, rval))
                     {
                         lval = (long) lval.AsInteger() * rval.AsInteger();
                     }

@@ -244,10 +244,28 @@ namespace Jint.Runtime
         }
 
         /// <summary>
+        /// Returns unsigned integer from JsValue, 0 if negative, maximum of NumberConstructor.MaxSafeInteger.
+        /// </summary>
+        internal static ulong ToUnsignedInteger(JsValue o)
+        {
+            if (o.IsInteger())
+            {
+                return (ulong) Math.Max(o.AsInteger(), 0);
+            }
+
+            var d = ToInteger(o);
+            if (d < 0)
+            {
+                return 0;
+            }
+            return (ulong) (d < NumberConstructor.MaxSafeInteger
+                ? d
+                : NumberConstructor.MaxSafeInteger);
+        }
+
+        /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.4
         /// </summary>
-        /// <param name="o"></param>
-        /// <returns></returns>
         public static double ToInteger(JsValue o)
         {
             var number = ToNumber(o);
@@ -285,33 +303,32 @@ namespace Jint.Runtime
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.5
         /// </summary>
-        /// <param name="o"></param>
-        /// <returns></returns>
         public static int ToInt32(JsValue o)
         {
-            return (int) (uint) ToNumber(o);
+            return o._type == InternalTypes.Integer
+                ? o.AsInteger()
+                : (int) (uint) ToNumber(o);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.6
         /// </summary>
-        /// <param name="o"></param>
-        /// <returns></returns>
         public static uint ToUint32(JsValue o)
         {
-            return (uint) ToNumber(o);
+            return o._type == InternalTypes.Integer
+                ? (uint) o.AsInteger()
+                : (uint) ToNumber(o);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.7
         /// </summary>
-        /// <param name="o"></param>
-        /// <returns></returns>
         public static ushort ToUint16(JsValue o)
         {
-            return (ushort) (uint) ToNumber(o);
+            return  o._type == InternalTypes.Integer
+                ? (ushort) o.AsInteger()
+                : (ushort) ToNumber(o);
         }
-
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(long i)

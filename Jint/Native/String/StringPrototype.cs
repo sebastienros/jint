@@ -218,6 +218,14 @@ namespace Jint.Native.String
 
         private static int ToIntegerSupportInfinity(JsValue numberVal)
         {
+            return numberVal._type == InternalTypes.Integer
+                ? numberVal.AsInteger()
+                : ToIntegerSupportInfinityUnlikely(numberVal);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static int ToIntegerSupportInfinityUnlikely(JsValue numberVal)
+        {
             var doubleVal = TypeConverter.ToInteger(numberVal);
             int intVal;
             if (double.IsPositiveInfinity(doubleVal))
