@@ -98,6 +98,14 @@ namespace Jint.Runtime.Interpreter.Expressions
             return result;
         }
 
+        public override JsValue GetValue()
+        {
+            // need to notify correct node when taking shortcut
+            _engine._lastSyntaxNode = _expression;
+
+            // we always create a JsValue
+            return (JsValue) EvaluateInternal();        }
+
         public static bool StrictlyEqual(JsValue x, JsValue y)
         {
             var typeX = x._type;
