@@ -132,6 +132,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static JsValue Divide(JsValue lval, JsValue rval, bool integerOperation)
         {
             return integerOperation
