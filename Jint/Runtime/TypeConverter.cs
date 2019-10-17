@@ -326,8 +326,8 @@ namespace Jint.Runtime
         public static ushort ToUint16(JsValue o)
         {
             return  o._type == InternalTypes.Integer
-                ? (ushort) o.AsInteger()
-                : (ushort) ToNumber(o);
+                ? (ushort) (uint) o.AsInteger()
+                : (ushort) (uint) ToNumber(o);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
