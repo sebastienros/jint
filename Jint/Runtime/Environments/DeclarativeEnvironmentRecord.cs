@@ -31,6 +31,16 @@ namespace Jint.Runtime.Environments
         {
         }
 
+        internal void Reset()
+        {
+            _dictionary?.Clear();
+            _set = false;
+            _key = default;
+            _value = default;
+            _argumentsBinding = default;
+            _argumentsBindingWasAccessed = false;
+        }
+
         private void SetItem(in Key key, in Binding value)
         {
             if (_set && _key != key)
