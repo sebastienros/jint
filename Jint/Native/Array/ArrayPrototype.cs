@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -1322,22 +1321,15 @@ namespace Jint.Native.Array
 
                 public override ObjectInstance Target => _instance;
 
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                internal ulong GetIntegerLength()
+                internal double GetIntegerLength()
                 {
                     var desc = _instance.GetProperty("length");
                     var descValue = desc.Value;
                     if (desc.IsDataDescriptor() && !ReferenceEquals(descValue, null))
                     {
-                        return TypeConverter.ToUnsignedInteger(descValue);
+                        return TypeConverter.ToInteger(descValue);
                     }
 
-                    return GetIntegerLengthUnlikely(desc);
-                }
-
-                [MethodImpl(MethodImplOptions.NoInlining)]
-                private ulong GetIntegerLengthUnlikely(PropertyDescriptor desc)
-                {
                     var getter = desc.Get ?? Undefined;
                     if (getter.IsUndefined())
                     {
@@ -1347,7 +1339,7 @@ namespace Jint.Native.Array
                     // if getter is not undefined it must be ICallable
                     var callable = (ICallable) getter;
                     var value = callable.Call(_instance, Arguments.Empty);
-                    return TypeConverter.ToUnsignedInteger(value);
+                    return TypeConverter.ToInteger(value);
                 }
 
                 public override ulong GetSmallestIndex(ulong length)
@@ -1383,12 +1375,18 @@ namespace Jint.Native.Array
 
                 public override uint GetLength()
                 {
-                    return (uint) GetIntegerLength();
+                    var integerLength = GetIntegerLength();
+                    return (uint) (integerLength >= 0 ? integerLength : 0);
                 }
 
                 public override ulong GetLongLength()
                 {
-                    return System.Math.Min(GetIntegerLength(), MaxArrayLikeLength);
+                    var integerLength = GetIntegerLength();
+                    if (integerLength <= 0)
+                    {
+                        return 0;
+                    }
+                    return (ulong) System.Math.Min(integerLength, MaxArrayLikeLength);
                 }
 
                 public override void SetLength(ulong length) => _instance.Put("length", length, true);

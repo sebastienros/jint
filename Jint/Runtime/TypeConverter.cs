@@ -244,26 +244,6 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// Returns unsigned integer from JsValue, 0 if negative, maximum of NumberConstructor.MaxSafeInteger.
-        /// </summary>
-        internal static ulong ToUnsignedInteger(JsValue o)
-        {
-            if (o.IsInteger())
-            {
-                return (ulong) Math.Max(o.AsInteger(), 0);
-            }
-
-            var d = ToInteger(o);
-            if (d < 0)
-            {
-                return 0;
-            }
-            return (ulong) (d < NumberConstructor.MaxSafeInteger
-                ? d
-                : NumberConstructor.MaxSafeInteger);
-        }
-
-        /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.4
         /// </summary>
         public static double ToInteger(JsValue o)
