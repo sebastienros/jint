@@ -73,10 +73,9 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static JsNumber Create(double value)
         {
-            // we can cache positive double zero, but not negative, -0 == 0 in C# but in JS it's a different story
+            // we expect zero to be on the fast path of integer mostly
             var temp = _intToJsValue;
-            if ((value == 0 && BitConverter.DoubleToInt64Bits(value) != NegativeZeroBits || value >= 1)
-                && value < temp.Length
+            if (value >= 1 && value < temp.Length
                 && System.Math.Abs(value % 1) <= DoubleIsIntegerTolerance)
             {
                 return temp[(uint) value];

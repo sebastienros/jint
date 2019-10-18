@@ -678,13 +678,8 @@ namespace Jint.Native.Date
         /// <summary>
         /// The year of a time value.
         /// </summary>
-        public static double YearFromTime(double t)
+        public static int YearFromTime(double t)
         {
-            if (!AreFinite(t))
-            {
-                return double.NaN;
-            }
-
             var sign = (t < 0) ? -1 : 1;
             var year = (sign < 0) ? 1969 : 1970;
             for (var timeToTimeZero = (long) t; ;)
@@ -818,7 +813,7 @@ namespace Jint.Native.Date
             return Day(t) - DayFromYear(YearFromTime(t));
         }
 
-        public static double DateFromTime(double t)
+        public static int DateFromTime(double t)
         {
             var monthFromTime = MonthFromTime(t);
             var dayWithinYear = DayWithinYear(t);

@@ -155,6 +155,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return lN > 0 ? double.PositiveInfinity : double.NegativeInfinity;
             }
 
+            if (lN % rN == 0)
+            {
+                return lN / rN;
+            }
+
             return (double) lN / rN;
         }
 

@@ -49,7 +49,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 case AssignmentOperator.PlusAssign:
                     if (AreIntegerOperands(lval, rval))
                     {
-                        lval = lval.AsInteger() + rval.AsInteger();
+                        lval = (long) lval.AsInteger() + rval.AsInteger();
                     }
                     else
                     {
