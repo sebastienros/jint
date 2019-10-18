@@ -28,10 +28,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (literal.TokenType == TokenType.NumericLiteral)
             {
-                var validInteger = int.TryParse(literal.Raw, out var intValue)
-                                   && (intValue != 0 || BitConverter.DoubleToInt64Bits(literal.NumericValue) != JsNumber.NegativeZeroBits);
-
-                return validInteger
+                return int.TryParse(literal.Raw, out var intValue) && (intValue != 0 || BitConverter.DoubleToInt64Bits(literal.NumericValue) == JsNumber.NegativeZeroBits)
                     ? JsNumber.Create(intValue)
                     : JsNumber.Create(literal.NumericValue);
             }
