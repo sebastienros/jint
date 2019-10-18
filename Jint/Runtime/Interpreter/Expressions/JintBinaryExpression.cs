@@ -12,7 +12,6 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _left;
         private readonly JintExpression _right;
         private readonly BinaryOperator _operatorType;
-        private JsValue _calculated;
 
         private JintBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
         {
@@ -97,8 +96,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (!(lval is null) && !(rval is null))
                 {
-                    // we can pre-calculate result
-                    result._calculated = result.GetValue();
+                    // we have fixed result
+                    return new JintConstantExpression(engine, expression, result.GetValue());
                 }
             }
 
@@ -111,7 +110,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _engine._lastSyntaxNode = _expression;
 
             // we always create a JsValue
-            return _calculated ?? (JsValue) EvaluateInternal();
+            return (JsValue) EvaluateInternal();
         }
 
         public static bool StrictlyEqual(JsValue x, JsValue y)

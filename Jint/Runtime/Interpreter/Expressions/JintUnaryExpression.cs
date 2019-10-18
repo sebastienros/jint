@@ -9,9 +9,14 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly JintExpression _argument;
         private readonly UnaryOperator _operator;
-        private readonly JsValue _cached;
 
-        public JintUnaryExpression(Engine engine, UnaryExpression expression) : base(engine, expression)
+        private JintUnaryExpression(Engine engine, UnaryExpression expression) : base(engine, expression)
+        {
+            _argument = Build(engine, expression.Argument);
+            _operator = expression.Operator;
+        }
+
+        internal static JintExpression Build(Engine engine, UnaryExpression expression)
         {
             if (expression.Operator == UnaryOperator.Minus
                 && expression.Argument is Literal literal)
@@ -20,13 +25,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (!(value is null))
                 {
                     // valid for caching
-                    _cached = EvaluateMinus(value);
-                    return;
+                    return new JintConstantExpression(engine, expression, EvaluateMinus(value));
                 }
             }
 
-            _argument = Build(engine, expression.Argument);
-            _operator = expression.Operator;
+            return new JintUnaryExpression(engine, expression);
         }
 
         public override JsValue GetValue()
@@ -34,21 +37,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             // need to notify correct node when taking shortcut
             _engine._lastSyntaxNode = _expression;
 
-            if (!(_cached is null))
-            {
-                return _cached;
-            }
-
             return (JsValue) EvaluateInternal();
         }
 
         protected override object EvaluateInternal()
         {
-            if (!(_cached is null))
-            {
-                return _cached;
-            }
-
             switch (_operator)
             {
                 case UnaryOperator.Plus:

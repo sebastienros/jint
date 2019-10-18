@@ -115,7 +115,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return new JintUpdateExpression(engine, (UpdateExpression) expression);
 
                 case Nodes.UnaryExpression:
-                    return new JintUnaryExpression(engine, (UnaryExpression) expression);
+                    return JintUnaryExpression.Build(engine, (UnaryExpression) expression);
 
                 case Nodes.SpreadElement:
                     return new JintSpreadExpression(engine, (SpreadElement) expression);
