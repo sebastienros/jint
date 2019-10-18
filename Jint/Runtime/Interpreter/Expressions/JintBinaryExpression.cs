@@ -12,6 +12,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _left;
         private readonly JintExpression _right;
         private readonly BinaryOperator _operatorType;
+        private JsValue _calculated;
 
         private JintBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
         {
@@ -22,7 +23,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal static JintExpression Build(Engine engine, BinaryExpression expression)
         {
-            JintExpression result;
+            JintBinaryExpression result;
             switch (expression.Operator)
             {
                 case BinaryOperator.StrictlyEqual:
@@ -82,17 +83,23 @@ namespace Jint.Runtime.Interpreter.Expressions
                     result = new InBinaryExpression(engine, expression);
                     break;                
                 default:
-                    result = ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>(nameof(_operatorType), "cannot handle operator");
+                    result = ExceptionHelper.ThrowArgumentOutOfRangeException<JintBinaryExpression>(nameof(_operatorType), "cannot handle operator");
                     break;
             }
 
-            if (expression.Left.Type == Nodes.Literal
-                && expression.Right.Type == Nodes.Literal
-                && expression.Operator != BinaryOperator.InstanceOf
-                && expression.Operator != BinaryOperator.In)
+            if (expression.Operator != BinaryOperator.InstanceOf
+                && expression.Operator != BinaryOperator.In
+                && expression.Left is Literal leftLiteral
+                && expression.Right is Literal rightLiteral)
             {
-                // calculate eagerly
-                // TODO result = new JintConstantExpression(engine, (JsValue) result.Evaluate());
+                var lval = JintLiteralExpression.ConvertToJsValue(leftLiteral);
+                var rval = JintLiteralExpression.ConvertToJsValue(rightLiteral);
+
+                if (!(lval is null) && !(rval is null))
+                {
+                    // we can pre-calculate result
+                    result._calculated = result.GetValue();
+                }
             }
 
             return result;
@@ -104,7 +111,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             _engine._lastSyntaxNode = _expression;
 
             // we always create a JsValue
-            return (JsValue) EvaluateInternal();        }
+            return _calculated ?? (JsValue) EvaluateInternal();
+        }
 
         public static bool StrictlyEqual(JsValue x, JsValue y)
         {

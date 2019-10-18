@@ -9,15 +9,46 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly JintExpression _argument;
         private readonly UnaryOperator _operator;
+        private readonly JsValue _cached;
 
         public JintUnaryExpression(Engine engine, UnaryExpression expression) : base(engine, expression)
         {
+            if (expression.Operator == UnaryOperator.Minus
+                && expression.Argument is Literal literal)
+            {
+                var value = JintLiteralExpression.ConvertToJsValue(literal);
+                if (!(value is null))
+                {
+                    // valid for caching
+                    _cached = EvaluateMinus(value);
+                    return;
+                }
+            }
+
             _argument = Build(engine, expression.Argument);
             _operator = expression.Operator;
         }
 
+        public override JsValue GetValue()
+        {
+            // need to notify correct node when taking shortcut
+            _engine._lastSyntaxNode = _expression;
+
+            if (!(_cached is null))
+            {
+                return _cached;
+            }
+
+            return (JsValue) EvaluateInternal();
+        }
+
         protected override object EvaluateInternal()
         {
+            if (!(_cached is null))
+            {
+                return _cached;
+            }
+
             switch (_operator)
             {
                 case UnaryOperator.Plus:
@@ -27,17 +58,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         : JsNumber.Create(TypeConverter.ToNumber(plusValue));
 
                 case UnaryOperator.Minus:
-                    var minusValue = _argument.GetValue();
-                    if (minusValue.IsInteger())
-                    {
-                        var asInteger = minusValue.AsInteger();
-                        if (asInteger != 0)
-                        {
-                            return JsNumber.Create(asInteger * -1);
-                        }
-                    }
-                    var n = TypeConverter.ToNumber(minusValue);
-                    return JsNumber.Create(double.IsNaN(n) ? double.NaN : n * -1);
+                    return EvaluateMinus(_argument.GetValue());
 
                 case UnaryOperator.BitwiseNot:
                     return JsNumber.Create(~TypeConverter.ToInt32(_argument.GetValue()));
@@ -127,6 +148,22 @@ namespace Jint.Runtime.Interpreter.Expressions
                 default:
                     return ExceptionHelper.ThrowArgumentException<object>();
             }
+        }
+
+        private static JsNumber EvaluateMinus(JsValue value)
+        {
+            var minusValue = value;
+            if (minusValue.IsInteger())
+            {
+                var asInteger = minusValue.AsInteger();
+                if (asInteger != 0)
+                {
+                    return JsNumber.Create(asInteger * -1);
+                }
+            }
+
+            var n = TypeConverter.ToNumber(minusValue);
+            return JsNumber.Create(double.IsNaN(n) ? double.NaN : n * -1);
         }
     }
 }
