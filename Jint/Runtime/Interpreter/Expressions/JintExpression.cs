@@ -82,7 +82,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return new JintIdentifierExpression(engine, (Identifier) expression);
 
                 case Nodes.Literal:
-                    return new JintLiteralExpression(engine, (Literal) expression);
+                    return JintLiteralExpression.Build(engine, (Literal) expression);
 
                 case Nodes.LogicalExpression:
                     var binaryExpression = (BinaryExpression) expression;
