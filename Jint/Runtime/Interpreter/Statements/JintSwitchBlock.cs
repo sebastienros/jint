@@ -9,8 +9,11 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         private readonly Engine _engine;
         private readonly NodeList<SwitchCase> _switchBlock;
+
         private JintSwitchCase[] _jintSwitchBlock;
+
         private bool _initialized;
+        private readonly object _initializedLock = new object();
 
         public JintSwitchBlock(Engine engine, NodeList<SwitchCase> switchBlock)
         {
@@ -31,8 +34,14 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             if (!_initialized)
             {
-                Initialize();
-                _initialized = true;
+                lock (_initializedLock)
+                {
+                    if (!_initialized)
+                    {
+                        Initialize();
+                        _initialized = true;
+                    }
+                }
             }
 
             JsValue v = Undefined.Instance;

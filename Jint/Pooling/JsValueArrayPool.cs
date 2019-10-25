@@ -10,15 +10,15 @@ namespace Jint.Pooling
     internal sealed class JsValueArrayPool
     {
         private const int PoolSize = 15;
-        private readonly ObjectPool<JsValue[]> _poolArray1;
-        private readonly ObjectPool<JsValue[]> _poolArray2;
-        private readonly ObjectPool<JsValue[]> _poolArray3;
+        private readonly ConcurrentObjectPool<JsValue[]> _poolArray1;
+        private readonly ConcurrentObjectPool<JsValue[]> _poolArray2;
+        private readonly ConcurrentObjectPool<JsValue[]> _poolArray3;
 
         public JsValueArrayPool()
         {
-            _poolArray1 = new ObjectPool<JsValue[]>(Factory1, PoolSize);
-            _poolArray2 = new ObjectPool<JsValue[]>(Factory2, PoolSize);
-            _poolArray3 = new ObjectPool<JsValue[]>(Factory3, PoolSize);
+            _poolArray1 = new ConcurrentObjectPool<JsValue[]>(Factory1, PoolSize);
+            _poolArray2 = new ConcurrentObjectPool<JsValue[]>(Factory2, PoolSize);
+            _poolArray3 = new ConcurrentObjectPool<JsValue[]>(Factory3, PoolSize);
         }
 
         private static JsValue[] Factory1()

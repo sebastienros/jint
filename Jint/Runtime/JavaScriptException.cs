@@ -34,9 +34,14 @@ namespace Jint.Runtime
             Error = error;
         }
 
-        public JavaScriptException SetCallstack(Engine engine, Location? location = null)
+        public JavaScriptException SetCallstack(Engine engine, Location? location = null, bool overrideExisting = false)
         {
             Location = location ?? default;
+
+            if (!overrideExisting && CallStack != null)
+            {
+                return this;
+            }
 
             using (var sb = StringBuilderPool.Rent())
             {

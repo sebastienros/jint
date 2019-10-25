@@ -22,6 +22,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         // require sub-classes to set to false explicitly to skip virtual call
         protected bool _initialized = true;
+        private readonly object _initializedLock = new object();
 
         protected JintStatement(Engine engine, Statement statement)
         {
@@ -41,8 +42,14 @@ namespace Jint.Runtime.Interpreter.Statements
 
             if (!_initialized)
             {
-                Initialize();
-                _initialized = true;
+                lock (_initializedLock)
+                {
+                    if (!_initialized)
+                    {
+                        Initialize();
+                        _initialized = true;
+                    }
+                }
             }
 
             return ExecuteInternal();

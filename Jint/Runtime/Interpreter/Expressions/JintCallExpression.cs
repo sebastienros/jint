@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
@@ -106,23 +107,30 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-
             var func = _engine.GetValue(callee, false);
             var r = callee as Reference;
 
             if (_maxRecursionDepth >= 0)
             {
-                var stackItem = new CallStackElement(expression, func, r?.GetReferencedName() ?? "anonymous function");
+                return _engine.ExecuteCallAsync(new CallStackElement(expression, func, r?.GetReferencedName() ?? "anonymous function"),
+                    () =>
+                    {
+                        if (_engine.CallStack.Depth > _maxRecursionDepth)
+                        {
+                            ExceptionHelper.ThrowRecursionDepthOverflowException(_engine.CallStack.Parent, _engine.CallStack.Last().ToString());
+                        }
 
-                var recursionDepth = _engine.CallStack.Push(stackItem);
-
-                if (recursionDepth > _maxRecursionDepth)
-                {
-                    _engine.CallStack.Pop();
-                    ExceptionHelper.ThrowRecursionDepthOverflowException(_engine.CallStack, stackItem.ToString());
-                }
+                        return Invoke(callee, arguments, ref func, r);
+                    }).GetAwaiter().GetResult();
             }
+            else
+            {
+                return Invoke(callee, arguments, ref func, r);
+            }
+        }
 
+        private object Invoke(object callee, JsValue[] arguments, ref JsValue func, Reference r)
+        {
             if (func._type == Types.Undefined)
             {
                 ExceptionHelper.ThrowTypeError(_engine, r == null ? "" : $"Object has no method '{r.GetReferencedName()}'");
@@ -152,7 +160,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else
                 {
-                    var env = (EnvironmentRecord) r._baseValue;
+                    var env = (EnvironmentRecord)r._baseValue;
                     thisObject = env.ImplicitThisValue();
                 }
 
@@ -170,11 +178,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (_isDebugMode)
             {
                 _engine.DebugHandler.PopDebugCallStack();
-            }
-
-            if (_maxRecursionDepth >= 0)
-            {
-                _engine.CallStack.Pop();
             }
 
             if (!_cached && arguments.Length > 0)

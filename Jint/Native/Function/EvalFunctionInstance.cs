@@ -1,4 +1,6 @@
-﻿using Esprima;
+﻿using System;
+using Esprima;
+using Esprima.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -11,7 +13,7 @@ namespace Jint.Native.Function
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
         private static readonly JsString _functionName = new JsString("eval");
 
-        public EvalFunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) 
+        public EvalFunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict)
             : base(engine, _functionName, parameters, scope, strict)
         {
             Prototype = Engine.Function.PrototypeObject;
@@ -37,76 +39,86 @@ namespace Jint.Native.Function
             {
                 var parser = new JavaScriptParser(code, ParserOptions);
                 var program = parser.ParseProgram(StrictModeScope.IsStrictModeCode);
-                using (new StrictModeScope(program.Strict))
+                return StrictModeScope.WithStrictModeScope(() =>
                 {
-                    using (new EvalCodeScope())
+                    return EvalCodeScope.WithEvalCodeScope(() =>
                     {
-                        LexicalEnvironment strictVarEnv = null;
-
-                        try
+                        if (!directCall)
                         {
-                            if (!directCall)
-                            {
-                                Engine.EnterExecutionContext(Engine.GlobalEnvironment, Engine.GlobalEnvironment, Engine.Global);
-                            }
-
-                            var lexicalEnvironment = _engine.ExecutionContext.LexicalEnvironment;
-                            if (StrictModeScope.IsStrictModeCode)
-                            {
-                                strictVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, lexicalEnvironment);
-                                Engine.EnterExecutionContext(strictVarEnv, strictVarEnv, Engine.ExecutionContext.ThisBinding);
-                            }
-
-                            bool argumentInstanceRented = Engine.DeclarationBindingInstantiation(
-                                DeclarationBindingType.EvalCode,
-                                program.HoistingScope,
-                                functionInstance: this,
-                                arguments);
-
-                            var statement = JintStatement.Build(_engine, program);
-                            var result = statement.Execute();
-                            var value = result.GetValueOrDefault();
-
-                            if (argumentInstanceRented)
-                            {
-                                lexicalEnvironment?._record?.FunctionWasCalled();
-                                _engine.ExecutionContext.VariableEnvironment?._record?.FunctionWasCalled();
-                            }
-
-                            if (result.Type == CompletionType.Throw)
-                            {
-                                var ex = new JavaScriptException(value).SetCallstack(_engine, result.Location);
-                                throw ex;
-                            }
-                            else
-                            {
-                                return value;
-                            }
+                            return Engine.WithExecutionContext(
+                                Engine.GlobalEnvironment,
+                                Engine.GlobalEnvironment,
+                                Engine.Global,
+                                () => ExecuteCallWithStrictCheck(program, arguments)).GetAwaiter().GetResult();
                         }
-                        finally
+                        else
                         {
-                            if (strictVarEnv != null)
-                            {
-                                Engine.LeaveExecutionContext();
-                            }
-
-                            if (!directCall)
-                            {
-                                Engine.LeaveExecutionContext();
-                            }
+                            return ExecuteCallWithStrictCheck(program, arguments);
                         }
-                    }
-                }
+                    }).GetAwaiter().GetResult();
+
+                }, program.Strict).GetAwaiter().GetResult();
             }
             catch (ParserException e)
             {
                 if (e.Description == Messages.InvalidLHSInAssignment)
                 {
-                    ExceptionHelper.ThrowReferenceError(_engine, (string) null);
+                    ExceptionHelper.ThrowReferenceError(_engine, (string)null);
                 }
 
                 ExceptionHelper.ThrowSyntaxError(_engine);
                 return null;
+            }
+        }
+
+        private JsValue ExecuteCallWithStrictCheck(Program program, JsValue[] arguments)
+        {
+            var lexical = Engine.ExecutionContext.LexicalEnvironment;
+
+            if (StrictModeScope.IsStrictModeCode)
+            {
+                var strictVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(Engine, lexical);
+                return Engine
+                    .WithExecutionContext(
+                        strictVarEnv, 
+                        strictVarEnv, 
+                        Engine.ExecutionContext.ThisBinding, 
+                        () => ExecuteCall(program, arguments, lexical))
+                    .GetAwaiter()
+                    .GetResult();
+            }
+            else
+            {
+                return ExecuteCall(program, arguments, lexical);
+            }
+        }
+
+        private JsValue ExecuteCall(Program program, JsValue[] arguments, LexicalEnvironment lexical)
+        {
+            bool argumentInstanceRented = Engine.DeclarationBindingInstantiation(
+            DeclarationBindingType.EvalCode,
+            program.HoistingScope,
+            functionInstance: this,
+            arguments);
+
+            var statement = JintStatement.Build(_engine, program);
+            var result = statement.Execute();
+            var value = result.GetValueOrDefault();
+
+            if (argumentInstanceRented)
+            {
+                lexical?._record?.FunctionWasCalled();
+                _engine.ExecutionContext.VariableEnvironment?._record?.FunctionWasCalled();
+            }
+
+            if (result.Type == CompletionType.Throw)
+            {
+                var ex = new JavaScriptException(value).SetCallstack(_engine, result.Location);
+                throw ex;
+            }
+            else
+            {
+                return value;
             }
         }
     }

@@ -18,6 +18,7 @@ namespace Jint.Runtime.Interpreter
 
         private Pair[] _jintStatements;
         private bool _initialized;
+        private object _initializedLock = new object();
 
         public JintStatementList(Engine engine, Statement statement, NodeList<IStatementListItem> statements)
         {
@@ -45,8 +46,14 @@ namespace Jint.Runtime.Interpreter
         {
             if (!_initialized)
             {
-                Initialize();
-                _initialized = true;
+                lock (_initializedLock)
+                {
+                    if (!_initialized)
+                    {
+                        Initialize();
+                        _initialized = true;
+                    }
+                }
             }
 
             if (_statement != null)

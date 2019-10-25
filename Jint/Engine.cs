@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -30,6 +33,7 @@ using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.References;
+using ExecutionContext = Jint.Runtime.Environments.ExecutionContext;
 
 namespace Jint
 {
@@ -51,7 +55,6 @@ namespace Jint
         private static readonly JsString _typeErrorFunctionName = new JsString("TypeError");
         private static readonly JsString _uriErrorFunctionName = new JsString("URIError");
 
-        private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         private int _statementsCount;
         private long _initialMemoryUsage;
@@ -83,7 +86,7 @@ namespace Jint
         public ITypeConverter ClrTypeConverter { get; set; }
 
         // cache of types used when resolving CLR type names
-        internal readonly Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
+        internal readonly IDictionary<string, Type> TypeCache = new ConcurrentDictionary<string, Type>();
 
         internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new Dictionary<Type, Func<Engine, object, JsValue>>
         {
@@ -143,10 +146,17 @@ namespace Jint
             }
         }
 
-        internal readonly Dictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>> ClrPropertyDescriptorFactories =
-            new Dictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>>();
+        internal readonly IDictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>> ClrPropertyDescriptorFactories =
+            new ConcurrentDictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>>();
 
-        internal readonly JintCallStack CallStack = new JintCallStack();
+
+        private AsyncLocal<JintCallStack> _callStackLocal = new AsyncLocal<JintCallStack>();
+        internal JintCallStack CallStack { get => _callStackLocal.Value; private set => _callStackLocal.Value = value; }
+
+
+        private AsyncLocal<ExecutionContext> _executionContextLocal = new AsyncLocal<ExecutionContext>();
+        public ExecutionContext ExecutionContext { get => _executionContextLocal.Value; private set => _executionContextLocal.Value = value; }
+
 
         static Engine()
         {
@@ -154,8 +164,47 @@ namespace Jint
 
             if (methodInfo != null)
             {
-                GetAllocatedBytesForCurrentThread =  (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), null, methodInfo);
+                GetAllocatedBytesForCurrentThread = (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), null, methodInfo);
             }
+        }
+
+        internal Task<T> WithExecutionContext<T>(
+            LexicalEnvironment lexicalEnvironment,
+            LexicalEnvironment variableEnvironment,
+            JsValue thisBinding,
+            Func<T> call)
+        {
+            return WithExecutionContext(
+                lexicalEnvironment,
+                variableEnvironment,
+                thisBinding,
+                () => Task.FromResult(call()));
+        }
+
+        internal async Task<T> WithExecutionContext<T>(
+            LexicalEnvironment lexicalEnvironment,
+            LexicalEnvironment variableEnvironment,
+            JsValue thisBinding,
+            Func<Task<T>> call)
+        {
+            var context = new ExecutionContext(
+                    lexicalEnvironment,
+                    variableEnvironment,
+                    thisBinding);
+
+            ExecutionContext = context;
+            return await call().ConfigureAwait(false);
+        }
+
+        internal Task<T> ExecuteCallAsync<T>(CallStackElement element, Func<T> call)
+        {
+            return ExecuteCallAsync(element, () => Task.FromResult(call()));
+        }
+
+        internal async Task<T> ExecuteCallAsync<T>(CallStackElement element, Func<Task<T>> call)
+        {
+            CallStack = new JintCallStack(CallStack, element);
+            return await call().ConfigureAwait(false);
         }
 
         public Engine() : this(null)
@@ -164,8 +213,6 @@ namespace Jint
 
         public Engine(Action<Options> options)
         {
-            _executionContexts = new ExecutionContextStack(2);
-
             Global = GlobalObject.CreateGlobalObject(this);
 
             Object = ObjectConstructor.CreateObjectConstructor(this);
@@ -198,7 +245,12 @@ namespace Jint
             GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, false);
 
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
-            EnterExecutionContext(GlobalEnvironment, GlobalEnvironment, Global);
+            ExecutionContext = new ExecutionContext(
+               GlobalEnvironment,
+               GlobalEnvironment,
+               Global);
+
+            CallStack = new JintCallStack(null, null);
 
             Options = new Options();
 
@@ -210,7 +262,7 @@ namespace Jint
             _maxStatements = Options._MaxStatements;
             _referenceResolver = Options.ReferenceResolver;
             _memoryLimit = Options._MemoryLimit;
-            _runBeforeStatementChecks = (_maxStatements > 0 &&_maxStatements < int.MaxValue)
+            _runBeforeStatementChecks = (_maxStatements > 0 && _maxStatements < int.MaxValue)
                                         || Options._TimeoutInterval.Ticks > 0
                                         || _memoryLimit > 0
                                         || _isDebugMode;
@@ -260,12 +312,6 @@ namespace Jint
         public ErrorConstructor ReferenceError => _referenceError ?? (_referenceError = ErrorConstructor.CreateErrorConstructor(this, _referenceErrorFunctionName));
         public ErrorConstructor UriError => _uriError ?? (_uriError = ErrorConstructor.CreateErrorConstructor(this, _uriErrorFunctionName));
 
-        public ref readonly ExecutionContext ExecutionContext
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref _executionContexts.Peek();
-        }
-
         public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
 
         internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; }
@@ -292,19 +338,6 @@ namespace Jint
         #endregion
 
         private static readonly Func<long> GetAllocatedBytesForCurrentThread;
-
-        public void EnterExecutionContext(
-            LexicalEnvironment lexicalEnvironment,
-            LexicalEnvironment variableEnvironment,
-            JsValue thisBinding)
-        {
-            var context = new ExecutionContext(
-                lexicalEnvironment,
-                variableEnvironment,
-                thisBinding);
-
-            _executionContexts.Push(context);
-        }
 
         public Engine SetValue(in Key name, Delegate value)
         {
@@ -342,12 +375,6 @@ namespace Jint
         {
             return SetValue(name, JsValue.FromObject(this, obj));
         }
-
-        public void LeaveExecutionContext()
-        {
-            _executionContexts.Pop();
-        }
-
         /// <summary>
         /// Initializes the statements count
         /// </summary>
@@ -368,14 +395,6 @@ namespace Jint
         {
             var timeoutIntervalTicks = Options._TimeoutInterval.Ticks;
             _timeoutTicks = timeoutIntervalTicks > 0 ? DateTime.UtcNow.Ticks + timeoutIntervalTicks : 0;
-        }
-
-        /// <summary>
-        /// Initializes list of references of called functions
-        /// </summary>
-        public void ResetCallStack()
-        {
-            CallStack.Clear();
         }
 
         public Engine Execute(string source)
@@ -400,9 +419,8 @@ namespace Jint
 
             ResetTimeoutTicks();
             ResetLastStatement();
-            ResetCallStack();
 
-            using (new StrictModeScope(_isStrict || program.Strict))
+            StrictModeScope.WithStrictModeScope(() =>
             {
                 DeclarationBindingInstantiation(
                     DeclarationBindingType.GlobalCode,
@@ -419,7 +437,10 @@ namespace Jint
                 }
 
                 _completionValue = result.GetValueOrDefault();
-            }
+
+                return true;
+
+            }, (_isStrict || program.Strict)).GetAwaiter().GetResult();
 
             return this;
         }
@@ -488,7 +509,7 @@ namespace Jint
 
             if (!(value is Reference reference))
             {
-                return ((Completion) value).Value;
+                return ((Completion)value).Value;
             }
 
             return GetValue(reference, returnReferenceToPool);
@@ -549,7 +570,7 @@ namespace Jint
                         return Undefined.Instance;
                     }
 
-                    var callable = (ICallable) getter.AsObject();
+                    var callable = (ICallable)getter.AsObject();
                     return callable.Call(baseValue, Arguments.Empty);
                 }
             }
@@ -589,7 +610,7 @@ namespace Jint
                 var baseValue = reference._baseValue;
                 if (reference._baseValue._type == Types.Object || reference._baseValue._type == Types.None)
                 {
-                    ((ObjectInstance) baseValue).Put(referencedName, value, reference._strict);
+                    ((ObjectInstance)baseValue).Put(referencedName, value, reference._strict);
                 }
                 else
                 {
@@ -599,7 +620,7 @@ namespace Jint
             else
             {
                 var baseValue = reference._baseValue;
-                ((EnvironmentRecord) baseValue).SetMutableBinding(referencedName, value, reference._strict);
+                ((EnvironmentRecord)baseValue).SetMutableBinding(referencedName, value, reference._strict);
             }
         }
 
@@ -875,12 +896,6 @@ namespace Jint
 
                 env.SetMutableBinding(fn, fo, strict);
             }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void UpdateLexicalEnvironment(LexicalEnvironment newEnv)
-        {
-            _executionContexts.ReplaceTopLexicalEnvironment(newEnv);
         }
 
         private static void AssertNotNullOrEmpty(string propertyName, string propertyValue)
