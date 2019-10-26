@@ -30,7 +30,7 @@ namespace Jint.Tests.CommonScripts
         [Theory(DisplayName = "Sunspider")]
         [InlineData("3d-cube", "3d-cube.js")]
         [InlineData("3d-morph", "3d-morph.js")]
-        // TODO Esprima problem [InlineData("3d-raytrace", "3d-raytrace.js")]
+        [InlineData("3d-raytrace", "3d-raytrace.js")]
         [InlineData("access-binary-trees", "access-binary-trees.js")]
         [InlineData("access-fannkuch", "access-fannkuch.js")]
         [InlineData("access-nbody", "access-nbody.js")]
