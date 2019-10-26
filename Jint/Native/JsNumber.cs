@@ -15,12 +15,11 @@ namespace Jint.Native
         // how many decimals to check when determining if double is actually an int
         internal const double DoubleIsIntegerTolerance = double.Epsilon * 100;
 
-        private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
+        internal static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
 
         // we can cache most common values, doubles are used in indexing too at times so we also cache
         // integer values converted to doubles
         private const int NumbersMax = 1024 * 10;
-        private static readonly JsNumber[] _doubleToJsValue = new JsNumber[NumbersMax];
         private static readonly JsNumber[] _intToJsValue = new JsNumber[NumbersMax];
 
         internal static readonly JsNumber DoubleNaN = new JsNumber(double.NaN);
@@ -38,7 +37,6 @@ namespace Jint.Native
             for (int i = 0; i < NumbersMax; i++)
             {
                 _intToJsValue[i] = new JsNumber(i);
-                _doubleToJsValue[i] = new JsNumber((double) i);
             }
         }
 
@@ -47,12 +45,22 @@ namespace Jint.Native
             _value = value;
         }
 
-        public JsNumber(int value) : base(Types.Number)
+        public JsNumber(int value) : base(InternalTypes.Integer)
         {
             _value = value;
         }
 
-        public JsNumber(uint value) : base(Types.Number)
+        public JsNumber(uint value) : base(value < int.MaxValue ? InternalTypes.Integer : InternalTypes.Number)
+        {
+            _value = value;
+        }
+
+        public JsNumber(ulong value) : base(value < int.MaxValue ? InternalTypes.Integer : InternalTypes.Number)
+        {
+            _value = value;
+        }
+
+        public JsNumber(long value) : base(value < int.MaxValue && value > int.MinValue ? InternalTypes.Integer : InternalTypes.Number)
         {
             _value = value;
         }
@@ -65,10 +73,9 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static JsNumber Create(double value)
         {
-            // we can cache positive double zero, but not negative, -0 == 0 in C# but in JS it's a different story
-            var temp = _doubleToJsValue;
-            if ((value == 0 && BitConverter.DoubleToInt64Bits(value) != NegativeZeroBits || value >= 1)
-                && value < temp.Length
+            // we expect zero to be on the fast path of integer mostly
+            var temp = _intToJsValue;
+            if (value >= 1 && value < temp.Length
                 && System.Math.Abs(value % 1) <= DoubleIsIntegerTolerance)
             {
                 return temp[(uint) value];
@@ -138,6 +145,16 @@ namespace Jint.Native
         internal static JsNumber Create(ulong value)
         {
             if (value < (ulong) _intToJsValue.Length)
+            {
+                return _intToJsValue[value];
+            }
+
+            return new JsNumber(value);
+        }
+
+        internal static JsNumber Create(long value)
+        {
+            if ((ulong) value < (ulong) _intToJsValue.Length)
             {
                 return _intToJsValue[value];
             }

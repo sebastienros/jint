@@ -1,3 +1,4 @@
+using System;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -6,11 +7,19 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal class JintLiteralExpression : JintExpression
     {
-        internal readonly JsValue _cachedValue;
-
-        public JintLiteralExpression(Engine engine, Literal expression) : base(engine, expression)
+        private JintLiteralExpression(Engine engine, Literal expression) : base(engine, expression)
         {
-            _cachedValue = ConvertToJsValue(expression);
+        }
+
+        internal static JintExpression Build(Engine engine, Literal expression)
+        {
+            var constantValue = ConvertToJsValue(expression);
+            if (!(constantValue is null))
+            {
+                return new JintConstantExpression(engine, expression, constantValue);
+            }
+            
+            return new JintLiteralExpression(engine, expression);
         }
 
         internal static JsValue ConvertToJsValue(Literal literal)
@@ -27,7 +36,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (literal.TokenType == TokenType.NumericLiteral)
             {
-                return JsNumber.Create(literal.NumericValue);
+                return int.TryParse(literal.Raw, out var intValue)
+                       && (intValue != 0 || BitConverter.DoubleToInt64Bits(literal.NumericValue) != JsNumber.NegativeZeroBits)
+                    ? JsNumber.Create(intValue)
+                    : JsNumber.Create(literal.NumericValue);
             }
 
             if (literal.TokenType == TokenType.StringLiteral)
@@ -42,13 +54,11 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             // need to notify correct node when taking shortcut
             _engine._lastSyntaxNode = _expression;
-            return _cachedValue ?? ResolveValue();
+            
+            return ResolveValue();
         }
 
-        protected override object EvaluateInternal()
-        {
-            return _cachedValue ?? ResolveValue();
-        }
+        protected override object EvaluateInternal() => ResolveValue();
 
         private JsValue ResolveValue()
         {

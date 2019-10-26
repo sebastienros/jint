@@ -54,13 +54,18 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             reference.AssertValid(_engine);
 
-            var oldValue = TypeConverter.ToNumber(_engine.GetValue(reference, false));
-            var newValue = oldValue + _change;
+            var value = _engine.GetValue(reference, false);
+            var isInteger = value._type == InternalTypes.Integer;
+            var newValue = isInteger
+                ? JsNumber.Create(value.AsInteger() + _change)
+                : JsNumber.Create(TypeConverter.ToNumber(value) + _change);
 
             _engine.PutValue(reference, newValue);
             _engine._referencePool.Return(reference);
 
-            return JsNumber.Create(_prefix ? newValue : oldValue);
+            return _prefix
+                ? newValue
+                : (isInteger ? value : JsNumber.Create(TypeConverter.ToNumber(value)));
         }
 
         private JsValue UpdateIdentifier()
@@ -77,11 +82,15 @@ namespace Jint.Runtime.Interpreter.Expressions
                     ExceptionHelper.ThrowSyntaxError(_engine);
                 }
 
-                var oldValue = TypeConverter.ToNumber(value);
-                var newValue = oldValue + _change;
+                var isInteger = value._type == InternalTypes.Integer;
+                var newValue = isInteger
+                    ? JsNumber.Create(value.AsInteger() + _change)
+                    : JsNumber.Create(TypeConverter.ToNumber(value) + _change);
 
                 environmentRecord.SetMutableBinding(name, newValue, strict);
-                return JsNumber.Create(_prefix ? newValue : oldValue);
+                return _prefix
+                    ? newValue
+                    : (isInteger ? value : JsNumber.Create(TypeConverter.ToNumber(value)));
             }
 
             return null;

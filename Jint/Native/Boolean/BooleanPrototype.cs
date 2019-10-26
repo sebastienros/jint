@@ -41,7 +41,7 @@ namespace Jint.Native.Boolean
 
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
         {
-            if (thisObj._type == Types.Boolean)
+            if (thisObj._type == InternalTypes.Boolean)
             {
                 return thisObj;
             }

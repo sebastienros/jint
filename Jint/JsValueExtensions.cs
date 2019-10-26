@@ -9,9 +9,9 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool AsBoolean(this JsValue value)
         {
-            if (value._type != Types.Boolean)
+            if (value._type != InternalTypes.Boolean)
             {
-                ExceptionHelper.ThrowArgumentException($"Expected boolean but got {value._type}");
+                ThrowWrongTypeException(value, "boolean");
             }
 
             return ((JsBoolean) value)._value;
@@ -20,20 +20,26 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double AsNumber(this JsValue value)
         {
-            if (value._type != Types.Number)
+            if (!value.IsNumber())
             {
-                ExceptionHelper.ThrowArgumentException($"Expected number but got {value._type}");
+                ThrowWrongTypeException(value, "number");
             }
 
             return ((JsNumber) value)._value;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static int AsInteger(this JsValue value)
+        {
+            return (int) ((JsNumber) value)._value;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string AsString(this JsValue value)
         {
-            if (value._type != Types.String)
+            if (value._type != InternalTypes.String)
             {
-                ExceptionHelper.ThrowArgumentException($"Expected string but got {value._type}");
+                ThrowWrongTypeException(value, "string");
             }
 
             return AsStringWithoutTypeCheck(value);
@@ -48,12 +54,17 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string AsSymbol(this JsValue value)
         {
-            if (value._type != Types.Symbol)
+            if (value._type != InternalTypes.Symbol)
             {
-                ExceptionHelper.ThrowArgumentException($"Expected symbol but got {value._type}");
+                ThrowWrongTypeException(value, "symbol");
             }
 
             return ((JsSymbol) value)._value;
+        }
+
+        private static void ThrowWrongTypeException(JsValue value, string expectedType)
+        {
+            ExceptionHelper.ThrowArgumentException($"Expected {expectedType} but got {value._type}");
         }
     }
 }

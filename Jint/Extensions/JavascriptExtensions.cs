@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace Jint.Extensions
 {
     internal static class JavascriptExtensions
