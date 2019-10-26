@@ -775,12 +775,14 @@ namespace Jint
                         var argAlreadyDeclared = env.HasBinding(argName);
                         if (!argAlreadyDeclared)
                         {
-                            env.CreateMutableBinding(argName, v);
+                            env.CreateMutableBinding(argName);
                         }
 
                         env.SetMutableBinding(argName, v, strict);
                     }
-                    env.CreateMutableBinding(KnownKeys.Arguments, argsObj);
+                    
+                    env.CreateMutableBinding(KnownKeys.Arguments, strict);
+                    env.InitializeBinding(KnownKeys.Arguments, argsObj);
                 }
             }
 
@@ -819,7 +821,7 @@ namespace Jint
                             var varAlreadyDeclared = env.HasBinding(name);
                             if (!varAlreadyDeclared)
                             {
-                                env.CreateMutableBinding(name, Undefined.Instance);
+                                env.CreateMutableBinding(name);
                             }
                         }
                     }

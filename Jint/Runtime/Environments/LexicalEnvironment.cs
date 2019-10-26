@@ -27,9 +27,15 @@ namespace Jint.Runtime.Environments
 
         public LexicalEnvironment Outer => _outer;
 
+        // http://www.ecma-international.org/ecma-262/6.0/#sec-getidentifierreference
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Reference GetIdentifierReference(LexicalEnvironment lex, in Key name, bool strict)
+        public static Reference GetIdentifierReference(LexicalEnvironment lex, string name, bool strict)
         {
+            if (lex == null)
+            {
+                return new Reference(JsValue.Undefined, name, strict);
+            }
+
             var identifierEnvironment = TryGetIdentifierEnvironmentWithBindingValue(lex, name, strict, out var temp, out _)
                 ? temp
                 : JsValue.Undefined;

@@ -39,7 +39,8 @@ namespace Jint.Runtime.Interpreter.Statements
                     var c = b.Value;
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                    catchEnv._record.CreateMutableBinding(_catchParamName, c);
+                    catchEnv._record.CreateMutableBinding(_catchParamName);
+                    catchEnv._record.InitializeBinding(_catchParamName, c);
 
                     _engine.UpdateLexicalEnvironment(catchEnv);
                     b = _catch.Execute();

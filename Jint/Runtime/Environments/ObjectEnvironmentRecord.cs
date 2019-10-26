@@ -47,15 +47,29 @@ namespace Jint.Runtime.Environments
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2.2
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-createmutablebinding-n-d
         /// </summary>
-        public override void CreateMutableBinding(in Key name, JsValue value, bool configurable = true)
+        public override void CreateMutableBinding(in Key name, bool configurable = true)
         {
             var propertyDescriptor = configurable
-                ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable)
-                : new PropertyDescriptor(value, PropertyFlag.NonConfigurable);
+                ? new PropertyDescriptor(JsValue.Undefined, PropertyFlag.ConfigurableEnumerableWritable)
+                : new PropertyDescriptor(JsValue.Undefined, PropertyFlag.NonConfigurable);
 
             _bindingObject.SetOwnProperty(name, propertyDescriptor);
+        }
+
+        // http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-createimmutablebinding-n-s
+        public override void CreateImmutableBinding(in Key name, bool strict = false)
+        {
+            throw new InvalidOperationException("The concrete Environment Record method CreateImmutableBinding is never used within this specification in association with Object Environment Records.");
+        }
+
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-initializebinding-n-v
+        /// </summary>
+        public override void InitializeBinding(in Key name, JsValue value)
+        {
+            SetMutableBinding(name, value, false);
         }
 
         public override void SetMutableBinding(in Key name, JsValue value, bool strict)
