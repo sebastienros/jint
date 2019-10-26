@@ -847,6 +847,7 @@ namespace Jint
                 if (!funcAlreadyDeclared)
                 {
                     env.CreateMutableBinding(fn, configurableBindings);
+                    env.InitializeBinding(fn, fo);
                 }
                 else
                 {
@@ -873,9 +874,9 @@ namespace Jint
                             }
                         }
                     }
-                }
 
-                env.SetMutableBinding(fn, fo, strict);
+                    env.SetMutableBinding(fn, fo, strict);
+                }
             }
         }
 
