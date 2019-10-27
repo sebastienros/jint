@@ -235,8 +235,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         ((FunctionInstance) rval).SetFunctionName(left.ExpressionName);
                     }
 
-                    environmentRecord.CreateMutableBinding(left.ExpressionName);
-                    environmentRecord.InitializeBinding(left.ExpressionName, rval);
+                    environmentRecord.SetMutableBinding(left.ExpressionName, rval, strict);
 
                     return rval;
                 }

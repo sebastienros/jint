@@ -29,7 +29,7 @@ namespace Jint.Runtime.Environments
 
         // http://www.ecma-international.org/ecma-262/6.0/#sec-getidentifierreference
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Reference GetIdentifierReference(LexicalEnvironment lex, string name, bool strict)
+        public static Reference GetIdentifierReference(LexicalEnvironment lex, in Key name, bool strict)
         {
             if (lex == null)
             {
