@@ -1,8 +1,6 @@
-﻿using System;
-
-namespace Jint.Runtime
+﻿namespace Jint.Runtime
 {
-    public class MemoryLimitExceededException : Exception
+    public class MemoryLimitExceededException : JintException
     {
         public MemoryLimitExceededException() : base()
         {
