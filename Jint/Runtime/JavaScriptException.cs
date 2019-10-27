@@ -7,7 +7,7 @@ using Jint.Pooling;
 
 namespace Jint.Runtime
 {
-    public class JavaScriptException : Exception
+    public class JavaScriptException : JintException
     {
         private string _callStack;
 
