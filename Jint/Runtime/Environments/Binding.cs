@@ -14,5 +14,7 @@ namespace Jint.Runtime.Environments
         public JsValue Value;
         public readonly bool CanBeDeleted;
         public readonly bool Mutable;
+
+        public bool IsInitialized => !ReferenceEquals(Value, null);
     }
 }

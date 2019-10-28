@@ -11,7 +11,6 @@ namespace Jint.Native.Function
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
         internal readonly JintFunctionDefinition _function;
-        private LexicalEnvironment _localEnv;
 
 
         /// <summary>
@@ -88,9 +87,7 @@ namespace Jint.Native.Function
                     thisBinding = thisArg;
                 }
 
-                var localEnv = _localEnv ?? LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
-                localEnv.Reset(_scope);
-                _localEnv = null;
+                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
 
                 _engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
@@ -125,7 +122,6 @@ namespace Jint.Native.Function
                 finally
                 {
                     _engine.LeaveExecutionContext();
-                    _localEnv = localEnv;
                 }
 
                 return Undefined;

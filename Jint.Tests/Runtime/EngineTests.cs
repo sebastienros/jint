@@ -10,6 +10,7 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Jint.Tests.Runtime
 {
@@ -19,10 +20,10 @@ namespace Jint.Tests.Runtime
         private int countBreak = 0;
         private StepMode stepMode;
 
-        public EngineTests()
+        public EngineTests(ITestOutputHelper output)
         {
             _engine = new Engine()
-                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("log", new Action<object>( o => output.WriteLine(o.ToString())))
                 .SetValue("assert", new Action<bool>(Assert.True))
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
                 ;
