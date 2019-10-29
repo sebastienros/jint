@@ -154,10 +154,6 @@ namespace Jint.Runtime.Environments
                 _dictionary[KnownKeys.Arguments] = new Binding(argumentsInstance, canBeDeleted: false, mutable: true);
             }
 
-            // This is pinning the ArgumentInstance to this function as it's coming from the pool.
-            // The current version of the code doesn't release this instance to the pool to make refactorings simpler. 
-            argumentsInstance.PersistArguments();
-
             for (var i = 0; i < parameters.Count; i++)
             {
                 SetFunctionParameter(parameters[i], arguments, i, empty);
@@ -377,13 +373,18 @@ namespace Jint.Runtime.Environments
         
         internal override void FunctionWasCalled()
         {
+            if (_dictionary.TryGetValue(KnownKeys.Arguments, out var arguments))
+            {
+                ((ArgumentsInstance)(arguments.Value)).PersistArguments();
+            }
+
             // we can safely release arguments only if it doesn't have possibility to escape the scope
             // so check if someone ever accessed it
             //if (!(_argumentsBinding.Value is ArgumentsInstance argumentsInstance))
             //{
             //    return;
             //}
-            
+
             //if (!argumentsInstance._initialized && _argumentsBindingWasAccessed == false)
             //{
             //    _engine._argumentsInstancePool.Return(argumentsInstance);
