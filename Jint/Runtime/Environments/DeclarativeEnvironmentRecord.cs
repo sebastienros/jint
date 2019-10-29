@@ -373,9 +373,9 @@ namespace Jint.Runtime.Environments
         
         internal override void FunctionWasCalled()
         {
-            if (_dictionary.TryGetValue(KnownKeys.Arguments, out var arguments))
+            if (_dictionary.TryGetValue(KnownKeys.Arguments, out var arguments) && arguments.Value is ArgumentsInstance argumentsInstance)
             {
-                ((ArgumentsInstance)(arguments.Value)).PersistArguments();
+                argumentsInstance.PersistArguments();
             }
 
             // we can safely release arguments only if it doesn't have possibility to escape the scope
