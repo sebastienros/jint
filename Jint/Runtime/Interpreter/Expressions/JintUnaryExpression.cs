@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Proxy;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
@@ -80,9 +81,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (r.IsPropertyReference())
                     {
                         var o = TypeConverter.ToObject(_engine, r.GetBase());
-                        var jsValue = o.Delete(r.GetReferencedName(), r._strict);
+                        var deleteStatus  = o.Delete(r.GetReferencedName());
+                        if (!deleteStatus && r._strict)
+                        {
+                            ExceptionHelper.ThrowTypeError(_engine);
+                        }
+
                         _engine._referencePool.Return(r);
-                        return jsValue ? JsBoolean.True : JsBoolean.False;
+                        return deleteStatus ? JsBoolean.True : JsBoolean.False;
                     }
 
                     if (r._strict)
@@ -131,7 +137,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                         case Types.String: return JsString.StringString;
                     }
 
-                    if (v.TryCast<ICallable>() != null)
+                    if (v is ProxyInstance)
+                    {
+                        return JsString.ObjectString;
+                    }
+
+                    if (v is ICallable)
                     {
                         return JsString.FunctionString;
                     }

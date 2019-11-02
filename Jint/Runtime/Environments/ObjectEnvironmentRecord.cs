@@ -35,13 +35,13 @@ namespace Jint.Runtime.Environments
             // we unwrap by name
             binding = default;
 
-            var desc = _bindingObject.GetProperty(name);
-            if (desc == PropertyDescriptor.Undefined)
+            if (!_bindingObject.HasProperty(name))
             {
                 value = default;
                 return false;
             }
 
+            var desc = _bindingObject.GetProperty(name);
             value = ObjectInstance.UnwrapJsValue(desc, this);
             return true;
         }
@@ -55,12 +55,15 @@ namespace Jint.Runtime.Environments
                 ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable)
                 : new PropertyDescriptor(value, PropertyFlag.NonConfigurable);
 
-            _bindingObject.SetOwnProperty(name, propertyDescriptor);
+            _bindingObject.DefinePropertyOrThrow(name, propertyDescriptor);
         }
 
         public override void SetMutableBinding(in Key name, JsValue value, bool strict)
         {
-            _bindingObject.Put(name, value, strict);
+            if (!_bindingObject.Set(name, value) && strict)
+            {
+                ExceptionHelper.ThrowTypeError(_engine);
+            }
         }
 
         public override JsValue GetBindingValue(in Key name, bool strict)
@@ -76,7 +79,7 @@ namespace Jint.Runtime.Environments
 
         public override bool DeleteBinding(in Key name)
         {
-            return _bindingObject.Delete(name, false);
+            return _bindingObject.Delete(name);
         }
 
         public override JsValue ImplicitThisValue()
@@ -89,14 +92,14 @@ namespace Jint.Runtime.Environments
             return Undefined;
         }
 
-        public override string[] GetAllBindingNames()
+        public override Key[] GetAllBindingNames()
         {
             if (!ReferenceEquals(_bindingObject, null))
             {
                 return _bindingObject.GetOwnProperties().Select( x=> x.Key).ToArray();
             }
 
-            return ArrayExt.Empty<string>();
+            return ArrayExt.Empty<Key>();
         }
 
         public override bool Equals(JsValue other)

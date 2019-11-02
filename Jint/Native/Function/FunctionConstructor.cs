@@ -24,16 +24,15 @@ namespace Jint.Native.Function
         {
             var obj = new FunctionConstructor(engine)
             {
-                Extensible = true,
                 PrototypeObject = FunctionPrototype.CreatePrototypeObject(engine)
             };
 
             // The initial value of Function.prototype is the standard built-in Function prototype object
 
             // The value of the [[Prototype]] internal property of the Function constructor is the standard built-in Function prototype object
-            obj.Prototype = obj.PrototypeObject;
+            obj._prototype = obj.PrototypeObject;
 
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
             obj._length =  PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
 
             return obj;
@@ -43,10 +42,10 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return Construct(arguments);
+            return Construct(arguments, thisObject);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var argCount = arguments.Length;
             string p = "";
@@ -86,10 +85,7 @@ namespace Jint.Native.Function
                 Engine,
                 function,
                 LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment),
-                function.Strict)
-            {
-                Extensible = true
-            };
+                function.Strict);
 
             return functionObject;
 
@@ -106,10 +102,7 @@ namespace Jint.Native.Function
                 Engine,
                 functionDeclaration,
                 LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment),
-                functionDeclaration.Strict)
-            {
-                Extensible = true
-            };
+                functionDeclaration.Strict);
 
             return functionObject;
         }
@@ -155,13 +148,13 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowTypeError(Engine);
             }
 
-            var len = argArrayObj.Get("length");
+            var len = argArrayObj.Get("length", argArrayObj);
             var n = TypeConverter.ToUint32(len);
             var argList = new JsValue[n];
             for (var index = 0; index < n; index++)
             {
                 var indexName = TypeConverter.ToString(index);
-                var nextArg = argArrayObj.Get(indexName);
+                var nextArg = argArrayObj.Get(indexName, argArrayObj);
                 argList[index] = nextArg;
             }
             return func.Call(thisArg, argList);

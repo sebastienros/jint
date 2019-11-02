@@ -23,7 +23,7 @@ namespace Jint.Runtime.Interop
                 IsArrayLike = true;
                 // create a forwarder to produce length from Count
                 var functionInstance = new ClrFunctionInstance(engine, "length", (thisObj, arguments) => collection.Count);
-                var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.AllForbidden);
+                var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
                 AddProperty("length", descriptor);
             }
         }
@@ -32,31 +32,22 @@ namespace Jint.Runtime.Interop
 
         internal override bool IsArrayLike { get; }
 
-        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
+        public override bool Set(in Key propertyName, JsValue value, JsValue receiver)
         {
             if (!CanPut(propertyName))
             {
-                if (throwOnError)
-                {
-                    ExceptionHelper.ThrowTypeError(Engine);
-                }
-
-                return;
+                return false;
             }
 
             var ownDesc = GetOwnProperty(propertyName);
 
             if (ownDesc == null)
             {
-                if (throwOnError)
-                {
-                    ExceptionHelper.ThrowTypeError(_engine, "Unknown member: " + propertyName);
-                }
+                return false;
             }
-            else
-            {
-                ownDesc.Value = value;
-            }
+
+            ownDesc.Value = value;
+            return true;
         }
 
         public override PropertyDescriptor GetOwnProperty(in Key propertyName)

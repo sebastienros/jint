@@ -16,6 +16,8 @@ using Jint.Native.Map;
 using Jint.Native.Math;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.Proxy;
+using Jint.Native.Reflect;
 using Jint.Native.RegExp;
 using Jint.Native.Set;
 using Jint.Native.String;
@@ -30,6 +32,7 @@ using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.References;
+using ExecutionContext = Jint.Runtime.Environments.ExecutionContext;
 
 namespace Jint
 {
@@ -184,6 +187,8 @@ namespace Jint
             Date = DateConstructor.CreateDateConstructor(this);
             Math = MathInstance.CreateMathObject(this);
             Json = JsonInstance.CreateJsonObject(this);
+            Proxy = ProxyConstructor.CreateProxyConstructor(this);
+            Reflect = ReflectInstance.CreateReflectObject(this);
 
             GlobalSymbolRegistry = new GlobalSymbolRegistry();
 
@@ -191,8 +196,8 @@ namespace Jint
             // their configuration is delayed to a later step
 
             // this is implementation dependent, and only to pass some unit tests
-            Global.Prototype = Object.PrototypeObject;
-            Object.Prototype = Function.PrototypeObject;
+            Global._prototype = Object.PrototypeObject;
+            Object._prototype = Function.PrototypeObject;
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
             GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, false);
@@ -219,7 +224,7 @@ namespace Jint
             _argumentsInstancePool = new ArgumentsInstancePool(this);
             _jsValueArrayPool = new JsValueArrayPool();
 
-            Eval = new EvalFunctionInstance(this, System.ArrayExt.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
+            Eval = new EvalFunctionInstance(this, ArrayExt.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
             Global._properties[KnownKeys.Eval] = new PropertyDescriptor(Eval, true, false, true);
 
             if (Options._IsClrAllowed)
@@ -249,6 +254,8 @@ namespace Jint
         public DateConstructor Date { get; }
         public MathInstance Math { get; }
         public JsonInstance Json { get; }
+        public ProxyConstructor Proxy { get; }
+        public ReflectInstance Reflect { get; }
         public SymbolConstructor Symbol { get; }
         public EvalFunctionInstance Eval { get; }
 
@@ -334,7 +341,7 @@ namespace Jint
 
         public Engine SetValue(in Key name, JsValue value)
         {
-            Global.Put(name, value, false);
+            Global.Set(name, value, Global);
             return this;
         }
 
@@ -582,18 +589,26 @@ namespace Jint
                     ExceptionHelper.ThrowReferenceError(this, reference);
                 }
 
-                Global.Put(referencedName, value, false);
+                Global.Set(referencedName, value);
             }
             else if (reference.IsPropertyReference())
             {
                 var baseValue = reference._baseValue;
                 if (reference._baseValue._type == InternalTypes.Object || reference._baseValue._type == InternalTypes.None)
                 {
-                    ((ObjectInstance) baseValue).Put(referencedName, value, reference._strict);
+                    var thisValue = GetThisValue(reference);
+                    var succeeded = ((ObjectInstance) thisValue).Set(referencedName, value, thisValue);
+                    if (!succeeded && reference._strict)
+                    {
+                        ExceptionHelper.ThrowTypeError(this);
+                    }
                 }
                 else
                 {
-                    PutPrimitiveBase(baseValue, referencedName, value, reference._strict);
+                    if (!PutPrimitiveBase(baseValue, referencedName, value) && reference._strict)
+                    {
+                        ExceptionHelper.ThrowTypeError(this);
+                    }
                 }
             }
             else
@@ -603,46 +618,23 @@ namespace Jint
             }
         }
 
+        private static JsValue GetThisValue(Reference reference)
+        {
+            if (reference.IsSuperReference())
+            {
+                return ExceptionHelper.ThrowNotImplementedException<JsValue>();
+            }
+
+            return reference._baseValue;
+        }
+
         /// <summary>
         /// Used by PutValue when the reference has a primitive base value
         /// </summary>
-        public void PutPrimitiveBase(JsValue b, in Key name, JsValue value, bool throwOnError)
+        public bool PutPrimitiveBase(JsValue b, in Key name, JsValue value)
         {
             var o = TypeConverter.ToObject(this, b);
-            if (!o.CanPut(name))
-            {
-                if (throwOnError)
-                {
-                    ExceptionHelper.ThrowTypeError(this);
-                }
-                return;
-            }
-
-            var ownDesc = o.GetOwnProperty(name);
-
-            if (ownDesc.IsDataDescriptor())
-            {
-                if (throwOnError)
-                {
-                    ExceptionHelper.ThrowTypeError(this);
-                }
-                return;
-            }
-
-            var desc = o.GetProperty(name);
-
-            if (desc.IsAccessorDescriptor())
-            {
-                var setter = (ICallable)desc.Set.AsObject();
-                setter.Call(b, new[] { value });
-            }
-            else
-            {
-                if (throwOnError)
-                {
-                    ExceptionHelper.ThrowTypeError(this);
-                }
-            }
+            return o.Set(name, b, o);
         }
 
         /// <summary>
@@ -813,7 +805,7 @@ namespace Jint
                     for (var j = 0; j < declarationsCount; j++)
                     {
                         var d = declarations[j];
-                        if (d.Id is Esprima.Ast.Identifier id1)
+                        if (d.Id is Identifier id1)
                         {
                             Key name = id1.Name;
                             var varAlreadyDeclared = env.HasBinding(name);
@@ -861,7 +853,7 @@ namespace Jint
                             }
 
                             var descriptor = new PropertyDescriptor(Undefined.Instance, flags);
-                            go.DefineOwnProperty(fn, descriptor, true);
+                            go.DefinePropertyOrThrow(fn, descriptor);
                         }
                         else
                         {

@@ -16,7 +16,7 @@ namespace Jint.Tests.Runtime
             instance.FastAddProperty("scope", JsValue.Null, true, true, true);
             instance.RemoveOwnProperty("bare");
             var propertyNames = instance.GetOwnProperties().Select(x => x.Key).ToList();
-            Assert.Equal(new [] { "scope" }, propertyNames);
+            Assert.Equal(new Key[] { "scope" }, propertyNames);
         }
     }
 }

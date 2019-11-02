@@ -25,8 +25,7 @@ namespace Jint.Native.Map
         {
             var obj = new MapConstructor(engine)
             {
-                Extensible = true,
-                Prototype = engine.Function.PrototypeObject
+                _prototype = engine.Function.PrototypeObject
             };
 
             // The value of the [[Prototype]] internal property of the Map constructor is the Function prototype object
@@ -35,7 +34,7 @@ namespace Jint.Native.Map
             obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
 
             // The initial value of Map.prototype is the Map prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
@@ -44,7 +43,7 @@ namespace Jint.Native.Map
         {
             _properties = new StringDictionarySlim<PropertyDescriptor>(2)
             {
-                [GlobalSymbolRegistry.Species._value] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
+                [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
             };
 
         }
@@ -61,15 +60,14 @@ namespace Jint.Native.Map
                 ExceptionHelper.ThrowTypeError(_engine, "Constructor Map requires 'new'");
             }
 
-            return Construct(arguments);
+            return Construct(arguments, thisObject);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var instance = new MapInstance(Engine)
             {
-                Prototype = PrototypeObject,
-                Extensible = true
+                _prototype = PrototypeObject
             };
 
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())

@@ -62,7 +62,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 rawObj.SetIndexValue((uint) i, templateElementValue.Raw, updateLength: false);
             }
 
-            template.DefineOwnProperty("raw", new PropertyDescriptor(rawObj, PropertyFlag.AllForbidden), false);
+            template.DefineOwnProperty("raw", new PropertyDescriptor(rawObj, PropertyFlag.AllForbidden));
             return template;
         }
     }

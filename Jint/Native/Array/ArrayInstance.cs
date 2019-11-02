@@ -11,6 +11,7 @@ namespace Jint.Native.Array
         internal PropertyDescriptor _length;
 
         private const int MaxDenseArrayLength = 1024 * 10;
+        private const ulong MaxArrayLength = 4294967295;
 
         // we have dense and sparse, we usually can start with dense and fall back to sparse when necessary
         internal PropertyDescriptor[] _dense;
@@ -55,23 +56,16 @@ namespace Jint.Native.Array
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
-        internal override bool IsConcatSpreadable => !TryGetIsConcatSpreadable(out var isConcatSpreadable) || isConcatSpreadable;
-
         internal override bool IsArrayLike => true;
 
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
-        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
+        public override bool Set(in Key propertyName, JsValue value, JsValue receiver)
         {
             if (!CanPut(propertyName))
             {
-                if (throwOnError)
-                {
-                    ExceptionHelper.ThrowTypeError(Engine);
-                }
-
-                return;
+                return false;
             }
 
             var ownDesc = GetOwnProperty(propertyName);
@@ -79,8 +73,7 @@ namespace Jint.Native.Array
             if (ownDesc.IsDataDescriptor())
             {
                 var valueDesc = new PropertyDescriptor(value, PropertyFlag.None);
-                DefineOwnProperty(propertyName, valueDesc, throwOnError);
-                return;
+                return DefineOwnProperty(propertyName, valueDesc);
             }
 
             // property is an accessor or inherited
@@ -89,16 +82,18 @@ namespace Jint.Native.Array
             if (desc.IsAccessorDescriptor())
             {
                 var setter = desc.Set.TryCast<ICallable>();
-                setter.Call(this, new[] {value});
+                setter.Call(receiver, new[] {value});
             }
             else
             {
                 var newDesc = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
-                DefineOwnProperty(propertyName, newDesc, throwOnError);
+                return DefineOwnProperty(propertyName, newDesc);
             }
+
+            return true;
         }
 
-        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc)
         {
             var oldLenDesc = _length;
             var oldLen = (uint) TypeConverter.ToNumber(oldLenDesc.Value);
@@ -108,7 +103,7 @@ namespace Jint.Native.Array
                 var value = desc.Value;
                 if (ReferenceEquals(value, null))
                 {
-                    return base.DefineOwnProperty("length", desc, throwOnError);
+                    return base.DefineOwnProperty("length", desc);
                 }
 
                 var newLenDesc = new PropertyDescriptor(desc);
@@ -121,16 +116,11 @@ namespace Jint.Native.Array
                 newLenDesc.Value = newLen;
                 if (newLen >= oldLen)
                 {
-                    return base.DefineOwnProperty("length", newLenDesc, throwOnError);
+                    return base.DefineOwnProperty("length", newLenDesc);
                 }
 
                 if (!oldLenDesc.Writable)
                 {
-                    if (throwOnError)
-                    {
-                        ExceptionHelper.ThrowTypeError(_engine);
-                    }
-
                     return false;
                 }
 
@@ -145,7 +135,7 @@ namespace Jint.Native.Array
                     newLenDesc.Writable = true;
                 }
 
-                var succeeded = base.DefineOwnProperty("length", newLenDesc, throwOnError);
+                var succeeded = base.DefineOwnProperty("length", newLenDesc);
                 if (!succeeded)
                 {
                     return false;
@@ -175,13 +165,7 @@ namespace Jint.Native.Array
                                         newLenDesc.Writable = false;
                                     }
 
-                                    base.DefineOwnProperty("length", newLenDesc, false);
-
-                                    if (throwOnError)
-                                    {
-                                        ExceptionHelper.ThrowTypeError(_engine);
-                                    }
-
+                                    base.DefineOwnProperty("length", newLenDesc);
                                     return false;
                                 }
                             }
@@ -200,7 +184,7 @@ namespace Jint.Native.Array
                             // is it the index of the array
                             if (keyIndex >= newLen && keyIndex < oldLen)
                             {
-                                var deleteSucceeded = Delete(TypeConverter.ToString(keyIndex), false);
+                                var deleteSucceeded = Delete(TypeConverter.ToString(keyIndex));
                                 if (!deleteSucceeded)
                                 {
                                     newLenDesc.Value = JsNumber.Create(keyIndex + 1);
@@ -209,13 +193,7 @@ namespace Jint.Native.Array
                                         newLenDesc.Writable = false;
                                     }
 
-                                    base.DefineOwnProperty("length", newLenDesc, false);
-
-                                    if (throwOnError)
-                                    {
-                                        ExceptionHelper.ThrowTypeError(_engine);
-                                    }
-
+                                    base.DefineOwnProperty("length", newLenDesc);
                                     return false;
                                 }
                             }
@@ -228,7 +206,7 @@ namespace Jint.Native.Array
                     {
                         // algorithm as per the spec
                         oldLen--;
-                        var deleteSucceeded = Delete(TypeConverter.ToString(oldLen), false);
+                        var deleteSucceeded = Delete(TypeConverter.ToString(oldLen));
                         if (!deleteSucceeded)
                         {
                             newLenDesc.Value = oldLen + 1;
@@ -237,13 +215,7 @@ namespace Jint.Native.Array
                                 newLenDesc.Writable = false;
                             }
 
-                            base.DefineOwnProperty("length", newLenDesc, false);
-
-                            if (throwOnError)
-                            {
-                                ExceptionHelper.ThrowTypeError(_engine);
-                            }
-
+                            base.DefineOwnProperty("length", newLenDesc);
                             return false;
                         }
                     }
@@ -251,7 +223,7 @@ namespace Jint.Native.Array
 
                 if (!newWritable)
                 {
-                    DefineOwnProperty("length", new PropertyDescriptor(value: null, PropertyFlag.WritableSet), false);
+                    base.DefineOwnProperty("length", new PropertyDescriptor(value: null, PropertyFlag.WritableSet));
                 }
 
                 return true;
@@ -260,35 +232,25 @@ namespace Jint.Native.Array
             {
                 if (index >= oldLen && !oldLenDesc.Writable)
                 {
-                    if (throwOnError)
-                    {
-                        ExceptionHelper.ThrowTypeError(_engine);
-                    }
-
                     return false;
                 }
 
-                var succeeded = base.DefineOwnProperty(propertyName, desc, false);
+                var succeeded = base.DefineOwnProperty(propertyName, desc);
                 if (!succeeded)
                 {
-                    if (throwOnError)
-                    {
-                        ExceptionHelper.ThrowTypeError(_engine);
-                    }
-
                     return false;
                 }
 
                 if (index >= oldLen)
                 {
                     oldLenDesc.Value = index + 1;
-                    base.DefineOwnProperty("length", oldLenDesc, false);
+                    base.DefineOwnProperty("length", oldLenDesc);
                 }
 
                 return true;
             }
 
-            return base.DefineOwnProperty(propertyName, desc, throwOnError);
+            return base.DefineOwnProperty(propertyName, desc);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -318,14 +280,10 @@ namespace Jint.Native.Array
 
             return base.TryGetProperty(propertyName, out descriptor);
         }
-
-        public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
+        
+        internal override List<JsValue> GetOwnPropertyKeys(Types types)
         {
-            if (_length != null)
-            {
-                yield return new KeyValuePair<string, PropertyDescriptor>(KnownKeys.Length, _length);
-            }
-
+            var properties = new List<JsValue>(_dense?.Length ?? 0 + 1);
             if (_dense != null)
             {
                 var length = System.Math.Min(_dense.Length, GetLength());
@@ -333,7 +291,7 @@ namespace Jint.Native.Array
                 {
                     if (_dense[i] != null)
                     {
-                        yield return new KeyValuePair<string, PropertyDescriptor>(TypeConverter.ToString(i), _dense[i]);
+                        properties.Add(TypeConverter.ToString(i));
                     }
                 }
             }
@@ -341,8 +299,44 @@ namespace Jint.Native.Array
             {
                 foreach (var entry in _sparse)
                 {
-                    yield return new KeyValuePair<string, PropertyDescriptor>(TypeConverter.ToString(entry.Key), entry.Value);
+                    properties.Add(TypeConverter.ToString(entry.Key));
                 }
+            }
+
+            if (_length != null)
+            {
+                properties.Add(KnownKeys.Length);
+            }
+
+            properties.AddRange(base.GetOwnPropertyKeys(types));
+
+            return properties;
+        }
+
+        public override IEnumerable<KeyValuePair<Key, PropertyDescriptor>> GetOwnProperties()
+        {
+            if (_dense != null)
+            {
+                var length = System.Math.Min(_dense.Length, GetLength());
+                for (var i = 0; i < length; i++)
+                {
+                    if (_dense[i] != null)
+                    {
+                        yield return new KeyValuePair<Key, PropertyDescriptor>(TypeConverter.ToString(i), _dense[i]);
+                    }
+                }
+            }
+            else
+            {
+                foreach (var entry in _sparse)
+                {
+                    yield return new KeyValuePair<Key, PropertyDescriptor>(TypeConverter.ToString(entry.Key), entry.Value);
+                }
+            }
+
+            if (_length != null)
+            {
+                yield return new KeyValuePair<Key, PropertyDescriptor>(KnownKeys.Length, _length);
             }
 
             foreach (var entry in base.GetOwnProperties())
@@ -460,7 +454,7 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static uint ParseArrayIndex(string p)
+        internal static uint ParseArrayIndex(string p)
         {
             if (p.Length == 0)
             {
@@ -560,8 +554,11 @@ namespace Jint.Native.Array
         {
             value = Undefined;
 
-            TryGetDescriptor(index, out var desc);
-            desc = desc ?? GetProperty(index) ?? PropertyDescriptor.Undefined;
+            if (!TryGetDescriptor(index, out var desc))
+            {
+                desc = GetProperty(index);
+            }
+
             return desc.TryGetValue(this, out value);
         }
 
@@ -709,7 +706,10 @@ namespace Jint.Native.Array
             }
             else
             {
-                Put(KnownKeys.Length, newLength, true);
+                if (!Set(KnownKeys.Length, newLength, this))
+                {
+                    ExceptionHelper.ThrowTypeError(_engine);
+                }
             }
 
             return (uint) n;
@@ -734,7 +734,7 @@ namespace Jint.Native.Array
             }
             else
             {
-                DefineOwnProperty((uint) n, desc, true);
+                DefinePropertyOrThrow((uint) n, desc);
             }
         }
 
@@ -881,6 +881,12 @@ namespace Jint.Native.Array
                     }
                 }
             }
+        }
+        
+        public override string ToString()
+        {
+            // debugger can make things hard when evaluates computed values
+            return "(" + (_length?._value.AsNumber() ?? 0) + ")[]";
         }
     }
 }

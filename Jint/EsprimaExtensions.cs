@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Interpreter.Expressions;
 
@@ -9,44 +8,43 @@ namespace Jint
 {
     public static class EsprimaExtensions
     {
-        public static string GetKey<T>(this T expression, Engine engine) where T : class, Expression
+        public static Key GetKey(this Property property, Engine engine) => GetKey(property.Key, engine, property.Computed);
+
+        internal static Key GetKey<T>(this T expression, Engine engine, bool computed) where T : class, Expression
         {
             if (expression is Literal literal)
             {
                 return literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
             }
 
-            if (expression is Esprima.Ast.Identifier identifier)
+            if (!computed && expression is Identifier identifier)
             {
                 return identifier.Name;
             }
 
-            if (expression is StaticMemberExpression staticMemberExpression)
+            if (!TryGetComputedPropertyKey(expression, engine, out var propertyKey))
             {
-                var obj = staticMemberExpression.Object.GetKey(engine);
-                var property = staticMemberExpression.Property.GetKey(engine);
-
-                if (obj == "Symbol")
-                {
-                    if (property == "iterator")
-                    {
-                        return GlobalSymbolRegistry.Iterator._value;
-                    }
-                    if (property == "toPrimitive")
-                    {
-                        return GlobalSymbolRegistry.ToPrimitive._value;
-                    }
-                }
+                ExceptionHelper.ThrowArgumentException("Unable to extract correct key, node type: " + expression.Type);
             }
 
-            if (expression.Type == Nodes.CallExpression
+            return propertyKey;
+        }
+
+        private static bool TryGetComputedPropertyKey<T>(T expression, Engine engine, out Key propertyKey)
+            where T : class, Expression
+        {
+            if (expression.Type == Nodes.Identifier
+                || expression.Type == Nodes.CallExpression
                 || expression.Type == Nodes.BinaryExpression
-                || expression.Type == Nodes.UpdateExpression)
+                || expression.Type == Nodes.UpdateExpression
+                || expression is StaticMemberExpression)
             {
-                return Convert.ToString(JintExpression.Build(engine, expression).GetValue());
+                propertyKey = JintExpression.Build(engine, expression).GetValue().ToPropertyKey();
+                return true;
             }
 
-            return ExceptionHelper.ThrowArgumentException<string>("Unable to extract correct key, node type: " + expression.Type);
+            propertyKey = "";
+            return false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

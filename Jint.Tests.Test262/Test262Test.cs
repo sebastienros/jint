@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Jint.Runtime;
 using Newtonsoft.Json.Linq;
 using Xunit;
@@ -13,7 +15,7 @@ namespace Jint.Tests.Test262
 {
     public abstract class Test262Test
     {
-        private static readonly string[] Sources;
+        private static readonly Dictionary<string, string> Sources;
 
         private static readonly string BasePath;
 
@@ -24,6 +26,11 @@ namespace Jint.Tests.Test262
 
         private static readonly HashSet<string> _strictSkips =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        
+        private static readonly Dictionary<string, string> extraSourceFiles = new Dictionary<string, string>()
+        {
+            { "built-ins/Array/isArray/descriptor.js", "propertyHelper.js"}
+        };
 
         static Test262Test()
         {
@@ -37,17 +44,18 @@ namespace Jint.Tests.Test262
 
             string[] files =
             {
-                @"harness\sta.js",
-                @"harness\assert.js",
-                @"harness\propertyHelper.js",
-                @"harness\compareArray.js",
-                @"harness\decimalToHexString.js",
+                "sta.js",
+                "assert.js",
+                "propertyHelper.js",
+                "compareArray.js",
+                "decimalToHexString.js",
+                "proxyTrapsHelper.js",
             };
 
-            Sources = new string[files.Length];
+            Sources = new Dictionary<string, string>(files.Length);
             for (var i = 0; i < files.Length; i++)
             {
-                Sources[i] = File.ReadAllText(Path.Combine(BasePath, files[i]));
+                Sources[files[i]] = File.ReadAllText(Path.Combine(BasePath, "harness", files[i]));
             }
 
             var content = File.ReadAllText(Path.Combine(BasePath, "test/skipped.json"));
@@ -67,13 +75,27 @@ namespace Jint.Tests.Test262
         {
             var engine = new Engine(cfg => cfg
                 .LocalTimeZone(_pacificTimeZone)
-                .Strict(strict));
+                .Strict(strict)
+            );
 
-            for (int i = 0; i < Sources.Length; ++i)
+            engine.Execute(Sources["sta.js"]);
+            engine.Execute(Sources["assert.js"]);
+            
+            var includes = Regex.Match(code, @"includes: \[(.+?)\]");
+            if (includes.Success)
             {
-                engine.Execute(Sources[i]);
+                var files = includes.Groups[1].Captures[0].Value.Split(',');
+                foreach (var file in files)
+                {
+                    engine.Execute(Sources[file.Trim()]);
+                }
             }
 
+            if (code.IndexOf("propertyHelper.js", StringComparison.OrdinalIgnoreCase) != -1)
+            {
+                engine.Execute(Sources["propertyHelper.js"]);
+            }
+            
             string lastError = null;
 
             bool negative = code.IndexOf("negative:", StringComparison.Ordinal) > -1;
@@ -121,12 +143,12 @@ namespace Jint.Tests.Test262
 
         public static IEnumerable<object[]> SourceFiles(string pathPrefix, bool skipped)
         {
-            var results = new List<object[]>();
+            var results = new ConcurrentBag<object[]>();
             var fixturesPath = Path.Combine(BasePath, "test");
             var searchPath = Path.Combine(fixturesPath, pathPrefix);
             var files = Directory.GetFiles(searchPath, "*", SearchOption.AllDirectories);
 
-            foreach (var file in files)
+            Parallel.ForEach(files, file =>
             {
                 var name = file.Substring(fixturesPath.Length + 1).Replace("\\", "/");
                 bool skip = _skipReasons.TryGetValue(name, out var reason);
@@ -174,10 +196,6 @@ namespace Jint.Tests.Test262
                             case "Symbol.species":
                                 skip = true;
                                 reason = "Symbol.species not implemented";
-                                break;
-                            case "Proxy":
-                                skip = true;
-                                reason = "Proxies not implemented";
                                 break;
                             case "object-spread":
                                 skip = true;
@@ -246,7 +264,7 @@ namespace Jint.Tests.Test262
                         }
                     }
                 }
-
+                
                 if (code.IndexOf("SpecialCasing.txt") > -1)
                 {
                     skip = true;
@@ -281,7 +299,7 @@ namespace Jint.Tests.Test262
                         sourceFile
                     });
                 }
-            }
+            });
 
             return results;
         }

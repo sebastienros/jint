@@ -40,18 +40,16 @@ namespace Jint.Runtime.Debugger
 
         internal void AddToDebugCallStack(CallExpression callExpression)
         {
-            var identifier = callExpression.Callee as Esprima.Ast.Identifier;
-            if (identifier != null)
+            if (callExpression.Callee is Identifier identifier)
             {
                 var stack = identifier.Name + "(";
-                var paramStrings = new System.Collections.Generic.List<string>();
+                var paramStrings = new List<string>();
 
                 foreach (var argument in callExpression.Arguments)
                 {
                     if (argument != null)
                     {
-                        var argIdentifier = argument as Esprima.Ast.Identifier;
-                        paramStrings.Add(argIdentifier != null ? argIdentifier.Name : "null");
+                        paramStrings.Add(argument is Identifier argIdentifier ? argIdentifier.Name : "null");
                     }
                     else
                     {

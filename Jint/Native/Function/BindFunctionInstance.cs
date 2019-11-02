@@ -19,22 +19,22 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            var f = TargetFunction.TryCast<FunctionInstance>(x =>
+            if (!(TargetFunction is FunctionInstance f))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
-            });
+                return ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
+            }
 
             return f.Call(BoundThis, CreateArguments(arguments));
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var target = TargetFunction.TryCast<IConstructor>(x =>
+            if (!(TargetFunction is IConstructor target))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
-            });
+                return ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
+            }
 
-            return target.Construct(CreateArguments(arguments));
+            return target.Construct(CreateArguments(arguments), newTarget);
         }
 
         public override bool HasInstance(JsValue v)
@@ -51,5 +51,7 @@ namespace Jint.Native.Function
         {
             return Enumerable.Union(BoundArgs, arguments).ToArray();
         }
+
+        internal override bool IsConstructor => TargetFunction is IConstructor;
     }
 }
