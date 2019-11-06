@@ -98,7 +98,7 @@ namespace Jint.Native.Json
                 }
                 else
                 {
-                    ExceptionHelper.ThrowSyntaxError(_engine, $"Expected hexadecimal digit:{_source}");
+                    Jint.Runtime.ExceptionHelper.ThrowSyntaxError(_engine, $"Expected hexadecimal digit:{_source}");
                 }
             }
             return (char)code;
@@ -153,7 +153,7 @@ namespace Jint.Native.Json
                         };
             }
 
-            ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, code));
+            Jint.Runtime.ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, code));
             return null;
         }
 
@@ -183,7 +183,7 @@ namespace Jint.Native.Json
                     // decimal number starts with '0' such as '09' is illegal.
                     if (ch > 0 && IsDecimalDigit(ch))
                     {
-                        ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, ch));
+                        Jint.Runtime.ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, ch));
                     }
                 }
 
@@ -222,7 +222,7 @@ namespace Jint.Native.Json
                 }
                 else
                 {
-                    ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, _source.CharCodeAt(_index)));
+                    Jint.Runtime.ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, _source.CharCodeAt(_index)));
                 }
             }
 
@@ -258,7 +258,7 @@ namespace Jint.Native.Json
                 };
             }
 
-            ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, s));
+            Jint.Runtime.ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, s));
             return null;
         }
 
@@ -284,7 +284,7 @@ namespace Jint.Native.Json
                 };
             }
 
-            ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, s));
+            Jint.Runtime.ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, s));
             return null;
         }
 
@@ -309,7 +309,7 @@ namespace Jint.Native.Json
 
                 if (ch <= 31)
                 {
-                    ExceptionHelper.ThrowSyntaxError(_engine, $"Invalid character '{ch}', position:{_index}, string:{_source}");
+                    Jint.Runtime.ExceptionHelper.ThrowSyntaxError(_engine, $"Invalid character '{ch}', position:{_index}, string:{_source}");
                 }
 
                 if (ch == '\\')
@@ -401,7 +401,7 @@ namespace Jint.Native.Json
 
             if (quote != 0)
             {
-                ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, _source));
+                Jint.Runtime.ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, _source));
             }
 
             return new Token
@@ -716,7 +716,7 @@ namespace Jint.Native.Json
                 var name = Lex().Value.ToString();
                 if (PropertyNameContainsInvalidChar0To31(name))
                 {
-                    ExceptionHelper.ThrowSyntaxError(_engine, $"Invalid character in property name '{name}'");
+                    Jint.Runtime.ExceptionHelper.ThrowSyntaxError(_engine, $"Invalid character in property name '{name}'");
                 }
 
                 Expect(":");
@@ -841,7 +841,7 @@ namespace Jint.Native.Json
 
                 if(_lookahead.Type != Tokens.EOF)
                 {
-                    ExceptionHelper.ThrowSyntaxError(_engine, $"Unexpected {_lookahead.Type} {_lookahead.Value}");
+                    Jint.Runtime.ExceptionHelper.ThrowSyntaxError(_engine, $"Unexpected {_lookahead.Type} {_lookahead.Value}");
                 }
                 return jsv;
             }

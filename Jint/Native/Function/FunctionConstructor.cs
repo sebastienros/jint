@@ -78,7 +78,7 @@ namespace Jint.Native.Function
             }
             catch (ParserException)
             {
-                ExceptionHelper.ThrowSyntaxError(_engine);
+                Jint.Runtime.ExceptionHelper.ThrowSyntaxError(_engine);
                 return null;
             }
 
@@ -132,7 +132,7 @@ namespace Jint.Native.Function
         {
             if (arguments.Length != 2)
             {
-                ExceptionHelper.ThrowArgumentException("Apply has to be called with two arguments.");
+                Jint.Runtime.ExceptionHelper.ThrowArgumentException("Apply has to be called with two arguments.");
             }
 
             var func = thisObject.TryCast<ICallable>();
@@ -141,7 +141,7 @@ namespace Jint.Native.Function
 
             if (func is null)
             {
-                return ExceptionHelper.ThrowTypeError<object>(Engine);
+                return Jint.Runtime.ExceptionHelper.ThrowTypeError<object>(Engine);
             }
 
             if (argArray.IsNullOrUndefined())
@@ -152,7 +152,7 @@ namespace Jint.Native.Function
             var argArrayObj = argArray.TryCast<ObjectInstance>();
             if (ReferenceEquals(argArrayObj, null))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                Jint.Runtime.ExceptionHelper.ThrowTypeError(Engine);
             }
 
             var len = argArrayObj.Get("length");

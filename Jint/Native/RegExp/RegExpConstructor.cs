@@ -73,7 +73,7 @@ namespace Jint.Native.RegExp
 
             if (!flags.IsUndefined() && !ReferenceEquals(r, null))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                Jint.Runtime.ExceptionHelper.ThrowTypeError(Engine);
             }
 
             if (pattern.IsUndefined())
@@ -105,7 +105,7 @@ namespace Jint.Native.RegExp
             }
             catch (Exception e)
             {
-                ExceptionHelper.ThrowSyntaxError(_engine, e.Message);
+                Jint.Runtime.ExceptionHelper.ThrowSyntaxError(_engine, e.Message);
             }
 
             var s = p;

@@ -441,12 +441,12 @@ namespace Jint
         {
             if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
             {
-                ExceptionHelper.ThrowStatementsCountOverflowException();
+                Jint.Runtime.ExceptionHelper.ThrowStatementsCountOverflowException();
             }
 
             if (_timeoutTicks > 0 && _timeoutTicks < DateTime.UtcNow.Ticks)
             {
-                ExceptionHelper.ThrowTimeoutException();
+                Jint.Runtime.ExceptionHelper.ThrowTimeoutException();
             }
 
             if (_memoryLimit > 0)
@@ -456,12 +456,12 @@ namespace Jint
                     var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
                     if (memoryUsage > _memoryLimit)
                     {
-                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {_memoryLimit}");
+                        Jint.Runtime.ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {_memoryLimit}");
                     }
                 }
                 else
                 {
-                    ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
+                    Jint.Runtime.ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
                 }
             }
 
@@ -504,7 +504,7 @@ namespace Jint
                     return val;
                 }
 
-                ExceptionHelper.ThrowReferenceError(this, reference);
+                Jint.Runtime.ExceptionHelper.ThrowReferenceError(this, reference);
             }
 
             var baseValue = reference._baseValue;
@@ -556,7 +556,7 @@ namespace Jint
 
             if (!(baseValue is EnvironmentRecord record))
             {
-                return ExceptionHelper.ThrowArgumentException<JsValue>();
+                return Jint.Runtime.ExceptionHelper.ThrowArgumentException<JsValue>();
             }
 
             var bindingValue = record.GetBindingValue(reference.GetReferencedName(), reference._strict);
@@ -579,7 +579,7 @@ namespace Jint
             {
                 if (reference._strict)
                 {
-                    ExceptionHelper.ThrowReferenceError(this, reference);
+                    Jint.Runtime.ExceptionHelper.ThrowReferenceError(this, reference);
                 }
 
                 Global.Put(referencedName, value, false);
@@ -613,7 +613,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    ExceptionHelper.ThrowTypeError(this);
+                    Jint.Runtime.ExceptionHelper.ThrowTypeError(this);
                 }
                 return;
             }
@@ -624,7 +624,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    ExceptionHelper.ThrowTypeError(this);
+                    Jint.Runtime.ExceptionHelper.ThrowTypeError(this);
                 }
                 return;
             }
@@ -640,7 +640,7 @@ namespace Jint
             {
                 if (throwOnError)
                 {
-                    ExceptionHelper.ThrowTypeError(this);
+                    Jint.Runtime.ExceptionHelper.ThrowTypeError(this);
                 }
             }
         }
@@ -690,7 +690,7 @@ namespace Jint
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(JsValue value, object thisObj, object[] arguments)
         {
-            var callable = value as ICallable ?? ExceptionHelper.ThrowArgumentException<ICallable>("Can only invoke functions");
+            var callable = value as ICallable ?? Jint.Runtime.ExceptionHelper.ThrowArgumentException<ICallable>("Can only invoke functions");
 
             var items = _jsValueArrayPool.RentArray(arguments.Length);
             for (int i = 0; i < arguments.Length; ++i)
@@ -867,7 +867,7 @@ namespace Jint
                         {
                             if (existingProp.IsAccessorDescriptor() || !existingProp.Enumerable)
                             {
-                                ExceptionHelper.ThrowTypeError(this);
+                                Jint.Runtime.ExceptionHelper.ThrowTypeError(this);
                             }
                         }
                     }
@@ -887,7 +887,7 @@ namespace Jint
         {
             if (string.IsNullOrEmpty(propertyValue))
             {
-                ExceptionHelper.ThrowArgumentException(propertyName);
+                Jint.Runtime.ExceptionHelper.ThrowArgumentException(propertyName);
             }
         }
     }
