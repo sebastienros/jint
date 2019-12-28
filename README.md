@@ -215,6 +215,6 @@ Continuous Integration kindly provided by  [AppVeyor](https://www.appveyor.com)
 
 - The recommended branch is __dev__, any PR should target this branch
 - The __dev__ branch is automatically built and published on [Myget](https://www.myget.org/feed/Packages/jint)
-- The __dev__ branch is occasionally merged to __master__ and published on [NuGet](https://www.nuget.org/feed/Packages/jint)
+- The __dev__ branch is occasionally merged to __master__ and published on [NuGet](https://www.nuget.org/packages/jint)
 - The 3.x releases have more features (from es6) and is faster than the 2.x ones. They run the same test suite so they are as reliable. For instance [RavenDB](https://github.com/ravendb/ravendb) is using the 3.x version.
 - The 3.x versions are marked as _beta_ as they might get breaking changes while es6 features are added. 
