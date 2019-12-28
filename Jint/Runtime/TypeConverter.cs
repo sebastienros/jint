@@ -9,6 +9,7 @@ using Jint.Native.Number;
 using Jint.Native.Number.Dtoa;
 using Jint.Native.Object;
 using Jint.Native.String;
+using Jint.Native.Symbol;
 using Jint.Pooling;
 
 namespace Jint.Runtime
@@ -65,19 +66,90 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.1
+        /// http://www.ecma-international.org/ecma-262/#sec-toprimitive
         /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.None)
         {
-            if (input._type > InternalTypes.None && input._type < InternalTypes.Object)
+            if (!(input is ObjectInstance oi))
             {
                 return input;
             }
 
-            return input.AsObject().DefaultValue(preferredType);
+            var hint = preferredType switch
+            {
+                Types.String => JsString.StringString,
+                Types.Number => JsString.NumberString,
+                _ => JsString.DefaultString
+            };
+
+            var exoticToPrim  = GetMethod(oi, GlobalSymbolRegistry.ToPrimitive);
+            if (exoticToPrim is object)
+            {
+                var str = exoticToPrim.Call(oi, new JsValue[] { hint });
+                if (str.IsPrimitive())
+                {
+                    return str;
+                }
+
+                if (str.IsObject())
+                {
+                    return ExceptionHelper.ThrowTypeError<JsValue>(oi.Engine, "Cannot convert object to primitive value");
+                }
+            }
+
+            return OrdinaryToPrimitive(oi, preferredType == Types.None ? Types.Number :  preferredType);
         }
 
+        private static readonly Key[] StringHintCallOrder = { (Key) "toString", (Key) "valueOf"};
+        private static readonly Key[] NumberHintCallOrder = { (Key) "valueOf", (Key) "toString"};
+        
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/#sec-ordinarytoprimitive
+        /// </summary>
+        internal static JsValue OrdinaryToPrimitive(ObjectInstance input, Types hint = Types.None)
+        {
+            var callOrder = ArrayExt.Empty<Key>();
+            if (hint == Types.String)
+            {
+                callOrder = StringHintCallOrder;
+            }
+
+            if (hint == Types.Number)
+            {
+                callOrder = NumberHintCallOrder;
+            }
+
+            foreach (var property in callOrder)
+            {
+                var method = input.Get(property) as ICallable;
+                if (method is object)
+                {
+                    var val = method.Call(input, Arguments.Empty);
+                    if (val.IsPrimitive())
+                    {
+                        return val;
+                    }
+                }
+ 
+            }
+
+            return ExceptionHelper.ThrowTypeError<JsValue>(input.Engine);
+        }
+
+        internal static ICallable GetMethod(ObjectInstance v, in Key p)
+        {
+            var jsValue = v.Get(p);
+            if (jsValue.IsNullOrUndefined())
+            {
+                return null;
+            }
+
+            if (!(jsValue is ICallable callable))
+            {
+                return ExceptionHelper.ThrowTypeError<ICallable>(v.Engine, "Value returned for property '" + p.Name + "' of object is not a function");
+            }
+            return callable;
+        }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.2
@@ -246,7 +318,7 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.4
+        /// http://www.ecma-international.org/ecma-262/#sec-tointeger
         /// </summary>
         public static double ToInteger(JsValue o)
         {

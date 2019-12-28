@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Runtime;
@@ -14,7 +15,7 @@ namespace Jint
         {
             if (expression is Literal literal)
             {
-                return literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
+                return LiteralKeyToString(literal);
             }
 
             if (!computed && expression is Identifier identifier)
@@ -52,6 +53,23 @@ namespace Jint
         {
             var type = node.Type;
             return type == Nodes.FunctionExpression || type == Nodes.ArrowFunctionExpression || type == Nodes.ArrowParameterPlaceHolder;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static Key LiteralKeyToString(Literal literal)
+        {
+            // prevent conversion to scientific notation
+            if (literal.Value is double d)
+            {
+                return DoubleToString(d);
+            }
+            return literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string DoubleToString(double d)
+        {
+            return (d - (long) d) == 0 ? ((long) d).ToString() : d.ToString(CultureInfo.InvariantCulture);
         }
     }
 }

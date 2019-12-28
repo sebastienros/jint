@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -15,18 +16,33 @@ namespace Jint.Native.Date
         public DateInstance(Engine engine)
             : base(engine, objectClass: "Date")
         {
+            PrimitiveValue = double.NaN;
         }
 
         public DateTime ToDateTime()
         {
-            if (double.IsNaN(PrimitiveValue) || PrimitiveValue > Max || PrimitiveValue < Min)
-            {
-                return ExceptionHelper.ThrowRangeError<DateTime>(Engine);
-            }
-
-            return DateConstructor.Epoch.AddMilliseconds(PrimitiveValue);
+            return DateTimeRangeValid 
+                ? DateConstructor.Epoch.AddMilliseconds(PrimitiveValue)
+                : ExceptionHelper.ThrowRangeError<DateTime>(Engine);
         }
 
         public double PrimitiveValue { get; set; }
+
+        internal bool DateTimeRangeValid => !double.IsNaN(PrimitiveValue) && PrimitiveValue <= Max && PrimitiveValue >= Min;
+
+        public override string ToString()
+        {
+            if (double.IsNaN(PrimitiveValue))
+            {
+                return "NaN";
+            }
+
+            if (double.IsInfinity(PrimitiveValue))
+            {
+                return "Infinity";
+            }
+
+            return ToDateTime().ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'K", CultureInfo.InvariantCulture);
+        }
     }
 }

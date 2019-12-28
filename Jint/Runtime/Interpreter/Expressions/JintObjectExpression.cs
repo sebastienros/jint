@@ -60,7 +60,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (property.Key is Literal literal)
                 {
-                    propName = literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
+                    propName = EsprimaExtensions.LiteralKeyToString(literal);
                 }
 
                 if (!property.Computed && property.Key is Identifier identifier)

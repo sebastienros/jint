@@ -364,6 +364,13 @@ namespace Jint.Native.Math
                 return JsNumber.DoubleNegativeInfinity;
             }
 
+#if NETFRAMEWORK
+            if (x < 0 && x > -1)
+            {
+                return JsNumber.NegativeZero;
+            }
+#endif
+            
             return System.Math.Ceiling(x);
         }
 

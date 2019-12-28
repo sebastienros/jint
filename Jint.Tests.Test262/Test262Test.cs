@@ -27,11 +27,6 @@ namespace Jint.Tests.Test262
         private static readonly HashSet<string> _strictSkips =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         
-        private static readonly Dictionary<string, string> extraSourceFiles = new Dictionary<string, string>()
-        {
-            { "built-ins/Array/isArray/descriptor.js", "propertyHelper.js"}
-        };
-
         static Test262Test()
         {
             //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
@@ -50,6 +45,8 @@ namespace Jint.Tests.Test262
                 "compareArray.js",
                 "decimalToHexString.js",
                 "proxyTrapsHelper.js",
+                "dateConstants.js",
+                "assertRelativeDateMs.js"
             };
 
             Sources = new Dictionary<string, string>(files.Length);
@@ -158,7 +155,7 @@ namespace Jint.Tests.Test262
                 var flags = Regex.Match(code, "flags: \\[(.+?)\\]");
                 if (flags.Success)
                 {
-                    var items = flags.Groups[1].Captures[0].Value.Split(",");
+                    var items = flags.Groups[1].Captures[0].Value.Split(',');
                     foreach (var item in items.Select(x => x.Trim()))
                     {
                         switch (item)
@@ -175,7 +172,7 @@ namespace Jint.Tests.Test262
                 var features = Regex.Match(code, "features: \\[(.+?)\\]");
                 if (features.Success)
                 {
-                    var items = features.Groups[1].Captures[0].Value.Split(",");
+                    var items = features.Groups[1].Captures[0].Value.Split(',');
                     foreach (var item in items.Select(x => x.Trim()))
                     {
                         switch (item)
