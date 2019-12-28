@@ -22,15 +22,15 @@ namespace Jint.Runtime.Interop
         public static TypeReference CreateTypeReference(Engine engine, Type type)
         {
             var obj = new TypeReference(engine);
-            obj.Extensible = false;
+            obj.PreventExtensions();
             obj.ReferenceType = type;
 
             // The value of the [[Prototype]] internal property of the TypeReference constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
+            obj._prototype = engine.Function.PrototypeObject;
             obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
 
             // The initial value of Boolean.prototype is the Boolean prototype object
-            obj._prototype = new PropertyDescriptor(engine.Object.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(engine.Object.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
@@ -38,15 +38,15 @@ namespace Jint.Runtime.Interop
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             // direct calls on a TypeReference constructor object is equivalent to the new operator
-            return Construct(arguments);
+            return Construct(arguments, thisObject);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (arguments.Length == 0 && ReferenceType.IsValueType)
             {
                 var instance = Activator.CreateInstance(ReferenceType);
-                var result = TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, instance));
+                var result = TypeConverter.ToObject(Engine, FromObject(Engine, instance));
 
                 return result;
             }
@@ -108,53 +108,32 @@ namespace Jint.Runtime.Interop
             return base.HasInstance(v);
         }
 
-        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc)
         {
-            if (throwOnError)
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "Can't define a property of a TypeReference");
-            }
-
             return false;
         }
 
-        public override bool Delete(in Key propertyName, bool throwOnError)
+        public override bool Delete(in Key propertyName)
         {
-            if (throwOnError)
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "Can't delete a property of a TypeReference");
-            }
-
             return false;
         }
 
-        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
+        public override bool Set(in Key propertyName, JsValue value, JsValue receiver)
         {
             if (!CanPut(propertyName))
             {
-                if (throwOnError)
-                {
-                    ExceptionHelper.ThrowTypeError(Engine);
-                }
-
-                return;
+                return false;
             }
 
             var ownDesc = GetOwnProperty(propertyName);
 
             if (ownDesc == null)
             {
-                if (throwOnError)
-                {
-                    ExceptionHelper.ThrowTypeError(_engine, "Unknown member: " + propertyName);
-                }
-                else
-                {
-                    return;
-                }
+                return false;
             }
 
             ownDesc.Value = value;
+            return true;
         }
 
         public override PropertyDescriptor GetOwnProperty(in Key key)

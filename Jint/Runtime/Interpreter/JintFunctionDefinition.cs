@@ -49,9 +49,9 @@ namespace Jint.Runtime.Interpreter
             _body = JintStatement.Build(engine, bodyStatement);
         }
 
-        private IEnumerable<Esprima.Ast.Identifier> GetParameterIdentifiers(INode parameter)
+        private IEnumerable<Identifier> GetParameterIdentifiers(INode parameter)
         {
-            if (parameter is Esprima.Ast.Identifier identifier)
+            if (parameter is Identifier identifier)
             {
                 return new [] { identifier };
             }
@@ -73,7 +73,7 @@ namespace Jint.Runtime.Interpreter
                 return GetParameterIdentifiers(assignmentPattern.Left);
             }
 
-            return Enumerable.Empty<Esprima.Ast.Identifier>();
+            return Enumerable.Empty<Identifier>();
         }
 
         private string[] GetParameterNames(IFunction functionDeclaration)
@@ -85,7 +85,7 @@ namespace Jint.Runtime.Interpreter
             for (var i = 0; i < count; i++)
             {
                 var parameter = functionDeclarationParams[i];
-                if (parameter is Esprima.Ast.Identifier id)
+                if (parameter is Identifier id)
                 {
                     parameterNames.Add(id.Name);
                     if (onlyIdentifiers)

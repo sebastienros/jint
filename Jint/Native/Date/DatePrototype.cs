@@ -24,8 +24,7 @@ namespace Jint.Native.Date
         {
             var obj = new DatePrototype(engine)
             {
-                Prototype = engine.Object.PrototypeObject,
-                Extensible = true,
+                _prototype = engine.Object.PrototypeObject,
                 PrimitiveValue = double.NaN,
                 _dateConstructor = dateConstructor
             };
@@ -588,7 +587,7 @@ namespace Jint.Native.Date
                 return Null;
             }
 
-            var toIso = o.Get("toISOString");
+            var toIso = o.Get("toISOString", o);
             if (!toIso.Is<ICallable>())
             {
                 ExceptionHelper.ThrowTypeError(Engine);
@@ -913,7 +912,7 @@ namespace Jint.Native.Date
                 year = isLeapYear ? 2000 : 1999;
             }
 
-            var dateTime = new DateTime((int)year, 1, 1).AddMilliseconds(timeInYear);
+            var dateTime = new DateTime(year, 1, 1).AddMilliseconds(timeInYear);
 
             return Engine.Options._LocalTimeZone.IsDaylightSavingTime(dateTime) ? MsPerHour : 0;
         }

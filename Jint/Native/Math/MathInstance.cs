@@ -20,8 +20,7 @@ namespace Jint.Native.Math
         {
             var math = new MathInstance(engine)
             {
-                Extensible = true,
-                Prototype = engine.Object.PrototypeObject
+                _prototype = engine.Object.PrototypeObject
             };
 
             return math;

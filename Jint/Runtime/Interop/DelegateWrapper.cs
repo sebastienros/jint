@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interop
             : base(engine, "delegate", null, null, false)
         {
             _d = d;
-            Prototype = engine.Function.PrototypeObject;
+            _prototype = engine.Function.PrototypeObject;
 
             var parameterInfos = _d.Method.GetParameters();
 
@@ -116,7 +116,7 @@ namespace Jint.Runtime.Interop
             }
             try
             {
-                return JsValue.FromObject(Engine, _d.DynamicInvoke(parameters));
+                return FromObject(Engine, _d.DynamicInvoke(parameters));
             }
             catch (TargetInvocationException exception)
             {

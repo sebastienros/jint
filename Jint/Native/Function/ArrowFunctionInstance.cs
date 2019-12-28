@@ -33,8 +33,8 @@ namespace Jint.Native.Function
         {
             _function = function;
 
-            Extensible = false;
-            Prototype = Engine.Function.PrototypeObject;
+            PreventExtensions();
+            _prototype = Engine.Function.PrototypeObject;
 
             _length = new PropertyDescriptor(JsNumber.Create(function._length), PropertyFlag.Configurable);
             _thisBinding = _engine.ExecutionContext.ThisBinding;
@@ -98,16 +98,16 @@ namespace Jint.Native.Function
             }
         }
 
-        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
+        public override bool Set(in Key propertyName, JsValue value, JsValue receiver)
         {
             AssertValidPropertyName(propertyName);
-            base.Put(propertyName, value, throwOnError);
+            return base.Set(propertyName, value, receiver);
         }
 
-        public override JsValue Get(in Key propertyName)
+        public override JsValue Get(in Key propertyName, JsValue receiver)
         {
             AssertValidPropertyName(propertyName);
-            return base.Get(propertyName);
+            return base.Get(propertyName, receiver);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

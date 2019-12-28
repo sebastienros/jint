@@ -19,7 +19,7 @@ namespace Jint.Native.Json
 
         Stack<object> _stack;
         string _indent, _gap;
-        List<string> _propertyList;
+        List<Key> _propertyList;
         JsValue _replacerFunction = Undefined.Instance;
 
         public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
@@ -44,7 +44,7 @@ namespace Jint.Native.Json
                     var replacerObj = replacer.AsObject();
                     if (replacerObj.Class == "Array")
                     {
-                        _propertyList = new List<string>();
+                        _propertyList = new List<Key>();
                     }
 
                     foreach (var property in replacerObj.GetOwnProperties().Select(x => x.Value))
@@ -114,7 +114,7 @@ namespace Jint.Native.Json
             }
 
             var wrapper = _engine.Object.Construct(Arguments.Empty);
-            wrapper.DefineOwnProperty("", new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable), false);
+            wrapper.DefineOwnProperty("", new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
 
             return Str("", wrapper);
         }
@@ -122,14 +122,13 @@ namespace Jint.Native.Json
         private JsValue Str(string key, ObjectInstance holder)
         {
 
-            var value = holder.Get(key);
+            var value = holder.Get(key, holder);
             if (value.IsObject())
             {
-                var toJson = value.AsObject().Get("toJSON");
+                var toJson = value.AsObject().Get("toJSON", value);
                 if (toJson.IsObject())
                 {
-                    var callableToJson = toJson.AsObject() as ICallable;
-                    if (callableToJson != null)
+                    if (toJson.AsObject() is ICallable callableToJson)
                     {
                         value = callableToJson.Call(value, Arguments.From(key));
                     }
@@ -259,7 +258,7 @@ namespace Jint.Native.Json
             var stepback = _indent;
             _indent = _indent + _gap;
             var partial = new List<string>();
-            var len = TypeConverter.ToUint32(value.Get("length"));
+            var len = TypeConverter.ToUint32(value.Get("length", value));
             for (int i = 0; i < len; i++)
             {
                 var strP = Str(TypeConverter.ToString(i), value);

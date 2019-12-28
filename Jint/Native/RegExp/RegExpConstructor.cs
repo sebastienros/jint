@@ -21,8 +21,7 @@ namespace Jint.Native.RegExp
         {
             var obj = new RegExpConstructor(engine)
             {
-                Extensible = true,
-                Prototype = engine.Function.PrototypeObject
+                _prototype = engine.Function.PrototypeObject
             };
 
             // The value of the [[Prototype]] internal property of the RegExp constructor is the Function prototype object
@@ -31,7 +30,7 @@ namespace Jint.Native.RegExp
             obj._length = new PropertyDescriptor(2, PropertyFlag.AllForbidden);
 
             // The initial value of RegExp.prototype is the RegExp prototype object
-            obj._prototype= new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor= new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
@@ -48,16 +47,19 @@ namespace Jint.Native.RegExp
                 return pattern;
             }
 
-            return Construct(arguments);
+            return Construct(arguments, thisObject);
+        }
+
+        public ObjectInstance Construct(JsValue[] arguments)
+        {
+            return Construct(arguments, this);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-7.8.5
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.10.4
         /// </summary>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             string p;
             string f;
@@ -88,8 +90,7 @@ namespace Jint.Native.RegExp
             f = !flags.IsUndefined() ? TypeConverter.ToString(flags) : "";
 
             r = new RegExpInstance(Engine);
-            r.Prototype = PrototypeObject;
-            r.Extensible = true;
+            r._prototype = PrototypeObject;
 
             try
             {
@@ -127,8 +128,7 @@ namespace Jint.Native.RegExp
         public RegExpInstance Construct(string regExp, Engine engine)
         {
             var r = new RegExpInstance(Engine);
-            r.Prototype = PrototypeObject;
-            r.Extensible = true;
+            r._prototype = PrototypeObject;
 
             var scanner = new Scanner(regExp, new ParserOptions { AdaptRegexp = true });
             var body = (string)scanner.ScanRegExpBody().Value;
@@ -153,8 +153,7 @@ namespace Jint.Native.RegExp
         public RegExpInstance Construct(Regex regExp, string flags, Engine engine)
         {
             var r = new RegExpInstance(Engine);
-            r.Prototype = PrototypeObject;
-            r.Extensible = true;
+            r._prototype = PrototypeObject;
 
             r.Flags = flags;
             AssignFlags(r, flags);

@@ -558,7 +558,7 @@ namespace Jint.Tests.Runtime
                     str += z;
                 }
 
-                assert(str == 'xystrz');
+                equal('xystrz', str);
             ");
         }
 
@@ -987,7 +987,7 @@ namespace Jint.Tests.Runtime
             ");
 
             var obj = _engine.GetValue("obj").AsObject();
-            var getFoo = obj.Get("getFoo");
+            var getFoo = obj.Get("getFoo", obj);
 
             Assert.Equal("foo is 5, bar is 7", _engine.Invoke(getFoo, obj, new object[] { 7 }).AsString());
         }
@@ -1000,7 +1000,7 @@ namespace Jint.Tests.Runtime
             ");
 
             var obj = _engine.GetValue("obj").AsObject();
-            var foo = obj.Get("foo");
+            var foo = obj.Get("foo", obj);
 
             Assert.Throws<ArgumentException>(() => _engine.Invoke(foo, obj, new object[] { }));
         }

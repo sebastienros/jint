@@ -14,8 +14,7 @@ namespace Jint.Native.Iterator
         {
             var obj = new IteratorPrototype(engine)
             {
-                Extensible = true,
-                Prototype = engine.Object.PrototypeObject
+                _prototype = engine.Object.PrototypeObject
             };
 
             return obj;

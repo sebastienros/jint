@@ -25,8 +25,7 @@ namespace Jint.Native.Global
         {
             var global = new GlobalObject(engine)
             {
-                Prototype = null,
-                Extensible = true,
+                _prototype = null,
                 _properties = new StringDictionarySlim<PropertyDescriptor>(35)
             };
 
@@ -51,8 +50,10 @@ namespace Jint.Native.Global
             _properties["JSON"] = new PropertyDescriptor(Engine.Json, true, false, true);
             _properties["Error"] = new LazyPropertyDescriptor(() => Engine.Error, true, false, true);
             _properties["EvalError"] = new LazyPropertyDescriptor(() => Engine.EvalError, true, false, true);
+            _properties["Proxy"] = new LazyPropertyDescriptor(() => Engine.Proxy, true, false, true);
             _properties["RangeError"] = new LazyPropertyDescriptor(() => Engine.RangeError, true, false, true);
             _properties["ReferenceError"] = new LazyPropertyDescriptor(() => Engine.ReferenceError, true, false, true);
+            _properties["Reflect"] = new LazyPropertyDescriptor(() => Engine.Reflect, true, false, true);
             _properties["SyntaxError"] = new LazyPropertyDescriptor(() => Engine.SyntaxError, true, false, true);
             _properties["TypeError"] = new LazyPropertyDescriptor(() => Engine.TypeError, true, false, true);
             _properties["URIError"] = new LazyPropertyDescriptor(() => Engine.UriError, true, false, true);
@@ -446,7 +447,7 @@ namespace Jint.Native.Global
                         v = (c - 0xD800) * 0x400 + (kChar - 0xDC00) + 0x10000;
                     }
 
-                    byte[] octets = System.ArrayExt.Empty<byte>();
+                    byte[] octets = ArrayExt.Empty<byte>();
 
                     if (v >= 0 && v <= 0x007F)
                     {

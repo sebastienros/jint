@@ -20,9 +20,8 @@ namespace Jint.Native.Boolean
         {
             var obj = new BooleanPrototype(engine)
             {
-                Prototype = engine.Object.PrototypeObject,
+                _prototype = engine.Object.PrototypeObject,
                 PrimitiveValue = false,
-                Extensible = true,
                 _booleanConstructor = booleanConstructor
             };
 

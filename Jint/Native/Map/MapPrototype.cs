@@ -23,8 +23,7 @@ namespace Jint.Native.Map
         {
             var obj = new MapPrototype(engine)
             {
-                Extensible = true,
-                Prototype = engine.Object.PrototypeObject,
+                _prototype = engine.Object.PrototypeObject,
                 _mapConstructor = mapConstructor
             };
 
@@ -37,8 +36,8 @@ namespace Jint.Native.Map
             {
                 ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
                 ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
-                [GlobalSymbolRegistry.Iterator._value] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Iterator, 1, PropertyFlag.Configurable), true, false, true),
-                [GlobalSymbolRegistry.ToStringTag._value] = new PropertyDescriptor("Map", false, false, true),
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Iterator, 1, PropertyFlag.Configurable), true, false, true),
+                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Map", false, false, true),
                 ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), true, false, true),
                 ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), true, false, true),
                 ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), true, false, true),

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using Jint.Collections;
-using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Pooling;
@@ -29,13 +28,10 @@ namespace Jint.Native.Array
         {
             var obj = new ArrayPrototype(engine)
             {
-                Extensible = true,
-                Prototype = engine.Object.PrototypeObject,
+                _prototype = engine.Object.PrototypeObject,
                 _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable),
                 _arrayConstructor = arrayConstructor,
             };
-
-
             return obj;
         }
 
@@ -73,7 +69,7 @@ namespace Jint.Native.Array
                 ["findIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), true, false, true),
                 ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), true, false, true),
                 ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true),
-                [GlobalSymbolRegistry.Iterator._value] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Values, 1), true, false, true)
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Values, 1), true, false, true)
             };
         }
         
@@ -146,7 +142,7 @@ namespace Jint.Native.Array
 
             for (var i = actualStart; i < actualEnd; ++i)
             {
-                operations.Put(i, value, false);
+                operations.Set(i, value, false);
             }
 
             return thisObj;
@@ -198,13 +194,15 @@ namespace Jint.Native.Array
 
             while (count > 0)
             {
-                if (operations.TryGetValue((ulong) from, out var value))
+                var fromPresent = operations.HasProperty((ulong) from);
+                if (fromPresent)
                 {
-                    operations.Put((ulong) to, value, false);
+                    var fromValue = operations.Get((ulong) from);
+                    operations.Set((ulong) to, fromValue, throwOnError: true);
                 }
                 else
                 {
-                    operations.DeleteAt((ulong) to);
+                    operations.DeletePropertyOrThrow((ulong) to);
                 }
                 from = (uint) (from + direction);
                 to = (uint) (to + direction);
@@ -262,9 +260,11 @@ namespace Jint.Native.Array
             var i = (uint) k;
             for (;; i--)
             {
-                if (o.TryGetValue(i, out var value))
+                var kPresent = o.HasProperty(i);
+                if (kPresent)
                 {
-                    var same = JintBinaryExpression.StrictlyEqual(value, searchElement);
+                    var elementK = o.Get(i);
+                    var same = JintBinaryExpression.StrictlyEqual(elementK, searchElement);
                     if (same)
                     {
                         return i;
@@ -321,6 +321,7 @@ namespace Jint.Native.Array
             }
 
             var args = new JsValue[4];
+            args[3] = o.Target;
             while (k < len)
             {
                 var i = (uint) k;
@@ -329,7 +330,6 @@ namespace Jint.Native.Array
                     args[0] = accumulator;
                     args[1] = kvalue;
                     args[2] = i;
-                    args[3] = o.Target;
                     accumulator = callable.Call(Undefined, args);
                 }
 
@@ -349,7 +349,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var a = Engine.Array.ConstructFast(0);
+            var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), 0);
 
             uint to = 0;
             var args = _engine._jsValueArrayPool.RentArray(3);
@@ -394,7 +394,7 @@ namespace Jint.Native.Array
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
 
-            var a = Engine.Array.ConstructFast((uint) len);
+            var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), (uint) len);
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o.Target;
             for (uint k = 0; k < len; k++)
@@ -449,7 +449,7 @@ namespace Jint.Native.Array
 
             var searchElement = arguments.At(0);
             var fromIndex = arguments.At(1, 0);
-            
+
             var n = TypeConverter.ToNumber(fromIndex);
             n = n > ArrayOperations.MaxArrayLikeLength
                 ? ArrayOperations.MaxArrayLikeLength
@@ -460,14 +460,14 @@ namespace Jint.Native.Array
                     ? n
                     : len - System.Math.Abs(n), 0);
 
-            bool SameValueZero(JsValue x, JsValue y) {
+            static bool SameValueZero(JsValue x, JsValue y) {
                 return x == y 
                              || (x is JsNumber xNum && y is JsNumber yNum && double.IsNaN(xNum._value) && double.IsNaN(yNum._value));
             }
 
             while (k < len)
             {
-                o.TryGetValue(k, out var value);
+                var value = o.Get(k);
                 if (SameValueZero(value, searchElement))
                 {
                     return true;
@@ -566,8 +566,10 @@ namespace Jint.Native.Array
             var searchElement = arguments.At(0);
             for (; k < len; k++)
             {
-                if (o.TryGetValue(k, out var elementK))
+                var kPresent = o.HasProperty(k);
+                if (kPresent)
                 {
+                    var elementK = o.Get(k);
                     var same = JintBinaryExpression.StrictlyEqual(elementK, searchElement);
                     if (same)
                     {
@@ -645,10 +647,10 @@ namespace Jint.Native.Array
 
             if (actualDeleteCount > ArrayOperations.MaxArrayLength)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid array length");
+                return ExceptionHelper.ThrowRangeError<JsValue>(_engine, "Invalid array length");
             }
             
-            var a = Engine.Array.ConstructFast((uint) actualDeleteCount);
+            var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), (uint) actualDeleteCount);
             for (uint k = 0; k < actualDeleteCount; k++)
             {
                 if (o.TryGetValue(actualStart + k, out var fromValue))
@@ -668,17 +670,17 @@ namespace Jint.Native.Array
                     var to = k + (ulong) items.Length;
                     if (o.TryGetValue(from, out var fromValue))
                     {
-                        o.Put(to, fromValue, true);
+                        o.Set(to, fromValue, true);
                     }
                     else
                     {
-                        o.DeleteAt(to);
+                        o.DeletePropertyOrThrow(to);
                     }
                 }
 
                 for (var k = len; k > len - actualDeleteCount + (ulong) items.Length; k--)
                 {
-                    o.DeleteAt(k - 1);
+                    o.DeletePropertyOrThrow(k - 1);
                 }
             }
             else if ((ulong) items.Length > actualDeleteCount)
@@ -689,11 +691,11 @@ namespace Jint.Native.Array
                     var to =  k + (ulong) items.Length - 1;
                     if (o.TryGetValue(from, out var fromValue))
                     {
-                        o.Put(to, fromValue, true);
+                        o.Set(to, fromValue, true);
                     }
                     else
                     {
-                        o.DeleteAt(to);
+                        o.DeletePropertyOrThrow(to);
                     }
                 }
             }
@@ -701,7 +703,7 @@ namespace Jint.Native.Array
             for (uint k = 0; k < items.Length; k++)
             {
                 var e = items[k];
-                o.Put(k + actualStart, e, true);
+                o.Set(k + actualStart, e, true);
             }
 
             o.SetLength(length);
@@ -727,17 +729,17 @@ namespace Jint.Native.Array
                 var to = k + argCount - 1;
                 if (o.TryGetValue(from, out var fromValue))
                 {
-                    o.Put(to, fromValue, true);
+                    o.Set(to, fromValue, true);
                 }
                 else
                 {
-                    o.DeleteAt(to);
+                    o.DeletePropertyOrThrow(to);
                 }
             }
 
             for (uint j = 0; j < argCount; j++)
             {
-                o.Put(j, arguments[j], true);
+                o.Set(j, arguments[j], true);
             }
 
             o.SetLength(len + argCount);
@@ -846,11 +848,11 @@ namespace Jint.Native.Array
             {
                 if (!ReferenceEquals(array[i], null))
                 {
-                    obj.Put(i, array[i], false);
+                    obj.Set(i, array[i], false);
                 }
                 else
                 {
-                    obj.DeleteAt(i);
+                    obj.DeletePropertyOrThrow(i);
                 }
             }
 
@@ -900,7 +902,7 @@ namespace Jint.Native.Array
             }
 
             var length = (uint) System.Math.Max(0, (long) final - (long) k);
-            var a = Engine.Array.Construct(length);
+            var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), length);
             if (thisObj is ArrayInstance ai)
             {
                 a.CopyValues(ai, (uint) k, 0, length);
@@ -916,7 +918,7 @@ namespace Jint.Native.Array
                     }
                 }
             }
-            a.DefineOwnProperty("length", new PropertyDescriptor(length, PropertyFlag.None), false);
+            a.DefineOwnProperty("length", new PropertyDescriptor(length, PropertyFlag.None));
 
             return a;
         }
@@ -937,15 +939,15 @@ namespace Jint.Native.Array
                 var to = k - 1;
                 if (o.TryGetValue(k, out var fromVal))
                 {
-                    o.Put(to, fromVal, true);
+                    o.Set(to, fromVal, true);
                 }
                 else
                 {
-                    o.DeleteAt(to);
+                    o.DeletePropertyOrThrow(to);
                 }
             }
 
-            o.DeleteAt(len - 1);
+            o.DeletePropertyOrThrow(len - 1);
             o.SetLength(len - 1);
 
             return first;
@@ -960,24 +962,29 @@ namespace Jint.Native.Array
             while (lower != middle)
             {
                 var upper = len - lower - 1;
-                var lowerExists = o.TryGetValue(lower, out var lowerValue);
-                var upperExists = o.TryGetValue(upper, out var upperValue);
+
+                var lowerExists = o.HasProperty(lower);
+                var lowerValue = lowerExists ? o.Get(lower) : null;
+
+                var upperExists = o.HasProperty(upper);
+                var upperValue = upperExists ? o.Get(upper) : null;
+                
                 if (lowerExists && upperExists)
                 {
-                    o.Put(lower, upperValue, true);
-                    o.Put(upper, lowerValue, true);
+                    o.Set(lower, upperValue, true);
+                    o.Set(upper, lowerValue, true);
                 }
 
                 if (!lowerExists && upperExists)
                 {
-                    o.Put(lower, upperValue, true);
-                    o.DeleteAt(upper);
+                    o.Set(lower, upperValue, true);
+                    o.DeletePropertyOrThrow(upper);
                 }
 
                 if (lowerExists && !upperExists)
                 {
-                    o.DeleteAt(lower);
-                    o.Put(upper, lowerValue, true);
+                    o.DeletePropertyOrThrow(lower);
+                    o.Set(upper, lowerValue, true);
                 }
 
                 lower++;
@@ -1048,7 +1055,7 @@ namespace Jint.Native.Array
             else
             {
                 var elementObj = TypeConverter.ToObject(Engine, firstElement);
-                var func = elementObj.Get("toLocaleString") as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(_engine);
+                var func = elementObj.Get("toLocaleString", elementObj) as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(_engine);
 
                 r = func.Call(elementObj, Arguments.Empty);
             }
@@ -1063,7 +1070,7 @@ namespace Jint.Native.Array
                 else
                 {
                     var elementObj = TypeConverter.ToObject(Engine, nextElement);
-                    var func = elementObj.Get("toLocaleString") as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(_engine);
+                    var func = elementObj.Get("toLocaleString", elementObj) as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(_engine);
                     r = func.Call(elementObj, Arguments.Empty);
                 }
 
@@ -1094,14 +1101,13 @@ namespace Jint.Native.Array
                 {
                     var isConcatSpreadable = objectInstance.IsConcatSpreadable;
                     hasObjectSpreadables |= isConcatSpreadable;
-                    var operations = ArrayOperations.For(objectInstance);
-                    increment = isConcatSpreadable ? operations.GetLength() : 1; 
+                    increment = isConcatSpreadable ? ArrayOperations.For(objectInstance).GetLength() : 1; 
                 }
                 capacity += increment;
             }
 
             uint n = 0;
-            var a = Engine.Array.ConstructFast(capacity);
+            var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), capacity);
             for (var i = 0; i < items.Count; i++)
             {
                 var e = items[i];
@@ -1133,7 +1139,7 @@ namespace Jint.Native.Array
 
             // this is not in the specs, but is necessary in case the last element of the last
             // array doesn't exist, and thus the length would not be incremented
-            a.DefineOwnProperty("length", new PropertyDescriptor(n, PropertyFlag.None), false);
+            a.DefineOwnProperty("length", new PropertyDescriptor(n, PropertyFlag.None));
 
             return a;
         }
@@ -1143,9 +1149,9 @@ namespace Jint.Native.Array
             var array = TypeConverter.ToObject(Engine, thisObj);
 
             ICallable func;
-            func = array.Get("join").TryCast<ICallable>(x =>
+            func = array.Get("join", array).TryCast<ICallable>(x =>
             {
-                func = Engine.Object.PrototypeObject.Get("toString").TryCast<ICallable>(y => ExceptionHelper.ThrowArgumentException());
+                func = Engine.Object.PrototypeObject.Get("toString", array).TryCast<ICallable>(y => ExceptionHelper.ThrowArgumentException());
             });
 
             if (array.IsArrayLike == false || func == null)
@@ -1226,9 +1232,9 @@ namespace Jint.Native.Array
             }
 
             // cast to double as we need to prevent an overflow
-            for (var i = 0; i < arguments.Length; i++)
+            foreach (var a in arguments)
             {
-                o.Put(n, arguments[i], true);
+                o.Set(n, a, true);
                 n++;
             }
 
@@ -1248,235 +1254,9 @@ namespace Jint.Native.Array
 
             len = len - 1;
             JsValue element = o.Get(len);
-            o.DeleteAt(len);
+            o.DeletePropertyOrThrow(len);
             o.SetLength(len);
             return element;
-        }
-
-        /// <summary>
-        /// Adapter to use optimized array operations when possible.
-        /// Gaps the difference between ArgumentsInstance and ArrayInstance.
-        /// </summary>
-        internal abstract class ArrayOperations
-        {
-            protected internal const ulong MaxArrayLength = 4294967295;
-            protected internal const ulong MaxArrayLikeLength = NumberConstructor.MaxSafeInteger;
-
-            public abstract ObjectInstance Target { get; }
-
-            public abstract ulong GetSmallestIndex(ulong length);
-
-            public abstract uint GetLength();
-
-            public abstract ulong GetLongLength();
-
-            public abstract void SetLength(ulong length);
-
-            public abstract void EnsureCapacity(ulong capacity);
-
-            public abstract JsValue Get(ulong index);
-
-            public virtual JsValue[] GetAll()
-            {
-                var n = (int) GetLength();
-                var jsValues = new JsValue[n];
-                for (uint i = 0; i < (uint) jsValues.Length; i++)
-                {
-                    jsValues[i] = Get(i);
-                }
-
-                return jsValues;
-            }
-
-            public abstract bool TryGetValue(ulong index, out JsValue value);
-
-            public abstract void Put(ulong index, JsValue value, bool throwOnError);
-
-            public abstract void DeleteAt(ulong index);
-
-            public static ArrayOperations For(Engine engine, JsValue thisObj)
-            {
-                var instance = TypeConverter.ToObject(engine, thisObj);
-                return For(instance);
-            }
-
-            public static ArrayOperations For(ObjectInstance instance)
-            {
-                if (instance is ArrayInstance arrayInstance)
-                {
-                    return new ArrayInstanceOperations(arrayInstance);
-                }
-
-                return new ObjectInstanceOperations(instance);
-            }
-
-            internal sealed class ObjectInstanceOperations : ArrayOperations
-            {
-                private readonly ObjectInstance _instance;
-
-                public ObjectInstanceOperations(ObjectInstance instance)
-                {
-                    _instance = instance;
-                }
-
-                public override ObjectInstance Target => _instance;
-
-                internal double GetIntegerLength()
-                {
-                    var desc = _instance.GetProperty("length");
-                    var descValue = desc.Value;
-                    if (desc.IsDataDescriptor() && !ReferenceEquals(descValue, null))
-                    {
-                        return TypeConverter.ToInteger(descValue);
-                    }
-
-                    var getter = desc.Get ?? Undefined;
-                    if (getter.IsUndefined())
-                    {
-                        return 0;
-                    }
-
-                    // if getter is not undefined it must be ICallable
-                    var callable = (ICallable) getter;
-                    var value = callable.Call(_instance, Arguments.Empty);
-                    return TypeConverter.ToInteger(value);
-                }
-
-                public override ulong GetSmallestIndex(ulong length)
-                {
-                    // there are some evil tests that iterate a lot with unshift..
-                    if (_instance._properties == null)
-                    {
-                        return 0;
-                    }
-
-                    ulong min = length;
-                    foreach (var entry in _instance._properties)
-                    {
-                        if (ulong.TryParse(entry.Key, out var index))
-                        {
-                            min = System.Math.Min(index, min);
-                        }
-                    }
-
-                    if (_instance.Prototype?._properties != null)
-                    {
-                        foreach (var entry  in _instance.Prototype._properties)
-                        {
-                            if (ulong.TryParse(entry.Key, out var index))
-                            {
-                                min = System.Math.Min(index, min);
-                            }
-                        }
-                    }
-
-                    return min;
-                }
-
-                public override uint GetLength()
-                {
-                    var integerLength = GetIntegerLength();
-                    return (uint) (integerLength >= 0 ? integerLength : 0);
-                }
-
-                public override ulong GetLongLength()
-                {
-                    var integerLength = GetIntegerLength();
-                    if (integerLength <= 0)
-                    {
-                        return 0;
-                    }
-                    return (ulong) System.Math.Min(integerLength, MaxArrayLikeLength);
-                }
-
-                public override void SetLength(ulong length) => _instance.Put("length", length, true);
-
-                public override void EnsureCapacity(ulong capacity)
-                {
-                }
-
-                public override JsValue Get(ulong index) => _instance.Get(TypeConverter.ToString(index));
-
-                public override bool TryGetValue(ulong index, out JsValue value)
-                {
-                    var property = TypeConverter.ToString(index);
-                    var kPresent = _instance.HasProperty(property);
-                    value = kPresent ? _instance.Get(property) : Undefined;
-                    return kPresent;
-                }
-
-                public override void Put(ulong index, JsValue value, bool throwOnError) => _instance.Put(TypeConverter.ToString(index), value, throwOnError);
-
-                public override void DeleteAt(ulong index) => _instance.Delete(TypeConverter.ToString(index), true);
-            }
-
-            private sealed class ArrayInstanceOperations : ArrayOperations
-            {
-                private readonly ArrayInstance _array;
-
-                public ArrayInstanceOperations(ArrayInstance array)
-                {
-                    _array = array;
-                }
-
-                public override ObjectInstance Target => _array;
-
-                public override ulong GetSmallestIndex(ulong length) => _array.GetSmallestIndex();
-
-                public override uint GetLength()
-                {
-                    return (uint) ((JsNumber) _array._length._value)._value;
-                }
-
-                public override ulong GetLongLength()
-                {
-                    return (ulong) ((JsNumber) _array._length._value)._value;
-                }
-
-                public override void SetLength(ulong length) => _array.Put("length", length, true);
-
-                public override void EnsureCapacity(ulong capacity)
-                {
-                    _array.EnsureCapacity((uint) capacity);
-                }
-
-                public override bool TryGetValue(ulong index, out JsValue value)
-                {
-                    // array max size is uint
-                    return _array.TryGetValue((uint) index, out value);
-                }
-
-                public override JsValue Get(ulong index) => _array.Get((uint) index);
-
-                public override JsValue[] GetAll()
-                {
-                    var n = _array.Length;
-
-                    if (_array._dense == null || _array._dense.Length < n)
-                    {
-                        return base.GetAll();
-                    }
-
-                    // optimized
-                    var jsValues = new JsValue[n];
-                    for (uint i = 0; i < (uint) jsValues.Length; i++)
-                    {
-                        var prop = _array._dense[i] ?? PropertyDescriptor.Undefined;
-                        if (prop == PropertyDescriptor.Undefined)
-                        {
-                            prop = _array.Prototype?.GetProperty(i) ?? PropertyDescriptor.Undefined;
-                        }
-
-                        jsValues[i] = _array.UnwrapJsValue(prop);
-                    }
-
-                    return jsValues;
-                }
-
-                public override void DeleteAt(ulong index) => _array.DeleteAt((uint) index);
-
-                public override void Put(ulong index, JsValue value, bool throwOnError) => _array.SetIndexValue((uint) index, value, throwOnError);
-            }
         }
     }
 }

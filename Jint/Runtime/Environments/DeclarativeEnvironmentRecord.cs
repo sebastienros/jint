@@ -238,7 +238,7 @@ namespace Jint.Runtime.Environments
         }
 
         /// <inheritdoc />
-        public override string[] GetAllBindingNames()
+        public override Key[] GetAllBindingNames()
         {
             int size = _set ? 1 : 0;
             if (!ReferenceEquals(_argumentsBinding.Value, null))
@@ -251,7 +251,7 @@ namespace Jint.Runtime.Environments
                 size += _dictionary.Count;
             }
 
-            var keys = size > 0 ? new string[size] : ArrayExt.Empty<string>();
+            var keys = size > 0 ? new Key[size] : ArrayExt.Empty<Key>();
             int n = 0;
             if (_set)
             {
@@ -307,7 +307,7 @@ namespace Jint.Runtime.Environments
         {
             var argument = arguments.Length > index ? arguments[index] : Undefined;
 
-            if (parameter is Esprima.Ast.Identifier identifier)
+            if (parameter is Identifier identifier)
             {
                 SetItemSafely(identifier.Name, argument, initiallyEmpty);
             }
@@ -327,7 +327,7 @@ namespace Jint.Runtime.Environments
 
                 argument = rest;
 
-                if (restElement.Argument is Esprima.Ast.Identifier restIdentifier)
+                if (restElement.Argument is Identifier restIdentifier)
                 {
                     SetItemSafely(restIdentifier.Name, argument, initiallyEmpty);
                 }
@@ -392,18 +392,18 @@ namespace Jint.Runtime.Environments
                 var jsValues = _engine._jsValueArrayPool.RentArray(1);
                 foreach (var property in objectPattern.Properties)
                 {
-                    if (property.Key is Esprima.Ast.Identifier propertyIdentifier)
+                    if (property.Key is Identifier propertyIdentifier)
                     {
-                        argument = argumentObject.Get(propertyIdentifier.Name);
+                        argument = argumentObject.Get(propertyIdentifier.Name, this);
                     }
                     else if (property.Key is Literal propertyLiteral)
                     {
-                        argument = argumentObject.Get(propertyLiteral.Raw);
+                        argument = argumentObject.Get(propertyLiteral.Raw, this);
                     }
                     else if (property.Key is CallExpression callExpression)
                     {
                         var jintCallExpression = JintExpression.Build(_engine, callExpression);
-                        argument = argumentObject.Get(jintCallExpression.GetValue().AsString());
+                        argument = argumentObject.Get(jintCallExpression.GetValue().AsString(), this);
                     }
 
                     jsValues[0] = argument;
@@ -413,9 +413,9 @@ namespace Jint.Runtime.Environments
             }
             else if (parameter is AssignmentPattern assignmentPattern)
             {
-                var idLeft = assignmentPattern.Left as Esprima.Ast.Identifier;
+                var idLeft = assignmentPattern.Left as Identifier;
                 if (idLeft != null
-                    && assignmentPattern.Right is Esprima.Ast.Identifier idRight
+                    && assignmentPattern.Right is Identifier idRight
                     && idLeft.Name == idRight.Name)
                 {
                     ExceptionHelper.ThrowReferenceError(_engine, idRight.Name);
@@ -490,7 +490,7 @@ namespace Jint.Runtime.Environments
                 for (var j = 0; j < declarationsCount; j++)
                 {
                     var d = variableDeclaration.Declarations[j];
-                    if (d.Id is Esprima.Ast.Identifier id)
+                    if (d.Id is Identifier id)
                     {
                         Key dn = id.Name;
                         if (!ContainsKey(dn))

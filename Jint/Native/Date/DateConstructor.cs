@@ -62,8 +62,7 @@ namespace Jint.Native.Date
         {
             var obj = new DateConstructor(engine)
             {
-                Extensible = true,
-                Prototype = engine.Function.PrototypeObject
+                _prototype = engine.Function.PrototypeObject
             };
 
             // The value of the [[Prototype]] internal property of the Date constructor is the Function prototype object
@@ -72,7 +71,7 @@ namespace Jint.Native.Date
             obj._length = new PropertyDescriptor(7, PropertyFlag.AllForbidden);
 
             // The initial value of Date.prototype is the Date prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
@@ -121,15 +120,13 @@ namespace Jint.Native.Date
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return PrototypeObject.ToString(Construct(Arguments.Empty), Arguments.Empty);
+            return PrototypeObject.ToString(Construct(Arguments.Empty, thisObject), Arguments.Empty);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.9.3
         /// </summary>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (arguments.Length == 0)
             {
@@ -207,11 +204,10 @@ namespace Jint.Native.Date
         public DateInstance Construct(DateTime value)
         {
             var instance = new DateInstance(Engine)
-                {
-                    Prototype = PrototypeObject,
-                    PrimitiveValue = FromDateTime(value),
-                    Extensible = true
-                };
+            {
+                _prototype = PrototypeObject,
+                PrimitiveValue = FromDateTime(value)
+            };
 
             return instance;
         }
@@ -219,11 +215,10 @@ namespace Jint.Native.Date
         public DateInstance Construct(double time)
         {
             var instance = new DateInstance(Engine)
-                {
-                    Prototype = PrototypeObject,
-                    PrimitiveValue = TimeClip(time),
-                    Extensible = true
-                };
+            {
+                _prototype = PrototypeObject,
+                PrimitiveValue = TimeClip(time)
+            };
 
             return instance;
         }
@@ -258,7 +253,7 @@ namespace Jint.Native.Date
                 result = PrototypeObject.Utc(result);
             }
 
-            return System.Math.Floor(result);
+            return System.Math.Round(result);
         }
     }
 }

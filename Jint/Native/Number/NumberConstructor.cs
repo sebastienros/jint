@@ -24,8 +24,7 @@ namespace Jint.Native.Number
         {
             var obj = new NumberConstructor(engine)
             {
-                Extensible = true,
-                Prototype = engine.Function.PrototypeObject
+                _prototype = engine.Function.PrototypeObject
             };
 
             // The value of the [[Prototype]] internal property of the Number constructor is the Function prototype object
@@ -34,7 +33,7 @@ namespace Jint.Native.Number
             obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
 
             // The initial value of Number.prototype is the Number prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
@@ -134,7 +133,7 @@ namespace Jint.Native.Number
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             return Construct(arguments.Length > 0 ? TypeConverter.ToNumber(arguments[0]) : 0);
         }
@@ -150,9 +149,8 @@ namespace Jint.Native.Number
         {
             var instance = new NumberInstance(Engine)
             {
-                Prototype = PrototypeObject,
-                NumberData = value,
-                Extensible = true
+                _prototype = PrototypeObject,
+                NumberData = value
             };
 
             return instance;

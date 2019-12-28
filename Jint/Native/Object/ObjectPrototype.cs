@@ -17,7 +17,6 @@ namespace Jint.Native.Object
         {
             var obj = new ObjectPrototype(engine)
             {
-                Extensible = true,
                 _objectConstructor = objectConstructor
             };
 
@@ -87,7 +86,7 @@ namespace Jint.Native.Object
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(Engine, thisObject);
-            var toString = o.Get("toString").TryCast<ICallable>(x =>
+            var toString = o.Get("toString", o).TryCast<ICallable>(x =>
             {
                 ExceptionHelper.ThrowTypeError(Engine);
             });

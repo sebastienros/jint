@@ -21,17 +21,16 @@ namespace Jint.Native.Error
         {
             var obj = new ErrorPrototype(engine, name)
             {
-                Extensible = true,
                 _errorConstructor = errorConstructor,
             };
 
             if (name != "Error")
             {
-                obj.Prototype = engine.Error.PrototypeObject;
+                obj._prototype = engine.Error.PrototypeObject;
             }
             else
             {
-                obj.Prototype = engine.Object.PrototypeObject;
+                obj._prototype = engine.Object.PrototypeObject;
             }
 
             return obj;
@@ -52,9 +51,9 @@ namespace Jint.Native.Error
                 ExceptionHelper.ThrowTypeError(Engine);
             }
 
-            var name = TypeConverter.ToString(o.Get("name"));
+            var name = TypeConverter.ToString(o.Get("name", this));
 
-            var msgProp = o.Get("message");
+            var msgProp = o.Get("message", this);
             string msg;
             if (msgProp.IsUndefined())
             {

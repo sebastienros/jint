@@ -14,7 +14,7 @@ namespace Jint.Native.Function
         public EvalFunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) 
             : base(engine, _functionName, parameters, scope, strict)
         {
-            Prototype = Engine.Function.PrototypeObject;
+            _prototype = Engine.Function.PrototypeObject;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
         }
 

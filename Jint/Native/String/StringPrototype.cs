@@ -31,9 +31,8 @@ namespace Jint.Native.String
         {
             var obj = new StringPrototype(engine)
             {
-                Prototype = engine.Object.PrototypeObject,
+                _prototype = engine.Object.PrototypeObject,
                 PrimitiveValue = JsString.Empty,
-                Extensible = true,
                 _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero,
                 _stringConstructor = stringConstructor,
             };
@@ -76,7 +75,7 @@ namespace Jint.Native.String
                 ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true),
                 ["normalize"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "normalize", Normalize, 0, PropertyFlag.Configurable), true, false, true),
                 ["repeat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "repeat", Repeat, 1, PropertyFlag.Configurable), true, false, true),
-                [GlobalSymbolRegistry.Iterator._value] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.iterator]", Iterator, 0, PropertyFlag.Configurable), true, false, true)
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.iterator]", Iterator, 0, PropertyFlag.Configurable), true, false, true)
             };
         }
 
@@ -679,14 +678,14 @@ namespace Jint.Native.String
 
             rx = rx ?? (RegExpInstance) Engine.RegExp.Construct(new[] {regex});
 
-            var global = ((JsBoolean) rx.Get("global"))._value;
+            var global = ((JsBoolean) rx.Get("global", this))._value;
             if (!global)
             {
                 return Engine.RegExp.PrototypeObject.Exec(rx, Arguments.From(s));
             }
             else
             {
-                rx.Put("lastIndex", 0, false);
+                rx.Set("lastIndex", 0, rx);
                 var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
                 int previousLastIndex = 0;
                 uint n = 0;
@@ -700,14 +699,14 @@ namespace Jint.Native.String
                     }
                     else
                     {
-                        var thisIndex = (int) ((JsNumber) rx.Get("lastIndex"))._value;
+                        var thisIndex = (int) ((JsNumber) rx.Get("lastIndex", this))._value;
                         if (thisIndex == previousLastIndex)
                         {
-                            rx.Put("lastIndex", thisIndex + 1, false);
+                            rx.Set("lastIndex", thisIndex + 1, rx);
                             previousLastIndex = thisIndex + 1;
                         }
 
-                        var matchStr = result.Get("0");
+                        var matchStr = result.Get("0", this);
                         a.SetIndexValue(n, matchStr, updateLength: false);
                         n++;
                     }

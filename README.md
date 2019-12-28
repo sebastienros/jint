@@ -166,7 +166,7 @@ ES6 features which are being implemented:
 - [ ] [module loaders](https://github.com/lukehoban/es6features/blob/master/README.md#module-loaders)
 - [x] [map + set](https://github.com/lukehoban/es6features/blob/master/README.md#map--set--weakmap--weakset)
 - [ ] [weakmap + weakset](https://github.com/lukehoban/es6features/blob/master/README.md#map--set--weakmap--weakset)
-- [ ] [proxies](https://github.com/lukehoban/es6features/blob/master/README.md#proxies)
+- [x] [proxies](https://github.com/lukehoban/es6features/blob/master/README.md#proxies)
 - [x] [symbols](https://github.com/lukehoban/es6features/blob/master/README.md#symbols)
 - [ ] [subclassable built-ins](https://github.com/lukehoban/es6features/blob/master/README.md#subclassable-built-ins)
 - [ ] [promises](https://github.com/lukehoban/es6features/blob/master/README.md#promises)
@@ -176,7 +176,7 @@ ES6 features which are being implemented:
 - [x] [array APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
 - [ ] [object APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
 - [x] [binary and octal literals](https://github.com/lukehoban/es6features/blob/master/README.md#binary-and-octal-literals)
-- [ ] [reflect api](https://github.com/lukehoban/es6features/blob/master/README.md#reflect-api)
+- [x] [reflect api](https://github.com/lukehoban/es6features/blob/master/README.md#reflect-api)
 - [ ] [tail calls](https://github.com/lukehoban/es6features/blob/master/README.md#tail-calls)
 
 ### .NET Interoperability

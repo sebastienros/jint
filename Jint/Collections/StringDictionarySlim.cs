@@ -19,7 +19,7 @@ namespace Jint.Collections
     /// </summary>
     [DebuggerTypeProxy(typeof(DictionarySlimDebugView<>))]
     [DebuggerDisplay("Count = {Count}")]
-    internal sealed class StringDictionarySlim<TValue> : IReadOnlyCollection<KeyValuePair<string, TValue>>
+    internal sealed class StringDictionarySlim<TValue> : IReadOnlyCollection<KeyValuePair<Key, TValue>>
     {
         // We want to initialize without allocating arrays. We also want to avoid null checks.
         // Array.Empty would give divide by zero in modulo operation. So we use static one element arrays.
@@ -228,7 +228,7 @@ namespace Jint.Collections
         /// <summary>
         /// Gets an enumerator over the dictionary
         /// </summary>
-        IEnumerator<KeyValuePair<string, TValue>> IEnumerable<KeyValuePair<string, TValue>>.GetEnumerator() =>
+        IEnumerator<KeyValuePair<Key, TValue>> IEnumerable<KeyValuePair<Key, TValue>>.GetEnumerator() =>
             new Enumerator(this);
 
         /// <summary>
@@ -236,12 +236,12 @@ namespace Jint.Collections
         /// </summary>
         IEnumerator IEnumerable.GetEnumerator() => new Enumerator(this);
 
-        public struct Enumerator : IEnumerator<KeyValuePair<string, TValue>>
+        public struct Enumerator : IEnumerator<KeyValuePair<Key, TValue>>
         {
             private readonly StringDictionarySlim<TValue> _dictionary;
             private int _index;
             private int _count;
-            private KeyValuePair<string, TValue> _current;
+            private KeyValuePair<Key, TValue> _current;
 
             internal Enumerator(StringDictionarySlim<TValue> dictionary)
             {
@@ -264,13 +264,13 @@ namespace Jint.Collections
                 while (_dictionary._entries[_index].next < -1)
                     _index++;
 
-                _current = new KeyValuePair<string, TValue>(
+                _current = new KeyValuePair<Key, TValue>(
                     _dictionary._entries[_index].key,
                     _dictionary._entries[_index++].value);
                 return true;
             }
 
-            public KeyValuePair<string, TValue> Current => _current;
+            public KeyValuePair<Key, TValue> Current => _current;
 
             object IEnumerator.Current => _current;
 
@@ -307,7 +307,7 @@ namespace Jint.Collections
             }
 
             [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-            public KeyValuePair<string, V>[] Items
+            public KeyValuePair<Key, V>[] Items
             {
                 get
                 {

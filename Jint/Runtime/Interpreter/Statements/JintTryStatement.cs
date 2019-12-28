@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interpreter.Statements
             if (_statement.Handler != null)
             {
                 _catch = Build(engine, _statement.Handler.Body);
-                _catchParamName = ((Esprima.Ast.Identifier) _statement.Handler.Param).Name;
+                _catchParamName = ((Identifier) _statement.Handler.Param).Name;
             }
 
             if (statement.Finalizer != null)

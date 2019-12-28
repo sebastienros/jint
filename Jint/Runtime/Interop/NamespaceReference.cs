@@ -23,23 +23,13 @@ namespace Jint.Runtime.Interop
             _path = path;
         }
 
-        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc)
         {
-            if (throwOnError)
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "Can't define a property of a NamespaceReference");
-            }
-
             return false;
         }
 
-        public override bool Delete(in Key propertyName, bool throwOnError)
+        public override bool Delete(in Key propertyName)
         {
-            if (throwOnError)
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "Can't delete a property of a NamespaceReference");
-            }
-
             return false;
         }
 
@@ -80,7 +70,7 @@ namespace Jint.Runtime.Interop
             }
         }
 
-        public override JsValue Get(in Key propertyName)
+        public override JsValue Get(in Key propertyName, JsValue receiver)
         {
             var newPath = _path + "." + propertyName;
 

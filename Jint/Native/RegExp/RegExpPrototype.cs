@@ -21,8 +21,7 @@ namespace Jint.Native.RegExp
         {
             var obj = new RegExpPrototype(engine)
             {
-                Prototype = engine.Object.PrototypeObject,
-                Extensible = true,
+                _prototype = engine.Object.PrototypeObject,
                 _regExpConstructor = regExpConstructor
             };
 
@@ -81,7 +80,7 @@ namespace Jint.Native.RegExp
 
             var s = TypeConverter.ToString(arguments.At(0));
             var length = s.Length;
-            var lastIndex = TypeConverter.ToNumber(R.Get("lastIndex"));
+            var lastIndex = TypeConverter.ToNumber(R.Get("lastIndex", R));
             var i = TypeConverter.ToInteger(lastIndex);
             var global = R.Global;
 
@@ -94,14 +93,14 @@ namespace Jint.Native.RegExp
             {
                 // "aaa".match() => [ '', index: 0, input: 'aaa' ]
                 var aa = InitReturnValueArray((ArrayInstance) Engine.Array.Construct(Arguments.Empty), s, 1, 0);
-                aa.DefineOwnProperty("0", new PropertyDescriptor("", PropertyFlag.ConfigurableEnumerableWritable), true);
+                aa.DefinePropertyOrThrow("0", new PropertyDescriptor("", PropertyFlag.ConfigurableEnumerableWritable));
                 return aa;
             }
 
             Match r = null;
             if (i < 0 || i > length)
             {
-                R.Put("lastIndex", (double) 0, true);
+                R.Set("lastIndex", (double) 0, true);
                 return Null;
             }
 
@@ -109,7 +108,7 @@ namespace Jint.Native.RegExp
 
             if (!r.Success)
             {
-                R.Put("lastIndex", (double) 0, true);
+                R.Set("lastIndex", (double) 0, true);
                 return Null;
             }
 
@@ -117,7 +116,7 @@ namespace Jint.Native.RegExp
 
             if (global)
             {
-                R.Put("lastIndex", (double) e, true);
+                R.Set("lastIndex", (double) e, true);
             }
             var n = r.Groups.Count;
             var matchIndex = r.Index;

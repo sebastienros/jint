@@ -52,7 +52,7 @@ namespace Jint.Runtime
                             sb.Builder.Append(", ");
                         var arg = cse.CallExpression.Arguments[index];
                         if (arg is Expression pke)
-                            sb.Builder.Append(pke.GetKey(engine));
+                            sb.Builder.Append(pke.GetKey(engine, computed: false));
                         else
                             sb.Builder.Append(arg);
                     }
@@ -77,7 +77,7 @@ namespace Jint.Runtime
             if (error.IsObject())
             {
                 var oi = error.AsObject();
-                var message = oi.Get("message").ToString();
+                var message = oi.Get("message", oi).ToString();
                 return message;
             }
             if (error.IsString())
@@ -103,7 +103,7 @@ namespace Jint.Runtime
                     return null;
                 if (Error.IsObject() == false)
                     return null;
-                var callstack = Error.AsObject().Get("callstack");
+                var callstack = Error.AsObject().Get("callstack", Error);
                 if (callstack.IsUndefined())
                     return null;
                 return callstack.AsString();

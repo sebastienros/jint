@@ -672,7 +672,7 @@ namespace Jint.Native.Json
 
         private ObjectInstance ParseJsonArray()
         {
-            var elements = new System.Collections.Generic.List<JsValue>();
+            var elements = new List<JsValue>();
 
             Expect("[");
 
@@ -826,7 +826,7 @@ namespace Jint.Native.Json
             {
                 if (options.Tokens)
                 {
-                    _extra.Tokens = new System.Collections.Generic.List<Token>();
+                    _extra.Tokens = new List<Token>();
                 }
 
             }
@@ -856,7 +856,7 @@ namespace Jint.Native.Json
             public int? Loc;
             public int[] Range;
 
-            public System.Collections.Generic.List<Token> Tokens;
+            public List<Token> Tokens;
         }
 
         private enum Tokens

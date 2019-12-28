@@ -24,8 +24,7 @@ namespace Jint.Native.Symbol
         {
             var obj = new SymbolConstructor(engine)
             {
-                Extensible = true,
-                Prototype = engine.Function.PrototypeObject
+                _prototype = engine.Function.PrototypeObject
             };
 
             // The value of the [[Prototype]] internal property of the Symbol constructor is the Function prototype object
@@ -34,7 +33,7 @@ namespace Jint.Native.Symbol
             obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
 
             // The initial value of String.prototype is the String prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
@@ -75,7 +74,7 @@ namespace Jint.Native.Symbol
                 return descString;
             }
 
-            var value = new JsSymbol(description);
+            var value = _engine.GlobalSymbolRegistry.CreateSymbol(description);
             return value;
         }
 
@@ -85,10 +84,10 @@ namespace Jint.Native.Symbol
 
             // 2. ReturnIfAbrupt(stringKey).
 
-            if (!Engine.GlobalSymbolRegistry.TryGetValue(stringKey, out var symbol))
+            if (!_engine.GlobalSymbolRegistry.TryGetSymbol(stringKey, out var symbol))
             {
-                symbol = new JsSymbol(stringKey);
-                Engine.GlobalSymbolRegistry.Add(stringKey, symbol);
+                symbol = _engine.GlobalSymbolRegistry.CreateSymbol(stringKey);
+                _engine.GlobalSymbolRegistry.Add(symbol);
             }
 
             return symbol;
@@ -103,8 +102,7 @@ namespace Jint.Native.Symbol
                 ExceptionHelper.ThrowTypeError(Engine);
             }
 
-            JsSymbol symbol;
-            if (!Engine.GlobalSymbolRegistry.TryGetValue(sym.AsSymbol(), out symbol))
+            if (!_engine.GlobalSymbolRegistry.TryGetSymbol(sym.AsSymbol(), out _))
             {
                 return Undefined;
             }
@@ -112,24 +110,22 @@ namespace Jint.Native.Symbol
             return sym.AsSymbol();
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            ExceptionHelper.ThrowTypeError(Engine);
-            return null;
+            return ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
         }
 
         public SymbolInstance Construct(string description)
         {
-            return Construct(new JsSymbol(description));
+            return Construct(_engine.GlobalSymbolRegistry.CreateSymbol(description));
         }
 
         public SymbolInstance Construct(JsSymbol symbol)
         {
             var instance = new SymbolInstance(Engine)
             {
-                Prototype = PrototypeObject,
-                SymbolData = symbol,
-                Extensible = true
+                _prototype = PrototypeObject,
+                SymbolData = symbol
             };
 
             return instance;

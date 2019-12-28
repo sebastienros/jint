@@ -59,7 +59,7 @@ namespace Jint
                 ThrowWrongTypeException(value, "symbol");
             }
 
-            return ((JsSymbol) value)._value;
+            return ((JsSymbol) value).ToPropertyKey();
         }
 
         private static void ThrowWrongTypeException(JsValue value, string expectedType)

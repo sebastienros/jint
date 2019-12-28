@@ -63,11 +63,11 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var obj = TypeConverter.ToObject(engine, argument);
 
-            ArrayPrototype.ArrayOperations arrayOperations = null;
+            ArrayOperations arrayOperations = null;
             IIterator iterator = null;
             if (obj.IsArrayLike)
             {
-                arrayOperations = ArrayPrototype.ArrayOperations.For(obj);
+                arrayOperations = ArrayOperations.For(obj);
             }
             else
             {
@@ -82,7 +82,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             for (uint i = 0; i < pattern.Elements.Count; i++)
             {
                 var left = pattern.Elements[(int) i];
-                if (left is Esprima.Ast.Identifier identifier)
+                if (left is Identifier identifier)
                 {
                     JsValue value;
                     if (arrayOperations != null)
@@ -162,7 +162,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             value = jintExpression.GetValue();
                         }
 
-                        if (assignmentPattern.Left is Esprima.Ast.Identifier leftIdentifier)
+                        if (assignmentPattern.Left is Identifier leftIdentifier)
                         {
                             if (assignmentPattern.Right.IsFunctionWithName())
                             {
@@ -196,7 +196,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var left = pattern.Properties[(int) i];
                 string sourceKey;
-                Esprima.Ast.Identifier identifier = left.Key as Esprima.Ast.Identifier;
+                var identifier = left.Key as Identifier;
                 if (identifier == null)
                 {
                     var keyExpression = Build(engine, left.Key);
@@ -223,7 +223,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         continue;
                     }
                     
-                    var target = assignmentPattern.Left as Esprima.Ast.Identifier ?? identifier;
+                    var target = assignmentPattern.Left as Identifier ?? identifier;
 
                     if (assignmentPattern.Right.IsFunctionWithName())
                     {
@@ -238,7 +238,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else
                 {
-                    var target = left.Value as Esprima.Ast.Identifier ?? identifier;
+                    var target = left.Value as Identifier ?? identifier;
                     AssignToIdentifier(engine, target.Name, value);
                 }
             }
