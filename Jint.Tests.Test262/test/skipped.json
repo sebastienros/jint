@@ -1,5 +1,13 @@
 [
   {
+    "source": "built-ins/Date/subclassing.js",
+    "reason": "subclassing not implemented"
+  },
+  {
+    "source": "built-ins/Date/parse/time-value-maximum-range.js",
+    "reason": "parsing of large/small years not implemented in .NET (-271821, +271821)"
+  },
+  {
     "source": "built-ins/Proxy/enumerate/removed-does-not-trigger.js",
     "reason": "for-of not implemented"
   },
@@ -280,6 +288,26 @@
   {
     "source": "built-ins/StringIteratorPrototype/next/next-iteration-surrogate-pairs.js",
     "reason": "code point iteration not implemented"
+  },
+  {
+    "source": "built-ins/Date/prototype/toTimeString/format.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Date/prototype/toString/format.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Date/parse/zero.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Date/prototype/toUTCString/format.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Date/prototype/toDateString/format.js",
+    "reason": "let/const not implemented"
   },
   {
     "source": "language/statements/for-in/head-const-bound-names-fordecl-tdz.js",

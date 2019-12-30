@@ -24,6 +24,7 @@ test_script:
   - dotnet test .\Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj -c Release -f netcoreapp3.0
   - dotnet test .\Jint.Tests.Ecma\Jint.Tests.Ecma.csproj -c Release -f netcoreapp3.0
   - dotnet test .\Jint.Tests.Test262\Jint.Tests.Test262.csproj -c Release -f netcoreapp3.0
+  - dotnet test .\Jint.Tests.Test262\Jint.Tests.Test262.csproj -c Release -f net452
 artifacts:
   - path: 'Jint\**\*.nupkg'
 deploy:  

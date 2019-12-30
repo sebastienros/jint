@@ -20,6 +20,7 @@ namespace Jint.Native
         internal static readonly JsString StringString = new JsString("string");
         internal static readonly JsString NumberString = new JsString("number");
         internal static readonly JsString LengthString = new JsString("length");
+        internal static readonly JsString DefaultString = new JsString("default");
 
         internal string _value;
 

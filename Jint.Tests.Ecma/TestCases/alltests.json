@@ -55995,8 +55995,8 @@
     source: "ch15/15.9/15.9.4/15.9.4.2/S15.9.4.2_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.4/15.9.4.2/S15.9.4.2_A3_T2.js"
   },
   {
@@ -56030,8 +56030,8 @@
     source: "ch15/15.9/15.9.4/15.9.4.3/S15.9.4.3_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.4/15.9.4.3/S15.9.4.3_A3_T2.js"
   },
   {
@@ -56295,8 +56295,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.1/S15.9.5.1_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.1/S15.9.5.1_A3_T2.js"
   },
   {
@@ -56330,8 +56330,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.10/S15.9.5.10_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.10/S15.9.5.10_A3_T2.js"
   },
   {
@@ -56365,8 +56365,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.11/S15.9.5.11_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.11/S15.9.5.11_A3_T2.js"
   },
   {
@@ -56400,8 +56400,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.12/S15.9.5.12_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.12/S15.9.5.12_A3_T2.js"
   },
   {
@@ -56435,8 +56435,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.13/S15.9.5.13_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.13/S15.9.5.13_A3_T2.js"
   },
   {
@@ -56470,8 +56470,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.14/S15.9.5.14_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.14/S15.9.5.14_A3_T2.js"
   },
   {
@@ -56505,8 +56505,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.15/S15.9.5.15_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.15/S15.9.5.15_A3_T2.js"
   },
   {
@@ -56540,8 +56540,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.16/S15.9.5.16_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.16/S15.9.5.16_A3_T2.js"
   },
   {
@@ -56575,8 +56575,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.17/S15.9.5.17_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.17/S15.9.5.17_A3_T2.js"
   },
   {
@@ -56610,8 +56610,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.18/S15.9.5.18_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.18/S15.9.5.18_A3_T2.js"
   },
   {
@@ -56645,8 +56645,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.19/S15.9.5.19_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.19/S15.9.5.19_A3_T2.js"
   },
   {
@@ -56680,8 +56680,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.2/S15.9.5.2_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.2/S15.9.5.2_A3_T2.js"
   },
   {
@@ -56715,8 +56715,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.20/S15.9.5.20_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.20/S15.9.5.20_A3_T2.js"
   },
   {
@@ -56750,8 +56750,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.21/S15.9.5.21_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.21/S15.9.5.21_A3_T2.js"
   },
   {
@@ -56785,8 +56785,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.22/S15.9.5.22_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.22/S15.9.5.22_A3_T2.js"
   },
   {
@@ -56820,8 +56820,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.23/S15.9.5.23_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.23/S15.9.5.23_A3_T2.js"
   },
   {
@@ -56855,8 +56855,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.24/S15.9.5.24_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.24/S15.9.5.24_A3_T2.js"
   },
   {
@@ -56890,8 +56890,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.25/S15.9.5.25_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.25/S15.9.5.25_A3_T2.js"
   },
   {
@@ -56925,8 +56925,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.26/S15.9.5.26_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.26/S15.9.5.26_A3_T2.js"
   },
   {
@@ -56960,8 +56960,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.27/S15.9.5.27_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.27/S15.9.5.27_A3_T2.js"
   },
   {
@@ -56995,8 +56995,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.28/S15.9.5.28_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.28/S15.9.5.28_A3_T2.js"
   },
   {
@@ -57030,8 +57030,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.29/S15.9.5.29_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.29/S15.9.5.29_A3_T2.js"
   },
   {
@@ -57065,8 +57065,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.3/S15.9.5.3_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.3/S15.9.5.3_A3_T2.js"
   },
   {
@@ -57100,8 +57100,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.30/S15.9.5.30_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.30/S15.9.5.30_A3_T2.js"
   },
   {
@@ -57135,8 +57135,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.31/S15.9.5.31_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.31/S15.9.5.31_A3_T2.js"
   },
   {
@@ -57170,8 +57170,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.32/S15.9.5.32_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.32/S15.9.5.32_A3_T2.js"
   },
   {
@@ -57205,8 +57205,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.33/S15.9.5.33_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.33/S15.9.5.33_A3_T2.js"
   },
   {
@@ -57240,8 +57240,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.34/S15.9.5.34_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.34/S15.9.5.34_A3_T2.js"
   },
   {
@@ -57275,8 +57275,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.35/S15.9.5.35_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.35/S15.9.5.35_A3_T2.js"
   },
   {
@@ -57310,8 +57310,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.36/S15.9.5.36_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.36/S15.9.5.36_A3_T2.js"
   },
   {
@@ -57345,8 +57345,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.37/S15.9.5.37_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.37/S15.9.5.37_A3_T2.js"
   },
   {
@@ -57380,8 +57380,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.38/S15.9.5.38_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.38/S15.9.5.38_A3_T2.js"
   },
   {
@@ -57415,8 +57415,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.39/S15.9.5.39_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.39/S15.9.5.39_A3_T2.js"
   },
   {
@@ -57450,8 +57450,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.4/S15.9.5.4_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.4/S15.9.5.4_A3_T2.js"
   },
   {
@@ -57460,8 +57460,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.4/S15.9.5.4_A3_T3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.40/15.9.5.40_1.js"
   },
   {
@@ -57490,8 +57490,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.40/S15.9.5.40_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.40/S15.9.5.40_A3_T2.js"
   },
   {
@@ -57525,8 +57525,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.41/S15.9.5.41_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.41/S15.9.5.41_A3_T2.js"
   },
   {
@@ -57560,8 +57560,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.42/S15.9.5.42_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.42/S15.9.5.42_A3_T2.js"
   },
   {
@@ -57680,8 +57680,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.5/S15.9.5.5_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.5/S15.9.5.5_A3_T2.js"
   },
   {
@@ -57715,8 +57715,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.6/S15.9.5.6_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.6/S15.9.5.6_A3_T2.js"
   },
   {
@@ -57750,8 +57750,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.7/S15.9.5.7_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.7/S15.9.5.7_A3_T2.js"
   },
   {
@@ -57785,8 +57785,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.8/S15.9.5.8_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.8/S15.9.5.8_A3_T2.js"
   },
   {
@@ -57820,8 +57820,8 @@
     source: "ch15/15.9/15.9.5/15.9.5.9/S15.9.5.9_A3_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "obsolete",
     source: "ch15/15.9/15.9.5/15.9.5.9/S15.9.5.9_A3_T2.js"
   },
   {
