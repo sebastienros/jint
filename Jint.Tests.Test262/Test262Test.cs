@@ -5,8 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 using Newtonsoft.Json.Linq;
 using Xunit;
 using Xunit.Abstractions;
@@ -46,7 +46,9 @@ namespace Jint.Tests.Test262
                 "decimalToHexString.js",
                 "proxyTrapsHelper.js",
                 "dateConstants.js",
-                "assertRelativeDateMs.js"
+                "assertRelativeDateMs.js",
+                "regExpUtils.js",
+                "compareIterator.js"
             };
 
             Sources = new Dictionary<string, string>(files.Length);
@@ -77,6 +79,7 @@ namespace Jint.Tests.Test262
 
             engine.Execute(Sources["sta.js"]);
             engine.Execute(Sources["assert.js"]);
+            engine.SetValue("print", new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
             
             var includes = Regex.Match(code, @"includes: \[(.+?)\]");
             if (includes.Success)
@@ -145,7 +148,7 @@ namespace Jint.Tests.Test262
             var searchPath = Path.Combine(fixturesPath, pathPrefix);
             var files = Directory.GetFiles(searchPath, "*", SearchOption.AllDirectories);
 
-            Parallel.ForEach(files, file =>
+            foreach (var file in files)
             {
                 var name = file.Substring(fixturesPath.Length + 1).Replace("\\", "/");
                 bool skip = _skipReasons.TryGetValue(name, out var reason);
@@ -190,45 +193,9 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "class keyword not implemented";
                                 break;
-                            case "Symbol.species":
-                                skip = true;
-                                reason = "Symbol.species not implemented";
-                                break;
                             case "object-spread":
                                 skip = true;
                                 reason = "Object spread not implemented";
-                                break;
-                            case "Symbol.unscopables":
-                                skip = true;
-                                reason = "Symbol.unscopables not implemented";
-                                break;
-                            case "Symbol.match":
-                                skip = true;
-                                reason = "Symbol.match not implemented";
-                                break;
-                            case "Symbol.matchAll":
-                                skip = true;
-                                reason = "Symbol.matchAll not implemented";
-                                break;
-                            case "Symbol.split":
-                                skip = true;
-                                reason = "Symbol.split not implemented";
-                                break;
-                            case "String.prototype.matchAll":
-                                skip = true;
-                                reason = "proposal stage";
-                                break;
-                            case "Symbol.search":
-                                skip = true;
-                                reason = "Symbol.search not implemented";
-                                break;
-                            case "Symbol.replace":
-                                skip = true;
-                                reason = "Symbol.replace not implemented";
-                                break;
-                            case "Symbol.toStringTag":
-                                skip = true;
-                                reason = "Symbol.toStringTag not implemented";
                                 break;
                             case "BigInt":
                                 skip = true;
@@ -258,6 +225,26 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "super not implemented";
                                 break;
+                            case "String.prototype.replaceAll":
+                                skip = true;
+                                reason = "not in spec yet";
+                                break;
+                            case "u180e":
+                                skip = true;
+                                reason = "unicode/regexp not implemented";
+                                break;
+                            case "regexp-match-indices":
+                                skip = true;
+                                reason = "regexp-match-indices not implemented";
+                                break;
+                            case "regexp-named-groups":
+                                skip = true;
+                                reason = "regexp-named-groups not implemented";
+                                break;
+                            case "regexp-lookbehind":
+                                skip = true;
+                                reason = "regexp-lookbehind not implemented";
+                                break;
                         }
                     }
                 }
@@ -272,6 +259,24 @@ namespace Jint.Tests.Test262
                 {
                     skip = true;
                     reason = "Esprima problem, Unexpected token *";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/property-escapes/generated/"))
+                {
+                    skip = true;
+                    reason = "Esprima problem, Invalid regular expression";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/unicode_"))
+                {
+                    skip = true;
+                    reason = "Unicode support and its special cases need more work";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/CharacterClassEscapes/"))
+                {
+                    skip = true;
+                    reason = "for-of not implemented";
                 }
 
                 if (file.EndsWith("tv-line-continuation.js")
@@ -296,7 +301,7 @@ namespace Jint.Tests.Test262
                         sourceFile
                     });
                 }
-            });
+            }
 
             return results;
         }

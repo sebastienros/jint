@@ -156,8 +156,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (yw == null)
                         return false;
                     return Equals(xw.Target, yw.Target);
-                case InternalTypes.None:
-                    return true;
                 default:
                     return x == y;
             }
@@ -173,9 +171,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
-                return StrictlyEqual(left, right)
-                    ? JsBoolean.True
-                    : JsBoolean.False;
+                var equal = StrictlyEqual(left, right);
+                return equal ? JsBoolean.True : JsBoolean.False;
             }
         }
 

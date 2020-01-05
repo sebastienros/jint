@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -12,7 +11,6 @@ namespace Jint.Native.Function
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
         internal readonly JintFunctionDefinition _function;
-
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
@@ -73,7 +71,7 @@ namespace Jint.Native.Function
                 {
                     thisBinding = thisArg;
                 }
-                else if (thisArg._type == InternalTypes.Undefined || thisArg._type == InternalTypes.Null)
+                else if (thisArg.IsNullOrUndefined())
                 {
                     thisBinding = _engine.Global;
                 }
@@ -141,28 +139,6 @@ namespace Jint.Native.Function
             }
 
             return thisArgument;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private ObjectInstance OrdinaryCreateFromConstructor(ObjectInstance constructor, ObjectInstance intrinsicDefaultProto)
-        {
-            var proto = GetPrototypeFromConstructor(constructor, intrinsicDefaultProto);
-
-            var obj = new ObjectInstance(_engine)
-            {
-                _prototype = proto
-            };
-            return obj;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static ObjectInstance GetPrototypeFromConstructor(ObjectInstance constructor, ObjectInstance intrinsicDefaultProto)
-        {
-            var proto = constructor.Get(KnownKeys.Prototype, constructor) as ObjectInstance;
-            // If Type(proto) is not Object, then
-            //    Let realm be ? GetFunctionRealm(constructor).
-            //    Set proto to realm's intrinsic object named intrinsicDefaultProto.
-            return proto ?? intrinsicDefaultProto;
         }
 
         private class ObjectInstanceWithConstructor : ObjectInstance

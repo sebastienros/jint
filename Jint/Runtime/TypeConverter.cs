@@ -24,23 +24,34 @@ namespace Jint.Runtime
         String = 8,
         Number = 16,
         Symbol = 64,
-        Object = 128,
-        Completion = 256
+        Object = 128
     }
 
     [Flags]
     internal enum InternalTypes
     {
+        // should not be used, used for empty match
         None = 0,
+        
         Undefined = 1,
         Null = 2,
+
+        // primitive  types range start
+        
         Boolean = 4,
         String = 8,
         Number = 16,
         Integer = 32,
         Symbol = 64,
+        
+        // primitive  types range end
+        
         Object = 128,
-        Completion = 256
+
+        // internal usage
+        ObjectEnvironmentRecord = 512,
+
+        Primitive = Boolean | String | Number | Integer | Symbol
     }
 
     public static class TypeConverter
@@ -82,7 +93,7 @@ namespace Jint.Runtime
                 _ => JsString.DefaultString
             };
 
-            var exoticToPrim  = GetMethod(oi, GlobalSymbolRegistry.ToPrimitive);
+            var exoticToPrim = oi.GetMethod(GlobalSymbolRegistry.ToPrimitive);
             if (exoticToPrim is object)
             {
                 var str = exoticToPrim.Call(oi, new JsValue[] { hint });
@@ -134,21 +145,6 @@ namespace Jint.Runtime
             }
 
             return ExceptionHelper.ThrowTypeError<JsValue>(input.Engine);
-        }
-
-        internal static ICallable GetMethod(ObjectInstance v, in Key p)
-        {
-            var jsValue = v.Get(p);
-            if (jsValue.IsNullOrUndefined())
-            {
-                return null;
-            }
-
-            if (!(jsValue is ICallable callable))
-            {
-                return ExceptionHelper.ThrowTypeError<ICallable>(v.Engine, "Value returned for property '" + p.Name + "' of object is not a function");
-            }
-            return callable;
         }
 
         /// <summary>
@@ -308,6 +304,20 @@ namespace Jint.Runtime
             {
                 return double.NaN;
             }
+        }
+
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/#sec-tolength
+        /// </summary>
+        public static ulong ToLength(JsValue o)
+        {
+            var len = ToInteger(o);
+            if (len <= 0)
+            {
+                return 0;
+            }
+
+            return (ulong) Math.Min(len, NumberConstructor.MaxSafeInteger);
         }
 
         /// <summary>
@@ -502,7 +512,7 @@ namespace Jint.Runtime
                 case InternalTypes.String:
                     return engine.String.Construct(value.AsStringWithoutTypeCheck());
                 case InternalTypes.Symbol:
-                    return engine.Symbol.Construct(((JsSymbol) value)._value);
+                    return engine.Symbol.Construct(((JsSymbol) value));
                 default:
                     ExceptionHelper.ThrowTypeError(engine);
                     return null;

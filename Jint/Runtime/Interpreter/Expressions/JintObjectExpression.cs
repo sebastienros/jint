@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Threading;
 using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native.Function;
@@ -14,11 +12,8 @@ namespace Jint.Runtime.Interpreter.Expressions
     /// </summary>
     internal sealed class JintObjectExpression : JintExpression
     {
-        // cache key container for array iteration for less allocations
-        private static readonly ThreadLocal<HashSet<string>> _nameDuplicateChecks = new ThreadLocal<HashSet<string>>(() => new HashSet<string>());
-
-        private JintExpression[] _valueExpressions;
-        private ObjectProperty[] _properties;
+        private JintExpression[] _valueExpressions = ArrayExt.Empty<JintExpression>();
+        private ObjectProperty[] _properties = ArrayExt.Empty<ObjectProperty>();
 
         // check if we can do a shortcut when all are object properties
         // and don't require duplicate checking
@@ -45,14 +40,17 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize()
         {
+            _canBuildFast = true;
             var expression = (ObjectExpression) _expression;
+            if (expression.Properties.Count == 0)
+            {
+                // empty object initializer
+                return;
+            }
+            
             _valueExpressions = new JintExpression[expression.Properties.Count];
             _properties = new ObjectProperty[expression.Properties.Count];
 
-            var propertyNames = _nameDuplicateChecks.Value;
-            propertyNames.Clear();
-
-            _canBuildFast = true;
             for (var i = 0; i < _properties.Length; i++)
             {
                 var property = expression.Properties[i];
@@ -81,7 +79,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                     _canBuildFast = false;
                 }
 
-                _canBuildFast &= propertyNames.Add(propName);
                 _canBuildFast &= propName != null;
             }
         }
@@ -99,17 +96,23 @@ namespace Jint.Runtime.Interpreter.Expressions
         private object BuildObjectFast()
         {
             var obj = _engine.Object.Construct(0);
-            var properties = new StringDictionarySlim<PropertyDescriptor>(_properties.Length);
+            if (_properties.Length == 0)
+            {
+                return obj;
+            }
 
+            var properties = new StringDictionarySlim<PropertyDescriptor>(_properties.Length);
+            var hasSymbols = false;
             for (var i = 0; i < _properties.Length; i++)
             {
                 var objectProperty = _properties[i];
                 var valueExpression = _valueExpressions[i];
                 var propValue = valueExpression.GetValue();
+                hasSymbols |= objectProperty.Key.IsSymbol;
                 properties[objectProperty.Key] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
-            obj._properties = properties;
+            obj.SetProperties(properties, hasSymbols);
             return obj;
         }
                                                 

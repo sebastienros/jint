@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
@@ -44,13 +45,15 @@ namespace Jint.Native.Array
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(5)
+            var properties = new StringDictionarySlim<PropertyDescriptor>(5)
             {
                 [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined,PropertyFlag.Configurable),
                 ["from"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
                 ["isArray"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable)),
                 ["of"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "of", Of, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable))
             };
+            
+            SetProperties(properties, hasSymbols: true);
         }
 
         private JsValue From(JsValue thisObj, JsValue[] arguments)
@@ -80,17 +83,26 @@ namespace Jint.Native.Array
                 return _engine.Array.ConstructFast(0);
             }
 
-            if (objectInstance.IsArrayLike)
-            {
-                return ConstructArrayFromArrayLike(objectInstance, callable, thisArg);
-            }
-
             if (objectInstance is IObjectWrapper wrapper && wrapper.Target is IEnumerable enumerable)
             {
                 return ConstructArrayFromIEnumerable(enumerable);
             }
 
-            var instance = _engine.Array.ConstructFast(0);
+            if (objectInstance.IsArrayLike)
+            {
+                return ConstructArrayFromArrayLike(thisObj, objectInstance, callable, thisArg);
+            }
+
+            ObjectInstance instance;
+            if (thisObj is IConstructor constructor)
+            {
+                instance = constructor.Construct(ArrayExt.Empty<JsValue>(), thisObj);
+            }
+            else
+            {
+                instance = _engine.Array.ConstructFast(0);                
+            }
+            
             if (objectInstance.TryGetIterator(_engine, out var iterator))
             {
                 var protocol = new ArrayProtocol(_engine, thisArg, instance, iterator, callable);
@@ -100,25 +112,39 @@ namespace Jint.Native.Array
             return instance;
         }
 
-        private ArrayInstance ConstructArrayFromArrayLike(
+        private ObjectInstance ConstructArrayFromArrayLike(
+            JsValue thisObj,
             ObjectInstance objectInstance, 
             ICallable callable, 
             JsValue thisArg)
         {
-            var operations = ArrayOperations.For(objectInstance);
+            var source = ArrayOperations.For(objectInstance);
+            var length = source.GetLength();
 
-            var length = operations.GetLength();
+            ObjectInstance a;
+            if (thisObj is IConstructor constructor)
+            {
+                var argumentsList = objectInstance.Get(GlobalSymbolRegistry.Iterator).IsNullOrUndefined()
+                    ? new JsValue[] { length }
+                    : null;
 
-            var a = _engine.Array.ConstructFast(length);
+                a = Construct(constructor, argumentsList);
+            }
+            else
+            {
+                a = _engine.Array.ConstructFast(length);                
+            }
+            
             var args = !ReferenceEquals(callable, null)
                 ? _engine._jsValueArrayPool.RentArray(2)
                 : null;
 
+            var target = ArrayOperations.For(a);
             uint n = 0;
             for (uint i = 0; i < length; i++)
             {
                 JsValue jsValue;
-                operations.TryGetValue(i, out var value);
+                source.TryGetValue(i, out var value);
                 if (!ReferenceEquals(callable, null))
                 {
                     args[0] = value;
@@ -126,14 +152,14 @@ namespace Jint.Native.Array
                     jsValue = callable.Call(thisArg, args);
 
                     // function can alter data
-                    length = operations.GetLength();
+                    length = source.GetLength();
                 }
                 else
                 {
                     jsValue = value;
                 }
 
-                a.SetIndexValue(i, jsValue, updateLength: false);
+                target.Set(i, jsValue, updateLength: false, throwOnError: false);
                 n++;
             }
 
@@ -142,26 +168,26 @@ namespace Jint.Native.Array
                 _engine._jsValueArrayPool.ReturnArray(args);
             }
 
-            a.SetLength(length);
+            target.SetLength(length);
             return a;
         }
 
         internal sealed class ArrayProtocol : IteratorProtocol
         {
             private readonly JsValue _thisArg;
-            private readonly ArrayInstance _instance;
+            private readonly ArrayOperations _instance;
             private readonly ICallable _callable;
             private long _index = -1;
 
             public ArrayProtocol(
                 Engine engine, 
                 JsValue thisArg,
-                ArrayInstance instance,
+                ObjectInstance instance,
                 IIterator iterator,
                 ICallable callable) : base(engine, iterator, 2)
             {
                 _thisArg = thisArg;
-                _instance = instance;
+                _instance = ArrayOperations.For(instance);
                 _callable = callable;
             }
 
@@ -181,12 +207,12 @@ namespace Jint.Native.Array
                     jsValue = sourceValue;
                 }
 
-                _instance.SetIndexValue((uint) _index, jsValue, updateLength: false);
+                _instance.Set((uint) _index, jsValue, updateLength: false, throwOnError: true);
             }
 
             protected override void IterationEnd()
             {
-                _instance.SetLength((uint) (_index + 1));
+                _instance.SetLength((ulong) (_index + 1));
             }
         }
 
@@ -194,10 +220,9 @@ namespace Jint.Native.Array
         {
             var len = arguments.Length;
             ObjectInstance a;
-            if (!ReferenceEquals(thisObj, this)
-                && thisObj.IsConstructor)
+            if (thisObj.IsConstructor)
             {
-                a = ((IConstructor) thisObj).Construct(arguments, thisObj);
+                a = ((IConstructor) thisObj).Construct(new JsValue[] { len }, thisObj);
 
                 for (uint k = 0; k < arguments.Length; k++)
                 {
@@ -277,20 +302,14 @@ namespace Jint.Native.Array
             if (arguments.Length == 1 && arguments[0].IsNumber())
             {
                 var number = ((JsNumber) arguments[0])._value;
-                if (number > 0)
-                {
-                    capacity = (uint) number;
-                }
+                ValidateLength(number);
+                capacity = (uint) number;
             }
             return Construct(arguments, capacity);
         }
 
         public ArrayInstance Construct(int capacity)
         {
-            if (capacity < 0)
-            {
-                ExceptionHelper.ThrowArgumentException("invalid array length", nameof(capacity));
-            }
             return Construct(System.ArrayExt.Empty<JsValue>(), (uint) capacity);
         }
 
@@ -306,12 +325,8 @@ namespace Jint.Native.Array
 
             if (arguments.Length == 1 && arguments.At(0).IsNumber())
             {
-                var length = TypeConverter.ToUint32(arguments.At(0));
-                if (((JsNumber) arguments[0])._value != length)
-                {
-                    ExceptionHelper.ThrowRangeError(_engine, "Invalid array length");
-                }
-
+                var length = TypeConverter.ToNumber(arguments.At(0));
+                ValidateLength(length);
                 instance._length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
             }
             else if (arguments.Length == 1 && arguments[0] is IObjectWrapper objectWrapper)
@@ -324,7 +339,7 @@ namespace Jint.Native.Array
             else if (arguments.Length == 1 && arguments[0] is ArrayInstance arrayInstance)
             {
                 // direct copy
-                return ConstructArrayFromArrayLike(arrayInstance, null, this);
+                return (ArrayInstance) ConstructArrayFromArrayLike(Undefined, arrayInstance, null, this);
             }
             else
             {
@@ -354,9 +369,10 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal ArrayInstance ConstructFast(uint length)
+        internal ArrayInstance ConstructFast(ulong length)
         {
-            var instance = new ArrayInstance(Engine, length)
+            ValidateLength(length);
+            var instance = new ArrayInstance(Engine, (uint) length)
             {
                 _prototype = PrototypeObject,
                 _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable)
@@ -364,7 +380,7 @@ namespace Jint.Native.Array
             return instance;
         }
 
-        public ArrayInstance ArraySpeciesCreate(ObjectInstance originalArray, uint length)
+        public ObjectInstance ArraySpeciesCreate(ObjectInstance originalArray, ulong length)
         {
             var isArray = originalArray.IsArray();
             if (!isArray)
@@ -372,7 +388,8 @@ namespace Jint.Native.Array
                 return ConstructFast(length);
             }
 
-            var c = originalArray.Get("constructor");
+            var c = originalArray.Get(KnownKeys.Constructor);
+
             // If IsConstructor(C) is true, then
             // Let thisRealm be the current Realm Record.
             // Let realmC be ? GetFunctionRealm(C).
@@ -381,9 +398,12 @@ namespace Jint.Native.Array
 
             if (c is ObjectInstance oi)
             {
-                c = oi.Get(GlobalSymbolRegistry.Species) ?? Undefined;
+                c = oi.Get(GlobalSymbolRegistry.Species);
+                if (c.IsNull())
+                {
+                    c = Undefined;
+                }
             }
-
 
             if (c.IsUndefined())
             {
@@ -395,7 +415,7 @@ namespace Jint.Native.Array
                 ExceptionHelper.ThrowTypeError(_engine);
             }
 
-            return Construct(length);
+            return ((IConstructor) c).Construct(new JsValue[] { JsNumber.Create(length) }, c);
         }
 
         internal JsValue CreateArrayFromList(List<JsValue> values)
@@ -410,6 +430,14 @@ namespace Jint.Native.Array
 
             jsArray.SetLength((uint) index);
             return jsArray;
+        }
+
+        private void ValidateLength(double length)
+        {
+            if (length < 0 || length > ArrayOperations.MaxArrayLength || ((long) length) != length)
+            {
+                ExceptionHelper.ThrowRangeError<object>(_engine, "Invalid array length");
+            }
         }
     }
 }

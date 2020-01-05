@@ -153,8 +153,7 @@ namespace Jint.Native.Json
                         };
             }
 
-            ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, code));
-            return null;
+            return ExceptionHelper.ThrowSyntaxError<Token>(_engine, string.Format(Messages.UnexpectedToken, code));
         }
 
         private Token ScanNumericLiteral()
@@ -258,8 +257,7 @@ namespace Jint.Native.Json
                 };
             }
 
-            ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, s));
-            return null;
+            return ExceptionHelper.ThrowSyntaxError<Token>(_engine, string.Format(Messages.UnexpectedToken, s));
         }
 
         private Token ScanNullLiteral()
@@ -284,8 +282,7 @@ namespace Jint.Native.Json
                 };
             }
 
-            ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, s));
-            return null;
+            return ExceptionHelper.ThrowSyntaxError<Token>(_engine, string.Format(Messages.UnexpectedToken, s));
         }
 
         private Token ScanStringLiteral()

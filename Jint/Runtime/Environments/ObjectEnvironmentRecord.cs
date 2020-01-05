@@ -2,6 +2,7 @@
 using System.Linq;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Environments
@@ -23,7 +24,21 @@ namespace Jint.Runtime.Environments
 
         public override bool HasBinding(in Key name)
         {
-            return _bindingObject.HasProperty(name);
+            var foundBinding = _bindingObject.HasProperty(name);
+
+            if (!foundBinding)
+            {
+                return false;
+            }
+            
+            // TODO If the withEnvironment flag of envRec is false, return true.
+
+            if (IsBlocked(name))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         internal override bool TryGetBinding(
@@ -35,15 +50,30 @@ namespace Jint.Runtime.Environments
             // we unwrap by name
             binding = default;
 
-            if (!_bindingObject.HasProperty(name))
+            if (!_bindingObject.HasProperty(name) || IsBlocked(name))
             {
                 value = default;
                 return false;
             }
 
             var desc = _bindingObject.GetProperty(name);
-            value = ObjectInstance.UnwrapJsValue(desc, this);
+            value = ObjectInstance.UnwrapJsValue(desc, _bindingObject);
             return true;
+        }
+
+        private bool IsBlocked(in Key name)
+        {
+            var unscopables = _bindingObject._hasSymbols ? _bindingObject.Get(GlobalSymbolRegistry.Unscopables) : null;
+            if (unscopables is ObjectInstance oi)
+            {
+                var blocked = TypeConverter.ToBoolean(oi.Get(name));
+                if (blocked)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

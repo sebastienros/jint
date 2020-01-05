@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Object;
@@ -6,6 +7,7 @@ using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime.Descriptors
 {
+    [DebuggerDisplay("Value: {Value}, Flags: {Flags}")]
     public class PropertyDescriptor
     {
         public static readonly PropertyDescriptor Undefined = new UndefinedPropertyDescriptor();
@@ -308,22 +310,23 @@ namespace Jint.Runtime.Descriptors
             }
 
             var obj = engine.Object.Construct(Arguments.Empty);
-            obj._properties = new StringDictionarySlim<PropertyDescriptor>(4);
+            var properties = new StringDictionarySlim<PropertyDescriptor>(4);
 
             if (desc.IsDataDescriptor())
             {
-                obj._properties["value"] =  new PropertyDescriptor(desc.Value ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
-                obj._properties["writable"] = new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable);
+                properties["value"] =  new PropertyDescriptor(desc.Value ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
+                properties["writable"] = new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable);
             }
             else
             {
-                obj._properties["get"] = new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
-                obj._properties["set"] = new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
+                properties["get"] = new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
+                properties["set"] = new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
-            obj._properties["enumerable"] = new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable);
-            obj._properties["configurable"] = new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable);
+            properties["enumerable"] = new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable);
+            properties["configurable"] = new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable);
 
+            obj.SetProperties(properties, hasSymbols: false);
             return obj;
         }
 

@@ -87,9 +87,9 @@ namespace Jint.Runtime
             throw new JavaScriptException(engine.UriError);
         }
 
-        public static void ThrowNotImplementedException()
+        public static void ThrowNotImplementedException(string message = null)
         {
-            throw new NotImplementedException();
+            throw new NotImplementedException(message);
         }
 
         public static T ThrowNotImplementedException<T>()

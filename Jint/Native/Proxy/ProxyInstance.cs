@@ -452,8 +452,8 @@ namespace Jint.Native.Proxy
             AssertNotRevoked(propertyName);
             
             result = Undefined;
-            if (_handler.TryGetValue(propertyName, out var handlerFunction)
-                && !handlerFunction.IsNullOrUndefined())
+            var handlerFunction = _handler.Get(propertyName);
+            if (!handlerFunction.IsNullOrUndefined())
             {
                 if (!(handlerFunction is ICallable callable))
                 {

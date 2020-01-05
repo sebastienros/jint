@@ -1,3 +1,6 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
 Jint.Tests/** linguist-vendored
 Jint.Tests.Ecma/** linguist-vendored
 Jint.Tests.CommonScripts/** linguist-vendored

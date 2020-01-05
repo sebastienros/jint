@@ -225,15 +225,15 @@ namespace Jint
             _jsValueArrayPool = new JsValueArrayPool();
 
             Eval = new EvalFunctionInstance(this, ArrayExt.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
-            Global._properties[KnownKeys.Eval] = new PropertyDescriptor(Eval, true, false, true);
+            Global.SetProperty(KnownKeys.Eval, new PropertyDescriptor(Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
 
             if (Options._IsClrAllowed)
             {
-                Global._properties["System"] = new PropertyDescriptor(new NamespaceReference(this, "System"), false, false, false);
-                Global._properties["importNamespace"] = new PropertyDescriptor(new ClrFunctionInstance(
+                Global.SetProperty("System", new PropertyDescriptor(new NamespaceReference(this, "System"), PropertyFlag.AllForbidden));
+                Global.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunctionInstance(
                     this,
                     "importNamespace",
-                    (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)))), false, false, false);
+                    (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
             }
 
             ClrTypeConverter = new DefaultTypeConverter(this);
@@ -516,14 +516,15 @@ namespace Jint
 
             var baseValue = reference._baseValue;
 
+            if (_referenceResolver != null
+                && reference._baseValue._type < InternalTypes.ObjectEnvironmentRecord
+                && _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
+            {
+                return baseValue;
+            }
+            
             if (reference.IsPropertyReference())
             {
-                if (_referenceResolver != null &&
-                    _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
-                {
-                    return baseValue;
-                }
-
                 ref readonly var referencedName = ref reference.GetReferencedName();
                 if (returnReferenceToPool)
                 {
@@ -577,12 +578,13 @@ namespace Jint
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.2
+        /// http://www.ecma-international.org/ecma-262/#sec-putvalue
         /// </summary>
         public void PutValue(Reference reference, JsValue value)
         {
             ref readonly var referencedName = ref reference.GetReferencedName();
-            if (reference._baseValue._type == InternalTypes.Undefined)
+            var baseValue = reference._baseValue;
+            if (reference.IsUnresolvableReference())
             {
                 if (reference._strict)
                 {
@@ -593,27 +595,19 @@ namespace Jint
             }
             else if (reference.IsPropertyReference())
             {
-                var baseValue = reference._baseValue;
-                if (reference._baseValue._type == InternalTypes.Object || reference._baseValue._type == InternalTypes.None)
+                if (reference.HasPrimitiveBase())
                 {
-                    var thisValue = GetThisValue(reference);
-                    var succeeded = ((ObjectInstance) thisValue).Set(referencedName, value, thisValue);
-                    if (!succeeded && reference._strict)
-                    {
-                        ExceptionHelper.ThrowTypeError(this);
-                    }
+                    baseValue = TypeConverter.ToObject(this, reference._baseValue);
                 }
-                else
+                var thisValue = GetThisValue(reference);
+                var succeeded = baseValue.Set(referencedName, value, thisValue);
+                if (!succeeded && reference._strict)
                 {
-                    if (!PutPrimitiveBase(baseValue, referencedName, value) && reference._strict)
-                    {
-                        ExceptionHelper.ThrowTypeError(this);
-                    }
+                    ExceptionHelper.ThrowTypeError(this);
                 }
             }
             else
             {
-                var baseValue = reference._baseValue;
                 ((EnvironmentRecord) baseValue).SetMutableBinding(referencedName, value, reference._strict);
             }
         }
@@ -626,15 +620,6 @@ namespace Jint
             }
 
             return reference._baseValue;
-        }
-
-        /// <summary>
-        /// Used by PutValue when the reference has a primitive base value
-        /// </summary>
-        public bool PutPrimitiveBase(JsValue b, in Key name, JsValue value)
-        {
-            var o = TypeConverter.ToObject(this, b);
-            return o.Set(name, b, o);
         }
 
         /// <summary>

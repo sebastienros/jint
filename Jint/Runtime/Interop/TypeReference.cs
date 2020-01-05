@@ -92,8 +92,7 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            ExceptionHelper.ThrowTypeError(_engine, "No public methods with the specified arguments were found.");
-            return null;
+            return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "No public methods with the specified arguments were found.");
         }
 
         public override bool HasInstance(JsValue v)

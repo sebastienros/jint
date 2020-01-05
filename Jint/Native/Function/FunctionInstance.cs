@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -254,6 +255,29 @@ namespace Jint.Native.Function
             {
                 ExceptionHelper.ThrowError(_engine, "cannot set name");
             }
+        }
+        
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal ObjectInstance OrdinaryCreateFromConstructor(JsValue constructor, ObjectInstance intrinsicDefaultProto)
+        {
+            var proto = GetPrototypeFromConstructor(constructor, intrinsicDefaultProto);
+
+            var obj = new ObjectInstance(_engine)
+            {
+                _prototype = proto
+            };
+            return obj;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static ObjectInstance GetPrototypeFromConstructor(JsValue constructor, ObjectInstance intrinsicDefaultProto)
+        {
+            var proto = constructor.Get(KnownKeys.Prototype, constructor) as ObjectInstance;
+            // If Type(proto) is not Object, then
+            //    Let realm be ? GetFunctionRealm(constructor).
+            //    Set proto to realm's intrinsic object named intrinsicDefaultProto.
+            return proto ?? intrinsicDefaultProto;
         }
     }
 }

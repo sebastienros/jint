@@ -37,40 +37,59 @@ namespace Jint.Native.Array
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(35)
+            var unscopables = new ObjectInstance(_engine)
             {
-                ["constructor"] = new PropertyDescriptor(_arrayConstructor, PropertyFlag.NonEnumerable),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), true, false, true),
-                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
-                ["concat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), true, false, true),
-                ["copyWithin"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), true, false, true),
-                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), true, false, true),
-                ["fill"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), true, false, true),
-                ["join"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), true, false, true),
-                ["pop"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "pop", Pop, 0, PropertyFlag.Configurable), true, false, true),
-                ["push"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "push", Push, 1, PropertyFlag.Configurable), true, false, true),
-                ["reverse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reverse", Reverse, 0, PropertyFlag.Configurable), true, false, true),
-                ["shift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "shift", Shift, 0, PropertyFlag.Configurable), true, false, true),
-                ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), true, false, true),
-                ["sort"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "sort", Sort, 1, PropertyFlag.Configurable), true, false, true),
-                ["splice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "splice", Splice, 2, PropertyFlag.Configurable), true, false, true),
-                ["unshift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unshift", Unshift, 1, PropertyFlag.Configurable), true, false, true),
-                ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true),
-                ["indexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), true, false, true),
-                ["lastIndexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), true, false, true),
-                ["every"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "every", Every, 1, PropertyFlag.Configurable), true, false, true),
-                ["some"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "some", Some, 1, PropertyFlag.Configurable), true, false, true),
-                ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), true, false, true),
-                ["map"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "map", Map, 1, PropertyFlag.Configurable), true, false, true),
-                ["filter"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), true, false, true),
-                ["reduce"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduce", Reduce, 1, PropertyFlag.Configurable), true, false, true),
-                ["reduceRight"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), true, false, true),
-                ["find"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), true, false, true),
-                ["findIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), true, false, true),
-                ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), true, false, true),
-                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true),
-                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Values, 1), true, false, true)
+                _prototype = null
             };
+
+            unscopables.CreateDataProperty("copyWithin", JsBoolean.True);
+            unscopables.CreateDataProperty("entries", JsBoolean.True);
+            unscopables.CreateDataProperty("fill", JsBoolean.True);
+            unscopables.CreateDataProperty("find", JsBoolean.True);
+            unscopables.CreateDataProperty("findIndex", JsBoolean.True);
+            unscopables.CreateDataProperty("flat", JsBoolean.True);
+            unscopables.CreateDataProperty("flatMap", JsBoolean.True);
+            unscopables.CreateDataProperty("includes", JsBoolean.True);
+            unscopables.CreateDataProperty("keys", JsBoolean.True);
+            unscopables.CreateDataProperty("values", JsBoolean.True);
+            
+            const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
+            var properties = new StringDictionarySlim<PropertyDescriptor>(35)
+            {
+                [KnownKeys.Constructor] = new PropertyDescriptor(_arrayConstructor, PropertyFlag.NonEnumerable),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), propertyFlags),
+                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), propertyFlags),
+                ["concat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), propertyFlags),
+                ["copyWithin"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), propertyFlags),
+                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), propertyFlags),
+                ["fill"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), propertyFlags),
+                ["join"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), propertyFlags),
+                ["pop"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "pop", Pop, 0, PropertyFlag.Configurable), propertyFlags),
+                ["push"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "push", Push, 1, PropertyFlag.Configurable), propertyFlags),
+                ["reverse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reverse", Reverse, 0, PropertyFlag.Configurable), propertyFlags),
+                ["shift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "shift", Shift, 0, PropertyFlag.Configurable), propertyFlags),
+                ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), propertyFlags),
+                ["sort"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "sort", Sort, 1, PropertyFlag.Configurable), propertyFlags),
+                ["splice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "splice", Splice, 2, PropertyFlag.Configurable), propertyFlags),
+                ["unshift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unshift", Unshift, 1, PropertyFlag.Configurable), propertyFlags),
+                ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), propertyFlags),
+                ["indexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), propertyFlags),
+                ["lastIndexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), propertyFlags),
+                ["every"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "every", Every, 1, PropertyFlag.Configurable), propertyFlags),
+                ["some"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "some", Some, 1, PropertyFlag.Configurable), propertyFlags),
+                ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), propertyFlags),
+                ["map"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "map", Map, 1, PropertyFlag.Configurable), propertyFlags),
+                ["filter"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), propertyFlags),
+                ["reduce"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduce", Reduce, 1, PropertyFlag.Configurable), propertyFlags),
+                ["reduceRight"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), propertyFlags),
+                ["find"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), propertyFlags),
+                ["findIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), propertyFlags),
+                ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
+                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Values, 1), propertyFlags),
+                [GlobalSymbolRegistry.Unscopables] = new PropertyDescriptor(unscopables, PropertyFlag.Configurable)
+            };
+            SetProperties(properties, hasSymbols: true);
         }
         
         private ObjectInstance Keys(JsValue thisObj, JsValue[] arguments)
@@ -142,7 +161,7 @@ namespace Jint.Native.Array
 
             for (var i = actualStart; i < actualEnd; ++i)
             {
-                operations.Set(i, value, false);
+                operations.Set(i, value, updateLength: false, throwOnError: false);
             }
 
             return thisObj;
@@ -186,7 +205,8 @@ namespace Jint.Native.Array
 
             var direction = 1;
 
-            if (from < to && to < from + count) {
+            if (from < to && to < from + count) 
+            {
                 direction = -1;
                 from += (uint) count - 1;
                 to += (uint) count - 1;
@@ -198,7 +218,7 @@ namespace Jint.Native.Array
                 if (fromPresent)
                 {
                     var fromValue = operations.Get((ulong) from);
-                    operations.Set((ulong) to, fromValue, throwOnError: true);
+                    operations.Set((ulong) to, fromValue, updateLength: true, throwOnError: true);
                 }
                 else
                 {
@@ -350,6 +370,7 @@ namespace Jint.Native.Array
             var callable = GetCallable(callbackfn);
 
             var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), 0);
+            var operations = ArrayOperations.For(a);
 
             uint to = 0;
             var args = _engine._jsValueArrayPool.RentArray(3);
@@ -363,13 +384,13 @@ namespace Jint.Native.Array
                     var selected = callable.Call(thisArg, args);
                     if (TypeConverter.ToBoolean(selected))
                     {
-                        a.SetIndexValue(to, kvalue, updateLength: false);
+                        operations.Set(to, kvalue, updateLength: false, throwOnError: false);
                         to++;
                     }
                 }
             }
 
-            a.SetLength(to);
+            operations.SetLength(to);
             _engine._jsValueArrayPool.ReturnArray(args);
 
             return a;
@@ -377,7 +398,7 @@ namespace Jint.Native.Array
 
         private JsValue Map(JsValue thisObj, JsValue[] arguments)
         {
-            if (thisObj is ArrayInstance arrayInstance)
+            if (thisObj is ArrayInstance arrayInstance && !arrayInstance.HasOwnProperty("constructor"))
             {
                 return arrayInstance.Map(arguments);
             }
@@ -394,7 +415,7 @@ namespace Jint.Native.Array
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
 
-            var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), (uint) len);
+            var a = ArrayOperations.For(Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), (uint) len));
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o.Target;
             for (uint k = 0; k < len; k++)
@@ -404,11 +425,11 @@ namespace Jint.Native.Array
                     args[0] = kvalue;
                     args[1] = k;
                     var mappedValue = callable.Call(thisArg, args);
-                    a.SetIndexValue(k, mappedValue, updateLength: false);
+                    a.Set(k, mappedValue, updateLength: false, throwOnError: false);
                 }
             }
             _engine._jsValueArrayPool.ReturnArray(args);
-            return a;
+            return a.Target;
         }
 
         private JsValue ForEach(JsValue thisObj, JsValue[] arguments)
@@ -636,8 +657,12 @@ namespace Jint.Native.Array
                 var dc = TypeConverter.ToInteger(deleteCount);
                 actualDeleteCount = (ulong) System.Math.Min(System.Math.Max(dc,0), len - actualStart);
 
-                items = new JsValue[arguments.Length - 2];
-                System.Array.Copy(arguments, 2, items, 0, items.Length);
+                items = ArrayExt.Empty<JsValue>();
+                if (arguments.Length > 2)
+                {
+                    items = new JsValue[arguments.Length - 2];
+                    System.Array.Copy(arguments, 2, items, 0, items.Length);
+                }
             }
 
             if (len + insertCount - actualDeleteCount > ArrayOperations.MaxArrayLikeLength)
@@ -645,17 +670,15 @@ namespace Jint.Native.Array
                 return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid array length");
             }
 
-            if (actualDeleteCount > ArrayOperations.MaxArrayLength)
-            {
-                return ExceptionHelper.ThrowRangeError<JsValue>(_engine, "Invalid array length");
-            }
-            
-            var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), (uint) actualDeleteCount);
+            var instance = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), actualDeleteCount);
+            var a = ArrayOperations.For(instance);
             for (uint k = 0; k < actualDeleteCount; k++)
             {
-                if (o.TryGetValue(actualStart + k, out var fromValue))
+                var index = actualStart + k;
+                if (o.HasProperty(index))
                 {
-                    a.SetIndexValue(k, fromValue, updateLength: false);
+                    var fromValue = o.Get(index);
+                    a.CreateDataPropertyOrThrow(k, fromValue);
                 }
             }
             a.SetLength((uint) actualDeleteCount);
@@ -668,9 +691,10 @@ namespace Jint.Native.Array
                 {
                     var from = k + actualDeleteCount;
                     var to = k + (ulong) items.Length;
-                    if (o.TryGetValue(from, out var fromValue))
+                    if (o.HasProperty(from))
                     {
-                        o.Set(to, fromValue, true);
+                        var fromValue = o.Get(from);
+                        o.Set(to, fromValue, updateLength: false, throwOnError: false);
                     }
                     else
                     {
@@ -689,9 +713,10 @@ namespace Jint.Native.Array
                 {
                     var from = k + actualDeleteCount - 1;
                     var to =  k + (ulong) items.Length - 1;
-                    if (o.TryGetValue(from, out var fromValue))
+                    if (o.HasProperty(from))
                     {
-                        o.Set(to, fromValue, true);
+                        var fromValue = o.Get(from);
+                        o.Set(to, fromValue, updateLength: false, throwOnError: true);
                     }
                     else
                     {
@@ -703,11 +728,11 @@ namespace Jint.Native.Array
             for (uint k = 0; k < items.Length; k++)
             {
                 var e = items[k];
-                o.Set(k + actualStart, e, true);
+                o.Set(k + actualStart, e, updateLength: false, throwOnError: true);
             }
 
             o.SetLength(length);
-            return a;
+            return a.Target;
         }
 
         private JsValue Unshift(JsValue thisObj, JsValue[] arguments)
@@ -729,7 +754,7 @@ namespace Jint.Native.Array
                 var to = k + argCount - 1;
                 if (o.TryGetValue(from, out var fromValue))
                 {
-                    o.Set(to, fromValue, true);
+                    o.Set(to, fromValue, false, true);
                 }
                 else
                 {
@@ -739,7 +764,7 @@ namespace Jint.Native.Array
 
             for (uint j = 0; j < argCount; j++)
             {
-                o.Set(j, arguments[j], true);
+                o.Set(j, arguments[j], false, true);
             }
 
             o.SetLength(len + argCount);
@@ -848,7 +873,7 @@ namespace Jint.Native.Array
             {
                 if (!ReferenceEquals(array[i], null))
                 {
-                    obj.Set(i, array[i], false);
+                    obj.Set(i, array[i], updateLength: false, throwOnError: false);
                 }
                 else
                 {
@@ -903,18 +928,19 @@ namespace Jint.Native.Array
 
             var length = (uint) System.Math.Max(0, (long) final - (long) k);
             var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), length);
-            if (thisObj is ArrayInstance ai)
+            if (thisObj is ArrayInstance ai && a is ArrayInstance a2)
             {
-                a.CopyValues(ai, (uint) k, 0, length);
+                a2.CopyValues(ai, (uint) k, 0, length);
             }
             else
             {
                 // slower path
+                var operations = ArrayOperations.For(a);
                 for (uint n = 0; k < final; k++, n++)
                 {
                     if (o.TryGetValue(k, out var kValue))
                     {
-                        a.SetIndexValue(n, kValue, updateLength: false);
+                        operations.Set(n, kValue, updateLength: false, throwOnError: false);
                     }
                 }
             }
@@ -939,7 +965,7 @@ namespace Jint.Native.Array
                 var to = k - 1;
                 if (o.TryGetValue(k, out var fromVal))
                 {
-                    o.Set(to, fromVal, true);
+                    o.Set(to, fromVal, updateLength: false, throwOnError: false);
                 }
                 else
                 {
@@ -971,20 +997,20 @@ namespace Jint.Native.Array
                 
                 if (lowerExists && upperExists)
                 {
-                    o.Set(lower, upperValue, true);
-                    o.Set(upper, lowerValue, true);
+                    o.Set(lower, upperValue, updateLength: true, throwOnError: true);
+                    o.Set(upper, lowerValue, updateLength: true, throwOnError: true);
                 }
 
                 if (!lowerExists && upperExists)
                 {
-                    o.Set(lower, upperValue, true);
+                    o.Set(lower, upperValue, updateLength: true, throwOnError: true);
                     o.DeletePropertyOrThrow(upper);
                 }
 
                 if (lowerExists && !upperExists)
                 {
                     o.DeletePropertyOrThrow(lower);
-                    o.Set(upper, lowerValue, true);
+                    o.Set(upper, lowerValue, updateLength: true, throwOnError: true);
                 }
 
                 lower++;
@@ -1108,13 +1134,15 @@ namespace Jint.Native.Array
 
             uint n = 0;
             var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), capacity);
+            var aOperations = ArrayOperations.For(a);
             for (var i = 0; i < items.Count; i++)
             {
                 var e = items[i];
                 if (e is ArrayInstance eArray
-                    && eArray.IsConcatSpreadable)
+                    && eArray.IsConcatSpreadable
+                    && a is ArrayInstance a2)
                 {
-                    a.CopyValues(eArray, 0, n, eArray.GetLength());
+                    a2.CopyValues(eArray, 0, n, eArray.GetLength());
                     n += eArray.GetLength();
                 }
                 else if (hasObjectSpreadables
@@ -1126,13 +1154,13 @@ namespace Jint.Native.Array
                     for (uint k = 0; k < len; k++)
                     {
                         operations.TryGetValue(k, out var subElement);
-                        a.SetIndexValue(n, subElement, updateLength: false);
+                        aOperations.Set(n, subElement, updateLength: false, throwOnError: false);
                         n++;
                     }
                 }
                 else
                 {
-                    a.SetIndexValue(n, e, updateLength: false);
+                    aOperations.Set(n, e, updateLength: false, throwOnError: false);
                     n++;
                 }
             }
@@ -1234,7 +1262,7 @@ namespace Jint.Native.Array
             // cast to double as we need to prevent an overflow
             foreach (var a in arguments)
             {
-                o.Set(n, a, true);
+                o.Set(n, a, false, false);
                 n++;
             }
 

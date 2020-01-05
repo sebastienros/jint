@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
@@ -128,9 +127,13 @@ namespace Jint.Tests.Runtime
         public void DynamicDelegateCanBeSet()
         {
 #if NETFRAMEWORK
-            var parameters = new[] { Expression.Parameter(typeof(int)), Expression.Parameter(typeof(int)) };
-            var exp = Expression.Add(parameters[0], parameters[1]);
-            var del = Expression.Lambda(exp, parameters).Compile();
+            var parameters = new[]
+            {
+                System.Linq.Expressions.Expression.Parameter(typeof(int)),
+                System.Linq.Expressions.Expression.Parameter(typeof(int))
+            };
+            var exp = System.Linq.Expressions.Expression.Add(parameters[0], parameters[1]);
+            var del = System.Linq.Expressions.Expression.Lambda(exp, parameters).Compile();
 
             _engine.SetValue("add", del);
             

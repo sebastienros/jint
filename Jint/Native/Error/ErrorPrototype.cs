@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using Jint.Collections;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -38,9 +39,13 @@ namespace Jint.Native.Error
 
         protected override void Initialize()
         {
-            _properties["constructor"] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable);
-            _properties["message"] = new PropertyDescriptor("", true, false, true);
-            _properties["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true);
+            var properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            {
+                [KnownKeys.Constructor] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable),
+                ["message"] = new PropertyDescriptor("", PropertyFlag.Configurable | PropertyFlag.Writable),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), PropertyFlag.Configurable | PropertyFlag.Writable)
+            };
+            SetProperties(properties, hasSymbols: false);
         }
 
         public JsValue ToString(JsValue thisObject, JsValue[] arguments)

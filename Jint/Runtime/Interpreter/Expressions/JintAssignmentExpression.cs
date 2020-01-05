@@ -136,8 +136,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     break;
 
                 default:
-                    ExceptionHelper.ThrowNotImplementedException();
-                    return null;
+                    return ExceptionHelper.ThrowNotImplementedException<object>();
             }
 
             _engine.PutValue(lref, lval);

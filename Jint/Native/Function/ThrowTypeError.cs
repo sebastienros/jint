@@ -16,8 +16,7 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            ExceptionHelper.ThrowTypeError(_engine);
-            return null;
+            return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
         }
     }
 }

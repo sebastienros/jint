@@ -6,8 +6,8 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native.Array;
 using Jint.Native.Date;
-using Jint.Native.Function;
 using Jint.Native.Iterator;
+using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.Symbol;
@@ -38,7 +38,7 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPrimitive()
         {
-            return _type != InternalTypes.Object && _type != InternalTypes.None;
+            return _type < InternalTypes.Object;
         }
 
         [Pure]
@@ -72,6 +72,17 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsRegExp()
         {
+            if (!(this is ObjectInstance oi))
+            {
+                return false;
+            }
+            
+            var matcher = oi.Get(GlobalSymbolRegistry.Match);
+            if (!matcher.IsUndefined())
+            {
+                return TypeConverter.ToBoolean(matcher);
+            }
+
             return this is RegExpInstance;
         }
 
@@ -115,13 +126,6 @@ namespace Jint.Native
         public bool IsNull()
         {
             return _type == InternalTypes.Null;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsCompletion()
-        {
-            return _type == InternalTypes.Completion;
         }
 
         [Pure]
@@ -223,18 +227,6 @@ namespace Jint.Native
             }
 
             return this as RegExpInstance;
-        }
-
-        [Pure]
-        public Completion AsCompletion()
-        {
-            if (_type != InternalTypes.Completion)
-            {
-                ExceptionHelper.ThrowArgumentException("The value is not a completion record");
-            }
-
-            // TODO not implemented
-            return new Completion(CompletionType.Normal, Native.Undefined.Instance, null, default);
         }
 
         [Pure]
@@ -406,28 +398,46 @@ namespace Jint.Native
         /// <param name="thisObj">The this value inside the function call.</param>
         /// <param name="arguments">The arguments of the function call.</param>
         /// <returns>The value returned by the function call.</returns>
-        public JsValue Invoke(JsValue thisObj, JsValue[] arguments)
+        internal JsValue Invoke(JsValue thisObj, JsValue[] arguments)
         {
             var callable = this as ICallable ?? ExceptionHelper.ThrowArgumentException<ICallable>("Can only invoke functions");
             return callable.Call(thisObj, arguments);
         }
-
-        public static bool ReturnOnAbruptCompletion(ref JsValue argument)
+        
+        /// <summary>
+        /// Invoke the given property as function.
+        /// </summary>
+        /// <param name="v">Serves as both the lookup point for the property and the this value of the call</param>
+        /// <param name="propertyName">Property that should be ICallable</param>
+        /// <param name="arguments">The arguments of the function call.</param>
+        /// <returns>The value returned by the function call.</returns>
+        internal static JsValue Invoke(JsValue v, in Key propertyName, JsValue[] arguments)
         {
-            if (!argument.IsCompletion())
-            {
-                return false;
-            }
+            var func = v.Get(propertyName);
+            var callable = func as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
+            return callable.Call(v, arguments);
+        }
 
-            var completion = argument.AsCompletion();
-            if (completion.IsAbrupt())
-            {
-                return true;
-            }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public JsValue Get(in Key propertyName)
+        {
+            return Get(propertyName, this);
+        }
 
-            argument = completion.Value;
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.12.3
+        /// </summary>
+        public virtual JsValue Get(in Key propertyName, JsValue receiver)
+        {
+            return Undefined;
+        }
 
-            return false;
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/#sec-ordinary-object-internal-methods-and-internal-slots-set-p-v-receiver
+        /// </summary>
+        public virtual bool Set(in Key propertyName, JsValue value, JsValue receiver)
+        {
+            return ExceptionHelper.ThrowNotSupportedException<bool>();
         }
 
         internal virtual Key ToPropertyKey()
@@ -515,6 +525,7 @@ namespace Jint.Native
             return value ? JsBoolean.True : JsBoolean.False;
         }
 
+        [DebuggerStepThrough]
         public static implicit operator JsValue(string value)
         {
             if (value == null)
@@ -592,6 +603,63 @@ namespace Jint.Native
         internal virtual JsValue Clone()
         {
             return this;
+        }
+        
+        internal static bool SameValue(JsValue x, JsValue y)
+        {
+            var typea = TypeConverter.GetInternalPrimitiveType(x);
+            var typeb = TypeConverter.GetInternalPrimitiveType(y);
+
+            if (typea != typeb)
+            {
+                if (typea == InternalTypes.Integer)
+                {
+                    typea = InternalTypes.Number;
+                }
+                if (typeb == InternalTypes.Integer)
+                {
+                    typeb = InternalTypes.Number;
+                }
+
+                if (typea != typeb)
+                {
+                    return false;
+                }
+            }
+
+            switch (typea)
+            {
+                case InternalTypes.Integer:
+                    return x.AsInteger() == y.AsInteger();
+
+                case InternalTypes.Number:
+                    var nx = TypeConverter.ToNumber(x);
+                    var ny = TypeConverter.ToNumber(y);
+
+                    if (double.IsNaN(nx) && double.IsNaN(ny))
+                    {
+                        return true;
+                    }
+
+                    if (nx == ny)
+                    {
+                        if (nx == 0)
+                        {
+                            // +0 !== -0
+                            return NumberInstance.IsNegativeZero(nx) == NumberInstance.IsNegativeZero(ny);
+                        }
+
+                        return true;
+                    }
+
+                    return false;
+                case InternalTypes.String:
+                    return TypeConverter.ToString(x) == TypeConverter.ToString(y);
+                case InternalTypes.Boolean:
+                    return TypeConverter.ToBoolean(x) == TypeConverter.ToBoolean(y);
+                default:
+                    return x == y;
+            }
         }
     }
 }

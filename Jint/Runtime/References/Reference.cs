@@ -42,7 +42,7 @@ namespace Jint.Runtime.References
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasPrimitiveBase()
         {
-            return _baseValue._type != InternalTypes.Object && _baseValue._type != InternalTypes.None;
+            return (_baseValue._type & InternalTypes.Primitive) != 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -56,14 +56,12 @@ namespace Jint.Runtime.References
             // TODO super not implemented
             return false;
         }
-        
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPropertyReference()
         {
-            // http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
-            return _baseValue._type != InternalTypes.Object && _baseValue._type != InternalTypes.None
-                   || _baseValue._type == InternalTypes.Object && !(_baseValue is EnvironmentRecord);
+            // http://www.ecma-international.org/ecma-262/#sec-ispropertyreference
+            return (_baseValue._type & (InternalTypes.Primitive | InternalTypes.Object)) != 0;
         }
 
         internal Reference Reassign(JsValue baseValue, in Key name, bool strict)
@@ -77,7 +75,9 @@ namespace Jint.Runtime.References
 
         internal void AssertValid(Engine engine)
         {
-            if (_strict && (_name == KnownKeys.Eval || _name == KnownKeys.Arguments) && _baseValue is EnvironmentRecord)
+            if (_strict
+                && _baseValue._type == InternalTypes.ObjectEnvironmentRecord
+                && (_name == KnownKeys.Eval || _name == KnownKeys.Arguments))
             {
                 ExceptionHelper.ThrowSyntaxError(engine);
             }

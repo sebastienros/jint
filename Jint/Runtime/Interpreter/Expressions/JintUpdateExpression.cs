@@ -48,8 +48,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             if (!(_argument.Evaluate() is Reference reference))
             {
-                ExceptionHelper.ThrowError(_engine, "Invalid left-hand side expression");
-                return null;
+                return ExceptionHelper.ThrowTypeError<object>(_engine, "Invalid left-hand side expression");
             }
 
             reference.AssertValid(_engine);

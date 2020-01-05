@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Collections;
 using Jint.Native.Object;
@@ -26,8 +27,8 @@ namespace Jint.Native.Global
             var global = new GlobalObject(engine)
             {
                 _prototype = null,
-                _properties = new StringDictionarySlim<PropertyDescriptor>(35)
             };
+            global.SetProperties(new StringDictionarySlim<PropertyDescriptor>(35), hasSymbols: false);
 
             return global;
         }
@@ -35,41 +36,42 @@ namespace Jint.Native.Global
         protected override void Initialize()
         {
             // Global object properties
-            _properties["Object"] = new PropertyDescriptor(Engine.Object, true, false, true);
-            _properties["Function"] = new PropertyDescriptor(Engine.Function, true, false, true);
-            _properties["Symbol"] = new PropertyDescriptor(Engine.Symbol, true, false, true);
-            _properties["Array"] = new PropertyDescriptor(Engine.Array, true, false, true);
-            _properties["Map"] = new PropertyDescriptor(Engine.Map, true, false, true);
-            _properties["Set"] = new PropertyDescriptor(Engine.Set, true, false, true);
-            _properties["String"] = new PropertyDescriptor(Engine.String, true, false, true);
-            _properties["RegExp"] = new PropertyDescriptor(Engine.RegExp, true, false, true);
-            _properties["Number"] = new PropertyDescriptor(Engine.Number, true, false, true);
-            _properties["Boolean"] = new PropertyDescriptor(Engine.Boolean, true, false, true);
-            _properties["Date"] = new PropertyDescriptor(Engine.Date, true, false, true);
-            _properties["Math"] = new PropertyDescriptor(Engine.Math, true, false, true);
-            _properties["JSON"] = new PropertyDescriptor(Engine.Json, true, false, true);
-            _properties["Error"] = new LazyPropertyDescriptor(() => Engine.Error, true, false, true);
-            _properties["EvalError"] = new LazyPropertyDescriptor(() => Engine.EvalError, true, false, true);
-            _properties["Proxy"] = new LazyPropertyDescriptor(() => Engine.Proxy, true, false, true);
-            _properties["RangeError"] = new LazyPropertyDescriptor(() => Engine.RangeError, true, false, true);
-            _properties["ReferenceError"] = new LazyPropertyDescriptor(() => Engine.ReferenceError, true, false, true);
-            _properties["Reflect"] = new LazyPropertyDescriptor(() => Engine.Reflect, true, false, true);
-            _properties["SyntaxError"] = new LazyPropertyDescriptor(() => Engine.SyntaxError, true, false, true);
-            _properties["TypeError"] = new LazyPropertyDescriptor(() => Engine.TypeError, true, false, true);
-            _properties["URIError"] = new LazyPropertyDescriptor(() => Engine.UriError, true, false, true);
-            _properties["NaN"] = new PropertyDescriptor(double.NaN, false, false, false);
-            _properties["Infinity"] = new PropertyDescriptor(double.PositiveInfinity, false, false, false);
-            _properties["undefined"] = new PropertyDescriptor(Undefined, false, false, false);
-            _properties["parseInt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseInt", ParseInt, 2, PropertyFlag.Configurable), true, false, true);
-            _properties["parseFloat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseFloat", ParseFloat, 1, PropertyFlag.Configurable), true, false, true);
-            _properties["isNaN"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1), true, false, true);
-            _properties["isFinite"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1), true, false, true);
-            _properties["decodeURI"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "decodeURI", DecodeUri, 1, PropertyFlag.Configurable), true, false, true);
-            _properties["decodeURIComponent"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "decodeURIComponent", DecodeUriComponent, 1, PropertyFlag.Configurable), true, false, true);
-            _properties["encodeURI"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURI", EncodeUri, 1, PropertyFlag.Configurable), true, false, true);
-            _properties["encodeURIComponent"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, PropertyFlag.Configurable), true, false, true);
-            _properties["escape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "escape", Escape, 1), true, false, true);
-            _properties["unescape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unescape", Unescape, 1), true, false, true);
+            const PropertyFlag defaultFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+            SetProperty("Object", new PropertyDescriptor(Engine.Object, defaultFlags));
+            SetProperty("Function", new PropertyDescriptor(Engine.Function, defaultFlags));
+            SetProperty("Symbol", new PropertyDescriptor(Engine.Symbol, defaultFlags));
+            SetProperty("Array", new PropertyDescriptor(Engine.Array, defaultFlags));
+            SetProperty("Map", new PropertyDescriptor(Engine.Map, defaultFlags));
+            SetProperty("Set", new PropertyDescriptor(Engine.Set, defaultFlags));
+            SetProperty("String", new PropertyDescriptor(Engine.String, defaultFlags));
+            SetProperty("RegExp", new PropertyDescriptor(Engine.RegExp, defaultFlags));
+            SetProperty("Number", new PropertyDescriptor(Engine.Number, defaultFlags));
+            SetProperty("Boolean", new PropertyDescriptor(Engine.Boolean, defaultFlags));
+            SetProperty("Date", new PropertyDescriptor(Engine.Date, defaultFlags));
+            SetProperty("Math", new PropertyDescriptor(Engine.Math, defaultFlags));
+            SetProperty("JSON", new PropertyDescriptor(Engine.Json, defaultFlags));
+            SetProperty("Error", new LazyPropertyDescriptor(() => Engine.Error, defaultFlags));
+            SetProperty("EvalError", new LazyPropertyDescriptor(() => Engine.EvalError, defaultFlags));
+            SetProperty("Proxy", new LazyPropertyDescriptor(() => Engine.Proxy, defaultFlags));
+            SetProperty("RangeError", new LazyPropertyDescriptor(() => Engine.RangeError, defaultFlags));
+            SetProperty("ReferenceError", new LazyPropertyDescriptor(() => Engine.ReferenceError, defaultFlags));
+            SetProperty("Reflect", new LazyPropertyDescriptor(() => Engine.Reflect, defaultFlags));
+            SetProperty("SyntaxError", new LazyPropertyDescriptor(() => Engine.SyntaxError, defaultFlags));
+            SetProperty("TypeError", new LazyPropertyDescriptor(() => Engine.TypeError, defaultFlags));
+            SetProperty("URIError", new LazyPropertyDescriptor(() => Engine.UriError, defaultFlags));
+            SetProperty("NaN", new PropertyDescriptor(double.NaN, PropertyFlag.None));
+            SetProperty("Infinity", new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.None));
+            SetProperty("undefined", new PropertyDescriptor(Undefined, PropertyFlag.None));
+            SetProperty("parseInt", new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseInt", ParseInt, 2, PropertyFlag.Configurable), defaultFlags));
+            SetProperty("parseFloat", new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseFloat", ParseFloat, 1, PropertyFlag.Configurable), defaultFlags));
+            SetProperty("isNaN", new PropertyDescriptor(new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1), defaultFlags));
+            SetProperty("isFinite", new PropertyDescriptor(new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1), defaultFlags));
+            SetProperty("decodeURI", new PropertyDescriptor(new ClrFunctionInstance(Engine, "decodeURI", DecodeUri, 1, PropertyFlag.Configurable), defaultFlags));
+            SetProperty("decodeURIComponent", new PropertyDescriptor(new ClrFunctionInstance(Engine, "decodeURIComponent", DecodeUriComponent, 1, PropertyFlag.Configurable), defaultFlags));
+            SetProperty("encodeURI", new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURI", EncodeUri, 1, PropertyFlag.Configurable), defaultFlags));
+            SetProperty("encodeURIComponent", new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, PropertyFlag.Configurable), defaultFlags));
+            SetProperty("escape", new PropertyDescriptor(new ClrFunctionInstance(Engine, "escape", Escape, 1), defaultFlags));
+            SetProperty("unescape", new PropertyDescriptor(new ClrFunctionInstance(Engine, "unescape", Unescape, 1), defaultFlags));
         }
 
         /// <summary>
@@ -370,13 +372,9 @@ namespace Jint.Native.Global
 
         private const string HexaMap = "0123456789ABCDEF";
 
-        private static bool IsValidHexaChar(char c)
-        {
-            return
-                c >= '0' && c <= '9' ||
-                c >= 'a' && c <= 'f' ||
-                c >= 'A' && c <= 'F';
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool IsValidHexaChar(char c) => Uri.IsHexDigit(c);
+        
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.3.2
         /// </summary>

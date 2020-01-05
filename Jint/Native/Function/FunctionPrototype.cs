@@ -34,15 +34,15 @@ namespace Jint.Native.Function
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(5)
+            var properties = new StringDictionarySlim<PropertyDescriptor>(5)
             {
-                ["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
+                [KnownKeys.Constructor] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true),
                 ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2), true, false, true),
                 ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1), true, false, true),
                 ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1), true, false, true)
             };
-
+            SetProperties(properties, hasSymbols: false);
         }
 
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)

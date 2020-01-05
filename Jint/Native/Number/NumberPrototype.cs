@@ -37,9 +37,9 @@ namespace Jint.Native.Number
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(8)
+            var properties = new StringDictionarySlim<PropertyDescriptor>(8)
             {
-                ["constructor"] = new PropertyDescriptor(_numberConstructor, true, false, true),
+                [KnownKeys.Constructor] = new PropertyDescriptor(_numberConstructor, true, false, true),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),
@@ -47,6 +47,8 @@ namespace Jint.Native.Number
                 ["toExponential"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toExponential", ToExponential, 1, PropertyFlag.Configurable), true, false, true),
                 ["toPrecision"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toPrecision", ToPrecision, 1, PropertyFlag.Configurable), true, false, true)
             };
+            
+            SetProperties(properties, hasSymbols: false);
         }
 
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
