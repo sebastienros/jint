@@ -18,9 +18,8 @@ namespace Jint.Native.Error
         {
             var obj = new ErrorConstructor(engine)
             {
-                Extensible = true,
                 _name = name,
-                Prototype = engine.Function.PrototypeObject
+                _prototype = engine.Function.PrototypeObject
             };
 
             // The value of the [[Prototype]] internal property of the Error constructor is the Function prototype object (15.11.3)
@@ -29,26 +28,32 @@ namespace Jint.Native.Error
             obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
 
             // The initial value of Error.prototype is the Error prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return Construct(arguments);
+            return Construct(arguments, thisObject);
         }
 
         public ObjectInstance Construct(JsValue[] arguments)
         {
+            return Construct(arguments, this);
+        }
+
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        {
             var instance = new ErrorInstance(Engine, _name);
-            instance.Prototype = PrototypeObject;
-            instance.Extensible = true;
+            instance._prototype = PrototypeObject;
 
             var jsValue = arguments.At(0);
             if (!jsValue.IsUndefined())
             {
-                instance.Put("message", TypeConverter.ToString(jsValue), false);
+                var msg = TypeConverter.ToString(jsValue);
+                var msgDesc = new PropertyDescriptor(msg, true, false, true);
+                instance.DefinePropertyOrThrow("message", msgDesc);
             }
 
             return instance;

@@ -92,8 +92,8 @@ namespace Jint.Native.Argument
             // step 14
             else
             {
-                DefineOwnProperty(KnownKeys.Caller, _engine._getSetThrower, false);
-                DefineOwnProperty(KnownKeys.Callee, _engine._getSetThrower, false);
+                DefineOwnProperty(KnownKeys.Caller, _engine._getSetThrower);
+                DefineOwnProperty(KnownKeys.Callee, _engine._getSetThrower);
             }
         }
 
@@ -125,18 +125,13 @@ namespace Jint.Native.Argument
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
-        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
+        public override bool Set(in Key propertyName, JsValue value, JsValue receiver)
         {
             EnsureInitialized();
 
             if (!CanPut(propertyName))
             {
-                if (throwOnError)
-                {
-                    ExceptionHelper.ThrowTypeError(Engine);
-                }
-
-                return;
+                return false;
             }
 
             var ownDesc = GetOwnProperty(propertyName);
@@ -144,8 +139,7 @@ namespace Jint.Native.Argument
             if (ownDesc.IsDataDescriptor())
             {
                 var valueDesc = new PropertyDescriptor(value, PropertyFlag.None);
-                DefineOwnProperty(propertyName, valueDesc, throwOnError);
-                return;
+                return DefineOwnProperty(propertyName, valueDesc);
             }
 
             // property is an accessor or inherited
@@ -153,22 +147,27 @@ namespace Jint.Native.Argument
 
             if (desc.IsAccessorDescriptor())
             {
-                var setter = desc.Set.TryCast<ICallable>();
-                setter.Call(this, new[] {value});
+                if (!(desc.Set is ICallable setter))
+                {
+                    return false;
+                }
+                setter.Call(receiver, new[] {value});
             }
             else
             {
                 var newDesc = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
-                DefineOwnProperty(propertyName, newDesc, throwOnError);
+                return DefineOwnProperty(propertyName, newDesc);
             }
+
+            return true;
         }
 
-        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc)
         {
             if (_func is ScriptFunctionInstance scriptFunctionInstance && scriptFunctionInstance._function._hasRestParameter)
             {
                 // immutable
-                return false;
+                return true;
             }
 
             EnsureInitialized();
@@ -177,32 +176,29 @@ namespace Jint.Native.Argument
             {
                 var map = ParameterMap;
                 var isMapped = map.GetOwnProperty(propertyName);
-                var allowed = base.DefineOwnProperty(propertyName, desc, false);
+                var allowed = base.DefineOwnProperty(propertyName, desc);
                 if (!allowed)
                 {
-                    if (throwOnError)
-                    {
-                        ExceptionHelper.ThrowTypeError(Engine);
-                    }
+                    return false;
                 }
 
                 if (isMapped != PropertyDescriptor.Undefined)
                 {
                     if (desc.IsAccessorDescriptor())
                     {
-                        map.Delete(propertyName, false);
+                        map.Delete(propertyName);
                     }
                     else
                     {
                         var descValue = desc.Value;
                         if (!ReferenceEquals(descValue, null) && !descValue.IsUndefined())
                         {
-                            map.Put(propertyName, descValue, throwOnError);
+                            map.Set(propertyName, descValue, false);
                         }
 
                         if (desc.WritableSet && !desc.Writable)
                         {
-                            map.Delete(propertyName, false);
+                            map.Delete(propertyName);
                         }
                     }
                 }
@@ -210,10 +206,10 @@ namespace Jint.Native.Argument
                 return true;
             }
 
-            return base.DefineOwnProperty(propertyName, desc, throwOnError);
+            return base.DefineOwnProperty(propertyName, desc);
         }
 
-        public override bool Delete(in Key propertyName, bool throwOnError)
+        public override bool Delete(in Key propertyName)
         {
             EnsureInitialized();
 
@@ -221,16 +217,16 @@ namespace Jint.Native.Argument
             {
                 var map = ParameterMap;
                 var isMapped = map.GetOwnProperty(propertyName);
-                var result = base.Delete(propertyName, throwOnError);
+                var result = base.Delete(propertyName);
                 if (result && isMapped != PropertyDescriptor.Undefined)
                 {
-                    map.Delete(propertyName, false);
+                    map.Delete(propertyName);
                 }
 
                 return result;
             }
 
-            return base.Delete(propertyName, throwOnError);
+            return base.Delete(propertyName);
         }
 
         internal void PersistArguments()

@@ -22,16 +22,15 @@ namespace Jint.Native.Iterator
         public static IteratorConstructor CreateIteratorConstructor(Engine engine)
         {
             var obj = new IteratorConstructor(engine);
-            obj.Extensible = true;
 
             // The value of the [[Prototype]] internal property of the Map constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
+            obj._prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, obj);
 
             obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
 
             // The initial value of Map.prototype is the Map prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
@@ -42,7 +41,7 @@ namespace Jint.Native.Iterator
             return Construct(arguments);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             return Construct(Enumerable.Empty<JsValue>());
         }
@@ -51,7 +50,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance(Engine, enumerable)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = PrototypeObject
             };
 
             return instance;
@@ -61,7 +60,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.ListIterator(Engine, enumerable)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = PrototypeObject
             };
 
             return instance;
@@ -71,7 +70,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.ArrayLikeIterator(Engine, array)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = PrototypeObject
             };
 
             return instance;
@@ -81,7 +80,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.MapIterator(Engine, map)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = PrototypeObject
             };
 
             return instance;
@@ -91,7 +90,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.SetIterator(Engine, set)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = PrototypeObject
             };
 
             return instance;
@@ -101,7 +100,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.SetEntryIterator(Engine, set)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = PrototypeObject
             };
 
             return instance;
@@ -111,7 +110,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.ArrayLikeKeyIterator(Engine, array)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = PrototypeObject
             };
 
             return instance;
@@ -121,7 +120,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.ArrayLikeValueIterator(Engine, array)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = PrototypeObject
             };
 
             return instance;
@@ -131,7 +130,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.StringIterator(Engine, str)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = PrototypeObject
             };
 
             return instance;

@@ -26,16 +26,16 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private class ObjectProperty
         {
-            private readonly Key _name;
+            private readonly Key _key;
             internal readonly Property _value;
 
-            public ObjectProperty(in Key propName, Property property)
+            public ObjectProperty(in Key key, Property property)
             {
-                _name = propName;
+                _key = key;
                 _value = property;
             }
 
-            public ref readonly Key Name => ref _name;
+            public ref readonly Key Key => ref _key;
         }
 
         public JintObjectExpression(Engine engine, ObjectExpression expression) : base(engine, expression)
@@ -60,10 +60,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (property.Key is Literal literal)
                 {
-                    propName = literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
+                    propName = EsprimaExtensions.LiteralKeyToString(literal);
                 }
 
-                if (property.Key is Esprima.Ast.Identifier identifier)
+                if (!property.Computed && property.Key is Identifier identifier)
                 {
                     propName = identifier.Name;
                 }
@@ -106,7 +106,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var objectProperty = _properties[i];
                 var valueExpression = _valueExpressions[i];
                 var propValue = valueExpression.GetValue();
-                properties[objectProperty.Name] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+                properties[objectProperty.Key] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
             obj._properties = properties;
@@ -115,16 +115,16 @@ namespace Jint.Runtime.Interpreter.Expressions
                                                 
         private object BuildObjectNormal()
         {
-            var obj = _engine.Object.Construct(System.Math.Max(2, _properties.Length));
+            var obj = _engine.Object.Construct(Math.Max(2, _properties.Length));
             bool isStrictModeCode = StrictModeScope.IsStrictModeCode;
 
             for (var i = 0; i < _properties.Length; i++)
             {
                 var objectProperty = _properties[i];
                 var property = objectProperty._value;
-                var propName = !string.IsNullOrEmpty(objectProperty.Name)
-                    ? objectProperty.Name
-                    : (Key) objectProperty._value.Key.GetKey(_engine);
+                var propName = objectProperty.Key.Name.Length > 0
+                    ? objectProperty.Key
+                    : property.GetKey(_engine);
 
                 PropertyDescriptor propDesc;
 
@@ -135,7 +135,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (expr._expression.IsFunctionWithName())
                     {
                         var functionInstance = (FunctionInstance) propValue;
-                        functionInstance.SetFunctionName(objectProperty.Name);
+                        functionInstance.SetFunctionName(propName);
                     }
                     propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
                 }
@@ -149,8 +149,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                         _engine.ExecutionContext.LexicalEnvironment,
                         isStrictModeCode
                     );
-                    functionInstance.SetFunctionName(objectProperty.Name);
-                    functionInstance._prototype = null;
+                    functionInstance.SetFunctionName(propName);
+                    functionInstance._prototypeDescriptor = null;
 
                     propDesc = new GetSetPropertyDescriptor(
                         get: property.Kind == PropertyKind.Get ? functionInstance : null,
@@ -162,7 +162,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return ExceptionHelper.ThrowArgumentOutOfRangeException<object>();
                 }
 
-                obj.DefineOwnProperty(propName, propDesc, false);
+                obj.DefineOwnProperty(propName, propDesc);
             }
 
             return obj;

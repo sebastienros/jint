@@ -13,11 +13,16 @@ namespace Jint.Runtime.Interop
     public class DefaultTypeConverter : ITypeConverter
     {
         private readonly Engine _engine;
-        private static readonly ConcurrentDictionary<string, bool> _knownConversions = new ConcurrentDictionary<string, bool>();
 
-        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new Type[] { typeof(object), typeof(Type), typeof(IFormatProvider) });
-        private static readonly MethodInfo jsValueFromObject = typeof(JsValue).GetMethod("FromObject");
-        private static readonly MethodInfo jsValueToObject = typeof(JsValue).GetMethod("ToObject");
+#if NETSTANDARD
+        private static readonly ConcurrentDictionary<(Type Source, Type Target), bool> _knownConversions = new ConcurrentDictionary<(Type Source, Type Target), bool>();
+#else
+        private static readonly ConcurrentDictionary<string, bool> _knownConversions = new ConcurrentDictionary<string, bool>();
+#endif
+
+        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new [] { typeof(object), typeof(Type), typeof(IFormatProvider) });
+        private static readonly MethodInfo jsValueFromObject = typeof(JsValue).GetMethod(nameof(JsValue.FromObject));
+        private static readonly MethodInfo jsValueToObject = typeof(JsValue).GetMethod(nameof(JsValue.ToObject));
 
         public DefaultTypeConverter(Engine engine)
         {
@@ -262,7 +267,11 @@ namespace Jint.Runtime.Interop
 
         public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)
         {
+#if NETSTANDARD
+            var key = value == null ? (null, type) : (value.GetType(), type);
+#else
             var key = value == null ? $"Null->{type}" : $"{value.GetType()}->{type}";
+#endif
 
             var canConvert = _knownConversions.GetOrAdd(key, _ =>
             {

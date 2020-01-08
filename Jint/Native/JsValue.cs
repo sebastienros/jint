@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native.Array;
 using Jint.Native.Date;
+using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
@@ -55,8 +56,7 @@ namespace Jint.Native
         }
 
         [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsArray()
+        public virtual bool IsArray()
         {
             return this is ArrayInstance;
         }
@@ -182,7 +182,7 @@ namespace Jint.Native
         {
             var objectInstance = TypeConverter.ToObject(engine, this);
 
-            if (!objectInstance.TryGetValue(GlobalSymbolRegistry.Iterator._value, out var value)
+            if (!objectInstance.TryGetValue(GlobalSymbolRegistry.Iterator, out var value)
                 || !(value is ICallable callable))
             {
                 iterator = null;
@@ -282,6 +282,8 @@ namespace Jint.Native
             get => _type == InternalTypes.Integer ? Types.Number : (Types) _type;
         }
 
+        internal virtual bool IsConstructor => this is IConstructor;
+
         /// <summary>
         /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance
         /// </summary>
@@ -369,8 +371,7 @@ namespace Jint.Native
             var arrayLength = (uint) array.Length;
 
             var jsArray = new ArrayInstance(e, arrayLength);
-            jsArray.Prototype = e.Array.PrototypeObject;
-            jsArray.Extensible = true;
+            jsArray._prototype = e.Array.PrototypeObject;
 
             for (uint i = 0; i < arrayLength; ++i)
             {
@@ -427,6 +428,11 @@ namespace Jint.Native
             argument = completion.Value;
 
             return false;
+        }
+
+        internal virtual Key ToPropertyKey()
+        {
+            return new Key(ToString());
         }
 
         public override string ToString()
@@ -578,6 +584,14 @@ namespace Jint.Native
                         break;
                 }
             }
+        }
+
+        /// <summary>
+        /// Some values need to be cloned in order to be assigned, like ConcatenatedString.
+        /// </summary>
+        internal virtual JsValue Clone()
+        {
+            return this;
         }
     }
 }

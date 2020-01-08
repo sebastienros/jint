@@ -11,7 +11,7 @@ namespace Jint.Native.Function
             : base(engine, _functionName, System.ArrayExt.Empty<string>(), engine.GlobalEnvironment, false)
         {
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
-            Extensible = false;
+            PreventExtensions();
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

@@ -51,6 +51,13 @@ namespace Jint.Runtime.References
             return _baseValue._type == InternalTypes.Undefined;
         }
 
+        public bool IsSuperReference()
+        {
+            // TODO super not implemented
+            return false;
+        }
+        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPropertyReference()
         {

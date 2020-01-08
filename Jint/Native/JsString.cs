@@ -19,6 +19,8 @@ namespace Jint.Native
         internal static readonly JsString BooleanString = new JsString("boolean");
         internal static readonly JsString StringString = new JsString("string");
         internal static readonly JsString NumberString = new JsString("number");
+        internal static readonly JsString LengthString = new JsString("length");
+        internal static readonly JsString DefaultString = new JsString("default");
 
         internal string _value;
 
@@ -96,6 +98,11 @@ namespace Jint.Native
             }
 
             return new JsString(value);
+        }
+
+        internal override Key ToPropertyKey()
+        {
+            return new Key(_value);
         }
 
         public override string ToString()
@@ -225,6 +232,11 @@ namespace Jint.Native
                 }
 
                 return base.Equals(other);
+            }
+
+            internal override JsValue Clone()
+            {
+                return ToString();
             }
         }
     }

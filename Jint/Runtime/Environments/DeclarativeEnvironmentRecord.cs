@@ -126,9 +126,35 @@ namespace Jint.Runtime.Environments
         }
 
         /// <inheritdoc />
-        public override string[] GetAllBindingNames()
+        public override Key[] GetAllBindingNames()
         {
-            var keys = new string[_dictionary.Count];
+            int size = _set ? 1 : 0;
+            if (!ReferenceEquals(_argumentsBinding.Value, null))
+            {
+                size += 1;
+            }
+
+            if (_dictionary != null)
+            {
+                size += _dictionary.Count;
+            }
+
+            var keys = size > 0 ? new Key[size] : ArrayExt.Empty<Key>();
+            int n = 0;
+            if (_set)
+            {
+                keys[n++] = _key;
+            }
+
+            if (!ReferenceEquals(_argumentsBinding.Value, null))
+            {
+                keys[n++] = KnownKeys.Arguments;
+            }
+
+            if (_dictionary == null)
+            {
+                return keys;
+            }
 
             var n = 0;
             foreach (var entry in _dictionary)
@@ -255,16 +281,16 @@ namespace Jint.Runtime.Environments
                 {
                     if (property.Key is Identifier propertyIdentifier)
                     {
-                        argument = argumentObject.Get(propertyIdentifier.Name);
+                        argument = argumentObject.Get(propertyIdentifier.Name, this);
                     }
                     else if (property.Key is Literal propertyLiteral)
                     {
-                        argument = argumentObject.Get(propertyLiteral.Raw);
+                        argument = argumentObject.Get(propertyLiteral.Raw, this);
                     }
                     else if (property.Key is CallExpression callExpression)
                     {
                         var jintCallExpression = JintExpression.Build(_engine, callExpression);
-                        argument = argumentObject.Get(jintCallExpression.GetValue().AsString());
+                        argument = argumentObject.Get(jintCallExpression.GetValue().AsString(), this);
                     }
 
                     jsValues[0] = argument;

@@ -13,14 +13,13 @@ namespace Jint.Native.Json
         private JsonInstance(Engine engine)
             : base(engine, objectClass: "JSON")
         {
-            Extensible = true;
         }
 
         public static JsonInstance CreateJsonObject(Engine engine)
         {
             var json = new JsonInstance(engine)
             {
-                Prototype = engine.Object.PrototypeObject
+                _prototype = engine.Object.PrototypeObject
             };
             return json;
         }
@@ -36,7 +35,7 @@ namespace Jint.Native.Json
 
         private JsValue AbstractWalkOperation(ObjectInstance thisObject, string prop)
         {
-            JsValue value = thisObject.Get(prop);
+            JsValue value = thisObject.Get(prop, thisObject);
             if (value.IsObject())
             {
                 var valueAsObject = value.AsObject();
@@ -50,7 +49,7 @@ namespace Jint.Native.Json
                         var newValue = AbstractWalkOperation(valAsArray, TypeConverter.ToString(i));
                         if (newValue.IsUndefined())
                         {
-                            valAsArray.Delete(TypeConverter.ToString(i), false);
+                            valAsArray.Delete(TypeConverter.ToString(i));
                         }
                         else
                         {
@@ -61,9 +60,7 @@ namespace Jint.Native.Json
                                 (
                                     value: newValue,
                                     PropertyFlag.ConfigurableEnumerableWritable
-                                ),
-                                false
-                            );
+                                ));
                         }
                         i = i + 1;
                     }
@@ -76,7 +73,7 @@ namespace Jint.Native.Json
                         var newElement = AbstractWalkOperation(valueAsObject, p.Key);
                         if (newElement.IsUndefined())
                         {
-                            valueAsObject.Delete(p.Key, false);
+                            valueAsObject.Delete(p.Key);
                         }
                         else
                         {
@@ -86,9 +83,7 @@ namespace Jint.Native.Json
                                 (
                                     value: newElement,
                                     PropertyFlag.ConfigurableEnumerableWritable
-                                ),
-                                false
-                            );
+                                ));
                         }
                     }
                 }
@@ -109,9 +104,7 @@ namespace Jint.Native.Json
                     new PropertyDescriptor(
                         value: res,
                         PropertyFlag.ConfigurableEnumerableWritable
-                    ),
-                    false
-                );
+                    ));
                 return AbstractWalkOperation(revRes, "");
             }
             return res;

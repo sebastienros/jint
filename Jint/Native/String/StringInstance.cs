@@ -71,11 +71,11 @@ namespace Jint.Native.String
             return new PropertyDescriptor(resultStr, PropertyFlag.OnlyEnumerable);
         }
 
-        public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
+        public override IEnumerable<KeyValuePair<Key, PropertyDescriptor>> GetOwnProperties()
         {
             if (_length != null)
             {
-                yield return new KeyValuePair<string, PropertyDescriptor>(KnownKeys.Length, _length);
+                yield return new KeyValuePair<Key, PropertyDescriptor>(KnownKeys.Length, _length);
             }
 
             foreach (var entry in base.GetOwnProperties())

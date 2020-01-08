@@ -1,11 +1,9 @@
-﻿using System;
-
-namespace Jint.Runtime
+﻿namespace Jint.Runtime
 {
     /// <summary>
     /// Workaround for situation where engine is not easily accessible.
     /// </summary>
-    internal sealed class TypeErrorException : Exception
+    internal sealed class TypeErrorException : JintException
     {
         public TypeErrorException(string message) : base(message)
         {

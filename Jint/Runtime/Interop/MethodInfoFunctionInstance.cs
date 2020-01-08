@@ -14,7 +14,7 @@ namespace Jint.Runtime.Interop
             : base(engine, "Function", null, null, false)
         {
             _methods = methods;
-            Prototype = engine.Function.PrototypeObject;
+            _prototype = engine.Function.PrototypeObject;
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -53,11 +53,11 @@ namespace Jint.Runtime.Interop
                         // Handle specific case of F(params JsValue[])
 
                         var arrayInstance = arguments[i].AsArray();
-                        var len = TypeConverter.ToInt32(arrayInstance.Get("length"));
+                        var len = TypeConverter.ToInt32(arrayInstance.Get("length", this));
                         var result = new JsValue[len];
                         for (uint k = 0; k < len; k++)
                         {
-                            result[k] = arrayInstance.TryGetValue(k, out var value) ? value : JsValue.Undefined;
+                            result[k] = arrayInstance.TryGetValue(k, out var value) ? value : Undefined;
                         }
                         parameters[i] = result;
                     }

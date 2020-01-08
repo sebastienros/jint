@@ -113,7 +113,7 @@ namespace Jint.Native.Iterator
 
         public class ArrayLikeIterator : IteratorInstance
         {
-            private readonly ArrayPrototype.ArrayOperations _array;
+            private readonly ArrayOperations _array;
             private uint? _end;
             private uint _position;
 
@@ -125,7 +125,7 @@ namespace Jint.Native.Iterator
                     return;
                 }
 
-                _array = ArrayPrototype.ArrayOperations.For(objectInstance);
+                _array = ArrayOperations.For(objectInstance);
                 _position = 0;
             }
 
@@ -222,13 +222,13 @@ namespace Jint.Native.Iterator
 
         public class ArrayLikeKeyIterator : IteratorInstance
         {
-            private readonly ArrayPrototype.ArrayOperations _operations;
+            private readonly ArrayOperations _operations;
             private uint _position;
             private bool _closed;
 
             public ArrayLikeKeyIterator(Engine engine, ObjectInstance objectInstance) : base(engine)
             {
-                _operations = ArrayPrototype.ArrayOperations.For(objectInstance);
+                _operations = ArrayOperations.For(objectInstance);
                 _position = 0;
             }
 
@@ -247,13 +247,13 @@ namespace Jint.Native.Iterator
 
         public class ArrayLikeValueIterator : IteratorInstance
         {
-            private readonly ArrayPrototype.ArrayOperations _operations;
+            private readonly ArrayOperations _operations;
             private uint _position;
             private bool _closed;
 
             public ArrayLikeValueIterator(Engine engine, ObjectInstance objectInstance) : base(engine)
             {
-                _operations = ArrayPrototype.ArrayOperations.For(objectInstance);
+                _operations = ArrayOperations.For(objectInstance);
                 _position = 0;
             }
 
@@ -279,7 +279,7 @@ namespace Jint.Native.Iterator
             public ObjectWrapper(ObjectInstance target)
             {
                 _target = target;
-                _callable = (ICallable) target.Get("next");
+                _callable = (ICallable) target.Get("next", target);
             }
 
             public ObjectInstance Next()

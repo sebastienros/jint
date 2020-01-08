@@ -439,7 +439,10 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void DateConstructorWithInvalidParameters()
         {
-            Assert.Throws<JavaScriptException>(() => RunTest("new Date (1,  Infinity);"));
+            RunTest(@"
+                var dt = new Date (1,  Infinity);
+                assert(isNaN(dt.getTime()));
+            ");
         }
 
         [Fact]
@@ -447,14 +450,6 @@ namespace Jint.Tests.Runtime
         {
             RunTest(@"
                 assert(Number(new Date(0)) === 0);
-            ");
-        }
-
-        [Fact]
-        public void DatePrimitiveValueShouldBeNaN()
-        {
-            RunTest(@"
-                assert(isNaN(Date.prototype.valueOf()));
             ");
         }
 
@@ -559,7 +554,7 @@ namespace Jint.Tests.Runtime
                     str += z;
                 }
 
-                assert(str == 'xystrz');
+                equal('xystrz', str);
             ");
         }
 
@@ -988,7 +983,7 @@ namespace Jint.Tests.Runtime
             ");
 
             var obj = _engine.GetValue("obj").AsObject();
-            var getFoo = obj.Get("getFoo");
+            var getFoo = obj.Get("getFoo", obj);
 
             Assert.Equal("foo is 5, bar is 7", _engine.Invoke(getFoo, obj, new object[] { 7 }).AsString());
         }
@@ -1001,7 +996,7 @@ namespace Jint.Tests.Runtime
             ");
 
             var obj = _engine.GetValue("obj").AsObject();
-            var foo = obj.Get("foo");
+            var foo = obj.Get("foo", obj);
 
             Assert.Throws<ArgumentException>(() => _engine.Invoke(foo, obj, new object[] { }));
         }
@@ -1237,10 +1232,10 @@ namespace Jint.Tests.Runtime
             Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
 
             var epochToLocalString = engine.Execute("var d = new Date(0); d.toString();").GetCompletionValue().AsString();
-            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+00:11", epochToLocalString);
+            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+0011", epochToLocalString);
 
             var epochToUTCString = engine.Execute("var d = new Date(0); d.toUTCString();").GetCompletionValue().AsString();
-            Assert.Equal("Thu Jan 01 1970 00:00:00 GMT", epochToUTCString);
+            Assert.Equal("Thu, 01 Jan 1970 00:00:00 GMT", epochToUTCString);
         }
 
         [Theory]
@@ -1344,7 +1339,8 @@ namespace Jint.Tests.Runtime
             engine.Execute(
                 string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
 
-            var expected = testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz", CultureInfo.InvariantCulture);
+            var expected = testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+            expected += testDateTimeOffset.ToString(" 'GMT'zzz", CultureInfo.InvariantCulture).Replace(":", "");
             var actual = engine.Execute("d.toString();").GetCompletionValue().ToString();
 
             Assert.Equal(expected, actual);
@@ -1901,9 +1897,9 @@ var prep = function (fn) { fn(); };
             engine.Execute(@"
                     var d = new Date(1433160000000);
 
-                    equal('Mon Jun 01 2015 05:00:00 GMT-07:00', d.toString());
+                    equal('Mon Jun 01 2015 05:00:00 GMT-0700', d.toString());
                     equal('Mon Jun 01 2015', d.toDateString());
-                    equal('05:00:00 GMT-07:00', d.toTimeString());
+                    equal('05:00:00 GMT-0700', d.toTimeString());
                     equal('lundi 1 juin 2015 05:00:00', d.toLocaleString());
                     equal('lundi 1 juin 2015', d.toLocaleDateString());
                     equal('05:00:00', d.toLocaleTimeString());
@@ -1923,7 +1919,7 @@ var prep = function (fn) { fn(); };
             engine.Execute(@"
                     var d = new Date(2016, 8, 1);
 
-                    equal('Thu Sep 01 2016 00:00:00 GMT-04:00', d.toString());
+                    equal('Thu Sep 01 2016 00:00:00 GMT-0400', d.toString());
                     equal('Thu Sep 01 2016', d.toDateString());
             ");
         }

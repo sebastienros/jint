@@ -1,5 +1,17 @@
 [
   {
+    "source": "built-ins/Date/subclassing.js",
+    "reason": "subclassing not implemented"
+  },
+  {
+    "source": "built-ins/Date/parse/time-value-maximum-range.js",
+    "reason": "parsing of large/small years not implemented in .NET (-271821, +271821)"
+  },
+  {
+    "source": "built-ins/Proxy/enumerate/removed-does-not-trigger.js",
+    "reason": "for-of not implemented"
+  },
+  {
     "source": "built-ins/Array/prototype/concat/create-ctor-non-object.js",
     "reason": "Constructor functions not implemented"
   },
@@ -180,14 +192,6 @@
     "reason": "WeakSet not implemented"
   },
   {
-    "source": "built-ins/Array/prototype/reverse/length-exceeding-integer-limit-with-proxy.js",
-    "reason": "proxies not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/slice/length-exceeding-integer-limit-proxied-array.js",
-    "reason": "proxies not implemented"
-  },
-  {
     "source": "built-ins/Array/prototype/splice/create-non-array-invalid-len.js",
     "reason": "requires constructor functions"
   },
@@ -286,6 +290,26 @@
     "reason": "code point iteration not implemented"
   },
   {
+    "source": "built-ins/Date/prototype/toTimeString/format.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Date/prototype/toString/format.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Date/parse/zero.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Date/prototype/toUTCString/format.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Date/prototype/toDateString/format.js",
+    "reason": "let/const not implemented"
+  },
+  {
     "source": "language/statements/for-in/head-const-bound-names-fordecl-tdz.js",
     "reason": "let/const not implemented"
   },
@@ -334,14 +358,6 @@
     "reason": "destructing not implemented"
   },
   {
-    "source": "language/rest-parameters/arrow-function.js",
-    "reason": "Github issue #600 - rest parameters hang when not set"
-  },
-  {
-    "source": "language/rest-parameters/object-pattern.js",
-    "reason": "destructing not implemented"
-  },
-  {
     "source": "built-ins/Math/pow/int32_min-exponent.js",
     "reason": "const not implemented"
   },
@@ -350,16 +366,8 @@
     "reason": "Line feed problems (git, windows, linux)"
   },
   {
-    "source": "built-ins/Number/prototype/toPrecision/range.js",
-    "reason": "Github issue #599 - dtoa function not precise enough"
-  },
-  {
     "source": "built-ins/Number/prototype/toFixed/range.js",
-    "reason": "Github issue #599 - dtoa function not precise enough"
-  },
-  {
-    "source": "built-ins/Number/prototype/toExponential/range.js",
-    "reason": "Github issue #599 - dtoa function not precise enough"
+    "reason": "100 fraction digits is not supported due to .NET format specifier limitation"
   },
   {
     "source": "language/types/number/8.5.1.js",
@@ -584,41 +592,20 @@
 
   {
     "source": "language/expressions/object/method.js",
-    "reason": "setPrototypeOf not implemented"
+    "reason": "super not implemented"
   },
   {
     "source": "language/expressions/object/setter-super-prop.js",
-    "reason": "setPrototypeOf not implemented"
+    "reason": "super not implemented"
   },
   {
     "source": "language/expressions/object/getter-super-prop.js",
-    "reason": "setPrototypeOf not implemented"
+    "reason": "super not implemented"
   },
 
 
   {
     "source": "language/expressions/object/fn-name-arrow.js",
-    "reason": "symbols not identifiable in property name"
-  },
-  {
-    "source": "language/expressions/object/fn-name-cover.js",
-    "reason": "symbols not identifiable in property name"
-  },
-  {
-    "source": "language/expressions/object/fn-name-fn.js",
-    "reason": "symbols not identifiable in property name"
-  },
-  {
-    "source": "language/expressions/object/method-definition/fn-name-fn.js",
-    "reason": "symbols not identifiable in property name"
-  },
-  {
-    "source": "language/expressions/object/method-definition/name-name-prop-symbol.js",
-    "reason": "symbols not identifiable in property name"
-  },
-
-
-  {
     "source": "language/expressions/arrow-function/scope-paramsbody-var-open.js",
     "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
   },

@@ -26,9 +26,8 @@ namespace Jint.Native.Number
         {
             var obj = new NumberPrototype(engine)
             {
-                Prototype = engine.Object.PrototypeObject,
+                _prototype = engine.Object.PrototypeObject,
                 NumberData = JsNumber.Create(0),
-                Extensible = true,
                 _numberConstructor = numberConstructor
             };
 

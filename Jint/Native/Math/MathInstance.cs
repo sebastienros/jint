@@ -20,8 +20,7 @@ namespace Jint.Native.Math
         {
             var math = new MathInstance(engine)
             {
-                Extensible = true,
-                Prototype = engine.Object.PrototypeObject
+                _prototype = engine.Object.PrototypeObject
             };
 
             return math;
@@ -365,6 +364,13 @@ namespace Jint.Native.Math
                 return JsNumber.DoubleNegativeInfinity;
             }
 
+#if NETFRAMEWORK
+            if (x < 0 && x > -1)
+            {
+                return JsNumber.NegativeZero;
+            }
+#endif
+            
             return System.Math.Ceiling(x);
         }
 

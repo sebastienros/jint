@@ -69,7 +69,7 @@ namespace Jint.Runtime.Environments
         /// Returns an array of all the defined binding names
         /// </summary>
         /// <returns>The array of all defined bindings</returns>
-        public abstract string[] GetAllBindingNames();
+        public abstract Key[] GetAllBindingNames();
         
         public override object ToObject()
         {

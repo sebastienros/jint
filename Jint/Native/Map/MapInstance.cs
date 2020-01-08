@@ -15,45 +15,6 @@ namespace Jint.Native.Map
             _map = new OrderedDictionary<JsValue, JsValue>();
         }
 
-        /// Implementation from ObjectInstance official specs as the one
-        /// in ObjectInstance is optimized for the general case and wouldn't work
-        /// for arrays
-        public override void Put(in Key propertyName, JsValue value, bool throwOnError)
-        {
-            if (!CanPut(propertyName))
-            {
-                if (throwOnError)
-                {
-                    ExceptionHelper.ThrowTypeError(Engine);
-                }
-
-                return;
-            }
-
-            var ownDesc = GetOwnProperty(propertyName);
-
-            if (ownDesc.IsDataDescriptor())
-            {
-                var valueDesc = new PropertyDescriptor(value, PropertyFlag.None);
-                DefineOwnProperty(propertyName, valueDesc, throwOnError);
-                return;
-            }
-
-            // property is an accessor or inherited
-            var desc = GetProperty(propertyName);
-
-            if (desc.IsAccessorDescriptor())
-            {
-                var setter = desc.Set.TryCast<ICallable>();
-                setter.Call(this, new[] {value});
-            }
-            else
-            {
-                var newDesc = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
-                DefineOwnProperty(propertyName, newDesc, throwOnError);
-            }
-        }
-
         public override PropertyDescriptor GetOwnProperty(in Key propertyName)
         {
             if (propertyName == KnownKeys.Size)

@@ -18,12 +18,11 @@ namespace Jint.Runtime.Interop
             Func<JsValue, JsValue[], JsValue> func,
             int length = 0,
             PropertyFlag lengthFlags = PropertyFlag.AllForbidden)
-            : base(engine, new JsString(name), strict: false)
+            : base(engine, !string.IsNullOrWhiteSpace(name) ? new JsString(name) : null, strict: false)
         {
             _func = func;
 
-            Prototype = engine.Function.PrototypeObject;
-            Extensible = true;
+            _prototype = engine.Function.PrototypeObject;
 
             _length = lengthFlags == PropertyFlag.AllForbidden
                 ? PropertyDescriptor.AllForbiddenDescriptor.ForNumber(length)

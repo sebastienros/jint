@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -34,23 +35,21 @@ namespace Jint.Native.Function
         {
             _function = function;
 
-            Extensible = true;
-            Prototype = _engine.Function.PrototypeObject;
+            _prototype = _engine.Function.PrototypeObject;
 
             _length = new PropertyDescriptor(JsNumber.Create(function._length), PropertyFlag.Configurable);
 
             var proto = new ObjectInstanceWithConstructor(engine, this)
             {
-                Extensible = true,
-                Prototype = _engine.Object.PrototypeObject
+                _prototype = _engine.Object.PrototypeObject
             };
 
-            _prototype = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
+            _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
             if (strict)
             {
-                DefineOwnProperty(KnownKeys.Caller, engine._getSetThrower, false);
-                DefineOwnProperty(KnownKeys.Arguments, engine._getSetThrower, false);
+                DefineOwnProperty(KnownKeys.Caller, engine._getSetThrower);
+                DefineOwnProperty(KnownKeys.Arguments, engine._getSetThrower);
             }
         }
 
@@ -131,25 +130,39 @@ namespace Jint.Native.Function
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.2
         /// </summary>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var proto = Get(KnownKeys.Prototype).TryCast<ObjectInstance>();
+            var thisArgument = OrdinaryCreateFromConstructor(TypeConverter.ToObject(_engine, newTarget), _engine.Object.PrototypeObject);
 
-            var obj = new ObjectInstance(_engine)
-            {
-                Extensible = true,
-                Prototype = proto ?? _engine.Object.PrototypeObject
-            };
-
-            var result = Call(obj, arguments).TryCast<ObjectInstance>();
+            var result = Call(thisArgument, arguments).TryCast<ObjectInstance>();
             if (!ReferenceEquals(result, null))
             {
                 return result;
             }
 
+            return thisArgument;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private ObjectInstance OrdinaryCreateFromConstructor(ObjectInstance constructor, ObjectInstance intrinsicDefaultProto)
+        {
+            var proto = GetPrototypeFromConstructor(constructor, intrinsicDefaultProto);
+
+            var obj = new ObjectInstance(_engine)
+            {
+                _prototype = proto
+            };
             return obj;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static ObjectInstance GetPrototypeFromConstructor(ObjectInstance constructor, ObjectInstance intrinsicDefaultProto)
+        {
+            var proto = constructor.Get(KnownKeys.Prototype, constructor) as ObjectInstance;
+            // If Type(proto) is not Object, then
+            //    Let realm be ? GetFunctionRealm(constructor).
+            //    Set proto to realm's intrinsic object named intrinsicDefaultProto.
+            return proto ?? intrinsicDefaultProto;
         }
 
         private class ObjectInstanceWithConstructor : ObjectInstance
@@ -161,11 +174,11 @@ namespace Jint.Native.Function
                 _constructor = new PropertyDescriptor(thisObj, PropertyFlag.NonEnumerable);
             }
 
-            public override IEnumerable<KeyValuePair<string, PropertyDescriptor>> GetOwnProperties()
+            public override IEnumerable<KeyValuePair<Key, PropertyDescriptor>> GetOwnProperties()
             {
                 if (_constructor != null)
                 {
-                    yield return new KeyValuePair<string, PropertyDescriptor>(KnownKeys.Constructor, _constructor);
+                    yield return new KeyValuePair<Key, PropertyDescriptor>(KnownKeys.Constructor, _constructor);
                 }
 
                 foreach (var entry in base.GetOwnProperties())

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using Jint.Runtime;
 
@@ -29,6 +28,7 @@ namespace Jint.Native
         private static readonly JsNumber IntegerNegativeOne = new JsNumber(-1);
         internal static readonly JsNumber NegativeZero = new JsNumber(-0d);
         internal static readonly JsNumber PositiveZero = new JsNumber(+0);
+        internal static readonly JsNumber One = new JsNumber(1);
 
         internal static readonly JsNumber PI = new JsNumber(System.Math.PI);
 
@@ -164,7 +164,7 @@ namespace Jint.Native
 
         public override string ToString()
         {
-            return _value.ToString(CultureInfo.InvariantCulture);
+            return EsprimaExtensions.DoubleToString(_value);
         }
 
         public override bool Equals(JsValue obj)

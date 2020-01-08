@@ -24,9 +24,8 @@ namespace Jint.Native.Function
         {
             var obj = new FunctionPrototype(engine)
             {
-                Extensible = true,
                 // The value of the [[Prototype]] internal property of the Function prototype object is the standard built-in Object prototype object
-                Prototype = engine.Object.PrototypeObject,
+                _prototype = engine.Object.PrototypeObject,
                 _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero
             };
 
@@ -53,19 +52,20 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowTypeError(Engine);
             });
 
+            var func = thisObj as IConstructor;
+            
             var thisArg = arguments.At(0);
             var f = new BindFunctionInstance(Engine)
             {
-                Extensible = true,
                 TargetFunction = thisObj,
                 BoundThis = thisArg,
                 BoundArgs = arguments.Skip(1),
-                Prototype = Engine.Function.PrototypeObject
+                _prototype = Engine.Function.PrototypeObject
             };
 
             if (target is FunctionInstance functionInstance)
             {
-                var l = TypeConverter.ToNumber(functionInstance.Get("length")) - (arguments.Length - 1);
+                var l = TypeConverter.ToNumber(functionInstance.Get("length", functionInstance)) - (arguments.Length - 1);
                 f.SetOwnProperty(KnownKeys.Length, new PropertyDescriptor(System.Math.Max(l, 0), PropertyFlag.AllForbidden));
             }
             else
@@ -73,8 +73,8 @@ namespace Jint.Native.Function
                 f.SetOwnProperty(KnownKeys.Length, PropertyDescriptor.AllForbiddenDescriptor.NumberZero);
             }
 
-            f.DefineOwnProperty(KnownKeys.Caller, _engine._getSetThrower, false);
-            f.DefineOwnProperty(KnownKeys.Arguments, _engine._getSetThrower, false);
+            f.DefineOwnProperty(KnownKeys.Caller, _engine._getSetThrower);
+            f.DefineOwnProperty(KnownKeys.Arguments, _engine._getSetThrower);
 
             return f;
         }
@@ -89,7 +89,7 @@ namespace Jint.Native.Function
             return "function() {{ ... }}";
         }
 
-        private JsValue Apply(JsValue thisObject, JsValue[] arguments)
+        internal JsValue Apply(JsValue thisObject, JsValue[] arguments)
         {
             var func = thisObject as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(Engine);
             var thisArg = arguments.At(0);
@@ -100,13 +100,22 @@ namespace Jint.Native.Function
                 return func.Call(thisArg, Arguments.Empty);
             }
 
-            var argArrayObj = argArray as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
-            var operations = ArrayPrototype.ArrayOperations.For(argArrayObj);
-            var argList = operations.GetAll();
+            var argList = CreateListFromArrayLike(argArray);
 
             var result = func.Call(thisArg, argList);
 
             return result;
+        }
+
+        internal JsValue[] CreateListFromArrayLike(JsValue argArray, Types? elementTypes = null)
+        {
+            var argArrayObj = argArray as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine);
+            var operations = ArrayOperations.For(argArrayObj);
+            var allowedTypes = elementTypes ??
+                               Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.Object;
+            
+            var argList = operations.GetAll(allowedTypes);
+            return argList;
         }
 
         private JsValue CallImpl(JsValue thisObject, JsValue[] arguments)

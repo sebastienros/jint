@@ -100,7 +100,7 @@ function test2(arg) {
             var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
 
             var jsObject = engine.Object.Construct(Arguments.Empty);
-            jsObject.Put("NullField", JsValue.Null, true);
+            jsObject.Set("NullField", JsValue.Null);
 
             var script = @"
 this.is_nullfield_not_null = this.NullField !== null;
