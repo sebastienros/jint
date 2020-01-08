@@ -70,15 +70,10 @@ namespace Jint.Runtime.Environments
         public static LexicalEnvironment NewDeclarativeEnvironment(Engine engine, LexicalEnvironment outer = null)
         {
             var environment = new LexicalEnvironment(engine, null, null);
-            environment.Reset(outer);
-            return environment;
-        }
+            environment._record = new DeclarativeEnvironmentRecord(engine);
+            environment._outer = outer;
 
-        internal void Reset(LexicalEnvironment outer)
-        {
-            _record = _record ?? new DeclarativeEnvironmentRecord(_engine);
-            ((DeclarativeEnvironmentRecord) _record).Reset();
-            _outer = outer;
+            return environment;
         }
 
         public static LexicalEnvironment NewObjectEnvironment(Engine engine, ObjectInstance objectInstance, LexicalEnvironment outer, bool provideThis)
