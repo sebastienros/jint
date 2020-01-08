@@ -128,34 +128,7 @@ namespace Jint.Runtime.Environments
         /// <inheritdoc />
         public override Key[] GetAllBindingNames()
         {
-            int size = _set ? 1 : 0;
-            if (!ReferenceEquals(_argumentsBinding.Value, null))
-            {
-                size += 1;
-            }
-
-            if (_dictionary != null)
-            {
-                size += _dictionary.Count;
-            }
-
-            var keys = size > 0 ? new Key[size] : ArrayExt.Empty<Key>();
-            int n = 0;
-            if (_set)
-            {
-                keys[n++] = _key;
-            }
-
-            if (!ReferenceEquals(_argumentsBinding.Value, null))
-            {
-                keys[n++] = KnownKeys.Arguments;
-            }
-
-            if (_dictionary == null)
-            {
-                return keys;
-            }
-
+            var keys = new Key[_dictionary.Count];
             var n = 0;
             foreach (var entry in _dictionary)
             {
