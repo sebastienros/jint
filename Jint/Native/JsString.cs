@@ -233,6 +233,11 @@ namespace Jint.Native
 
                 return base.Equals(other);
             }
+
+            internal override JsValue Clone()
+            {
+                return ToString();
+            }
         }
     }
 }
