@@ -87,7 +87,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         var lhs = (Reference) declaration.Left.Evaluate();
                         lhs.AssertValid(_engine);
 
-                        var value = declaration.Init.GetValue();
+                        var value = declaration.Init.GetValue().Clone();
 
                         if (declaration.Init._expression.IsFunctionWithName())
                         {

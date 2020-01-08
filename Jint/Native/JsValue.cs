@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native.Array;
 using Jint.Native.Date;
+using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
@@ -583,6 +584,14 @@ namespace Jint.Native
                         break;
                 }
             }
+        }
+
+        /// <summary>
+        /// Some values need to be cloned in order to be assigned, like ConcatenatedString.
+        /// </summary>
+        internal virtual JsValue Clone()
+        {
+            return this;
         }
     }
 }
