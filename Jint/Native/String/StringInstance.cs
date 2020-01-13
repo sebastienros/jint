@@ -20,15 +20,9 @@ namespace Jint.Native.String
 
         public JsString PrimitiveValue { get; set; }
 
-        private static bool IsInt(double d)
+        private static bool IsInt32(double d)
         {
-            if (d >= long.MinValue && d <= long.MaxValue)
-            {
-                var l = (long) d;
-                return l >= int.MinValue && l <= int.MaxValue;
-            }
-
-            return false;
+            return d >= int.MinValue && d <= int.MaxValue && ((int) d) == d;
         }
 
         public override PropertyDescriptor GetOwnProperty(in Key propertyName)
@@ -54,21 +48,20 @@ namespace Jint.Native.String
                 return PropertyDescriptor.Undefined;
             }
 
-            var integer = TypeConverter.ToInteger(propertyName);
-            var str = PrimitiveValue;
-            var dIndex = integer;
-            if (!IsInt(dIndex))
-                return PropertyDescriptor.Undefined;
-
-            var index = (int) dIndex;
-            var len = str.AsStringWithoutTypeCheck().Length;
-            if (len <= index || index < 0)
+            var number = TypeConverter.ToNumber(propertyName.Name);
+            if (!IsInt32(number))
             {
                 return PropertyDescriptor.Undefined;
             }
 
-            var resultStr = TypeConverter.ToString(str.AsStringWithoutTypeCheck()[index]);
-            return new PropertyDescriptor(resultStr, PropertyFlag.OnlyEnumerable);
+            var index = (int) number;
+            var str = PrimitiveValue.AsStringWithoutTypeCheck();
+            if (index < 0 || str.Length <= index)
+            {
+                return PropertyDescriptor.Undefined;
+            }
+
+            return new PropertyDescriptor(str[index], PropertyFlag.OnlyEnumerable);
         }
 
         public override IEnumerable<KeyValuePair<Key, PropertyDescriptor>> GetOwnProperties()
