@@ -208,25 +208,18 @@ namespace Jint.Runtime
             }
         }
 
-        internal static bool CanBeIndex(string input)
+        internal static bool CanBeIndex(in Key input)
         {
-            if (string.IsNullOrEmpty(input))
+            if (input.Name.Length == 0)
             {
                 return false;
             }
 
-            char first = input[0];
-            if (first < 32 || (first > 57 && first != 73))
-            {
-                // does not start with space, +, -, number or I
-                return false;
-            }
-
-            // might be
-            return true;
+            var c = input.Name[0];
+            return char.IsDigit(c) || c == ' ' || c == '+' || c == '-' || c == 'I';
         }
 
-        private static double ToNumber(string input)
+        internal static double ToNumber(string input)
         {
             // eager checks to save time and trimming
             if (string.IsNullOrEmpty(input))

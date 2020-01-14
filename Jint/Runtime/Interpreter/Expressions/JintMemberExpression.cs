@@ -72,7 +72,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var propertyName = _determinedPropertyName.Name.Length > 0
                 ? _determinedPropertyName
-                : (Key) TypeConverter.ToPropertyKey(_propertyExpression.GetValue());
+                : TypeConverter.ToPropertyKey(_propertyExpression.GetValue());
 
             TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, baseReferenceName);
 

@@ -2786,6 +2786,21 @@ x.test = {
             Assert.Throws<JavaScriptException>(() => engine.Execute("c.Name"));
         }
 
+        [Fact]
+        public void ShouldAllowDollarPrefixForProperties()
+        {
+            _engine.SetValue("str", "Hello");
+            _engine.Execute("equal(undefined, str.$ref);");
+            _engine.Execute("equal(undefined, str.ref);");
+            _engine.Execute("equal(undefined, str.$foo);");
+            _engine.Execute("equal(undefined, str.foo);");
+            _engine.Execute("equal(undefined, str['$foo']);");
+            _engine.Execute("equal(undefined, str['foo']);");
+
+            _engine.Execute("equal(false, str.hasOwnProperty('$foo'));");
+            _engine.Execute("equal(false, str.hasOwnProperty('foo'));");
+        }
+
         private class Wrapper
         {
             public Testificate Test { get; set; }
