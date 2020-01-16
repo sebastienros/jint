@@ -13,8 +13,7 @@ assert.sameValue(
   'Unicode escape sequences'
 );
 assert.sameValue(
-  String.raw`\
-\
+  String.raw`\\
 \
 `,
   '\\\n\\\n\\\n',
