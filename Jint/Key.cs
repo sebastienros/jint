@@ -20,7 +20,7 @@ namespace Jint
         {
             for (uint i = 0; i < indexKeys.Length; ++i)
             {
-                indexKeys[i] = new Key(TypeConverter.ToString(i));
+                indexKeys[i] = new Key(i.ToString());
             }
         }
 
@@ -59,7 +59,9 @@ namespace Jint
 
         public static implicit operator JsValue(in Key key)
         {
-            return !key.IsSymbol ? (JsValue) JsString.Create(key.Name) : new JsSymbol(key.Name, key._symbolIdentity);
+            return !key.IsSymbol 
+                ? (JsValue) JsString.Create(key.Name)
+                : new JsSymbol(new JsString(key.Name), key._symbolIdentity);
         }
 
         public static implicit operator Key(int value)

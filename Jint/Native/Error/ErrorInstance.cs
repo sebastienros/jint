@@ -1,5 +1,4 @@
-﻿using Jint.Collections;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -7,13 +6,22 @@ namespace Jint.Native.Error
 {
     public class ErrorInstance : ObjectInstance
     {
+        private readonly JsString _name;
+        private PropertyDescriptor _descriptor;
+
         public ErrorInstance(Engine engine, JsString name)
             : base(engine, objectClass: "Error")
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(2)
+            _name = name;
+        }
+
+        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
+        {
+            if (propertyName.Name == "name")
             {
-                ["name"] = new PropertyDescriptor(name, true, false, true)
+                return _descriptor ??= new PropertyDescriptor(_name, PropertyFlag.Configurable | PropertyFlag.Writable);
             };
+            return base.GetOwnProperty(in propertyName);
         }
 
         public override string ToString()

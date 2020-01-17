@@ -4,9 +4,10 @@
 /*---
 esid: prod-CharacterClassEscape
 description: >
-    Compare range for Non Digit class escape, \\D with flags g
+    Compare range for non-digit class escape \D with flags g
 info: |
-    This is a generated test, please checkout https://github.com/bocoup/test262-regexp-generator
+    This is a generated test. Please check out
+    https://github.com/bocoup/test262-regexp-generator
     for any changes.
 
     CharacterClassEscape[U] ::
@@ -18,7 +19,7 @@ info: |
         W
 
     21.2.2.12 CharacterClassEscape
-    
+
     The production CharacterClassEscape :: d evaluates as follows:
         Return the ten-element set of characters containing the characters 0 through 9 inclusive.
     The production CharacterClassEscape :: D evaluates as follows:
@@ -33,35 +34,29 @@ info: |
     The production CharacterClassEscape :: W evaluates as follows:
         Return the set of all characters not included in the set returned by CharacterClassEscape :: w.
 features: [String.fromCodePoint]
+includes: [regExpUtils.js]
 ---*/
 
-const chunks = [];
-const totalChunks = Math.ceil(0xffff / 0x10000);
-
-for (let codePoint = 0; codePoint < 0xFFFF; codePoint++) {
-    // split strings to avoid a super long one;
-    chunks[codePoint % totalChunks] += String.fromCodePoint(codePoint);
-}
+const str = buildString({
+  loneCodePoints: [],
+  ranges: [
+      [0x000000, 0x00002F],
+      [0x00003A, 0x00FFFF],
+  ],
+});
 
 const re = /\D/g;
-const matchingRange = /[\0-\/:-\uFFFF]/g;
 
 const errors = [];
 
-function matching(str) {
-    return str.replace(re, '') === str.replace(matchingRange, '');
-}
-
-for (const str of chunks) {
-    if (!matching(str)) {
-        // Error, let's find out where
-        for (const char of str) {
-            if (!matching(char)) {
-                errors.push('0x' + char.codePointAt(0).toString(16));
-            }
+if (!re.test(str)) {
+    // Error, let's find out where
+    for (const char of str) {
+        if (!re.test(char)) {
+            errors.push('0x' + char.codePointAt(0).toString(16));
         }
     }
-};
+}
 
 assert.sameValue(
     errors.length,

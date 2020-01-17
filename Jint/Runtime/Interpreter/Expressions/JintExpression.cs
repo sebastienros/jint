@@ -127,8 +127,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return new JintTaggedTemplateExpression(engine, (TaggedTemplateExpression) expression);
 
                 default:
-                    ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(expression), $"unsupported language element '{expression.Type}'");
-                    return null;
+                    return ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>(nameof(expression), $"unsupported language element '{expression.Type}'");
             }
         }
 
@@ -267,66 +266,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             return false;
-        }
-
-        protected internal static bool SameValue(JsValue x, JsValue y)
-        {
-            var typea = TypeConverter.GetInternalPrimitiveType(x);
-            var typeb = TypeConverter.GetInternalPrimitiveType(y);
-
-            if (typea != typeb)
-            {
-                if (typea == InternalTypes.Integer)
-                {
-                    typea = InternalTypes.Number;
-                }
-                if (typeb == InternalTypes.Integer)
-                {
-                    typeb = InternalTypes.Number;
-                }
-
-                if (typea != typeb)
-                {
-                    return false;
-                }
-            }
-
-            switch (typea)
-            {
-                case InternalTypes.None:
-                    return true;
-
-                case InternalTypes.Integer:
-                    return x.AsInteger() == y.AsInteger();
-
-                case InternalTypes.Number:
-                    var nx = TypeConverter.ToNumber(x);
-                    var ny = TypeConverter.ToNumber(y);
-
-                    if (double.IsNaN(nx) && double.IsNaN(ny))
-                    {
-                        return true;
-                    }
-
-                    if (nx == ny)
-                    {
-                        if (nx == 0)
-                        {
-                            // +0 !== -0
-                            return NumberInstance.IsNegativeZero(nx) == NumberInstance.IsNegativeZero(ny);
-                        }
-
-                        return true;
-                    }
-
-                    return false;
-                case InternalTypes.String:
-                    return TypeConverter.ToString(x) == TypeConverter.ToString(y);
-                case InternalTypes.Boolean:
-                    return TypeConverter.ToBoolean(x) == TypeConverter.ToBoolean(y);
-                default:
-                    return x == y;
-            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

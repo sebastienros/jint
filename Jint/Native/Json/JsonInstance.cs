@@ -26,11 +26,12 @@ namespace Jint.Native.Json
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(2)
+            var properties = new StringDictionarySlim<PropertyDescriptor>(2)
             {
                 ["parse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parse", Parse, 2), true, false, true),
                 ["stringify"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "stringify", Stringify, 3), true, false, true)
             };
+            SetProperties(properties, hasSymbols: false);
         }
 
         private JsValue AbstractWalkOperation(ObjectInstance thisObject, string prop)
@@ -88,7 +89,7 @@ namespace Jint.Native.Json
                     }
                 }
             }
-            return _reviver.Invoke(thisObject, new JsValue[] { prop, value });
+            return _reviver.Invoke(thisObject, new[] { prop, value });
         }
 
         public JsValue Parse(JsValue thisObject, JsValue[] arguments)

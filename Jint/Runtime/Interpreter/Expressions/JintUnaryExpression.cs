@@ -135,6 +135,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         case Types.Boolean: return JsString.BooleanString;
                         case Types.Number: return JsString.NumberString;
                         case Types.String: return JsString.StringString;
+                        case Types.Symbol: return JsString.SymbolString;
                     }
 
                     if (v is ProxyInstance)

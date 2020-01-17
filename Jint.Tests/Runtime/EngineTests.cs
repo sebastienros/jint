@@ -917,7 +917,7 @@ namespace Jint.Tests.Runtime
         public void ShouldNotAlterSlashesInRegex()
         {
             RunTest(@"
-                assert(new RegExp('/').toString() === '///');
+                equal('/\\//', new RegExp('/').toString());
             ");
         }
 

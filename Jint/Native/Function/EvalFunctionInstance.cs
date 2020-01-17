@@ -105,8 +105,7 @@ namespace Jint.Native.Function
                     ExceptionHelper.ThrowReferenceError(_engine, (string) null);
                 }
 
-                ExceptionHelper.ThrowSyntaxError(_engine);
-                return null;
+                return ExceptionHelper.ThrowSyntaxError<JsValue>(_engine);
             }
         }
     }

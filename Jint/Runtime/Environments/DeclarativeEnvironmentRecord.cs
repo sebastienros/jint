@@ -17,7 +17,7 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private StringDictionarySlim<Binding> _dictionary = new StringDictionarySlim<Binding>();
+        private readonly StringDictionarySlim<Binding> _dictionary = new StringDictionarySlim<Binding>();
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
@@ -222,7 +222,7 @@ namespace Jint.Runtime.Environments
 
                 if (!ReferenceEquals(array, null))
                 {
-                    arrayContents = new JsValue[array.Length];
+                    arrayContents = new JsValue[array.GetLength()];
 
                     for (uint i = 0; i < (uint) arrayContents.Length; i++)
                     {
@@ -254,16 +254,16 @@ namespace Jint.Runtime.Environments
                 {
                     if (property.Key is Identifier propertyIdentifier)
                     {
-                        argument = argumentObject.Get(propertyIdentifier.Name, this);
+                        argument = argumentObject.Get(propertyIdentifier.Name);
                     }
                     else if (property.Key is Literal propertyLiteral)
                     {
-                        argument = argumentObject.Get(propertyLiteral.Raw, this);
+                        argument = argumentObject.Get(propertyLiteral.Raw);
                     }
                     else if (property.Key is CallExpression callExpression)
                     {
                         var jintCallExpression = JintExpression.Build(_engine, callExpression);
-                        argument = argumentObject.Get(jintCallExpression.GetValue().AsString(), this);
+                        argument = argumentObject.Get(jintCallExpression.GetValue().AsString());
                     }
 
                     jsValues[0] = argument;

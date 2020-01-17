@@ -41,11 +41,11 @@ namespace Jint.Native.Map
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(2)
+            var properties = new StringDictionarySlim<PropertyDescriptor>(2)
             {
                 [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
             };
-
+            SetProperties(properties, hasSymbols: true);
         }
 
         private static JsValue Species(JsValue thisObject, JsValue[] arguments)

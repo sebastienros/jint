@@ -146,7 +146,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var thisObject = Undefined.Instance;
             if (r != null)
             {
-                if (r.IsPropertyReference())
+                if (r._baseValue._type < InternalTypes.ObjectEnvironmentRecord)
                 {
                     thisObject = r._baseValue;
                 }

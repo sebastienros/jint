@@ -46,10 +46,12 @@ namespace Jint.Native.Proxy
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            var properties = new StringDictionarySlim<PropertyDescriptor>(3)
             {
                 ["revocable"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "revocable", Revocable, 2, PropertyFlag.Configurable), true, true, true)
             };
+            
+            SetProperties(properties, hasSymbols: false);
         }
 
         protected override ObjectInstance GetPrototypeOf()

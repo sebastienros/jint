@@ -23,8 +23,6 @@ namespace Jint.Native.Argument
         private EnvironmentRecord _env;
         private bool _strict;
 
-        internal bool _initialized;
-
         internal ArgumentsInstance(Engine engine) : base(engine, objectClass: "Arguments")
         {
         }
@@ -42,9 +40,7 @@ namespace Jint.Native.Argument
             _env = env;
             _strict = strict;
 
-            _properties?.Clear();
-            
-            _initialized = false;
+            ClearProperties();
         }
 
         protected override void Initialize()

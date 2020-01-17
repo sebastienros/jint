@@ -3,6 +3,7 @@ using System.Linq;
 using Jint.Native.Array;
 using Jint.Native.Map;
 using Jint.Native.Object;
+using Jint.Native.RegExp;
 using Jint.Native.Set;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -47,6 +48,14 @@ namespace Jint.Native.Iterator
 
         public void Return()
         {
+        }
+
+        private ObjectInstance CreateIterResultObject(JsValue value, bool done)
+        {
+            var obj = _engine.Object.Construct(2);
+            obj.CreateDataPropertyOrThrow("value", value);
+            obj.CreateDataPropertyOrThrow("done", done);
+            return obj;
         }
 
         private class KeyValueIteratorPosition : ObjectInstance
@@ -318,6 +327,62 @@ namespace Jint.Native.Iterator
 
                 _closed = true;
                 return ValueIteratorPosition.Done;
+            }
+        }
+        
+        internal class RegExpStringIterator : IteratorInstance
+        {
+            private readonly RegExpInstance _iteratingRegExp;
+            private readonly string _s;
+            private readonly bool _global;
+            private readonly bool _unicode;
+
+            private bool _done;
+
+            public RegExpStringIterator(Engine engine, ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode) : base(engine)
+            {
+                if (!(iteratingRegExp is RegExpInstance r))
+                {
+                    ExceptionHelper.ThrowTypeError(engine);
+                    return;
+                }
+                
+                _iteratingRegExp = r;
+                _s = iteratedString;
+                _global = global;
+                _unicode = unicode;
+            }
+
+            public override ObjectInstance Next()
+            {
+                if (_done)
+                {
+                    return CreateIterResultObject(Undefined, true);
+                }
+                
+                var match  = RegExpPrototype.RegExpExec(_iteratingRegExp, _s);
+                if (match.IsNull())
+                {
+                    _done = true;
+                    return CreateIterResultObject(Undefined, true);
+                }
+
+                if (_global)
+                {
+                    var macthStr = TypeConverter.ToString(match.Get("0"));
+                    if (macthStr == "")
+                    {
+                        var thisIndex = TypeConverter.ToLength(_iteratingRegExp.Get(RegExpInstance.KeyLastIndex));
+                        var nextIndex = thisIndex + 1;
+                        _iteratingRegExp.Set(RegExpInstance.KeyLastIndex, nextIndex, true);
+                    }
+                }
+                else
+                {
+                    _done = true;
+                }
+
+                return CreateIterResultObject(match, false);
             }
         }
     }

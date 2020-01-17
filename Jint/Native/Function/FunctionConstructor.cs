@@ -77,8 +77,7 @@ namespace Jint.Native.Function
             }
             catch (ParserException)
             {
-                ExceptionHelper.ThrowSyntaxError(_engine);
-                return null;
+                return ExceptionHelper.ThrowSyntaxError<ObjectInstance>(_engine);
             }
 
             var functionObject = new ScriptFunctionInstance(

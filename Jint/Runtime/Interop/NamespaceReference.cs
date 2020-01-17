@@ -65,8 +65,7 @@ namespace Jint.Runtime.Interop
             }
             catch (Exception e)
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?", e);
-                return null;
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?", e);
             }
         }
 

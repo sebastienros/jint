@@ -2,6 +2,7 @@
 using Jint.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -28,7 +29,7 @@ namespace Jint.Native.Math
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(45)
+            var properties = new StringDictionarySlim<PropertyDescriptor>(45)
             {
                 ["abs"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "abs", Abs, 1, PropertyFlag.Configurable), true, false, true),
                 ["acos"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "acos", Acos, 1, PropertyFlag.Configurable), true, false, true),
@@ -72,8 +73,11 @@ namespace Jint.Native.Math
                 ["LOG10E"] = new PropertyDescriptor(System.Math.Log(System.Math.E, 10), false, false, false),
                 ["PI"] = new PropertyDescriptor(System.Math.PI, false, false, false),
                 ["SQRT1_2"] = new PropertyDescriptor(System.Math.Sqrt(0.5), false, false, false),
-                ["SQRT2"] = new PropertyDescriptor(System.Math.Sqrt(2), false, false, false)
+                ["SQRT2"] = new PropertyDescriptor(System.Math.Sqrt(2), false, false, false),
+                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Math", PropertyFlag.Configurable)
             };
+            
+            SetProperties(properties, hasSymbols: true);
         }
 
         private static JsValue Abs(JsValue thisObject, JsValue[] arguments)

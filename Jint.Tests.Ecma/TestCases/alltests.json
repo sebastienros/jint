@@ -12990,8 +12990,8 @@
     source: "ch11/11.8/11.8.6/S11.8.6_A2.1_T3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "RegExp.prototype.exec.length now configurable",
     source: "ch11/11.8/11.8.6/S11.8.6_A2.4_T1.js"
   },
   {
@@ -20825,13 +20825,13 @@
     source: "ch15/15.10/15.10.3/S15.10.3.1_A1_T5.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now syntax error instead of type error",
     source: "ch15/15.10/15.10.3/S15.10.3.1_A2_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now syntax error instead of type error",
     source: "ch15/15.10/15.10.3/S15.10.3.1_A2_T2.js"
   },
   {
@@ -20870,13 +20870,13 @@
     source: "ch15/15.10/15.10.4/S15.10.4.1_A1_T5.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "flags are now allowed",
     source: "ch15/15.10/15.10.4/S15.10.4.1_A2_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now syntax error instead of type error",
     source: "ch15/15.10/15.10.4/S15.10.4.1_A2_T2.js"
   },
   {
@@ -21065,8 +21065,8 @@
     source: "ch15/15.10/15.10.4/S15.10.4.1_A9_T3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "now syntax error instead of type error",
     source: "ch15/15.10/15.10.4/15.10.4.1/15.10.4.1-1.js"
   },
   {
@@ -21120,8 +21120,8 @@
     source: "ch15/15.10/15.10.5/S15.10.5_A2_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "RegExp.prototype.toString.length now configurable",
     source: "ch15/15.10/15.10.6/15.10.6.js"
   },
   {
@@ -21425,8 +21425,8 @@
     source: "ch15/15.10/15.10.6/15.10.6.2/S15.10.6.2_A5_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "regexp behavior has changed",
     source: "ch15/15.10/15.10.6/15.10.6.2/S15.10.6.2_A5_T3.js"
   },
   {
@@ -21445,8 +21445,8 @@
     source: "ch15/15.10/15.10.6/15.10.6.2/S15.10.6.2_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "RegExp.prototype.exec.length now configurable",
     source: "ch15/15.10/15.10.6/15.10.6.2/S15.10.6.2_A9.js"
   },
   {
@@ -21630,8 +21630,8 @@
     source: "ch15/15.10/15.10.6/15.10.6.3/S15.10.6.3_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "RegExp.prototype.exec.length now configurable",
     source: "ch15/15.10/15.10.6/15.10.6.3/S15.10.6.3_A9.js"
   },
   {
@@ -21660,8 +21660,8 @@
     source: "ch15/15.10/15.10.6/15.10.6.4/S15.10.6.4_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "RegExp.prototype.toString.length now configurable",
     source: "ch15/15.10/15.10.6/15.10.6.4/S15.10.6.4_A9.js"
   },
   {
@@ -21695,113 +21695,113 @@
     source: "ch15/15.10/15.10.7/S15.10.7_A3_T2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "typeof(RegExp.prototype.source) is not get/set",
     source: "ch15/15.10/15.10.7/15.10.7.1/15.10.7.1-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "source is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.1/15.10.7.1-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "source is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.1/S15.10.7.1_A10.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "source is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.1/S15.10.7.1_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "source is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.1/S15.10.7.1_A9.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "typeof(RegExp.prototype.global) is now get/set",
     source: "ch15/15.10/15.10.7/15.10.7.2/15.10.7.2-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "global  is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.2/15.10.7.2-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "global  is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.2/S15.10.7.2_A10.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "global  is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.2/S15.10.7.2_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "global  is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.2/S15.10.7.2_A9.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "typeof(RegExp.prototype.ignoreCase) is now get/set",
     source: "ch15/15.10/15.10.7/15.10.7.3/15.10.7.3-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "ignoreCase is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.3/15.10.7.3-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "ignoreCase is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.3/S15.10.7.3_A10.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "ignoreCase is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.3/S15.10.7.3_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "ignoreCase is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.3/S15.10.7.3_A9.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "typeof(RegExp.prototype.multiline) is now get/set",
     source: "ch15/15.10/15.10.7/15.10.7.4/15.10.7.4-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "multiline is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.4/15.10.7.4-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "multiline is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.4/S15.10.7.4_A10.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "multiline is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.4/S15.10.7.4_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "multiline is get accessor in RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.4/S15.10.7.4_A9.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "lastIndex does not belong to RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.5/15.10.7.5-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "lastIndex does not belong to RegExp prototype",
     source: "ch15/15.10/15.10.7/15.10.7.5/15.10.7.5-2.js"
   },
   {
@@ -23830,18 +23830,18 @@
     source: "ch15/15.2/15.2.3/15.2.3.2/15.2.3.2-1-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Object.getPrototypeOf no longer throws TypeError if 'O' is a boolean",
     source: "ch15/15.2/15.2.3/15.2.3.2/15.2.3.2-1-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Object.getPrototypeOf no longer throws TypeError if 'O' is a string",
     source: "ch15/15.2/15.2.3/15.2.3.2/15.2.3.2-1-4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Object.getPrototypeOf no longer throws TypeError if 'O' is a number",
     source: "ch15/15.2/15.2.3/15.2.3.2/15.2.3.2-1.js"
   },
   {
@@ -24925,23 +24925,23 @@
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-211.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "RegExp prototype has now get accessors",
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-212.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "RegExp prototype has now get accessors",
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-213.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "RegExp prototype has now get accessors",
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-214.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "RegExp prototype has now get accessors",
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-215.js"
   },
   {

@@ -154,15 +154,27 @@ namespace Jint.Tests.Ecma
     {
         private static string _lastError;
         private static string staSource;
-        protected Action<string> Error = s => { _lastError = s; };
-        protected string BasePath;
+        private static readonly string BasePath;
+        private static readonly List<SourceFile> _sourceFiles = new List<SourceFile>(10_000);
 
-        public EcmaTest()
+        static EcmaTest()
         {
             var assemblyPath = new Uri(typeof(EcmaTest).GetTypeInfo().Assembly.CodeBase).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
-
             BasePath = assemblyDirectory.Parent.Parent.Parent.FullName;
+
+            var localPath = assemblyDirectory.Parent.Parent.Parent.FullName;
+
+            var fixturesPath = Path.Combine(localPath, @"TestCases\alltests.json");
+
+            var content = File.ReadAllText(fixturesPath);
+            var doc = JArray.Parse(content);
+            var path = Path.Combine(localPath, "TestCases");
+
+            foreach (var jToken in doc)
+            {
+                _sourceFiles.Add(new SourceFile((JObject) jToken, path));
+            }
         }
 
         protected void RunTestInternal(SourceFile sourceFile)
@@ -231,22 +243,9 @@ namespace Jint.Tests.Ecma
 
         public static IEnumerable<object[]> SourceFiles(string prefix, bool skipped)
         {
-            var assemblyPath = new Uri(typeof(EcmaTest).GetTypeInfo().Assembly.CodeBase).LocalPath;
-            var assemblyDirectory = new FileInfo(assemblyPath).Directory;
-
-            var localPath = assemblyDirectory.Parent.Parent.Parent.FullName;
-
-            var fixturesPath = Path.Combine(localPath, @"TestCases\alltests.json");
-
-            var content = File.ReadAllText(fixturesPath);
-            var doc = JArray.Parse(content);
             var results = new List<object[]>();
-            var path = Path.Combine(localPath, "TestCases");
-
-            foreach(JObject entry in doc)
+            foreach(var sourceFile in _sourceFiles)
             {
-                var sourceFile = new SourceFile(entry, path);
-
                 if (prefix != null && !sourceFile.Source.StartsWith(prefix))
                 {
                     continue;
@@ -273,7 +272,6 @@ namespace Jint.Tests.Ecma
         {
             public SourceFile()
             {
-
             }
 
             public SourceFile(JObject node, string basePath)
@@ -310,6 +308,5 @@ namespace Jint.Tests.Ecma
                 return Source;
             }
         }
-
     }
 }

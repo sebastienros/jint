@@ -37,7 +37,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
             var result = (ArrayInstance)engine.Execute("'x'.match(/|/g);").GetCompletionValue();
-            Assert.Equal((uint)2, result.Length);
+            Assert.Equal((uint) 2, result.Length);
             Assert.Equal("", result[0]);
             Assert.Equal("", result[1]);
         }

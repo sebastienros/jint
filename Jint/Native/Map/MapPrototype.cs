@@ -32,53 +32,50 @@ namespace Jint.Native.Map
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+            var properties = new StringDictionarySlim<PropertyDescriptor>(15)
             {
-                ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
-                ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
-                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Iterator, 1, PropertyFlag.Configurable), true, false, true),
+                [KnownKeys.Length] = new PropertyDescriptor(0, PropertyFlag.Configurable),
+                [KnownKeys.Constructor] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Iterator, 1, PropertyFlag.Configurable), propertyFlags),
                 [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Map", false, false, true),
-                ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), true, false, true),
-                ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), true, false, true),
-                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), true, false, true),
-                ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), true, false, true),
-                ["get"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "get", Get, 1, PropertyFlag.Configurable), true, false, true),
-                ["has"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), true, false, true),
-                ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), true, false, true),
-                ["set"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "set", Set, 2, PropertyFlag.Configurable), true, false, true),
-                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true),
+                ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), propertyFlags),
+                ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), propertyFlags),
+                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), propertyFlags),
+                ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), propertyFlags),
+                ["get"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "get", Get, 1, PropertyFlag.Configurable), propertyFlags),
+                ["has"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), propertyFlags),
+                ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
+                ["set"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "set", Set, 2, PropertyFlag.Configurable), propertyFlags),
+                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
                 ["size"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable)
             };
+            
+            SetProperties(properties, hasSymbols: true);
         }
 
         private JsValue Size(JsValue thisObj, JsValue[] arguments)
         {
-            if (!(thisObj is MapInstance))
-            {
-                ExceptionHelper.ThrowTypeError(_engine);
-            }
+            AssertMapInstance(thisObj);
             return JsNumber.Create(0);
         }
 
         private JsValue Get(JsValue thisObj, JsValue[] arguments)
         {
-            return ((MapInstance) thisObj).Get(arguments.At(0));
+            var map = AssertMapInstance(thisObj);
+            return map.Get(arguments.At(0));
         }
 
         private JsValue Clear(JsValue thisObj, JsValue[] arguments)
         {
-            var map = thisObj as MapInstance
-                      ?? ExceptionHelper.ThrowTypeError<MapInstance>(_engine, "object must be a Map");
-
+            var map = AssertMapInstance(thisObj);
             map.Clear();
             return Undefined;
         }
 
         private JsValue Delete(JsValue thisObj, JsValue[] arguments)
         {
-            var map = thisObj as MapInstance
-                      ?? ExceptionHelper.ThrowTypeError<MapInstance>(_engine, "object must be a Map");
-
+            var map = AssertMapInstance(thisObj);
             return map.Delete(arguments[0])
                 ? JsBoolean.True
                 : JsBoolean.False;
@@ -86,23 +83,24 @@ namespace Jint.Native.Map
 
         private JsValue Set(JsValue thisObj, JsValue[] arguments)
         {
-            ((MapInstance) thisObj).Set(arguments[0], arguments[1]);
+            var map = AssertMapInstance(thisObj);
+            map.Set(arguments[0], arguments[1]);
             return thisObj;
         }
 
         private JsValue Has(JsValue thisObj, JsValue[] arguments)
         {
-            return ((MapInstance) thisObj).Has(arguments[0])
+            var map = AssertMapInstance(thisObj);
+            return map.Has(arguments[0])
                 ? JsBoolean.True
                 : JsBoolean.False;
         }
 
         private JsValue ForEach(JsValue thisObj, JsValue[] arguments)
         {
+            var map = AssertMapInstance(thisObj);
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
-
-            var map = (MapInstance) thisObj;
 
             var callable = GetCallable(callbackfn);
 
@@ -113,17 +111,30 @@ namespace Jint.Native.Map
 
         private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)
         {
-            return ((MapInstance) thisObj).Iterator();
+            var map = AssertMapInstance(thisObj);
+            return map.Iterator();
         }
 
         private ObjectInstance Keys(JsValue thisObj, JsValue[] arguments)
         {
-            return ((MapInstance) thisObj).Keys();
+            var map = AssertMapInstance(thisObj);
+            return map.Keys();
         }
 
         private ObjectInstance Values(JsValue thisObj, JsValue[] arguments)
         {
-            return ((MapInstance) thisObj).Values();
+            var map = AssertMapInstance(thisObj);
+            return map.Values();
+        }
+
+        private MapInstance AssertMapInstance(JsValue thisObj)
+        {
+            if (!(thisObj is MapInstance map))
+            {
+                return ExceptionHelper.ThrowTypeError<MapInstance>(_engine, "object must be a Map");
+            }
+
+            return map;
         }
     }
 }

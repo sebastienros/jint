@@ -58,41 +58,6 @@ namespace Jint.Native.Array
 
         internal override bool IsArrayLike => true;
 
-        /// Implementation from ObjectInstance official specs as the one
-        /// in ObjectInstance is optimized for the general case and wouldn't work
-        /// for arrays
-        public override bool Set(in Key propertyName, JsValue value, JsValue receiver)
-        {
-            if (!CanPut(propertyName))
-            {
-                return false;
-            }
-
-            var ownDesc = GetOwnProperty(propertyName);
-
-            if (ownDesc.IsDataDescriptor())
-            {
-                var valueDesc = new PropertyDescriptor(value, PropertyFlag.None);
-                return DefineOwnProperty(propertyName, valueDesc);
-            }
-
-            // property is an accessor or inherited
-            var desc = GetProperty(propertyName);
-
-            if (desc.IsAccessorDescriptor())
-            {
-                var setter = desc.Set.TryCast<ICallable>();
-                setter.Call(receiver, new[] {value});
-            }
-            else
-            {
-                var newDesc = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
-                return DefineOwnProperty(propertyName, newDesc);
-            }
-
-            return true;
-        }
-
         public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc)
         {
             var oldLenDesc = _length;
@@ -254,7 +219,7 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public uint GetLength()
+        internal uint GetLength()
         {
             return (uint) ((JsNumber) _length._value)._value;
         }
@@ -815,8 +780,8 @@ namespace Jint.Native.Array
             value = Undefined;
             return false;
         }
-        
-        public uint Length => GetLength();
+
+        public override uint Length => GetLength();
 
         public JsValue this[uint index]
         {

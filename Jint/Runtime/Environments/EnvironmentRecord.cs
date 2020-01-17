@@ -10,7 +10,7 @@ namespace Jint.Runtime.Environments
     {
         protected readonly Engine _engine;
 
-        protected EnvironmentRecord(Engine engine) : base(Types.Object)
+        protected EnvironmentRecord(Engine engine) : base(InternalTypes.ObjectEnvironmentRecord)
         {
             _engine = engine;
         }
@@ -73,14 +73,12 @@ namespace Jint.Runtime.Environments
         
         public override object ToObject()
         {
-            ExceptionHelper.ThrowNotSupportedException();
-            return null;
+            return ExceptionHelper.ThrowNotSupportedException<object>();
         }
 
         public override bool Equals(JsValue other)
         {
-            ExceptionHelper.ThrowNotSupportedException();
-            return false;
+            return ExceptionHelper.ThrowNotSupportedException<bool>();
         }
 
         /// <summary>

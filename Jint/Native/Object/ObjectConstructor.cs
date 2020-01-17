@@ -32,7 +32,7 @@ namespace Jint.Native.Object
         {
             _prototype = Engine.Function.PrototypeObject;
 
-            _properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            var properties = new StringDictionarySlim<PropertyDescriptor>(15)
             {
                 ["getPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getPrototypeOf", GetPrototypeOf, 1), true, false, true),
                 ["getOwnPropertyDescriptor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2), true, false, true),
@@ -50,6 +50,8 @@ namespace Jint.Native.Object
                 ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 1), true, false, true),
                 ["setPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setPrototypeOf", SetPrototypeOf, 2), true, false, true)
             };
+            
+            SetProperties(properties, hasSymbols: false);
         }
 
         public ObjectPrototype PrototypeObject { get; private set; }
@@ -88,11 +90,11 @@ namespace Jint.Native.Object
             if (arguments.Length > 0)
             {
                 var value = arguments[0];
-                var valueObj = value.TryCast<ObjectInstance>();
-                if (!ReferenceEquals(valueObj, null))
+                if (value is ObjectInstance oi)
                 {
-                    return valueObj;
+                    return oi;
                 }
+
                 var type = value.Type;
                 if (type == Types.String || type == Types.Number || type == Types.Boolean)
                 {
@@ -113,18 +115,22 @@ namespace Jint.Native.Object
             var obj = new ObjectInstance(_engine)
             {
                 _prototype = Engine.Object.PrototypeObject,
-                _properties =  propertyCount > 1
-                    ? new StringDictionarySlim<PropertyDescriptor>(propertyCount)
-                    : null
             };
+
+            obj.SetProperties(
+                propertyCount > 1
+                    ? new StringDictionarySlim<PropertyDescriptor>(propertyCount)
+                    : null,
+                hasSymbols: false
+            );
 
             return obj;
         }
 
         public JsValue GetPrototypeOf(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
-            return o.Prototype ?? Null;
+            var obj = TypeConverter.ToObject(_engine, arguments.At(0));
+            return obj.Prototype ?? Null;
         }
 
         public JsValue SetPrototypeOf(JsValue thisObject, JsValue[] arguments)
