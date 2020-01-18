@@ -190,7 +190,7 @@ ES6 features which are being implemented:
   - Anonymous objects
 - Convert JavaScript values to CLR objects
   - Primitive values
-  - Object -> expando objects (`IDictionary<string, object>` and dynamic)
+  - Object -> expand objects (`IDictionary<string, object>` and dynamic)
   - Array -> object[]
   - Date -> DateTime
   - number -> double
