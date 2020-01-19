@@ -377,29 +377,10 @@ namespace Jint.Runtime.Environments
         internal override void FunctionWasCalled()
         {
             if (_dictionary.TryGetValue(KnownKeys.Arguments, out var arguments)
-             && arguments.Value is ArgumentsInstance argumentsInstance)
+                && arguments.Value is ArgumentsInstance argumentsInstance)
             {
                 argumentsInstance.FunctionWasCalled();
             }
-
-            // we can safely release arguments only if it doesn't have possibility to escape the scope
-            // so check if someone ever accessed it
-            //if (!(_argumentsBinding.Value is ArgumentsInstance argumentsInstance))
-            //{
-            //    return;
-            //}
-
-            //if (!argumentsInstance._initialized && _argumentsBindingWasAccessed == false)
-            //{
-            //    _engine._argumentsInstancePool.Return(argumentsInstance);
-            //    _argumentsBinding = default;
-            //}
-            //else if (_argumentsBindingWasAccessed != null && argumentsInstance._args.Length > 0)
-            //{
-            //    // we need to ensure we hold on to arguments given
-            //    argumentsInstance.PersistArguments();
-            //    _argumentsBindingWasAccessed = null;
-            //}
         }
 
         private sealed class ArrayPatternProtocol : IteratorProtocol
