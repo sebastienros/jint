@@ -90,11 +90,13 @@ namespace Jint
 
         public static implicit operator string(Key key) => key.Name;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(in Key a, Key b)
         {
             return a.HashCode == b.HashCode && a.Name == b.Name && a._symbolIdentity == b._symbolIdentity;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(in Key a, Key b)
         {
             return a.HashCode != b.HashCode || a.Name != b.Name || a._symbolIdentity != b._symbolIdentity;

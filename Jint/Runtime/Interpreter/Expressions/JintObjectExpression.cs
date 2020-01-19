@@ -107,7 +107,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var objectProperty = _properties[i];
                 var valueExpression = _valueExpressions[i];
-                var propValue = valueExpression.GetValue();
+                var propValue = valueExpression.GetValue().Clone();
                 hasSymbols |= objectProperty.Key.IsSymbol;
                 properties[objectProperty.Key] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
             }
@@ -134,7 +134,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
                 {
                     var expr = _valueExpressions[i];
-                    var propValue = expr.GetValue();
+                    var propValue = expr.GetValue().Clone();
                     if (expr._expression.IsFunctionWithName())
                     {
                         var functionInstance = (FunctionInstance) propValue;

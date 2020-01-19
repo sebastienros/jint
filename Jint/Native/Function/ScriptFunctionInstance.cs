@@ -98,7 +98,7 @@ namespace Jint.Native.Function
 
                     var result = _function._body.Execute();
 
-                    var value = result.GetValueOrDefault();
+                    var value = result.GetValueOrDefault().Clone();
 
                     if (argumentInstanceRented)
                     {

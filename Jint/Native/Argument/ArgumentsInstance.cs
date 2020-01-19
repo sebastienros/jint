@@ -70,7 +70,7 @@ namespace Jint.Native.Argument
                         var name = _names[i];
                         if (!_strict && !mappedNamed.Contains(name))
                         {
-                            map = map ?? Engine.Object.Construct(Arguments.Empty);
+                            map ??= Engine.Object.Construct(Arguments.Empty);
                             mappedNamed.Add(name);
                             map.SetOwnProperty(indexKey, new ClrAccessDescriptor(_env, Engine, name));
                         }
@@ -225,7 +225,7 @@ namespace Jint.Native.Argument
             return base.Delete(propertyName);
         }
 
-        internal void PersistArguments()
+        internal override JsValue Clone()
         {
             EnsureInitialized();
 
@@ -234,6 +234,11 @@ namespace Jint.Native.Argument
             System.Array.Copy(args, copiedArgs, args.Length);
             _args = copiedArgs;
 
+            return this;
+        }
+
+        internal void FunctionWasCalled()
+        {
             // should no longer expose arguments which is special name
             ParameterMap = null;
         }

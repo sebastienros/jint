@@ -354,7 +354,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             for (var i = 0; i < jintExpressions.Length; i++)
             {
-                targetArray[i] = jintExpressions[i].GetValue();
+                targetArray[i] = jintExpressions[i].GetValue().Clone();
             }
         }
 
@@ -387,7 +387,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else
                 {
-                    args.Add(jintExpression.GetValue());
+                    args.Add(jintExpression.GetValue().Clone());
                 }
             }
 

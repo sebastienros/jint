@@ -728,22 +728,27 @@ namespace Jint
             bool canReleaseArgumentsInstance = false;
             if (declarationBindingType == DeclarationBindingType.FunctionCode)
             {
-                var argsObj = _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, env, strict);
-                canReleaseArgumentsInstance = true;
+                // arrow functions don't needs arguments
+                var arrowFunctionInstance = functionInstance as ArrowFunctionInstance;
+                var argsObj = arrowFunctionInstance is null
+                    ? _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, env, strict)
+                    : null;
+
+                canReleaseArgumentsInstance = arrowFunctionInstance is null;
 
                 var functionDeclaration = (functionInstance as ScriptFunctionInstance)?.FunctionDeclaration ??
-                    (functionInstance as ArrowFunctionInstance)?.FunctionDeclaration;
+                                          arrowFunctionInstance?.FunctionDeclaration;
 
                 if (!ReferenceEquals(der, null))
                 {
-                    der.AddFunctionParameters(functionInstance, arguments, argsObj, functionDeclaration);
+                    der.AddFunctionParameters(arguments, argsObj, functionDeclaration);
                 }
                 else
                 {
                     // TODO: match functionality with DeclarationEnvironmentRecord.AddFunctionParameters here
                     // slow path
                     var parameters = functionInstance._formalParameters;
-                    for (var i = 0; i < parameters.Length; i++)
+                    for (uint i = 0; i < (uint) parameters.Length; i++)
                     {
                         Key argName = parameters[i];
                         var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
