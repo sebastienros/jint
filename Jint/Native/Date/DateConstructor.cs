@@ -251,7 +251,7 @@ namespace Jint.Native.Date
                 result = PrototypeObject.Utc(result);
             }
 
-            return System.Math.Round(result);
+            return System.Math.Floor(result);
         }
     }
 }

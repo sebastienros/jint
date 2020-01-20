@@ -158,8 +158,8 @@ namespace Jint.Native.Object
                 }
             }
         }
-        
-        internal virtual List<JsValue> GetOwnPropertyKeys(Types types)
+
+        public virtual List<JsValue> GetOwnPropertyKeys(Types types)
         {
             EnsureInitialized();
 

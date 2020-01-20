@@ -146,7 +146,7 @@ namespace Jint.Native.Function
             }
         }
 
-        internal override List<JsValue> GetOwnPropertyKeys(Types types)
+        public override List<JsValue> GetOwnPropertyKeys(Types types)
         {
             var keys = new List<JsValue>();
             if (_prototypeDescriptor != null)
