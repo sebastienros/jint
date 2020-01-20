@@ -373,15 +373,6 @@ namespace Jint.Runtime.Environments
 
             return jsValue;
         }
-        
-        internal override void FunctionWasCalled()
-        {
-            if (_dictionary.TryGetValue(KnownKeys.Arguments, out var arguments)
-                && arguments.Value is ArgumentsInstance argumentsInstance)
-            {
-                argumentsInstance.FunctionWasCalled();
-            }
-        }
 
         private sealed class ArrayPatternProtocol : IteratorProtocol
         {

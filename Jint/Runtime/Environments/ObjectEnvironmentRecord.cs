@@ -136,9 +136,5 @@ namespace Jint.Runtime.Environments
         {
             return ReferenceEquals(_bindingObject, other);
         }
-
-        internal override void FunctionWasCalled()
-        {
-        }
     }
 }

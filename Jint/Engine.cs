@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Argument;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
@@ -714,7 +715,7 @@ namespace Jint
         }
 
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
-        internal bool DeclarationBindingInstantiation(
+        internal ArgumentsInstance DeclarationBindingInstantiation(
             DeclarationBindingType declarationBindingType,
             HoistingScope hoistingScope,
             FunctionInstance functionInstance,
@@ -723,18 +724,16 @@ namespace Jint
             var env = ExecutionContext.VariableEnvironment._record;
             bool configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
             var strict = StrictModeScope.IsStrictModeCode;
+            ArgumentsInstance argsObj = null;
 
             var der = env as DeclarativeEnvironmentRecord;
-            bool canReleaseArgumentsInstance = false;
             if (declarationBindingType == DeclarationBindingType.FunctionCode)
             {
                 // arrow functions don't needs arguments
                 var arrowFunctionInstance = functionInstance as ArrowFunctionInstance;
-                var argsObj = arrowFunctionInstance is null
+                argsObj = arrowFunctionInstance is null
                     ? _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, env, strict)
                     : null;
-
-                canReleaseArgumentsInstance = arrowFunctionInstance is null;
 
                 var functionDeclaration = (functionInstance as ScriptFunctionInstance)?.FunctionDeclaration ??
                                           arrowFunctionInstance?.FunctionDeclaration;
@@ -775,7 +774,7 @@ namespace Jint
             var variableDeclarations = hoistingScope.VariableDeclarations;
             if (variableDeclarations.Count == 0)
             {
-                return canReleaseArgumentsInstance;
+                return argsObj;
             }
 
             // process all variable declarations in the current parser scope
@@ -808,7 +807,7 @@ namespace Jint
                 }
             }
 
-            return canReleaseArgumentsInstance;
+            return argsObj;
         }
 
         private void AddFunctionDeclarations(
