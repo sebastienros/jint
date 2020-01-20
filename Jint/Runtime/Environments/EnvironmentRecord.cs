@@ -80,12 +80,6 @@ namespace Jint.Runtime.Environments
         {
             return ExceptionHelper.ThrowNotSupportedException<bool>();
         }
-
-        /// <summary>
-        /// Informs whether arguments instance was accessed and maybe thus stored,
-        /// which makes it unsuitable for pooling and reuse.
-        /// </summary>
-        internal abstract void FunctionWasCalled();
     }
 }
 

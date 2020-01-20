@@ -106,7 +106,7 @@ namespace Jint.Native.Proxy
             return result;
         }
 
-        internal override List<JsValue> GetOwnPropertyKeys(Types types)
+        public override List<JsValue> GetOwnPropertyKeys(Types types)
         {
             if (!TryCallHandler(TrapOwnKeys, new JsValue[] {_target }, out var result))
             {

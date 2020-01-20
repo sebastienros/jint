@@ -63,7 +63,7 @@ namespace Jint.Native.Function
 
                 try
                 {
-                    var argumentInstanceRented = _engine.DeclarationBindingInstantiation(
+                    _engine.DeclarationBindingInstantiation(
                         DeclarationBindingType.FunctionCode,
                         _function._hoistingScope,
                         functionInstance: this,
@@ -71,13 +71,7 @@ namespace Jint.Native.Function
 
                     var result = _function._body.Execute();
 
-                    var value = result.GetValueOrDefault();
-
-                    if (argumentInstanceRented)
-                    {
-                        _engine.ExecutionContext.LexicalEnvironment?._record?.FunctionWasCalled();
-                        _engine.ExecutionContext.VariableEnvironment?._record?.FunctionWasCalled();
-                    }
+                    var value = result.GetValueOrDefault().Clone();
 
                     if (result.Type == CompletionType.Throw)
                     {

@@ -19,9 +19,10 @@ namespace Jint.Native.Argument
 
         private FunctionInstance _func;
         private string[] _names;
-        internal JsValue[] _args;
+        private JsValue[] _args;
         private EnvironmentRecord _env;
         private bool _strict;
+        private bool _canReturnToPool;
 
         internal ArgumentsInstance(Engine engine) : base(engine, objectClass: "Arguments")
         {
@@ -40,11 +41,15 @@ namespace Jint.Native.Argument
             _env = env;
             _strict = strict;
 
+            _canReturnToPool = true;
+
             ClearProperties();
         }
 
         protected override void Initialize()
         {
+            _canReturnToPool = false;
+
             var args = _args;
             SetOwnProperty(KnownKeys.Length, new PropertyDescriptor(args.Length, PropertyFlag.NonEnumerable));
 
@@ -70,7 +75,7 @@ namespace Jint.Native.Argument
                         var name = _names[i];
                         if (!_strict && !mappedNamed.Contains(name))
                         {
-                            map = map ?? Engine.Object.Construct(Arguments.Empty);
+                            map ??= Engine.Object.Construct(Arguments.Empty);
                             mappedNamed.Add(name);
                             map.SetOwnProperty(indexKey, new ClrAccessDescriptor(_env, Engine, name));
                         }
@@ -225,8 +230,10 @@ namespace Jint.Native.Argument
             return base.Delete(propertyName);
         }
 
-        internal void PersistArguments()
+        internal override JsValue Clone()
         {
+            // there's an assignment or return value of function, need to create persistent state
+
             EnsureInitialized();
 
             var args = _args;
@@ -234,8 +241,22 @@ namespace Jint.Native.Argument
             System.Array.Copy(args, copiedArgs, args.Length);
             _args = copiedArgs;
 
+            _canReturnToPool = false;
+
+            return this;
+        }
+
+        internal void FunctionWasCalled()
+        {
             // should no longer expose arguments which is special name
             ParameterMap = null;
+
+            if (_canReturnToPool)
+            {
+                _engine._argumentsInstancePool.Return(this);
+                // prevent double-return
+                _canReturnToPool = false;
+            }
         }
     }
 }

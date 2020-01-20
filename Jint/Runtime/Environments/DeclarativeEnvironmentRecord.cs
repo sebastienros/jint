@@ -17,15 +17,10 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private readonly StringDictionarySlim<Binding> _dictionary = new StringDictionarySlim<Binding>();
+        private readonly HybridDictionary<Key, Binding> _dictionary = new HybridDictionary<Key, Binding>();
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
-        }
-        
-        private ref Binding GetOrCreateBinding(in Key key)
-        {
-            return ref _dictionary.GetOrAddValueRef(key);
         }
 
         private bool ContainsKey(in Key key)
@@ -61,11 +56,11 @@ namespace Jint.Runtime.Environments
 
         public override void SetMutableBinding(in Key name, JsValue value, bool strict)
         {
-            ref var binding = ref GetOrCreateBinding(name);
-
+            _dictionary.TryGetValue(name, out var binding);
             if (binding.Mutable)
             {
                 binding.Value = value;
+                _dictionary[name] = binding;
             }
             else
             {
@@ -78,7 +73,7 @@ namespace Jint.Runtime.Environments
 
         public override JsValue GetBindingValue(in Key name, bool strict)
         {
-            ref var binding = ref GetOrCreateBinding(name);
+            _dictionary.TryGetValue(name, out var binding);
             return UnwrapBindingValue(strict, binding);
         }
 
@@ -139,39 +134,50 @@ namespace Jint.Runtime.Environments
         }
 
         internal void AddFunctionParameters(
-            FunctionInstance functionInstance,
             JsValue[] arguments,
             ArgumentsInstance argumentsInstance,
             IFunction functionDeclaration)
         {
-            var parameters = functionDeclaration.Params;
-
             bool empty = _dictionary.Count == 0;
-
-            if (!(functionInstance is ArrowFunctionInstance))
+            if (!(argumentsInstance is null))
             {
                 _dictionary[KnownKeys.Arguments] = new Binding(argumentsInstance, canBeDeleted: false, mutable: true);
             }
 
+            var parameters = functionDeclaration.Params;
             for (var i = 0; i < parameters.Count; i++)
             {
                 SetFunctionParameter(parameters[i], arguments, i, empty);
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetFunctionParameter(
             INode parameter,
             JsValue[] arguments,
             int index,
             bool initiallyEmpty)
         {
-            var argument = arguments.Length > index ? arguments[index] : Undefined;
-
             if (parameter is Identifier identifier)
             {
+                var argument = arguments.Length > index ? arguments[index] : Undefined;
                 SetItemSafely(identifier.Name, argument, initiallyEmpty);
             }
-            else if (parameter is RestElement restElement)
+            else
+            {
+                SetFunctionParameterUnlikely(parameter, arguments, index, initiallyEmpty);
+            }
+        }
+
+        private void SetFunctionParameterUnlikely(
+            INode parameter,
+            JsValue[]arguments,
+            int index,
+            bool initiallyEmpty)
+        {
+            var argument = arguments.Length > index ? arguments[index] : Undefined;
+
+            if (parameter is RestElement restElement)
             {
                 // index + 1 == parameters.count because rest is last
                 int restCount = arguments.Length - (index + 1) + 1;
@@ -309,8 +315,7 @@ namespace Jint.Runtime.Environments
                 }
 
                 SetFunctionParameter(assignmentPattern.Left, new []{ argument }, 0, initiallyEmpty);
-            }
-        }
+            }        }
 
         private void SetItemSafely(in Key name, JsValue argument, bool initiallyEmpty)
         {
@@ -322,8 +327,8 @@ namespace Jint.Runtime.Environments
             {
                 if (existing.Mutable)
                 {
-                    ref var b = ref GetOrCreateBinding(name);
-                    b.Value = argument;
+                    existing.Value = argument;
+                    _dictionary[name] = existing;
                 }
                 else
                 {
@@ -355,46 +360,18 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static JsValue HandleAssignmentPatternIfNeeded(IFunction functionDeclaration, JsValue jsValue, int index)
+        internal static JsValue HandleAssignmentPatternIfNeeded(IFunction functionDeclaration, JsValue jsValue, uint index)
         {
             // TODO remove this method, overwrite with above SetFunctionParameter logic
             if (jsValue.IsUndefined()
                 && index < functionDeclaration?.Params.Count
-                && functionDeclaration.Params[index] is AssignmentPattern ap
+                && functionDeclaration.Params[(int) index] is AssignmentPattern ap
                 && ap.Right is Literal l)
             {
                 return JintLiteralExpression.ConvertToJsValue(l);
             }
 
             return jsValue;
-        }
-        
-        internal override void FunctionWasCalled()
-        {
-            if (_dictionary.TryGetValue(KnownKeys.Arguments, out var arguments) && arguments.Value is ArgumentsInstance argumentsInstance)
-            {
-                argumentsInstance.PersistArguments();
-            }
-
-            // we can safely release arguments only if it doesn't have possibility to escape the scope
-            // so check if someone ever accessed it
-            //if (!(_argumentsBinding.Value is ArgumentsInstance argumentsInstance))
-            //{
-            //    return;
-            //}
-
-            //if (!argumentsInstance._initialized && _argumentsBindingWasAccessed == false)
-            //{
-            //    _engine._argumentsInstancePool.Return(argumentsInstance);
-            //    _argumentsBinding = default;
-            //}
-            //else if (_argumentsBindingWasAccessed != null && argumentsInstance._args.Length > 0)
-            //{
-            //    // we need to ensure we hold on to arguments given
-            //    argumentsInstance.PersistArguments();
-            //    _argumentsBindingWasAccessed = null;
-            //}
         }
 
         private sealed class ArrayPatternProtocol : IteratorProtocol

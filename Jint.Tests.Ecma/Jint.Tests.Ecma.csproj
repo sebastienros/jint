@@ -13,4 +13,7 @@
     <PackageReference Include="xunit.runner.console" Version="2.4.1" />
     <DotNetCliToolReference Include="dotnet-xunit" Version="2.3.1" />
   </ItemGroup>
+  <ItemGroup>
+    <None Remove="TestCases\ch*\**" />
+  </ItemGroup>
 </Project>
