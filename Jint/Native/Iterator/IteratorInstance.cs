@@ -288,7 +288,7 @@ namespace Jint.Native.Iterator
             public ObjectWrapper(ObjectInstance target)
             {
                 _target = target;
-                _callable = (ICallable) target.Get("next", target);
+                _callable = (ICallable) target.Get(CommonProperties.Next, target);
             }
 
             public ObjectInstance Next()
@@ -369,12 +369,12 @@ namespace Jint.Native.Iterator
 
                 if (_global)
                 {
-                    var macthStr = TypeConverter.ToString(match.Get("0"));
+                    var macthStr = TypeConverter.ToString(match.Get(JsString.NumberZeroString));
                     if (macthStr == "")
                     {
-                        var thisIndex = TypeConverter.ToLength(_iteratingRegExp.Get(RegExpInstance.KeyLastIndex));
+                        var thisIndex = TypeConverter.ToLength(_iteratingRegExp.Get(RegExpInstance.PropertyLastIndex));
                         var nextIndex = thisIndex + 1;
-                        _iteratingRegExp.Set(RegExpInstance.KeyLastIndex, nextIndex, true);
+                        _iteratingRegExp.Set(RegExpInstance.PropertyLastIndex, nextIndex, true);
                     }
                 }
                 else

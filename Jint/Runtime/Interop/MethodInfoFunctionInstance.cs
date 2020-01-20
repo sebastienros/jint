@@ -53,7 +53,7 @@ namespace Jint.Runtime.Interop
                         // Handle specific case of F(params JsValue[])
 
                         var arrayInstance = arguments[i].AsArray();
-                        var len = TypeConverter.ToInt32(arrayInstance.Get("length", this));
+                        var len = TypeConverter.ToInt32(arrayInstance.Get(CommonProperties.Length, this));
                         var result = new JsValue[len];
                         for (uint k = 0; k < len; k++)
                         {

@@ -19,7 +19,7 @@ namespace Jint.Native.Json
 
         Stack<object> _stack;
         string _indent, _gap;
-        List<Key> _propertyList;
+        List<JsValue> _propertyList;
         JsValue _replacerFunction = Undefined.Instance;
 
         public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
@@ -44,7 +44,7 @@ namespace Jint.Native.Json
                     var replacerObj = replacer.AsObject();
                     if (replacerObj.Class == "Array")
                     {
-                        _propertyList = new List<Key>();
+                        _propertyList = new List<JsValue>();
                     }
 
                     foreach (var property in replacerObj.GetOwnProperties().Select(x => x.Value))
@@ -114,12 +114,12 @@ namespace Jint.Native.Json
             }
 
             var wrapper = _engine.Object.Construct(Arguments.Empty);
-            wrapper.DefineOwnProperty("", new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
+            wrapper.DefineOwnProperty(JsString.Empty, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
 
             return Str("", wrapper);
         }
 
-        private JsValue Str(string key, ObjectInstance holder)
+        private JsValue Str(JsValue key, ObjectInstance holder)
         {
 
             var value = holder.Get(key, holder);
@@ -258,7 +258,7 @@ namespace Jint.Native.Json
             var stepback = _indent;
             _indent = _indent + _gap;
             var partial = new List<string>();
-            var len = TypeConverter.ToUint32(value.Get("length", value));
+            var len = TypeConverter.ToUint32(value.Get(CommonProperties.Length, value));
             for (int i = 0; i < len; i++)
             {
                 var strP = Str(TypeConverter.ToString(i), value);
@@ -324,7 +324,7 @@ namespace Jint.Native.Json
                 var strP = Str(p, value);
                 if (!strP.IsUndefined())
                 {
-                    var member = Quote(p) + ":";
+                    var member = Quote(p.ToString()) + ":";
                     if (_gap != "")
                     {
                         member += " ";

@@ -43,9 +43,9 @@ namespace Jint.Native.String
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = lengthFlags | PropertyFlag.Writable;
-            var properties = new StringDictionarySlim<PropertyDescriptor>(40)
+            var properties = new PropertyDictionary(35)
             {
-                [KnownKeys.Constructor] = new PropertyDescriptor(_stringConstructor, PropertyFlag.NonEnumerable),
+                [CommonProperties.Constructor] = new PropertyDescriptor(_stringConstructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 0, lengthFlags), propertyFlags),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), propertyFlags),
                 ["charAt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "charAt", CharAt, 1, lengthFlags), propertyFlags),
@@ -76,10 +76,15 @@ namespace Jint.Native.String
                 ["padEnd"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "padEnd", PadEnd, 1, lengthFlags), propertyFlags),
                 ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, lengthFlags), propertyFlags),
                 ["normalize"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "normalize", Normalize, 0, lengthFlags), propertyFlags),
-                ["repeat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "repeat", Repeat, 1, lengthFlags), propertyFlags),
+                ["repeat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "repeat", Repeat, 1, lengthFlags), propertyFlags)
+            };
+            SetProperties(properties);
+
+            var symbols = new PropertyDictionary(40)
+            {
                 [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.iterator]", Iterator, 0, lengthFlags), propertyFlags)
             };
-            SetProperties(properties, hasSymbols: true);
+            SetSymbols(symbols);
         }
 
         private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)
@@ -506,7 +511,7 @@ namespace Jint.Native.String
 
             var rx = (RegExpInstance) Engine.RegExp.Construct(new[] {regex});
             var s = TypeConverter.ToString(thisObj);
-            return Invoke(rx, GlobalSymbolRegistry.Search.ToPropertyKey(), new JsValue[] { s });
+            return Invoke(rx, GlobalSymbolRegistry.Search, new JsValue[] { s });
         }
 
         private JsValue Replace(JsValue thisObj, JsValue[] arguments)
@@ -588,7 +593,7 @@ namespace Jint.Native.String
             {
                 if (regex.IsRegExp())
                 {
-                    var flags = regex.Get("flags");
+                    var flags = regex.Get(RegExpPrototype.PropertyFlags);
                     TypeConverter.CheckObjectCoercible(_engine, flags);
                     if (TypeConverter.ToString(flags).IndexOf('g') < 0)
                     {

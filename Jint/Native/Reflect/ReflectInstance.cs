@@ -27,7 +27,7 @@ namespace Jint.Native.Reflect
 
         protected override void Initialize()
         {
-            var properties = new StringDictionarySlim<PropertyDescriptor>(14)
+            var properties = new PropertyDictionary(14)
             {
                 ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 3, PropertyFlag.Configurable), true, false, true),
                 ["construct"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "construct", Construct, 2, PropertyFlag.Configurable), true, false, true),
@@ -43,8 +43,7 @@ namespace Jint.Native.Reflect
                 ["set"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "set", Set, 3, PropertyFlag.Configurable), true, false, true),
                 ["setPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setPrototypeOf", SetPrototypeOf, 2, PropertyFlag.Configurable), true, false, true),
             };
-            
-            SetProperties(properties, hasSymbols: false);
+            SetProperties(properties);
         }
 
         private JsValue Apply(JsValue thisObject, JsValue[] arguments)

@@ -11,6 +11,8 @@ namespace Jint.Native.Proxy
     public sealed class ProxyConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _name = new JsString("Proxy");
+        private static readonly JsString PropertyProxy = new JsString("proxy");
+        private static readonly JsString PropertyRevoke = new JsString("revoke");
 
         private ProxyConstructor(Engine engine)
             : base(engine, _name, strict: false)
@@ -46,12 +48,12 @@ namespace Jint.Native.Proxy
 
         protected override void Initialize()
         {
-            var properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            var properties = new PropertyDictionary(3)
             {
                 ["revocable"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "revocable", Revocable, 2, PropertyFlag.Configurable), true, true, true)
             };
             
-            SetProperties(properties, hasSymbols: false);
+            SetProperties(properties);
         }
 
         protected override ObjectInstance GetPrototypeOf()
@@ -77,15 +79,15 @@ namespace Jint.Native.Proxy
         {
             var p = _engine.Proxy.Construct(arguments, Undefined);
             var result = _engine.Object.Construct(ArrayExt.Empty<JsValue>());
-            result.DefineOwnProperty("revoke", new PropertyDescriptor(new ClrFunctionInstance(_engine, name: null, Revoke, 0, PropertyFlag.Configurable), PropertyFlag.ConfigurableEnumerableWritable));
-            result.DefineOwnProperty("proxy", new PropertyDescriptor(Construct(arguments, thisObject), PropertyFlag.ConfigurableEnumerableWritable));
+            result.DefineOwnProperty(PropertyRevoke, new PropertyDescriptor(new ClrFunctionInstance(_engine, name: null, Revoke, 0, PropertyFlag.Configurable), PropertyFlag.ConfigurableEnumerableWritable));
+            result.DefineOwnProperty(PropertyProxy, new PropertyDescriptor(Construct(arguments, thisObject), PropertyFlag.ConfigurableEnumerableWritable));
             return result;
         }
 
         private JsValue Revoke(JsValue thisObject, JsValue[] arguments)
         {
             var o = thisObject.AsObject();
-            var proxy = (ProxyInstance) o.Get("proxy");
+            var proxy = (ProxyInstance) o.Get(PropertyProxy);
             proxy._handler = null;
             proxy._target = null;
             return Undefined;

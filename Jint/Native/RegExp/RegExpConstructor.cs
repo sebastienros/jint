@@ -41,12 +41,12 @@ namespace Jint.Native.RegExp
 
         protected override void Initialize()
         {
-            var properties = new StringDictionarySlim<PropertyDescriptor>(1)
+            var symbols = new PropertyDictionary(1)
             {
                 [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", (thisObj, _) => thisObj, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
             };
-           
-            SetProperties(properties, hasSymbols: true);
+
+            SetSymbols(symbols);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -83,7 +83,7 @@ namespace Jint.Native.RegExp
                 newTarget = this;
                 if (patternIsRegExp && flags.IsUndefined())
                 {
-                    var patternConstructor = pattern.Get(KnownKeys.Constructor);
+                    var patternConstructor = pattern.Get(CommonProperties.Constructor);
                     if (ReferenceEquals(newTarget, patternConstructor))
                     {
                         return (ObjectInstance) pattern;

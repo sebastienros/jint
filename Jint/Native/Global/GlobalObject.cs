@@ -28,7 +28,7 @@ namespace Jint.Native.Global
             {
                 _prototype = null,
             };
-            global.SetProperties(new StringDictionarySlim<PropertyDescriptor>(35), hasSymbols: false);
+            global.SetProperties(new PropertyDictionary(35));
 
             return global;
         }

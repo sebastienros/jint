@@ -43,7 +43,7 @@ namespace Jint.Native.Symbol
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.AllForbidden;
 
-            var properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            var properties = new PropertyDictionary(15)
             {
                 ["for"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "for", For, 1, lengthFlags), PropertyFlag.Writable | PropertyFlag.Configurable),
                 ["keyFor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keyFor", KeyFor, 1, lengthFlags), PropertyFlag.Writable | PropertyFlag.Configurable),
@@ -60,7 +60,7 @@ namespace Jint.Native.Symbol
                 ["toStringTag"] = new PropertyDescriptor(GlobalSymbolRegistry.ToStringTag, propertyFlags),
                 ["unscopables"] = new PropertyDescriptor(GlobalSymbolRegistry.Unscopables, propertyFlags)
             };
-            SetProperties(properties, hasSymbols: false);
+            SetProperties(properties);
         }
 
         /// <summary>
@@ -99,10 +99,9 @@ namespace Jint.Native.Symbol
                 return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
             }
 
-            var key = sym.ToPropertyKey();
-            if (_engine.GlobalSymbolRegistry.TryGetSymbol(key, out var e))
+            if (_engine.GlobalSymbolRegistry.TryGetSymbol(sym._value.ToString(), out var e))
             {
-                return e.ToPropertyKey().Name;
+                return e._value;
             }
 
             return Undefined;

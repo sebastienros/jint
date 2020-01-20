@@ -24,7 +24,7 @@ namespace Jint.Runtime.Interop
                 // create a forwarder to produce length from Count
                 var functionInstance = new ClrFunctionInstance(engine, "length", (thisObj, arguments) => collection.Count);
                 var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
-                AddProperty("length", descriptor);
+                AddProperty(CommonProperties.Length, descriptor);
             }
         }
 
@@ -32,14 +32,14 @@ namespace Jint.Runtime.Interop
 
         internal override bool IsArrayLike { get; }
 
-        public override bool Set(in Key propertyName, JsValue value, JsValue receiver)
+        public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
-            if (!CanPut(propertyName))
+            if (!CanPut(property))
             {
                 return false;
             }
 
-            var ownDesc = GetOwnProperty(propertyName);
+            var ownDesc = GetOwnProperty(property);
 
             if (ownDesc == null)
             {
@@ -50,24 +50,24 @@ namespace Jint.Runtime.Interop
             return true;
         }
 
-        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            if (TryGetProperty(propertyName, out var x))
+            if (TryGetProperty(property, out var x))
             {
                 return x;
             }
 
             var type = Target.GetType();
-            var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, propertyName);
+            var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, property.ToString());
 
             if (!_engine.ClrPropertyDescriptorFactories.TryGetValue(key, out var factory))
             {
-                factory = ResolveProperty(type, propertyName);
+                factory = ResolveProperty(type, property.ToString());
                 _engine.ClrPropertyDescriptorFactories[key] = factory;
             }
 
             var descriptor = factory(_engine, Target);
-            AddProperty(propertyName, descriptor);
+            AddProperty(property, descriptor);
             return descriptor;
         }
         

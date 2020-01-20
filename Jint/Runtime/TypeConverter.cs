@@ -111,15 +111,15 @@ namespace Jint.Runtime
             return OrdinaryToPrimitive(oi, preferredType == Types.None ? Types.Number :  preferredType);
         }
 
-        private static readonly Key[] StringHintCallOrder = { (Key) "toString", (Key) "valueOf"};
-        private static readonly Key[] NumberHintCallOrder = { (Key) "valueOf", (Key) "toString"};
+        private static readonly JsString[] StringHintCallOrder = { (JsString) "toString", (JsString) "valueOf"};
+        private static readonly JsString[] NumberHintCallOrder = { (JsString) "valueOf", (JsString) "toString"};
         
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/#sec-ordinarytoprimitive
         /// </summary>
         internal static JsValue OrdinaryToPrimitive(ObjectInstance input, Types hint = Types.None)
         {
-            var callOrder = ArrayExt.Empty<Key>();
+            var callOrder = ArrayExt.Empty<JsString>();
             if (hint == Types.String)
             {
                 callOrder = StringHintCallOrder;
@@ -204,18 +204,7 @@ namespace Jint.Runtime
             }
         }
 
-        internal static bool CanBeIndex(in Key input)
-        {
-            if (input.Name.Length == 0)
-            {
-                return false;
-            }
-
-            var c = input.Name[0];
-            return char.IsDigit(c) || c == ' ' || c == '+' || c == '-' || c == 'I';
-        }
-
-        internal static double ToNumber(string input)
+        private static double ToNumber(string input)
         {
             // eager checks to save time and trimming
             if (string.IsNullOrEmpty(input))
@@ -230,9 +219,7 @@ namespace Jint.Runtime
                 return first - '0';
             }
 
-            var s = StringPrototype.IsWhiteSpaceEx(input[0]) || StringPrototype.IsWhiteSpaceEx(input[input.Length - 1])
-                ? StringPrototype.TrimEx(input)
-                : input;
+            var s = StringPrototype.TrimEx(input);
 
             if (s.Length == 0)
             {
@@ -446,15 +433,16 @@ namespace Jint.Runtime
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/#sec-topropertykey
         /// </summary>
-        public static Key ToPropertyKey(JsValue o)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static JsValue ToPropertyKey(JsValue o)
         {
-            var key = ToPrimitive(o, Types.String);
-            if (key is JsSymbol s)
+            if (o.IsString() || o.IsSymbol())
             {
-                return s.ToPropertyKey();
+                return o;
             }
 
-            return ToString(key);
+            // slow path
+            return ToStringNonString(ToPrimitive(o, Types.String));
         }
 
         /// <summary>
@@ -467,21 +455,17 @@ namespace Jint.Runtime
             {
                 return o.AsStringWithoutTypeCheck();
             }
-
-            if (o._type == InternalTypes.Integer)
-            {
-                return ToString((int) ((JsNumber) o)._value);
-            }
-
-            return ToStringUnlikely(o);
+            return ToStringNonString(o);
         }
 
-        private static string ToStringUnlikely(JsValue o)
+        private static string ToStringNonString(JsValue o)
         {
             switch (o._type)
             {
                 case InternalTypes.Boolean:
                     return ((JsBoolean) o)._value ? "true" : "false";
+                case InternalTypes.Integer:
+                    return ToString((int) ((JsNumber) o)._value);
                 case InternalTypes.Number:
                     return ToString(((JsNumber) o)._value);
                 case InternalTypes.Symbol:
@@ -519,25 +503,19 @@ namespace Jint.Runtime
             }
         }
 
-        public static Types GetPrimitiveType(JsValue value)
+        internal static Types GetInternalPrimitiveType(JsValue value)
         {
-            var type = GetInternalPrimitiveType(value);
-            return type == InternalTypes.Integer ? Types.Number : (Types) type;
-        }
-
-        internal static InternalTypes GetInternalPrimitiveType(JsValue value)
-        {
-            if (value._type != InternalTypes.Object)
+            if (value.Type != Types.Object)
             {
-                return value._type;
+                return value.Type;
             }
 
             if (value is IPrimitiveInstance primitive)
             {
-                return (InternalTypes) primitive.Type;
+                return primitive.Type;
             }
 
-            return InternalTypes.Object;
+            return Types.Object;
         }
 
         internal static void CheckObjectCoercible(

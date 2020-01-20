@@ -80,13 +80,14 @@ namespace Jint.Native.Date
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            
-            SetProperties(new StringDictionarySlim<PropertyDescriptor>(3)
+
+            var properties = new PropertyDictionary(3)
             {
                 ["parse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parse", Parse, 1, lengthFlags), propertyFlags),
                 ["UTC"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "UTC", Utc, 7, lengthFlags), propertyFlags),
                 ["now"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "now", Now, 0, lengthFlags), propertyFlags)
-            }, false);
+            };
+            SetProperties(properties);
         }
 
         private JsValue Parse(JsValue thisObj, JsValue[] arguments)

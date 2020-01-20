@@ -56,8 +56,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     Left = left,
                     LeftPattern = bindingPattern,
                     LeftIdentifier = leftIdentifier,
-                    EvalOrArguments = leftIdentifier?.ExpressionName == KnownKeys.Eval
-                                      || leftIdentifier?.ExpressionName == KnownKeys.Arguments,
+                    EvalOrArguments = leftIdentifier?.HasEvalOrArguments == true,
                     Init = init
                 };
             }
@@ -91,7 +90,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                         if (declaration.Init._expression.IsFunctionWithName())
                         {
-                            ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
+                            ((FunctionInstance) value).SetFunctionName(lhs._property.ToString());
                         }
 
                         _engine.PutValue(lhs, value);

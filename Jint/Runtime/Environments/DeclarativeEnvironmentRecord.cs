@@ -15,7 +15,7 @@ namespace Jint.Runtime.Environments
     /// Represents a declarative environment record
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.1
     /// </summary>
-    public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
+    internal sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
         private readonly HybridDictionary<Key, Binding> _dictionary = new HybridDictionary<Key, Binding>();
 
@@ -23,9 +23,9 @@ namespace Jint.Runtime.Environments
         {
         }
 
-        private bool ContainsKey(in Key key)
+        private bool ContainsKey(JsValue key)
         {
-            return _dictionary?.ContainsKey(key) == true;
+            return _dictionary?.ContainsKey(key.ToString()) == true;
         }
 
         private bool TryGetValue(in Key key, out Binding value)
@@ -33,34 +33,36 @@ namespace Jint.Runtime.Environments
             return _dictionary.TryGetValue(key, out value);
         }
 
-        public override bool HasBinding(in Key name)
+        public override bool HasBinding(JsValue name)
         {
             return ContainsKey(name);
         }
 
         internal override bool TryGetBinding(
-            in Key name,
+            in KeyValue name,
             bool strict,
             out Binding binding,
             out JsValue value)
         {
-            var success = _dictionary.TryGetValue(name, out binding);
+            var success = _dictionary.TryGetValue(name.Key, out binding);
             value = success ? UnwrapBindingValue(strict, binding) : default;
             return success;
         }
 
-        public override void CreateMutableBinding(in Key name, JsValue value, bool canBeDeleted = false)
+        public override void CreateMutableBinding(JsValue name, JsValue value, bool canBeDeleted = false)
         {
-            _dictionary[name] = new Binding(value, canBeDeleted, mutable: true);
+            var key = name.ToString();
+            _dictionary[key] = new Binding(value, canBeDeleted, mutable: true);
         }
 
-        public override void SetMutableBinding(in Key name, JsValue value, bool strict)
+        public override void SetMutableBinding(JsValue name, JsValue value, bool strict)
         {
-            _dictionary.TryGetValue(name, out var binding);
+            var key = TypeConverter.ToString(name);
+            _dictionary.TryGetValue(key, out var binding);
             if (binding.Mutable)
             {
                 binding.Value = value;
-                _dictionary[name] = binding;
+                _dictionary[key] = binding;
             }
             else
             {
@@ -71,9 +73,10 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        public override JsValue GetBindingValue(in Key name, bool strict)
+        public override JsValue GetBindingValue(JsValue name, bool strict)
         {
-            _dictionary.TryGetValue(name, out var binding);
+            var key = TypeConverter.ToString(name);
+            _dictionary.TryGetValue(key, out var binding);
             return UnwrapBindingValue(strict, binding);
         }
 
@@ -98,9 +101,10 @@ namespace Jint.Runtime.Environments
             throw new JavaScriptException(_engine.ReferenceError, "Can't access an uninitialized immutable binding.");
         }
 
-        public override bool DeleteBinding(in Key name)
+        public override bool DeleteBinding(JsValue name)
         {
-            if (!_dictionary.TryGetValue(name, out var binding))
+            var key = name.ToString();
+            if (!_dictionary.TryGetValue(key, out var binding))
             {
                 return true;
             }
@@ -110,7 +114,7 @@ namespace Jint.Runtime.Environments
                 return false;
             }
 
-            _dictionary.Remove(name);
+            _dictionary.Remove(key);
 
             return true;
         }
@@ -121,9 +125,9 @@ namespace Jint.Runtime.Environments
         }
 
         /// <inheritdoc />
-        public override Key[] GetAllBindingNames()
+        internal override string[] GetAllBindingNames()
         {
-            var keys = new Key[_dictionary.Count];
+            var keys = new string[_dictionary.Count];
             var n = 0;
             foreach (var entry in _dictionary)
             {
@@ -349,7 +353,7 @@ namespace Jint.Runtime.Environments
                     var d = variableDeclaration.Declarations[j];
                     if (d.Id is Identifier id)
                     {
-                        Key dn = id.Name;
+                        var dn = id.Name;
                         if (!ContainsKey(dn))
                         {
                             var binding = new Binding(Undefined, canBeDeleted: false, mutable: true);

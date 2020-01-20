@@ -11,7 +11,7 @@ namespace Jint.Runtime.Environments
     /// Represents an object environment record
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2
     /// </summary>
-    public sealed class ObjectEnvironmentRecord : EnvironmentRecord
+    internal sealed class ObjectEnvironmentRecord : EnvironmentRecord
     {
         private readonly ObjectInstance _bindingObject;
         private readonly bool _provideThis;
@@ -22,7 +22,7 @@ namespace Jint.Runtime.Environments
             _provideThis = provideThis;
         }
 
-        public override bool HasBinding(in Key name)
+        public override bool HasBinding(JsValue name)
         {
             var foundBinding = _bindingObject.HasProperty(name);
 
@@ -42,7 +42,7 @@ namespace Jint.Runtime.Environments
         }
 
         internal override bool TryGetBinding(
-            in Key name,
+            in KeyValue name,
             bool strict,
             out Binding binding,
             out JsValue value)
@@ -50,23 +50,26 @@ namespace Jint.Runtime.Environments
             // we unwrap by name
             binding = default;
 
-            if (!_bindingObject.HasProperty(name) || IsBlocked(name))
+            if (!_bindingObject.HasProperty(name.Value) || IsBlocked(name.Value))
             {
                 value = default;
                 return false;
             }
 
-            var desc = _bindingObject.GetProperty(name);
+            var desc = _bindingObject.GetProperty(name.Value);
             value = ObjectInstance.UnwrapJsValue(desc, _bindingObject);
             return true;
         }
 
-        private bool IsBlocked(in Key name)
+        private bool IsBlocked(JsValue property)
         {
-            var unscopables = _bindingObject._hasSymbols ? _bindingObject.Get(GlobalSymbolRegistry.Unscopables) : null;
+            var unscopables = _bindingObject._symbols != null
+                ? _bindingObject.Get(GlobalSymbolRegistry.Unscopables)
+                : null;
+
             if (unscopables is ObjectInstance oi)
             {
-                var blocked = TypeConverter.ToBoolean(oi.Get(name));
+                var blocked = TypeConverter.ToBoolean(oi.Get(property));
                 if (blocked)
                 {
                     return true;
@@ -79,7 +82,7 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2.2
         /// </summary>
-        public override void CreateMutableBinding(in Key name, JsValue value, bool configurable = true)
+        public override void CreateMutableBinding(JsValue name, JsValue value, bool configurable = false)
         {
             var propertyDescriptor = configurable
                 ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable)
@@ -88,7 +91,7 @@ namespace Jint.Runtime.Environments
             _bindingObject.DefinePropertyOrThrow(name, propertyDescriptor);
         }
 
-        public override void SetMutableBinding(in Key name, JsValue value, bool strict)
+        public override void SetMutableBinding(JsValue name, JsValue value, bool strict)
         {
             if (!_bindingObject.Set(name, value) && strict)
             {
@@ -96,18 +99,18 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        public override JsValue GetBindingValue(in Key name, bool strict)
+        public override JsValue GetBindingValue(JsValue name, bool strict)
         {
             var desc = _bindingObject.GetProperty(name);
             if (strict && desc == PropertyDescriptor.Undefined)
             {
-                ExceptionHelper.ThrowReferenceError(_engine, name);
+                ExceptionHelper.ThrowReferenceError(_engine, name.ToString());
             }
 
             return ObjectInstance.UnwrapJsValue(desc, this);
         }
 
-        public override bool DeleteBinding(in Key name)
+        public override bool DeleteBinding(JsValue name)
         {
             return _bindingObject.Delete(name);
         }
@@ -122,14 +125,14 @@ namespace Jint.Runtime.Environments
             return Undefined;
         }
 
-        public override Key[] GetAllBindingNames()
+        internal override string[] GetAllBindingNames()
         {
             if (!ReferenceEquals(_bindingObject, null))
             {
-                return _bindingObject.GetOwnProperties().Select( x=> x.Key).ToArray();
+                return _bindingObject.GetOwnProperties().Select( x=> x.Key.ToString()).ToArray();
             }
 
-            return ArrayExt.Empty<Key>();
+            return ArrayExt.Empty<string>();
         }
 
         public override bool Equals(JsValue other)

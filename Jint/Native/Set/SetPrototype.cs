@@ -32,12 +32,10 @@ namespace Jint.Native.Set
 
         protected override void Initialize()
         {
-            var properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            var properties = new PropertyDictionary(12)
             {
-                [KnownKeys.Length] = new PropertyDescriptor(0, PropertyFlag.Configurable),
-                [KnownKeys.Constructor] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
-                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Values, 1, PropertyFlag.Configurable), true, false, true),
-                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Set", false, false, true),
+                [CommonProperties.Length] = new PropertyDescriptor(0, PropertyFlag.Configurable),
+                [CommonProperties.Constructor] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
                 ["add"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable), true, false, true),
                 ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), true, false, true),
                 ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), true, false, true),
@@ -48,8 +46,14 @@ namespace Jint.Native.Set
                 ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true),
                 ["size"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable)
             };
-            
-            SetProperties(properties, hasSymbols: true);
+            SetProperties(properties);
+
+            var symbols = new PropertyDictionary(2)
+            {
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Values, 1, PropertyFlag.Configurable), true, false, true),
+                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Set", false, false, true)
+            };
+            SetSymbols(symbols);
         }
         
         private JsValue Size(JsValue thisObj, JsValue[] arguments)
@@ -75,7 +79,7 @@ namespace Jint.Native.Set
         private JsValue Delete(JsValue thisObj, JsValue[] arguments)
         {
             var set = AssertSetInstance(thisObj);
-            return set.Delete(arguments[0])
+            return set.SetDelete(arguments[0])
                 ? JsBoolean.True
                 : JsBoolean.False;
         }

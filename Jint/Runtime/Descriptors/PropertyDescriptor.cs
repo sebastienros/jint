@@ -310,7 +310,7 @@ namespace Jint.Runtime.Descriptors
             }
 
             var obj = engine.Object.Construct(Arguments.Empty);
-            var properties = new StringDictionarySlim<PropertyDescriptor>(4);
+            var properties = new PropertyDictionary(4);
 
             if (desc.IsDataDescriptor())
             {
@@ -326,7 +326,7 @@ namespace Jint.Runtime.Descriptors
             properties["enumerable"] = new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable);
             properties["configurable"] = new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable);
 
-            obj.SetProperties(properties, hasSymbols: false);
+            obj.SetProperties(properties);
             return obj;
         }
 

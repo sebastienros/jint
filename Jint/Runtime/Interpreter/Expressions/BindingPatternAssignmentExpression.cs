@@ -195,7 +195,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             for (uint i = 0; i < pattern.Properties.Count; i++)
             {
                 var left = pattern.Properties[(int) i];
-                string sourceKey;
+                JsValue sourceKey;
                 var identifier = left.Key as Identifier;
                 if (identifier == null)
                 {

@@ -147,7 +147,7 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowTypeError(Engine);
             }
 
-            var len = argArrayObj.Get("length", argArrayObj);
+            var len = argArrayObj.Get(CommonProperties.Length, argArrayObj);
             var n = TypeConverter.ToUint32(len);
             var argList = new JsValue[n];
             for (var index = 0; index < n; index++)

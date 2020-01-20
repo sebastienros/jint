@@ -81,7 +81,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (r.IsPropertyReference())
                     {
                         var o = TypeConverter.ToObject(_engine, r.GetBase());
-                        var deleteStatus  = o.Delete(r.GetReferencedName());
+                        var deleteStatus  = o.Delete(r._property);
                         if (!deleteStatus && r._strict)
                         {
                             ExceptionHelper.ThrowTypeError(_engine);
@@ -97,10 +97,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     var bindings = r.GetBase().TryCast<EnvironmentRecord>();
-                    var referencedName = r.GetReferencedName();
+                    var property = r._property;
                     _engine._referencePool.Return(r);
 
-                    return bindings.DeleteBinding(referencedName) ? JsBoolean.True : JsBoolean.False;
+                    return bindings.DeleteBinding(property) ? JsBoolean.True : JsBoolean.False;
 
                 case UnaryOperator.Void:
                     _argument.GetValue();

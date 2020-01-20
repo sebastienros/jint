@@ -21,16 +21,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private class ObjectProperty
         {
-            private readonly Key _key;
+            internal readonly string _key;
             internal readonly Property _value;
 
-            public ObjectProperty(in Key key, Property property)
+            public ObjectProperty(string key, Property property)
             {
                 _key = key;
                 _value = property;
             }
-
-            public ref readonly Key Key => ref _key;
         }
 
         public JintObjectExpression(Engine engine, ObjectExpression expression) : base(engine, expression)
@@ -66,7 +64,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     propName = identifier.Name;
                 }
 
-                _properties[i] = new ObjectProperty(propName ?? "", property);
+                _properties[i] = new ObjectProperty(propName, property);
 
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
                 {
@@ -101,21 +99,18 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return obj;
             }
 
-            var properties = new StringDictionarySlim<PropertyDescriptor>(_properties.Length);
-            var hasSymbols = false;
+            var properties = new PropertyDictionary(_properties.Length);
             for (var i = 0; i < _properties.Length; i++)
             {
                 var objectProperty = _properties[i];
                 var valueExpression = _valueExpressions[i];
                 var propValue = valueExpression.GetValue().Clone();
-                hasSymbols |= objectProperty.Key.IsSymbol;
-                properties[objectProperty.Key] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+                properties[objectProperty._key] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
             }
-
-            obj.SetProperties(properties, hasSymbols);
+            obj.SetProperties(properties);
             return obj;
         }
-                                                
+
         private object BuildObjectNormal()
         {
             var obj = _engine.Object.Construct(Math.Max(2, _properties.Length));
@@ -125,9 +120,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var objectProperty = _properties[i];
                 var property = objectProperty._value;
-                var propName = objectProperty.Key.Name.Length > 0
-                    ? objectProperty.Key
-                    : property.GetKey(_engine);
+                var propName = objectProperty._key ?? property.GetKey(_engine);
 
                 PropertyDescriptor propDesc;
 

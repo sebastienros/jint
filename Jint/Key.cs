@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Jint.Native;
 using Jint.Runtime;
 
 namespace Jint
@@ -11,19 +10,8 @@ namespace Jint
     /// as runtime does a lot of repetitive dictionary lookups.
     /// </summary>
     [DebuggerDisplay("{" + nameof(Name) + "}")]
-    public readonly struct Key : IEquatable<Key>
+    internal readonly struct Key : IEquatable<Key>
     {
-        // lookup for indexer keys
-        internal static readonly Key[] indexKeys = new Key[TypeConverter.intToString.Length];
-
-        static Key()
-        {
-            for (uint i = 0; i < indexKeys.Length; ++i)
-            {
-                indexKeys[i] = new Key(i.ToString());
-            }
-        }
-
         public Key(string name) : this(name, symbolIdentity: 0)
         {
         }
@@ -43,49 +31,9 @@ namespace Jint
         internal readonly int HashCode;
         internal readonly int _symbolIdentity;
 
-        public Types Type => _symbolIdentity == 0 ? Types.String : Types.Symbol;
-
-        public bool IsSymbol => _symbolIdentity != 0;
-
         public static implicit operator Key(string name)
         {
             return new Key(name);
-        }
-
-        public static implicit operator Key(JsSymbol name)
-        {
-            return name.ToPropertyKey();
-        }
-
-        public static implicit operator JsValue(in Key key)
-        {
-            return !key.IsSymbol 
-                ? (JsValue) JsString.Create(key.Name)
-                : new JsSymbol(new JsString(key.Name), key._symbolIdentity);
-        }
-
-        public static implicit operator Key(int value)
-        {
-            var keys = indexKeys;
-            return (uint) value < keys.Length ? keys[value] : BuildKey(value);
-        }
-
-        public static implicit operator Key(uint value)
-        {
-            var keys = indexKeys;
-            return value < keys.Length ? keys[value] : BuildKey(value);
-        }
-
-        public static implicit operator Key(ulong value)
-        {
-            var keys = indexKeys;
-            return value < (ulong) keys.Length ? keys[value] : new Key(value.ToString());
-        }
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static Key BuildKey(long value)
-        {
-            return new Key(value.ToString());
         }
 
         public static implicit operator string(Key key) => key.Name;
@@ -93,13 +41,13 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(in Key a, Key b)
         {
-            return a.HashCode == b.HashCode && a.Name == b.Name && a._symbolIdentity == b._symbolIdentity;
+            return a.Name == b.Name && a._symbolIdentity == b._symbolIdentity;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(in Key a, Key b)
         {
-            return a.HashCode != b.HashCode || a.Name != b.Name || a._symbolIdentity != b._symbolIdentity;
+            return a.Name != b.Name || a._symbolIdentity != b._symbolIdentity;
         }
 
         public static bool operator ==(in Key a, string b)

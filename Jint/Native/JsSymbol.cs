@@ -10,24 +10,15 @@ namespace Jint.Native
     public sealed class JsSymbol : JsValue, IEquatable<JsSymbol>
     {
         internal readonly JsValue _value;
-        private readonly Key _key;
 
-        internal JsSymbol(JsValue value, int identity) : base(Types.Symbol)
+        internal JsSymbol(JsValue value) : base(Types.Symbol)
         {
             _value = value;
-            _key = new Key(value.IsUndefined() 
-                ? ""
-                : TypeConverter.ToString(value), identity);
         }
 
         public override object ToObject()
         {
             return _value;
-        }
-
-        internal override Key ToPropertyKey()
-        {
-            return _key;
         }
 
         public override string ToString()
@@ -43,7 +34,7 @@ namespace Jint.Native
 
         public bool Equals(JsSymbol other)
         {
-            return other != null && other._key == _key;
+            return ReferenceEquals(this, other);
         }
 
         public override int GetHashCode()

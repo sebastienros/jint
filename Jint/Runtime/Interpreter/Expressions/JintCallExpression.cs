@@ -112,7 +112,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (_maxRecursionDepth >= 0)
             {
-                var stackItem = new CallStackElement(expression, func, r?.GetReferencedName() ?? "anonymous function");
+                var stackItem = new CallStackElement(expression, func, r?._property.ToString() ?? "anonymous function");
 
                 var recursionDepth = _engine.CallStack.Push(stackItem);
 
@@ -125,7 +125,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (func._type == InternalTypes.Undefined)
             {
-                ExceptionHelper.ThrowTypeError(_engine, r == null ? "" : $"Object has no method '{r.GetReferencedName()}'");
+                ExceptionHelper.ThrowTypeError(_engine, r == null ? "" : $"Object has no method '{r._property}'");
             }
 
             if (func._type != InternalTypes.Object)
@@ -133,13 +133,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (_engine._referenceResolver == null || !_engine._referenceResolver.TryGetCallable(_engine, callee, out func))
                 {
                     ExceptionHelper.ThrowTypeError(_engine,
-                        r == null ? "" : $"Property '{r.GetReferencedName()}' of object is not a function");
+                        r == null ? "" : $"Property '{r._property}' of object is not a function");
                 }
             }
 
             if (!(func is ICallable callable))
             {
-                var message = $"{r?.GetReferencedName() ?? ""} is not a function";
+                var message = $"{r?._property ?? ""} is not a function";
                 return ExceptionHelper.ThrowTypeError<object>(_engine, message);
             }
 
@@ -157,7 +157,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
 
                 // is it a direct call to eval ? http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.1.1
-                if (r.GetReferencedName() == KnownKeys.Eval && callable is EvalFunctionInstance instance)
+                if (r._property == CommonProperties.Eval && callable is EvalFunctionInstance instance)
                 {
                     var value = instance.Call(thisObject, arguments, true);
                     _engine._referencePool.Return(r);

@@ -51,17 +51,6 @@ namespace Jint
             return value.ToString();
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string AsSymbol(this JsValue value)
-        {
-            if (value._type != InternalTypes.Symbol)
-            {
-                ThrowWrongTypeException(value, "symbol");
-            }
-
-            return ((JsSymbol) value).ToPropertyKey();
-        }
-
         private static void ThrowWrongTypeException(JsValue value, string expectedType)
         {
             ExceptionHelper.ThrowArgumentException($"Expected {expectedType} but got {value._type}");

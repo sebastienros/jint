@@ -39,13 +39,13 @@ namespace Jint.Native.Error
 
         protected override void Initialize()
         {
-            var properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            var properties = new PropertyDictionary(3)
             {
-                [KnownKeys.Constructor] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable),
+                [CommonProperties.Constructor] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable),
                 ["message"] = new PropertyDescriptor("", PropertyFlag.Configurable | PropertyFlag.Writable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), PropertyFlag.Configurable | PropertyFlag.Writable)
             };
-            SetProperties(properties, hasSymbols: false);
+            SetProperties(properties);
         }
 
         public JsValue ToString(JsValue thisObject, JsValue[] arguments)

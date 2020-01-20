@@ -15,7 +15,8 @@ namespace Jint.Native.RegExp
             if (o is RegExpInstance instance)
             {
                 exec = default;
-                return instance.Properties == null && TryGetDefaultRegExpExec(instance.Prototype, out exec);
+                return instance.Properties == null
+                       && TryGetDefaultRegExpExec(instance.Prototype, out exec);
             }
 
             exec = default;

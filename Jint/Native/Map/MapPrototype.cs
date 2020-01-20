@@ -33,12 +33,10 @@ namespace Jint.Native.Map
         protected override void Initialize()
         {
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            var properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            var properties = new PropertyDictionary(15)
             {
-                [KnownKeys.Length] = new PropertyDescriptor(0, PropertyFlag.Configurable),
-                [KnownKeys.Constructor] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
-                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Iterator, 1, PropertyFlag.Configurable), propertyFlags),
-                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Map", false, false, true),
+                [CommonProperties.Length] = new PropertyDescriptor(0, PropertyFlag.Configurable),
+                [CommonProperties.Constructor] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
                 ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), propertyFlags),
                 ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), propertyFlags),
                 ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), propertyFlags),
@@ -50,8 +48,14 @@ namespace Jint.Native.Map
                 ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
                 ["size"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable)
             };
-            
-            SetProperties(properties, hasSymbols: true);
+            SetProperties(properties);
+
+            var symbols = new PropertyDictionary(2)
+            {
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Iterator, 1, PropertyFlag.Configurable), propertyFlags),
+                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Map", false, false, true),
+            };
+            SetSymbols(symbols);
         }
 
         private JsValue Size(JsValue thisObj, JsValue[] arguments)
@@ -63,7 +67,7 @@ namespace Jint.Native.Map
         private JsValue Get(JsValue thisObj, JsValue[] arguments)
         {
             var map = AssertMapInstance(thisObj);
-            return map.Get(arguments.At(0));
+            return map.MapGet(arguments.At(0));
         }
 
         private JsValue Clear(JsValue thisObj, JsValue[] arguments)
@@ -76,7 +80,7 @@ namespace Jint.Native.Map
         private JsValue Delete(JsValue thisObj, JsValue[] arguments)
         {
             var map = AssertMapInstance(thisObj);
-            return map.Delete(arguments[0])
+            return map.MapDelete(arguments[0])
                 ? JsBoolean.True
                 : JsBoolean.False;
         }
@@ -84,7 +88,7 @@ namespace Jint.Native.Map
         private JsValue Set(JsValue thisObj, JsValue[] arguments)
         {
             var map = AssertMapInstance(thisObj);
-            map.Set(arguments[0], arguments[1]);
+            map.MapSet(arguments[0], arguments[1]);
             return thisObj;
         }
 

@@ -7,6 +7,7 @@ using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.String
 {
@@ -39,14 +40,13 @@ namespace Jint.Native.String
 
         protected override void Initialize()
         {
-            var properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            var properties = new PropertyDictionary(3)
             {
                 ["fromCharCode"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCharCode", FromCharCode, 1), PropertyFlag.NonEnumerable)),
                 ["fromCodePoint"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCodePoint", FromCodePoint, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
                 ["raw"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "raw", Raw, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable))
             };
-            
-            SetProperties(properties, hasSymbols: false);
+            SetProperties(properties);
         }
 
         private static JsValue FromCharCode(JsValue thisObj, JsValue[] arguments)
@@ -106,7 +106,7 @@ namespace Jint.Native.String
         private JsValue Raw(JsValue thisObj, JsValue[] arguments)
         {
             var cooked = TypeConverter.ToObject(_engine, arguments.At(0));
-            var raw = TypeConverter.ToObject(_engine, cooked.Get("raw", cooked));
+            var raw = TypeConverter.ToObject(_engine, cooked.Get(JintTaggedTemplateExpression.PropertyRaw, cooked));
 
             var operations = ArrayOperations.For(raw);
             var length = operations.GetLength();

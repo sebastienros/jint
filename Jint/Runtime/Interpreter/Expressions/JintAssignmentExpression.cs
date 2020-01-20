@@ -164,8 +164,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     _left = Build(engine, (Expression) expression.Left);
                     _leftIdentifier = _left as JintIdentifierExpression;
-                    _evalOrArguments = _leftIdentifier?.ExpressionName == KnownKeys.Eval
-                                       || _leftIdentifier?.ExpressionName == KnownKeys.Arguments;
+                    _evalOrArguments = _leftIdentifier?.HasEvalOrArguments == true;
                 }
 
                 _right = Build(engine, expression.Right);
@@ -199,7 +198,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (_right._expression.IsFunctionWithName())
                 {
-                    ((FunctionInstance) rval).SetFunctionName(lref.GetReferencedName());
+                    ((FunctionInstance) rval).SetFunctionName(lref._property.ToString());
                 }
 
                 _engine.PutValue(lref, rval);
@@ -231,7 +230,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (right._expression.IsFunctionWithName())
                     {
-                        ((FunctionInstance) rval).SetFunctionName(left.ExpressionName);
+                        ((FunctionInstance) rval).SetFunctionName(left.ExpressionName.ToString());
                     }
 
                     environmentRecord.SetMutableBinding(left.ExpressionName, rval, strict);

@@ -46,8 +46,8 @@ namespace Jint.Native.Function
 
             if (strict)
             {
-                DefineOwnProperty(KnownKeys.Caller, engine._getSetThrower);
-                DefineOwnProperty(KnownKeys.Arguments, engine._getSetThrower);
+                DefineOwnProperty(CommonProperties.Caller, engine._getSetThrower);
+                DefineOwnProperty(CommonProperties.Arguments, engine._getSetThrower);
             }
         }
 
@@ -146,11 +146,11 @@ namespace Jint.Native.Function
                 _constructor = new PropertyDescriptor(thisObj, PropertyFlag.NonEnumerable);
             }
 
-            public override IEnumerable<KeyValuePair<Key, PropertyDescriptor>> GetOwnProperties()
+            public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
             {
                 if (_constructor != null)
                 {
-                    yield return new KeyValuePair<Key, PropertyDescriptor>(KnownKeys.Constructor, _constructor);
+                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Constructor, _constructor);
                 }
 
                 foreach (var entry in base.GetOwnProperties())
@@ -159,47 +159,47 @@ namespace Jint.Native.Function
                 }
             }
 
-            public override PropertyDescriptor GetOwnProperty(in Key propertyName)
+            public override PropertyDescriptor GetOwnProperty(JsValue property)
             {
-                if (propertyName == KnownKeys.Constructor)
+                if (property == CommonProperties.Constructor)
                 {
                     return _constructor ?? PropertyDescriptor.Undefined;
                 }
 
-                return base.GetOwnProperty(propertyName);
+                return base.GetOwnProperty(property);
             }
 
-            protected internal override void SetOwnProperty(in Key propertyName, PropertyDescriptor desc)
+            protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
             {
-                if (propertyName == KnownKeys.Constructor)
+                if (property == CommonProperties.Constructor)
                 {
                     _constructor = desc;
                 }
                 else
                 {
-                    base.SetOwnProperty(propertyName, desc);
+                    base.SetOwnProperty(property, desc);
                 }
             }
 
-            public override bool HasOwnProperty(in Key propertyName)
+            public override bool HasOwnProperty(JsValue property)
             {
-                if (propertyName == KnownKeys.Constructor)
+                if (property == CommonProperties.Constructor)
                 {
                     return _constructor != null;
                 }
 
-                return base.HasOwnProperty(propertyName);
+                return base.HasOwnProperty(property);
             }
 
-            public override void RemoveOwnProperty(in Key propertyName)
+            public override void RemoveOwnProperty(JsValue property)
             {
-                if (propertyName == KnownKeys.Constructor)
+                if (property == CommonProperties.Constructor)
                 {
                     _constructor = null;
                 }
                 else
                 {
-                    base.RemoveOwnProperty(propertyName);
+                    base.RemoveOwnProperty(property);
                 }
             }
         }

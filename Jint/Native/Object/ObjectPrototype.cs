@@ -26,9 +26,9 @@ namespace Jint.Native.Object
         protected override void Initialize()
         {
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            var properties = new StringDictionarySlim<PropertyDescriptor>(8)
+            var properties = new PropertyDictionary(8)
             {
-                [KnownKeys.Constructor] = new PropertyDescriptor(_objectConstructor, propertyFlags),
+                [CommonProperties.Constructor] = new PropertyDescriptor(_objectConstructor, propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToObjectString), propertyFlags),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), propertyFlags),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOF", ValueOf), propertyFlags),
@@ -37,7 +37,7 @@ namespace Jint.Native.Object
                 ["propertyIsEnumerable"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "propertyIsEnumerable", PropertyIsEnumerable, 1), propertyFlags)
             };
             
-            SetProperties(properties, hasSymbols: false);
+            SetProperties(properties);
         }
 
         private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue[] arguments)
@@ -78,7 +78,7 @@ namespace Jint.Native.Object
                     return false;
                 }
 
-                if (o == v)
+                if (ReferenceEquals(o, v))
                 {
                     return true;
                 }

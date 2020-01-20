@@ -6,7 +6,7 @@
     {
         public bool Equals(CallStackElement x, CallStackElement y)
         {
-            return x.Function == y.Function;
+            return ReferenceEquals(x?.Function, y?.Function);
         }
 
         public int GetHashCode(CallStackElement obj)

@@ -45,15 +45,19 @@ namespace Jint.Native.Array
 
         protected override void Initialize()
         {
-            var properties = new StringDictionarySlim<PropertyDescriptor>(5)
+            var properties = new PropertyDictionary(3)
             {
-                [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined,PropertyFlag.Configurable),
                 ["from"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
                 ["isArray"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable)),
                 ["of"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "of", Of, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable))
             };
-            
-            SetProperties(properties, hasSymbols: true);
+            SetProperties(properties);
+
+            var symbols = new PropertyDictionary(1)
+            {
+                [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined,PropertyFlag.Configurable),
+            };
+            SetSymbols(symbols);
         }
 
         private JsValue From(JsValue thisObj, JsValue[] arguments)
@@ -231,7 +235,7 @@ namespace Jint.Native.Array
                     a.CreateDataPropertyOrThrow(key, kValue);
                 }
 
-                a.Set(KnownKeys.Length, len, true);
+                a.Set(CommonProperties.Length, len, true);
             }
             else
             {
@@ -388,7 +392,7 @@ namespace Jint.Native.Array
                 return ConstructFast(length);
             }
 
-            var c = originalArray.Get(KnownKeys.Constructor);
+            var c = originalArray.Get(CommonProperties.Constructor);
 
             // If IsConstructor(C) is true, then
             // Let thisRealm be the current Realm Record.

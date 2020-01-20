@@ -11,21 +11,21 @@ namespace Jint.Native.Proxy
         internal ObjectInstance _target;
         internal ObjectInstance _handler;
 
-        private static readonly Key TrapApply = "apply";
-        private static readonly Key TrapGet = "get";
-        private static readonly Key TrapSet = "set";
-        private static readonly Key TrapPreventExtensions = "preventExtensions";
-        private static readonly Key TrapIsExtensible = "isExtensible";
-        private static readonly Key TrapDefineProperty = "defineProperty";
-        private static readonly Key TrapDeleteProperty = "deleteProperty";
-        private static readonly Key TrapGetOwnPropertyDescriptor = "getOwnPropertyDescriptor";
-        private static readonly Key TrapHas = "has";
-        private static readonly Key TrapGetProtoTypeOf = "getPrototypeOf";
-        private static readonly Key TrapSetProtoTypeOf = "setPrototypeOf";
-        private static readonly Key TrapOwnKeys = "ownKeys";
-        private static readonly Key TrapConstruct = "construct";
+        private static readonly JsString TrapApply = (JsString) "apply";
+        private static readonly JsString TrapGet = (JsString) "get";
+        private static readonly JsString TrapSet = (JsString) "set";
+        private static readonly JsString TrapPreventExtensions = (JsString) "preventExtensions";
+        private static readonly JsString TrapIsExtensible = (JsString) "isExtensible";
+        private static readonly JsString TrapDefineProperty = (JsString) "defineProperty";
+        private static readonly JsString TrapDeleteProperty = (JsString) "deleteProperty";
+        private static readonly JsString TrapGetOwnPropertyDescriptor = (JsString) "getOwnPropertyDescriptor";
+        private static readonly JsString TrapHas = (JsString) "has";
+        private static readonly JsString TrapGetProtoTypeOf = (JsString) "getPrototypeOf";
+        private static readonly JsString TrapSetProtoTypeOf = (JsString) "setPrototypeOf";
+        private static readonly JsString TrapOwnKeys = (JsString) "ownKeys";
+        private static readonly JsString TrapConstruct = (JsString) "construct";
 
-        private static readonly Key KeyFunctionRevoke = "revoke";
+        private static readonly JsString KeyFunctionRevoke = (JsString) "revoke";
 
         public ProxyInstance(
             Engine engine,
@@ -81,16 +81,16 @@ namespace Jint.Native.Proxy
         internal override bool IsConstructor => 
             _handler.TryGetValue(TrapConstruct, out var handlerFunction) && handlerFunction is IConstructor;
 
-        public override JsValue Get(in Key propertyName, JsValue receiver)
+        public override JsValue Get(JsValue property, JsValue receiver)
         {
-            if (propertyName == KeyFunctionRevoke || !TryCallHandler(TrapGet, new JsValue[] {_target, propertyName, this}, out var result))
+            if (property == KeyFunctionRevoke || !TryCallHandler(TrapGet, new JsValue[] {_target, property, this}, out var result))
             {
-                AssertTargetNotRevoked(propertyName);
-                return _target.Get(in propertyName, receiver);
+                AssertTargetNotRevoked(property);
+                return _target.Get(property, receiver);
             }
 
-            AssertTargetNotRevoked(propertyName);
-            var targetDesc = _target.GetOwnProperty(propertyName);
+            AssertTargetNotRevoked(property);
+            var targetDesc = _target.GetOwnProperty(property);
             if (targetDesc != PropertyDescriptor.Undefined)
             {
                 if (targetDesc.IsDataDescriptor() && !targetDesc.Configurable && !targetDesc.Writable && !ReferenceEquals(result, targetDesc._value))
@@ -99,7 +99,7 @@ namespace Jint.Native.Proxy
                 }
                 if (targetDesc.IsAccessorDescriptor() && !targetDesc.Configurable && targetDesc.Get.IsUndefined() && !result.IsUndefined())
                 {
-                   ExceptionHelper.ThrowTypeError(_engine, $"'get' on proxy: property '{propertyName}' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '{result}')");
+                   ExceptionHelper.ThrowTypeError(_engine, $"'get' on proxy: property '{property}' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '{result}')");
                 }
             }
 
@@ -122,20 +122,19 @@ namespace Jint.Native.Proxy
 
             var extensibleTarget = _target.Extensible;
             var targetKeys = _target.GetOwnPropertyKeys(types);
-            var targetConfigurableKeys = new List<Key>();
-            var targetNonconfigurableKeys = new List<Key>();
+            var targetConfigurableKeys = new List<JsValue>();
+            var targetNonconfigurableKeys = new List<JsValue>();
 
-            foreach (var jsValue in targetKeys)
+            foreach (var property in targetKeys)
             {
-                var key = jsValue.ToPropertyKey();
-                var desc = _target.GetOwnProperty(key);
+                var desc = _target.GetOwnProperty(property);
                 if (desc != PropertyDescriptor.Undefined && !desc.Configurable)
                 {
-                    targetNonconfigurableKeys.Add(key);
+                    targetNonconfigurableKeys.Add(property);
                 }
                 else
                 {
-                    targetConfigurableKeys.Add(key);
+                    targetConfigurableKeys.Add(property);
                 }
                 
             }
@@ -145,10 +144,10 @@ namespace Jint.Native.Proxy
                 return trapResult;
             }
             
-            var uncheckedResultKeys = new HashSet<Key>();
+            var uncheckedResultKeys = new HashSet<JsValue>();
             foreach (var jsValue in trapResult)
             {
-                uncheckedResultKeys.Add(jsValue.ToPropertyKey());
+                uncheckedResultKeys.Add(jsValue);
             }
 
             for (var i = 0; i < targetNonconfigurableKeys.Count; i++)
@@ -182,11 +181,11 @@ namespace Jint.Native.Proxy
             return trapResult;
         }
 
-        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            if (!TryCallHandler(TrapGetOwnPropertyDescriptor, new JsValue[] {_target, propertyName, this}, out var result))
+            if (!TryCallHandler(TrapGetOwnPropertyDescriptor, new JsValue[] {_target, property, this}, out var result))
             {
-                return _target.GetOwnProperty(propertyName);
+                return _target.GetOwnProperty(property);
             }
 
             if (!result.IsObject() && !result.IsUndefined())
@@ -194,7 +193,7 @@ namespace Jint.Native.Proxy
                 ExceptionHelper.ThrowTypeError(_engine);
             }
 
-            var targetDesc = _target.GetOwnProperty(propertyName);
+            var targetDesc = _target.GetOwnProperty(property);
 
             if (result.IsUndefined())
             {
@@ -228,11 +227,11 @@ namespace Jint.Native.Proxy
             return resultDesc;
         }
 
-        public override bool Set(in Key propertyName, JsValue value, JsValue receiver)
+        public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
-            if (!TryCallHandler(TrapSet, new[] { _target, propertyName, value, this }, out var trapResult))
+            if (!TryCallHandler(TrapSet, new[] { _target, property, value, this }, out var trapResult))
             {
-                return _target.Set(propertyName, value, receiver);
+                return _target.Set(property, value, receiver);
             }
 
             var result = TypeConverter.ToBoolean(trapResult);
@@ -241,7 +240,7 @@ namespace Jint.Native.Proxy
                 return false;
             }
 
-            var targetDesc  = _target.GetOwnProperty(propertyName);
+            var targetDesc  = _target.GetOwnProperty(property);
             if (targetDesc != PropertyDescriptor.Undefined)
             {
                 if (targetDesc.IsDataDescriptor() && !targetDesc.Configurable && !targetDesc.Writable)
@@ -264,12 +263,12 @@ namespace Jint.Native.Proxy
             return true;
         }
 
-        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc)
+        public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            var arguments = new[] { _target, propertyName, PropertyDescriptor.FromPropertyDescriptor(_engine, desc) };
+            var arguments = new[] { _target, property, PropertyDescriptor.FromPropertyDescriptor(_engine, desc) };
             if (!TryCallHandler(TrapDefineProperty, arguments, out var result))
             {
-                return _target.DefineOwnProperty(propertyName, desc);
+                return _target.DefineOwnProperty(property, desc);
             }
 
             var success = TypeConverter.ToBoolean(result);
@@ -278,7 +277,7 @@ namespace Jint.Native.Proxy
                 return false;
             }
 
-            var targetDesc = _target.GetOwnProperty(propertyName);
+            var targetDesc = _target.GetOwnProperty(property);
             var extensibleTarget = _target.Extensible;
             var settingConfigFalse = !desc.Configurable;
 
@@ -309,18 +308,18 @@ namespace Jint.Native.Proxy
             return ValidateAndApplyPropertyDescriptor(null, "", extensible, desc, current);
         }
 
-        public override bool HasProperty(in Key propertyName)
+        public override bool HasProperty(JsValue property)
         {
-            if (!TryCallHandler(TrapHas, new JsValue[] { _target, propertyName }, out var jsValue))
+            if (!TryCallHandler(TrapHas, new [] { _target, property }, out var jsValue))
             {
-                return _target.HasProperty(propertyName);
+                return _target.HasProperty(property);
             }
 
             var trapResult = TypeConverter.ToBoolean(jsValue);
 
             if (!trapResult)
             {
-                var targetDesc = _target.GetOwnProperty(propertyName);
+                var targetDesc = _target.GetOwnProperty(property);
                 if (targetDesc != PropertyDescriptor.Undefined)
                 {
                     if (!targetDesc.Configurable)
@@ -338,21 +337,21 @@ namespace Jint.Native.Proxy
             return trapResult;
         }
 
-        public override bool Delete(in Key propertyName)
+        public override bool Delete(JsValue property)
         {
-            if (!TryCallHandler(TrapDeleteProperty, new JsValue[] { _target, propertyName }, out var result))
+            if (!TryCallHandler(TrapDeleteProperty, new JsValue[] { _target, property }, out var result))
             {
-                return _target.Delete(propertyName);
+                return _target.Delete(property);
             }
 
             var success = TypeConverter.ToBoolean(result);
 
             if (success)
             {
-                var targetDesc = _target.GetOwnProperty(propertyName);
+                var targetDesc = _target.GetOwnProperty(property);
                 if (targetDesc != PropertyDescriptor.Undefined && !targetDesc.Configurable)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, $"'deleteProperty' on proxy: trap returned truish for property '{propertyName}' which is non-configurable in the proxy target");
+                    ExceptionHelper.ThrowTypeError(_engine, $"'deleteProperty' on proxy: trap returned truish for property '{property}' which is non-configurable in the proxy target");
                 }
             }
 
@@ -447,10 +446,10 @@ namespace Jint.Native.Proxy
             return true;
         }
 
-        private bool TryCallHandler(in Key propertyName, JsValue[] arguments, out JsValue result)
+        private bool TryCallHandler(JsValue propertyName, JsValue[] arguments, out JsValue result)
         {
             AssertNotRevoked(propertyName);
-            
+
             result = Undefined;
             var handlerFunction = _handler.Get(propertyName);
             if (!handlerFunction.IsNullOrUndefined())
@@ -467,7 +466,7 @@ namespace Jint.Native.Proxy
             return false;
         }
 
-        internal void AssertNotRevoked(in Key key)
+        internal void AssertNotRevoked(JsValue key)
         {
             if (_handler is null)
             {
@@ -475,7 +474,7 @@ namespace Jint.Native.Proxy
             }
         }
 
-        internal void AssertTargetNotRevoked(in Key key)
+        internal void AssertTargetNotRevoked(JsValue key)
         {
             if (_target is null)
             {

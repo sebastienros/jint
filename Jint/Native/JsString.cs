@@ -20,8 +20,8 @@ namespace Jint.Native
         internal static readonly JsString StringString = new JsString("string");
         internal static readonly JsString NumberString = new JsString("number");
         internal static readonly JsString SymbolString = new JsString("symbol");
-        internal static readonly JsString LengthString = new JsString("length");
         internal static readonly JsString DefaultString = new JsString("default");
+        internal static readonly JsValue NumberZeroString = new JsString("0");
 
         internal string _value;
 
@@ -51,6 +51,48 @@ namespace Jint.Native
         {
             _value = value.ToString();
         }
+
+        public static bool operator ==(JsValue a, JsString b)
+        {
+            if (a is JsString s && b is object)
+            {
+                return s.ToString() == b.ToString();
+            }
+
+            if ((object) a == null)
+            {
+                return (object) b == null;
+            }
+
+            return (object) b != null && a.Equals(b);
+        }
+
+        public static bool operator ==(JsString a, JsValue b)
+        {
+            if (a is object && b is JsString s)
+            {
+                return s.ToString() == b.ToString();
+            }
+
+            if ((object) a == null)
+            {
+                return (object) b == null;
+            }
+
+            return (object) b != null && a.Equals(b);
+        }
+
+        public static bool operator !=(JsString a, JsValue b)
+        {
+            return !(a == b);
+        }
+
+        public static bool operator !=(JsValue a, JsString b)
+        {
+            return !(a == b);
+        }
+
+        public virtual char this[int index] => _value[index];
 
         public virtual JsString Append(JsValue jsValue)
         {
@@ -101,11 +143,6 @@ namespace Jint.Native
             return new JsString(value);
         }
 
-        internal override Key ToPropertyKey()
-        {
-            return new Key(_value);
-        }
-
         public override string ToString()
         {
             return _value;
@@ -152,6 +189,16 @@ namespace Jint.Native
             return _value == other.ToString();
         }
 
+        public override bool Equals(object obj)
+        {
+            return ReferenceEquals(this, obj) || obj is JsString other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return _value.GetHashCode();
+        }
+
         internal sealed class ConcatenatedString : JsString
         {
             private StringBuilder _stringBuilder;
@@ -179,6 +226,8 @@ namespace Jint.Native
 
                 return _value;
             }
+
+            public override char this[int index] => _stringBuilder?[index] ?? _value[index];
 
             public override JsString Append(JsValue jsValue)
             {
@@ -233,6 +282,11 @@ namespace Jint.Native
                 }
 
                 return base.Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return _stringBuilder?.GetHashCode() ?? _value.GetHashCode();
             }
 
             internal override JsValue Clone()

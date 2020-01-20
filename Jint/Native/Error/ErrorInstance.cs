@@ -15,13 +15,13 @@ namespace Jint.Native.Error
             _name = name;
         }
 
-        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            if (propertyName.Name == "name")
+            if (property == CommonProperties.Name)
             {
                 return _descriptor ??= new PropertyDescriptor(_name, PropertyFlag.Configurable | PropertyFlag.Writable);
             };
-            return base.GetOwnProperty(in propertyName);
+            return base.GetOwnProperty(property);
         }
 
         public override string ToString()

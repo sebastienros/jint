@@ -44,9 +44,9 @@ namespace Jint.Native.Date
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
 
-            var properties = new StringDictionarySlim<PropertyDescriptor>(50)
+            var properties = new PropertyDictionary(50)
             {
-                [KnownKeys.Constructor] = new PropertyDescriptor(_dateConstructor, PropertyFlag.NonEnumerable),
+                [CommonProperties.Constructor] = new PropertyDescriptor(_dateConstructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
                 ["toDateString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toDateString", ToDateString, 0, lengthFlags), propertyFlags),
                 ["toTimeString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toTimeString", ToTimeString, 0, lengthFlags), propertyFlags),
@@ -91,11 +91,15 @@ namespace Jint.Native.Date
                 ["setUTCFullYear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setUTCFullYear", SetUTCFullYear, 3, lengthFlags), propertyFlags),
                 ["toUTCString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toUTCString", ToUtcString, 0, lengthFlags), propertyFlags),
                 ["toISOString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toISOString", ToISOString, 0, lengthFlags), propertyFlags),
-                ["toJSON"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toJSON", ToJSON, 1, lengthFlags), propertyFlags),
+                ["toJSON"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toJSON", ToJSON, 1, lengthFlags), propertyFlags)
+            };
+            SetProperties(properties);
+
+            var symbols = new PropertyDictionary(50)
+            {
                 [GlobalSymbolRegistry.ToPrimitive] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.toPrimitive]", ToPrimitive, 1, PropertyFlag.Configurable), PropertyFlag.Configurable),
             };
-            
-            SetProperties(properties, hasSymbols: true);
+            SetSymbols(symbols);
         }
 
         private JsValue ToPrimitive(JsValue thisObject, JsValue[] arguments)
