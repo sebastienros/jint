@@ -17,7 +17,7 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private readonly DictionarySlim<Binding> _dictionary = new DictionarySlim<Binding>();
+        private readonly HybridDictionary<Key, Binding> _dictionary = new HybridDictionary<Key, Binding>();
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
