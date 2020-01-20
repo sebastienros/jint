@@ -80,7 +80,7 @@ namespace Jint.Runtime.Environments
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private JsValue UnwrapBindingValue(bool strict, in Binding binding)
         {
-            if (!binding.Mutable && !(binding.Value is null))
+            if (!binding.Mutable && !binding.IsInitialized)
             {
                 if (strict)
                 {
