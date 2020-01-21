@@ -28,7 +28,7 @@ namespace Jint.Native.Object
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             var properties = new PropertyDictionary(8)
             {
-                [CommonProperties.Constructor] = new PropertyDescriptor(_objectConstructor, propertyFlags),
+                ["constructor"] = new PropertyDescriptor(_objectConstructor, propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToObjectString), propertyFlags),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), propertyFlags),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOF", ValueOf), propertyFlags),
@@ -36,7 +36,6 @@ namespace Jint.Native.Object
                 ["isPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isPrototypeOf", IsPrototypeOf, 1), propertyFlags),
                 ["propertyIsEnumerable"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "propertyIsEnumerable", PropertyIsEnumerable, 1), propertyFlags)
             };
-            
             SetProperties(properties);
         }
 

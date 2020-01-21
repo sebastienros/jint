@@ -45,7 +45,7 @@ namespace Jint.Native.String
             const PropertyFlag propertyFlags = lengthFlags | PropertyFlag.Writable;
             var properties = new PropertyDictionary(35)
             {
-                [CommonProperties.Constructor] = new PropertyDescriptor(_stringConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_stringConstructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 0, lengthFlags), propertyFlags),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), propertyFlags),
                 ["charAt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "charAt", CharAt, 1, lengthFlags), propertyFlags),
@@ -80,7 +80,7 @@ namespace Jint.Native.String
             };
             SetProperties(properties);
 
-            var symbols = new PropertyDictionary(40)
+            var symbols = new SymbolDictionary(1)
             {
                 [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.iterator]", Iterator, 0, lengthFlags), propertyFlags)
             };

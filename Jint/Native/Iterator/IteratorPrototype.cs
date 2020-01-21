@@ -27,7 +27,7 @@ namespace Jint.Native.Iterator
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(3)
+            var properties = new PropertyDictionary(2)
             {
                 ["name"] = new PropertyDescriptor("Map", PropertyFlag.Configurable),
                 ["next"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "next", Next, 0, PropertyFlag.Configurable), true, false, true)
@@ -36,8 +36,10 @@ namespace Jint.Native.Iterator
 
             if (_name != null)
             {
-                var symbols = new PropertyDictionary(1);
-                symbols[GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(_name, PropertyFlag.Configurable);
+                var symbols = new SymbolDictionary(1)
+                {
+                    [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(_name, PropertyFlag.Configurable)
+                };
                 SetSymbols(symbols);
             }
         }

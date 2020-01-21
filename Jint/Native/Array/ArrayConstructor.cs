@@ -53,7 +53,7 @@ namespace Jint.Native.Array
             };
             SetProperties(properties);
 
-            var symbols = new PropertyDictionary(1)
+            var symbols = new SymbolDictionary(1)
             {
                 [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined,PropertyFlag.Configurable),
             };

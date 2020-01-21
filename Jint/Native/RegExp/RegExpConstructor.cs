@@ -41,11 +41,10 @@ namespace Jint.Native.RegExp
 
         protected override void Initialize()
         {
-            var symbols = new PropertyDictionary(1)
+            var symbols = new SymbolDictionary(1)
             {
                 [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", (thisObj, _) => thisObj, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
             };
-
             SetSymbols(symbols);
         }
 

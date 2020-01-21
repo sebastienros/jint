@@ -23,7 +23,7 @@ namespace Jint.Native.Object
     public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         private PropertyDictionary _properties;
-        internal PropertyDictionary _symbols;
+        internal SymbolDictionary _symbols;
 
         private bool _initialized;
 
@@ -125,16 +125,32 @@ namespace Jint.Native.Object
             _properties = properties;
         }
 
-        internal void SetSymbols(PropertyDictionary symbols)
+        internal void SetSymbols(SymbolDictionary symbols)
         {
             _symbols = symbols;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void SetProperty(string property, PropertyDescriptor value)
+        {
+            _properties ??= new PropertyDictionary();
+            _properties[property] = value;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void SetProperty(JsValue property, PropertyDescriptor value)
         {
-            var target = property.IsSymbol() ? (_symbols ??= new PropertyDictionary()) : (_properties ??= new PropertyDictionary());
-            target[TypeConverter.ToPropertyKey(property)] = value;
+            var propertyKey = TypeConverter.ToPropertyKey(property);
+            if (!property.IsSymbol())
+            {
+                _properties ??= new PropertyDictionary();
+                _properties[TypeConverter.ToString(propertyKey)] = value;
+            }
+            else
+            {
+                _symbols ??= new SymbolDictionary();
+                _symbols[(JsSymbol) propertyKey] = value;
+            }
         }
 
         internal void ClearProperties()
@@ -216,11 +232,15 @@ namespace Jint.Native.Object
 
         protected virtual bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
         {
-            var key = TypeConverter.ToPropertyKey(property);
-            var target = GetPropertyContainer(property);
-
             descriptor = null;
-            return target?.TryGetValue(key, out descriptor) == true;
+
+            var key = TypeConverter.ToPropertyKey(property);
+            if (!key.IsSymbol())
+            {
+                return _properties?.TryGetValue(TypeConverter.ToString(key), out descriptor) == true;
+            }
+
+            return _symbols?.TryGetValue((JsSymbol) key, out descriptor) == true;
         }
 
         public virtual bool HasOwnProperty(JsValue property)
@@ -228,8 +248,12 @@ namespace Jint.Native.Object
             EnsureInitialized();
 
             var key = TypeConverter.ToPropertyKey(property);
-            var target = GetPropertyContainer(property);
-            return target?.ContainsKey(key) == true;
+            if (!key.IsSymbol())
+            {
+                return _properties?.ContainsKey(TypeConverter.ToString(key)) == true;
+            }
+
+            return _symbols?.ContainsKey((JsSymbol) key) == true;
         }
 
         public virtual void RemoveOwnProperty(JsValue property)
@@ -237,8 +261,12 @@ namespace Jint.Native.Object
             EnsureInitialized();
 
             var key = TypeConverter.ToPropertyKey(property);
-            var target = GetPropertyContainer(property);
-            target?.Remove(key);
+            if (!key.IsSymbol())
+            {
+                _properties?.Remove(TypeConverter.ToString(key));
+            }
+
+            _symbols?.Remove((JsSymbol) key);
         }
 
         public override JsValue Get(JsValue property, JsValue receiver)
@@ -292,11 +320,17 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            var key = TypeConverter.ToPropertyKey(property);
-            var target = GetPropertyContainer(property);
-
             PropertyDescriptor descriptor = null;
-            target?.TryGetValue(key, out descriptor);
+            var key = TypeConverter.ToPropertyKey(property);
+            if (!key.IsSymbol())
+            {
+                _properties?.TryGetValue(TypeConverter.ToString(key), out descriptor);
+            }
+            else
+            {
+                _symbols?.TryGetValue((JsSymbol) key, out descriptor);
+            }
+
             return descriptor ?? PropertyDescriptor.Undefined;
         }
 
@@ -796,6 +830,7 @@ namespace Jint.Native.Object
             SetOwnProperty(name, value);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected void EnsureInitialized()
         {
             if (!_initialized)
@@ -1141,8 +1176,6 @@ namespace Jint.Native.Object
         {
             return ExceptionHelper.ThrowTypeError<T>(_engine, $"Method {methodName} called on incompatible receiver {value}");
         }
-
-        private PropertyDictionary GetPropertyContainer(JsValue propertyKey) => propertyKey.IsSymbol() ? _symbols : _properties;
 
         public override bool Equals(JsValue obj)
         {

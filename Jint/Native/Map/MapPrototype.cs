@@ -33,10 +33,10 @@ namespace Jint.Native.Map
         protected override void Initialize()
         {
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            var properties = new PropertyDictionary(15)
+            var properties = new PropertyDictionary(12)
             {
-                [CommonProperties.Length] = new PropertyDescriptor(0, PropertyFlag.Configurable),
-                [CommonProperties.Constructor] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
+                ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
+                ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
                 ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), propertyFlags),
                 ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), propertyFlags),
                 ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), propertyFlags),
@@ -50,7 +50,7 @@ namespace Jint.Native.Map
             };
             SetProperties(properties);
 
-            var symbols = new PropertyDictionary(2)
+            var symbols = new SymbolDictionary(2)
             {
                 [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Iterator, 1, PropertyFlag.Configurable), propertyFlags),
                 [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Map", false, false, true),

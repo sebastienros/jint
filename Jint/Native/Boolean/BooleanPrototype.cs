@@ -32,7 +32,7 @@ namespace Jint.Native.Boolean
         {
             var properties = new PropertyDictionary(3)
             {
-                [CommonProperties.Constructor] = new PropertyDescriptor(_booleanConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_booleanConstructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToBooleanString, 0, PropertyFlag.Configurable), true, false, true),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true)
             };

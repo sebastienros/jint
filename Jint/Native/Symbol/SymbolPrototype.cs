@@ -36,14 +36,14 @@ namespace Jint.Native.Symbol
             const PropertyFlag propertyFlags = PropertyFlag.Configurable;
             SetProperties(new PropertyDictionary(5)
             {
-                [CommonProperties.Length] = new PropertyDescriptor(JsNumber.PositiveZero, propertyFlags),
-                [CommonProperties.Constructor] = new PropertyDescriptor(_symbolConstructor, PropertyFlag.Configurable | PropertyFlag.Writable),
+                ["length"] = new PropertyDescriptor(JsNumber.PositiveZero, propertyFlags),
+                ["constructor"] = new PropertyDescriptor(_symbolConstructor, PropertyFlag.Configurable | PropertyFlag.Writable),
                 ["description"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(Engine, "description", Description, 0, lengthFlags), Undefined, propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToSymbolString, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)
             });
 
-            SetSymbols(new PropertyDictionary(2)
+            SetSymbols(new SymbolDictionary(1)
                 {
                     [GlobalSymbolRegistry.ToPrimitive] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.toPrimitive]", ToPrimitive, 1, lengthFlags), propertyFlags), [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(new JsString("Symbol"), propertyFlags)
                 }

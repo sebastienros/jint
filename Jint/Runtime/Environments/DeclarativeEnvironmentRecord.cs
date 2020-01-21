@@ -28,12 +28,17 @@ namespace Jint.Runtime.Environments
             return _dictionary?.ContainsKey(key.ToString()) == true;
         }
 
+        private bool ContainsKey(string key)
+        {
+            return _dictionary?.ContainsKey(key) == true;
+        }
+
         private bool TryGetValue(in Key key, out Binding value)
         {
             return _dictionary.TryGetValue(key, out value);
         }
 
-        public override bool HasBinding(JsValue name)
+        public override bool HasBinding(string name)
         {
             return ContainsKey(name);
         }

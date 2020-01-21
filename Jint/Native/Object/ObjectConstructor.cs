@@ -116,7 +116,7 @@ namespace Jint.Native.Object
                 _prototype = Engine.Object.PrototypeObject,
             };
 
-            obj.SetProperties(propertyCount > 1  ? new PropertyDictionary(propertyCount) : null);
+            obj.SetProperties(propertyCount > 0  ? new PropertyDictionary(propertyCount) : null);
 
             return obj;
         }

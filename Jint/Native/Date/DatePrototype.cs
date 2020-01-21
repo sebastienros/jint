@@ -46,7 +46,7 @@ namespace Jint.Native.Date
 
             var properties = new PropertyDictionary(50)
             {
-                [CommonProperties.Constructor] = new PropertyDescriptor(_dateConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_dateConstructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
                 ["toDateString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toDateString", ToDateString, 0, lengthFlags), propertyFlags),
                 ["toTimeString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toTimeString", ToTimeString, 0, lengthFlags), propertyFlags),
@@ -95,7 +95,7 @@ namespace Jint.Native.Date
             };
             SetProperties(properties);
 
-            var symbols = new PropertyDictionary(50)
+            var symbols = new SymbolDictionary(1)
             {
                 [GlobalSymbolRegistry.ToPrimitive] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.toPrimitive]", ToPrimitive, 1, PropertyFlag.Configurable), PropertyFlag.Configurable),
             };

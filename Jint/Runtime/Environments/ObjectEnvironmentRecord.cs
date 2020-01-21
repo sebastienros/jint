@@ -14,15 +14,17 @@ namespace Jint.Runtime.Environments
     internal sealed class ObjectEnvironmentRecord : EnvironmentRecord
     {
         private readonly ObjectInstance _bindingObject;
+        private bool _canUseFastPropertyChecks;
         private readonly bool _provideThis;
 
         public ObjectEnvironmentRecord(Engine engine, ObjectInstance bindingObject, bool provideThis) : base(engine)
         {
             _bindingObject = bindingObject;
+            _canUseFastPropertyChecks = _bindingObject.GetType() == typeof(ObjectInstance);
             _provideThis = provideThis;
         }
 
-        public override bool HasBinding(JsValue name)
+        public override bool HasBinding(string name)
         {
             var foundBinding = _bindingObject.HasProperty(name);
 

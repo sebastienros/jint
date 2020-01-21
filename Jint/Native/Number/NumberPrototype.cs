@@ -39,7 +39,7 @@ namespace Jint.Native.Number
         {
             var properties = new PropertyDictionary(8)
             {
-                [CommonProperties.Constructor] = new PropertyDescriptor(_numberConstructor, true, false, true),
+                ["constructor"] = new PropertyDescriptor(_numberConstructor, true, false, true),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),

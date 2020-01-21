@@ -65,7 +65,7 @@ namespace Jint.Native.RegExp
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             var properties = new PropertyDictionary(12)
             {
-                [CommonProperties.Constructor] = new PropertyDescriptor(_regExpConstructor, propertyFlags),
+                ["constructor"] = new PropertyDescriptor(_regExpConstructor, propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToRegExpString, 0, lengthFlags), propertyFlags),
                 ["exec"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "exec", _defaultExec, 1, lengthFlags), propertyFlags),
                 ["test"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "test", Test, 1, lengthFlags), propertyFlags),
@@ -80,7 +80,7 @@ namespace Jint.Native.RegExp
             };
             SetProperties(properties);
 
-            var symbols = new PropertyDictionary(5)
+            var symbols = new SymbolDictionary(5)
             {
                 [GlobalSymbolRegistry.Match] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.match]", Match, 1, lengthFlags), propertyFlags),
                 [GlobalSymbolRegistry.MatchAll] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.matchAll]", MatchAll, 1, lengthFlags), propertyFlags),

@@ -41,7 +41,7 @@ namespace Jint.Native.Error
         {
             var properties = new PropertyDictionary(3)
             {
-                [CommonProperties.Constructor] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable),
                 ["message"] = new PropertyDescriptor("", PropertyFlag.Configurable | PropertyFlag.Writable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), PropertyFlag.Configurable | PropertyFlag.Writable)
             };

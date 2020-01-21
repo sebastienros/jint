@@ -34,8 +34,8 @@ namespace Jint.Native.Set
         {
             var properties = new PropertyDictionary(12)
             {
-                [CommonProperties.Length] = new PropertyDescriptor(0, PropertyFlag.Configurable),
-                [CommonProperties.Constructor] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
+                ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
+                ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
                 ["add"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable), true, false, true),
                 ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), true, false, true),
                 ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), true, false, true),
@@ -48,7 +48,7 @@ namespace Jint.Native.Set
             };
             SetProperties(properties);
 
-            var symbols = new PropertyDictionary(2)
+            var symbols = new SymbolDictionary(2)
             {
                 [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Values, 1, PropertyFlag.Configurable), true, false, true),
                 [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Set", false, false, true)

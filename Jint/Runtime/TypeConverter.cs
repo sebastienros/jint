@@ -436,12 +436,15 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue ToPropertyKey(JsValue o)
         {
-            if (o.IsString() || o.IsSymbol())
-            {
-                return o;
-            }
+            const InternalTypes stringOrSymbol = InternalTypes.String | InternalTypes.Symbol;
+            return (o._type & stringOrSymbol) != 0
+                ? o
+                : ToPropertyKeyNonString(o);
+        }
 
-            // slow path
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static JsValue ToPropertyKeyNonString(JsValue o)
+        {
             return ToStringNonString(ToPrimitive(o, Types.String));
         }
 

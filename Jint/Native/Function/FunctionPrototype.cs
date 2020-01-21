@@ -36,7 +36,7 @@ namespace Jint.Native.Function
         {
             var properties = new PropertyDictionary(5)
             {
-                [CommonProperties.Constructor] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true),
                 ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2), true, false, true),
                 ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1), true, false, true),
