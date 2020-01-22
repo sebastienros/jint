@@ -91,7 +91,7 @@ namespace Jint.Native.Map
                 IIterator iterator) : base(engine, iterator, 2)
             {
                 _instance = instance;
-                var setterProperty = instance.GetProperty("set");
+                var setterProperty = instance.GetProperty(CommonProperties.Set);
 
                 if (setterProperty is null
                     || !setterProperty.TryGetValue(instance, out var setterValue)
@@ -110,7 +110,7 @@ namespace Jint.Native.Map
                 }
 
                 oi.TryGetValue(JsString.NumberZeroString, out var key);
-                oi.TryGetValue("1", out var value);
+                oi.TryGetValue(JsString.NumberOneString, out var value);
 
                 args[0] = key;
                 args[1] = value;

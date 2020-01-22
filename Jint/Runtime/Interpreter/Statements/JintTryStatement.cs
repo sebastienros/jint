@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Statements
@@ -10,7 +11,7 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         private readonly JintStatement _block;
         private readonly JintStatement _catch;
-        private readonly string _catchParamName;
+        private readonly JsString _catchParamName;
         private readonly JintStatement _finalizer;
 
         public JintTryStatement(Engine engine, TryStatement statement) : base(engine, statement)
@@ -19,7 +20,7 @@ namespace Jint.Runtime.Interpreter.Statements
             if (_statement.Handler != null)
             {
                 _catch = Build(engine, _statement.Handler.Body);
-                _catchParamName = ((Identifier) _statement.Handler.Param).Name;
+                _catchParamName = new JsString(((Identifier) _statement.Handler.Param).Name);
             }
 
             if (statement.Finalizer != null)

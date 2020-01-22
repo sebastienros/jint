@@ -10,6 +10,7 @@ namespace Jint.Native
         private const int AsciiMax = 126;
         private static readonly JsString[] _charToJsValue;
         private static readonly JsString[] _charToStringJsValue;
+        private static readonly JsString[] _intToStringJsValue;
 
         public static readonly JsString Empty = new JsString("");
         private static readonly JsString NullString = new JsString("null");
@@ -21,7 +22,10 @@ namespace Jint.Native
         internal static readonly JsString NumberString = new JsString("number");
         internal static readonly JsString SymbolString = new JsString("symbol");
         internal static readonly JsString DefaultString = new JsString("default");
-        internal static readonly JsValue NumberZeroString = new JsString("0");
+        internal static readonly JsString NumberZeroString = new JsString("0");
+        internal static readonly JsString NumberOneString = new JsString("1");
+        internal static readonly JsString TrueString = new JsString("true");
+        internal static readonly JsString FalseString = new JsString("false");
 
         internal string _value;
 
@@ -30,10 +34,16 @@ namespace Jint.Native
             _charToJsValue = new JsString[AsciiMax + 1];
             _charToStringJsValue = new JsString[AsciiMax + 1];
 
-            for (int i = 0; i <= AsciiMax; i++)
+            for (var i = 0; i <= AsciiMax; i++)
             {
                 _charToJsValue[i] = new JsString((char) i);
                 _charToStringJsValue[i] = new JsString(((char) i).ToString());
+            }
+
+            _intToStringJsValue = new JsString[1024];
+            for (var i = 0; i < _intToStringJsValue.Length; ++i)
+            {
+                _intToStringJsValue[i] = new JsString(TypeConverter.ToString(i));
             }
         }
 
@@ -143,6 +153,36 @@ namespace Jint.Native
             return new JsString(value);
         }
 
+        internal static JsString Create(int value)
+        {
+            if (value < (uint) _intToStringJsValue.Length)
+            {
+                return _intToStringJsValue[value];
+            }
+
+            return new JsString(TypeConverter.ToString(value));
+        }
+
+        internal static JsValue Create(uint value)
+        {
+            if (value < (uint) _intToStringJsValue.Length)
+            {
+                return _intToStringJsValue[value];
+            }
+
+            return new JsString(TypeConverter.ToString(value));
+        }
+
+        internal static JsValue Create(ulong value)
+        {
+            if (value < (uint) _intToStringJsValue.Length)
+            {
+                return _intToStringJsValue[value];
+            }
+
+            return new JsString(TypeConverter.ToString(value));
+        }
+
         public override string ToString()
         {
             return _value;
@@ -157,6 +197,21 @@ namespace Jint.Native
             }
 
             return array;
+        }
+
+        internal int IndexOf(string value, StringComparison comparisonType)
+        {
+            return ToString().IndexOf(value, comparisonType);
+        }
+
+        internal string Substring(int startIndex, int length)
+        {
+            return ToString().Substring(startIndex, length);
+        }
+
+        internal string Substring(int startIndex)
+        {
+            return ToString().Substring(startIndex);
         }
 
         public override bool Equals(JsValue obj)
@@ -291,7 +346,7 @@ namespace Jint.Native
 
             internal override JsValue Clone()
             {
-                return ToString();
+                return new JsString(ToString());
             }
         }
     }

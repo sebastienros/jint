@@ -42,16 +42,16 @@ namespace Jint.Native.Array
                 _prototype = null
             };
 
-            unscopables.CreateDataProperty("copyWithin", JsBoolean.True);
-            unscopables.CreateDataProperty("entries", JsBoolean.True);
-            unscopables.CreateDataProperty("fill", JsBoolean.True);
-            unscopables.CreateDataProperty("find", JsBoolean.True);
-            unscopables.CreateDataProperty("findIndex", JsBoolean.True);
-            unscopables.CreateDataProperty("flat", JsBoolean.True);
-            unscopables.CreateDataProperty("flatMap", JsBoolean.True);
-            unscopables.CreateDataProperty("includes", JsBoolean.True);
-            unscopables.CreateDataProperty("keys", JsBoolean.True);
-            unscopables.CreateDataProperty("values", JsBoolean.True);
+            unscopables.SetDataProperty("copyWithin", JsBoolean.True);
+            unscopables.SetDataProperty("entries", JsBoolean.True);
+            unscopables.SetDataProperty("fill", JsBoolean.True);
+            unscopables.SetDataProperty("find", JsBoolean.True);
+            unscopables.SetDataProperty("findIndex", JsBoolean.True);
+            unscopables.SetDataProperty("flat", JsBoolean.True);
+            unscopables.SetDataProperty("flatMap", JsBoolean.True);
+            unscopables.SetDataProperty("includes", JsBoolean.True);
+            unscopables.SetDataProperty("keys", JsBoolean.True);
+            unscopables.SetDataProperty("values", JsBoolean.True);
             
             const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
             var properties = new PropertyDictionary(30)
@@ -403,7 +403,7 @@ namespace Jint.Native.Array
 
         private JsValue Map(JsValue thisObj, JsValue[] arguments)
         {
-            if (thisObj is ArrayInstance arrayInstance && !arrayInstance.HasOwnProperty("constructor"))
+            if (thisObj is ArrayInstance arrayInstance && !arrayInstance.HasOwnProperty(CommonProperties.Constructor))
             {
                 return arrayInstance.Map(arguments);
             }
@@ -1039,7 +1039,7 @@ namespace Jint.Native.Array
             // as per the spec, this has to be called after ToString(separator)
             if (len == 0)
             {
-                return "";
+                return JsString.Empty;
             }
 
             string StringFromJsValue(JsValue value)
@@ -1075,13 +1075,13 @@ namespace Jint.Native.Array
             const string separator = ",";
             if (len == 0)
             {
-                return "";
+                return JsString.Empty;
             }
 
             JsValue r;
             if (!array.TryGetValue(0, out var firstElement) || firstElement.IsNull() || firstElement.IsUndefined())
             {
-                r = "";
+                r = JsString.Empty;
             }
             else
             {
@@ -1096,7 +1096,7 @@ namespace Jint.Native.Array
                 string s = r + separator;
                 if (!array.TryGetValue(k, out var nextElement) || nextElement.IsNull())
                 {
-                    r = "";
+                    r = JsString.Empty;
                 }
                 else
                 {

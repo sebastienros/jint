@@ -115,12 +115,13 @@ namespace Jint.Native.Date
                 return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
             }
 
-            Types tryFirst = Types.None;
-            if (hint == "default" || hint == "string")
+            var hintString = hint.ToString();
+            var tryFirst = Types.None;
+            if (hintString == "default" || hintString == "string")
             {
                 tryFirst = Types.String;
             }
-            else  if (hint == "number")
+            else  if (hintString == "number")
             {
                 tryFirst = Types.Number;
             }

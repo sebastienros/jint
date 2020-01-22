@@ -1,6 +1,7 @@
 using System;
 using Esprima.Ast;
 using Jint.Collections;
+using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -113,7 +114,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private object BuildObjectNormal()
         {
-            var obj = _engine.Object.Construct(Math.Max(2, _properties.Length));
+            var obj = _engine.Object.Construct(_properties.Length);
             bool isStrictModeCode = StrictModeScope.IsStrictModeCode;
 
             for (var i = 0; i < _properties.Length; i++)
@@ -131,7 +132,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (expr._expression.IsFunctionWithName())
                     {
                         var functionInstance = (FunctionInstance) propValue;
-                        functionInstance.SetFunctionName(propName);
+                        functionInstance.SetFunctionName(new JsString(propName));
                     }
                     propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
                 }
@@ -145,7 +146,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         _engine.ExecutionContext.LexicalEnvironment,
                         isStrictModeCode
                     );
-                    functionInstance.SetFunctionName(propName);
+                    functionInstance.SetFunctionName(new JsString(propName));
                     functionInstance._prototypeDescriptor = null;
 
                     propDesc = new GetSetPropertyDescriptor(
@@ -158,7 +159,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return ExceptionHelper.ThrowArgumentOutOfRangeException<object>();
                 }
 
-                obj.DefineOwnProperty(propName, propDesc);
+                obj.SetProperty(propName, propDesc);
             }
 
             return obj;

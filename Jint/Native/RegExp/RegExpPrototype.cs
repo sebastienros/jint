@@ -17,6 +17,13 @@ namespace Jint.Native.RegExp
 {
     public sealed class RegExpPrototype : ObjectInstance
     {
+        private static readonly JsString PropertyExec = new JsString("exec");
+        private static readonly JsString PropertyIndex = new JsString("index");
+        private static readonly JsString PropertyInput = new JsString("input");
+        private static readonly JsString PropertySticky = new JsString("sticky");
+        private static readonly JsString PropertyGlobal = new JsString("global");
+        internal static readonly JsString PropertySource = new JsString("source");
+        private static readonly JsValue DefaultSource = new JsString("(?:)");
         internal static readonly JsString PropertyFlags = new JsString("flags");
 
         private RegExpConstructor _regExpConstructor;
@@ -95,7 +102,7 @@ namespace Jint.Native.RegExp
         {
             if (ReferenceEquals(thisObj, this))
             {
-                return "(?:)";
+                return DefaultSource;
             }
 
             if (!(thisObj is RegExpInstance r))
@@ -127,7 +134,7 @@ namespace Jint.Native.RegExp
             }
 
             var fullUnicode = false;
-            var global = TypeConverter.ToBoolean(rx.Get("global"));
+            var global = TypeConverter.ToBoolean(rx.Get(PropertyGlobal));
 
             if (global)
             {
@@ -138,7 +145,7 @@ namespace Jint.Native.RegExp
             // check if we can access fast path
             if (!fullUnicode
                 && !mayHaveNamedCaptures
-                && !TypeConverter.ToBoolean(rx.Get("sticky"))
+                && !TypeConverter.ToBoolean(rx.Get(PropertySticky))
                 && rx is RegExpInstance rei && rei.TryGetDefaultRegExpExec(out _))
             {
                 var count = global ? int.MaxValue : 1;
@@ -210,7 +217,7 @@ namespace Jint.Native.RegExp
                 nCaptures = System.Math.Max(nCaptures - 1, 0);
                 var matched = TypeConverter.ToString(result.Get(0));
                 var matchLength = matched.Length;
-                var position = (int) TypeConverter.ToInteger(result.Get("index"));
+                var position = (int) TypeConverter.ToInteger(result.Get(PropertyIndex));
                 position = System.Math.Max(System.Math.Min(position, lengthS), 0);
                 uint n = 1;
 
@@ -469,12 +476,12 @@ namespace Jint.Native.RegExp
                 return TypeConverter.ToBoolean(o.Get(p)) ? s + flag : s;
             }
 
-            var result = AddFlagIfPresent(r, "global", 'g', "");
+            var result = AddFlagIfPresent(r, PropertyGlobal, 'g', "");
             result = AddFlagIfPresent(r, "ignoreCase", 'i', result);
             result = AddFlagIfPresent(r, "multiline", 'm', result);
             result = AddFlagIfPresent(r, "dotAll", 's', result);
             result = AddFlagIfPresent(r, "unicode", 'u', result);
-            result = AddFlagIfPresent(r, "sticky", 'y', result);
+            result = AddFlagIfPresent(r, PropertySticky, 'y', result);
 
             return result;
         }
@@ -483,7 +490,7 @@ namespace Jint.Native.RegExp
         {
             var r = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.toString");
 
-            var pattern = TypeConverter.ToString(r.Get("source"));
+            var pattern = TypeConverter.ToString(r.Get(PropertySource));
             var flags = TypeConverter.ToString(r.Get(PropertyFlags));
 
             return "/" + pattern + "/" + flags;
@@ -522,7 +529,7 @@ namespace Jint.Native.RegExp
                 return -1;
             }
 
-            return result.Get("index");
+            return result.Get(PropertyIndex);
         }
 
         private JsValue Match(JsValue thisObj, JsValue[] arguments)
@@ -530,7 +537,7 @@ namespace Jint.Native.RegExp
             var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.match");
 
             var s = TypeConverter.ToString(arguments.At(0));
-            var global = TypeConverter.ToBoolean(rx.Get("global"));
+            var global = TypeConverter.ToBoolean(rx.Get(PropertyGlobal));
             if (!global)
             {
                 return RegExpExec(rx, s);
@@ -663,7 +670,7 @@ namespace Jint.Native.RegExp
 
         internal static JsValue RegExpExec(ObjectInstance r, string s)
         {
-            var exec = r.Get("exec");
+            var exec = r.Get(PropertyExec);
             if (exec is ICallable callable)
             {
                 var result = callable.Call(r, new JsValue[]  { s });
@@ -685,7 +692,7 @@ namespace Jint.Native.RegExp
 
         internal bool TryGetDefaultExec(ObjectInstance o, out Func<JsValue, JsValue[], JsValue> exec)
         {
-            if (o.Get("exec") is ClrFunctionInstance functionInstance && functionInstance._func == _defaultExec)
+            if (o.Get(PropertyExec) is ClrFunctionInstance functionInstance && functionInstance._func == _defaultExec)
             {
                 exec = _defaultExec;
                 return true;
@@ -773,8 +780,8 @@ namespace Jint.Native.RegExp
         private static ArrayInstance CreateReturnValueArray(Engine engine, Match match, string inputValue, bool fullUnicode)
         {
             var array = engine.Array.ConstructFast((ulong) match.Groups.Count);
-            array.CreateDataProperty("index", match.Index);
-            array.CreateDataProperty("input", inputValue);
+            array.CreateDataProperty(PropertyIndex, match.Index);
+            array.CreateDataProperty(PropertyInput, inputValue);
 
             ObjectInstance groups = null;
             for (uint i = 0; i < match.Groups.Count; i++)

@@ -445,7 +445,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static JsValue ToPropertyKeyNonString(JsValue o)
         {
-            return ToStringNonString(ToPrimitive(o, Types.String));
+            return new JsString(ToStringNonString(ToPrimitive(o, Types.String)));
         }
 
         /// <summary>
@@ -459,6 +459,16 @@ namespace Jint.Runtime
                 return o.AsStringWithoutTypeCheck();
             }
             return ToStringNonString(o);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static JsString ToJsString(JsValue o)
+        {
+            if (o is JsString s)
+            {
+                return s;
+            }
+            return JsString.Create(ToStringNonString(o));
         }
 
         private static string ToStringNonString(JsValue o)

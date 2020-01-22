@@ -767,7 +767,7 @@ namespace Jint.Native.Json
                     return (bool) Lex().Value ? JsBoolean.True : JsBoolean.False;
                 case Tokens.String:
                     // implicit conversion operator goes through caching
-                    return (string) Lex().Value;
+                    return new JsString((string) Lex().Value);
                 case Tokens.Number:
                     return (double) Lex().Value;
             }

@@ -47,16 +47,16 @@ namespace Jint.Native.Json
                     var arrLen = valAsArray.GetLength();
                     while (i < arrLen)
                     {
-                        var newValue = AbstractWalkOperation(valAsArray, TypeConverter.ToString(i));
+                        var newValue = AbstractWalkOperation(valAsArray, JsString.Create(i));
                         if (newValue.IsUndefined())
                         {
-                            valAsArray.Delete(TypeConverter.ToString(i));
+                            valAsArray.Delete(JsString.Create(i));
                         }
                         else
                         {
                             valAsArray.DefineOwnProperty
                             (
-                                TypeConverter.ToString(i),
+                                JsString.Create(i),
                                 new PropertyDescriptor
                                 (
                                     value: newValue,
@@ -98,15 +98,10 @@ namespace Jint.Native.Json
             var res = parser.Parse(TypeConverter.ToString(arguments[0]));
             if (arguments.Length > 1)
             {
-                this._reviver = arguments[1];
-                ObjectInstance revRes = ObjectConstructor.CreateObjectConstructor(_engine).Construct(Arguments.Empty);
-                revRes.DefineOwnProperty(
-                    "",
-                    new PropertyDescriptor(
-                        value: res,
-                        PropertyFlag.ConfigurableEnumerableWritable
-                    ));
-                return AbstractWalkOperation(revRes, "");
+                _reviver = arguments[1];
+                ObjectInstance revRes = _engine.Object.Construct(Arguments.Empty);
+                revRes.SetProperty("", new PropertyDescriptor(value: res, PropertyFlag.ConfigurableEnumerableWritable));
+                return AbstractWalkOperation(revRes, JsString.Empty);
             }
             return res;
         }

@@ -11,21 +11,21 @@ namespace Jint.Native.Proxy
         internal ObjectInstance _target;
         internal ObjectInstance _handler;
 
-        private static readonly JsString TrapApply = (JsString) "apply";
-        private static readonly JsString TrapGet = (JsString) "get";
-        private static readonly JsString TrapSet = (JsString) "set";
-        private static readonly JsString TrapPreventExtensions = (JsString) "preventExtensions";
-        private static readonly JsString TrapIsExtensible = (JsString) "isExtensible";
-        private static readonly JsString TrapDefineProperty = (JsString) "defineProperty";
-        private static readonly JsString TrapDeleteProperty = (JsString) "deleteProperty";
-        private static readonly JsString TrapGetOwnPropertyDescriptor = (JsString) "getOwnPropertyDescriptor";
-        private static readonly JsString TrapHas = (JsString) "has";
-        private static readonly JsString TrapGetProtoTypeOf = (JsString) "getPrototypeOf";
-        private static readonly JsString TrapSetProtoTypeOf = (JsString) "setPrototypeOf";
-        private static readonly JsString TrapOwnKeys = (JsString) "ownKeys";
-        private static readonly JsString TrapConstruct = (JsString) "construct";
+        private static readonly JsString TrapApply = new JsString("apply");
+        private static readonly JsString TrapGet = new JsString("get");
+        private static readonly JsString TrapSet = new JsString("set");
+        private static readonly JsString TrapPreventExtensions = new JsString("preventExtensions");
+        private static readonly JsString TrapIsExtensible = new JsString("isExtensible");
+        private static readonly JsString TrapDefineProperty = new JsString("defineProperty");
+        private static readonly JsString TrapDeleteProperty = new JsString("deleteProperty");
+        private static readonly JsString TrapGetOwnPropertyDescriptor = new JsString("getOwnPropertyDescriptor");
+        private static readonly JsString TrapHas = new JsString("has");
+        private static readonly JsString TrapGetProtoTypeOf = new JsString("getPrototypeOf");
+        private static readonly JsString TrapSetProtoTypeOf = new JsString("setPrototypeOf");
+        private static readonly JsString TrapOwnKeys = new JsString("ownKeys");
+        private static readonly JsString TrapConstruct = new JsString("construct");
 
-        private static readonly JsString KeyFunctionRevoke = (JsString) "revoke";
+        private static readonly JsString KeyFunctionRevoke = new JsString("revoke");
 
         public ProxyInstance(
             Engine engine,
@@ -305,7 +305,7 @@ namespace Jint.Native.Proxy
 
         private static bool IsCompatiblePropertyDescriptor(bool extensible, PropertyDescriptor desc, PropertyDescriptor current)
         {
-            return ValidateAndApplyPropertyDescriptor(null, "", extensible, desc, current);
+            return ValidateAndApplyPropertyDescriptor(null, JsString.Empty, extensible, desc, current);
         }
 
         public override bool HasProperty(JsValue property)

@@ -131,14 +131,35 @@ namespace Jint.Native.Object
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void SetProperty(JsValue property, PropertyDescriptor value)
+        {
+            if (property is JsString jsString)
+            {
+                SetProperty(jsString.ToString(), value);
+            }
+            else
+            {
+                SetPropertyUnlikely(property, value);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void SetProperty(string property, PropertyDescriptor value)
         {
             _properties ??= new PropertyDictionary();
             _properties[property] = value;
         }
 
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void SetProperty(JsValue property, PropertyDescriptor value)
+        internal void SetDataProperty(string property, JsValue value)
+        {
+            _properties ??= new PropertyDictionary();
+            _properties[property] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void SetPropertyUnlikely(JsValue property, PropertyDescriptor value)
         {
             var propertyKey = TypeConverter.ToPropertyKey(property);
             if (!property.IsSymbol())
@@ -167,7 +188,7 @@ namespace Jint.Native.Object
             {
                 foreach (var pair in _properties)
                 {
-                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(pair.Key, pair.Value);
+                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(new JsString(pair.Key), pair.Value);
                 }
             }
 
@@ -192,14 +213,14 @@ namespace Jint.Native.Object
             {
                 foreach (var pair in _properties)
                 {
-                    var isArrayIndex = ulong.TryParse(pair.Key.ToString(), out var index);
+                    var isArrayIndex = ulong.TryParse(pair.Key, out var index);
                     if (isArrayIndex)
                     {
-                        keys.Add(pair.Key);
+                        keys.Add(JsString.Create(index));
                     }
                     else
                     {
-                        propertyKeys.Add(pair.Key);
+                        propertyKeys.Add(new JsString(pair.Key));
                     }
                 }
             }
@@ -810,12 +831,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// Optimized version of [[Put]] when the property is known to be undeclared already
         /// </summary>
-        /// <param name="name"></param>
-        /// <param name="value"></param>
-        /// <param name="writable"></param>
-        /// <param name="configurable"></param>
-        /// <param name="enumerable"></param>
-        public void FastAddProperty(string name, JsValue value, bool writable, bool enumerable, bool configurable)
+        public void FastAddProperty(JsValue name, JsValue value, bool writable, bool enumerable, bool configurable)
         {
             SetOwnProperty(name, new PropertyDescriptor(value, writable, enumerable, configurable));
         }
@@ -862,11 +878,11 @@ namespace Jint.Native.Object
                 case "Array":
                     if (this is ArrayInstance arrayInstance)
                     {
-                        var len = TypeConverter.ToInt32(arrayInstance.Get("length", arrayInstance));
+                        var len = TypeConverter.ToInt32(arrayInstance.Get(CommonProperties.Length, arrayInstance));
                         var result = new object[len];
                         for (var k = 0; k < len; k++)
                         {
-                            var pk = TypeConverter.ToString(k);
+                            var pk = TypeConverter.ToJsString(k);
                             var kpresent = arrayInstance.HasProperty(pk);
                             if (kpresent)
                             {
@@ -993,7 +1009,7 @@ namespace Jint.Native.Object
 
             bool TryGetValue(uint idx, out JsValue jsValue)
             {
-                var property = TypeConverter.ToString(idx);
+                var property = JsString.Create(idx);
                 var kPresent = HasProperty(property);
                 jsValue = kPresent ? Get(property, this) : Undefined;
                 return kPresent;

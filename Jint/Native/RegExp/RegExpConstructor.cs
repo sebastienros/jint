@@ -99,8 +99,8 @@ namespace Jint.Native.RegExp
             }
             else if (patternIsRegExp)
             {
-                p = pattern.Get("source");
-                f = flags.IsUndefined() ? pattern.Get("flags") : flags;
+                p = pattern.Get(RegExpPrototype.PropertySource);
+                f = flags.IsUndefined() ? pattern.Get(RegExpPrototype.PropertyFlags) : flags;
             }
             else
             {
@@ -206,7 +206,7 @@ namespace Jint.Native.RegExp
         
         private static void RegExpInitialize(RegExpInstance r)
         {
-            r.SetOwnProperty("lastIndex", new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
+            r.SetOwnProperty(RegExpInstance.PropertyLastIndex, new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
         }
         
         public RegExpPrototype PrototypeObject { get; private set; }

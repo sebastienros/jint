@@ -79,7 +79,7 @@ namespace Jint.Native.Math
 
             var symbols = new SymbolDictionary(1)
             {
-                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Math", PropertyFlag.Configurable)
+                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(new JsString("Math"), PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
         }

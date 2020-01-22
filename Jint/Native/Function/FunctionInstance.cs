@@ -238,16 +238,16 @@ namespace Jint.Native.Function
         {
             if (_name is null)
             {
-                string value;
+                JsString value;
                 if (name is JsSymbol symbol)
                 {
-                    value = symbol._value.IsUndefined()
+                    value = new JsString(symbol._value.IsUndefined()
                         ? ""
-                        : "[" + symbol._value + "]";
+                        : "[" + symbol._value + "]");
                 }
                 else
                 {
-                    value = name.ToString();
+                    value = name as JsString ?? new JsString(name.ToString());
                 }
                 _name = value;
             }
@@ -256,8 +256,7 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowError(_engine, "cannot set name");
             }
         }
-        
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ObjectInstance OrdinaryCreateFromConstructor(JsValue constructor, ObjectInstance intrinsicDefaultProto)
         {

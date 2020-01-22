@@ -25,7 +25,7 @@ namespace Jint.Native.Error
                 _errorConstructor = errorConstructor,
             };
 
-            if (name != "Error")
+            if (name.ToString() != "Error")
             {
                 obj._prototype = engine.Error.PrototypeObject;
             }

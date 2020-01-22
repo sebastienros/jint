@@ -199,21 +199,21 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(_engine, thisObj);
             var s = TypeConverter.ToString(thisObj);
-            return s.ToUpper();
+            return new JsString(s.ToUpper());
         }
 
         private JsValue ToUpperCase(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(_engine, thisObj);
             var s = TypeConverter.ToString(thisObj);
-            return s.ToUpperInvariant();
+            return new JsString(s.ToUpperInvariant());
         }
 
         private JsValue ToLocaleLowerCase(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(_engine, thisObj);
             var s = TypeConverter.ToString(thisObj);
-            return s.ToLower();
+            return new JsString(s.ToLower());
         }
 
         private JsValue ToLowerCase(JsValue thisObj, JsValue[] arguments)
@@ -275,15 +275,15 @@ namespace Jint.Native.String
 
             if (length == 0)
             {
-                return string.Empty;
+                return JsString.Empty;
             }
 
             if (length == 1)
             {
-                return TypeConverter.ToString(s[from]);
+                return JsString.Create(s[from]);
             }
 
-            return s.Substring(from, length);
+            return new JsString(s.Substring(from, length));
         }
 
         private JsValue Substr(JsValue thisObj, JsValue[] arguments)
@@ -298,7 +298,7 @@ namespace Jint.Native.String
             length = System.Math.Min(System.Math.Max(length, 0), s.Length - start);
             if (length <= 0)
             {
-                return "";
+                return JsString.Empty;
             }
 
             var startIndex = TypeConverter.ToInt32(start);
@@ -352,7 +352,7 @@ namespace Jint.Native.String
             {
                 if (!separator.IsRegExp())
                 {
-                    separator = TypeConverter.ToString(separator); // Coerce into a string, for an object call toString()
+                    separator = TypeConverter.ToJsString(separator); // Coerce into a string, for an object call toString()
                 }
             }
 
@@ -465,7 +465,7 @@ namespace Jint.Native.String
             }
             if (double.IsPositiveInfinity(start))
             {
-                return string.Empty;
+                return JsString.Empty;
             }
 
             var s = TypeConverter.ToString(thisObj);
@@ -484,15 +484,15 @@ namespace Jint.Native.String
 
             if (span == 0)
             {
-                return string.Empty;
+                return JsString.Empty;
             }
 
             if (span == 1)
             {
-                return TypeConverter.ToString(s[from]);
+                return JsString.Create(s[from]);
             }
 
-            return s.Substring(from, span);
+            return new JsString(s.Substring(from, span));
         }
 
         private JsValue Search(JsValue thisObj, JsValue[] arguments)
@@ -530,13 +530,13 @@ namespace Jint.Native.String
                 }
             }
             
-            var thisString = TypeConverter.ToString(thisObj);
+            var thisString = TypeConverter.ToJsString(thisObj);
             var searchString = TypeConverter.ToString(searchValue);
             var functionalReplace = replaceValue is ICallable;
 
             if (!functionalReplace)
             {
-                replaceValue = TypeConverter.ToString(replaceValue);
+                replaceValue = TypeConverter.ToJsString(replaceValue);
             }
 
             var pos = thisString.IndexOf(searchString, StringComparison.Ordinal);
@@ -555,7 +555,7 @@ namespace Jint.Native.String
             else
             {
                 var captures = ArrayExt.Empty<string>();
-                replStr =  RegExpPrototype.GetSubstitution(matched, thisString, pos, captures, Undefined, TypeConverter.ToString(replaceValue));
+                replStr =  RegExpPrototype.GetSubstitution(matched, thisString.ToString(), pos, captures, Undefined, TypeConverter.ToString(replaceValue));
             }
 
             var tailPos = pos + matched.Length;
@@ -774,9 +774,9 @@ namespace Jint.Native.String
             var size = s.Length;
             if (position >= size || position < 0)
             {
-                return "";
+                return JsString.Empty;
             }
-            return TypeConverter.ToString(s[(int) position]);
+            return JsString.Create(s[(int) position]);
         }
 
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
@@ -832,7 +832,7 @@ namespace Jint.Native.String
                 ? " "
                 : TypeConverter.ToString(padStringValue);
 
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToJsString(thisObj);
             if (s.Length > targetLength || padString.Length == 0)
             {
                 return s;

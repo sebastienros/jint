@@ -47,13 +47,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 value = JsValue.Undefined;
                 done = false;
 
-                if (item.TryGetValue("done", out var d) && d.AsBoolean())
+                if (item.TryGetValue(CommonProperties.Done, out var d) && d.AsBoolean())
                 {
                     done = true;
                     return false;
                 }
 
-                if (!item.TryGetValue("value", out value))
+                if (!item.TryGetValue(CommonProperties.Value, out value))
                 {
                     return false;
                 }
@@ -166,7 +166,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             if (assignmentPattern.Right.IsFunctionWithName())
                             {
-                                ((FunctionInstance) value).SetFunctionName(leftIdentifier.Name);
+                                ((FunctionInstance) value).SetFunctionName(new JsString(leftIdentifier.Name));
                             }
                             AssignToIdentifier(engine, leftIdentifier.Name, value);
                         }

@@ -171,7 +171,7 @@ namespace Jint.Native.Array
                     {
                         // algorithm as per the spec
                         oldLen--;
-                        var deleteSucceeded = Delete(TypeConverter.ToString(oldLen));
+                        var deleteSucceeded = Delete(JsString.Create(oldLen));
                         if (!deleteSucceeded)
                         {
                             newLenDesc.Value = oldLen + 1;
@@ -256,7 +256,7 @@ namespace Jint.Native.Array
                 {
                     if (_dense[i] != null)
                     {
-                        properties.Add(TypeConverter.ToString(i));
+                        properties.Add(JsString.Create(i));
                     }
                 }
             }
@@ -264,7 +264,7 @@ namespace Jint.Native.Array
             {
                 foreach (var entry in _sparse)
                 {
-                    properties.Add(TypeConverter.ToString(entry.Key));
+                    properties.Add(JsString.Create(entry.Key));
                 }
             }
 
@@ -835,7 +835,7 @@ namespace Jint.Native.Array
                 {
                     var sourcePropertyDescriptor = i < (uint) sourceDense.Length && sourceDense[i] != null
                         ? sourceDense[i]
-                        : source.GetProperty(i.ToString());
+                        : source.GetProperty(JsString.Create(i));
 
                     dense[targetStartIndex + j] = sourcePropertyDescriptor?._value != null
                         ? new PropertyDescriptor(sourcePropertyDescriptor._value, PropertyFlag.ConfigurableEnumerableWritable)

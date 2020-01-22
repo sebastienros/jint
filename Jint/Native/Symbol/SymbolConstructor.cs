@@ -70,8 +70,8 @@ namespace Jint.Native.Symbol
         {
             var description = arguments.At(0);
             var descString = description.IsUndefined()
-                ? Undefined
-                : TypeConverter.ToString(description);
+                ? JsString.UndefinedString
+                : TypeConverter.ToJsString(description);
 
             var value = _engine.GlobalSymbolRegistry.CreateSymbol(descString);
             return value;
@@ -79,7 +79,7 @@ namespace Jint.Native.Symbol
 
         public JsValue For(JsValue thisObj, JsValue[] arguments)
         {
-            var stringKey = TypeConverter.ToString(arguments.At(0));
+            var stringKey = TypeConverter.ToJsString(arguments.At(0));
 
             // 2. ReturnIfAbrupt(stringKey).
 
@@ -99,7 +99,7 @@ namespace Jint.Native.Symbol
                 return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
             }
 
-            if (_engine.GlobalSymbolRegistry.TryGetSymbol(sym._value.ToString(), out var e))
+            if (_engine.GlobalSymbolRegistry.TryGetSymbol(sym._value, out var e))
             {
                 return e._value;
             }

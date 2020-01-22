@@ -86,7 +86,7 @@ namespace Jint.Native.Json
                 }
                 else if (spaceObj.Class == "String")
                 {
-                    space = TypeConverter.ToString(spaceObj);
+                    space = TypeConverter.ToJsString(spaceObj);
                 }
             }
 
@@ -116,7 +116,7 @@ namespace Jint.Native.Json
             var wrapper = _engine.Object.Construct(Arguments.Empty);
             wrapper.DefineOwnProperty(JsString.Empty, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
 
-            return Str("", wrapper);
+            return Str(JsString.Empty, wrapper);
         }
 
         private JsValue Str(JsValue key, ObjectInstance holder)
@@ -185,7 +185,7 @@ namespace Jint.Native.Json
                 var isFinite = GlobalObject.IsFinite(Undefined.Instance, Arguments.From(value));
                 if (((JsBoolean) isFinite)._value)
                 {
-                    return TypeConverter.ToString(((JsNumber) value)._value);
+                    return TypeConverter.ToJsString(value);
                 }
 
                 return "null";

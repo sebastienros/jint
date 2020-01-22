@@ -198,7 +198,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (_right._expression.IsFunctionWithName())
                 {
-                    ((FunctionInstance) rval).SetFunctionName(lref._property.ToString());
+                    ((FunctionInstance) rval).SetFunctionName(lref._property);
                 }
 
                 _engine.PutValue(lref, rval);
@@ -230,7 +230,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (right._expression.IsFunctionWithName())
                     {
-                        ((FunctionInstance) rval).SetFunctionName(left.ExpressionName.ToString());
+                        ((FunctionInstance) rval).SetFunctionName(left.ExpressionName);
                     }
 
                     environmentRecord.SetMutableBinding(left.ExpressionName, rval, strict);

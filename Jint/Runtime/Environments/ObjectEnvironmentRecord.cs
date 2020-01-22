@@ -26,13 +26,14 @@ namespace Jint.Runtime.Environments
 
         public override bool HasBinding(string name)
         {
-            var foundBinding = _bindingObject.HasProperty(name);
+            var property = new JsString(name);
+            var foundBinding = _bindingObject.HasProperty(property);
 
             if (!foundBinding)
             {
                 return false;
             }
-            
+
             // TODO If the withEnvironment flag of envRec is false, return true.
 
             if (IsBlocked(name))
@@ -52,7 +53,7 @@ namespace Jint.Runtime.Environments
             // we unwrap by name
             binding = default;
 
-            if (!_bindingObject.HasProperty(name.Value) || IsBlocked(name.Value))
+            if (!_bindingObject.HasProperty(name.Value) || IsBlocked(name.Value.ToString()))
             {
                 value = default;
                 return false;
@@ -63,7 +64,7 @@ namespace Jint.Runtime.Environments
             return true;
         }
 
-        private bool IsBlocked(JsValue property)
+        private bool IsBlocked(string property)
         {
             var unscopables = _bindingObject._symbols != null
                 ? _bindingObject.Get(GlobalSymbolRegistry.Unscopables)
@@ -71,7 +72,7 @@ namespace Jint.Runtime.Environments
 
             if (unscopables is ObjectInstance oi)
             {
-                var blocked = TypeConverter.ToBoolean(oi.Get(property));
+                var blocked = TypeConverter.ToBoolean(oi.Get(new JsString(property)));
                 if (blocked)
                 {
                     return true;

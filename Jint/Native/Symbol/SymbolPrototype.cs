@@ -59,7 +59,7 @@ namespace Jint.Native.Symbol
         private JsValue ToSymbolString(JsValue thisObject, JsValue[] arguments)
         {
             var sym = ThisSymbolValue(thisObject);
-            return SymbolDescriptiveString(sym);
+            return new JsString(SymbolDescriptiveString(sym));
         }
 
         private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)

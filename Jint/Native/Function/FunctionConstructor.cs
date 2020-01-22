@@ -153,7 +153,7 @@ namespace Jint.Native.Function
             for (var index = 0; index < n; index++)
             {
                 var indexName = TypeConverter.ToString(index);
-                var nextArg = argArrayObj.Get(indexName, argArrayObj);
+                var nextArg = argArrayObj.Get(JsString.Create(indexName), argArrayObj);
                 argList[index] = nextArg;
             }
             return func.Call(thisArg, argList);

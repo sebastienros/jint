@@ -231,7 +231,7 @@ namespace Jint.Native.Array
                 for (uint k = 0; k < arguments.Length; k++)
                 {
                     var kValue = arguments[k];
-                    var key = TypeConverter.ToString(k);
+                    var key = JsString.Create(k);
                     a.CreateDataPropertyOrThrow(key, kValue);
                 }
 

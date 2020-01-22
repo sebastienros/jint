@@ -144,12 +144,12 @@ namespace Jint.Native.Array
 
             public override JsValue Get(ulong index)
             {
-                return _target.Get(TypeConverter.ToString(index), _target);
+                return _target.Get(JsString.Create(index), _target);
             }
 
             public override bool TryGetValue(ulong index, out JsValue value)
             {
-                var propertyName = TypeConverter.ToString(index);
+                var propertyName = JsString.Create(index);
                 var property = _target.GetProperty(propertyName);
                 var kPresent = property != PropertyDescriptor.Undefined;
                 value = kPresent ? _target.UnwrapJsValue(property) : JsValue.Undefined;
@@ -158,17 +158,17 @@ namespace Jint.Native.Array
 
             public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
             {
-                _target.CreateDataPropertyOrThrow(TypeConverter.ToString(index), value);
+                _target.CreateDataPropertyOrThrow(JsString.Create(index), value);
             }
 
             public override void Set(ulong index, JsValue value, bool updateLength, bool throwOnError)
             {
-                _target.Set(TypeConverter.ToString(index), value, throwOnError);
+                _target.Set(JsString.Create(index), value, throwOnError);
             }
 
             public override void DeletePropertyOrThrow(ulong index)
             {
-                _target.DeletePropertyOrThrow(TypeConverter.ToString(index));
+                _target.DeletePropertyOrThrow(JsString.Create(index));
             }
         }
 
@@ -247,7 +247,7 @@ namespace Jint.Native.Array
 
             public override void DeletePropertyOrThrow(ulong index)
             {
-                _target.DeletePropertyOrThrow(TypeConverter.ToString(index));
+                _target.DeletePropertyOrThrow(JsString.Create(index));
             }
 
             public override void CreateDataPropertyOrThrow(ulong index, JsValue value)

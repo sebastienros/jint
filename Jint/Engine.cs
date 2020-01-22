@@ -103,7 +103,7 @@ namespace Jint
             { typeof(Int64), (engine, v) => (JsValue)(Int64)v },
             { typeof(SByte), (engine, v) => JsNumber.Create((SByte)v) },
             { typeof(Single), (engine, v) => (JsValue)(Single)v },
-            { typeof(string), (engine, v) => (JsValue) (string)v },
+            { typeof(string), (engine, v) => JsString.Create((string) v) },
             { typeof(UInt16), (engine, v) => JsNumber.Create((UInt16)v) },
             { typeof(UInt32), (engine, v) => JsNumber.Create((UInt32)v) },
             { typeof(UInt64), (engine, v) => JsNumber.Create((UInt64)v) },
@@ -316,13 +316,13 @@ namespace Jint
 
         public Engine SetValue(JsValue name, Delegate value)
         {
-            Global.FastAddProperty(name.ToString(), new DelegateWrapper(this, value), true, false, true);
+            Global.FastAddProperty(name, new DelegateWrapper(this, value), true, false, true);
             return this;
         }
 
         public Engine SetValue(JsValue name, string value)
         {
-            return SetValue(name, (JsValue) value);
+            return SetValue(name, new JsString(value));
         }
 
         public Engine SetValue(JsValue name, double value)
@@ -692,7 +692,7 @@ namespace Jint
         /// <param name="propertyName">The name of the property to return.</param>
         public JsValue GetValue(string propertyName)
         {
-            return GetValue(Global, propertyName);
+            return GetValue(Global, new JsString(propertyName));
         }
 
         /// <summary>
@@ -751,11 +751,13 @@ namespace Jint
                     var parameters = functionInstance._formalParameters;
                     for (uint i = 0; i < (uint) parameters.Length; i++)
                     {
-                        var argName = parameters[i];
+                        var parameter = parameters[i];
+                        var argName = new JsString(parameter);
+
                         var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
                         v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionDeclaration, v, i);
 
-                        var argAlreadyDeclared = env.HasBinding(argName);
+                        var argAlreadyDeclared = env.HasBinding(parameter);
                         if (!argAlreadyDeclared)
                         {
                             env.CreateMutableBinding(argName, v);
@@ -802,7 +804,7 @@ namespace Jint
                             var varAlreadyDeclared = env.HasBinding(name);
                             if (!varAlreadyDeclared)
                             {
-                                env.CreateMutableBinding(name, Undefined.Instance);
+                                env.CreateMutableBinding(new JsString(name), Undefined.Instance);
                             }
                         }
                     }
@@ -822,9 +824,9 @@ namespace Jint
             for (var i = 0; i < functionDeclarationsCount; i++)
             {
                 var f = functionDeclarations[i];
-                var fn = f.Id.Name;
+                var fn = new JsString(f.Id.Name);
                 var fo = Function.CreateFunctionObject(f);
-                var funcAlreadyDeclared = env.HasBinding(fn);
+                var funcAlreadyDeclared = env.HasBinding(f.Id.Name);
                 if (!funcAlreadyDeclared)
                 {
                     env.CreateMutableBinding(fn, configurableBindings);
