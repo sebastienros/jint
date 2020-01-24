@@ -22,8 +22,7 @@ namespace Jint.Runtime.Environments
         /// <returns><c>true</c> if it does and <c>false</c> if it does not.</returns>
         public abstract bool HasBinding(string name);
 
-        internal abstract bool TryGetBinding(
-            in KeyValue name,
+        internal abstract bool TryGetBinding(string name,
             bool strict,
             out Binding binding,
             out JsValue value);

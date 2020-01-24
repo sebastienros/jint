@@ -44,11 +44,11 @@ namespace Jint.Runtime.Environments
             out EnvironmentRecord record,
             out JsValue value)
         {
-            var keyValue = new KeyValue(name.ToString(), name);
+            var s = name.ToString();
             while (true)
             {
                 if (lex._record.TryGetBinding(
-                    keyValue,
+                    s,
                     strict,
                     out _,
                     out value))

@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace Jint.Collections
 {
-    internal sealed class HybridDictionary<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>> where TKey : IEquatable<TKey>
+    internal class HybridDictionary<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>> where TKey : IEquatable<TKey>
     {
         private const int CutoverPoint = 9;
         private const int InitialDictionarySize = 13;

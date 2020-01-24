@@ -1,8 +1,9 @@
+using System.Collections.Generic;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Collections
 {
-    internal sealed class PropertyDictionary : DictionarySlim<string, PropertyDescriptor>
+    internal sealed class PropertyDictionary : HybridDictionary<string, PropertyDescriptor>
     {
         public PropertyDictionary()
         {

@@ -45,7 +45,7 @@ namespace Jint.Runtime.Environments
         }
 
         internal override bool TryGetBinding(
-            in KeyValue name,
+            string name,
             bool strict,
             out Binding binding,
             out JsValue value)
@@ -53,13 +53,13 @@ namespace Jint.Runtime.Environments
             // we unwrap by name
             binding = default;
 
-            if (!_bindingObject.HasProperty(name.Value) || IsBlocked(name.Value.ToString()))
+            if (!_bindingObject.HasProperty(name) || IsBlocked(name))
             {
                 value = default;
                 return false;
             }
 
-            var desc = _bindingObject.GetProperty(name.Value);
+            var desc = _bindingObject.GetProperty(name);
             value = ObjectInstance.UnwrapJsValue(desc, _bindingObject);
             return true;
         }

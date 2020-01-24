@@ -17,23 +17,18 @@ namespace Jint.Runtime.Environments
     /// </summary>
     internal sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private readonly HybridDictionary<Key, Binding> _dictionary = new HybridDictionary<Key, Binding>();
+        private readonly HybridDictionary<string, Binding> _dictionary = new HybridDictionary<string, Binding>();
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
         }
 
-        private bool ContainsKey(JsValue key)
-        {
-            return _dictionary?.ContainsKey(key.ToString()) == true;
-        }
-
         private bool ContainsKey(string key)
         {
-            return _dictionary?.ContainsKey(key) == true;
+            return _dictionary.ContainsKey(key) == true;
         }
 
-        private bool TryGetValue(in Key key, out Binding value)
+        private bool TryGetValue(string key, out Binding value)
         {
             return _dictionary.TryGetValue(key, out value);
         }
@@ -44,12 +39,12 @@ namespace Jint.Runtime.Environments
         }
 
         internal override bool TryGetBinding(
-            in KeyValue name,
+            string name,
             bool strict,
             out Binding binding,
             out JsValue value)
         {
-            var success = _dictionary.TryGetValue(name.Key, out binding);
+            var success = _dictionary.TryGetValue(name, out binding);
             value = success ? UnwrapBindingValue(strict, binding) : default;
             return success;
         }
@@ -67,7 +62,6 @@ namespace Jint.Runtime.Environments
             if (binding.Mutable)
             {
                 binding.Value = value;
-                _dictionary[key] = binding;
             }
             else
             {
@@ -326,7 +320,7 @@ namespace Jint.Runtime.Environments
                 SetFunctionParameter(assignmentPattern.Left, new []{ argument }, 0, initiallyEmpty);
             }        }
 
-        private void SetItemSafely(in Key name, JsValue argument, bool initiallyEmpty)
+        private void SetItemSafely(string name, JsValue argument, bool initiallyEmpty)
         {
             if (initiallyEmpty || !TryGetValue(name, out var existing))
             {
@@ -337,7 +331,6 @@ namespace Jint.Runtime.Environments
                 if (existing.Mutable)
                 {
                     existing.Value = argument;
-                    _dictionary[name] = existing;
                 }
                 else
                 {

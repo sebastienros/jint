@@ -8,7 +8,7 @@ namespace Jint.Runtime.Descriptors.Specialized
     {
         private readonly EnvironmentRecord _env;
         private readonly Engine _engine;
-        private readonly KeyValue _name;
+        private readonly string _name;
 
         private GetterFunctionInstance _get;
         private SetterFunctionInstance _set;
@@ -21,7 +21,7 @@ namespace Jint.Runtime.Descriptors.Specialized
         {
             _env = env;
             _engine = engine;
-            _name = new KeyValue(new Key(name), new JsString(name));
+            _name = name;
         }
 
         public override JsValue Get => _get ??= new GetterFunctionInstance(_engine, DoGet);
@@ -36,7 +36,7 @@ namespace Jint.Runtime.Descriptors.Specialized
 
         private void DoSet(JsValue n, JsValue o)
         {
-            _env.SetMutableBinding(_name.Value, o, true);
+            _env.SetMutableBinding(_name, o, true);
         }
     }
 }
