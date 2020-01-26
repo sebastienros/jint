@@ -10,9 +10,9 @@ namespace Jint
 {
     public static class EsprimaExtensions
     {
-        public static string GetKey(this Property property, Engine engine) => GetKey(property.Key, engine, property.Computed);
+        public static JsValue GetKey(this Property property, Engine engine) => GetKey(property.Key, engine, property.Computed);
 
-        internal static string GetKey<T>(this T expression, Engine engine, bool computed) where T : class, Expression
+        internal static JsValue GetKey<T>(this T expression, Engine engine, bool computed) where T : class, Expression
         {
             if (expression is Literal literal)
             {
@@ -32,7 +32,7 @@ namespace Jint
             return propertyKey;
         }
 
-        private static bool TryGetComputedPropertyKey<T>(T expression, Engine engine, out string propertyKey)
+        private static bool TryGetComputedPropertyKey<T>(T expression, Engine engine, out JsValue propertyKey)
             where T : class, Expression
         {
             if (expression.Type == Nodes.Identifier
@@ -41,7 +41,7 @@ namespace Jint
                 || expression.Type == Nodes.UpdateExpression
                 || expression is StaticMemberExpression)
             {
-                propertyKey = TypeConverter.ToString(TypeConverter.ToPropertyKey(JintExpression.Build(engine, expression).GetValue()));
+                propertyKey = TypeConverter.ToPropertyKey(JintExpression.Build(engine, expression).GetValue());
                 return true;
             }
 

@@ -32,7 +32,7 @@ namespace Jint.Native.Object
         {
             _prototype = Engine.Function.PrototypeObject;
 
-            var properties = new PropertyDictionary(15)
+            var properties = new PropertyDictionary(15, checkExistingKeys: false)
             {
                 ["getPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getPrototypeOf", GetPrototypeOf, 1), true, false, true),
                 ["getOwnPropertyDescriptor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2), true, false, true),
@@ -116,7 +116,7 @@ namespace Jint.Native.Object
                 _prototype = Engine.Object.PrototypeObject,
             };
 
-            obj.SetProperties(propertyCount > 0  ? new PropertyDictionary(propertyCount) : null);
+            obj.SetProperties(propertyCount > 0  ? new PropertyDictionary(propertyCount, checkExistingKeys: true) : null);
 
             return obj;
         }

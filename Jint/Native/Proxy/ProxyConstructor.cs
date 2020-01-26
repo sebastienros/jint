@@ -48,11 +48,10 @@ namespace Jint.Native.Proxy
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(1)
+            var properties = new PropertyDictionary(1, checkExistingKeys: false)
             {
                 ["revocable"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "revocable", Revocable, 2, PropertyFlag.Configurable), true, true, true)
             };
-            
             SetProperties(properties);
         }
 

@@ -6,19 +6,19 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintIdentifierExpression : JintExpression
     {
-        private readonly JsString _expressionName;
+        private readonly string _expressionName;
         private readonly JsValue _calculatedValue;
 
         public JintIdentifierExpression(Engine engine, Esprima.Ast.Identifier expression) : base(engine, expression)
         {
-            _expressionName = JsString.Create(expression.Name);
+            _expressionName = expression.Name;
             if (expression.Name == "undefined")
             {
                 _calculatedValue = JsValue.Undefined;
             }
         }
 
-        public JsValue ExpressionName => _expressionName;
+        public string ExpressionName => _expressionName;
 
         public bool HasEvalOrArguments
             => ExpressionName == CommonProperties.Eval || ExpressionName == CommonProperties.Arguments;

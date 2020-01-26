@@ -27,7 +27,7 @@ namespace Jint.Native.Reflect
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(14)
+            var properties = new PropertyDictionary(14, checkExistingKeys: false)
             {
                 ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 3, PropertyFlag.Configurable), true, false, true),
                 ["construct"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "construct", Construct, 2, PropertyFlag.Configurable), true, false, true),

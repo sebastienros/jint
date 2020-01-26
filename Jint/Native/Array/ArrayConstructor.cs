@@ -45,7 +45,7 @@ namespace Jint.Native.Array
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(3)
+            var properties = new PropertyDictionary(3, checkExistingKeys: false)
             {
                 ["from"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "from", From, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
                 ["isArray"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "isArray", IsArray, 1), PropertyFlag.NonEnumerable)),

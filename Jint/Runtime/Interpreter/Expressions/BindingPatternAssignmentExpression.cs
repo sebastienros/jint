@@ -244,7 +244,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        private static void AssignToIdentifier(Engine engine,
+        private static void AssignToIdentifier(
+            Engine engine,
             string name,
             JsValue rval)
         {

@@ -44,7 +44,7 @@ namespace Jint.Native.Date
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
 
-            var properties = new PropertyDictionary(50)
+            var properties = new PropertyDictionary(50, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_dateConstructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),

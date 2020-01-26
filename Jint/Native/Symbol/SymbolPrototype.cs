@@ -34,7 +34,7 @@ namespace Jint.Native.Symbol
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable;
-            SetProperties(new PropertyDictionary(5)
+            SetProperties(new PropertyDictionary(5, checkExistingKeys: false)
             {
                 ["length"] = new PropertyDescriptor(JsNumber.PositiveZero, propertyFlags),
                 ["constructor"] = new PropertyDescriptor(_symbolConstructor, PropertyFlag.Configurable | PropertyFlag.Writable),

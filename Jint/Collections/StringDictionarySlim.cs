@@ -59,7 +59,11 @@ namespace Jint.Collections
             _entries = new Entry[capacity];
         }
 
-        public int Count => _count;
+        public int Count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _count;
+        }
 
         /// <summary>
         /// Clears the dictionary. Note that this invalidates any active enumerators.
@@ -307,13 +311,7 @@ namespace Jint.Collections
             }
 
             [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-            public KeyValuePair<Key, V>[] Items
-            {
-                get
-                {
-                    return _dictionary.ToArray();
-                }
-            }
+            public KeyValuePair<Key, V>[] Items => _dictionary.ToArray();
         }
     }
 }

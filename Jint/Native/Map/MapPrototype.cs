@@ -33,7 +33,7 @@ namespace Jint.Native.Map
         protected override void Initialize()
         {
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            var properties = new PropertyDictionary(12)
+            var properties = new PropertyDictionary(12, checkExistingKeys: false)
             {
                 ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
                 ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),

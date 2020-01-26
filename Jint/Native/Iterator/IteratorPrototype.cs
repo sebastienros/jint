@@ -27,7 +27,7 @@ namespace Jint.Native.Iterator
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(2)
+            var properties = new PropertyDictionary(2, checkExistingKeys: false)
             {
                 ["name"] = new PropertyDescriptor("Map", PropertyFlag.Configurable),
                 ["next"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "next", Next, 0, PropertyFlag.Configurable), true, false, true)

@@ -28,7 +28,7 @@ namespace Jint.Native.Global
             {
                 _prototype = null,
             };
-            global.SetProperties(new PropertyDictionary(35));
+            global.SetProperties(new PropertyDictionary(35, checkExistingKeys: false));
 
             return global;
         }
@@ -77,7 +77,7 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.2
         /// </summary>
-        public JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
+        public static JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
         {
             string inputString = TypeConverter.ToString(arguments.At(0));
             var s = StringPrototype.TrimEx(inputString);
@@ -695,6 +695,94 @@ namespace Jint.Native.Global
             }
 
             return _stringBuilder.ToString();
+        }
+        
+        // optimized versions with string parameter and without virtual dispatch for global environment usage
+
+        internal bool HasProperty(string property)
+        {
+            return GetOwnProperty(property) != PropertyDescriptor.Undefined;
+        }
+
+        internal PropertyDescriptor GetProperty(string property)
+        {
+            return GetOwnProperty(property);
+        }
+
+        internal bool DefinePropertyOrThrow(string property, PropertyDescriptor desc)
+        {
+            if (!DefineOwnProperty(property, desc))
+            {
+                ExceptionHelper.ThrowTypeError(_engine);
+            }
+
+            return true;
+        }
+
+        internal bool DefineOwnProperty(string property, PropertyDescriptor desc)
+        {
+            var current = GetOwnProperty(property);
+            if (current == desc)
+            {
+                return true;
+            }
+
+            return ValidateAndApplyPropertyDescriptor(this, property, extensible: true, desc, current);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal PropertyDescriptor GetOwnProperty(string property)
+        {
+            EnsureInitialized();
+            Properties.TryGetValue(property, out var descriptor);
+            return descriptor ?? PropertyDescriptor.Undefined;
+        }
+        
+        internal bool Set(string property, JsValue value)
+        {
+            var ownDesc = GetOwnProperty(property);
+
+            if (ownDesc == PropertyDescriptor.Undefined)
+            {
+                ownDesc = new PropertyDescriptor(Undefined, PropertyFlag.ConfigurableEnumerableWritable);
+            }
+
+            if (ownDesc.IsDataDescriptor())
+            {
+                if (!ownDesc.Writable)
+                {
+                    return false;
+                }
+
+                // TODO whether we need to get twice
+                var existingDescriptor = GetOwnProperty(property);
+                if (existingDescriptor != PropertyDescriptor.Undefined)
+                {
+                    if (existingDescriptor.IsAccessorDescriptor())
+                    {
+                        return false;
+                    }
+
+                    if (!existingDescriptor.Writable)
+                    {
+                        return false;
+                    }
+
+                    var valueDesc = new PropertyDescriptor(value, PropertyFlag.None);
+                    return DefineOwnProperty(property, valueDesc);
+                }
+
+                return CreateDataProperty(property, value);
+            }
+
+            if (!(ownDesc.Set is ICallable setter))
+            {
+                return false;
+            }
+
+            setter.Call(this, new[] {value});
+
+            return true;
         }
     }
 }

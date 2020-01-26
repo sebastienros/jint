@@ -70,7 +70,7 @@ namespace Jint.Native.RegExp
             }
 
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            var properties = new PropertyDictionary(12)
+            var properties = new PropertyDictionary(12, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_regExpConstructor, propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToRegExpString, 0, lengthFlags), propertyFlags),

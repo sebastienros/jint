@@ -310,7 +310,7 @@ namespace Jint.Runtime.Descriptors
             }
 
             var obj = engine.Object.Construct(Arguments.Empty);
-            var properties = new PropertyDictionary(4);
+            var properties = new PropertyDictionary(4, checkExistingKeys: false);
 
             if (desc.IsDataDescriptor())
             {

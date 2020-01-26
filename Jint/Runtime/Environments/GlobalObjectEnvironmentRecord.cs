@@ -1,6 +1,7 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
+using System.Runtime.CompilerServices;
 using Jint.Native;
+using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
@@ -8,25 +9,20 @@ using Jint.Runtime.Descriptors;
 namespace Jint.Runtime.Environments
 {
     /// <summary>
-    /// Represents an object environment record
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2
+    /// Optimized for GlobalObject, which we know of and can skip some virtual calls.
     /// </summary>
-    internal sealed class ObjectEnvironmentRecord : EnvironmentRecord
+    internal sealed class GlobalObjectEnvironmentRecord : EnvironmentRecord
     {
-        private readonly ObjectInstance _bindingObject;
-        private readonly bool _provideThis;
+        private readonly GlobalObject _bindingObject;
 
-        public ObjectEnvironmentRecord(Engine engine, ObjectInstance bindingObject, bool provideThis) : base(engine)
+        public GlobalObjectEnvironmentRecord(Engine engine, GlobalObject bindingObject) : base(engine)
         {
             _bindingObject = bindingObject;
-            _provideThis = provideThis;
         }
 
         public override bool HasBinding(string name)
         {
-            var property = new JsString(name);
-            var foundBinding = HasProperty(property);
-
+            var foundBinding = _bindingObject.HasProperty(name);
             if (!foundBinding)
             {
                 return false;
@@ -42,11 +38,6 @@ namespace Jint.Runtime.Environments
             return true;
         }
 
-        private bool HasProperty(JsValue property)
-        {
-            return _bindingObject.HasProperty(property);
-        }
-
         internal override bool TryGetBinding(
             string name,
             bool strict,
@@ -56,7 +47,7 @@ namespace Jint.Runtime.Environments
             // we unwrap by name
             binding = default;
 
-            if (!HasProperty(name) || IsBlocked(name))
+            if (!_bindingObject.HasProperty(name) || IsBlocked(name))
             {
                 value = default;
                 return false;
@@ -68,6 +59,12 @@ namespace Jint.Runtime.Environments
         }
 
         private bool IsBlocked(string property)
+        {
+            return _bindingObject._symbols != null && CheckSymbolsForBlocked(property);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private bool CheckSymbolsForBlocked(string property)
         {
             var unscopables = _bindingObject.Get(GlobalSymbolRegistry.Unscopables);
             if (unscopables is ObjectInstance oi)
@@ -120,22 +117,12 @@ namespace Jint.Runtime.Environments
 
         public override JsValue ImplicitThisValue()
         {
-            if (_provideThis)
-            {
-                return _bindingObject;
-            }
-
             return Undefined;
         }
 
         internal override string[] GetAllBindingNames()
         {
-            if (!ReferenceEquals(_bindingObject, null))
-            {
-                return _bindingObject.GetOwnProperties().Select( x=> x.Key.ToString()).ToArray();
-            }
-
-            return ArrayExt.Empty<string>();
+            return _bindingObject.GetOwnProperties().Select( x=> x.Key.ToString()).ToArray();
         }
 
         public override bool Equals(JsValue other)

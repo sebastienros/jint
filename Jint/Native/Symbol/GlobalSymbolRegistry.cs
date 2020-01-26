@@ -1,4 +1,4 @@
-﻿using Jint.Collections;
+﻿using System.Collections.Generic;
 
 namespace Jint.Native.Symbol
 {
@@ -18,7 +18,7 @@ namespace Jint.Native.Symbol
         public static readonly JsSymbol Unscopables = new JsSymbol("Symbol.unscopables");
 
         // engine-specific created by scripts
-        private HybridDictionary<JsString, JsSymbol> _customSymbolLookup;
+        private Dictionary<JsString, JsSymbol> _customSymbolLookup;
 
         internal bool TryGetSymbol(JsString key, out JsSymbol symbol)
         {
@@ -29,7 +29,7 @@ namespace Jint.Native.Symbol
 
         internal void Add(JsSymbol symbol)
         {
-            _customSymbolLookup ??= new HybridDictionary<JsString, JsSymbol>();
+            _customSymbolLookup ??= new Dictionary<JsString, JsSymbol>();
             _customSymbolLookup[symbol._value] = symbol;
         }
 

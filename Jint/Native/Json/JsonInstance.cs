@@ -26,7 +26,7 @@ namespace Jint.Native.Json
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(2)
+            var properties = new PropertyDictionary(2, checkExistingKeys: false)
             {
                 ["parse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parse", Parse, 2), true, false, true),
                 ["stringify"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "stringify", Stringify, 3), true, false, true)

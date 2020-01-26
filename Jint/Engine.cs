@@ -201,7 +201,7 @@ namespace Jint
             Object._prototype = Function.PrototypeObject;
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
-            GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, false);
+            GlobalEnvironment = LexicalEnvironment.NewGlobalEnvironment(this, Global);
 
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
             EnterExecutionContext(GlobalEnvironment, GlobalEnvironment, Global);
@@ -571,7 +571,7 @@ namespace Jint
                 return ExceptionHelper.ThrowArgumentException<JsValue>();
             }
 
-            var bindingValue = record.GetBindingValue(reference._property, reference._strict);
+            var bindingValue = record.GetBindingValue(reference._property.ToString(), reference._strict);
 
             if (returnReferenceToPool)
             {
@@ -613,7 +613,7 @@ namespace Jint
             }
             else
             {
-                ((EnvironmentRecord) baseValue).SetMutableBinding(property, value, reference._strict);
+                ((EnvironmentRecord) baseValue).SetMutableBinding(property.ToString(), value, reference._strict);
             }
         }
 
@@ -751,13 +751,11 @@ namespace Jint
                     var parameters = functionInstance._formalParameters;
                     for (uint i = 0; i < (uint) parameters.Length; i++)
                     {
-                        var parameter = parameters[i];
-                        var argName = new JsString(parameter);
-
+                        var argName = parameters[i];
                         var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
                         v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionDeclaration, v, i);
 
-                        var argAlreadyDeclared = env.HasBinding(parameter);
+                        var argAlreadyDeclared = env.HasBinding(argName);
                         if (!argAlreadyDeclared)
                         {
                             env.CreateMutableBinding(argName, v);
@@ -765,7 +763,7 @@ namespace Jint
 
                         env.SetMutableBinding(argName, v, strict);
                     }
-                    env.CreateMutableBinding(CommonProperties.Arguments, argsObj);
+                    env.CreateMutableBinding("arguments", argsObj);
                 }
             }
 
@@ -804,7 +802,7 @@ namespace Jint
                             var varAlreadyDeclared = env.HasBinding(name);
                             if (!varAlreadyDeclared)
                             {
-                                env.CreateMutableBinding(new JsString(name), Undefined.Instance);
+                                env.CreateMutableBinding(name, Undefined.Instance);
                             }
                         }
                     }
@@ -824,7 +822,7 @@ namespace Jint
             for (var i = 0; i < functionDeclarationsCount; i++)
             {
                 var f = functionDeclarations[i];
-                var fn = new JsString(f.Id.Name);
+                var fn = f.Id.Name;
                 var fo = Function.CreateFunctionObject(f);
                 var funcAlreadyDeclared = env.HasBinding(f.Id.Name);
                 if (!funcAlreadyDeclared)

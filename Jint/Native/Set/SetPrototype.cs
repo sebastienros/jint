@@ -32,7 +32,7 @@ namespace Jint.Native.Set
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(12)
+            var properties = new PropertyDictionary(12, checkExistingKeys: false)
             {
                 ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
                 ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),

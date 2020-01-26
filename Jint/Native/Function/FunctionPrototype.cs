@@ -34,7 +34,7 @@ namespace Jint.Native.Function
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(5)
+            var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true),

@@ -1,7 +1,6 @@
 using System;
 using Esprima.Ast;
 using Jint.Collections;
-using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -100,7 +99,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return obj;
             }
 
-            var properties = new PropertyDictionary(_properties.Length);
+            var properties = new PropertyDictionary(_properties.Length, checkExistingKeys: false);
             for (var i = 0; i < _properties.Length; i++)
             {
                 var objectProperty = _properties[i];
@@ -132,7 +131,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (expr._expression.IsFunctionWithName())
                     {
                         var functionInstance = (FunctionInstance) propValue;
-                        functionInstance.SetFunctionName(new JsString(propName));
+                        functionInstance.SetFunctionName(propName);
                     }
                     propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
                 }
@@ -146,7 +145,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         _engine.ExecutionContext.LexicalEnvironment,
                         isStrictModeCode
                     );
-                    functionInstance.SetFunctionName(new JsString(propName));
+                    functionInstance.SetFunctionName(propName);
                     functionInstance._prototypeDescriptor = null;
 
                     propDesc = new GetSetPropertyDescriptor(

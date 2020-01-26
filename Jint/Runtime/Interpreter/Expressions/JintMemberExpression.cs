@@ -45,7 +45,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            JsValue baseReferenceName = null;
+            string baseReferenceName = null;
             JsValue baseValue = null;
             var isStrictModeCode = StrictModeScope.IsStrictModeCode;
 
@@ -70,7 +70,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var baseReference = _objectExpression.Evaluate();
                 if (baseReference is Reference reference)
                 {
-                    baseReferenceName = reference._property;
+                    baseReferenceName = reference._property.ToString();
                     baseValue = _engine.GetValue(reference, false);
                     _engine._referencePool.Return(reference);
                 }
@@ -82,7 +82,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var property = _determinedProperty ?? _propertyExpression.GetValue();
 
-            TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, baseReferenceName?.ToString());
+            TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, baseReferenceName);
 
             return _engine._referencePool.Rent(baseValue, property, isStrictModeCode);
         }

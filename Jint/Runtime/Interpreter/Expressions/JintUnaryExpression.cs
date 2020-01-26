@@ -100,7 +100,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var property = r._property;
                     _engine._referencePool.Return(r);
 
-                    return bindings.DeleteBinding(property) ? JsBoolean.True : JsBoolean.False;
+                    return bindings.DeleteBinding(property.ToString()) ? JsBoolean.True : JsBoolean.False;
 
                 case UnaryOperator.Void:
                     _argument.GetValue();

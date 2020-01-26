@@ -37,7 +37,7 @@ namespace Jint.Native.Number
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(8)
+            var properties = new PropertyDictionary(8, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_numberConstructor, true, false, true),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true),

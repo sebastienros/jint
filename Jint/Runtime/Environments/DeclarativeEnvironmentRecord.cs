@@ -17,7 +17,7 @@ namespace Jint.Runtime.Environments
     /// </summary>
     internal sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private readonly HybridDictionary<string, Binding> _dictionary = new HybridDictionary<string, Binding>();
+        private HybridDictionary<Binding> _dictionary;
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
@@ -25,12 +25,13 @@ namespace Jint.Runtime.Environments
 
         private bool ContainsKey(string key)
         {
-            return _dictionary.ContainsKey(key) == true;
+            return _dictionary?.ContainsKey(key) == true;
         }
 
         private bool TryGetValue(string key, out Binding value)
         {
-            return _dictionary.TryGetValue(key, out value);
+            value = default;
+            return _dictionary?.TryGetValue(key, out value) == true;
         }
 
         public override bool HasBinding(string name)
@@ -44,21 +45,21 @@ namespace Jint.Runtime.Environments
             out Binding binding,
             out JsValue value)
         {
-            var success = _dictionary.TryGetValue(name, out binding);
+            binding = default;
+            var success = _dictionary?.TryGetValue(name, out binding) == true;
             value = success ? UnwrapBindingValue(strict, binding) : default;
             return success;
         }
 
-        public override void CreateMutableBinding(JsValue name, JsValue value, bool canBeDeleted = false)
+        public override void CreateMutableBinding(string name, JsValue value, bool canBeDeleted = false)
         {
-            var key = name.ToString();
-            _dictionary[key] = new Binding(value, canBeDeleted, mutable: true);
+            _dictionary ??= new HybridDictionary<Binding>();
+            _dictionary[name] = new Binding(value, canBeDeleted, mutable: true);
         }
 
-        public override void SetMutableBinding(JsValue name, JsValue value, bool strict)
+        public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
-            var key = TypeConverter.ToString(name);
-            _dictionary.TryGetValue(key, out var binding);
+            _dictionary.TryGetValue(name, out var binding);
             if (binding.Mutable)
             {
                 binding.Value = value;
@@ -72,10 +73,10 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        public override JsValue GetBindingValue(JsValue name, bool strict)
+        public override JsValue GetBindingValue(string name, bool strict)
         {
-            var key = TypeConverter.ToString(name);
-            _dictionary.TryGetValue(key, out var binding);
+            Binding binding = default;
+            _dictionary?.TryGetValue(name, out binding);
             return UnwrapBindingValue(strict, binding);
         }
 
@@ -100,10 +101,9 @@ namespace Jint.Runtime.Environments
             throw new JavaScriptException(_engine.ReferenceError, "Can't access an uninitialized immutable binding.");
         }
 
-        public override bool DeleteBinding(JsValue name)
+        public override bool DeleteBinding(string name)
         {
-            var key = name.ToString();
-            if (!_dictionary.TryGetValue(key, out var binding))
+            if (!_dictionary.TryGetValue(name, out var binding))
             {
                 return true;
             }
@@ -113,7 +113,7 @@ namespace Jint.Runtime.Environments
                 return false;
             }
 
-            _dictionary.Remove(key);
+            _dictionary.Remove(name);
 
             return true;
         }
@@ -126,6 +126,11 @@ namespace Jint.Runtime.Environments
         /// <inheritdoc />
         internal override string[] GetAllBindingNames()
         {
+            if (_dictionary is null)
+            {
+                return ArrayExt.Empty<string>();
+            }
+
             var keys = new string[_dictionary.Count];
             var n = 0;
             foreach (var entry in _dictionary)
@@ -141,6 +146,8 @@ namespace Jint.Runtime.Environments
             ArgumentsInstance argumentsInstance,
             IFunction functionDeclaration)
         {
+            _dictionary ??= new HybridDictionary<Binding>();
+            
             bool empty = _dictionary.Count == 0;
             if (!(argumentsInstance is null))
             {
@@ -346,6 +353,7 @@ namespace Jint.Runtime.Environments
             {
                 var variableDeclaration = variableDeclarations[i];
                 var declarationsCount = variableDeclaration.Declarations.Count;
+                _dictionary ??= new HybridDictionary<Binding>(declarationsCount, checkExistingKeys: true); 
                 for (var j = 0; j < declarationsCount; j++)
                 {
                     var d = variableDeclaration.Declarations[j];

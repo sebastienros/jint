@@ -29,7 +29,7 @@ namespace Jint.Native.Math
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(45)
+            var properties = new PropertyDictionary(45, checkExistingKeys: false)
             {
                 ["abs"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "abs", Abs, 1, PropertyFlag.Configurable), true, false, true),
                 ["acos"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "acos", Acos, 1, PropertyFlag.Configurable), true, false, true),

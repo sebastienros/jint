@@ -30,7 +30,7 @@ namespace Jint.Native.Boolean
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(3)
+            var properties = new PropertyDictionary(3, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_booleanConstructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToBooleanString, 0, PropertyFlag.Configurable), true, false, true),

@@ -66,6 +66,7 @@ namespace Jint.Native.Object
         internal PropertyDictionary Properties
         {
             [DebuggerStepThrough]            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _properties;
         }
 
@@ -122,6 +123,10 @@ namespace Jint.Native.Object
 
         internal void SetProperties(PropertyDictionary properties)
         {
+            if (properties != null)
+            {
+                properties.CheckExistingKeys = true;
+            }
             _properties = properties;
         }
 
@@ -285,6 +290,7 @@ namespace Jint.Native.Object
             if (!key.IsSymbol())
             {
                 _properties?.Remove(TypeConverter.ToString(key));
+                return;
             }
 
             _symbols?.Remove((JsSymbol) key);
@@ -849,12 +855,14 @@ namespace Jint.Native.Object
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected void EnsureInitialized()
         {
-            if (!_initialized)
+            if (_initialized)
             {
-                // we need to set flag eagerly to prevent wrong recursion
-                _initialized = true;
-                Initialize();
+                return;
             }
+
+            // we need to set flag eagerly to prevent wrong recursion
+            _initialized = true;
+            Initialize();
         }
 
         protected virtual void Initialize()

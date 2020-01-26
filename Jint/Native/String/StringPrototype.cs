@@ -43,7 +43,7 @@ namespace Jint.Native.String
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = lengthFlags | PropertyFlag.Writable;
-            var properties = new PropertyDictionary(35)
+            var properties = new PropertyDictionary(35, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_stringConstructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 0, lengthFlags), propertyFlags),

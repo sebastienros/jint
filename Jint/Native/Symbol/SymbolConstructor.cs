@@ -43,7 +43,7 @@ namespace Jint.Native.Symbol
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.AllForbidden;
 
-            var properties = new PropertyDictionary(15)
+            var properties = new PropertyDictionary(15, checkExistingKeys: false)
             {
                 ["for"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "for", For, 1, lengthFlags), PropertyFlag.Writable | PropertyFlag.Configurable),
                 ["keyFor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keyFor", KeyFor, 1, lengthFlags), PropertyFlag.Writable | PropertyFlag.Configurable),

@@ -123,23 +123,21 @@ namespace Jint.Native
 
         internal static JsString Create(string value)
         {
+            if (value.Length > 1)
+            {
+                return new JsString(value);
+            }
+
             if (value.Length == 0)
             {
                 return Empty;
             }
-            if (value.Length == 1)
-            {
-                var i = (uint) value[0];
-                if (i < (uint) _charToStringJsValue.Length)
-                {
-                    return _charToStringJsValue[i];
-                }
-            }
-            else if (value.Length == 4 && value == Native.Null.Text)
-            {
-                return NullString;
-            }
 
+            var i = (uint) value[0];
+            if (i < (uint) _charToStringJsValue.Length)
+            {
+                return _charToStringJsValue[i];
+            }
             return new JsString(value);
         }
 

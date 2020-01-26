@@ -39,7 +39,7 @@ namespace Jint.Native.Error
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(3)
+            var properties = new PropertyDictionary(3, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable),
                 ["message"] = new PropertyDescriptor("", PropertyFlag.Configurable | PropertyFlag.Writable),
