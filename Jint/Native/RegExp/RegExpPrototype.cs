@@ -630,7 +630,7 @@ namespace Jint.Native.RegExp
             var s = TypeConverter.ToString(arguments.At(0));
             var c = SpeciesConstructor(r, _engine.RegExp);
 
-            var flags = TypeConverter.ToString(r.Get(PropertyFlags));
+            var flags = TypeConverter.ToJsString(r.Get(PropertyFlags));
             var matcher = Construct(c, new JsValue[]
             {
                 r,

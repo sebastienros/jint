@@ -12,24 +12,14 @@ namespace Jint
     [DebuggerDisplay("{" + nameof(Name) + "}")]
     internal readonly struct Key : IEquatable<Key>
     {
-        public Key(string name) : this(name, symbolIdentity: 0)
+        private Key(string name)
         {
+            Name = name ?? ExceptionHelper.ThrowArgumentException<string>("name cannot be null");
+            HashCode = name.GetHashCode();
         }
 
-        internal Key(string name, int symbolIdentity)
-        {
-            if (name == null)
-            {
-                ExceptionHelper.ThrowArgumentException("name cannot be null");
-            }
-            Name = name;
-            HashCode = name.GetHashCode() * 397 ^ symbolIdentity.GetHashCode();
-            _symbolIdentity = symbolIdentity;
-        }
-
-        public readonly string Name;
+        private readonly string Name;
         internal readonly int HashCode;
-        internal readonly int _symbolIdentity;
 
         public static implicit operator Key(string name)
         {
@@ -39,30 +29,30 @@ namespace Jint
         public static implicit operator string(Key key) => key.Name;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool operator ==(in Key a, Key b)
+        public static bool operator ==(in Key a, in Key b)
         {
-            return a.Name == b.Name && a._symbolIdentity == b._symbolIdentity;
+            return a.HashCode == b.HashCode && a.Name == b.Name;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool operator !=(in Key a, Key b)
+        public static bool operator !=(in Key a, in Key b)
         {
-            return a.Name != b.Name || a._symbolIdentity != b._symbolIdentity;
+            return a.HashCode != b.HashCode || a.Name != b.Name;
         }
 
         public static bool operator ==(in Key a, string b)
         {
-            return a.Name == b && a._symbolIdentity == 0;
+            return a.Name == b;
         }
 
         public static bool operator !=(in Key a, string b)
         {
-            return a.Name != b || a._symbolIdentity > 0;
+            return a.Name != b;
         }
 
         public bool Equals(Key other)
         {
-            return Name == other.Name && _symbolIdentity == other._symbolIdentity;
+            return HashCode == other.HashCode && Name == other.Name;
         }
 
         public override bool Equals(object obj)

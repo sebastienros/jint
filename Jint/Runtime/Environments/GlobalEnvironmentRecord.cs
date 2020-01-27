@@ -10,12 +10,13 @@ namespace Jint.Runtime.Environments
 {
     /// <summary>
     /// Optimized for GlobalObject, which we know of and can skip some virtual calls.
+    /// http://www.ecma-international.org/ecma-262/6.0/#sec-global-environment-records
     /// </summary>
-    internal sealed class GlobalObjectEnvironmentRecord : EnvironmentRecord
+    internal sealed class GlobalEnvironmentRecord : EnvironmentRecord
     {
         private readonly GlobalObject _bindingObject;
 
-        public GlobalObjectEnvironmentRecord(Engine engine, GlobalObject bindingObject) : base(engine)
+        public GlobalEnvironmentRecord(Engine engine, GlobalObject bindingObject) : base(engine)
         {
             _bindingObject = bindingObject;
         }

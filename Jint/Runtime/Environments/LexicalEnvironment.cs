@@ -75,12 +75,12 @@ namespace Jint.Runtime.Environments
 
         internal static LexicalEnvironment NewGlobalEnvironment(Engine engine, GlobalObject objectInstance)
         {
-            return new LexicalEnvironment(engine, new GlobalObjectEnvironmentRecord(engine, objectInstance), null);
+            return new LexicalEnvironment(engine, new GlobalEnvironmentRecord(engine, objectInstance), null);
         }
 
         internal static LexicalEnvironment NewObjectEnvironment(Engine engine, ObjectInstance objectInstance, LexicalEnvironment outer, bool provideThis)
         {
             return new LexicalEnvironment(engine, new ObjectEnvironmentRecord(engine, objectInstance, provideThis), outer);
-        }
+        } 
     }
 }

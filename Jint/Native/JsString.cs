@@ -202,6 +202,11 @@ namespace Jint.Native
             return ToString().IndexOf(value, comparisonType);
         }
 
+        internal int IndexOf(char value)
+        {
+            return ToString().IndexOf(value);
+        }
+
         internal string Substring(int startIndex, int length)
         {
             return ToString().Substring(startIndex, length);

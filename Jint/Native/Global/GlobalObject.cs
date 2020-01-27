@@ -28,7 +28,7 @@ namespace Jint.Native.Global
             {
                 _prototype = null,
             };
-            global.SetProperties(new PropertyDictionary(35, checkExistingKeys: false));
+            global.SetProperties(new PropertyDictionary(40, checkExistingKeys: false));
 
             return global;
         }
@@ -72,6 +72,15 @@ namespace Jint.Native.Global
             SetProperty("encodeURIComponent", new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, PropertyFlag.Configurable), defaultFlags));
             SetProperty("escape", new PropertyDescriptor(new ClrFunctionInstance(Engine, "escape", Escape, 1), defaultFlags));
             SetProperty("unescape", new PropertyDescriptor(new ClrFunctionInstance(Engine, "unescape", Unescape, 1), defaultFlags));
+            SetProperty("globalThis", new PropertyDescriptor(this, defaultFlags));
+
+            // toString is not mentioned or actually required in spec, but some tests rely on it
+            SetProperty("toString", new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 1), defaultFlags));
+        }
+
+        private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
+        {
+            return _engine.Object.PrototypeObject.ToObjectString(thisObj, Arguments.Empty);
         }
 
         /// <summary>
