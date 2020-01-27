@@ -1,6 +1,7 @@
 using System;
 using Esprima.Ast;
 using Jint.Collections;
+using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -22,6 +23,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private class ObjectProperty
         {
             internal readonly string _key;
+            private JsString _keyJsString;
             internal readonly Property _value;
 
             public ObjectProperty(string key, Property property)
@@ -29,6 +31,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _key = key;
                 _value = property;
             }
+
+            public JsString KeyJsString => _keyJsString ??= _key != null ? JsString.Create(_key) : null;
         }
 
         public JintObjectExpression(Engine engine, ObjectExpression expression) : base(engine, expression)
@@ -99,7 +103,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return obj;
             }
 
-            var properties = new PropertyDictionary(_properties.Length, checkExistingKeys: false);
+            var properties = new PropertyDictionary(_properties.Length, checkExistingKeys: true);
             for (var i = 0; i < _properties.Length; i++)
             {
                 var objectProperty = _properties[i];
@@ -120,7 +124,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var objectProperty = _properties[i];
                 var property = objectProperty._value;
-                var propName = objectProperty._key ?? property.GetKey(_engine);
+                var propName = objectProperty.KeyJsString ?? property.GetKey(_engine);
 
                 PropertyDescriptor propDesc;
 
@@ -158,7 +162,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return ExceptionHelper.ThrowArgumentOutOfRangeException<object>();
                 }
 
-                obj.SetProperty(propName, propDesc);
+                obj.DefineOwnProperty(propName, propDesc);
             }
 
             return obj;

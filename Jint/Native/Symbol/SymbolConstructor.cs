@@ -70,7 +70,7 @@ namespace Jint.Native.Symbol
         {
             var description = arguments.At(0);
             var descString = description.IsUndefined()
-                ? JsString.UndefinedString
+                ? Undefined
                 : TypeConverter.ToJsString(description);
 
             var value = _engine.GlobalSymbolRegistry.CreateSymbol(descString);

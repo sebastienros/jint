@@ -9,13 +9,13 @@ namespace Jint.Native
     /// </summary>
     public sealed class JsSymbol : JsValue, IEquatable<JsSymbol>
     {
-        internal readonly JsString _value;
+        internal readonly JsValue _value;
 
         internal JsSymbol(string value) : this(new JsString(value))
         {
         }
 
-        internal JsSymbol(JsString value) : base(Types.Symbol)
+        internal JsSymbol(JsValue value) : base(Types.Symbol)
         {
             _value = value;
         }

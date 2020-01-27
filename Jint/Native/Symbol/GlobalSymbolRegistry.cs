@@ -18,9 +18,9 @@ namespace Jint.Native.Symbol
         public static readonly JsSymbol Unscopables = new JsSymbol("Symbol.unscopables");
 
         // engine-specific created by scripts
-        private Dictionary<JsString, JsSymbol> _customSymbolLookup;
+        private Dictionary<JsValue, JsSymbol> _customSymbolLookup;
 
-        internal bool TryGetSymbol(JsString key, out JsSymbol symbol)
+        internal bool TryGetSymbol(JsValue key, out JsSymbol symbol)
         {
             symbol = null;
             return _customSymbolLookup != null
@@ -29,11 +29,11 @@ namespace Jint.Native.Symbol
 
         internal void Add(JsSymbol symbol)
         {
-            _customSymbolLookup ??= new Dictionary<JsString, JsSymbol>();
+            _customSymbolLookup ??= new Dictionary<JsValue, JsSymbol>();
             _customSymbolLookup[symbol._value] = symbol;
         }
 
-        internal JsSymbol CreateSymbol(JsString description)
+        internal JsSymbol CreateSymbol(JsValue description)
         {
             return new JsSymbol(description);
         }
