@@ -11,6 +11,7 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.Global
 {
@@ -736,7 +737,7 @@ namespace Jint.Native.Global
                 return true;
             }
 
-            return ValidateAndApplyPropertyDescriptor(this, property, extensible: true, desc, current);
+            return ValidateAndApplyPropertyDescriptor(property, desc, current);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -793,5 +794,193 @@ namespace Jint.Native.Global
 
             return true;
         }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void SetOwnProperty(string property, PropertyDescriptor desc)
+        {
+            EnsureInitialized();
+            SetProperty(property, desc);
+        }
+        
+        /// <summary>
+        /// Optimized version for strings and GlobalOBject.
+        /// </summary>
+        private bool ValidateAndApplyPropertyDescriptor(string property, PropertyDescriptor desc, PropertyDescriptor current)
+        {
+            var descValue = desc.Value;
+            if (current == PropertyDescriptor.Undefined)
+            {
+                if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
+                {
+                    PropertyDescriptor propertyDescriptor;
+                    if ((desc._flags & PropertyFlag.ConfigurableEnumerableWritable) ==
+                        PropertyFlag.ConfigurableEnumerableWritable)
+                    {
+                        propertyDescriptor = new PropertyDescriptor(descValue ?? Undefined,
+                            PropertyFlag.ConfigurableEnumerableWritable);
+                    }
+                    else if ((desc._flags & PropertyFlag.ConfigurableEnumerableWritable) == 0)
+                    {
+                        propertyDescriptor = new PropertyDescriptor(descValue ?? Undefined, PropertyFlag.AllForbidden);
+                    }
+                    else
+                    {
+                        propertyDescriptor = new PropertyDescriptor(desc)
+                        {
+                            Value = descValue ?? Undefined
+                        };
+                    }
+
+                    SetOwnProperty(property, propertyDescriptor);
+                }
+                else
+                {
+                    SetOwnProperty(property, new GetSetPropertyDescriptor(desc));
+                }
+
+                return true;
+            }
+
+            // Step 3
+            var currentGet = current.Get;
+            var currentSet = current.Set;
+            var currentValue = current.Value;
+
+            if ((current._flags & PropertyFlag.ConfigurableSet | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet) == 0 &&
+                ReferenceEquals(currentGet, null) &&
+                ReferenceEquals(currentSet, null) &&
+                ReferenceEquals(currentValue, null))
+            {
+                return true;
+            }
+
+            // Step 6
+            var descGet = desc.Get;
+            var descSet = desc.Set;
+            if (
+                current.Configurable == desc.Configurable && current.ConfigurableSet == desc.ConfigurableSet &&
+                current.Writable == desc.Writable && current.WritableSet == desc.WritableSet &&
+                current.Enumerable == desc.Enumerable && current.EnumerableSet == desc.EnumerableSet &&
+                ((ReferenceEquals(currentGet, null) && ReferenceEquals(descGet, null)) || (!ReferenceEquals(currentGet, null) && !ReferenceEquals(descGet, null) && SameValue(currentGet, descGet))) &&
+                ((ReferenceEquals(currentSet, null) && ReferenceEquals(descSet, null)) || (!ReferenceEquals(currentSet, null) && !ReferenceEquals(descSet, null) && SameValue(currentSet, descSet))) &&
+                ((ReferenceEquals(currentValue, null) && ReferenceEquals(descValue, null)) || (!ReferenceEquals(currentValue, null) && !ReferenceEquals(descValue, null) && JintBinaryExpression.StrictlyEqual(currentValue, descValue)))
+            )
+            {
+                return true;
+            }
+
+            if (!current.Configurable)
+            {
+                if (desc.Configurable)
+                {
+                    return false;
+                }
+
+                if (desc.EnumerableSet && (desc.Enumerable != current.Enumerable))
+                {
+                    return false;
+                }
+            }
+
+            if (!desc.IsGenericDescriptor())
+            {
+                if (current.IsDataDescriptor() != desc.IsDataDescriptor())
+                {
+                    if (!current.Configurable)
+                    {
+                        return false;
+                    }
+
+                    var flags = current.Flags & ~(PropertyFlag.Writable | PropertyFlag.WritableSet);
+                    if (current.IsDataDescriptor())
+                    {
+                        SetOwnProperty(property, current = new GetSetPropertyDescriptor(
+                            get: Undefined,
+                            set: Undefined,
+                            flags
+                        ));
+                    }
+                    else
+                    {
+                        SetOwnProperty(property, current = new PropertyDescriptor(
+                            value: Undefined,
+                            flags
+                        ));
+                    }
+                }
+                else if (current.IsDataDescriptor() && desc.IsDataDescriptor())
+                {
+                    if (!current.Configurable)
+                    {
+                        if (!current.Writable && desc.Writable)
+                        {
+                            return false;
+                        }
+
+                        if (!current.Writable)
+                        {
+                            if (!ReferenceEquals(descValue, null) && !SameValue(descValue, currentValue))
+                            {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                else if (current.IsAccessorDescriptor() && desc.IsAccessorDescriptor())
+                {
+                    if (!current.Configurable)
+                    {
+                        if ((!ReferenceEquals(descSet, null) && !SameValue(descSet, currentSet ?? Undefined))
+                            ||
+                            (!ReferenceEquals(descGet, null) && !SameValue(descGet, currentGet ?? Undefined)))
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            if (!ReferenceEquals(descValue, null))
+            {
+                current.Value = descValue;
+            }
+
+            if (desc.WritableSet)
+            {
+                current.Writable = desc.Writable;
+            }
+
+            if (desc.EnumerableSet)
+            {
+                current.Enumerable = desc.Enumerable;
+            }
+
+            if (desc.ConfigurableSet)
+            {
+                current.Configurable = desc.Configurable;
+            }
+
+            PropertyDescriptor mutable = null;
+            if (!ReferenceEquals(descGet, null))
+            {
+                mutable = new GetSetPropertyDescriptor(mutable ?? current);
+                ((GetSetPropertyDescriptor) mutable).SetGet(descGet);
+            }
+
+            if (!ReferenceEquals(descSet, null))
+            {
+                mutable = new GetSetPropertyDescriptor(mutable ?? current);
+                ((GetSetPropertyDescriptor) mutable).SetSet(descSet);
+            }
+
+            if (mutable != null)
+            {
+                // replace old with new type that supports get and set
+                FastSetProperty(property, mutable);
+            }
+
+            return true;
+        }
+
     }
 }

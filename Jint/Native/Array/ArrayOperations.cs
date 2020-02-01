@@ -247,7 +247,7 @@ namespace Jint.Native.Array
 
             public override void DeletePropertyOrThrow(ulong index)
             {
-                _target.DeletePropertyOrThrow(JsString.Create(index));
+                _target.DeletePropertyOrThrow((uint) index);
             }
 
             public override void CreateDataPropertyOrThrow(ulong index, JsValue value)

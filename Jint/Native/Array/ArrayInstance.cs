@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -121,7 +122,7 @@ namespace Jint.Native.Array
                             // is it the index of the array
                             if (keyIndex >= newLen && keyIndex < oldLen)
                             {
-                                var deleteSucceeded = DeleteAt(keyIndex);
+                                var deleteSucceeded = Delete(keyIndex);
                                 if (!deleteSucceeded)
                                 {
                                     newLenDesc.Value = keyIndex + 1;
@@ -171,7 +172,7 @@ namespace Jint.Native.Array
                     {
                         // algorithm as per the spec
                         oldLen--;
-                        var deleteSucceeded = Delete(JsString.Create(oldLen));
+                        var deleteSucceeded = Delete(oldLen);
                         if (!deleteSucceeded)
                         {
                             newLenDesc.Value = oldLen + 1;
@@ -397,7 +398,7 @@ namespace Jint.Native.Array
         {
             if (IsArrayIndex(p, out var index))
             {
-                DeleteAt(index);
+                Delete(index);
             }
 
             if (p == CommonProperties.Length)
@@ -534,13 +535,41 @@ namespace Jint.Native.Array
             return desc.TryGetValue(this, out value);
         }
 
+        internal bool DeletePropertyOrThrow(uint index)
+        {
+            if (!Delete(index))
+            {
+                ExceptionHelper.ThrowTypeError(Engine);
+            }
+            return true;
+        }
+
+        internal bool Delete(uint index)
+        {
+            var desc = GetOwnProperty(index);
+
+            if (desc == PropertyDescriptor.Undefined)
+            {
+                return true;
+            }
+
+            if (desc.Configurable)
+            {
+                DeleteAt(index);
+                return true;
+            }
+
+            return false;
+        }
+        
         internal bool DeleteAt(uint index)
         {
-            if (_dense != null)
+            var temp = _dense;
+            if (temp != null)
             {
-                if (index < (uint) _dense.Length)
+                if (index < (uint) temp.Length)
                 {
-                    _dense[index] = null;
+                    temp[index] = null;
                     return true;
                 }
             }
@@ -551,6 +580,7 @@ namespace Jint.Native.Array
 
             return false;
         }
+        
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool TryGetDescriptor(uint index, out PropertyDescriptor descriptor)
@@ -835,7 +865,7 @@ namespace Jint.Native.Array
                 {
                     var sourcePropertyDescriptor = i < (uint) sourceDense.Length && sourceDense[i] != null
                         ? sourceDense[i]
-                        : source.GetProperty(JsString.Create(i));
+                        : source.GetProperty(i);
 
                     dense[targetStartIndex + j] = sourcePropertyDescriptor?._value != null
                         ? new PropertyDescriptor(sourcePropertyDescriptor._value, PropertyFlag.ConfigurableEnumerableWritable)
