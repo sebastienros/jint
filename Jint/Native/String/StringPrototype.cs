@@ -317,6 +317,12 @@ namespace Jint.Native.String
 
             var separator = arguments.At(0);
             var limit = arguments.At(1);
+
+            // fast path for empty regexp
+            if (separator is RegExpInstance R && R.Source == RegExpInstance.regExpForMatchingAllCharacters)
+            {
+                separator = JsString.Empty;
+            }
             
             if (separator is ObjectInstance oi)
             {
@@ -356,102 +362,43 @@ namespace Jint.Native.String
                 }
             }
 
-            var rx = TypeConverter.ToObject(Engine, separator) as RegExpInstance;
+            return SplitWithStringSeparator(_engine, separator, s, lim);
+        }
 
-            const string regExpForMatchingAllCharactere = "(?:)";
+        internal static JsValue SplitWithStringSeparator(Engine engine, JsValue separator, string s, uint lim)
+        {
+            var segments = StringExecutionContext.Current.SplitSegmentList;
+            segments.Clear();
+            var sep = TypeConverter.ToString(separator);
 
-            if (!ReferenceEquals(rx, null) &&
-                rx.Source != regExpForMatchingAllCharactere // We need pattern to be defined -> for s.split(new RegExp)
-                )
+            if (sep == string.Empty)
             {
-                var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
-                var match = rx.Value.Match(s, 0);
-
-                if (!match.Success) // No match at all return the string in an array
+                if (s.Length > segments.Capacity)
                 {
-                    a.SetIndexValue(0, s, updateLength: true);
-                    return a;
+                    segments.Capacity = s.Length;
                 }
 
-                int lastIndex = 0;
-                uint index = 0;
-                while (match.Success && index < lim)
+                for (var i = 0; i < s.Length; i++)
                 {
-                    if (match.Length == 0 && (match.Index == 0 || match.Index == len || match.Index == lastIndex))
-                    {
-                        match = match.NextMatch();
-                        continue;
-                    }
-
-                    // Add the match results to the array.
-                    a.SetIndexValue(index++, s.Substring(lastIndex, match.Index - lastIndex), updateLength: true);
-
-                    if (index >= lim)
-                    {
-                        return a;
-                    }
-
-                    lastIndex = match.Index + match.Length;
-                    for (int i = 1; i < match.Groups.Count; i++)
-                    {
-                        var group = match.Groups[i];
-                        var item = Undefined;
-                        if (group.Captures.Count > 0)
-                        {
-                            item = match.Groups[i].Value;
-                        }
-
-                        a.SetIndexValue(index++, item, updateLength: true);
-
-                        if (index >= lim)
-                        {
-                            return a;
-                        }
-                    }
-
-                    match = match.NextMatch();
-                    if (!match.Success) // Add the last part of the split
-                    {
-                        a.SetIndexValue(index++, s.Substring(lastIndex), updateLength: true);
-                    }
+                    segments.Add(TypeConverter.ToString(s[i]));
                 }
-
-                return a;
             }
             else
             {
-                var segments = StringExecutionContext.Current.SplitSegmentList;
-                segments.Clear();
-                var sep = TypeConverter.ToString(separator);
-
-                if (sep == string.Empty || (!ReferenceEquals(rx, null) && rx.Source == regExpForMatchingAllCharactere)) // for s.split(new RegExp)
-                {
-                    if (s.Length > segments.Capacity)
-                    {
-                        segments.Capacity = s.Length;
-                    }
-
-                    for (var i = 0; i < s.Length; i++)
-                    {
-                        segments.Add(TypeConverter.ToString(s[i]));
-                    }
-                }
-                else
-                {
-                    var array = StringExecutionContext.Current.SplitArray1;
-                    array[0] = sep;
-                    segments.AddRange(s.Split(array, StringSplitOptions.None));
-                }
-
-                var length = (uint) System.Math.Min(segments.Count, lim);
-                var a = Engine.Array.ConstructFast(length);
-                for (int i = 0; i < length; i++)
-                {
-                    a.SetIndexValue((uint) i, segments[i], updateLength: false);
-                }
-                a.SetLength(length);
-                return a;
+                var array = StringExecutionContext.Current.SplitArray1;
+                array[0] = sep;
+                segments.AddRange(s.Split(array, StringSplitOptions.None));
             }
+
+            var length = (uint) System.Math.Min(segments.Count, lim);
+            var a = engine.Array.ConstructFast(length);
+            for (int i = 0; i < length; i++)
+            {
+                a.SetIndexValue((uint) i, segments[i], updateLength: false);
+            }
+
+            a.SetLength(length);
+            return a;
         }
 
         private JsValue Slice(JsValue thisObj, JsValue[] arguments)

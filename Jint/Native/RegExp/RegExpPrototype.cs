@@ -6,6 +6,7 @@ using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.String;
 using Jint.Native.Symbol;
 using Jint.Pooling;
 using Jint.Runtime;
@@ -387,25 +388,25 @@ namespace Jint.Native.RegExp
             var s = TypeConverter.ToString(arguments.At(0));
             var limit = arguments.At(1);
             var c = SpeciesConstructor(rx, _engine.RegExp);
-            var flags = TypeConverter.ToString(rx.Get(PropertyFlags));
+            var flags = TypeConverter.ToJsString(rx.Get(PropertyFlags));
             var unicodeMatching = flags.IndexOf('u') > -1;
-            var newFlags = flags.IndexOf('y') > -1 ? flags : flags + 'y';
+            var newFlags = flags.IndexOf('y') > -1 ? flags : new JsString(flags.ToString() + 'y');
             var splitter = Construct(c, new JsValue[]
             {
                 rx,
                 newFlags
             });
-            var a = _engine.Array.ConstructFast(0);
             uint lengthA = 0;
             var lim = limit.IsUndefined() ? NumberConstructor.MaxSafeInteger : TypeConverter.ToUint32(limit);
 
             if (lim == 0)
             {
-                return a;
+                return _engine.Array.ConstructFast(0);
             }
 
             if (s.Length == 0)
             {
+                var a = _engine.Array.ConstructFast(0);
                 var z = RegExpExec(splitter, s);
                 if (!z.IsNull())
                 {
@@ -416,6 +417,77 @@ namespace Jint.Native.RegExp
                 return a;
             }
 
+            if (!unicodeMatching && rx is RegExpInstance R && R.TryGetDefaultRegExpExec(out _))
+            {
+                // we can take faster path
+
+                if (R.Source == RegExpInstance.regExpForMatchingAllCharacters)
+                {
+                    // if empty string, just a string split
+                    return StringPrototype.SplitWithStringSeparator(_engine, "", s, (uint) s.Length);                    
+                }
+                
+                var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
+                var match = R.Value.Match(s, 0);
+
+                if (!match.Success) // No match at all return the string in an array
+                {
+                    a.SetIndexValue(0, s, updateLength: true);
+                    return a;
+                }
+
+                int lastIndex = 0;
+                uint index = 0;
+                while (match.Success && index < lim)
+                {
+                    if (match.Length == 0 && (match.Index == 0 || match.Index == s.Length || match.Index == lastIndex))
+                    {
+                        match = match.NextMatch();
+                        continue;
+                    }
+
+                    // Add the match results to the array.
+                    a.SetIndexValue(index++, s.Substring(lastIndex, match.Index - lastIndex), updateLength: true);
+
+                    if (index >= lim)
+                    {
+                        return a;
+                    }
+
+                    lastIndex = match.Index + match.Length;
+                    for (int i = 1; i < match.Groups.Count; i++)
+                    {
+                        var group = match.Groups[i];
+                        var item = Undefined;
+                        if (group.Captures.Count > 0)
+                        {
+                            item = match.Groups[i].Value;
+                        }
+
+                        a.SetIndexValue(index++, item, updateLength: true);
+
+                        if (index >= lim)
+                        {
+                            return a;
+                        }
+                    }
+
+                    match = match.NextMatch();
+                    if (!match.Success) // Add the last part of the split
+                    {
+                        a.SetIndexValue(index++, s.Substring(lastIndex), updateLength: true);
+                    }
+                }
+
+                return a;
+            }
+
+            return SplitSlow(s, splitter, unicodeMatching, lengthA, lim);
+        }
+
+        private JsValue SplitSlow(string s, ObjectInstance splitter, bool unicodeMatching, uint lengthA, long lim)
+        {
+            var a = _engine.Array.ConstructFast(0);
             var previousStringIndex = 0;
             var currentIndex = 0;
             while (currentIndex < s.Length)
@@ -499,9 +571,33 @@ namespace Jint.Native.RegExp
         private JsValue Test(JsValue thisObj, JsValue[] arguments)
         {
             var r = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.test");
-
             var s = TypeConverter.ToString(arguments.At(0));
 
+            // check couple fast paths
+            if (r is RegExpInstance R && !R.FullUnicode)
+            {
+                if (!R.Sticky && !R.Global)
+                {
+                    R.Set(RegExpInstance.PropertyLastIndex, 0, throwOnError: true); 
+                    return R.Value.IsMatch(s);
+                }
+
+                var lastIndex = (int) TypeConverter.ToLength(R.Get(RegExpInstance.PropertyLastIndex));
+                if (lastIndex >= s.Length && s.Length > 0)
+                {
+                    return JsBoolean.False;
+                }
+
+                var m = R.Value.Match(s, lastIndex);
+                if (!m.Success || (R.Sticky && m.Index != lastIndex))
+                {
+                    R.Set(RegExpInstance.PropertyLastIndex, 0, throwOnError: true); 
+                    return JsBoolean.False;
+                }
+                R.Set(RegExpInstance.PropertyLastIndex, m.Index + m.Length, throwOnError: true);
+                return JsBoolean.True;
+            }
+            
             var match = RegExpExec(r, s);
             return !match.IsNull();
         }
@@ -551,7 +647,7 @@ namespace Jint.Native.RegExp
                 && rei.TryGetDefaultRegExpExec(out _))
             {
                 // fast path
-            var a = Engine.Array.ConstructFast(0);
+                var a = Engine.Array.ConstructFast(0);
 
                 if (rei.Sticky)
                 {
@@ -712,6 +808,21 @@ namespace Jint.Native.RegExp
             if (!global && !sticky)
             {
                 lastIndex = 0;
+            }
+
+            if (R.Source == RegExpInstance.regExpForMatchingAllCharacters)  // Reg Exp is really ""
+            {
+                if (lastIndex > s.Length)
+                {
+                    return Null;
+                }
+
+                // "aaa".match() => [ '', index: 0, input: 'aaa' ]
+                var array = R.Engine.Array.ConstructFast(1);
+                array.FastAddProperty(PropertyIndex, lastIndex, true, true, true);
+                array.FastAddProperty(PropertyInput, s, true, true, true);
+                array.SetIndexValue(0, JsString.Empty, updateLength: false);
+                return array;
             }
 
             var matcher = R.Value;

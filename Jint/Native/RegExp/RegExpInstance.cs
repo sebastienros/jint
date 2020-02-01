@@ -8,6 +8,7 @@ namespace Jint.Native.RegExp
 {
     public class RegExpInstance : ObjectInstance
     {
+        internal const string regExpForMatchingAllCharacters = "(?:)";
         internal static readonly JsString PropertyLastIndex = new JsString("lastIndex");
 
         private string _flags;
@@ -17,7 +18,7 @@ namespace Jint.Native.RegExp
         public RegExpInstance(Engine engine)
             : base(engine, objectClass: "RegExp")
         {
-            Source = "(?:)";
+            Source = regExpForMatchingAllCharacters;
         }
 
         public Regex Value { get; set; }
