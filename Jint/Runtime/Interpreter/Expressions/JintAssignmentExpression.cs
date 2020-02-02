@@ -198,7 +198,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (_right._expression.IsFunctionWithName())
                 {
-                    ((FunctionInstance) rval).SetFunctionName(lref._property);
+                    ((FunctionInstance) rval).SetFunctionName(lref.GetReferencedName());
                 }
 
                 _engine.PutValue(lref, rval);

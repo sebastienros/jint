@@ -1,12 +1,12 @@
 using Jint.Native;
 using Jint.Runtime.Environments;
-using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintIdentifierExpression : JintExpression
     {
         private readonly string _expressionName;
+        private JsString _expressionNameJsValue; 
         private readonly JsValue _calculatedValue;
 
         public JintIdentifierExpression(Engine engine, Esprima.Ast.Identifier expression) : base(engine, expression)
@@ -27,7 +27,12 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             var env = _engine.ExecutionContext.LexicalEnvironment;
             var strict = StrictModeScope.IsStrictModeCode;
-            return LexicalEnvironment.GetIdentifierReference(env, _expressionName, strict);
+            var identifierEnvironment = LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(env, _expressionName, strict, out var temp, out _)
+                ? temp
+                : JsValue.Undefined;
+
+            var property = _expressionNameJsValue ??= new JsString(_expressionName);
+            return _engine._referencePool.Rent(identifierEnvironment, property, strict);
         }
 
         public override JsValue GetValue()
@@ -41,9 +46,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             var strict = StrictModeScope.IsStrictModeCode;
+            var property = _expressionNameJsValue ??= new JsString(_expressionName);
             return TryGetIdentifierEnvironmentWithBindingValue(strict, _expressionName, out _, out var value)
                 ? value
-                : _engine.GetValue(new Reference(JsValue.Undefined, _expressionName, strict), true);
+                : _engine.GetValue(_engine._referencePool.Rent(JsValue.Undefined, property, strict), true);
         }
     }
 }

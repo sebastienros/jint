@@ -11,8 +11,8 @@ namespace Jint.Runtime.References
     /// </summary>
     public sealed class Reference
     {
-        internal JsValue _baseValue;
-        internal JsValue _property;
+        private JsValue _baseValue;
+        private JsValue _property;
         internal bool _strict;
 
         public Reference(JsValue baseValue, JsValue property, bool strict)
@@ -22,16 +22,13 @@ namespace Jint.Runtime.References
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public JsValue GetBase()
-        {
-            return _baseValue;
-        }
+        public JsValue GetBase() => _baseValue;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsStrict()
-        {
-            return _strict;
-        }
+        public JsValue GetReferencedName() => _property;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsStrictReference() => _strict;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasPrimitiveBase()

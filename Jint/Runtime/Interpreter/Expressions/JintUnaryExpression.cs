@@ -69,7 +69,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (r.IsUnresolvableReference())
                     {
-                        if (r._strict)
+                        if (r.IsStrictReference())
                         {
                             ExceptionHelper.ThrowSyntaxError(_engine);
                         }
@@ -81,8 +81,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (r.IsPropertyReference())
                     {
                         var o = TypeConverter.ToObject(_engine, r.GetBase());
-                        var deleteStatus  = o.Delete(r._property);
-                        if (!deleteStatus && r._strict)
+                        var deleteStatus  = o.Delete(r.GetReferencedName());
+                        if (!deleteStatus && r.IsStrictReference())
                         {
                             ExceptionHelper.ThrowTypeError(_engine);
                         }
@@ -91,13 +91,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return deleteStatus ? JsBoolean.True : JsBoolean.False;
                     }
 
-                    if (r._strict)
+                    if (r.IsStrictReference())
                     {
                         ExceptionHelper.ThrowSyntaxError(_engine);
                     }
 
                     var bindings = r.GetBase().TryCast<EnvironmentRecord>();
-                    var property = r._property;
+                    var property = r.GetReferencedName();
                     _engine._referencePool.Return(r);
 
                     return bindings.DeleteBinding(property.ToString()) ? JsBoolean.True : JsBoolean.False;

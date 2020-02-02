@@ -504,7 +504,9 @@ namespace Jint
 
         internal JsValue GetValue(Reference reference, bool returnReferenceToPool)
         {
-            if (reference._baseValue._type == InternalTypes.Undefined)
+            var baseValue = reference.GetBase();
+
+            if (baseValue._type == InternalTypes.Undefined)
             {
                 if (_referenceResolver != null &&
                     _referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
@@ -515,10 +517,8 @@ namespace Jint
                 ExceptionHelper.ThrowReferenceError(this, reference);
             }
 
-            var baseValue = reference._baseValue;
-
             if (_referenceResolver != null
-                && reference._baseValue._type < InternalTypes.ObjectEnvironmentRecord
+                && baseValue._type < InternalTypes.ObjectEnvironmentRecord
                 && _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
             {
                 return baseValue;
@@ -526,13 +526,13 @@ namespace Jint
             
             if (reference.IsPropertyReference())
             {
-                var property = reference._property;
+                var property = reference.GetReferencedName();
                 if (returnReferenceToPool)
                 {
                     _referencePool.Return(reference);
                 }
 
-                if (reference._baseValue._type == InternalTypes.Object)
+                if (baseValue._type == InternalTypes.Object)
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
                     var v = o.Get(property);
@@ -541,9 +541,31 @@ namespace Jint
                 else
                 {
                     // check if we are accessing a string, boxing operation can be costly to do index access
-                    //if (baseValue is JsString s && Type)
+                    ObjectInstance o;
+                    if (baseValue is JsString s)
+                    {
+                        if (property == CommonProperties.Length)
+                        {
+                            return s.Length;
+                        }
 
-                    var o = TypeConverter.ToObject(this, baseValue);
+                        if (property is JsNumber number && number.IsInteger())
+                        {
+                            var index = number.AsInteger();
+                            if (index < 0 || index >= s.Length)
+                            {
+                                return JsValue.Undefined;
+                            }
+                            return s[index];
+                        }
+
+                        o = String.PrototypeObject;
+                    }
+                    else
+                    {
+                        o = TypeConverter.ToObject(this, baseValue);
+                    }
+
                     var desc = o.GetProperty(property);
                     if (desc == PropertyDescriptor.Undefined)
                     {
@@ -571,7 +593,7 @@ namespace Jint
                 return ExceptionHelper.ThrowArgumentException<JsValue>();
             }
 
-            var bindingValue = record.GetBindingValue(reference._property.ToString(), reference._strict);
+            var bindingValue = record.GetBindingValue(reference.GetReferencedName().ToString(), reference.IsStrictReference());
 
             if (returnReferenceToPool)
             {
@@ -584,13 +606,13 @@ namespace Jint
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/#sec-putvalue
         /// </summary>
-        public void PutValue(Reference reference, JsValue value)
+        internal void PutValue(Reference reference, JsValue value)
         {
-            var property = reference._property;
-            var baseValue = reference._baseValue;
+            var property = reference.GetReferencedName();
+            var baseValue = reference.GetBase();
             if (reference.IsUnresolvableReference())
             {
-                if (reference._strict)
+                if (reference.IsStrictReference())
                 {
                     ExceptionHelper.ThrowReferenceError(this, reference);
                 }
@@ -601,19 +623,19 @@ namespace Jint
             {
                 if (reference.HasPrimitiveBase())
                 {
-                    baseValue = TypeConverter.ToObject(this, reference._baseValue);
+                    baseValue = TypeConverter.ToObject(this, baseValue);
                 }
 
                 var thisValue = GetThisValue(reference);
                 var succeeded = baseValue.Set(property, value, thisValue);
-                if (!succeeded && reference._strict)
+                if (!succeeded && reference.IsStrictReference())
                 {
                     ExceptionHelper.ThrowTypeError(this);
                 }
             }
             else
             {
-                ((EnvironmentRecord) baseValue).SetMutableBinding(property.ToString(), value, reference._strict);
+                ((EnvironmentRecord) baseValue).SetMutableBinding(property.ToString(), value, reference.IsStrictReference());
             }
         }
 
@@ -624,7 +646,7 @@ namespace Jint
                 return ExceptionHelper.ThrowNotImplementedException<JsValue>();
             }
 
-            return reference._baseValue;
+            return reference.GetBase();
         }
 
         /// <summary>

@@ -70,7 +70,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var baseReference = _objectExpression.Evaluate();
                 if (baseReference is Reference reference)
                 {
-                    baseReferenceName = reference._property.ToString();
+                    baseReferenceName = reference.GetReferencedName().ToString();
                     baseValue = _engine.GetValue(reference, false);
                     _engine._referencePool.Return(reference);
                 }

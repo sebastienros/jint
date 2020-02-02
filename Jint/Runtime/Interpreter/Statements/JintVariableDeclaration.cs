@@ -90,7 +90,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                         if (declaration.Init._expression.IsFunctionWithName())
                         {
-                            ((FunctionInstance) value).SetFunctionName(lhs._property);
+                            ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
                         }
 
                         _engine.PutValue(lhs, value);

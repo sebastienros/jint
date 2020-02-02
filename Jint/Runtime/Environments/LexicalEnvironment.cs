@@ -1,8 +1,6 @@
-﻿using System.Runtime.CompilerServices;
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Native.Global;
 using Jint.Native.Object;
-using Jint.Runtime.References;
 
 namespace Jint.Runtime.Environments
 {
@@ -22,16 +20,6 @@ namespace Jint.Runtime.Environments
             _engine = engine;
             _record = record;
             _outer = outer;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Reference GetIdentifierReference(LexicalEnvironment lex, string name, bool strict)
-        {
-            var identifierEnvironment = TryGetIdentifierEnvironmentWithBindingValue(lex, (Key) name, strict, out var temp, out _)
-                ? temp
-                : JsValue.Undefined;
-
-            return lex._engine._referencePool.Rent(identifierEnvironment, name, strict);
         }
 
         internal static bool TryGetIdentifierEnvironmentWithBindingValue(
