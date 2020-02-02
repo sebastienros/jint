@@ -6,10 +6,10 @@ namespace Jint
     {
         private readonly bool _strict;
         private readonly bool _force;
-        private readonly int _forcedRefCount;
+        private readonly ushort _forcedRefCount;
 
         [ThreadStatic] 
-        private static int _refCount;
+        private static ushort _refCount;
 
         public StrictModeScope(bool strict = true, bool force = false)
         {

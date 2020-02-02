@@ -17,21 +17,21 @@ namespace Jint.Runtime.Environments
     /// </summary>
     internal sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private HybridDictionary<Binding> _dictionary;
+        private readonly HybridDictionary<Binding> _dictionary = new HybridDictionary<Binding>();
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
         }
 
-        private bool ContainsKey(string key)
+        private bool ContainsKey(in Key key)
         {
-            return _dictionary?.ContainsKey(key) == true;
+            return _dictionary.ContainsKey(key);
         }
 
-        private bool TryGetValue(string key, out Binding value)
+        private bool TryGetValue(in Key key, out Binding value)
         {
             value = default;
-            return _dictionary?.TryGetValue(key, out value) == true;
+            return _dictionary.TryGetValue(key, out value);
         }
 
         public override bool HasBinding(string name)
@@ -46,23 +46,23 @@ namespace Jint.Runtime.Environments
             out JsValue value)
         {
             binding = default;
-            var success = _dictionary?.TryGetValue(name, out binding) == true;
+            var success = _dictionary.TryGetValue(name, out binding);
             value = success ? UnwrapBindingValue(strict, binding) : default;
             return success;
         }
 
         public override void CreateMutableBinding(string name, JsValue value, bool canBeDeleted = false)
         {
-            _dictionary ??= new HybridDictionary<Binding>();
             _dictionary[name] = new Binding(value, canBeDeleted, mutable: true);
         }
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
-            _dictionary.TryGetValue(name, out var binding);
+            var key = name;
+            _dictionary.TryGetValue(key, out var binding);
             if (binding.Mutable)
             {
-                binding.Value = value;
+                _dictionary[key] = binding.ChangeValue(value);
             }
             else
             {
@@ -75,15 +75,14 @@ namespace Jint.Runtime.Environments
 
         public override JsValue GetBindingValue(string name, bool strict)
         {
-            Binding binding = default;
-            _dictionary?.TryGetValue(name, out binding);
+            _dictionary.TryGetValue(name, out var binding);
             return UnwrapBindingValue(strict, binding);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private JsValue UnwrapBindingValue(bool strict, in Binding binding)
         {
-            if (!binding.Mutable && !binding.IsInitialized)
+            if (!binding.Mutable && !binding.IsInitialized())
             {
                 if (strict)
                 {
@@ -146,16 +145,15 @@ namespace Jint.Runtime.Environments
             ArgumentsInstance argumentsInstance,
             IFunction functionDeclaration)
         {
-            _dictionary ??= new HybridDictionary<Binding>();
-            
             bool empty = _dictionary.Count == 0;
             if (!(argumentsInstance is null))
             {
                 _dictionary[KnownKeys.Arguments] = new Binding(argumentsInstance, canBeDeleted: false, mutable: true);
             }
 
-            var parameters = functionDeclaration.Params;
-            for (var i = 0; i < parameters.Count; i++)
+            ref readonly var parameters = ref functionDeclaration.Params;
+            var count = parameters.Count;
+            for (var i = 0; i < count; i++)
             {
                 SetFunctionParameter(parameters[i], arguments, i, empty);
             }
@@ -170,7 +168,7 @@ namespace Jint.Runtime.Environments
         {
             if (parameter is Identifier identifier)
             {
-                var argument = arguments.Length > index ? arguments[index] : Undefined;
+                var argument = (uint) index < (uint) arguments.Length ? arguments[index] : Undefined;
                 SetItemSafely(identifier.Name, argument, initiallyEmpty);
             }
             else
@@ -327,7 +325,7 @@ namespace Jint.Runtime.Environments
                 SetFunctionParameter(assignmentPattern.Left, new []{ argument }, 0, initiallyEmpty);
             }        }
 
-        private void SetItemSafely(string name, JsValue argument, bool initiallyEmpty)
+        private void SetItemSafely(in Key name, JsValue argument, bool initiallyEmpty)
         {
             if (initiallyEmpty || !TryGetValue(name, out var existing))
             {
@@ -337,7 +335,7 @@ namespace Jint.Runtime.Environments
             {
                 if (existing.Mutable)
                 {
-                    existing.Value = argument;
+                    _dictionary[name] = existing.ChangeValue(argument);
                 }
                 else
                 {
@@ -353,13 +351,12 @@ namespace Jint.Runtime.Environments
             {
                 var variableDeclaration = variableDeclarations[i];
                 var declarationsCount = variableDeclaration.Declarations.Count;
-                _dictionary ??= new HybridDictionary<Binding>(declarationsCount, checkExistingKeys: true); 
                 for (var j = 0; j < declarationsCount; j++)
                 {
                     var d = variableDeclaration.Declarations[j];
                     if (d.Id is Identifier id)
                     {
-                        var dn = id.Name;
+                        Key dn = id.Name;
                         if (!ContainsKey(dn))
                         {
                             var binding = new Binding(Undefined, canBeDeleted: false, mutable: true);
