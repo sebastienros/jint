@@ -709,17 +709,14 @@ namespace Jint.Native.Global
         
         // optimized versions with string parameter and without virtual dispatch for global environment usage
 
-        internal bool HasProperty(string property)
+        internal bool HasProperty(in Key property)
         {
             return GetOwnProperty(property) != PropertyDescriptor.Undefined;
         }
 
-        internal PropertyDescriptor GetProperty(string property)
-        {
-            return GetOwnProperty(property);
-        }
+        internal PropertyDescriptor GetProperty(in Key property) => GetOwnProperty(property);
 
-        internal bool DefinePropertyOrThrow(string property, PropertyDescriptor desc)
+        internal bool DefinePropertyOrThrow(in Key property, PropertyDescriptor desc)
         {
             if (!DefineOwnProperty(property, desc))
             {
@@ -729,7 +726,7 @@ namespace Jint.Native.Global
             return true;
         }
 
-        internal bool DefineOwnProperty(string property, PropertyDescriptor desc)
+        internal bool DefineOwnProperty(in Key property, PropertyDescriptor desc)
         {
             var current = GetOwnProperty(property);
             if (current == desc)
@@ -741,14 +738,14 @@ namespace Jint.Native.Global
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal PropertyDescriptor GetOwnProperty(string property)
+        internal PropertyDescriptor GetOwnProperty(in Key property)
         {
             EnsureInitialized();
             Properties.TryGetValue(property, out var descriptor);
             return descriptor ?? PropertyDescriptor.Undefined;
         }
         
-        internal bool Set(string property, JsValue value)
+        internal bool Set(in Key property, JsValue value)
         {
             var ownDesc = GetOwnProperty(property);
 
@@ -796,16 +793,21 @@ namespace Jint.Native.Global
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void SetOwnProperty(string property, PropertyDescriptor desc)
+        internal void SetOwnProperty(in Key property, PropertyDescriptor desc)
         {
             EnsureInitialized();
-            SetProperty(property, desc);
+            SetProperty(in property, desc);
+        }
+
+        internal bool CreateDataProperty(in Key p, JsValue v)
+        {
+            return DefineOwnProperty(p, new PropertyDescriptor(v, PropertyFlag.ConfigurableEnumerableWritable));
         }
         
         /// <summary>
-        /// Optimized version for strings and GlobalOBject.
+        /// Optimized version for strings and GlobalObject.
         /// </summary>
-        private bool ValidateAndApplyPropertyDescriptor(string property, PropertyDescriptor desc, PropertyDescriptor current)
+        private bool ValidateAndApplyPropertyDescriptor(in Key property, PropertyDescriptor desc, PropertyDescriptor current)
         {
             var descValue = desc.Value;
             if (current == PropertyDescriptor.Undefined)
@@ -976,7 +978,7 @@ namespace Jint.Native.Global
             if (mutable != null)
             {
                 // replace old with new type that supports get and set
-                FastSetProperty(property, mutable);
+                SetOwnProperty(property, mutable);
             }
 
             return true;

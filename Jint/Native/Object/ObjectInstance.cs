@@ -151,10 +151,16 @@ namespace Jint.Native.Object
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void SetProperty(string property, PropertyDescriptor value)
         {
+            Key key = property;
+            SetProperty(in key, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void SetProperty(in Key property, PropertyDescriptor value)
+        {
             _properties ??= new PropertyDictionary();
             _properties[property] = value;
         }
-
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void SetDataProperty(string property, JsValue value)

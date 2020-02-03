@@ -302,7 +302,7 @@ namespace Jint.Runtime.Environments
                         var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                         var paramVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
 
-                        _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.ThisBinding);;
+                        _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.ThisBinding);
                         var result = exp.GetValue();
                         _engine.LeaveExecutionContext();
 
