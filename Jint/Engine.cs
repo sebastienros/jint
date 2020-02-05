@@ -196,6 +196,9 @@ namespace Jint
             // Because the properties might need some of the built-in object
             // their configuration is delayed to a later step
 
+            // trigger initialization
+            Global.GetProperty(JsString.Empty);
+
             // this is implementation dependent, and only to pass some unit tests
             Global._prototype = Object.PrototypeObject;
             Object._prototype = Function.PrototypeObject;
