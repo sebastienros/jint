@@ -22,20 +22,20 @@ namespace Jint.Native.Object
 {
     public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
+        private bool _initialized;
+        private readonly ObjectClass _class;
+
         private PropertyDictionary _properties;
         internal SymbolDictionary _symbols;
 
-        private bool _initialized;
-
         internal ObjectInstance _prototype;
-        private readonly string _class;
         protected readonly Engine _engine;
 
-        public ObjectInstance(Engine engine) : this(engine, "Object")
+        public ObjectInstance(Engine engine) : this(engine, ObjectClass.Object)
         {
         }
 
-        protected ObjectInstance(Engine engine, string objectClass) : base(Types.Object)
+        internal ObjectInstance(Engine engine, ObjectClass objectClass) : base(Types.Object)
         {
             _engine = engine;
             _class = objectClass;
@@ -71,12 +71,12 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// A String value indicating a specification defined
-        /// classification of objects.
+        /// A value indicating a specification defined classification of objects.
         /// </summary>
-        public string Class
+        internal ObjectClass Class
         {
             [DebuggerStepThrough]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _class;
         }
 
@@ -889,7 +889,7 @@ namespace Jint.Native.Object
 
             switch (Class)
             {
-                case "Array":
+                case ObjectClass.Array:
                     if (this is ArrayInstance arrayInstance)
                     {
                         var len = TypeConverter.ToInt32(arrayInstance.Get(CommonProperties.Length, arrayInstance));
@@ -914,7 +914,7 @@ namespace Jint.Native.Object
 
                     break;
 
-                case "String":
+                case ObjectClass.String:
                     if (this is StringInstance stringInstance)
                     {
                         return stringInstance.PrimitiveValue.ToString();
@@ -922,7 +922,7 @@ namespace Jint.Native.Object
 
                     break;
 
-                case "Date":
+                case ObjectClass.Date:
                     if (this is DateInstance dateInstance)
                     {
                         return dateInstance.ToDateTime();
@@ -930,7 +930,7 @@ namespace Jint.Native.Object
 
                     break;
 
-                case "Boolean":
+                case ObjectClass.Boolean:
                     if (this is BooleanInstance booleanInstance)
                     {
                         return ((JsBoolean) booleanInstance.PrimitiveValue)._value
@@ -940,7 +940,7 @@ namespace Jint.Native.Object
 
                     break;
 
-                case "Function":
+                case ObjectClass.Function:
                     if (this is FunctionInstance function)
                     {
                         return (Func<JsValue, JsValue[], JsValue>) function.Call;
@@ -948,7 +948,7 @@ namespace Jint.Native.Object
 
                     break;
 
-                case "Number":
+                case ObjectClass.Number:
                     if (this is NumberInstance numberInstance)
                     {
                         return numberInstance.NumberData._value;
@@ -956,7 +956,7 @@ namespace Jint.Native.Object
 
                     break;
 
-                case "RegExp":
+                case ObjectClass.RegExp:
                     if (this is RegExpInstance regeExpInstance)
                     {
                         return regeExpInstance.Value;
@@ -964,8 +964,8 @@ namespace Jint.Native.Object
 
                     break;
 
-                case "Arguments":
-                case "Object":
+                case ObjectClass.Arguments:
+                case ObjectClass.Object:
                     IDictionary<string, object> o = new ExpandoObject();
                     foreach (var p in GetOwnProperties())
                     {

@@ -14,7 +14,7 @@ namespace Jint.Native.Date
         private static readonly double Min = -(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc) - DateTime.MinValue).TotalMilliseconds;
 
         public DateInstance(Engine engine)
-            : base(engine, objectClass: "Date")
+            : base(engine, ObjectClass.Date)
         {
             PrimitiveValue = double.NaN;
         }

@@ -6,7 +6,7 @@ namespace Jint.Native.Boolean
     public class BooleanInstance : ObjectInstance, IPrimitiveInstance
     {
         public BooleanInstance(Engine engine)
-            : base(engine, objectClass: "Boolean")
+            : base(engine, ObjectClass.Boolean)
         {
         }
 

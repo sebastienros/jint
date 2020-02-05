@@ -16,7 +16,7 @@ namespace Jint.Native.RegExp
         private PropertyDescriptor _prototypeDescriptor;
 
         public RegExpInstance(Engine engine)
-            : base(engine, objectClass: "RegExp")
+            : base(engine, ObjectClass.RegExp)
         {
             Source = regExpForMatchingAllCharacters;
         }

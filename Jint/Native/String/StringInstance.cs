@@ -10,7 +10,7 @@ namespace Jint.Native.String
         internal PropertyDescriptor _length;
 
         public StringInstance(Engine engine)
-            : base(engine, objectClass: "String")
+            : base(engine, ObjectClass.String)
         {
         }
 

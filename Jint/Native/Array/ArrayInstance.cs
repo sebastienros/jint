@@ -18,7 +18,7 @@ namespace Jint.Native.Array
         internal PropertyDescriptor[] _dense;
         private Dictionary<uint, PropertyDescriptor> _sparse;
 
-        public ArrayInstance(Engine engine, uint capacity = 0) : base(engine, objectClass: "Array")
+        public ArrayInstance(Engine engine, uint capacity = 0) : base(engine, ObjectClass.Array)
         {
             if (capacity < MaxDenseArrayLength)
             {
@@ -33,7 +33,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// Possibility to construct valid array fast, requires that supplied array does not have holes.
         /// </summary>
-        public ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine, objectClass: "Array")
+        public ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine, ObjectClass.Array)
         {
             int length = 0;
             if (items == null || items.Length == 0)
@@ -50,7 +50,7 @@ namespace Jint.Native.Array
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
-        public ArrayInstance(Engine engine, Dictionary<uint, PropertyDescriptor> items) : base(engine, objectClass: "Array")
+        public ArrayInstance(Engine engine, Dictionary<uint, PropertyDescriptor> items) : base(engine, ObjectClass.Array)
         {
             _sparse = items;
             var length = items?.Count ?? 0;

@@ -274,12 +274,13 @@ namespace Jint.Native.Array
                 return JsBoolean.False;
             }
 
-            if (o.AsObject().Class == "Array")
+            var objectClass = o.AsObject().Class;
+            if (objectClass == ObjectClass.Array)
             {
                 return JsBoolean.True;
             }
 
-            if (o.AsObject().Class == "Proxy")
+            if (objectClass == ObjectClass.Proxy)
             {
                 var proxyInstance = (ProxyInstance) o;
                 proxyInstance.AssertNotRevoked("isArray");

@@ -31,7 +31,7 @@ namespace Jint.Native.Proxy
             Engine engine,
             ObjectInstance target,
             ObjectInstance handler)
-            : base(engine, JsString.Empty, false, "Proxy")
+            : base(engine, JsString.Empty, false, ObjectClass.Proxy)
         {
             _target = target;
             _handler = handler;

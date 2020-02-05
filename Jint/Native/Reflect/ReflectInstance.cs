@@ -11,7 +11,7 @@ namespace Jint.Native.Reflect
     /// </summary>
     public sealed class ReflectInstance : ObjectInstance
     {
-        private ReflectInstance(Engine engine) : base(engine, "Reflect")
+        private ReflectInstance(Engine engine) : base(engine, ObjectClass.Reflect)
         {
         }
 

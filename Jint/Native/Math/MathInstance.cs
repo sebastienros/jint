@@ -13,7 +13,7 @@ namespace Jint.Native.Math
     {
         private Random _random;
 
-        private MathInstance(Engine engine) : base(engine, "Math")
+        private MathInstance(Engine engine) : base(engine, ObjectClass.Math)
         {
         }
 

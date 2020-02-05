@@ -50,16 +50,6 @@ namespace Jint.Native.RegExp
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            var pattern = arguments.At(0);
-            var flags = arguments.At(1);
-
-            if (!pattern.IsUndefined()
-                && flags.IsUndefined()
-                && TypeConverter.ToObject(Engine, pattern).Class == "Regex")
-            {
-                return pattern;
-            }
-
             return Construct(arguments, thisObject);
         }
 

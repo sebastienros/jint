@@ -25,9 +25,8 @@ namespace Jint.Native.Function
             string name,
             string[] parameters,
             LexicalEnvironment scope,
-            bool strict,
-            string objectClass = "Function")
-            : this(engine, !string.IsNullOrWhiteSpace(name) ? new JsString(name) : null, parameters, scope, strict, objectClass)
+            bool strict)
+            : this(engine, !string.IsNullOrWhiteSpace(name) ? new JsString(name) : null, parameters, scope, strict)
         {
         }
 
@@ -36,9 +35,8 @@ namespace Jint.Native.Function
             JsString name,
             string[] parameters,
             LexicalEnvironment scope,
-            bool strict,
-            string objectClass = "Function")
-            : this(engine, name, strict, objectClass)
+            bool strict)
+            : this(engine, name, strict)
         {
             _formalParameters = parameters;
             _scope = scope;
@@ -48,7 +46,7 @@ namespace Jint.Native.Function
             Engine engine,
             JsString name,
             bool strict,
-            string objectClass = "Function")
+            ObjectClass objectClass = ObjectClass.Function)
             : base(engine, objectClass)
         {
             _name = name;

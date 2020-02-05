@@ -42,7 +42,7 @@ namespace Jint.Runtime.Interop
                 var genericTypeReference = arguments[i];
                 if (genericTypeReference.IsUndefined()
                     || !genericTypeReference.IsObject() 
-                    || genericTypeReference.AsObject().Class != "TypeReference")
+                    || genericTypeReference.AsObject().Class != ObjectClass.TypeReference)
                 {
                     ExceptionHelper.ThrowTypeError(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
                 }

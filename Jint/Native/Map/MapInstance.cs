@@ -10,7 +10,7 @@ namespace Jint.Native.Map
         internal readonly OrderedDictionary<JsValue, JsValue> _map;
 
         public MapInstance(Engine engine)
-            : base(engine, objectClass: "Map")
+            : base(engine, objectClass: ObjectClass.Map)
         {
             _map = new OrderedDictionary<JsValue, JsValue>();
         }

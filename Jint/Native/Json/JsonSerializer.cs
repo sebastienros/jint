@@ -42,7 +42,7 @@ namespace Jint.Native.Json
                 else
                 {
                     var replacerObj = replacer.AsObject();
-                    if (replacerObj.Class == "Array")
+                    if (replacerObj.Class == ObjectClass.Array)
                     {
                         _propertyList = new List<JsValue>();
                     }
@@ -62,7 +62,7 @@ namespace Jint.Native.Json
                         else if (v.IsObject())
                         {
                             var propertyObj = v.AsObject();
-                            if (propertyObj.Class == "String" || propertyObj.Class == "Number")
+                            if (propertyObj.Class == ObjectClass.String || propertyObj.Class == ObjectClass.Number)
                             {
                                 item = TypeConverter.ToString(v);
                             }
@@ -80,11 +80,11 @@ namespace Jint.Native.Json
             if (space.IsObject())
             {
                 var spaceObj = space.AsObject();
-                if (spaceObj.Class == "Number")
+                if (spaceObj.Class == ObjectClass.Number)
                 {
                     space = TypeConverter.ToNumber(spaceObj);
                 }
-                else if (spaceObj.Class == "String")
+                else if (spaceObj.Class == ObjectClass.String)
                 {
                     space = TypeConverter.ToJsString(spaceObj);
                 }
@@ -147,19 +147,19 @@ namespace Jint.Native.Json
                 var valueObj = value.AsObject();
                 switch (valueObj.Class)
                 {
-                    case "Number":
+                    case ObjectClass.Number:
                         value = TypeConverter.ToNumber(value);
                         break;
-                    case "String":
+                    case ObjectClass.String:
                         value = TypeConverter.ToString(value);
                         break;
-                    case "Boolean":
+                    case ObjectClass.Boolean:
                         value = TypeConverter.ToPrimitive(value);
                         break;
-                    case "Array":
+                    case ObjectClass.Array:
                         value = SerializeArray(value.As<ArrayInstance>());
                         return value;
-                    case "Object":
+                    case ObjectClass.Object:
                         value = SerializeObject(value.AsObject());
                         return value;
                 }
@@ -195,7 +195,7 @@ namespace Jint.Native.Json
 
             if (value.IsObject() && isCallable == false)
             {
-                if (value.AsObject().Class == "Array")
+                if (value.AsObject().Class == ObjectClass.Array)
                 {
                     return SerializeArray(value.As<ArrayInstance>());
                 }

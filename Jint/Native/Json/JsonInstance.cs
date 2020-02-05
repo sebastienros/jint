@@ -11,7 +11,7 @@ namespace Jint.Native.Json
         private JsValue _reviver;
 
         private JsonInstance(Engine engine)
-            : base(engine, objectClass: "JSON")
+            : base(engine, objectClass: ObjectClass.JSON)
         {
         }
 
@@ -40,7 +40,7 @@ namespace Jint.Native.Json
             if (value.IsObject())
             {
                 var valueAsObject = value.AsObject();
-                if (valueAsObject.Class == "Array")
+                if (valueAsObject.Class == ObjectClass.Array)
                 {
                     var valAsArray = value.AsArray();
                     var i = 0;

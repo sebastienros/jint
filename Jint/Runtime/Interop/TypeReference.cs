@@ -12,8 +12,10 @@ namespace Jint.Runtime.Interop
 {
     public sealed class TypeReference : FunctionInstance, IConstructor, IObjectWrapper
     {
+        private static readonly JsString _name = new JsString("typereference");
+
         private TypeReference(Engine engine)
-            : base(engine, "typereference", null, null, false, "TypeReference")
+            : base(engine, _name, strict: false, ObjectClass.TypeReference)
         {
         }
 

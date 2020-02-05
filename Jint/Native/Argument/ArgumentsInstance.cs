@@ -24,7 +24,7 @@ namespace Jint.Native.Argument
         private bool _strict;
         private bool _canReturnToPool;
 
-        internal ArgumentsInstance(Engine engine) : base(engine, objectClass: "Arguments")
+        internal ArgumentsInstance(Engine engine) : base(engine, ObjectClass.Arguments)
         {
         }
 

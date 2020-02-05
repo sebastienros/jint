@@ -9,7 +9,7 @@ namespace Jint.Native.Set
         internal readonly OrderedSet<JsValue> _set;
 
         public SetInstance(Engine engine)
-            : base(engine, objectClass: "Map")
+            : base(engine, ObjectClass.Map)
         {
             _set = new OrderedSet<JsValue>();
         }
