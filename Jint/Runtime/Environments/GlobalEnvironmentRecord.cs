@@ -44,13 +44,13 @@ namespace Jint.Runtime.Environments
             binding = default;
 
             Key key = name;
-            if (!_global.HasProperty(key) || IsBlocked(name))
+            var desc = _global.GetProperty(key);
+            if (desc == PropertyDescriptor.Undefined || IsBlocked(name))
             {
                 value = default;
                 return false;
             }
 
-            var desc = _global.GetProperty(key);
             value = ObjectInstance.UnwrapJsValue(desc, _global);
             return true;
         }
