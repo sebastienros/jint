@@ -586,11 +586,20 @@ namespace Jint.Native
         /// <summary>
         /// Some values need to be cloned in order to be assigned, like ConcatenatedString.
         /// </summary>
-        internal virtual JsValue Clone()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal JsValue Clone()
+        {
+            // concatenated string and arguments currently may require cloning
+            return (_type & (InternalTypes.String | InternalTypes.Object))== 0
+                ? this
+                : DoClone();
+        }
+
+        internal virtual JsValue DoClone()
         {
             return this;
         }
-        
+
         internal static bool SameValue(JsValue x, JsValue y)
         {
             var typea = TypeConverter.GetInternalPrimitiveType(x);

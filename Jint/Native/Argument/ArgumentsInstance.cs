@@ -226,7 +226,7 @@ namespace Jint.Native.Argument
             return base.Delete(property);
         }
 
-        internal override JsValue Clone()
+        internal override JsValue DoClone()
         {
             // there's an assignment or return value of function, need to create persistent state
 

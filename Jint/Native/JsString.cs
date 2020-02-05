@@ -347,7 +347,7 @@ namespace Jint.Native
                 return _stringBuilder?.GetHashCode() ?? _value.GetHashCode();
             }
 
-            internal override JsValue Clone()
+            internal override JsValue DoClone()
             {
                 return new JsString(ToString());
             }
