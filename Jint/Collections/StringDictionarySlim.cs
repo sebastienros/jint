@@ -82,7 +82,7 @@ namespace Jint.Collections
             for (int i = _buckets[key.HashCode & (_buckets.Length-1)] - 1;
                 (uint)i < (uint)entries.Length; i = entries[i].next)
             {
-                if (key == entries[i].key)
+                if (key.Name == entries[i].key.Name)
                     return true;
             }
 
@@ -95,7 +95,7 @@ namespace Jint.Collections
             for (int i = _buckets[key.HashCode & (_buckets.Length - 1)] - 1;
                 (uint)i < (uint)entries.Length; i = entries[i].next)
             {
-                if (key == entries[i].key)
+                if (key.Name == entries[i].key.Name)
                 {
                     value = entries[i].value;
                     return true;
@@ -158,7 +158,7 @@ namespace Jint.Collections
             for (int i = _buckets[bucketIndex] - 1;
                     (uint)i < (uint)entries.Length; i = entries[i].next)
             {
-                if (key == entries[i].key)
+                if (key.Name == entries[i].key.Name)
                     return ref entries[i].value;
             }
 

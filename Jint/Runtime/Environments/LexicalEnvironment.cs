@@ -24,12 +24,15 @@ namespace Jint.Runtime.Environments
 
         internal static bool TryGetIdentifierEnvironmentWithBindingValue(
             LexicalEnvironment lex,
-            string name,
+            in Key name,
             bool strict,
             out EnvironmentRecord record,
             out JsValue value)
         {
-            while (true)
+            record = default;
+            value = default;
+
+            while (lex != null)
             {
                 if (lex._record.TryGetBinding(
                     name,
@@ -41,15 +44,10 @@ namespace Jint.Runtime.Environments
                     return true;
                 }
 
-                if (lex._outer == null)
-                {
-                    record = default;
-                    value = default;
-                    return false;
-                }
-
                 lex = lex._outer;
             }
+
+            return false;
         }
 
         public static LexicalEnvironment NewDeclarativeEnvironment(Engine engine, LexicalEnvironment outer = null)

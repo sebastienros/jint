@@ -432,7 +432,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected bool TryGetIdentifierEnvironmentWithBindingValue(
             bool strict,
-            string expressionName,
+            in Key expressionName,
             out EnvironmentRecord record,
             out JsValue value)
         {

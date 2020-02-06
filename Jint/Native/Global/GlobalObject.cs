@@ -744,32 +744,31 @@ namespace Jint.Native.Global
         
         internal bool Set(in Key property, JsValue value)
         {
-            var existingDescriptor = GetOwnProperty(property);
+            // here we are called only from global environment record context
+            // we can take some shortcuts to be faster
 
-            if (existingDescriptor == PropertyDescriptor.Undefined)
+            if (!Properties.TryGetValue(property, out var existingDescriptor))
             {
-                return CreateDataProperty(property, value);
+                Properties[property] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
+                return true;
             }
 
             if (existingDescriptor.IsDataDescriptor())
             {
-                if (!existingDescriptor.Writable)
+                if (!existingDescriptor.Writable || existingDescriptor.IsAccessorDescriptor())
                 {
                     return false;
                 }
 
-                if (existingDescriptor.IsAccessorDescriptor())
+                // check fast path
+                if ((existingDescriptor._flags & PropertyFlag.MutableBinding) != 0)
                 {
-                    return false;
+                    existingDescriptor._value = value;
+                    return true;
                 }
 
-                if (!existingDescriptor.Writable)
-                {
-                    return false;
-                }
-
-                var valueDesc = new PropertyDescriptor(value, PropertyFlag.None);
-                return DefineOwnProperty(property, valueDesc);
+                // slow path
+                return DefineOwnProperty(property, new PropertyDescriptor(value, PropertyFlag.None));
             }
 
             if (!(existingDescriptor.Set is ICallable setter))
@@ -787,11 +786,6 @@ namespace Jint.Native.Global
         {
             SetProperty(in property, desc);
         }
-
-        internal bool CreateDataProperty(in Key p, JsValue v)
-        {
-            return DefineOwnProperty(p, new PropertyDescriptor(v, PropertyFlag.ConfigurableEnumerableWritable));
-        }
         
         /// <summary>
         /// Optimized version for strings and GlobalObject.
@@ -801,34 +795,11 @@ namespace Jint.Native.Global
             var descValue = desc.Value;
             if (current == PropertyDescriptor.Undefined)
             {
-                if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
-                {
-                    PropertyDescriptor propertyDescriptor;
-                    if ((desc._flags & PropertyFlag.ConfigurableEnumerableWritable) ==
-                        PropertyFlag.ConfigurableEnumerableWritable)
-                    {
-                        propertyDescriptor = new PropertyDescriptor(descValue ?? Undefined,
-                            PropertyFlag.ConfigurableEnumerableWritable);
-                    }
-                    else if ((desc._flags & PropertyFlag.ConfigurableEnumerableWritable) == 0)
-                    {
-                        propertyDescriptor = new PropertyDescriptor(descValue ?? Undefined, PropertyFlag.AllForbidden);
-                    }
-                    else
-                    {
-                        propertyDescriptor = new PropertyDescriptor(desc)
-                        {
-                            Value = descValue ?? Undefined
-                        };
-                    }
+                var descriptor = desc.IsGenericDescriptor() || desc.IsDataDescriptor()
+                    ? desc
+                    : new GetSetPropertyDescriptor(desc);
 
-                    SetOwnProperty(property, propertyDescriptor);
-                }
-                else
-                {
-                    SetOwnProperty(property, new GetSetPropertyDescriptor(desc));
-                }
-
+                SetOwnProperty(property, descriptor);
                 return true;
             }
 
@@ -837,10 +808,10 @@ namespace Jint.Native.Global
             var currentSet = current.Set;
             var currentValue = current.Value;
 
-            if ((current._flags & PropertyFlag.ConfigurableSet | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet) == 0 &&
-                ReferenceEquals(currentGet, null) &&
-                ReferenceEquals(currentSet, null) &&
-                ReferenceEquals(currentValue, null))
+            if ((current._flags & (PropertyFlag.ConfigurableSet | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet)) == 0 &&
+                currentGet is null &&
+                currentSet is null &&
+                currentValue is null)
             {
                 return true;
             }

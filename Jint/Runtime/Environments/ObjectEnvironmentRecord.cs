@@ -48,7 +48,7 @@ namespace Jint.Runtime.Environments
         }
 
         internal override bool TryGetBinding(
-            string name,
+            in Key name,
             bool strict,
             out Binding binding,
             out JsValue value)
@@ -56,13 +56,13 @@ namespace Jint.Runtime.Environments
             // we unwrap by name
             binding = default;
 
-            if (!HasProperty(name) || IsBlocked(name))
+            if (!HasProperty(name.Name) || IsBlocked(name))
             {
                 value = default;
                 return false;
             }
 
-            var desc = _bindingObject.GetProperty(name);
+            var desc = _bindingObject.GetProperty(name.Name);
             value = ObjectInstance.UnwrapJsValue(desc, _bindingObject);
             return true;
         }
@@ -88,8 +88,8 @@ namespace Jint.Runtime.Environments
         public override void CreateMutableBinding(string name, JsValue value, bool configurable = false)
         {
             var propertyDescriptor = configurable
-                ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable)
-                : new PropertyDescriptor(value, PropertyFlag.NonConfigurable);
+                ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding)
+                : new PropertyDescriptor(value, PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
 
             _bindingObject.DefinePropertyOrThrow(name, propertyDescriptor);
         }

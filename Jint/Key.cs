@@ -18,7 +18,7 @@ namespace Jint
             HashCode = name.GetHashCode();
         }
 
-        private readonly string Name;
+        internal readonly string Name;
         internal readonly int HashCode;
 
         public static implicit operator Key(string name)

@@ -5,7 +5,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintIdentifierExpression : JintExpression
     {
-        private readonly string _expressionName;
+        private readonly Key _expressionName;
         private JsString _expressionNameJsValue; 
         private readonly JsValue _calculatedValue;
 
@@ -18,7 +18,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        public string ExpressionName => _expressionName;
+        public string ExpressionName => _expressionName.Name;
 
         public bool HasEvalOrArguments
             => ExpressionName == CommonProperties.Eval || ExpressionName == CommonProperties.Arguments;
@@ -31,7 +31,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? temp
                 : JsValue.Undefined;
 
-            var property = _expressionNameJsValue ??= new JsString(_expressionName);
+            var property = _expressionNameJsValue ??= new JsString(_expressionName.Name);
             return _engine._referencePool.Rent(identifierEnvironment, property, strict);
         }
 

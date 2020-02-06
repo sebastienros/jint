@@ -8,7 +8,7 @@ namespace Jint.Runtime.Descriptors.Specialized
     {
         private readonly EnvironmentRecord _env;
         private readonly Engine _engine;
-        private readonly string _name;
+        private readonly Key _name;
 
         private GetterFunctionInstance _get;
         private SetterFunctionInstance _set;
