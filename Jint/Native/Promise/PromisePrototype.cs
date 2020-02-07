@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -31,17 +32,25 @@ namespace Jint.Native.Promise
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(4, checkExistingKeys: false)
+            const PropertyFlag lengthFlags = PropertyFlag.Configurable;
+            const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+            var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_promiseConstructor, PropertyFlag.NonEnumerable),
-                ["then"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "then", Then, 1, PropertyFlag.Configurable), true, false, true),
-                ["catch"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "catch", Catch, 1, PropertyFlag.Configurable), true, false, true),
-                ["finally"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "finally", Finally, 0, PropertyFlag.Configurable), true, false, true)
+                ["then"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "then", Then, 1, lengthFlags), propertyFlags),
+                ["catch"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "catch", Catch, 1, lengthFlags), propertyFlags),
+                ["finally"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "finally", Finally, 1, lengthFlags), propertyFlags)
             };
             SetProperties(properties);
+
+            var symbols = new SymbolDictionary(1)
+            {
+                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(new JsString("Promise"), PropertyFlag.Configurable)
+            };
+            SetSymbols(symbols);
         }
 
-        public JsValue Then(JsValue thisValue, JsValue[] args)
+        private JsValue Then(JsValue thisValue, JsValue[] args)
         {
             var promise = thisValue as PromiseInstance;
 
@@ -51,10 +60,7 @@ namespace Jint.Native.Promise
                 return null;
             }
 
-            var chainedPromise = new PromiseInstance(Engine)
-            {
-                _prototype = _promiseConstructor.PrototypeObject
-            };
+            var chainedPromise = new PromiseInstance(Engine);
 
             var resolvedCallback = (args.Length >= 1 ? args[0] : null) as FunctionInstance ?? Undefined;
             var rejectedCallback = (args.Length >= 2 ? args[1] : null) as FunctionInstance ?? Undefined;
@@ -160,9 +166,9 @@ namespace Jint.Native.Promise
             return chainedPromise;
         }
 
-        public JsValue Catch(JsValue thisValue, JsValue[] args) => Then(thisValue, new[] { Undefined, args.Length >= 1 ? args[0] : Undefined });
+        private JsValue Catch(JsValue thisValue, JsValue[] args) => Then(thisValue, new[] { Undefined, args.Length >= 1 ? args[0] : Undefined });
 
-        public JsValue Finally(JsValue thisValue, JsValue[] args)
+        private JsValue Finally(JsValue thisValue, JsValue[] args)
         {
             var promise = thisValue as PromiseInstance;
 
@@ -172,10 +178,7 @@ namespace Jint.Native.Promise
                 return null;
             }
 
-            var chainedPromise = new PromiseInstance(Engine)
-            {
-                _prototype = _promiseConstructor.PrototypeObject
-            };
+            var chainedPromise = new PromiseInstance(Engine);
 
             var callback = (args.Length >= 1 ? args[0] : null) as FunctionInstance ?? Undefined;
 

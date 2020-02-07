@@ -28,7 +28,7 @@ namespace Jint.Native.Global
         }
 
         protected override void Initialize()
-            {
+        {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             var properties = new PropertyDictionary(40, checkExistingKeys: false)

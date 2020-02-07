@@ -2,11 +2,11 @@
 using System.Threading.Tasks;
 using Jint.Collections;
 using Jint.Native.Function;
-using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise
@@ -20,33 +20,33 @@ namespace Jint.Native.Promise
         {
         }
 
-        public PromisePrototype PrototypeObject { get; private set; }
-
         public static PromiseConstructor CreatePromiseConstructor(Engine engine)
         {
-            var obj = new PromiseConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the Set constructor is the Function prototype object
-            obj.PrototypeObject = PromisePrototype.CreatePrototypeObject(engine, obj);
-            obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
-            obj._prototype = obj.PrototypeObject;
-
+            var obj = new PromiseConstructor(engine);
+            obj._prototype = PromisePrototype.CreatePrototypeObject(engine, obj);
+            obj._length = new PropertyDescriptor(1, PropertyFlag.Configurable);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj._prototype, PropertyFlag.AllForbidden);
             return obj;
         }
 
         protected override void Initialize()
         {
-            var properties = new PropertyDictionary(2, checkExistingKeys: false)
+            const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+            const PropertyFlag lengthFlags = PropertyFlag.Configurable;
+            var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
-                ["resolve"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "resolve", Resolve, 1), PropertyFlag.NonEnumerable)),
-                ["reject"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "reject", Reject, 1), PropertyFlag.NonEnumerable)),
-                ["all"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "all", All, 1), PropertyFlag.NonEnumerable)),
-                ["race"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "race", Race, 1), PropertyFlag.NonEnumerable)),
+                ["resolve"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "resolve", Resolve, 1, lengthFlags), propertyFlags)),
+                ["reject"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "reject", Reject, 1, lengthFlags), propertyFlags)),
+                ["all"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "all", All, 1, lengthFlags), propertyFlags)),
+                ["race"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "race", Race, 1, lengthFlags), propertyFlags)),
             };
             SetProperties(properties);
+
+            var symbols = new SymbolDictionary(1)
+            {
+                [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", (thisObj, _) => thisObj, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
+            };
+            SetSymbols(symbols);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -61,45 +61,82 @@ namespace Jint.Native.Promise
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue receiver)
         {
-            FunctionInstance promiseResolver = null;
-
-            if (arguments.Length == 0 || (promiseResolver = arguments[0] as FunctionInstance) == null)
+            if (!(arguments.At(0) is ICallable promiseResolver))
             {
-                ExceptionHelper.ThrowTypeError(_engine, $"Promise resolver {(arguments.Length >= 1 ? arguments[0].Type.ToString() : Undefined.ToString())} is not a function");
+                return ExceptionHelper.ThrowTypeError<ObjectInstance>(
+                    _engine,
+                    $"Promise resolver {(arguments.At(0))} is not a function");
             }
 
-            var instance = new PromiseInstance(Engine, promiseResolver)
-            {
-                _prototype = PrototypeObject
-            };
+            var instance = new PromiseInstance(Engine, promiseResolver);
 
             instance.InvokePromiseResolver();
 
             return instance;
         }
 
-        public PromiseInstance Resolve(JsValue thisRef, JsValue[] args) => PromiseInstance.CreateResolved(Engine, args.Length >= 1 ? args[0] : Undefined);
-        public PromiseInstance Reject(JsValue thisRef, JsValue[] args) => PromiseInstance.CreateRejected(Engine, args.Length >= 1 ? args[0] : Undefined);
-
-        public PromiseInstance All(JsValue thisRef, JsValue[] args)
+        private JsValue Resolve(JsValue thisObj, JsValue[] arguments)
         {
-            if (args.Length == 0 || !(args[0] is ObjectInstance iteratorObj) || iteratorObj.HasProperty(GlobalSymbolRegistry.Iterator) == false)
+            if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(Engine, $"undefined is not iterable (cannot read property {GlobalSymbolRegistry.Iterator})");
-                return null;
+                ExceptionHelper.ThrowTypeError(_engine, "PromiseResolve called on non-object");
             }
 
-            var iteratorCtor = iteratorObj.GetProperty(GlobalSymbolRegistry.Iterator).Value;
-            var iterator = iteratorCtor.Invoke(iteratorObj, new JsValue[0]) as IteratorInstance;
+            JsValue x = arguments.At(0);
+            if (x.IsPromise())
+            {
+                var xConstructor = x.Get(CommonProperties.Constructor);
+                if (SameValue(xConstructor, thisObj))
+                {
+                    return x;
+                }
+            }
+
+            var promiseCapability = NewPromiseCapability(thisObj);
+            promiseCapability.Resolve(Undefined, new[] { x });
+            return promiseCapability;
+        }
+
+        private PromiseInstance Reject(JsValue thisObj, JsValue[] arguments)
+        {
+            if (!thisObj.IsObject())
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "PromiseReject called on non-object");
+            }
+
+            var r = arguments.At(0);
+
+            var promiseCapability = NewPromiseCapability(thisObj);
+            promiseCapability.Reject(Undefined, new[] { r });
+            return promiseCapability;
+        }
+
+        private JsValue All(JsValue thisObj, JsValue[] arguments)
+        {
+            var c = thisObj;
+            if (!c.IsObject())
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "PromiseReject called on non-object");
+            }
+
+            var s = c.Get(GlobalSymbolRegistry.Species);
+            if (!s.IsNullOrUndefined())
+            {
+                c = s;
+            }
+
+            var promiseCapability = NewPromiseCapability(c);
+
+            var iterable = arguments.At(0);
+            var iterator = iterable.GetIterator(_engine);
             var items = iterator.CopyToList();
 
             if (items.Count == 0)
-                return Resolve(Undefined, new JsValue[] { Engine.Array.ConstructFast(0) });
-
-            var chainedPromise = new PromiseInstance(Engine)
             {
-                _prototype = Engine.Promise.PrototypeObject
-            };
+                return promiseCapability.Resolve(Undefined, new JsValue[] { Engine.Array.ConstructFast(0) });
+            }
+
+            var chainedPromise = new PromiseInstance(Engine);
 
             var promises = items.OfType<PromiseInstance>().ToArray();
 
@@ -150,22 +187,25 @@ namespace Jint.Native.Promise
             return chainedPromise;
         }
 
-        public PromiseInstance Race(JsValue thisRef, JsValue[] args)
+        private PromiseInstance Race(JsValue thisObj, JsValue[] arguments)
         {
-            if (args.Length == 0 || !(args[0] is ObjectInstance iteratorObj) || iteratorObj.HasProperty(GlobalSymbolRegistry.Iterator) == false)
+            var c = thisObj;
+            if (!c.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(Engine, $"undefined is not iterable (cannot read property {GlobalSymbolRegistry.Iterator})");
-                return null;
+                ExceptionHelper.ThrowTypeError(_engine, "PromiseReject called on non-object");
             }
 
-            var iteratorCtor = iteratorObj.GetProperty(GlobalSymbolRegistry.Iterator).Value;
-            var iterator = iteratorCtor.Invoke(iteratorObj, new JsValue[0]) as IteratorInstance;
-            var items = iterator.CopyToList();
-
-            var chainedPromise = new PromiseInstance(Engine)
+            var s = c.Get(GlobalSymbolRegistry.Species);
+            if (!s.IsNullOrUndefined())
             {
-                _prototype = Engine.Promise.PrototypeObject
-            };
+                c = s;
+            }
+            
+            var chainedPromise = NewPromiseCapability(c);
+            var iterable = arguments.At(0);
+            var iterator = iterable.GetIterator(_engine);
+            
+            var items = iterator.CopyToList();
 
             //  If no promises passed then the spec says to pend forever!
             if (items.Count == 0)
@@ -223,6 +263,16 @@ namespace Jint.Native.Promise
             });
 
             return chainedPromise;
+        }
+
+        private PromiseInstance NewPromiseCapability(JsValue c)
+        {
+            var constructor = AssertConstructor(_engine, c);
+
+            var executor = new PromiseInstance(_engine);
+            var test = Construct(constructor, new JsValue[] { executor });
+            var promiseCapability = executor;
+            return promiseCapability;
         }
     }
 }

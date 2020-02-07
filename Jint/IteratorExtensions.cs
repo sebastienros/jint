@@ -1,21 +1,39 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Iterator;
+using Jint.Runtime;
 
 namespace Jint
 {
     internal static class IteratorExtensions
     {
-        internal static List<JsValue> CopyToList(this IteratorInstance iterator)
+        internal static List<JsValue> CopyToList(this IIterator iterator)
         {
             var items = new List<JsValue>();
 
-            var item = iterator.Next();
+            iterator.TryIteratorStep(out var item);
 
-            while (item.GetProperty("done").Value.AsBoolean() == false)
+            int i = 0;
+
+            while (!TypeConverter.ToBoolean(item.Get("done")))
             {
-                items.Add(item.GetProperty("value").Value);
-                item = iterator.Next();
+                try
+                {
+                    var jsValue = item.Get("value");
+                    items.Add(jsValue);
+                }
+                catch
+                {
+                    break;
+                }
+
+                iterator.TryIteratorStep(out item);
+
+                if (i++ > 1000)
+                {
+                    throw new Exception("TODO this logic is still flawed");
+                }
             }
 
             return items;

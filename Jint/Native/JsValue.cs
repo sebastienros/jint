@@ -72,6 +72,13 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsPromise()
+        {
+            return this is PromiseInstance;
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsRegExp()
         {
             if (!(this is ObjectInstance oi))
@@ -352,15 +359,12 @@ namespace Jint.Native
             //  todo - custom task types eg ValueTask<>.  Not sure these can be supported generically without writing the associated state machine code
             if (value is Task task)
             {
-                return new PromiseInstance(engine, task)
-                {
-                    _prototype = engine.Promise.PrototypeObject
-                };
+                return new PromiseInstance(engine, task);
             }
 
             // if no known type could be guessed, wrap it as an ObjectInstance
             var h = engine.Options._WrapObjectHandler;
-            ObjectInstance o = h != null ? h(value) : null;
+            ObjectInstance o = h?.Invoke(value);
             return o ?? new ObjectWrapper(engine, value);
         }
 
@@ -657,6 +661,16 @@ namespace Jint.Native
                 default:
                     return ReferenceEquals(x, y);
             }
+        }
+
+        internal static IConstructor AssertConstructor(Engine engine, JsValue c)
+        {
+            if (!(c is IConstructor constructor))
+            {
+                return ExceptionHelper.ThrowTypeError<IConstructor>(engine, c + " is not a constructor");
+            }
+
+            return constructor;
         }
     }
 }

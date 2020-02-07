@@ -1,5 +1,17 @@
 [
   {
+    "source": "built-ins/Promise/prototype/finally/species-symbol.js",
+    "reason": "classes not implemented"
+  },
+  {
+    "source": "built-ins/Promise/prototype/finally/subclass-species-constructor-reject-count.js",
+    "reason": "classes not implemented"
+  },
+  {
+    "source": "built-ins/Promise/prototype/finally/subclass-species-constructor-resolve-count.js",
+    "reason": "classes not implemented"
+  },
+  {
     "source": "language/expressions/assignment/fn-name-lhs-cover.js",
     "reason": "Currently quite impossible to detect if assignment target is CoverParenthesizedExpression"
   },
@@ -62,12 +74,8 @@
     "reason": "Windows line ending differences"
   },
   {
-    "source": "built-ins/Symbol/species/builtin-getter-name.js",
-    "reason": "Promise not implemented"
-  },
-  {
     "source": "language/expressions/object/method-definition/object-method-returns-promise.js",
-    "reason": "Promise not implemented"
+    "reason": "async not implemented"
   },
   {
     "source": "built-ins/Symbol/species/subclassing.js",

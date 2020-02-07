@@ -2,16 +2,16 @@
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise
 {
     public class PromiseInstance : ObjectInstance
     {
-        private readonly FunctionInstance _promiseResolver;
+        private readonly ICallable _promiseResolver;
         private readonly TaskCompletionSource<JsValue> _tcs = new TaskCompletionSource<JsValue>();
 
         public Task<JsValue> Task => _tcs.Task;
@@ -19,10 +19,10 @@ namespace Jint.Native.Promise
 
         internal PromiseInstance(Engine engine) : base(engine, ObjectClass.Promise)
         {
-
+            _prototype = engine.Promise._prototype;
         }
-        
-        public PromiseInstance(Engine engine, FunctionInstance promiseResolver)
+
+        public PromiseInstance(Engine engine, ICallable promiseResolver)
             : this(engine)
         {
             _promiseResolver = promiseResolver;
@@ -52,43 +52,20 @@ namespace Jint.Native.Promise
             });
         }
 
-        public static PromiseInstance CreateResolved(Engine engine, JsValue result)
-        {
-            var resolved = new PromiseInstance(engine)
-            {
-                _prototype = engine.Promise.PrototypeObject
-            };
-
-            resolved._tcs.SetResult(result);
-            resolved.State = PromiseState.Resolved;
-
-            return resolved;
-        }
-
-        public static PromiseInstance CreateRejected(Engine engine, JsValue result)
-        {
-            var rejected = new PromiseInstance(engine)
-            {
-                _prototype = engine.Promise.PrototypeObject
-            };
-
-            rejected._tcs.SetException(new PromiseRejectedException(result));
-            rejected.State = PromiseState.Rejected;
-
-            return rejected;
-        }
-
         internal void InvokePromiseResolver()
         {
-            _promiseResolver.Invoke(new ClrFunctionInstance(_engine, "", Resolve, 1), new ClrFunctionInstance(_engine, "", Reject, 1));
+            _promiseResolver.Call(
+                this,
+                new JsValue[]
+                {
+                    new ClrFunctionInstance(_engine, "", Resolve, 1, PropertyFlag.Configurable),
+                    new ClrFunctionInstance(_engine, "", Reject, 1, PropertyFlag.Configurable)
+                });
         }
 
-        internal JsValue Resolve(JsValue thisValue, JsValue[] args)
+        internal JsValue Resolve(JsValue thisObj, JsValue[] arguments)
         {
-            var result = Undefined;
-
-            if (args.Length >= 1)
-                result = args[0];
+            var result = arguments.At(0);
 
             //  Only first resolve/reject is actioned.  Further calls are invalid and ignored
             if (State == PromiseState.Resolving)
@@ -97,15 +74,12 @@ namespace Jint.Native.Promise
                 State = PromiseState.Resolved;
             }
 
-            return Undefined;
+            return this;
         }
 
-        internal JsValue Reject(JsValue thisValue, JsValue[] args)
+        internal JsValue Reject(JsValue thisObj, JsValue[] arguments)
         {
-            var result = Undefined;
-
-            if (args.Length >= 1)
-                result = args[0];
+            var result = arguments.At(0);
 
             //  Only first resolve/reject is actioned.  Further calls are invalid and ignored
             if (State == PromiseState.Resolving)
@@ -114,7 +88,7 @@ namespace Jint.Native.Promise
                 State = PromiseState.Rejected;
             }
 
-            return Undefined;
+            return this;
         }
     }
 }

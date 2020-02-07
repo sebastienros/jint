@@ -1,9 +1,8 @@
-﻿using System;
-using Jint.Native;
+﻿using Jint.Native;
 
 namespace Jint.Runtime
 {
-    public class PromiseRejectedException : Exception
+    public class PromiseRejectedException : JintException
     {
         public JsValue RejectedValue { get; }
 
