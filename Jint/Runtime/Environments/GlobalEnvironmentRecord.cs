@@ -1,9 +1,7 @@
 ﻿using System.Linq;
-using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Global;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Environments
@@ -21,18 +19,7 @@ namespace Jint.Runtime.Environments
             _global = global;
         }
 
-        public override bool HasBinding(string name)
-        {
-            var foundBinding = _global.HasProperty(name);
-            if (!foundBinding)
-            {
-                return false;
-            }
-
-            // TODO If the withEnvironment flag of envRec is false, return true.
-
-            return !IsBlocked(name);
-        }
+        public override bool HasBinding(string name) => _global.Properties.ContainsKey(name);
 
         internal override bool TryGetBinding(
             in Key name,
@@ -44,7 +31,7 @@ namespace Jint.Runtime.Environments
             binding = default;
 
             Key key = name;
-            if (!_global.Properties.TryGetValue(key, out var desc) || IsBlocked(name))
+            if (!_global.Properties.TryGetValue(key, out var desc))
             {
                 value = default;
                 return false;
@@ -52,28 +39,6 @@ namespace Jint.Runtime.Environments
 
             value = ObjectInstance.UnwrapJsValue(desc, _global);
             return true;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool IsBlocked(string property)
-        {
-            return _global._symbols != null && CheckSymbolsForBlocked(property);
-        }
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private bool CheckSymbolsForBlocked(string property)
-        {
-            var unscopables = _global.Get(GlobalSymbolRegistry.Unscopables);
-            if (unscopables is ObjectInstance oi)
-            {
-                var blocked = TypeConverter.ToBoolean(oi.Get(new JsString(property)));
-                if (blocked)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         /// <summary>

@@ -32,14 +32,7 @@ namespace Jint.Runtime.Environments
                 return false;
             }
 
-            // TODO If the withEnvironment flag of envRec is false, return true.
-
-            if (IsBlocked(name))
-            {
-                return false;
-            }
-
-            return true;
+            return !IsBlocked(name);
         }
 
         private bool HasProperty(JsValue property)
