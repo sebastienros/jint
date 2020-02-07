@@ -9,27 +9,37 @@ namespace Jint.Runtime.Interpreter.Expressions
     /// </summary>
     internal sealed class JintMemberExpression : JintExpression
     {
-        private readonly JintExpression _objectExpression;
-        private readonly JintIdentifierExpression _objectIdentifierExpression;
-        private readonly JintThisExpression _objectThisExpression;
+        private JintExpression _objectExpression;
+        private JintIdentifierExpression _objectIdentifierExpression;
+        private JintThisExpression _objectThisExpression;
 
-        private readonly JintExpression _propertyExpression;
-        private readonly Key _determinedPropertyName;
+        private JintExpression _propertyExpression;
+        private JsValue _determinedProperty;
 
         public JintMemberExpression(Engine engine, MemberExpression expression) : base(engine, expression)
         {
-            _objectExpression = Build(engine, expression.Object);
+            _initialized = false;
+        }
+
+        protected override void Initialize()
+        {
+            var expression = (MemberExpression) _expression;
+            _objectExpression = Build(_engine, expression.Object);
             _objectIdentifierExpression = _objectExpression as JintIdentifierExpression;
             _objectThisExpression = _objectExpression as JintThisExpression;
 
             if (!expression.Computed)
             {
-                _determinedPropertyName = ((Identifier) expression.Property).Name;
+                _determinedProperty = ((Identifier) expression.Property).Name;
             }
-            else
+            else if (expression.Property.Type == Nodes.Literal)
             {
-                _determinedPropertyName = "";
-                _propertyExpression = Build(engine, expression.Property);
+                _determinedProperty = JintLiteralExpression.ConvertToJsValue((Literal) expression.Property);
+            }
+
+            if (_determinedProperty is null)
+            {
+                _propertyExpression = Build(_engine, expression.Property);
             }
         }
 
@@ -60,7 +70,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var baseReference = _objectExpression.Evaluate();
                 if (baseReference is Reference reference)
                 {
-                    baseReferenceName = reference.GetReferencedName();
+                    baseReferenceName = reference.GetReferencedName().ToString();
                     baseValue = _engine.GetValue(reference, false);
                     _engine._referencePool.Return(reference);
                 }
@@ -70,13 +80,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            var propertyName = _determinedPropertyName.Name.Length > 0
-                ? _determinedPropertyName
-                : TypeConverter.ToPropertyKey(_propertyExpression.GetValue());
+            var property = _determinedProperty ?? _propertyExpression.GetValue();
 
             TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, baseReferenceName);
 
-            return _engine._referencePool.Rent(baseValue, propertyName, isStrictModeCode);
+            return _engine._referencePool.Rent(baseValue, property, isStrictModeCode);
         }
     }
 }

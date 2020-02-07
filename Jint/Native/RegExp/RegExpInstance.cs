@@ -8,16 +8,17 @@ namespace Jint.Native.RegExp
 {
     public class RegExpInstance : ObjectInstance
     {
-        internal static readonly Key KeyLastIndex = "lastIndex";
-        
+        internal const string regExpForMatchingAllCharacters = "(?:)";
+        internal static readonly JsString PropertyLastIndex = new JsString("lastIndex");
+
         private string _flags;
 
         private PropertyDescriptor _prototypeDescriptor;
 
         public RegExpInstance(Engine engine)
-            : base(engine, objectClass: "RegExp")
+            : base(engine, ObjectClass.RegExp)
         {
-            Source = "(?:)";
+            Source = regExpForMatchingAllCharacters;
         }
 
         public Regex Value { get; set; }
@@ -63,32 +64,34 @@ namespace Jint.Native.RegExp
         public bool Sticky { get; private set; }
         public bool FullUnicode { get; private set; }
 
-        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            if (propertyName == KeyLastIndex)
+            if (property == PropertyLastIndex)
             {
                 return _prototypeDescriptor ?? PropertyDescriptor.Undefined;
             }
-            return base.GetOwnProperty(propertyName);
+
+            return base.GetOwnProperty(property);
         }
 
-        protected internal override void SetOwnProperty(in Key propertyName, PropertyDescriptor desc)
+        protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            if (propertyName == KeyLastIndex)
+            if (property == PropertyLastIndex)
             {
                 _prototypeDescriptor = desc;
                 return;
             }
 
-            base.SetOwnProperty(propertyName, desc);
+            base.SetOwnProperty(property, desc);
         }
 
-        public override IEnumerable<KeyValuePair<Key, PropertyDescriptor>> GetOwnProperties()
+        public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
         {
             if (_prototypeDescriptor != null)
             {
-                yield return new KeyValuePair<Key, PropertyDescriptor>(KeyLastIndex, _prototypeDescriptor);
+                yield return new KeyValuePair<JsValue, PropertyDescriptor>(PropertyLastIndex, _prototypeDescriptor);
             }
+
             foreach (var entry in base.GetOwnProperties())
             {
                 yield return entry;
@@ -100,20 +103,21 @@ namespace Jint.Native.RegExp
             var keys = new List<JsValue>();
             if (_prototypeDescriptor != null)
             {
-                keys.Add(KeyLastIndex);
+                keys.Add(PropertyLastIndex);
             }
+
             keys.AddRange(base.GetOwnPropertyKeys(types));
             return keys;
         }
-        public override bool HasOwnProperty(in Key propertyName)
+
+        public override bool HasOwnProperty(JsValue property)
         {
-            if (propertyName == KeyLastIndex)
+            if (property == PropertyLastIndex)
             {
                 return _prototypeDescriptor != null;
             }
-            return base.HasOwnProperty(propertyName);
+
+            return base.HasOwnProperty(property);
         }
-
-
     }
 }

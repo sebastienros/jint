@@ -41,11 +41,11 @@ namespace Jint.Native.Map
 
         protected override void Initialize()
         {
-            var properties = new StringDictionarySlim<PropertyDescriptor>(2)
+            var symbols = new SymbolDictionary(1)
             {
                 [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
             };
-            SetProperties(properties, hasSymbols: true);
+            SetSymbols(symbols);
         }
 
         private static JsValue Species(JsValue thisObject, JsValue[] arguments)
@@ -91,7 +91,7 @@ namespace Jint.Native.Map
                 IIterator iterator) : base(engine, iterator, 2)
             {
                 _instance = instance;
-                var setterProperty = instance.GetProperty("set");
+                var setterProperty = instance.GetProperty(CommonProperties.Set);
 
                 if (setterProperty is null
                     || !setterProperty.TryGetValue(instance, out var setterValue)
@@ -109,8 +109,8 @@ namespace Jint.Native.Map
                     return;
                 }
 
-                oi.TryGetValue("0", out var key);
-                oi.TryGetValue("1", out var value);
+                oi.TryGetValue(JsString.NumberZeroString, out var key);
+                oi.TryGetValue(JsString.NumberOneString, out var value);
 
                 args[0] = key;
                 args[1] = value;

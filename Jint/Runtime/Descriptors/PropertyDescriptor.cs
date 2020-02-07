@@ -227,12 +227,12 @@ namespace Jint.Runtime.Descriptors
                 ExceptionHelper.ThrowTypeError(engine);
             }
 
-            var getProperty = obj.GetProperty("get");
+            var getProperty = obj.GetProperty(CommonProperties.Get);
             var hasGetProperty = getProperty != Undefined;
-            var setProperty = obj.GetProperty("set");
+            var setProperty = obj.GetProperty(CommonProperties.Set);
             var hasSetProperty = setProperty != Undefined;
 
-            if ((obj.HasProperty("value") || obj.HasProperty("writable")) &&
+            if ((obj.HasProperty(CommonProperties.Value) || obj.HasProperty(CommonProperties.Writable)) &&
                 (hasGetProperty || hasSetProperty))
             {
                 ExceptionHelper.ThrowTypeError(engine);
@@ -242,27 +242,27 @@ namespace Jint.Runtime.Descriptors
                 ? new GetSetPropertyDescriptor(null, null, PropertyFlag.None)
                 : new PropertyDescriptor(PropertyFlag.None);
 
-            var enumerableProperty = obj.GetProperty("enumerable");
+            var enumerableProperty = obj.GetProperty(CommonProperties.Enumerable);
             if (enumerableProperty != Undefined)
             {
                 desc.Enumerable = TypeConverter.ToBoolean(obj.UnwrapJsValue(enumerableProperty));
                 desc.EnumerableSet = true;
             }
 
-            var configurableProperty = obj.GetProperty("configurable");
+            var configurableProperty = obj.GetProperty(CommonProperties.Configurable);
             if (configurableProperty != Undefined)
             {
                 desc.Configurable = TypeConverter.ToBoolean(obj.UnwrapJsValue(configurableProperty));
                 desc.ConfigurableSet = true;
             }
 
-            var valueProperty = obj.GetProperty("value");
+            var valueProperty = obj.GetProperty(CommonProperties.Value);
             if (valueProperty != Undefined)
             {
                 desc.Value = obj.UnwrapJsValue(valueProperty);
             }
 
-            var writableProperty = obj.GetProperty("writable");
+            var writableProperty = obj.GetProperty(CommonProperties.Writable);
             if (writableProperty != Undefined)
             {
                 desc.Writable = TypeConverter.ToBoolean(obj.UnwrapJsValue(writableProperty));
@@ -310,7 +310,7 @@ namespace Jint.Runtime.Descriptors
             }
 
             var obj = engine.Object.Construct(Arguments.Empty);
-            var properties = new StringDictionarySlim<PropertyDescriptor>(4);
+            var properties = new PropertyDictionary(4, checkExistingKeys: false);
 
             if (desc.IsDataDescriptor())
             {
@@ -326,7 +326,7 @@ namespace Jint.Runtime.Descriptors
             properties["enumerable"] = new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable);
             properties["configurable"] = new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable);
 
-            obj.SetProperties(properties, hasSymbols: false);
+            obj.SetProperties(properties);
             return obj;
         }
 
@@ -407,7 +407,6 @@ namespace Jint.Runtime.Descriptors
 
             public static readonly AllForbiddenDescriptor NumberZero = new AllForbiddenDescriptor(JsNumber.Create(0));
             public static readonly AllForbiddenDescriptor NumberOne = new AllForbiddenDescriptor(JsNumber.Create(1));
-            public static readonly AllForbiddenDescriptor NumberTwo = new AllForbiddenDescriptor(JsNumber.Create(2));
 
             public static readonly AllForbiddenDescriptor BooleanFalse = new AllForbiddenDescriptor(JsBoolean.False);
             public static readonly AllForbiddenDescriptor BooleanTrue = new AllForbiddenDescriptor(JsBoolean.True);

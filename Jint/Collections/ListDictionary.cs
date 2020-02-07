@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -6,16 +5,24 @@ using Jint.Runtime;
 
 namespace Jint.Collections
 {
-    internal sealed class ListDictionary<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>> where TKey : IEquatable<TKey>
+    internal sealed class ListDictionary<TValue> : IEnumerable<KeyValuePair<Key, TValue>>
     {
-        private DictionaryNode head;
-        private int count;
+        private DictionaryNode _head;
+        private int _count;
+        private bool _checkExistingKeys;
 
-        public ListDictionary()
+        public ListDictionary(in Key key, TValue value, bool checkExistingKeys)
         {
+            _checkExistingKeys = checkExistingKeys;
+            _head = new DictionaryNode
+            {
+                Key = key, 
+                Value = value
+            };
+            _count = 1;
         }
 
-        public TValue this[TKey key]
+        public TValue this[in Key key]
         {
             get
             {
@@ -26,10 +33,11 @@ namespace Jint.Collections
             {
                 DictionaryNode last = null;
                 DictionaryNode node;
-                for (node = head; node != null; node = node.Next)
+                var checkExistingKeys = _checkExistingKeys;
+                for (node = _head; node != null; node = node.Next)
                 {
                     var oldKey = node.Key;
-                    if (oldKey.Equals(key))
+                    if (checkExistingKeys && oldKey == key)
                     {
                         break;
                     }
@@ -44,29 +52,16 @@ namespace Jint.Collections
                     return;
                 }
 
-                // Not found, so add a new one
-                DictionaryNode newNode = new DictionaryNode();
-                newNode.Key = key;
-                newNode.Value = value;
-                if (last != null)
-                {
-                    last.Next = newNode;
-                }
-                else
-                {
-                    head = newNode;
-                }
-
-                count++;
+                AddNode(key, value, last);
             }
         }
 
-        public bool TryGetValue(TKey key, out TValue value)
+        public bool TryGetValue(in Key key, out TValue value)
         {
-            var node = head;
+            var node = _head;
             while (node != null)
             {
-                if (node.Key.Equals(key))
+                if (node.Key == key)
                 {
                     value = node.Value;
                     return true;
@@ -79,16 +74,21 @@ namespace Jint.Collections
             return false;
         }
 
-        public int Count => count;
+        public int Count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _count;
+        }
 
-        public void Add(TKey key, TValue value)
+        public void Add(in Key key, TValue value)
         {
             DictionaryNode last = null;
             DictionaryNode node;
-            for (node = head; node != null; node = node.Next)
+            var checkExistingKeys = _checkExistingKeys;
+            for (node = _head; node != null; node = node.Next)
             {
                 var oldKey = node.Key;
-                if (oldKey.Equals(key))
+                if (checkExistingKeys && oldKey == key)
                 {
                     ExceptionHelper.ThrowArgumentException();
                 }
@@ -96,34 +96,39 @@ namespace Jint.Collections
                 last = node;
             }
 
-            // Not found, so add a new one
-            DictionaryNode newNode = new DictionaryNode();
-            newNode.Key = key;
-            newNode.Value = value;
-            if (last != null)
+            AddNode(key, value, last);
+        }
+
+        private void AddNode(in Key key, TValue value, DictionaryNode last)
+        {
+            var newNode = new DictionaryNode
             {
-                last.Next = newNode;
+                Key = key,
+                Value = value
+            };
+            if (_head is null)
+            {
+                _head = newNode;
             }
             else
             {
-                head = newNode;
+                last.Next = newNode;
             }
-
-            count++;
+            _count++;
         }
 
         public void Clear()
         {
-            count = 0;
-            head = null;
+            _count = 0;
+            _head = null;
         }
 
-        public bool ContainsKey(TKey key)
+        public bool ContainsKey(in Key key)
         {
-            for (var node = head; node != null; node = node.Next)
+            for (var node = _head; node != null; node = node.Next)
             {
                 var oldKey = node.Key;
-                if (oldKey.Equals(key))
+                if (oldKey == key)
                 {
                     return true;
                 }
@@ -132,12 +137,17 @@ namespace Jint.Collections
             return false;
         }
 
+        internal bool CheckExistingKeys
+        {
+            set => _checkExistingKeys = value;
+        }
+
         public NodeEnumerator GetEnumerator()
         {
             return new NodeEnumerator(this);
         }
 
-        IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator()
+        IEnumerator<KeyValuePair<Key, TValue>> IEnumerable<KeyValuePair<Key, TValue>>.GetEnumerator()
         {
             return new NodeEnumerator(this);
         }
@@ -147,14 +157,14 @@ namespace Jint.Collections
             return new NodeEnumerator(this);
         }
 
-        public bool Remove(TKey key)
+        public bool Remove(in Key key)
         {
             DictionaryNode last = null;
             DictionaryNode node;
-            for (node = head; node != null; node = node.Next)
+            for (node = _head; node != null; node = node.Next)
             {
                 var oldKey = node.Key;
-                if (oldKey.Equals(key))
+                if (oldKey == key)
                 {
                     break;
                 }
@@ -167,45 +177,39 @@ namespace Jint.Collections
                 return false;
             }
 
-            if (node == head)
+            if (node == _head)
             {
-                head = node.Next;
+                _head = node.Next;
             }
             else
             {
                 last.Next = node.Next;
             }
 
-            count--;
+            _count--;
             return true;
         }
 
-        internal struct NodeEnumerator : IEnumerator<KeyValuePair<TKey, TValue>>
+        internal struct NodeEnumerator : IEnumerator<KeyValuePair<Key, TValue>>
         {
-            private readonly ListDictionary<TKey, TValue> _list;
+            private readonly ListDictionary<TValue> _list;
             private DictionaryNode _current;
             private bool _start;
 
-            public NodeEnumerator(ListDictionary<TKey, TValue> list)
+            public NodeEnumerator(ListDictionary<TValue> list)
             {
                 _list = list;
                 _start = true;
                 _current = null;
             }
 
-            public KeyValuePair<TKey, TValue> Current
-            {
-                get
-                {
-                    return new KeyValuePair<TKey, TValue>(_current.Key, _current.Value);
-                }
-            }
+            public KeyValuePair<Key, TValue> Current => new KeyValuePair<Key, TValue>(_current.Key, _current.Value);
 
             public bool MoveNext()
             {
                 if (_start)
                 {
-                    _current = _list.head;
+                    _current = _list._head;
                     _start = false;
                 }
                 else if (_current != null)
@@ -213,7 +217,7 @@ namespace Jint.Collections
                     _current = _current.Next;
                 }
 
-                return (_current != null);
+                return _current != null;
             }
 
             void IEnumerator.Reset()
@@ -231,7 +235,7 @@ namespace Jint.Collections
 
         internal class DictionaryNode
         {
-            public TKey Key;
+            public Key Key;
             public TValue Value;
             public DictionaryNode Next;
         }

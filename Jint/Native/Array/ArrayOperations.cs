@@ -76,7 +76,7 @@ namespace Jint.Native.Array
 
             private double GetIntegerLength()
             {
-                var descValue = _target.Get("length", _target);
+                var descValue = _target.Get(CommonProperties.Length, _target);
                 if (!ReferenceEquals(descValue, null))
                 {
                     return TypeConverter.ToInteger(descValue);
@@ -96,7 +96,7 @@ namespace Jint.Native.Array
                 var min = length;
                 foreach (var entry in _target.Properties)
                 {
-                    if (ulong.TryParse(entry.Key, out var index))
+                    if (ulong.TryParse(entry.Key.ToString(), out var index))
                     {
                         min = System.Math.Min(index, min);
                     }
@@ -106,7 +106,7 @@ namespace Jint.Native.Array
                 {
                     foreach (var entry in _target.Prototype.Properties)
                     {
-                        if (ulong.TryParse(entry.Key, out var index))
+                        if (ulong.TryParse(entry.Key.ToString(), out var index))
                         {
                             min = System.Math.Min(index, min);
                         }
@@ -135,7 +135,7 @@ namespace Jint.Native.Array
 
             public override void SetLength(ulong length)
             {
-                _target.Set("length", length, true);
+                _target.Set(CommonProperties.Length, length, true);
             }
 
             public override void EnsureCapacity(ulong capacity)
@@ -144,12 +144,12 @@ namespace Jint.Native.Array
 
             public override JsValue Get(ulong index)
             {
-                return _target.Get(TypeConverter.ToString(index), _target);
+                return _target.Get(JsString.Create(index), _target);
             }
 
             public override bool TryGetValue(ulong index, out JsValue value)
             {
-                var propertyName = TypeConverter.ToString(index);
+                var propertyName = JsString.Create(index);
                 var property = _target.GetProperty(propertyName);
                 var kPresent = property != PropertyDescriptor.Undefined;
                 value = kPresent ? _target.UnwrapJsValue(property) : JsValue.Undefined;
@@ -158,17 +158,17 @@ namespace Jint.Native.Array
 
             public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
             {
-                _target.CreateDataPropertyOrThrow(TypeConverter.ToString(index), value);
+                _target.CreateDataPropertyOrThrow(JsString.Create(index), value);
             }
 
             public override void Set(ulong index, JsValue value, bool updateLength, bool throwOnError)
             {
-                _target.Set(TypeConverter.ToString(index), value, throwOnError);
+                _target.Set(JsString.Create(index), value, throwOnError);
             }
 
             public override void DeletePropertyOrThrow(ulong index)
             {
-                _target.DeletePropertyOrThrow(TypeConverter.ToString(index));
+                _target.DeletePropertyOrThrow(JsString.Create(index));
             }
         }
 
@@ -195,7 +195,7 @@ namespace Jint.Native.Array
 
             public override void SetLength(ulong length)
             {
-                _target.Set(KnownKeys.Length, length, true);
+                _target.Set(CommonProperties.Length, length, true);
             }
 
             public override void EnsureCapacity(ulong capacity)
@@ -247,7 +247,7 @@ namespace Jint.Native.Array
 
             public override void DeletePropertyOrThrow(ulong index)
             {
-                _target.DeletePropertyOrThrow(TypeConverter.ToString(index));
+                _target.DeletePropertyOrThrow((uint) index);
             }
 
             public override void CreateDataPropertyOrThrow(ulong index, JsValue value)

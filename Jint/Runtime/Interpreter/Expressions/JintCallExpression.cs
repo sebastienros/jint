@@ -112,7 +112,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (_maxRecursionDepth >= 0)
             {
-                var stackItem = new CallStackElement(expression, func, r?.GetReferencedName() ?? "anonymous function");
+                var stackItem = new CallStackElement(expression, func, (r?.GetReferencedName()).ToString() ?? "anonymous function");
 
                 var recursionDepth = _engine.CallStack.Push(stackItem);
 
@@ -128,7 +128,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ExceptionHelper.ThrowTypeError(_engine, r == null ? "" : $"Object has no method '{r.GetReferencedName()}'");
             }
 
-            if (func._type != InternalTypes.Object)
+            if (!func.IsObject())
             {
                 if (_engine._referenceResolver == null || !_engine._referenceResolver.TryGetCallable(_engine, callee, out func))
                 {
@@ -146,18 +146,19 @@ namespace Jint.Runtime.Interpreter.Expressions
             var thisObject = Undefined.Instance;
             if (r != null)
             {
-                if (r._baseValue._type < InternalTypes.ObjectEnvironmentRecord)
+                var baseValue = r.GetBase();
+                if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0)
                 {
-                    thisObject = r._baseValue;
+                    thisObject = baseValue;
                 }
                 else
                 {
-                    var env = (EnvironmentRecord) r._baseValue;
+                    var env = (EnvironmentRecord) baseValue;
                     thisObject = env.ImplicitThisValue();
                 }
 
                 // is it a direct call to eval ? http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.1.1
-                if (r.GetReferencedName() == KnownKeys.Eval && callable is EvalFunctionInstance instance)
+                if (r.GetReferencedName() == CommonProperties.Eval && callable is EvalFunctionInstance instance)
                 {
                     var value = instance.Call(thisObject, arguments, true);
                     _engine._referencePool.Return(r);

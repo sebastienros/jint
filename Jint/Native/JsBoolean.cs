@@ -25,7 +25,7 @@ namespace Jint.Native
 
         public override string ToString()
         {
-            return _value ? bool.TrueString : bool.FalseString;
+            return _value ? "true" : "false";
         }
 
         public override bool Equals(JsValue obj)

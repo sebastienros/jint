@@ -115,8 +115,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public static bool StrictlyEqual(JsValue x, JsValue y)
         {
-            var typeX = x._type;
-            var typeY = y._type;
+            var typeX = x._type & ~InternalTypes.InternalFlags;
+            var typeY = y._type & ~InternalTypes.InternalFlags;
 
             if (typeX != typeY)
             {
@@ -136,29 +136,42 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            switch (typeX)
+            if (typeX == InternalTypes.Undefined || typeX == InternalTypes.Null)
             {
-                case InternalTypes.Undefined:
-                case InternalTypes.Null:
-                    return true;
-                case InternalTypes.Integer:
-                    return x.AsInteger() == y.AsInteger();
-                case InternalTypes.Number:
-                    var nx = ((JsNumber) x)._value;
-                    var ny = ((JsNumber) y)._value;
-                    return !double.IsNaN(nx) && !double.IsNaN(ny) && nx == ny;
-                case InternalTypes.String:
-                    return x.AsStringWithoutTypeCheck() == y.AsStringWithoutTypeCheck();
-                case InternalTypes.Boolean:
-                    return ((JsBoolean) x)._value == ((JsBoolean) y)._value;
-                case InternalTypes.Object when x.AsObject() is IObjectWrapper xw:
-                    var yw = y.AsObject() as IObjectWrapper;
-                    if (yw == null)
-                        return false;
-                    return Equals(xw.Target, yw.Target);
-                default:
-                    return x == y;
+                return true;
             }
+
+            if (typeX == InternalTypes.Integer)
+            {
+                return x.AsInteger() == y.AsInteger();
+            }
+
+            if (typeX == InternalTypes.Number)
+            {
+                var nx = ((JsNumber) x)._value;
+                var ny = ((JsNumber) y)._value;
+                return !double.IsNaN(nx) && !double.IsNaN(ny) && nx == ny;
+            }
+
+            if ((typeX & InternalTypes.String) != 0)
+            {
+                return x.AsStringWithoutTypeCheck() == y.AsStringWithoutTypeCheck();
+            }
+
+            if (typeX == InternalTypes.Boolean)
+            {
+                return ((JsBoolean) x)._value == ((JsBoolean) y)._value;
+            }
+
+            if ((typeX & InternalTypes.Object) != 0 && x.AsObject() is IObjectWrapper xw)
+            {
+                var yw = y.AsObject() as IObjectWrapper;
+                if (yw == null)
+                    return false;
+                return Equals(xw.Target, yw.Target);
+            }
+
+            return x == y;
         }
 
         private sealed class StrictlyEqualBinaryExpression : JintBinaryExpression
@@ -402,7 +415,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "in can only be used with an object");
                 }
 
-                return oi.HasProperty(TypeConverter.ToString(left)) ? JsBoolean.True : JsBoolean.False;
+                return oi.HasProperty(TypeConverter.ToJsString(left)) ? JsBoolean.True : JsBoolean.False;
             }
         }
 

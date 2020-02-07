@@ -1,4 +1,5 @@
 ﻿using Jint.Native.Array;
+using Jint.Runtime;
 
 namespace Jint.Native.Iterator
 {
@@ -29,12 +30,12 @@ namespace Jint.Native.Iterator
                 do
                 {
                     var item = _iterator.Next();
-                    if (item.TryGetValue("done", out var done) && done.AsBoolean())
+                    if (item.TryGetValue(CommonProperties.Done, out var done) && done.AsBoolean())
                     {
                         break;
                     }
 
-                    if (!item.TryGetValue("value", out var currentValue))
+                    if (!item.TryGetValue(CommonProperties.Value, out var currentValue))
                     {
                         currentValue = JsValue.Undefined;
                     }

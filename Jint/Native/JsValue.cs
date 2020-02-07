@@ -38,7 +38,7 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPrimitive()
         {
-            return _type < InternalTypes.Object;
+            return (_type & (InternalTypes.Primitive | InternalTypes.Undefined | InternalTypes.Null)) != 0;
         }
 
         [Pure]
@@ -90,21 +90,21 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsObject()
         {
-            return _type == InternalTypes.Object;
+            return (_type & InternalTypes.Object) != 0;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsString()
         {
-            return _type == InternalTypes.String;
+            return (_type & InternalTypes.String) != 0;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsNumber()
         {
-            return _type == InternalTypes.Number || _type == InternalTypes.Integer;
+            return (_type & (InternalTypes.Number | InternalTypes.Integer)) != 0;
         }
 
         [Pure]
@@ -271,7 +271,9 @@ namespace Jint.Native
         public Types Type
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => _type == InternalTypes.Integer ? Types.Number : (Types) _type;
+            get => _type == InternalTypes.Integer
+                ? Types.Number
+                : (Types) (_type & ~InternalTypes.InternalFlags);
         }
 
         internal virtual bool IsConstructor => this is IConstructor;
@@ -371,7 +373,7 @@ namespace Jint.Native
                 jsArray.WriteArrayValue(i, new PropertyDescriptor(jsItem, PropertyFlag.ConfigurableEnumerableWritable));
             }
 
-            jsArray.SetOwnProperty(KnownKeys.Length, new PropertyDescriptor(arrayLength, PropertyFlag.OnlyWritable));
+            jsArray.SetOwnProperty(CommonProperties.Length, new PropertyDescriptor(arrayLength, PropertyFlag.OnlyWritable));
 
             return jsArray;
         }
@@ -411,7 +413,7 @@ namespace Jint.Native
         /// <param name="propertyName">Property that should be ICallable</param>
         /// <param name="arguments">The arguments of the function call.</param>
         /// <returns>The value returned by the function call.</returns>
-        internal static JsValue Invoke(JsValue v, in Key propertyName, JsValue[] arguments)
+        internal static JsValue Invoke(JsValue v, JsValue propertyName, JsValue[] arguments)
         {
             var func = v.Get(propertyName);
             var callable = func as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
@@ -419,15 +421,15 @@ namespace Jint.Native
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public JsValue Get(in Key propertyName)
+        public JsValue Get(JsValue property)
         {
-            return Get(propertyName, this);
+            return Get(property, this);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.12.3
         /// </summary>
-        public virtual JsValue Get(in Key propertyName, JsValue receiver)
+        public virtual JsValue Get(JsValue property, JsValue receiver)
         {
             return Undefined;
         }
@@ -435,14 +437,9 @@ namespace Jint.Native
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/#sec-ordinary-object-internal-methods-and-internal-slots-set-p-v-receiver
         /// </summary>
-        public virtual bool Set(in Key propertyName, JsValue value, JsValue receiver)
+        public virtual bool Set(JsValue property, JsValue value, JsValue receiver)
         {
             return ExceptionHelper.ThrowNotSupportedException<bool>();
-        }
-
-        internal virtual Key ToPropertyKey()
-        {
-            return new Key(ToString());
         }
 
         public override string ToString()
@@ -452,22 +449,12 @@ namespace Jint.Native
 
         public static bool operator ==(JsValue a, JsValue b)
         {
-            if ((object)a == null)
+            if ((object) a == null)
             {
-                if ((object)b == null)
-                {
-                    return true;
-                }
-
-                return false;
+                return (object) b == null;
             }
 
-            if ((object)b == null)
-            {
-                return false;
-            }
-
-            return a.Equals(b);
+            return (object) b != null && a.Equals(b);
         }
 
         public static bool operator !=(JsValue a, JsValue b)
@@ -588,7 +575,8 @@ namespace Jint.Native
                         Value = value.AsObject().GetType().Name;
                         break;
                     case Types.Symbol:
-                        Value = value.AsSymbol() + " (symbol)";
+                        var jsValue = ((JsSymbol) value)._value;
+                        Value = (jsValue.IsUndefined() ? "" : jsValue.ToString()) + " (symbol)";
                         break;
                     default:
                         Value = "Unknown";
@@ -600,11 +588,20 @@ namespace Jint.Native
         /// <summary>
         /// Some values need to be cloned in order to be assigned, like ConcatenatedString.
         /// </summary>
-        internal virtual JsValue Clone()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal JsValue Clone()
+        {
+            // concatenated string and arguments currently may require cloning
+            return (_type & InternalTypes.RequiresCloning) == 0
+                ? this
+                : DoClone();
+        }
+
+        internal virtual JsValue DoClone()
         {
             return this;
         }
-        
+
         internal static bool SameValue(JsValue x, JsValue y)
         {
             var typea = TypeConverter.GetInternalPrimitiveType(x);
@@ -612,27 +609,17 @@ namespace Jint.Native
 
             if (typea != typeb)
             {
-                if (typea == InternalTypes.Integer)
-                {
-                    typea = InternalTypes.Number;
-                }
-                if (typeb == InternalTypes.Integer)
-                {
-                    typeb = InternalTypes.Number;
-                }
-
-                if (typea != typeb)
-                {
-                    return false;
-                }
+                return false;
             }
 
             switch (typea)
             {
-                case InternalTypes.Integer:
-                    return x.AsInteger() == y.AsInteger();
+                case Types.Number:
+                    if (x._type == y._type && x._type == InternalTypes.Integer)
+                    {
+                        return x.AsInteger() == y.AsInteger();
+                    }
 
-                case InternalTypes.Number:
                     var nx = TypeConverter.ToNumber(x);
                     var ny = TypeConverter.ToNumber(y);
 
@@ -653,9 +640,9 @@ namespace Jint.Native
                     }
 
                     return false;
-                case InternalTypes.String:
+                case Types.String:
                     return TypeConverter.ToString(x) == TypeConverter.ToString(y);
-                case InternalTypes.Boolean:
+                case Types.Boolean:
                     return TypeConverter.ToBoolean(x) == TypeConverter.ToBoolean(y);
                 default:
                     return x == y;

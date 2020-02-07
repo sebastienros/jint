@@ -34,15 +34,15 @@ namespace Jint.Native.Function
 
         protected override void Initialize()
         {
-            var properties = new StringDictionarySlim<PropertyDescriptor>(5)
+            var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
-                [KnownKeys.Constructor] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true),
                 ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2), true, false, true),
                 ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1), true, false, true),
                 ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1), true, false, true)
             };
-            SetProperties(properties, hasSymbols: false);
+            SetProperties(properties);
         }
 
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)
@@ -65,16 +65,16 @@ namespace Jint.Native.Function
 
             if (target is FunctionInstance functionInstance)
             {
-                var l = TypeConverter.ToNumber(functionInstance.Get("length", functionInstance)) - (arguments.Length - 1);
-                f.SetOwnProperty(KnownKeys.Length, new PropertyDescriptor(System.Math.Max(l, 0), PropertyFlag.AllForbidden));
+                var l = TypeConverter.ToNumber(functionInstance.Get(CommonProperties.Length, functionInstance)) - (arguments.Length - 1);
+                f.SetOwnProperty(CommonProperties.Length, new PropertyDescriptor(System.Math.Max(l, 0), PropertyFlag.AllForbidden));
             }
             else
             {
-                f.SetOwnProperty(KnownKeys.Length, PropertyDescriptor.AllForbiddenDescriptor.NumberZero);
+                f.SetOwnProperty(CommonProperties.Length, PropertyDescriptor.AllForbiddenDescriptor.NumberZero);
             }
 
-            f.DefineOwnProperty(KnownKeys.Caller, _engine._getSetThrower);
-            f.DefineOwnProperty(KnownKeys.Arguments, _engine._getSetThrower);
+            f.DefineOwnProperty(CommonProperties.Caller, _engine._getSetThrower);
+            f.DefineOwnProperty(CommonProperties.Arguments, _engine._getSetThrower);
 
             return f;
         }

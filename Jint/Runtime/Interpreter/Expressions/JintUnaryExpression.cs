@@ -69,7 +69,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (r.IsUnresolvableReference())
                     {
-                        if (r._strict)
+                        if (r.IsStrictReference())
                         {
                             ExceptionHelper.ThrowSyntaxError(_engine);
                         }
@@ -82,7 +82,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         var o = TypeConverter.ToObject(_engine, r.GetBase());
                         var deleteStatus  = o.Delete(r.GetReferencedName());
-                        if (!deleteStatus && r._strict)
+                        if (!deleteStatus && r.IsStrictReference())
                         {
                             ExceptionHelper.ThrowTypeError(_engine);
                         }
@@ -91,16 +91,16 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return deleteStatus ? JsBoolean.True : JsBoolean.False;
                     }
 
-                    if (r._strict)
+                    if (r.IsStrictReference())
                     {
                         ExceptionHelper.ThrowSyntaxError(_engine);
                     }
 
                     var bindings = r.GetBase().TryCast<EnvironmentRecord>();
-                    var referencedName = r.GetReferencedName();
+                    var property = r.GetReferencedName();
                     _engine._referencePool.Return(r);
 
-                    return bindings.DeleteBinding(referencedName) ? JsBoolean.True : JsBoolean.False;
+                    return bindings.DeleteBinding(property.ToString()) ? JsBoolean.True : JsBoolean.False;
 
                 case UnaryOperator.Void:
                     _argument.GetValue();

@@ -103,7 +103,7 @@ namespace Jint
             { typeof(Int64), (engine, v) => (JsValue)(Int64)v },
             { typeof(SByte), (engine, v) => JsNumber.Create((SByte)v) },
             { typeof(Single), (engine, v) => (JsValue)(Single)v },
-            { typeof(string), (engine, v) => (JsValue) (string)v },
+            { typeof(string), (engine, v) => JsString.Create((string) v) },
             { typeof(UInt16), (engine, v) => JsNumber.Create((UInt16)v) },
             { typeof(UInt32), (engine, v) => JsNumber.Create((UInt32)v) },
             { typeof(UInt64), (engine, v) => JsNumber.Create((UInt64)v) },
@@ -196,12 +196,15 @@ namespace Jint
             // Because the properties might need some of the built-in object
             // their configuration is delayed to a later step
 
+            // trigger initialization
+            Global.GetProperty(JsString.Empty);
+
             // this is implementation dependent, and only to pass some unit tests
             Global._prototype = Object.PrototypeObject;
             Object._prototype = Function.PrototypeObject;
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
-            GlobalEnvironment = LexicalEnvironment.NewObjectEnvironment(this, Global, null, false);
+            GlobalEnvironment = LexicalEnvironment.NewGlobalEnvironment(this, Global);
 
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
             EnterExecutionContext(GlobalEnvironment, GlobalEnvironment, Global);
@@ -226,7 +229,7 @@ namespace Jint
             _jsValueArrayPool = new JsValueArrayPool();
 
             Eval = new EvalFunctionInstance(this, ArrayExt.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
-            Global.SetProperty(KnownKeys.Eval, new PropertyDescriptor(Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
+            Global.SetProperty(CommonProperties.Eval, new PropertyDescriptor(Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
 
             if (Options._IsClrAllowed)
             {
@@ -240,7 +243,7 @@ namespace Jint
             ClrTypeConverter = new DefaultTypeConverter(this);
         }
 
-        public LexicalEnvironment GlobalEnvironment { get; }
+        internal LexicalEnvironment GlobalEnvironment { get; }
         public GlobalObject Global { get; }
         public ObjectConstructor Object { get; }
         public FunctionConstructor Function { get; }
@@ -314,39 +317,39 @@ namespace Jint
             _executionContexts.Push(context);
         }
 
-        public Engine SetValue(in Key name, Delegate value)
+        public Engine SetValue(JsValue name, Delegate value)
         {
             Global.FastAddProperty(name, new DelegateWrapper(this, value), true, false, true);
             return this;
         }
 
-        public Engine SetValue(in Key name, string value)
+        public Engine SetValue(JsValue name, string value)
         {
-            return SetValue(name, (JsValue) value);
+            return SetValue(name, new JsString(value));
         }
 
-        public Engine SetValue(in Key name, double value)
-        {
-            return SetValue(name, JsNumber.Create(value));
-        }
-
-        public Engine SetValue(in Key name, int value)
+        public Engine SetValue(JsValue name, double value)
         {
             return SetValue(name, JsNumber.Create(value));
         }
 
-        public Engine SetValue(in Key name, bool value)
+        public Engine SetValue(JsValue name, int value)
+        {
+            return SetValue(name, JsNumber.Create(value));
+        }
+
+        public Engine SetValue(JsValue name, bool value)
         {
             return SetValue(name, value ? JsBoolean.True : JsBoolean.False);
         }
 
-        public Engine SetValue(in Key name, JsValue value)
+        public Engine SetValue(JsValue name, JsValue value)
         {
             Global.Set(name, value, Global);
             return this;
         }
 
-        public Engine SetValue(in Key name, object obj)
+        public Engine SetValue(JsValue name, object obj)
         {
             return SetValue(name, JsValue.FromObject(this, obj));
         }
@@ -504,7 +507,9 @@ namespace Jint
 
         internal JsValue GetValue(Reference reference, bool returnReferenceToPool)
         {
-            if (reference._baseValue._type == InternalTypes.Undefined)
+            var baseValue = reference.GetBase();
+
+            if (baseValue._type == InternalTypes.Undefined)
             {
                 if (_referenceResolver != null &&
                     _referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
@@ -515,10 +520,8 @@ namespace Jint
                 ExceptionHelper.ThrowReferenceError(this, reference);
             }
 
-            var baseValue = reference._baseValue;
-
             if (_referenceResolver != null
-                && reference._baseValue._type < InternalTypes.ObjectEnvironmentRecord
+                && (baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0
                 && _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
             {
                 return baseValue;
@@ -526,22 +529,47 @@ namespace Jint
             
             if (reference.IsPropertyReference())
             {
-                ref readonly var referencedName = ref reference.GetReferencedName();
+                var property = reference.GetReferencedName();
                 if (returnReferenceToPool)
                 {
                     _referencePool.Return(reference);
                 }
 
-                if (reference._baseValue._type == InternalTypes.Object)
+                if (baseValue.IsObject())
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
-                    var v = o.Get(referencedName);
+                    var v = o.Get(property);
                     return v;
                 }
                 else
                 {
-                    var o = TypeConverter.ToObject(this, baseValue);
-                    var desc = o.GetProperty(referencedName);
+                    // check if we are accessing a string, boxing operation can be costly to do index access
+                    ObjectInstance o;
+                    if (baseValue is JsString s)
+                    {
+                        if (property == CommonProperties.Length)
+                        {
+                            return s.Length;
+                        }
+
+                        if (property is JsNumber number && number.IsInteger())
+                        {
+                            var index = number.AsInteger();
+                            if (index < 0 || index >= s.Length)
+                            {
+                                return JsValue.Undefined;
+                            }
+                            return s[index];
+                        }
+
+                        o = String.PrototypeObject;
+                    }
+                    else
+                    {
+                        o = TypeConverter.ToObject(this, baseValue);
+                    }
+
+                    var desc = o.GetProperty(property);
                     if (desc == PropertyDescriptor.Undefined)
                     {
                         return JsValue.Undefined;
@@ -568,7 +596,7 @@ namespace Jint
                 return ExceptionHelper.ThrowArgumentException<JsValue>();
             }
 
-            var bindingValue = record.GetBindingValue(reference.GetReferencedName(), reference._strict);
+            var bindingValue = record.GetBindingValue(reference.GetReferencedName().ToString(), reference.IsStrictReference());
 
             if (returnReferenceToPool)
             {
@@ -581,35 +609,36 @@ namespace Jint
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/#sec-putvalue
         /// </summary>
-        public void PutValue(Reference reference, JsValue value)
+        internal void PutValue(Reference reference, JsValue value)
         {
-            ref readonly var referencedName = ref reference.GetReferencedName();
-            var baseValue = reference._baseValue;
+            var property = reference.GetReferencedName();
+            var baseValue = reference.GetBase();
             if (reference.IsUnresolvableReference())
             {
-                if (reference._strict)
+                if (reference.IsStrictReference())
                 {
                     ExceptionHelper.ThrowReferenceError(this, reference);
                 }
 
-                Global.Set(referencedName, value);
+                Global.Set(property, value);
             }
             else if (reference.IsPropertyReference())
             {
                 if (reference.HasPrimitiveBase())
                 {
-                    baseValue = TypeConverter.ToObject(this, reference._baseValue);
+                    baseValue = TypeConverter.ToObject(this, baseValue);
                 }
+
                 var thisValue = GetThisValue(reference);
-                var succeeded = baseValue.Set(referencedName, value, thisValue);
-                if (!succeeded && reference._strict)
+                var succeeded = baseValue.Set(property, value, thisValue);
+                if (!succeeded && reference.IsStrictReference())
                 {
                     ExceptionHelper.ThrowTypeError(this);
                 }
             }
             else
             {
-                ((EnvironmentRecord) baseValue).SetMutableBinding(referencedName, value, reference._strict);
+                ((EnvironmentRecord) baseValue).SetMutableBinding(property.ToString(), value, reference.IsStrictReference());
             }
         }
 
@@ -620,7 +649,7 @@ namespace Jint
                 return ExceptionHelper.ThrowNotImplementedException<JsValue>();
             }
 
-            return reference._baseValue;
+            return reference.GetBase();
         }
 
         /// <summary>
@@ -688,7 +717,7 @@ namespace Jint
         /// <param name="propertyName">The name of the property to return.</param>
         public JsValue GetValue(string propertyName)
         {
-            return GetValue(Global, propertyName);
+            return GetValue(Global, new JsString(propertyName));
         }
 
         /// <summary>
@@ -703,12 +732,10 @@ namespace Jint
         /// Gets a named value from the specified scope.
         /// </summary>
         /// <param name="scope">The scope to get the property from.</param>
-        /// <param name="propertyName">The name of the property to return.</param>
-        public JsValue GetValue(JsValue scope, in Key propertyName)
+        /// <param name="property">The name of the property to return.</param>
+        public JsValue GetValue(JsValue scope, JsValue property)
         {
-            AssertNotNullOrEmpty(nameof(propertyName), propertyName);
-
-            var reference = _referencePool.Rent(scope, propertyName, _isStrict);
+            var reference = _referencePool.Rent(scope, property, _isStrict);
             var jsValue = GetValue(reference, false);
             _referencePool.Return(reference);
             return jsValue;
@@ -749,7 +776,7 @@ namespace Jint
                     var parameters = functionInstance._formalParameters;
                     for (uint i = 0; i < (uint) parameters.Length; i++)
                     {
-                        Key argName = parameters[i];
+                        var argName = parameters[i];
                         var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
                         v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionDeclaration, v, i);
 
@@ -761,7 +788,7 @@ namespace Jint
 
                         env.SetMutableBinding(argName, v, strict);
                     }
-                    env.CreateMutableBinding(KnownKeys.Arguments, argsObj);
+                    env.CreateMutableBinding("arguments", argsObj);
                 }
             }
 
@@ -796,7 +823,7 @@ namespace Jint
                         var d = declarations[j];
                         if (d.Id is Identifier id1)
                         {
-                            Key name = id1.Name;
+                            var name = id1.Name;
                             var varAlreadyDeclared = env.HasBinding(name);
                             if (!varAlreadyDeclared)
                             {
@@ -820,9 +847,9 @@ namespace Jint
             for (var i = 0; i < functionDeclarationsCount; i++)
             {
                 var f = functionDeclarations[i];
-                Key fn = f.Id.Name;
+                var fn = f.Id.Name;
                 var fo = Function.CreateFunctionObject(f);
-                var funcAlreadyDeclared = env.HasBinding(fn);
+                var funcAlreadyDeclared = env.HasBinding(f.Id.Name);
                 if (!funcAlreadyDeclared)
                 {
                     env.CreateMutableBinding(fn, configurableBindings);

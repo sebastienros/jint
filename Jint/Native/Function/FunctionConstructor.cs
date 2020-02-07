@@ -147,13 +147,13 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowTypeError(Engine);
             }
 
-            var len = argArrayObj.Get("length", argArrayObj);
+            var len = argArrayObj.Get(CommonProperties.Length, argArrayObj);
             var n = TypeConverter.ToUint32(len);
             var argList = new JsValue[n];
             for (var index = 0; index < n; index++)
             {
                 var indexName = TypeConverter.ToString(index);
-                var nextArg = argArrayObj.Get(indexName, argArrayObj);
+                var nextArg = argArrayObj.Get(JsString.Create(indexName), argArrayObj);
                 argList[index] = nextArg;
             }
             return func.Call(thisArg, argList);

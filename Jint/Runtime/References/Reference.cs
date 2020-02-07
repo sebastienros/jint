@@ -11,33 +11,24 @@ namespace Jint.Runtime.References
     /// </summary>
     public sealed class Reference
     {
-        internal JsValue _baseValue;
-        private Key _name;
+        private JsValue _baseValue;
+        private JsValue _property;
         internal bool _strict;
 
-        public Reference(JsValue baseValue, in Key name, bool strict)
+        public Reference(JsValue baseValue, JsValue property, bool strict)
         {
             _baseValue = baseValue;
-            _name = name;
+            _property = property;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public JsValue GetBase()
-        {
-            return _baseValue;
-        }
+        public JsValue GetBase() => _baseValue;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref readonly Key GetReferencedName()
-        {
-            return ref _name;
-        }
+        public JsValue GetReferencedName() => _property;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsStrict()
-        {
-            return _strict;
-        }
+        public bool IsStrictReference() => _strict;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasPrimitiveBase()
@@ -64,10 +55,10 @@ namespace Jint.Runtime.References
             return (_baseValue._type & (InternalTypes.Primitive | InternalTypes.Object)) != 0;
         }
 
-        internal Reference Reassign(JsValue baseValue, in Key name, bool strict)
+        internal Reference Reassign(JsValue baseValue, JsValue name, bool strict)
         {
             _baseValue = baseValue;
-            _name = name;
+            _property = name;
             _strict = strict;
 
             return this;
@@ -76,8 +67,8 @@ namespace Jint.Runtime.References
         internal void AssertValid(Engine engine)
         {
             if (_strict
-                && _baseValue._type == InternalTypes.ObjectEnvironmentRecord
-                && (_name == KnownKeys.Eval || _name == KnownKeys.Arguments))
+                && (_baseValue._type & InternalTypes.ObjectEnvironmentRecord) != 0
+                && (_property == CommonProperties.Eval || _property == CommonProperties.Arguments))
             {
                 ExceptionHelper.ThrowSyntaxError(engine);
             }

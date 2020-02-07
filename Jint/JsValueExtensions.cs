@@ -37,7 +37,7 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string AsString(this JsValue value)
         {
-            if (value._type != InternalTypes.String)
+            if (!value.IsString())
             {
                 ThrowWrongTypeException(value, "string");
             }
@@ -49,17 +49,6 @@ namespace Jint
         internal static string AsStringWithoutTypeCheck(this JsValue value)
         {
             return value.ToString();
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string AsSymbol(this JsValue value)
-        {
-            if (value._type != InternalTypes.Symbol)
-            {
-                ThrowWrongTypeException(value, "symbol");
-            }
-
-            return ((JsSymbol) value).ToPropertyKey();
         }
 
         private static void ThrowWrongTypeException(JsValue value, string expectedType)

@@ -32,7 +32,7 @@ namespace Jint.Native.Object
         {
             _prototype = Engine.Function.PrototypeObject;
 
-            var properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            var properties = new PropertyDictionary(15, checkExistingKeys: false)
             {
                 ["getPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getPrototypeOf", GetPrototypeOf, 1), true, false, true),
                 ["getOwnPropertyDescriptor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2), true, false, true),
@@ -50,8 +50,7 @@ namespace Jint.Native.Object
                 ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 1), true, false, true),
                 ["setPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setPrototypeOf", SetPrototypeOf, 2), true, false, true)
             };
-            
-            SetProperties(properties, hasSymbols: false);
+            SetProperties(properties);
         }
 
         public ObjectPrototype PrototypeObject { get; private set; }
@@ -117,12 +116,7 @@ namespace Jint.Native.Object
                 _prototype = Engine.Object.PrototypeObject,
             };
 
-            obj.SetProperties(
-                propertyCount > 1
-                    ? new StringDictionarySlim<PropertyDescriptor>(propertyCount)
-                    : null,
-                hasSymbols: false
-            );
+            obj.SetProperties(propertyCount > 0  ? new PropertyDictionary(propertyCount, checkExistingKeys: true) : null);
 
             return obj;
         }
@@ -184,7 +178,7 @@ namespace Jint.Native.Object
                     array.SetIndexValue(n++, TypeConverter.ToString(i), updateLength: false);
                 }
 
-                array.SetIndexValue(n++, JsString.LengthString, updateLength: false);
+                array.SetIndexValue(n++, CommonProperties.Length, updateLength: false);
             }
 
             array = array ?? Engine.Array.ConstructFast((uint) ownProperties.Count);
@@ -247,7 +241,7 @@ namespace Jint.Native.Object
             var o = arguments.As<ObjectInstance>(0, _engine);
             var properties = arguments.At(1);
             var props = TypeConverter.ToObject(Engine, properties);
-            var descriptors = new List<KeyValuePair<string, PropertyDescriptor>>();
+            var descriptors = new List<KeyValuePair<JsValue, PropertyDescriptor>>();
             foreach (var p in props.GetOwnProperties())
             {
                 if (!p.Value.Enumerable)
@@ -257,7 +251,7 @@ namespace Jint.Native.Object
 
                 var descObj = props.Get(p.Key, props);
                 var desc = PropertyDescriptor.ToPropertyDescriptor(Engine, descObj);
-                descriptors.Add(new KeyValuePair<string, PropertyDescriptor>(p.Key, desc));
+                descriptors.Add(new KeyValuePair<JsValue, PropertyDescriptor>(p.Key, desc));
             }
             foreach (var pair in descriptors)
             {
@@ -270,7 +264,7 @@ namespace Jint.Native.Object
         public JsValue Seal(JsValue thisObject, JsValue[] arguments)
         {
             var o = arguments.As<ObjectInstance>(0, _engine);
-            var properties = new List<KeyValuePair<Key, PropertyDescriptor>>(o.GetOwnProperties());
+            var properties = new List<KeyValuePair<JsValue, PropertyDescriptor>>(o.GetOwnProperties());
             foreach (var prop in properties)
             {
                 var propertyDescriptor = prop.Value;
@@ -291,7 +285,7 @@ namespace Jint.Native.Object
         public JsValue Freeze(JsValue thisObject, JsValue[] arguments)
         {
             var o = arguments.As<ObjectInstance>(0, _engine);
-            var properties = new List<KeyValuePair<Key, PropertyDescriptor>>(o.GetOwnProperties());
+            var properties = new List<KeyValuePair<JsValue, PropertyDescriptor>>(o.GetOwnProperties());
             foreach (var p in properties)
             {
                 var desc = o.GetOwnProperty(p.Key);
@@ -389,28 +383,34 @@ namespace Jint.Native.Object
 
             var array = Engine.Array.ConstructFast((uint) ownKeys.Count);
             uint index = 0;
-            foreach (var key in ownKeys)
+
+            for (var i = 0; i < ownKeys.Count; i++)
             {
-                var propertyName = key.ToPropertyKey();
-                var desc = o.GetOwnProperty(propertyName);
+                var property = ownKeys[i];
+                var desc = o.GetOwnProperty(property);
                 if (desc != PropertyDescriptor.Undefined && desc.Enumerable)
                 {
                     if (kind == EnumerableOwnPropertyNamesKind.Key)
                     {
-                        array.SetIndexValue(index, key, updateLength: false);
+                        array.SetIndexValue(index, property, updateLength: false);
                     }
                     else
                     {
-                        var value = o.Get(propertyName, o);
+                        var value = o.Get(property, o);
                         if (kind == EnumerableOwnPropertyNamesKind.Value)
                         {
                             array.SetIndexValue(index, value, updateLength: false);
                         }
                         else
                         {
-                            array.SetIndexValue(index, _engine.Array.Construct(new [] { key, value }), updateLength: false);
+                            array.SetIndexValue(index, _engine.Array.Construct(new[]
+                            {
+                                property,
+                                value
+                            }), updateLength: false);
                         }
                     }
+
                     index++;
                 }
             }

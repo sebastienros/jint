@@ -2,7 +2,7 @@
 
 namespace Jint.Runtime.Environments
 {
-    public struct Binding
+    public readonly struct Binding
     {
         public Binding(JsValue value, bool canBeDeleted, bool mutable)
         {
@@ -11,10 +11,15 @@ namespace Jint.Runtime.Environments
             Mutable = mutable;
         }
 
-        public JsValue Value;
+        public readonly JsValue Value;
         public readonly bool CanBeDeleted;
         public readonly bool Mutable;
 
-        public bool IsInitialized => !ReferenceEquals(Value, null);
+        public Binding ChangeValue(JsValue argument)
+        {
+            return new Binding(argument, CanBeDeleted, Mutable);
+        }
+
+        public bool IsInitialized() => !(Value is null);
     }
 }

@@ -41,26 +41,15 @@ namespace Jint.Native.RegExp
 
         protected override void Initialize()
         {
-            var properties = new StringDictionarySlim<PropertyDescriptor>(1)
+            var symbols = new SymbolDictionary(1)
             {
                 [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", (thisObj, _) => thisObj, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
             };
-           
-            SetProperties(properties, hasSymbols: true);
+            SetSymbols(symbols);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            var pattern = arguments.At(0);
-            var flags = arguments.At(1);
-
-            if (!pattern.IsUndefined()
-                && flags.IsUndefined()
-                && TypeConverter.ToObject(Engine, pattern).Class == "Regex")
-            {
-                return pattern;
-            }
-
             return Construct(arguments, thisObject);
         }
 
@@ -83,7 +72,7 @@ namespace Jint.Native.RegExp
                 newTarget = this;
                 if (patternIsRegExp && flags.IsUndefined())
                 {
-                    var patternConstructor = pattern.Get(KnownKeys.Constructor);
+                    var patternConstructor = pattern.Get(CommonProperties.Constructor);
                     if (ReferenceEquals(newTarget, patternConstructor))
                     {
                         return (ObjectInstance) pattern;
@@ -100,8 +89,8 @@ namespace Jint.Native.RegExp
             }
             else if (patternIsRegExp)
             {
-                p = pattern.Get("source");
-                f = flags.IsUndefined() ? pattern.Get("flags") : flags;
+                p = pattern.Get(RegExpPrototype.PropertySource);
+                f = flags.IsUndefined() ? pattern.Get(RegExpPrototype.PropertyFlags) : flags;
             }
             else
             {
@@ -207,7 +196,7 @@ namespace Jint.Native.RegExp
         
         private static void RegExpInitialize(RegExpInstance r)
         {
-            r.SetOwnProperty("lastIndex", new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
+            r.SetOwnProperty(RegExpInstance.PropertyLastIndex, new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
         }
         
         public RegExpPrototype PrototypeObject { get; private set; }

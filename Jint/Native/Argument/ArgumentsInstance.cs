@@ -14,7 +14,7 @@ namespace Jint.Native.Argument
     /// </summary>
     public sealed class ArgumentsInstance : ObjectInstance
     {
-        // cache key container for array iteration for less allocations
+        // cache property container for array iteration for less allocations
         private static readonly ThreadLocal<HashSet<string>> _mappedNamed = new ThreadLocal<HashSet<string>>(() => new HashSet<string>());
 
         private FunctionInstance _func;
@@ -24,7 +24,8 @@ namespace Jint.Native.Argument
         private bool _strict;
         private bool _canReturnToPool;
 
-        internal ArgumentsInstance(Engine engine) : base(engine, objectClass: "Arguments")
+        internal ArgumentsInstance(Engine engine)
+            : base(engine, ObjectClass.Arguments, InternalTypes.Object | InternalTypes.RequiresCloning)
         {
         }
 
@@ -50,9 +51,9 @@ namespace Jint.Native.Argument
         {
             _canReturnToPool = false;
 
-            var args = _args;
-            SetOwnProperty(KnownKeys.Length, new PropertyDescriptor(args.Length, PropertyFlag.NonEnumerable));
+            SetOwnProperty(CommonProperties.Length, new PropertyDescriptor(_args.Length, PropertyFlag.NonEnumerable));
 
+            var args = _args;
             ObjectInstance map = null;
             if (args.Length > 0)
             {
@@ -62,14 +63,10 @@ namespace Jint.Native.Argument
                     mappedNamed = _mappedNamed.Value;
                     mappedNamed.Clear();
                 }
-                for (var i = 0; i < (uint) args.Length; i++)
-                {
-                    var indexKey = i < Key.indexKeys.Length
-                        ? Key.indexKeys[i]
-                        : (Key) TypeConverter.ToString(i);
 
-                    var val = args[i];
-                    SetOwnProperty(indexKey, new PropertyDescriptor(val, PropertyFlag.ConfigurableEnumerableWritable));
+                for (uint i = 0; i < (uint) args.Length; i++)
+                {
+                    SetOwnProperty(i, new PropertyDescriptor(args[i], PropertyFlag.ConfigurableEnumerableWritable));
                     if (i < _names.Length)
                     {
                         var name = _names[i];
@@ -77,7 +74,7 @@ namespace Jint.Native.Argument
                         {
                             map ??= Engine.Object.Construct(Arguments.Empty);
                             mappedNamed.Add(name);
-                            map.SetOwnProperty(indexKey, new ClrAccessDescriptor(_env, Engine, name));
+                            map.SetOwnProperty(i, new ClrAccessDescriptor(_env, Engine, name));
                         }
                     }
                 }
@@ -88,31 +85,31 @@ namespace Jint.Native.Argument
             // step 13
             if (!_strict)
             {
-                SetOwnProperty(KnownKeys.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
+                SetOwnProperty(CommonProperties.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
             }
             // step 14
             else
             {
-                DefineOwnProperty(KnownKeys.Caller, _engine._getSetThrower);
-                DefineOwnProperty(KnownKeys.Callee, _engine._getSetThrower);
+                DefineOwnProperty(CommonProperties.Caller, _engine._getSetThrower);
+                DefineOwnProperty(CommonProperties.Callee, _engine._getSetThrower);
             }
         }
 
         public ObjectInstance ParameterMap { get; set; }
 
-        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
             EnsureInitialized();
 
             if (!_strict && !ReferenceEquals(ParameterMap, null))
             {
-                var desc = base.GetOwnProperty(propertyName);
+                var desc = base.GetOwnProperty(property);
                 if (desc == PropertyDescriptor.Undefined)
                 {
                     return desc;
                 }
 
-                if (ParameterMap.TryGetValue(propertyName, out var jsValue) && !jsValue.IsUndefined())
+                if (ParameterMap.TryGetValue(property, out var jsValue) && !jsValue.IsUndefined())
                 {
                     desc.Value = jsValue;
                 }
@@ -120,31 +117,31 @@ namespace Jint.Native.Argument
                 return desc;
             }
 
-            return base.GetOwnProperty(propertyName);
+            return base.GetOwnProperty(property);
         }
 
         /// Implementation from ObjectInstance official specs as the one
         /// in ObjectInstance is optimized for the general case and wouldn't work
         /// for arrays
-        public override bool Set(in Key propertyName, JsValue value, JsValue receiver)
+        public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
             EnsureInitialized();
 
-            if (!CanPut(propertyName))
+            if (!CanPut(property))
             {
                 return false;
             }
 
-            var ownDesc = GetOwnProperty(propertyName);
+            var ownDesc = GetOwnProperty(property);
 
             if (ownDesc.IsDataDescriptor())
             {
                 var valueDesc = new PropertyDescriptor(value, PropertyFlag.None);
-                return DefineOwnProperty(propertyName, valueDesc);
+                return DefineOwnProperty(property, valueDesc);
             }
 
             // property is an accessor or inherited
-            var desc = GetProperty(propertyName);
+            var desc = GetProperty(property);
 
             if (desc.IsAccessorDescriptor())
             {
@@ -157,13 +154,13 @@ namespace Jint.Native.Argument
             else
             {
                 var newDesc = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
-                return DefineOwnProperty(propertyName, newDesc);
+                return DefineOwnProperty(property, newDesc);
             }
 
             return true;
         }
 
-        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc)
+        public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
             if (_func is ScriptFunctionInstance scriptFunctionInstance && scriptFunctionInstance._function._hasRestParameter)
             {
@@ -176,8 +173,8 @@ namespace Jint.Native.Argument
             if (!_strict && !ReferenceEquals(ParameterMap, null))
             {
                 var map = ParameterMap;
-                var isMapped = map.GetOwnProperty(propertyName);
-                var allowed = base.DefineOwnProperty(propertyName, desc);
+                var isMapped = map.GetOwnProperty(property);
+                var allowed = base.DefineOwnProperty(property, desc);
                 if (!allowed)
                 {
                     return false;
@@ -187,19 +184,19 @@ namespace Jint.Native.Argument
                 {
                     if (desc.IsAccessorDescriptor())
                     {
-                        map.Delete(propertyName);
+                        map.Delete(property);
                     }
                     else
                     {
                         var descValue = desc.Value;
                         if (!ReferenceEquals(descValue, null) && !descValue.IsUndefined())
                         {
-                            map.Set(propertyName, descValue, false);
+                            map.Set(property, descValue, false);
                         }
 
                         if (desc.WritableSet && !desc.Writable)
                         {
-                            map.Delete(propertyName);
+                            map.Delete(property);
                         }
                     }
                 }
@@ -207,30 +204,30 @@ namespace Jint.Native.Argument
                 return true;
             }
 
-            return base.DefineOwnProperty(propertyName, desc);
+            return base.DefineOwnProperty(property, desc);
         }
 
-        public override bool Delete(in Key propertyName)
+        public override bool Delete(JsValue property)
         {
             EnsureInitialized();
 
             if (!_strict && !ReferenceEquals(ParameterMap, null))
             {
                 var map = ParameterMap;
-                var isMapped = map.GetOwnProperty(propertyName);
-                var result = base.Delete(propertyName);
+                var isMapped = map.GetOwnProperty(property);
+                var result = base.Delete(property);
                 if (result && isMapped != PropertyDescriptor.Undefined)
                 {
-                    map.Delete(propertyName);
+                    map.Delete(property);
                 }
 
                 return result;
             }
 
-            return base.Delete(propertyName);
+            return base.Delete(property);
         }
 
-        internal override JsValue Clone()
+        internal override JsValue DoClone()
         {
             // there's an assignment or return value of function, need to create persistent state
 

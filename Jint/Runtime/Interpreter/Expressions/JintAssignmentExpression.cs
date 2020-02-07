@@ -164,8 +164,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     _left = Build(engine, (Expression) expression.Left);
                     _leftIdentifier = _left as JintIdentifierExpression;
-                    _evalOrArguments = _leftIdentifier?.ExpressionName == KnownKeys.Eval
-                                       || _leftIdentifier?.ExpressionName == KnownKeys.Arguments;
+                    _evalOrArguments = _leftIdentifier?.HasEvalOrArguments == true;
                 }
 
                 _right = Build(engine, expression.Right);

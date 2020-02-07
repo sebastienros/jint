@@ -12,8 +12,10 @@ namespace Jint.Runtime.Interop
 {
     public sealed class TypeReference : FunctionInstance, IConstructor, IObjectWrapper
     {
+        private static readonly JsString _name = new JsString("typereference");
+
         private TypeReference(Engine engine)
-            : base(engine, "typereference", null, null, false, "TypeReference")
+            : base(engine, _name, strict: false, ObjectClass.TypeReference)
         {
         }
 
@@ -107,24 +109,24 @@ namespace Jint.Runtime.Interop
             return base.HasInstance(v);
         }
 
-        public override bool DefineOwnProperty(in Key propertyName, PropertyDescriptor desc)
+        public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
             return false;
         }
 
-        public override bool Delete(in Key propertyName)
+        public override bool Delete(JsValue property)
         {
             return false;
         }
 
-        public override bool Set(in Key propertyName, JsValue value, JsValue receiver)
+        public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
-            if (!CanPut(propertyName))
+            if (!CanPut(property))
             {
                 return false;
             }
 
-            var ownDesc = GetOwnProperty(propertyName);
+            var ownDesc = GetOwnProperty(property);
 
             if (ownDesc == null)
             {
@@ -135,10 +137,10 @@ namespace Jint.Runtime.Interop
             return true;
         }
 
-        public override PropertyDescriptor GetOwnProperty(in Key key)
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
             // todo: cache members locally
-
+            var name = property.ToString();
             if (ReferenceType.IsEnum)
             {
                 Array enumValues = Enum.GetValues(ReferenceType);
@@ -146,7 +148,7 @@ namespace Jint.Runtime.Interop
 
                 for (int i = 0; i < enumValues.Length; i++)
                 {
-                    if (enumNames.GetValue(i) as string == key.Name)
+                    if (enumNames.GetValue(i) as string == name)
                     {
                         return new PropertyDescriptor((int) enumValues.GetValue(i), PropertyFlag.AllForbidden);
                     }
@@ -154,13 +156,13 @@ namespace Jint.Runtime.Interop
                 return PropertyDescriptor.Undefined;
             }
 
-            var propertyInfo = ReferenceType.GetProperty(key.Name, BindingFlags.Public | BindingFlags.Static);
+            var propertyInfo = ReferenceType.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
             if (propertyInfo != null)
             {
                 return new PropertyInfoDescriptor(Engine, propertyInfo, Type);
             }
 
-            var fieldInfo = ReferenceType.GetField(key.Name, BindingFlags.Public | BindingFlags.Static);
+            var fieldInfo = ReferenceType.GetField(name, BindingFlags.Public | BindingFlags.Static);
             if (fieldInfo != null)
             {
                 return new FieldInfoDescriptor(Engine, fieldInfo, Type);
@@ -169,7 +171,7 @@ namespace Jint.Runtime.Interop
             List<MethodInfo> methodInfo = null;
             foreach (var mi in ReferenceType.GetMethods(BindingFlags.Public | BindingFlags.Static))
             {
-                if (mi.Name == key.Name)
+                if (mi.Name == name)
                 {
                     methodInfo = methodInfo ?? new List<MethodInfo>();
                     methodInfo.Add(mi);

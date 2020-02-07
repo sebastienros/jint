@@ -10,7 +10,7 @@ namespace Jint.Native.Number
         private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
 
         public NumberInstance(Engine engine)
-            : base(engine, "Number")
+            : base(engine, ObjectClass.Number)
         {
         }
 

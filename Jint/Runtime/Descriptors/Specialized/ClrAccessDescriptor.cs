@@ -21,11 +21,11 @@ namespace Jint.Runtime.Descriptors.Specialized
         {
             _env = env;
             _engine = engine;
-            _name = new Key(name);
+            _name = name;
         }
 
-        public override JsValue Get => _get = _get ?? new GetterFunctionInstance(_engine, DoGet);
-        public override JsValue Set => _set = _set ?? new SetterFunctionInstance(_engine, DoSet);
+        public override JsValue Get => _get ??= new GetterFunctionInstance(_engine, DoGet);
+        public override JsValue Set => _set ??= new SetterFunctionInstance(_engine, DoSet);
 
         private JsValue DoGet(JsValue n)
         {

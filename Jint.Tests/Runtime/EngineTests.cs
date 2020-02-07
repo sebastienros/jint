@@ -379,8 +379,8 @@ namespace Jint.Tests.Runtime
                 var n = 8;
                 var o = Array(n);
                 for (var i = 0; i < n; i++) o[i] = i;
-                assert(o[0] == 0);
-                assert(o[7] == 7);
+                equal(0, o[0]);
+                equal(7, o[7]);
             ");
         }
 
@@ -391,8 +391,8 @@ namespace Jint.Tests.Runtime
                 var n = 1024*10+2;
                 var o = Array(n);
                 for (var i = 0; i < n; i++) o[i] = i;
-                assert(o[0] == 0);
-                assert(o[n - 1] == n -1);
+                equal(0, o[0]);
+                equal(n -1, o[n - 1]);
             ");
         }
 
@@ -1834,9 +1834,9 @@ var prep = function (fn) { fn(); };
                   , key
                   , i = 0;
                 target[key = keys[i++]] = source[key];
-                assert(i == 1);
-                assert(key == 'a');
-                assert(target[key] == 3);
+                equal(1, i);
+                equal('a', key);
+                equal(3, target[key]);
             ");
         }
 

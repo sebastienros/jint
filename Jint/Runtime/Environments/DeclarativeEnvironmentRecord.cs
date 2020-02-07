@@ -15,9 +15,9 @@ namespace Jint.Runtime.Environments
     /// Represents a declarative environment record
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.1
     /// </summary>
-    public sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
+    internal sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        private readonly HybridDictionary<Key, Binding> _dictionary = new HybridDictionary<Key, Binding>();
+        private readonly HybridDictionary<Binding> _dictionary = new HybridDictionary<Binding>();
 
         public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
         {
@@ -25,15 +25,16 @@ namespace Jint.Runtime.Environments
 
         private bool ContainsKey(in Key key)
         {
-            return _dictionary?.ContainsKey(key) == true;
+            return _dictionary.ContainsKey(key);
         }
 
         private bool TryGetValue(in Key key, out Binding value)
         {
+            value = default;
             return _dictionary.TryGetValue(key, out value);
         }
 
-        public override bool HasBinding(in Key name)
+        public override bool HasBinding(string name)
         {
             return ContainsKey(name);
         }
@@ -44,23 +45,24 @@ namespace Jint.Runtime.Environments
             out Binding binding,
             out JsValue value)
         {
+            binding = default;
             var success = _dictionary.TryGetValue(name, out binding);
             value = success ? UnwrapBindingValue(strict, binding) : default;
             return success;
         }
 
-        public override void CreateMutableBinding(in Key name, JsValue value, bool canBeDeleted = false)
+        public override void CreateMutableBinding(string name, JsValue value, bool canBeDeleted = false)
         {
             _dictionary[name] = new Binding(value, canBeDeleted, mutable: true);
         }
 
-        public override void SetMutableBinding(in Key name, JsValue value, bool strict)
+        public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
-            _dictionary.TryGetValue(name, out var binding);
+            var key = name;
+            _dictionary.TryGetValue(key, out var binding);
             if (binding.Mutable)
             {
-                binding.Value = value;
-                _dictionary[name] = binding;
+                _dictionary[key] = binding.ChangeValue(value);
             }
             else
             {
@@ -71,7 +73,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        public override JsValue GetBindingValue(in Key name, bool strict)
+        public override JsValue GetBindingValue(string name, bool strict)
         {
             _dictionary.TryGetValue(name, out var binding);
             return UnwrapBindingValue(strict, binding);
@@ -80,7 +82,7 @@ namespace Jint.Runtime.Environments
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private JsValue UnwrapBindingValue(bool strict, in Binding binding)
         {
-            if (!binding.Mutable && !binding.IsInitialized)
+            if (!binding.Mutable && !binding.IsInitialized())
             {
                 if (strict)
                 {
@@ -98,7 +100,7 @@ namespace Jint.Runtime.Environments
             throw new JavaScriptException(_engine.ReferenceError, "Can't access an uninitialized immutable binding.");
         }
 
-        public override bool DeleteBinding(in Key name)
+        public override bool DeleteBinding(string name)
         {
             if (!_dictionary.TryGetValue(name, out var binding))
             {
@@ -121,9 +123,14 @@ namespace Jint.Runtime.Environments
         }
 
         /// <inheritdoc />
-        public override Key[] GetAllBindingNames()
+        internal override string[] GetAllBindingNames()
         {
-            var keys = new Key[_dictionary.Count];
+            if (_dictionary is null)
+            {
+                return ArrayExt.Empty<string>();
+            }
+
+            var keys = new string[_dictionary.Count];
             var n = 0;
             foreach (var entry in _dictionary)
             {
@@ -144,8 +151,9 @@ namespace Jint.Runtime.Environments
                 _dictionary[KnownKeys.Arguments] = new Binding(argumentsInstance, canBeDeleted: false, mutable: true);
             }
 
-            var parameters = functionDeclaration.Params;
-            for (var i = 0; i < parameters.Count; i++)
+            ref readonly var parameters = ref functionDeclaration.Params;
+            var count = parameters.Count;
+            for (var i = 0; i < count; i++)
             {
                 SetFunctionParameter(parameters[i], arguments, i, empty);
             }
@@ -160,7 +168,7 @@ namespace Jint.Runtime.Environments
         {
             if (parameter is Identifier identifier)
             {
-                var argument = arguments.Length > index ? arguments[index] : Undefined;
+                var argument = (uint) index < (uint) arguments.Length ? arguments[index] : Undefined;
                 SetItemSafely(identifier.Name, argument, initiallyEmpty);
             }
             else
@@ -294,7 +302,7 @@ namespace Jint.Runtime.Environments
                         var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                         var paramVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
 
-                        _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.ThisBinding);;
+                        _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.ThisBinding);
                         var result = exp.GetValue();
                         _engine.LeaveExecutionContext();
 
@@ -327,8 +335,7 @@ namespace Jint.Runtime.Environments
             {
                 if (existing.Mutable)
                 {
-                    existing.Value = argument;
-                    _dictionary[name] = existing;
+                    _dictionary[name] = existing.ChangeValue(argument);
                 }
                 else
                 {

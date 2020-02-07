@@ -21,7 +21,7 @@ namespace Jint.Native.Iterator
 
         public IteratorInstance(
             Engine engine,
-            IEnumerable<JsValue> enumerable) : base(engine, "Iterator")
+            IEnumerable<JsValue> enumerable) : base(engine, ObjectClass.Iterator)
         {
             _enumerable = enumerable.GetEnumerator();
         }
@@ -53,8 +53,8 @@ namespace Jint.Native.Iterator
         private ObjectInstance CreateIterResultObject(JsValue value, bool done)
         {
             var obj = _engine.Object.Construct(2);
-            obj.CreateDataPropertyOrThrow("value", value);
-            obj.CreateDataPropertyOrThrow("done", done);
+            obj.SetDataProperty("value", value);
+            obj.SetDataProperty("done", done);
             return obj;
         }
 
@@ -70,11 +70,9 @@ namespace Jint.Native.Iterator
                     var arrayInstance = engine.Array.ConstructFast(2);
                     arrayInstance.SetIndexValue(0, key, false);
                     arrayInstance.SetIndexValue(1, value, false);
-                    SetOwnProperty("value", new PropertyDescriptor(arrayInstance, PropertyFlag.AllForbidden));
+                    SetProperty("value", new PropertyDescriptor(arrayInstance, PropertyFlag.AllForbidden));
                 }
-                SetOwnProperty(
-                    "done",
-                    done ? PropertyDescriptor.AllForbiddenDescriptor.BooleanTrue : PropertyDescriptor.AllForbiddenDescriptor.BooleanFalse);
+                SetProperty("done", done ? PropertyDescriptor.AllForbiddenDescriptor.BooleanTrue : PropertyDescriptor.AllForbiddenDescriptor.BooleanFalse);
             }
         }
 
@@ -87,9 +85,9 @@ namespace Jint.Native.Iterator
                 var done = ReferenceEquals(null, value);
                 if (!done)
                 {
-                    SetOwnProperty("value", new PropertyDescriptor(value, PropertyFlag.AllForbidden));
+                    SetProperty("value", new PropertyDescriptor(value, PropertyFlag.AllForbidden));
                 }
-                SetOwnProperty("done", new PropertyDescriptor(done, PropertyFlag.AllForbidden));
+                SetProperty("done", new PropertyDescriptor(done, PropertyFlag.AllForbidden));
             }
         }
 
@@ -288,7 +286,7 @@ namespace Jint.Native.Iterator
             public ObjectWrapper(ObjectInstance target)
             {
                 _target = target;
-                _callable = (ICallable) target.Get("next", target);
+                _callable = (ICallable) target.Get(CommonProperties.Next, target);
             }
 
             public ObjectInstance Next()
@@ -298,7 +296,7 @@ namespace Jint.Native.Iterator
 
             public void Return()
             {
-                if (_target.TryGetValue("return", out var func))
+                if (_target.TryGetValue(CommonProperties.Return, out var func))
                 {
                     ((ICallable) func).Call(_target, Arguments.Empty);
                 }
@@ -369,12 +367,12 @@ namespace Jint.Native.Iterator
 
                 if (_global)
                 {
-                    var macthStr = TypeConverter.ToString(match.Get("0"));
+                    var macthStr = TypeConverter.ToString(match.Get(JsString.NumberZeroString));
                     if (macthStr == "")
                     {
-                        var thisIndex = TypeConverter.ToLength(_iteratingRegExp.Get(RegExpInstance.KeyLastIndex));
+                        var thisIndex = TypeConverter.ToLength(_iteratingRegExp.Get(RegExpInstance.PropertyLastIndex));
                         var nextIndex = thisIndex + 1;
-                        _iteratingRegExp.Set(RegExpInstance.KeyLastIndex, nextIndex, true);
+                        _iteratingRegExp.Set(RegExpInstance.PropertyLastIndex, nextIndex, true);
                     }
                 }
                 else

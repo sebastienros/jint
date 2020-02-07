@@ -1,33 +1,34 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace Jint.Collections
 {
-    internal sealed class HybridDictionary<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>> where TKey : IEquatable<TKey>
+    internal class HybridDictionary<TValue> : IEnumerable<KeyValuePair<Key, TValue>>
     {
         private const int CutoverPoint = 9;
         private const int InitialDictionarySize = 13;
         private const int FixedSizeCutoverPoint = 6;
 
-        // Instance variables. This keeps the HybridDictionary very light-weight when empty
-        private ListDictionary<TKey, TValue> _list;
-        private Dictionary<TKey, TValue> _dictionary;
+        private readonly bool _checkExistingKeys;
+        private ListDictionary<TValue> _list;
+        private StringDictionarySlim<TValue> _dictionary;
 
-        public HybridDictionary()
+        public HybridDictionary() : this(0, checkExistingKeys: true)
         {
         }
 
-        public HybridDictionary(int initialSize)
+        public HybridDictionary(int initialSize, bool checkExistingKeys)
         {
+            _checkExistingKeys = checkExistingKeys;
             if (initialSize >= FixedSizeCutoverPoint)
             {
-                _dictionary = new Dictionary<TKey, TValue>(initialSize);
+                _dictionary = new StringDictionarySlim<TValue>(initialSize);
             }
         }
 
-        public TValue this[TKey key]
+        public TValue this[in Key key]
         {
             get
             {
@@ -44,8 +45,7 @@ namespace Jint.Collections
                 {
                     if (_list.Count >= CutoverPoint - 1)
                     {
-                        SwitchToDictionary();
-                        _dictionary[key] = value;
+                        SwitchToDictionary(key, value);
                     }
                     else
                     {
@@ -54,13 +54,12 @@ namespace Jint.Collections
                 }
                 else
                 {
-                    _list = new ListDictionary<TKey, TValue>();
-                    _list[key] = value;
+                    _list = new ListDictionary<TValue>(key, value, _checkExistingKeys);
                 }
             }
         }
 
-        public bool TryGetValue(TKey key, out TValue value)
+        public bool TryGetValue(in Key key, out TValue value)
         {
             if (_dictionary != null)
             {
@@ -76,49 +75,42 @@ namespace Jint.Collections
             return false;
         }
 
-        private void SwitchToDictionary()
+        private void SwitchToDictionary(in Key key, TValue value)
         {
-            var dictionary = new Dictionary<TKey, TValue>(InitialDictionarySize);
+            var dictionary = new StringDictionarySlim<TValue>(InitialDictionarySize);
             foreach (var pair in _list)
             {
                 dictionary[pair.Key] = pair.Value;
             }
+
+            dictionary[key] = value;
             _dictionary = dictionary;
             _list = null;
         }
 
         public int Count
         {
-            get
-            {
-                if (_dictionary != null)
-                {
-                    return _dictionary.Count;
-                }
-
-                return _list?.Count ?? 0;
-            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _dictionary?.Count ?? _list?.Count ?? 0;
         }
 
-        public void Add(TKey key, TValue value)
+        public void Add(in Key key, TValue value)
         {
             if (_dictionary != null)
             {
-                _dictionary.Add(key, value);
+                _dictionary.GetOrAddValueRef(key) = value;
             }
             else
             {
                 if (_list == null)
                 {
-                    _list = new ListDictionary<TKey, TValue>();
-                    _list.Add(key, value);
+                    _list = new ListDictionary<TValue>(key, value, _checkExistingKeys);
                 }
                 else
                 {
                     if (_list.Count + 1 >= CutoverPoint)
                     {
-                        SwitchToDictionary();
-                        _dictionary.Add(key, value);
+                        SwitchToDictionary(key, value);
                     }
                     else
                     {
@@ -145,7 +137,7 @@ namespace Jint.Collections
             }
         }
 
-        public bool ContainsKey(TKey key)
+        public bool ContainsKey(in Key key)
         {
             if (_dictionary != null)
             {
@@ -161,7 +153,7 @@ namespace Jint.Collections
             return false;
         }
 
-        IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator()
+        IEnumerator<KeyValuePair<Key, TValue>> IEnumerable<KeyValuePair<Key, TValue>>.GetEnumerator()
         {
             if (_dictionary != null)
             {
@@ -173,7 +165,7 @@ namespace Jint.Collections
                 return _list.GetEnumerator();
             }
 
-            return Enumerable.Empty<KeyValuePair<TKey, TValue>>().GetEnumerator();
+            return Enumerable.Empty<KeyValuePair<Key, TValue>>().GetEnumerator();
 
         }
 
@@ -189,10 +181,10 @@ namespace Jint.Collections
                 return _list.GetEnumerator();
             }
 
-            return Enumerable.Empty<KeyValuePair<TKey, TValue>>().GetEnumerator();
+            return Enumerable.Empty<KeyValuePair<Key, TValue>>().GetEnumerator();
         }
 
-        public bool Remove(TKey key)
+        public bool Remove(in Key key)
         {
             if (_dictionary != null)
             {
@@ -200,6 +192,20 @@ namespace Jint.Collections
             }
 
             return _list != null && _list.Remove(key);
+        }
+        
+        /// <summary>
+        /// Optimization when no need to check for existing items.
+        /// </summary>
+        public bool CheckExistingKeys
+        {
+            set
+            {
+                if (_list != null)
+                {
+                    _list.CheckExistingKeys = value;
+                }
+            }
         }
     }
 }

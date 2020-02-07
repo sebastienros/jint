@@ -10,53 +10,53 @@ namespace Jint.Native.Map
         internal readonly OrderedDictionary<JsValue, JsValue> _map;
 
         public MapInstance(Engine engine)
-            : base(engine, objectClass: "Map")
+            : base(engine, objectClass: ObjectClass.Map)
         {
             _map = new OrderedDictionary<JsValue, JsValue>();
         }
 
-        public override PropertyDescriptor GetOwnProperty(in Key propertyName)
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            if (propertyName == KnownKeys.Size)
+            if (property == CommonProperties.Size)
             {
                 return new PropertyDescriptor(_map.Count, PropertyFlag.None);
             }
 
-            return base.GetOwnProperty(propertyName);
+            return base.GetOwnProperty(property);
         }
 
-        protected override bool TryGetProperty(in Key propertyName, out PropertyDescriptor descriptor)
+        protected override bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
         {
-            if (propertyName == KnownKeys.Size)
+            if (property == CommonProperties.Size)
             {
                 descriptor = new PropertyDescriptor(_map.Count, PropertyFlag.None);
                 return true;
             }
 
-            return base.TryGetProperty(propertyName, out descriptor);
+            return base.TryGetProperty(property, out descriptor);
         }
 
-        public void Clear()
+        internal void Clear()
         {
             _map.Clear();
         }
 
-        public bool Has(JsValue key)
+        internal bool Has(JsValue key)
         {
             return _map.ContainsKey(key);
         }
 
-        public bool Delete(JsValue key)
+        internal bool MapDelete(JsValue key)
         {
             return _map.Remove(key);
         }
 
-        public void Set(JsValue key, JsValue value)
+        internal void MapSet(JsValue key, JsValue value)
         {
             _map[key] = value;
         }
 
-        public void ForEach(ICallable callable, JsValue thisArg)
+        internal void ForEach(ICallable callable, JsValue thisArg)
         {
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
@@ -71,7 +71,7 @@ namespace Jint.Native.Map
             _engine._jsValueArrayPool.ReturnArray(args);
         }
 
-        public JsValue Get(JsValue key)
+        internal JsValue MapGet(JsValue key)
         {
             if (!_map.TryGetValue(key, out var value))
             {
@@ -81,17 +81,17 @@ namespace Jint.Native.Map
             return value;
         }
 
-        public ObjectInstance Iterator()
+        internal ObjectInstance Iterator()
         {
             return _engine.Iterator.Construct(this);
         }
 
-        public ObjectInstance Keys()
+        internal ObjectInstance Keys()
         {
             return _engine.Iterator.Construct(_map.Keys);
         }
 
-        public ObjectInstance Values()
+        internal ObjectInstance Values()
         {
             return _engine.Iterator.Construct(_map.Values);
         }

@@ -19,7 +19,7 @@ namespace Jint.Native
         // we can cache most common values, doubles are used in indexing too at times so we also cache
         // integer values converted to doubles
         private const int NumbersMax = 1024 * 10;
-        private static readonly JsNumber[] _intToJsValue = new JsNumber[NumbersMax];
+        private static readonly JsNumber[] _intToJsValue;
 
         internal static readonly JsNumber DoubleNaN = new JsNumber(double.NaN);
         internal static readonly JsNumber DoubleNegativeOne = new JsNumber((double) -1);
@@ -34,10 +34,12 @@ namespace Jint.Native
 
         static JsNumber()
         {
-            for (int i = 0; i < NumbersMax; i++)
+            var integers = new JsNumber[NumbersMax];
+            for (uint i = 0; i < (uint) integers.Length; i++)
             {
-                _intToJsValue[i] = new JsNumber(i);
+                integers[i] = new JsNumber(i);
             }
+            _intToJsValue = integers;
         }
 
         public JsNumber(double value) : base(Types.Number)

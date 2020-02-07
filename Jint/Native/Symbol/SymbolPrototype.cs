@@ -34,16 +34,20 @@ namespace Jint.Native.Symbol
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable;
-            SetProperties(new StringDictionarySlim<PropertyDescriptor>(8)
+            SetProperties(new PropertyDictionary(5, checkExistingKeys: false)
             {
-                [KnownKeys.Length] = new PropertyDescriptor(JsNumber.PositiveZero, propertyFlags),
-                [KnownKeys.Constructor] = new PropertyDescriptor(_symbolConstructor, PropertyFlag.Configurable | PropertyFlag.Writable),
+                ["length"] = new PropertyDescriptor(JsNumber.PositiveZero, propertyFlags),
+                ["constructor"] = new PropertyDescriptor(_symbolConstructor, PropertyFlag.Configurable | PropertyFlag.Writable),
                 ["description"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(Engine, "description", Description, 0, lengthFlags), Undefined, propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToSymbolString, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable),
-                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable),
-                [GlobalSymbolRegistry.ToPrimitive] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.toPrimitive]", ToPrimitive, 1, lengthFlags), propertyFlags),
-                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(new JsString("Symbol"), propertyFlags)
-            }, true);
+                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)
+            });
+
+            SetSymbols(new SymbolDictionary(1)
+                {
+                    [GlobalSymbolRegistry.ToPrimitive] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.toPrimitive]", ToPrimitive, 1, lengthFlags), propertyFlags), [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(new JsString("Symbol"), propertyFlags)
+                }
+            );
         }
 
         private JsValue Description(JsValue thisObject, JsValue[] arguments)
@@ -55,7 +59,7 @@ namespace Jint.Native.Symbol
         private JsValue ToSymbolString(JsValue thisObject, JsValue[] arguments)
         {
             var sym = ThisSymbolValue(thisObject);
-            return SymbolDescriptiveString(sym);
+            return new JsString(SymbolDescriptiveString(sym));
         }
 
         private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)

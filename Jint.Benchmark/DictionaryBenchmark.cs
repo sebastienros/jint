@@ -29,7 +29,7 @@ namespace Jint.Benchmark
         [Benchmark]
         public void HybridDictionary()
         {
-            var hybridDictionary = new HybridDictionary<string, object>();
+            var hybridDictionary = new HybridDictionary<object>();
             for (var i = 0; i < N; i++)
             {
                 hybridDictionary.Add(_keys[i], _keys);

@@ -42,21 +42,21 @@ namespace Jint.Native.Array
                 _prototype = null
             };
 
-            unscopables.CreateDataProperty("copyWithin", JsBoolean.True);
-            unscopables.CreateDataProperty("entries", JsBoolean.True);
-            unscopables.CreateDataProperty("fill", JsBoolean.True);
-            unscopables.CreateDataProperty("find", JsBoolean.True);
-            unscopables.CreateDataProperty("findIndex", JsBoolean.True);
-            unscopables.CreateDataProperty("flat", JsBoolean.True);
-            unscopables.CreateDataProperty("flatMap", JsBoolean.True);
-            unscopables.CreateDataProperty("includes", JsBoolean.True);
-            unscopables.CreateDataProperty("keys", JsBoolean.True);
-            unscopables.CreateDataProperty("values", JsBoolean.True);
+            unscopables.SetDataProperty("copyWithin", JsBoolean.True);
+            unscopables.SetDataProperty("entries", JsBoolean.True);
+            unscopables.SetDataProperty("fill", JsBoolean.True);
+            unscopables.SetDataProperty("find", JsBoolean.True);
+            unscopables.SetDataProperty("findIndex", JsBoolean.True);
+            unscopables.SetDataProperty("flat", JsBoolean.True);
+            unscopables.SetDataProperty("flatMap", JsBoolean.True);
+            unscopables.SetDataProperty("includes", JsBoolean.True);
+            unscopables.SetDataProperty("keys", JsBoolean.True);
+            unscopables.SetDataProperty("values", JsBoolean.True);
             
             const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-            var properties = new StringDictionarySlim<PropertyDescriptor>(35)
+            var properties = new PropertyDictionary(30, checkExistingKeys: false)
             {
-                [KnownKeys.Constructor] = new PropertyDescriptor(_arrayConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_arrayConstructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), propertyFlags),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), propertyFlags),
                 ["concat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), propertyFlags),
@@ -85,11 +85,16 @@ namespace Jint.Native.Array
                 ["find"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), propertyFlags),
                 ["findIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), propertyFlags),
                 ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
-                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
+                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags)
+            };
+            SetProperties(properties);
+
+            var symbols = new SymbolDictionary(2)
+            {
                 [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Values, 1), propertyFlags),
                 [GlobalSymbolRegistry.Unscopables] = new PropertyDescriptor(unscopables, PropertyFlag.Configurable)
             };
-            SetProperties(properties, hasSymbols: true);
+            SetSymbols(symbols);
         }
         
         private ObjectInstance Keys(JsValue thisObj, JsValue[] arguments)
@@ -398,7 +403,7 @@ namespace Jint.Native.Array
 
         private JsValue Map(JsValue thisObj, JsValue[] arguments)
         {
-            if (thisObj is ArrayInstance arrayInstance && !arrayInstance.HasOwnProperty("constructor"))
+            if (thisObj is ArrayInstance arrayInstance && !arrayInstance.HasOwnProperty(CommonProperties.Constructor))
             {
                 return arrayInstance.Map(arguments);
             }
@@ -481,9 +486,9 @@ namespace Jint.Native.Array
                     ? n
                     : len - System.Math.Abs(n), 0);
 
-            static bool SameValueZero(JsValue x, JsValue y) {
-                return x == y 
-                             || (x is JsNumber xNum && y is JsNumber yNum && double.IsNaN(xNum._value) && double.IsNaN(yNum._value));
+            static bool SameValueZero(JsValue x, JsValue y)
+            {
+                return x == y || (x is JsNumber xNum && y is JsNumber yNum && double.IsNaN(xNum._value) && double.IsNaN(yNum._value));
             }
 
             while (k < len)
@@ -944,7 +949,7 @@ namespace Jint.Native.Array
                     }
                 }
             }
-            a.DefineOwnProperty("length", new PropertyDescriptor(length, PropertyFlag.None));
+            a.DefineOwnProperty(CommonProperties.Length, new PropertyDescriptor(length, PropertyFlag.None));
 
             return a;
         }
@@ -1034,7 +1039,7 @@ namespace Jint.Native.Array
             // as per the spec, this has to be called after ToString(separator)
             if (len == 0)
             {
-                return "";
+                return JsString.Empty;
             }
 
             string StringFromJsValue(JsValue value)
@@ -1070,13 +1075,13 @@ namespace Jint.Native.Array
             const string separator = ",";
             if (len == 0)
             {
-                return "";
+                return JsString.Empty;
             }
 
             JsValue r;
             if (!array.TryGetValue(0, out var firstElement) || firstElement.IsNull() || firstElement.IsUndefined())
             {
-                r = "";
+                r = JsString.Empty;
             }
             else
             {
@@ -1091,7 +1096,7 @@ namespace Jint.Native.Array
                 string s = r + separator;
                 if (!array.TryGetValue(k, out var nextElement) || nextElement.IsNull())
                 {
-                    r = "";
+                    r = JsString.Empty;
                 }
                 else
                 {
@@ -1118,8 +1123,7 @@ namespace Jint.Native.Array
             for (var i = 0; i < items.Count; i++)
             {
                 uint increment;
-                var objectInstance = items[i] as ObjectInstance;
-                if (objectInstance == null)
+                if (!(items[i] is ObjectInstance objectInstance))
                 {
                     increment = 1;
                 }
@@ -1167,7 +1171,7 @@ namespace Jint.Native.Array
 
             // this is not in the specs, but is necessary in case the last element of the last
             // array doesn't exist, and thus the length would not be incremented
-            a.DefineOwnProperty("length", new PropertyDescriptor(n, PropertyFlag.None));
+            a.DefineOwnProperty(CommonProperties.Length, new PropertyDescriptor(n, PropertyFlag.None));
 
             return a;
         }

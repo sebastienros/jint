@@ -24,60 +24,67 @@ namespace Jint.Native.Global
 
         public static GlobalObject CreateGlobalObject(Engine engine)
         {
-            var global = new GlobalObject(engine)
-            {
-                _prototype = null,
-            };
-            global.SetProperties(new StringDictionarySlim<PropertyDescriptor>(35), hasSymbols: false);
-
-            return global;
+            return new GlobalObject(engine);
         }
 
         protected override void Initialize()
         {
-            // Global object properties
             const PropertyFlag defaultFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            SetProperty("Object", new PropertyDescriptor(Engine.Object, defaultFlags));
-            SetProperty("Function", new PropertyDescriptor(Engine.Function, defaultFlags));
-            SetProperty("Symbol", new PropertyDescriptor(Engine.Symbol, defaultFlags));
-            SetProperty("Array", new PropertyDescriptor(Engine.Array, defaultFlags));
-            SetProperty("Map", new PropertyDescriptor(Engine.Map, defaultFlags));
-            SetProperty("Set", new PropertyDescriptor(Engine.Set, defaultFlags));
-            SetProperty("String", new PropertyDescriptor(Engine.String, defaultFlags));
-            SetProperty("RegExp", new PropertyDescriptor(Engine.RegExp, defaultFlags));
-            SetProperty("Number", new PropertyDescriptor(Engine.Number, defaultFlags));
-            SetProperty("Boolean", new PropertyDescriptor(Engine.Boolean, defaultFlags));
-            SetProperty("Date", new PropertyDescriptor(Engine.Date, defaultFlags));
-            SetProperty("Math", new PropertyDescriptor(Engine.Math, defaultFlags));
-            SetProperty("JSON", new PropertyDescriptor(Engine.Json, defaultFlags));
-            SetProperty("Error", new LazyPropertyDescriptor(() => Engine.Error, defaultFlags));
-            SetProperty("EvalError", new LazyPropertyDescriptor(() => Engine.EvalError, defaultFlags));
-            SetProperty("Proxy", new LazyPropertyDescriptor(() => Engine.Proxy, defaultFlags));
-            SetProperty("RangeError", new LazyPropertyDescriptor(() => Engine.RangeError, defaultFlags));
-            SetProperty("ReferenceError", new LazyPropertyDescriptor(() => Engine.ReferenceError, defaultFlags));
-            SetProperty("Reflect", new LazyPropertyDescriptor(() => Engine.Reflect, defaultFlags));
-            SetProperty("SyntaxError", new LazyPropertyDescriptor(() => Engine.SyntaxError, defaultFlags));
-            SetProperty("TypeError", new LazyPropertyDescriptor(() => Engine.TypeError, defaultFlags));
-            SetProperty("URIError", new LazyPropertyDescriptor(() => Engine.UriError, defaultFlags));
-            SetProperty("NaN", new PropertyDescriptor(double.NaN, PropertyFlag.None));
-            SetProperty("Infinity", new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.None));
-            SetProperty("undefined", new PropertyDescriptor(Undefined, PropertyFlag.None));
-            SetProperty("parseInt", new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseInt", ParseInt, 2, PropertyFlag.Configurable), defaultFlags));
-            SetProperty("parseFloat", new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseFloat", ParseFloat, 1, PropertyFlag.Configurable), defaultFlags));
-            SetProperty("isNaN", new PropertyDescriptor(new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1), defaultFlags));
-            SetProperty("isFinite", new PropertyDescriptor(new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1), defaultFlags));
-            SetProperty("decodeURI", new PropertyDescriptor(new ClrFunctionInstance(Engine, "decodeURI", DecodeUri, 1, PropertyFlag.Configurable), defaultFlags));
-            SetProperty("decodeURIComponent", new PropertyDescriptor(new ClrFunctionInstance(Engine, "decodeURIComponent", DecodeUriComponent, 1, PropertyFlag.Configurable), defaultFlags));
-            SetProperty("encodeURI", new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURI", EncodeUri, 1, PropertyFlag.Configurable), defaultFlags));
-            SetProperty("encodeURIComponent", new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, PropertyFlag.Configurable), defaultFlags));
-            SetProperty("escape", new PropertyDescriptor(new ClrFunctionInstance(Engine, "escape", Escape, 1), defaultFlags));
-            SetProperty("unescape", new PropertyDescriptor(new ClrFunctionInstance(Engine, "unescape", Unescape, 1), defaultFlags));
+            var properties = new PropertyDictionary(40, checkExistingKeys: false)
+            {
+                ["Object"] = new PropertyDescriptor(Engine.Object, defaultFlags),
+                ["Function"] = new PropertyDescriptor(Engine.Function, defaultFlags),
+                ["Symbol"] = new PropertyDescriptor(Engine.Symbol, defaultFlags),
+                ["Array"] = new PropertyDescriptor(Engine.Array, defaultFlags),
+                ["Map"] = new PropertyDescriptor(Engine.Map, defaultFlags),
+                ["Set"] = new PropertyDescriptor(Engine.Set, defaultFlags),
+                ["String"] = new PropertyDescriptor(Engine.String, defaultFlags),
+                ["RegExp"] = new PropertyDescriptor(Engine.RegExp, defaultFlags),
+                ["Number"] = new PropertyDescriptor(Engine.Number, defaultFlags),
+                ["Boolean"] = new PropertyDescriptor(Engine.Boolean, defaultFlags),
+                ["Date"] = new PropertyDescriptor(Engine.Date, defaultFlags),
+                ["Math"] = new PropertyDescriptor(Engine.Math, defaultFlags),
+                ["JSON"] = new PropertyDescriptor(Engine.Json, defaultFlags),
+                ["Error"] = new LazyPropertyDescriptor(() => Engine.Error, defaultFlags),
+                ["EvalError"] = new LazyPropertyDescriptor(() => Engine.EvalError, defaultFlags),
+                ["Proxy"] = new LazyPropertyDescriptor(() => Engine.Proxy, defaultFlags),
+                ["RangeError"] = new LazyPropertyDescriptor(() => Engine.RangeError, defaultFlags),
+                ["ReferenceError"] = new LazyPropertyDescriptor(() => Engine.ReferenceError, defaultFlags),
+                ["Reflect"] = new LazyPropertyDescriptor(() => Engine.Reflect, defaultFlags),
+                ["SyntaxError"] = new LazyPropertyDescriptor(() => Engine.SyntaxError, defaultFlags),
+                ["TypeError"] = new LazyPropertyDescriptor(() => Engine.TypeError, defaultFlags),
+                ["URIError"] = new LazyPropertyDescriptor(() => Engine.UriError, defaultFlags),
+                ["NaN"] = new PropertyDescriptor(double.NaN, PropertyFlag.None),
+                ["Infinity"] = new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.None),
+                ["undefined"] = new PropertyDescriptor(Undefined, PropertyFlag.None),
+                ["parseInt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseInt", ParseInt, 2, PropertyFlag.Configurable), defaultFlags),
+                ["parseFloat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseFloat", ParseFloat, 1, PropertyFlag.Configurable), defaultFlags),
+                ["isNaN"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1), defaultFlags),
+                ["isFinite"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1), defaultFlags),
+                ["decodeURI"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "decodeURI", DecodeUri, 1, PropertyFlag.Configurable), defaultFlags),
+                ["decodeURIComponent"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "decodeURIComponent", DecodeUriComponent, 1, PropertyFlag.Configurable), defaultFlags),
+                ["encodeURI"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURI", EncodeUri, 1, PropertyFlag.Configurable), defaultFlags),
+                ["encodeURIComponent"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, PropertyFlag.Configurable), defaultFlags),
+                ["escape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "escape", Escape, 1), defaultFlags),
+                ["unescape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unescape", Unescape, 1), defaultFlags),
+                ["globalThis"] = new PropertyDescriptor(this, defaultFlags),
+
+                // toString is not mentioned or actually required in spec, but some tests rely on it
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 1), defaultFlags)
+            };
+
+            SetProperties(properties);
+        }
+
+        private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
+        {
+            return _engine.Object.PrototypeObject.ToObjectString(thisObj, Arguments.Empty);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.2
         /// </summary>
-        public JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
+        public static JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
         {
             string inputString = TypeConverter.ToString(arguments.At(0));
             var s = StringPrototype.TrimEx(inputString);
@@ -178,7 +185,7 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.3
         /// </summary>
-        public JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
+        public static JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
         {
             var inputString = TypeConverter.ToString(arguments.At(0));
             var trimmedString = StringPrototype.TrimStartEx(inputString);
@@ -695,6 +702,95 @@ namespace Jint.Native.Global
             }
 
             return _stringBuilder.ToString();
+        }
+        
+        // optimized versions with string parameter and without virtual dispatch for global environment usage
+
+        internal bool HasProperty(in Key property)
+        {
+            return GetOwnProperty(property) != PropertyDescriptor.Undefined;
+        }
+
+        internal PropertyDescriptor GetProperty(in Key property) => GetOwnProperty(property);
+
+        internal bool DefinePropertyOrThrow(in Key property, PropertyDescriptor desc)
+        {
+            if (!DefineOwnProperty(property, desc))
+            {
+                ExceptionHelper.ThrowTypeError(_engine);
+            }
+
+            return true;
+        }
+
+        internal bool DefineOwnProperty(in Key property, PropertyDescriptor desc)
+        {
+            var current = GetOwnProperty(property);
+            if (current == desc)
+            {
+                return true;
+            }
+            
+            // check fast path
+            if ((current._flags & PropertyFlag.MutableBinding) != 0)
+            {
+                current._value = desc.Value;
+                return true;
+            }
+
+            return ValidateAndApplyPropertyDescriptor(this, new JsString(property), true, desc, current);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal PropertyDescriptor GetOwnProperty(in Key property)
+        {
+            Properties.TryGetValue(property, out var descriptor);
+            return descriptor ?? PropertyDescriptor.Undefined;
+        }
+        
+        internal bool Set(in Key property, JsValue value)
+        {
+            // here we are called only from global environment record context
+            // we can take some shortcuts to be faster
+
+            if (!Properties.TryGetValue(property, out var existingDescriptor))
+            {
+                Properties[property] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
+                return true;
+            }
+
+            if (existingDescriptor.IsDataDescriptor())
+            {
+                if (!existingDescriptor.Writable || existingDescriptor.IsAccessorDescriptor())
+                {
+                    return false;
+                }
+
+                // check fast path
+                if ((existingDescriptor._flags & PropertyFlag.MutableBinding) != 0)
+                {
+                    existingDescriptor._value = value;
+                    return true;
+                }
+
+                // slow path
+                return DefineOwnProperty(property, new PropertyDescriptor(value, PropertyFlag.None));
+            }
+
+            if (!(existingDescriptor.Set is ICallable setter))
+            {
+                return false;
+            }
+
+            setter.Call(this, new[] {value});
+
+            return true;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void SetOwnProperty(in Key property, PropertyDescriptor desc)
+        {
+            SetProperty(in property, desc);
         }
     }
 }
