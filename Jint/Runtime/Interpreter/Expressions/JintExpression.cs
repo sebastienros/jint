@@ -215,12 +215,9 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected static bool Equal(JsValue x, JsValue y)
         {
-            if (x._type == y._type || x.IsNumber() && y.IsNumber())
-            {
-                return JintBinaryExpression.StrictlyEqual(x, y);
-            }
-
-            return EqualUnlikely(x, y);
+            return x.Type == y.Type
+                ? JintBinaryExpression.StrictlyEqual(x, y)
+                : EqualUnlikely(x, y);
         }
 
         private static bool EqualUnlikely(JsValue x, JsValue y)
@@ -235,32 +232,34 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return true;
             }
 
-            if (x.IsNumber() && y._type == InternalTypes.String)
+            if (x.IsNumber() && y.IsString())
             {
                 return Equal(x, TypeConverter.ToNumber(y));
             }
 
-            if (x._type == InternalTypes.String && y.IsNumber())
+            if (x.IsString() && y.IsNumber())
             {
                 return Equal(TypeConverter.ToNumber(x), y);
             }
 
-            if (x._type == InternalTypes.Boolean)
+            if (x.IsBoolean())
             {
                 return Equal(TypeConverter.ToNumber(x), y);
             }
 
-            if (y._type == InternalTypes.Boolean)
+            if (y.IsBoolean())
             {
                 return Equal(x, TypeConverter.ToNumber(y));
             }
 
-            if (y._type == InternalTypes.Object && (x._type == InternalTypes.String || x.IsNumber()))
+            const InternalTypes stringOrNumber = InternalTypes.String | InternalTypes.Integer | InternalTypes.Number;
+
+            if (y.IsObject() && (x._type & stringOrNumber) != 0)
             {
                 return Equal(x, TypeConverter.ToPrimitive(y));
             }
 
-            if (x._type == InternalTypes.Object && (y._type == InternalTypes.String || y.IsNumber()))
+            if (x.IsObject() && ((y._type & stringOrNumber) != 0))
             {
                 return Equal(TypeConverter.ToPrimitive(x), y);
             }

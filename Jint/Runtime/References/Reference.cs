@@ -67,7 +67,7 @@ namespace Jint.Runtime.References
         internal void AssertValid(Engine engine)
         {
             if (_strict
-                && _baseValue._type == InternalTypes.ObjectEnvironmentRecord
+                && (_baseValue._type & InternalTypes.ObjectEnvironmentRecord) != 0
                 && (_property == CommonProperties.Eval || _property == CommonProperties.Arguments))
             {
                 ExceptionHelper.ThrowSyntaxError(engine);

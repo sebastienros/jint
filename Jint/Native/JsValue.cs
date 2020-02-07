@@ -38,7 +38,7 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPrimitive()
         {
-            return _type < InternalTypes.Object;
+            return (_type & (InternalTypes.Primitive | InternalTypes.Undefined | InternalTypes.Null)) != 0;
         }
 
         [Pure]
@@ -90,21 +90,21 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsObject()
         {
-            return _type == InternalTypes.Object;
+            return (_type & InternalTypes.Object) != 0;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsString()
         {
-            return _type == InternalTypes.String;
+            return (_type & InternalTypes.String) != 0;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsNumber()
         {
-            return _type == InternalTypes.Number || _type == InternalTypes.Integer;
+            return (_type & (InternalTypes.Number | InternalTypes.Integer)) != 0;
         }
 
         [Pure]
@@ -271,7 +271,9 @@ namespace Jint.Native
         public Types Type
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => _type == InternalTypes.Integer ? Types.Number : (Types) _type;
+            get => _type == InternalTypes.Integer
+                ? Types.Number
+                : (Types) (_type & ~InternalTypes.InternalFlags);
         }
 
         internal virtual bool IsConstructor => this is IConstructor;
@@ -590,7 +592,7 @@ namespace Jint.Native
         internal JsValue Clone()
         {
             // concatenated string and arguments currently may require cloning
-            return (_type & (InternalTypes.String | InternalTypes.Object))== 0
+            return (_type & InternalTypes.RequiresCloning) == 0
                 ? this
                 : DoClone();
         }

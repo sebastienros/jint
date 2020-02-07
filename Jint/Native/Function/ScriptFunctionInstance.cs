@@ -75,7 +75,7 @@ namespace Jint.Native.Function
                 {
                     thisBinding = _engine.Global;
                 }
-                else if (thisArg._type != InternalTypes.Object)
+                else if (!thisArg.IsObject())
                 {
                     thisBinding = TypeConverter.ToObject(_engine, thisArg);
                 }

@@ -128,7 +128,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ExceptionHelper.ThrowTypeError(_engine, r == null ? "" : $"Object has no method '{r.GetReferencedName()}'");
             }
 
-            if (func._type != InternalTypes.Object)
+            if (!func.IsObject())
             {
                 if (_engine._referenceResolver == null || !_engine._referenceResolver.TryGetCallable(_engine, callee, out func))
                 {
@@ -147,7 +147,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (r != null)
             {
                 var baseValue = r.GetBase();
-                if (baseValue._type < InternalTypes.ObjectEnvironmentRecord)
+                if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0)
                 {
                     thisObject = baseValue;
                 }

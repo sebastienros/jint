@@ -35,7 +35,8 @@ namespace Jint.Native.Object
         {
         }
 
-        internal ObjectInstance(Engine engine, ObjectClass objectClass) : base(Types.Object)
+        internal ObjectInstance(Engine engine, ObjectClass objectClass, InternalTypes type = InternalTypes.Object)
+            : base(type)
         {
             _engine = engine;
             _class = objectClass;

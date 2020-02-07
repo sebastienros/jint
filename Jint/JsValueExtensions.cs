@@ -37,7 +37,7 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string AsString(this JsValue value)
         {
-            if (value._type != InternalTypes.String)
+            if (!value.IsString())
             {
                 ThrowWrongTypeException(value, "string");
             }

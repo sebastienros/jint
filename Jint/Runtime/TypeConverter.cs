@@ -32,26 +32,26 @@ namespace Jint.Runtime
     {
         // should not be used, used for empty match
         None = 0,
-        
+
         Undefined = 1,
         Null = 2,
 
         // primitive  types range start
-        
         Boolean = 4,
         String = 8,
         Number = 16,
         Integer = 32,
         Symbol = 64,
-        
+
         // primitive  types range end
-        
         Object = 128,
 
         // internal usage
         ObjectEnvironmentRecord = 512,
+        RequiresCloning = 1024,
 
-        Primitive = Boolean | String | Number | Integer | Symbol
+        Primitive = Boolean | String | Number | Integer | Symbol,
+        InternalFlags = ObjectEnvironmentRecord | RequiresCloning
     }
 
     public static class TypeConverter
@@ -152,7 +152,8 @@ namespace Jint.Runtime
         /// </summary>
         public static bool ToBoolean(JsValue o)
         {
-            switch (o._type)
+            var type = o._type & ~InternalTypes.InternalFlags;
+            switch (type)
             {
                 case InternalTypes.Boolean:
                     return ((JsBoolean) o)._value;
@@ -184,24 +185,19 @@ namespace Jint.Runtime
 
         private static double ToNumberUnlikely(JsValue o)
         {
-            switch (o._type)
+            var type = o._type & ~InternalTypes.InternalFlags;
+            return type switch
             {
-                case InternalTypes.Undefined:
-                    return double.NaN;
-                case InternalTypes.Null:
-                    return 0;
-                case InternalTypes.Object when o is IPrimitiveInstance p:
-                    return ToNumber(ToPrimitive(p.PrimitiveValue, Types.Number));
-                case InternalTypes.Boolean:
-                    return ((JsBoolean) o)._value ? 1 : 0;
-                case InternalTypes.String:
-                    return ToNumber(o.AsStringWithoutTypeCheck());
-                case InternalTypes.Symbol:
-                    // TODO proper TypeError would require Engine instance and a lot of API changes
-                    return ExceptionHelper.ThrowTypeErrorNoEngine<double>("Cannot convert a Symbol value to a number");
-                default:
-                    return ToNumber(ToPrimitive(o, Types.Number));
-            }
+                InternalTypes.Undefined => double.NaN,
+                InternalTypes.Null => 0,
+                InternalTypes.Object when o is IPrimitiveInstance p => ToNumber(ToPrimitive(p.PrimitiveValue, Types.Number)),
+                InternalTypes.Boolean => (((JsBoolean) o)._value ? 1 : 0),
+                InternalTypes.String => ToNumber(o.AsStringWithoutTypeCheck()),
+                InternalTypes.Symbol =>
+                // TODO proper TypeError would require Engine instance and a lot of API changes
+                ExceptionHelper.ThrowTypeErrorNoEngine<double>("Cannot convert a Symbol value to a number"),
+                _ => ToNumber(ToPrimitive(o, Types.Number))
+            };
         }
 
         private static double ToNumber(string input)
@@ -454,7 +450,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string ToString(JsValue o)
         {
-            if (o._type == InternalTypes.String)
+            if (o.IsString())
             {
                 return o.AsStringWithoutTypeCheck();
             }
@@ -473,7 +469,8 @@ namespace Jint.Runtime
 
         private static string ToStringNonString(JsValue o)
         {
-            switch (o._type)
+            var type = o._type & ~InternalTypes.InternalFlags;
+            switch (type)
             {
                 case InternalTypes.Boolean:
                     return ((JsBoolean) o)._value ? "true" : "false";
@@ -497,7 +494,8 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ObjectInstance ToObject(Engine engine, JsValue value)
         {
-            switch (value._type)
+            var type = value._type & ~InternalTypes.InternalFlags;
+            switch (type)
             {
                 case InternalTypes.Object:
                     return (ObjectInstance) value;
@@ -518,7 +516,7 @@ namespace Jint.Runtime
 
         internal static Types GetInternalPrimitiveType(JsValue value)
         {
-            if (value.Type != Types.Object)
+            if (!value.IsObject())
             {
                 return value.Type;
             }

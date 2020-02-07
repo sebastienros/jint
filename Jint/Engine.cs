@@ -521,7 +521,7 @@ namespace Jint
             }
 
             if (_referenceResolver != null
-                && baseValue._type < InternalTypes.ObjectEnvironmentRecord
+                && (baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0
                 && _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
             {
                 return baseValue;
@@ -535,7 +535,7 @@ namespace Jint
                     _referencePool.Return(reference);
                 }
 
-                if (baseValue._type == InternalTypes.Object)
+                if (baseValue.IsObject())
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
                     var v = o.Get(property);

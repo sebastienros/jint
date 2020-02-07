@@ -47,7 +47,11 @@ namespace Jint.Native
             }
         }
 
-        public JsString(string value) : base(Types.String)
+        public JsString(string value) : this(value, InternalTypes.String)
+        {
+        }
+
+        private JsString(string value, InternalTypes type) : base(type)
         {
             _value = value;
         }
@@ -262,7 +266,8 @@ namespace Jint.Native
             private StringBuilder _stringBuilder;
             private bool _dirty;
 
-            internal ConcatenatedString(string value, int capacity = 0) : base(value)
+            internal ConcatenatedString(string value, int capacity = 0)
+                : base(value, InternalTypes.String | InternalTypes.RequiresCloning)
             {
                 if (capacity > 0)
                 {
