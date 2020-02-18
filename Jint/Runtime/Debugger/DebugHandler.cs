@@ -145,7 +145,12 @@ namespace Jint.Runtime.Debugger
 
         private DebugInformation CreateDebugInformation(Statement statement)
         {
-            var info = new DebugInformation { CurrentStatement = statement, CallStack = _debugCallStack };
+            var info = new DebugInformation
+            {
+                CurrentStatement = statement,
+                CallStack = _debugCallStack,
+                CurrentMemoryUsage = _engine.CurrentMemoryUsage
+            };
 
             if (_engine.ExecutionContext.LexicalEnvironment != null)
             {

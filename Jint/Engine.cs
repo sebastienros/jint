@@ -279,6 +279,8 @@ namespace Jint
 
         public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
 
+        internal long CurrentMemoryUsage { get; private set; }
+
         internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; }
 
         #region Debugger
@@ -464,10 +466,10 @@ namespace Jint
             {
                 if (GetAllocatedBytesForCurrentThread != null)
                 {
-                    var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
-                    if (memoryUsage > _memoryLimit)
+                    CurrentMemoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
+                    if (CurrentMemoryUsage > _memoryLimit)
                     {
-                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {_memoryLimit}");
+                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {CurrentMemoryUsage} but is limited to {_memoryLimit}");
                     }
                 }
                 else
