@@ -469,7 +469,7 @@ namespace Jint
                     CurrentMemoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
                     if (CurrentMemoryUsage > _memoryLimit)
                     {
-                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {_memoryLimit}");
+                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {CurrentMemoryUsage} but is limited to {_memoryLimit}");
                     }
                 }
                 else
