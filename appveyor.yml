@@ -18,7 +18,7 @@ install:
   - ps: $IsReleaseBranch = ($env:APPVEYOR_REPO_BRANCH -eq "master" -Or $env:APPVEYOR_REPO_BRANCH -eq "rel/3.0-beta")
 build_script:
   # Ensure we are not using the myget feed for dependencies
-  - ps: if ($IsReleaseBranch -or $IsDevBranch) { copy NuGet.release.config NuGet.config }
+  - ps: if ($IsReleaseBranch) { copy NuGet.release.config NuGet.config }
   - dotnet --version
   - dotnet pack -c Release
 test_script:
