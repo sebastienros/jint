@@ -112,7 +112,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (_maxRecursionDepth >= 0)
             {
-                var stackItem = new CallStackElement(expression, func, (r?.GetReferencedName()).ToString() ?? "anonymous function");
+                var stackItem = new CallStackElement(expression, func, r?.GetReferencedName()?.ToString() ?? "anonymous function");
 
                 var recursionDepth = _engine.CallStack.Push(stackItem);
 
