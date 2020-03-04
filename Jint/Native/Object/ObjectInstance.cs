@@ -1197,6 +1197,25 @@ namespace Jint.Native.Object
             return jsValue as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(engine, "Value returned for property '" + p + "' of object is not a function");
         }
 
+        internal ObjectInstance CreateRestObject(
+            HashSet<string> processedProperties)
+        {
+            var rest = _engine.Object.Construct(_properties.Count - processedProperties.Count);
+            foreach (var pair in _properties)
+            {
+                if (!processedProperties.Contains(pair.Key))
+                {
+                    var descriptor = pair.Value;
+                    if (descriptor.Enumerable)
+                    {
+                        rest.SetDataProperty(pair.Key, UnwrapJsValue(descriptor, this));
+                    }
+                }
+            }
+
+            return rest;
+        }
+
         internal ObjectInstance AssertThisIsObjectInstance(JsValue value, string methodName)
         {
             return value as ObjectInstance ?? ThrowIncompatibleReceiver<ObjectInstance>(value, methodName);

@@ -66,7 +66,11 @@ namespace Jint.Runtime.Interpreter
             }
             if (parameter is ObjectPattern objectPattern)
             {
-                return objectPattern.Properties.SelectMany(property => GetParameterIdentifiers(property.Value));
+                return objectPattern.Properties.SelectMany(property =>
+                    property is Property p
+                        ? GetParameterIdentifiers(p.Value)
+                        : GetParameterIdentifiers((RestElement) property)
+                );
             }
             if (parameter is AssignmentPattern assignmentPattern)
             {

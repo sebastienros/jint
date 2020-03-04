@@ -62,6 +62,10 @@
     "reason": "Promise not implemented"
   },
   {
+    "source": "language/expressions/object/method-definition/object-method-returns-promise.js",
+    "reason": "Promise not implemented"
+  },
+  {
     "source": "built-ins/Symbol/species/subclassing.js",
     "reason": "subclassing not implemented"
   },
@@ -613,197 +617,9 @@
   },
 
   // Esprima problems
-  
-  {
-    "source": "language/statements/for/dstr-var-obj-ptrn-rest-getter.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for/dstr-var-obj-ptrn-rest-skip-non-enumerable",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for/dstr-var-obj-ptrn-rest-val-obj.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for/dstr-const-obj-ptrn-rest-getter.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for/dstr-const-obj-ptrn-rest-skip-non-enumerable.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for/dstr-const-obj-ptrn-rest-skip-non-enumerable.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for/dstr-const-obj-ptrn-rest-val-obj.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for/dstr-let-obj-ptrn-rest-getter.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for/dstr-let-obj-ptrn-rest-skip-non-enumerable.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for/dstr-let-obj-ptrn-rest-val-obj.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for/dstr-var-obj-ptrn-rest-skip-non-enumerable.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/call/trailing-comma.js",
-    "reason": "Esprima problem"
-  },
+
   {
     "source": "language/statements/for/head-lhs-let.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/white-space/mongolian-vowel-separator-eval.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/arrow-function/dflt-params-trailing-comma.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/arrow-function/dstr-dflt-obj-ptrn-rest-getter.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/arrow-function/dstr-dflt-obj-ptrn-rest-skip-non-enumerable.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/arrow-function/dstr-dflt-obj-ptrn-rest-val-obj.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/arrow-function/dstr-obj-ptrn-rest-getter.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/arrow-function/dstr-obj-ptrn-rest-val-obj.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/arrow-function/dstr-obj-ptrn-rest-skip-non-enumerable.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/arrow-function/params-trailing-comma-multiple.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/arrow-function/params-trailing-comma-single.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/function/dflt-params-trailing-comma.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/function/dstr-dflt-obj-ptrn-rest-getter.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/function/dstr-dflt-obj-ptrn-rest-skip-non-enumerable.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/function/dstr-dflt-obj-ptrn-rest-val-obj.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/function/dstr-obj-ptrn-rest-getter.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/function/dstr-obj-ptrn-rest-skip-non-enumerable.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/function/dstr-obj-ptrn-rest-val-obj.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/function/params-trailing-comma-multiple.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/dstr-meth-dflt-obj-ptrn-rest-getter.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/dstr-meth-dflt-obj-ptrn-rest-val-obj.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/dstr-meth-obj-ptrn-rest-getter.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/dstr-meth-obj-ptrn-rest-val-obj.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/let-non-strict-access.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/method-definition/async-meth-dflt-params-abrupt.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/method-definition/async-meth-dflt-params-arg-val-not-undefined.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/method-definition/async-meth-dflt-params-ref-later.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/method-definition/async-meth-dflt-params-ref-prior.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/method-definition/async-meth-dflt-params-ref-self.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/dstr-meth-dflt-obj-ptrn-rest-skip-non-enumerable.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/dstr-meth-obj-ptrn-rest-skip-non-enumerable.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/let-non-strict-syntax.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/method-definition/meth-dflt-params-trailing-comma.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/method-definition/meth-params-trailing-comma-multiple.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/method-definition/meth-params-trailing-comma-single.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/method-definition/name-param-id-yield.js",
     "reason": "Esprima problem"
   },
   {
@@ -812,14 +628,6 @@
   },
   {
     "source": "language/expressions/object/yield-non-strict-syntax.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/method-definition/object-method-returns-promise.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/function/params-trailing-comma-single.js",
     "reason": "Esprima problem"
   },
   {
@@ -852,6 +660,14 @@
   },
   {
     "source": "built-ins/RegExp/S15.10.2.13_A2_T8.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/let-non-strict-access.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/object/let-non-strict-syntax.js",
     "reason": "Esprima problem"
   },
 ]

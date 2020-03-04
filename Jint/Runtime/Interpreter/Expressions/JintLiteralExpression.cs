@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;

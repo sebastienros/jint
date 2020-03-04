@@ -12,7 +12,7 @@ namespace Jint.Tests.Parser
         [Fact]
         public void ShouldParseThis()
         {
-            var program = new JavaScriptParser("this").ParseProgram();
+            var program = new JavaScriptParser("this").ParseScript();
             var body = program.Body;
 
             Assert.Single(body);
@@ -22,7 +22,7 @@ namespace Jint.Tests.Parser
         [Fact]
         public void ShouldParseNull()
         {
-            var program = new JavaScriptParser("null").ParseProgram();
+            var program = new JavaScriptParser("null").ParseScript();
             var body = program.Body;
 
             Assert.Single(body);
@@ -37,7 +37,7 @@ namespace Jint.Tests.Parser
             var program = new JavaScriptParser(
                 @"
                 42
-            ").ParseProgram();
+            ").ParseScript();
             var body = program.Body;
 
             Assert.Single(body);
@@ -51,7 +51,7 @@ namespace Jint.Tests.Parser
         {
             BinaryExpression binary;
 
-            var program = new JavaScriptParser("(1 + 2 ) * 3").ParseProgram();
+            var program = new JavaScriptParser("(1 + 2 ) * 3").ParseScript();
             var body = program.Body;
 
             Assert.Single(body);
@@ -87,7 +87,7 @@ namespace Jint.Tests.Parser
         {
             Literal literal;
 
-            var program = new JavaScriptParser(source).ParseProgram();
+            var program = new JavaScriptParser(source).ParseScript();
             var body = program.Body;
 
             Assert.Single(body);
@@ -106,7 +106,7 @@ namespace Jint.Tests.Parser
         {
             Literal literal;
 
-            var program = new JavaScriptParser(source).ParseProgram();
+            var program = new JavaScriptParser(source).ParseScript();
             var body = program.Body;
 
             Assert.Single(body);
@@ -149,7 +149,7 @@ namespace Jint.Tests.Parser
 
         public void ShouldInsertSemicolons(string source)
         {
-            new JavaScriptParser(source).ParseProgram();
+            new JavaScriptParser(source).ParseScript();
         }
 
         [Fact]
@@ -159,7 +159,7 @@ namespace Jint.Tests.Parser
 \
 '
 ";
-            var program = new JavaScriptParser(source, new ParserOptions { Loc = true }).ParseProgram();
+            var program = new JavaScriptParser(source, new ParserOptions { Loc = true }).ParseScript();
             var expr = program.Body.First().As<ExpressionStatement>().Expression;
             Assert.Equal(1, expr.Location.Start.Line);
             Assert.Equal(0, expr.Location.Start.Column);
@@ -181,7 +181,7 @@ namespace Jint.Tests.Parser
         [InlineData("-.-")]
         public void ShouldThrowParserExceptionForInvalidCode(string code)
         {
-            Assert.Throws<ParserException>(() => new JavaScriptParser(code).ParseProgram());
+            Assert.Throws<ParserException>(() => new JavaScriptParser(code).ParseScript());
         }
     }
 }

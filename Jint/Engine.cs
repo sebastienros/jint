@@ -399,10 +399,10 @@ namespace Jint
         public Engine Execute(string source, ParserOptions parserOptions)
         {
             var parser = new JavaScriptParser(source, parserOptions);
-            return Execute(parser.ParseProgram());
+            return Execute(parser.ParseScript());
         }
 
-        public Engine Execute(Program program)
+        public Engine Execute(Script program)
         {
             ResetStatementsCount();
 
@@ -863,7 +863,7 @@ namespace Jint
         }
 
         private void AddFunctionDeclarations(
-            ref NodeList<FunctionDeclaration> functionDeclarations,
+            ref NodeList<IFunctionDeclaration> functionDeclarations,
             EnvironmentRecord env,
             bool configurableBindings,
             bool strict)

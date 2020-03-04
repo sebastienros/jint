@@ -22,12 +22,10 @@ build_script:
   - dotnet --version
   - dotnet pack -c Release
 test_script:
-  - dotnet test .\Jint.Tests\Jint.Tests.csproj -c Release -f netcoreapp3.0
-  - dotnet test .\Jint.Tests\Jint.Tests.csproj -c Release -f net452
-  - dotnet test .\Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj -c Release -f netcoreapp3.0
-  - dotnet test .\Jint.Tests.Ecma\Jint.Tests.Ecma.csproj -c Release -f netcoreapp3.0
-  - dotnet test .\Jint.Tests.Test262\Jint.Tests.Test262.csproj -c Release -f netcoreapp3.0
-  - dotnet test .\Jint.Tests.Test262\Jint.Tests.Test262.csproj -c Release -f net452
+  - dotnet test .\Jint.Tests\Jint.Tests.csproj -c Release
+  - dotnet test .\Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj -c Release
+  - dotnet test .\Jint.Tests.Ecma\Jint.Tests.Ecma.csproj -c Release
+  - dotnet test .\Jint.Tests.Test262\Jint.Tests.Test262.csproj -c Release
 artifacts:
   - path: 'Jint\**\*.nupkg'
 deploy:  

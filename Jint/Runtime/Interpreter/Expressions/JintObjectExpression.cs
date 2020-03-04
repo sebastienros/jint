@@ -55,7 +55,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             for (var i = 0; i < _properties.Length; i++)
             {
-                var property = expression.Properties[i];
+                var property = (Property) expression.Properties[i];
                 string propName = null;
 
                 if (property.Key is Literal literal)

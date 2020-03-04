@@ -122,7 +122,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     return new JintDebuggerStatement(engine, (DebuggerStatement) statement);
 
                 case Nodes.Program:
-                    return new JintProgram(engine, (Program) statement);
+                    return new JintScript(engine, statement as Script ?? ExceptionHelper.ThrowArgumentException<Script>("modules not supported"));
 
                 default:
                     return ExceptionHelper.ThrowArgumentOutOfRangeException<JintStatement>();
