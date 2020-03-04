@@ -899,7 +899,7 @@ namespace Jint.Tests.Runtime
             ";
 
             var engine = new Engine(o => o.LimitRecursion(20));
-            engine.Execute(input);
+            Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute(input));
         }
 
         [Fact]
