@@ -885,6 +885,24 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldAllowRecursionLimitWithoutReferencedName()
+        {
+            const string input = @"(function () {
+                var factorial = function(n) {
+                    if (n>1) {
+                        return n * factorial(n - 1);
+                    }
+                };
+
+                var result = factorial(38);
+            })();
+            ";
+
+            var engine = new Engine(o => o.LimitRecursion(20));
+            engine.Execute(input);
+        }
+
+        [Fact]
         public void ShouldConvertDoubleToStringWithoutLosingPrecision()
         {
             RunTest(@"
