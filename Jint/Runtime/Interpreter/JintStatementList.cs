@@ -51,10 +51,7 @@ namespace Jint.Runtime.Interpreter
             if (_statement != null)
             {
                 _engine._lastSyntaxNode = _statement;
-                if (_engine._runBeforeStatementChecks)
-                {
-                    _engine.RunBeforeExecuteStatementChecks(_statement);
-                }
+                _engine.RunBeforeExecuteStatementChecks(_statement);
             }
 
             JintStatement s = null;

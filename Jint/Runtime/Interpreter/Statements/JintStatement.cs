@@ -33,11 +33,7 @@ namespace Jint.Runtime.Interpreter.Statements
         public Completion Execute()
         {
             _engine._lastSyntaxNode = _statement;
-
-            if (_engine._runBeforeStatementChecks)
-            {
-                _engine.RunBeforeExecuteStatementChecks(_statement);
-            }
+            _engine.RunBeforeExecuteStatementChecks(_statement);
 
             if (!_initialized)
             {

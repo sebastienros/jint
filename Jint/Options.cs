@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Interop;
@@ -11,6 +12,7 @@ namespace Jint
 {
     public sealed class Options
     {
+        private readonly List<IConstraint> _constraints = new List<IConstraint>();
         private bool _discardGlobal;
         private bool _strict;
         private bool _allowDebuggerStatement;
@@ -18,11 +20,8 @@ namespace Jint
         private bool _allowClrWrite = true;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private Func<object, ObjectInstance> _wrapObjectHandler;
-        private int _maxStatements;
-        private long _memoryLimit;
         private int _maxRecursionDepth = -1;
-        private TimeSpan _timeoutInterval;
-        private TimeSpan? _regexTimeoutInterval;
+        private TimeSpan _regexTimeoutInterval = TimeSpan.FromSeconds(10);
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
@@ -131,18 +130,42 @@ namespace Jint
 
         public Options MaxStatements(int maxStatements = 0)
         {
-            _maxStatements = maxStatements;
+            _constraints.RemoveAll(x => x is MaxStatements);
+            
+            if (maxStatements > 0 && maxStatements < int.MaxValue)
+            {
+                _constraints.Add(new MaxStatements(maxStatements));
+            }
             return this;
         }
         public Options LimitMemory(long memoryLimit)
         {
-            _memoryLimit = memoryLimit;
+            _constraints.RemoveAll(x => x is MemoryLimit);
+
+            if (memoryLimit > 0 && memoryLimit < int.MaxValue)
+            {
+                _constraints.Add(new MemoryLimit(memoryLimit));
+            }
             return this;
         }
 
         public Options TimeoutInterval(TimeSpan timeoutInterval)
         {
-            _timeoutInterval = timeoutInterval;
+            _constraints.RemoveAll(x => x is TimeConstraint);
+
+            if (timeoutInterval > TimeSpan.Zero && timeoutInterval < TimeSpan.MaxValue)
+            {
+                _constraints.Add(new TimeConstraint(timeoutInterval));
+            }
+            return this;
+        }
+
+        public Options WithConstraint(IConstraint constraint)
+        {
+            if (constraint != null)
+            {
+                _constraints.Add(constraint);
+            }
             return this;
         }
 
@@ -203,23 +226,18 @@ namespace Jint
 
         internal List<IObjectConverter> _ObjectConverters => _objectConverters;
 
+        internal List<IConstraint> _Constraints => _constraints;
+
         internal Func<object, ObjectInstance> _WrapObjectHandler => _wrapObjectHandler;
-
-        internal long _MemoryLimit => _memoryLimit;
-
-        internal int _MaxStatements => _maxStatements;
 
         internal int MaxRecursionDepth => _maxRecursionDepth;
 
-        internal TimeSpan _TimeoutInterval => _timeoutInterval;
-
-        internal TimeSpan _RegexTimeoutInterval => _regexTimeoutInterval ?? _timeoutInterval;
+        internal TimeSpan _RegexTimeoutInterval => _regexTimeoutInterval;
 
         internal CultureInfo _Culture => _culture;
 
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
 
         internal IReferenceResolver  ReferenceResolver => _referenceResolver;
-
     }
 }

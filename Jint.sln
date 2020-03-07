@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26406.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29728.190
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint", "Jint\Jint.csproj", "{4B6F353A-5D01-407D-9DC8-96D1FD4F7052}"
 EndProject
@@ -15,7 +15,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Tests.Ecma", "Jint.Tes
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Tests.CommonScripts", "Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj", "{B815F239-6409-4BA7-9461-18317AA2DBED}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Tests.Test262", "Jint.Tests.Test262\Jint.Tests.Test262.csproj", "{62FFFDBD-AB58-490D-9A50-AA7C53BF0409}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Tests.Test262", "Jint.Tests.Test262\Jint.Tests.Test262.csproj", "{62FFFDBD-AB58-490D-9A50-AA7C53BF0409}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -54,5 +54,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {54044CCF-FC00-45CA-913A-CE251A4BAA49}
 	EndGlobalSection
 EndGlobal
