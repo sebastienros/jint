@@ -15,7 +15,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Tests.Ecma", "Jint.Tes
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Tests.CommonScripts", "Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj", "{B815F239-6409-4BA7-9461-18317AA2DBED}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Tests.Test262", "Jint.Tests.Test262\Jint.Tests.Test262.csproj", "{62FFFDBD-AB58-490D-9A50-AA7C53BF0409}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Tests.Test262", "Jint.Tests.Test262\Jint.Tests.Test262.csproj", "{62FFFDBD-AB58-490D-9A50-AA7C53BF0409}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
