@@ -12,9 +12,12 @@ namespace Jint.Runtime.Descriptors
         WritableSet = 8,
         Configurable = 16,
         ConfigurableSet = 32,
-        
+
         CustomJsValue = 256,
-        
+
+        // we can check for mutable binding and do some fast assignments
+        MutableBinding = 512,
+
         // common helpers
         AllForbidden = ConfigurableSet | EnumerableSet | WritableSet,
         ConfigurableEnumerableWritable = Configurable | Enumerable | Writable,

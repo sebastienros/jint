@@ -1,5 +1,6 @@
 ﻿using Jint.Collections;
 using Jint.Native.Function;
+using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -24,8 +25,7 @@ namespace Jint.Native.Number
         {
             var obj = new NumberConstructor(engine)
             {
-                Extensible = true,
-                Prototype = engine.Function.PrototypeObject
+                _prototype = engine.Function.PrototypeObject
             };
 
             // The value of the [[Prototype]] internal property of the Number constructor is the Function prototype object
@@ -34,14 +34,14 @@ namespace Jint.Native.Number
             obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
 
             // The initial value of Number.prototype is the Number prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            var properties = new PropertyDictionary(15, checkExistingKeys: false)
             {
                 ["MAX_VALUE"] = new PropertyDescriptor(new PropertyDescriptor(double.MaxValue, PropertyFlag.AllForbidden)),
                 ["MIN_VALUE"] = new PropertyDescriptor(new PropertyDescriptor(double.Epsilon, PropertyFlag.AllForbidden)),
@@ -55,9 +55,10 @@ namespace Jint.Native.Number
                 ["isInteger"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isInteger", IsInteger, 1, PropertyFlag.Configurable), true, false, true),
                 ["isNaN"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1, PropertyFlag.Configurable), true, false, true),
                 ["isSafeInteger"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isSafeInteger", IsSafeInteger, 1, PropertyFlag.Configurable), true, false, true),
-                ["parseFloat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseFloat", _engine.Global.ParseFloat, 0, PropertyFlag.Configurable), true, false, true),
-                ["parseInt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseInt", _engine.Global.ParseInt, 0, PropertyFlag.Configurable), true, false, true)
+                ["parseFloat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseFloat", GlobalObject.ParseFloat, 0, PropertyFlag.Configurable), true, false, true),
+                ["parseInt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseInt", GlobalObject.ParseInt, 0, PropertyFlag.Configurable), true, false, true)
             };
+            SetProperties(properties);
         }
 
         private static JsValue IsFinite(JsValue thisObj, JsValue[] arguments)
@@ -134,7 +135,7 @@ namespace Jint.Native.Number
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             return Construct(arguments.Length > 0 ? TypeConverter.ToNumber(arguments[0]) : 0);
         }
@@ -150,9 +151,8 @@ namespace Jint.Native.Number
         {
             var instance = new NumberInstance(Engine)
             {
-                Prototype = PrototypeObject,
-                NumberData = value,
-                Extensible = true
+                _prototype = PrototypeObject,
+                NumberData = value
             };
 
             return instance;

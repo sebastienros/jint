@@ -26,9 +26,8 @@ namespace Jint.Native.Number
         {
             var obj = new NumberPrototype(engine)
             {
-                Prototype = engine.Object.PrototypeObject,
+                _prototype = engine.Object.PrototypeObject,
                 NumberData = JsNumber.Create(0),
-                Extensible = true,
                 _numberConstructor = numberConstructor
             };
 
@@ -38,7 +37,7 @@ namespace Jint.Native.Number
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(8)
+            var properties = new PropertyDictionary(8, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_numberConstructor, true, false, true),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true),
@@ -48,6 +47,7 @@ namespace Jint.Native.Number
                 ["toExponential"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toExponential", ToExponential, 1, PropertyFlag.Configurable), true, false, true),
                 ["toPrecision"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toPrecision", ToPrecision, 1, PropertyFlag.Configurable), true, false, true)
             };
+            SetProperties(properties);
         }
 
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
@@ -66,7 +66,7 @@ namespace Jint.Native.Number
 
             if (m == 0)
             {
-                return "0";
+                return JsString.NumberZeroString;
             }
 
             if (m < 0)
@@ -106,10 +106,16 @@ namespace Jint.Native.Number
 
         private JsValue ToFixed(JsValue thisObj, JsValue[] arguments)
         {
-            var f = (int)TypeConverter.ToInteger(arguments.At(0, 0));
+            var f = (int) TypeConverter.ToInteger(arguments.At(0, 0));
             if (f < 0 || f > 100)
             {
                 ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 100");
+            }
+
+            // limitation with .NET, max is 99
+            if (f == 100)
+            {
+                ExceptionHelper.ThrowRangeError(_engine, "100 fraction digits is not supported due to .NET format specifier limitation");
             }
 
             var x = TypeConverter.ToNumber(thisObj);
@@ -180,9 +186,10 @@ namespace Jint.Native.Number
             }
 
             int decimalPoint;
-            var dtoaBuilder = new DtoaBuilder();
+            DtoaBuilder dtoaBuilder;
             if (f == -1)
             {
+                dtoaBuilder = new DtoaBuilder();
                 DtoaNumberFormatter.DoubleToAscii(
                     dtoaBuilder,
                     x,
@@ -194,6 +201,7 @@ namespace Jint.Native.Number
             }
             else
             {
+                dtoaBuilder = new DtoaBuilder(101);
                 DtoaNumberFormatter.DoubleToAscii(
                     dtoaBuilder,
                     x,
@@ -243,7 +251,7 @@ namespace Jint.Native.Number
                 ExceptionHelper.ThrowRangeError(_engine, "precision must be between 1 and 100");
             }
 
-            var dtoaBuilder = new DtoaBuilder();
+            var dtoaBuilder = new DtoaBuilder(101);
             DtoaNumberFormatter.DoubleToAscii(
                 dtoaBuilder,
                 x,
@@ -358,7 +366,7 @@ namespace Jint.Native.Number
 
             if (x == 0)
             {
-                return "0";
+                return JsString.NumberZeroString;
             }
 
             if (double.IsPositiveInfinity(x) || x >= double.MaxValue)

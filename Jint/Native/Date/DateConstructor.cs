@@ -62,29 +62,32 @@ namespace Jint.Native.Date
         {
             var obj = new DateConstructor(engine)
             {
-                Extensible = true,
-                Prototype = engine.Function.PrototypeObject
+                _prototype = engine.Function.PrototypeObject
             };
 
             // The value of the [[Prototype]] internal property of the Date constructor is the Function prototype object
             obj.PrototypeObject = DatePrototype.CreatePrototypeObject(engine, obj);
 
-            obj._length = new PropertyDescriptor(7, PropertyFlag.AllForbidden);
+            obj._length = new PropertyDescriptor(7, PropertyFlag.Configurable);
 
             // The initial value of Date.prototype is the Date prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            const PropertyFlag lengthFlags = PropertyFlag.Configurable;
+            const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+
+            var properties = new PropertyDictionary(3, checkExistingKeys: false)
             {
-                ["parse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parse", Parse, 1), true, false, true),
-                ["UTC"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "utc", Utc, 7), true, false, true),
-                ["now"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "now", Now, 0), true, false, true)
+                ["parse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parse", Parse, 1, lengthFlags), propertyFlags),
+                ["UTC"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "UTC", Utc, 7, lengthFlags), propertyFlags),
+                ["now"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "now", Now, 0, lengthFlags), propertyFlags)
             };
+            SetProperties(properties);
         }
 
         private JsValue Parse(JsValue thisObj, JsValue[] arguments)
@@ -94,7 +97,7 @@ namespace Jint.Native.Date
             if (!DateTime.TryParseExact(date, DefaultFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var result))
             {
                 if (!DateTime.TryParseExact(date, SecondaryFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
-            {
+                {
                     if (!DateTime.TryParse(date, Engine.Options._Culture, DateTimeStyles.AdjustToUniversal, out result))
                     {
                         if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
@@ -111,7 +114,25 @@ namespace Jint.Native.Date
 
         private JsValue Utc(JsValue thisObj, JsValue[] arguments)
         {
-            return TimeClip(ConstructTimeValue(arguments, useUtc: true));
+            var y = TypeConverter.ToNumber(arguments.At(0));
+            var m = TypeConverter.ToNumber(arguments.At(1, JsNumber.PositiveZero));
+            var dt = TypeConverter.ToNumber(arguments.At(2, JsNumber.One));
+            var h = TypeConverter.ToNumber(arguments.At(3, JsNumber.PositiveZero));
+            var min = TypeConverter.ToNumber(arguments.At(4, JsNumber.PositiveZero));
+            var s = TypeConverter.ToNumber(arguments.At(5, JsNumber.PositiveZero));
+            var milli = TypeConverter.ToNumber(arguments.At(6, JsNumber.PositiveZero));
+
+            var yInteger = TypeConverter.ToInteger(y);
+            if (!double.IsNaN(y) && 0 <= yInteger && yInteger <= 99)
+            {
+                y  = yInteger + 1900;
+            }
+
+            var finalDate = DatePrototype.MakeDate(
+                DatePrototype.MakeDay(y, m, dt),
+                DatePrototype.MakeTime(h, min, s, milli));
+
+            return TimeClip(finalDate);
         }
 
         private static JsValue Now(JsValue thisObj, JsValue[] arguments)
@@ -121,15 +142,13 @@ namespace Jint.Native.Date
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return PrototypeObject.ToString(Construct(Arguments.Empty), Arguments.Empty);
+            return PrototypeObject.ToString(Construct(Arguments.Empty, thisObject), Arguments.Empty);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.9.3
         /// </summary>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (arguments.Length == 0)
             {
@@ -137,53 +156,41 @@ namespace Jint.Native.Date
             }
             else if (arguments.Length == 1)
             {
+                if (arguments[0] is DateInstance date)
+                {
+                    return Construct(date.PrimitiveValue);
+                }
+                
                 var v = TypeConverter.ToPrimitive(arguments[0]);
                 if (v.IsString())
                 {
                     return Construct(((JsNumber) Parse(Undefined, Arguments.From(v)))._value);
                 }
 
-                return Construct(TypeConverter.ToNumber(v));
+                return Construct(TimeClip(TypeConverter.ToNumber(v)));
             }
             else
             {
-                return Construct(ConstructTimeValue(arguments, useUtc: false));
-            }
-        }
+                var y = TypeConverter.ToNumber(arguments.At(0));
+                var m = TypeConverter.ToNumber(arguments.At(1));
+                var dt = TypeConverter.ToNumber(arguments.At(2, JsNumber.One));
+                var h = TypeConverter.ToNumber(arguments.At(3, JsNumber.PositiveZero));
+                var min = TypeConverter.ToNumber(arguments.At(4, JsNumber.PositiveZero));
+                var s = TypeConverter.ToNumber(arguments.At(5, JsNumber.PositiveZero));
+                var milli = TypeConverter.ToNumber(arguments.At(6, JsNumber.PositiveZero));
 
-        private double ConstructTimeValue(JsValue[] arguments, bool useUtc)
-        {
-            if (arguments.Length < 2)
-            {
-                ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(arguments), "There must be at least two arguments.");
-            }
-
-            var y = TypeConverter.ToNumber(arguments[0]);
-            var m = (int)TypeConverter.ToInteger(arguments[1]);
-            var dt = arguments.Length > 2 ? (int)TypeConverter.ToInteger(arguments[2]) : 1;
-            var h = arguments.Length > 3 ? (int)TypeConverter.ToInteger(arguments[3]) : 0;
-            var min = arguments.Length > 4 ? (int)TypeConverter.ToInteger(arguments[4]) : 0;
-            var s = arguments.Length > 5 ? (int)TypeConverter.ToInteger(arguments[5]) : 0;
-            var milli = arguments.Length > 6 ? (int)TypeConverter.ToInteger(arguments[6]) : 0;
-
-            for (int i = 2; i < arguments.Length; i++)
-            {
-                if (double.IsNaN(TypeConverter.ToNumber(arguments[i])))
+                var yInteger = TypeConverter.ToInteger(y);
+                if (!double.IsNaN(y) && 0 <= yInteger && yInteger <= 99)
                 {
-                    return double.NaN;
+                    y += 1900;
                 }
+
+                var finalDate = DatePrototype.MakeDate(
+                    DatePrototype.MakeDay(y, m, dt),
+                    DatePrototype.MakeTime(h, min, s, milli));
+
+                return Construct(TimeClip(PrototypeObject.Utc(finalDate)));
             }
-
-            if (!double.IsNaN(y) && 0 <= TypeConverter.ToInteger(y) && TypeConverter.ToInteger(y) <= 99)
-            {
-                y += 1900;
-            }
-
-            var finalDate = DatePrototype.MakeDate(
-                DatePrototype.MakeDay(y, m, dt),
-                DatePrototype.MakeTime(h, min, s, milli));
-
-            return TimeClip(useUtc ? finalDate : PrototypeObject.Utc(finalDate));
         }
 
         public DatePrototype PrototypeObject { get; private set; }
@@ -196,11 +203,10 @@ namespace Jint.Native.Date
         public DateInstance Construct(DateTime value)
         {
             var instance = new DateInstance(Engine)
-                {
-                    Prototype = PrototypeObject,
-                    PrimitiveValue = FromDateTime(value),
-                    Extensible = true
-                };
+            {
+                _prototype = PrototypeObject,
+                PrimitiveValue = FromDateTime(value)
+            };
 
             return instance;
         }
@@ -208,11 +214,10 @@ namespace Jint.Native.Date
         public DateInstance Construct(double time)
         {
             var instance = new DateInstance(Engine)
-                {
-                    Prototype = PrototypeObject,
-                    PrimitiveValue = TimeClip(time),
-                    Extensible = true
-                };
+            {
+                _prototype = PrototypeObject,
+                PrimitiveValue = TimeClip(time)
+            };
 
             return instance;
         }
@@ -229,7 +234,7 @@ namespace Jint.Native.Date
                 return double.NaN;
             }
 
-            return TypeConverter.ToInteger(time);
+            return TypeConverter.ToInteger(time) + 0;
         }
 
         public double FromDateTime(DateTime dt)

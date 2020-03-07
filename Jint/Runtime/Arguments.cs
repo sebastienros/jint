@@ -23,13 +23,25 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue At(this JsValue[] args, int index, JsValue undefinedValue)
         {
-            return index < args.Length ? args[index] : undefinedValue;
+            return (uint) index < (uint) args.Length ? args[index] : undefinedValue;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue At(this JsValue[] args, int index)
         {
             return At(args, index, Undefined.Instance);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T As<T>(this JsValue[] args, int index, Engine engine) where T : JsValue
+        {
+            var value = (uint) index < (uint) args.Length ? args[index] as T : null;
+            if (value is null)
+            {
+                ExceptionHelper.ThrowTypeError<JsValue>(engine);
+            }
+
+            return value;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

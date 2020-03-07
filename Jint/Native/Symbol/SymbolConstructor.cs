@@ -24,40 +24,43 @@ namespace Jint.Native.Symbol
         {
             var obj = new SymbolConstructor(engine)
             {
-                Extensible = true,
-                Prototype = engine.Function.PrototypeObject
+                _prototype = engine.Function.PrototypeObject
             };
 
             // The value of the [[Prototype]] internal property of the Symbol constructor is the Function prototype object
             obj.PrototypeObject = SymbolPrototype.CreatePrototypeObject(engine, obj);
 
-            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
+            obj._length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Configurable);
 
             // The initial value of String.prototype is the String prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(15)
+            const PropertyFlag lengthFlags = PropertyFlag.Configurable;
+            const PropertyFlag propertyFlags = PropertyFlag.AllForbidden;
+
+            var properties = new PropertyDictionary(15, checkExistingKeys: false)
             {
-                ["species"] = new PropertyDescriptor(GlobalSymbolRegistry.Species, PropertyFlag.AllForbidden),
-                ["for"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "for", For, 1), true, false, true),
-                ["keyFor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keyFor", KeyFor, 1), true, false, true),
-                ["hasInstance"] = new PropertyDescriptor(GlobalSymbolRegistry.HasInstance, false, false, false),
-                ["isConcatSpreadable"] = new PropertyDescriptor(GlobalSymbolRegistry.IsConcatSpreadable, false, false, false),
-                ["iterator"] = new PropertyDescriptor(GlobalSymbolRegistry.Iterator, false, false, false),
-                ["match"] = new PropertyDescriptor(GlobalSymbolRegistry.Match, false, false, false),
-                ["replace"] = new PropertyDescriptor(GlobalSymbolRegistry.Replace, false, false, false),
-                ["search"] = new PropertyDescriptor(GlobalSymbolRegistry.Search, false, false, false),
-                ["species"] = new PropertyDescriptor(GlobalSymbolRegistry.Species, false, false, false),
-                ["split"] = new PropertyDescriptor(GlobalSymbolRegistry.Split, false, false, false),
-                ["toPrimitive"] = new PropertyDescriptor(GlobalSymbolRegistry.ToPrimitive, false, false, false),
-                ["toStringTag"] = new PropertyDescriptor(GlobalSymbolRegistry.ToStringTag, false, false, false),
-                ["unscopables"] = new PropertyDescriptor(GlobalSymbolRegistry.Unscopables, false, false, false)
+                ["for"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "for", For, 1, lengthFlags), PropertyFlag.Writable | PropertyFlag.Configurable),
+                ["keyFor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keyFor", KeyFor, 1, lengthFlags), PropertyFlag.Writable | PropertyFlag.Configurable),
+                ["hasInstance"] = new PropertyDescriptor(GlobalSymbolRegistry.HasInstance, propertyFlags),
+                ["isConcatSpreadable"] = new PropertyDescriptor(GlobalSymbolRegistry.IsConcatSpreadable, propertyFlags),
+                ["iterator"] = new PropertyDescriptor(GlobalSymbolRegistry.Iterator, propertyFlags),
+                ["match"] = new PropertyDescriptor(GlobalSymbolRegistry.Match, propertyFlags),
+                ["matchAll"] = new PropertyDescriptor(GlobalSymbolRegistry.MatchAll, propertyFlags),
+                ["replace"] = new PropertyDescriptor(GlobalSymbolRegistry.Replace, propertyFlags),
+                ["search"] = new PropertyDescriptor(GlobalSymbolRegistry.Search, propertyFlags),
+                ["species"] = new PropertyDescriptor(GlobalSymbolRegistry.Species, propertyFlags),
+                ["split"] = new PropertyDescriptor(GlobalSymbolRegistry.Split, propertyFlags),
+                ["toPrimitive"] = new PropertyDescriptor(GlobalSymbolRegistry.ToPrimitive, propertyFlags),
+                ["toStringTag"] = new PropertyDescriptor(GlobalSymbolRegistry.ToStringTag, propertyFlags),
+                ["unscopables"] = new PropertyDescriptor(GlobalSymbolRegistry.Unscopables, propertyFlags)
             };
+            SetProperties(properties);
         }
 
         /// <summary>
@@ -68,27 +71,22 @@ namespace Jint.Native.Symbol
             var description = arguments.At(0);
             var descString = description.IsUndefined()
                 ? Undefined
-                : TypeConverter.ToString(description);
+                : TypeConverter.ToJsString(description);
 
-            if (ReturnOnAbruptCompletion(ref descString))
-            {
-                return descString;
-            }
-
-            var value = new JsSymbol(description);
+            var value = _engine.GlobalSymbolRegistry.CreateSymbol(descString);
             return value;
         }
 
         public JsValue For(JsValue thisObj, JsValue[] arguments)
         {
-            var stringKey = TypeConverter.ToString(arguments.At(0));
+            var stringKey = TypeConverter.ToJsString(arguments.At(0));
 
             // 2. ReturnIfAbrupt(stringKey).
 
-            if (!Engine.GlobalSymbolRegistry.TryGetValue(stringKey, out var symbol))
+            if (!_engine.GlobalSymbolRegistry.TryGetSymbol(stringKey, out var symbol))
             {
-                symbol = new JsSymbol(stringKey);
-                Engine.GlobalSymbolRegistry.Add(stringKey, symbol);
+                symbol = _engine.GlobalSymbolRegistry.CreateSymbol(stringKey);
+                _engine.GlobalSymbolRegistry.Add(symbol);
             }
 
             return symbol;
@@ -96,40 +94,30 @@ namespace Jint.Native.Symbol
 
         public JsValue KeyFor(JsValue thisObj, JsValue[] arguments)
         {
-            var sym = arguments.At(0);
-
-            if (!sym.IsSymbol())
+            if (!(arguments.At(0) is JsSymbol sym))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
             }
 
-            JsSymbol symbol;
-            if (!Engine.GlobalSymbolRegistry.TryGetValue(sym.AsSymbol(), out symbol))
+            if (_engine.GlobalSymbolRegistry.TryGetSymbol(sym._value, out var e))
             {
-                return Undefined;
+                return e._value;
             }
 
-            return sym.AsSymbol();
+            return Undefined;
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            ExceptionHelper.ThrowTypeError(Engine);
-            return null;
-        }
-
-        public SymbolInstance Construct(string description)
-        {
-            return Construct(new JsSymbol(description));
+            return ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
         }
 
         public SymbolInstance Construct(JsSymbol symbol)
         {
             var instance = new SymbolInstance(Engine)
             {
-                Prototype = PrototypeObject,
-                SymbolData = symbol,
-                Extensible = true
+                _prototype = PrototypeObject,
+                SymbolData = symbol
             };
 
             return instance;

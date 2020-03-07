@@ -7,6 +7,7 @@ using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.String
 {
@@ -23,8 +24,7 @@ namespace Jint.Native.String
         {
             var obj = new StringConstructor(engine)
             {
-                Extensible = true,
-                Prototype = engine.Function.PrototypeObject
+                _prototype = engine.Function.PrototypeObject
             };
 
             // The value of the [[Prototype]] internal property of the String constructor is the Function prototype object
@@ -33,19 +33,20 @@ namespace Jint.Native.String
             obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
 
             // The initial value of String.prototype is the String prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            var properties = new PropertyDictionary(3, checkExistingKeys: false)
             {
                 ["fromCharCode"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCharCode", FromCharCode, 1), PropertyFlag.NonEnumerable)),
                 ["fromCodePoint"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromCodePoint", FromCodePoint, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)),
                 ["raw"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "raw", Raw, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable))
             };
+            SetProperties(properties);
         }
 
         private static JsValue FromCharCode(JsValue thisObj, JsValue[] arguments)
@@ -105,9 +106,9 @@ namespace Jint.Native.String
         private JsValue Raw(JsValue thisObj, JsValue[] arguments)
         {
             var cooked = TypeConverter.ToObject(_engine, arguments.At(0));
-            var raw = TypeConverter.ToObject(_engine, cooked.Get("raw"));
+            var raw = TypeConverter.ToObject(_engine, cooked.Get(JintTaggedTemplateExpression.PropertyRaw, cooked));
 
-            var operations = ArrayPrototype.ArrayOperations.For(raw);
+            var operations = ArrayOperations.For(raw);
             var length = operations.GetLength();
 
             if (length <= 0)
@@ -152,9 +153,7 @@ namespace Jint.Native.String
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.7.2.1
         /// </summary>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             string value = "";
             if (arguments.Length > 0)
@@ -175,12 +174,9 @@ namespace Jint.Native.String
         {
             var instance = new StringInstance(Engine)
             {
-                Prototype = PrototypeObject,
+                _prototype = PrototypeObject,
                 PrimitiveValue = value,
-                Extensible = true,
-                _length = value.Length == 0
-                    ? PropertyDescriptor.AllForbiddenDescriptor.NumberZero
-                    : new PropertyDescriptor(value.Length, PropertyFlag.AllForbidden)
+                _length = PropertyDescriptor.AllForbiddenDescriptor.ForNumber(value.Length)
             };
 
             return instance;

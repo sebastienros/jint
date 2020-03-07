@@ -4,7 +4,6 @@ using Jint.Native.Function;
 using Jint.Native.Map;
 using Jint.Native.Object;
 using Jint.Native.Set;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Iterator
 {
@@ -17,22 +16,22 @@ namespace Jint.Native.Iterator
         {
         }
 
-        internal IteratorPrototype PrototypeObject { get; private set; }
+        private IteratorPrototype ArrayIteratorPrototypeObject { get; set; }
+        private IteratorPrototype GenericIteratorPrototypeObject { get; set; }
+        private IteratorPrototype MapIteratorPrototypeObject { get; set; }
+        private IteratorPrototype RegExpStringIteratorPrototypeObject { get; set; }
+        private IteratorPrototype SetIteratorPrototypeObject { get; set; }
+        private IteratorPrototype StringIteratorPrototypeObject { get; set; }
 
         public static IteratorConstructor CreateIteratorConstructor(Engine engine)
         {
             var obj = new IteratorConstructor(engine);
-            obj.Extensible = true;
-
-            // The value of the [[Prototype]] internal property of the Map constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
-            obj.PrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
-
-            // The initial value of Map.prototype is the Map prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
+            obj.ArrayIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "Array Iterator", obj);
+            obj.GenericIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, null, obj);
+            obj.MapIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "Map Iterator", obj);
+            obj.RegExpStringIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "RegExp String Iterator", obj);
+            obj.SetIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "Set Iterator", obj);
+            obj.StringIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "String Iterator", obj);
             return obj;
         }
 
@@ -42,7 +41,7 @@ namespace Jint.Native.Iterator
             return Construct(arguments);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             return Construct(Enumerable.Empty<JsValue>());
         }
@@ -51,7 +50,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance(Engine, enumerable)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = GenericIteratorPrototypeObject
             };
 
             return instance;
@@ -61,7 +60,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.ListIterator(Engine, enumerable)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = GenericIteratorPrototypeObject
             };
 
             return instance;
@@ -71,7 +70,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.ArrayLikeIterator(Engine, array)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = GenericIteratorPrototypeObject
             };
 
             return instance;
@@ -81,7 +80,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.MapIterator(Engine, map)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = MapIteratorPrototypeObject
             };
 
             return instance;
@@ -91,7 +90,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.SetIterator(Engine, set)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = SetIteratorPrototypeObject
             };
 
             return instance;
@@ -101,7 +100,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.SetEntryIterator(Engine, set)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = GenericIteratorPrototypeObject
             };
 
             return instance;
@@ -111,7 +110,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.ArrayLikeKeyIterator(Engine, array)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = ArrayIteratorPrototypeObject
             };
 
             return instance;
@@ -121,7 +120,17 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.ArrayLikeValueIterator(Engine, array)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = ArrayIteratorPrototypeObject
+            };
+
+            return instance;
+        }
+       
+        internal ObjectInstance CreateRegExpStringIterator(ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode)
+        {
+            var instance = new IteratorInstance.RegExpStringIterator(Engine, iteratingRegExp, iteratedString, global, unicode)
+            {
+                _prototype = RegExpStringIteratorPrototypeObject
             };
 
             return instance;
@@ -131,7 +140,7 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.StringIterator(Engine, str)
             {
-                Prototype = PrototypeObject, Extensible = true
+                _prototype = StringIteratorPrototypeObject
             };
 
             return instance;

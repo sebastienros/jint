@@ -9,22 +9,49 @@ using Jint.Native.Number;
 using Jint.Native.Number.Dtoa;
 using Jint.Native.Object;
 using Jint.Native.String;
+using Jint.Native.Symbol;
 using Jint.Pooling;
-using Jint.Runtime.References;
 
 namespace Jint.Runtime
 {
+    [Flags]
     public enum Types
     {
         None = 0,
         Undefined = 1,
         Null = 2,
-        Boolean = 3,
-        String = 4,
-        Number = 5,
-        Symbol = 9,
-        Object = 10,
-        Completion = 20,
+        Boolean = 4,
+        String = 8,
+        Number = 16,
+        Symbol = 64,
+        Object = 128
+    }
+
+    [Flags]
+    internal enum InternalTypes
+    {
+        // should not be used, used for empty match
+        None = 0,
+
+        Undefined = 1,
+        Null = 2,
+
+        // primitive  types range start
+        Boolean = 4,
+        String = 8,
+        Number = 16,
+        Integer = 32,
+        Symbol = 64,
+
+        // primitive  types range end
+        Object = 128,
+
+        // internal usage
+        ObjectEnvironmentRecord = 512,
+        RequiresCloning = 1024,
+
+        Primitive = Boolean | String | Number | Integer | Symbol,
+        InternalFlags = ObjectEnvironmentRecord | RequiresCloning
     }
 
     public static class TypeConverter
@@ -32,7 +59,7 @@ namespace Jint.Runtime
         // how many decimals to check when determining if double is actually an int
         private const double DoubleIsIntegerTolerance = double.Epsilon * 100;
 
-        private static readonly string[] intToString = new string[1024];
+        internal static readonly string[] intToString = new string[1024];
         private static readonly string[] charToString = new string[256];
 
         static TypeConverter()
@@ -50,36 +77,95 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.1
+        /// http://www.ecma-international.org/ecma-262/#sec-toprimitive
         /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.None)
         {
-            if (input._type > Types.None && input._type < Types.Object) 
+            if (!(input is ObjectInstance oi))
             {
                 return input;
             }
 
-            return input.AsObject().DefaultValue(preferredType);
+            var hint = preferredType switch
+            {
+                Types.String => JsString.StringString,
+                Types.Number => JsString.NumberString,
+                _ => JsString.DefaultString
+            };
+
+            var exoticToPrim = oi.GetMethod(GlobalSymbolRegistry.ToPrimitive);
+            if (exoticToPrim is object)
+            {
+                var str = exoticToPrim.Call(oi, new JsValue[] { hint });
+                if (str.IsPrimitive())
+                {
+                    return str;
+                }
+
+                if (str.IsObject())
+                {
+                    return ExceptionHelper.ThrowTypeError<JsValue>(oi.Engine, "Cannot convert object to primitive value");
+                }
+            }
+
+            return OrdinaryToPrimitive(oi, preferredType == Types.None ? Types.Number :  preferredType);
         }
 
+        private static readonly JsString[] StringHintCallOrder = { (JsString) "toString", (JsString) "valueOf"};
+        private static readonly JsString[] NumberHintCallOrder = { (JsString) "valueOf", (JsString) "toString"};
+        
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/#sec-ordinarytoprimitive
+        /// </summary>
+        internal static JsValue OrdinaryToPrimitive(ObjectInstance input, Types hint = Types.None)
+        {
+            var callOrder = ArrayExt.Empty<JsString>();
+            if (hint == Types.String)
+            {
+                callOrder = StringHintCallOrder;
+            }
+
+            if (hint == Types.Number)
+            {
+                callOrder = NumberHintCallOrder;
+            }
+
+            foreach (var property in callOrder)
+            {
+                var method = input.Get(property) as ICallable;
+                if (method is object)
+                {
+                    var val = method.Call(input, Arguments.Empty);
+                    if (val.IsPrimitive())
+                    {
+                        return val;
+                    }
+                }
+ 
+            }
+
+            return ExceptionHelper.ThrowTypeError<JsValue>(input.Engine);
+        }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.2
         /// </summary>
         public static bool ToBoolean(JsValue o)
         {
-            switch (o._type)
+            var type = o._type & ~InternalTypes.InternalFlags;
+            switch (type)
             {
-                case Types.Boolean:
+                case InternalTypes.Boolean:
                     return ((JsBoolean) o)._value;
-                case Types.Undefined:
-                case Types.Null:
+                case InternalTypes.Undefined:
+                case InternalTypes.Null:
                     return false;
-                case Types.Number:
+                case InternalTypes.Integer:
+                    return (int) ((JsNumber) o)._value != 0;
+                case InternalTypes.Number:
                     var n = ((JsNumber) o)._value;
                     return n != 0 && !double.IsNaN(n);
-                case Types.String:
+                case InternalTypes.String:
                     return !((JsString) o).IsNullOrEmpty();
                 default:
                     return true;
@@ -89,47 +175,29 @@ namespace Jint.Runtime
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.3
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double ToNumber(JsValue o)
         {
-            switch (o._type)
-            {
-                // check number first as this is what is usually expected
-                case Types.Number:
-                    return ((JsNumber) o)._value;
-                case Types.Undefined:
-                    return double.NaN;
-                case Types.Null:
-                    return 0;
-                case Types.Object when o is IPrimitiveInstance p:
-                    return ToNumber(ToPrimitive(p.PrimitiveValue, Types.Number));
-                case Types.Boolean:
-                    return ((JsBoolean) o)._value ? 1 : 0;
-                case Types.String:
-                    return ToNumber(o.AsStringWithoutTypeCheck());
-                case Types.Symbol:
-                    // TODO proper TypeError would require Engine instance and a lot of API changes
-                    return ExceptionHelper.ThrowTypeErrorNoEngine<double>("Cannot convert a Symbol value to a number");
-                default:
-                    return ToNumber(ToPrimitive(o, Types.Number));
-            }
+            return o.IsNumber()
+                ? ((JsNumber) o)._value
+                : ToNumberUnlikely(o);
         }
 
-        internal static bool CanBeIndex(string input)
+        private static double ToNumberUnlikely(JsValue o)
         {
-            if (string.IsNullOrEmpty(input))
+            var type = o._type & ~InternalTypes.InternalFlags;
+            return type switch
             {
-                return false;
-            }
-
-            char first = input[0];
-            if (first < 32 || (first > 57 && first != 73))
-            {
-                // does not start with space, +, -, number or I
-                return false;
-            }
-
-            // might be
-            return true;
+                InternalTypes.Undefined => double.NaN,
+                InternalTypes.Null => 0,
+                InternalTypes.Object when o is IPrimitiveInstance p => ToNumber(ToPrimitive(p.PrimitiveValue, Types.Number)),
+                InternalTypes.Boolean => (((JsBoolean) o)._value ? 1 : 0),
+                InternalTypes.String => ToNumber(o.AsStringWithoutTypeCheck()),
+                InternalTypes.Symbol =>
+                // TODO proper TypeError would require Engine instance and a lot of API changes
+                ExceptionHelper.ThrowTypeErrorNoEngine<double>("Cannot convert a Symbol value to a number"),
+                _ => ToNumber(ToPrimitive(o, Types.Number))
+            };
         }
 
         private static double ToNumber(string input)
@@ -147,9 +215,7 @@ namespace Jint.Runtime
                 return first - '0';
             }
 
-            var s = StringPrototype.IsWhiteSpaceEx(input[0]) || StringPrototype.IsWhiteSpaceEx(input[input.Length - 1])
-                ? StringPrototype.TrimEx(input)
-                : input;
+            var s = StringPrototype.TrimEx(input);
 
             if (s.Length == 0)
             {
@@ -224,10 +290,22 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.4
+        /// http://www.ecma-international.org/ecma-262/#sec-tolength
         /// </summary>
-        /// <param name="o"></param>
-        /// <returns></returns>
+        public static ulong ToLength(JsValue o)
+        {
+            var len = ToInteger(o);
+            if (len <= 0)
+            {
+                return 0;
+            }
+
+            return (ulong) Math.Min(len, NumberConstructor.MaxSafeInteger);
+        }
+
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/#sec-tointeger
+        /// </summary>
         public static double ToInteger(JsValue o)
         {
             var number = ToNumber(o);
@@ -265,33 +343,32 @@ namespace Jint.Runtime
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.5
         /// </summary>
-        /// <param name="o"></param>
-        /// <returns></returns>
         public static int ToInt32(JsValue o)
         {
-            return (int) (uint) ToNumber(o);
+            return o._type == InternalTypes.Integer
+                ? o.AsInteger()
+                : (int) (uint) ToNumber(o);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.6
         /// </summary>
-        /// <param name="o"></param>
-        /// <returns></returns>
         public static uint ToUint32(JsValue o)
         {
-            return (uint) ToNumber(o);
+            return o._type == InternalTypes.Integer
+                ? (uint) o.AsInteger()
+                : (uint) ToNumber(o);
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.7
         /// </summary>
-        /// <param name="o"></param>
-        /// <returns></returns>
         public static ushort ToUint16(JsValue o)
         {
-            return (ushort) (uint) ToNumber(o);
+            return  o._type == InternalTypes.Integer
+                ? (ushort) (uint) o.AsInteger()
+                : (ushort) (uint) ToNumber(o);
         }
-
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(long i)
@@ -325,7 +402,6 @@ namespace Jint.Runtime
                 : c.ToString();
         }
 
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(ulong i)
         {
@@ -335,7 +411,7 @@ namespace Jint.Runtime
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static string ToString(double d)
+        internal static string  ToString(double d)
         {
             if (d > long.MinValue && d < long.MaxValue  && Math.Abs(d % 1) <= DoubleIsIntegerTolerance)
             {
@@ -353,37 +429,62 @@ namespace Jint.Runtime
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/#sec-topropertykey
         /// </summary>
-        public static string ToPropertyKey(JsValue o)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static JsValue ToPropertyKey(JsValue o)
         {
-            var key = ToPrimitive(o, Types.String);
-            if (key is JsSymbol s)
-            {
-                return s._value;
-            }
+            const InternalTypes stringOrSymbol = InternalTypes.String | InternalTypes.Symbol;
+            return (o._type & stringOrSymbol) != 0
+                ? o
+                : ToPropertyKeyNonString(o);
+        }
 
-            return ToString(key);
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static JsValue ToPropertyKeyNonString(JsValue o)
+        {
+            return new JsString(ToStringNonString(ToPrimitive(o, Types.String)));
         }
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/#sec-tostring
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string ToString(JsValue o)
         {
-            switch (o._type)
+            if (o.IsString())
             {
-                case Types.String:
-                    return o.AsStringWithoutTypeCheck();
-                case Types.Boolean:
+                return o.AsStringWithoutTypeCheck();
+            }
+            return ToStringNonString(o);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static JsString ToJsString(JsValue o)
+        {
+            if (o is JsString s)
+            {
+                return s;
+            }
+            return JsString.Create(ToStringNonString(o));
+        }
+
+        private static string ToStringNonString(JsValue o)
+        {
+            var type = o._type & ~InternalTypes.InternalFlags;
+            switch (type)
+            {
+                case InternalTypes.Boolean:
                     return ((JsBoolean) o)._value ? "true" : "false";
-                case Types.Number:
+                case InternalTypes.Integer:
+                    return ToString((int) ((JsNumber) o)._value);
+                case InternalTypes.Number:
                     return ToString(((JsNumber) o)._value);
-                case Types.Symbol:
+                case InternalTypes.Symbol:
                     return ExceptionHelper.ThrowTypeErrorNoEngine<string>("Cannot convert a Symbol value to a string");
-                case Types.Undefined:
+                case InternalTypes.Undefined:
                     return Undefined.Text;
-                case Types.Null:
+                case InternalTypes.Null:
                     return Null.Text;
-                case Types.Object when o is IPrimitiveInstance p:
+                case InternalTypes.Object when o is IPrimitiveInstance p:
                     return ToString(ToPrimitive(p.PrimitiveValue, Types.String));
                 default:
                     return ToString(ToPrimitive(o, Types.String));
@@ -393,57 +494,39 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ObjectInstance ToObject(Engine engine, JsValue value)
         {
-            switch (value._type)
+            var type = value._type & ~InternalTypes.InternalFlags;
+            switch (type)
             {
-                case Types.Object:
+                case InternalTypes.Object:
                     return (ObjectInstance) value;
-                case Types.Boolean:
+                case InternalTypes.Boolean:
                     return engine.Boolean.Construct(((JsBoolean) value)._value);
-                case Types.Number:
+                case InternalTypes.Number:
+                case InternalTypes.Integer:
                     return engine.Number.Construct(((JsNumber) value)._value);
-                case Types.String:
+                case InternalTypes.String:
                     return engine.String.Construct(value.AsStringWithoutTypeCheck());
-                case Types.Symbol:
-                    return engine.Symbol.Construct(((JsSymbol) value)._value);
+                case InternalTypes.Symbol:
+                    return engine.Symbol.Construct(((JsSymbol) value));
                 default:
                     ExceptionHelper.ThrowTypeError(engine);
                     return null;
             }
         }
 
-        public static Types GetPrimitiveType(JsValue value)
+        internal static Types GetInternalPrimitiveType(JsValue value)
         {
-            if (value._type == Types.Object)
+            if (!value.IsObject())
             {
-                if (value is IPrimitiveInstance primitive)
-                {
-                    return primitive.Type;
-                }
-
-                return Types.Object;
+                return value.Type;
             }
 
-            return value.Type;
-        }
-
-        public static void CheckObjectCoercible(
-            Engine engine,
-            JsValue o,
-            MemberExpression expression,
-            object baseReference)
-        {
-            if (o._type > Types.Null)
+            if (value is IPrimitiveInstance primitive)
             {
-                return;
+                return primitive.Type;
             }
 
-            var referenceResolver = engine.Options.ReferenceResolver;
-            if (referenceResolver != null && referenceResolver.CheckCoercible(o))
-            {
-                return;
-            }
-
-            ThrowTypeError(engine, o, expression, baseReference);
+            return Types.Object;
         }
 
         internal static void CheckObjectCoercible(
@@ -452,27 +535,10 @@ namespace Jint.Runtime
             MemberExpression expression,
             string referenceName)
         {
-            if (o._type > Types.Null)
+            if (o._type < InternalTypes.Boolean && (engine.Options.ReferenceResolver?.CheckCoercible(o)).GetValueOrDefault() != true)
             {
-                return;
+                ThrowTypeError(engine, o, expression, referenceName);
             }
-
-            var referenceResolver = engine.Options.ReferenceResolver;
-            if (referenceResolver != null && referenceResolver.CheckCoercible(o))
-            {
-                return;
-            }
-
-            ThrowTypeError(engine, o, expression, referenceName);
-        }
-
-        private static void ThrowTypeError(
-            Engine engine, 
-            JsValue o,
-            MemberExpression expression, 
-            object baseReference)
-        {
-            ThrowTypeError(engine, o, expression, (baseReference as Reference)?.GetReferencedName());
         }
 
         private static void ThrowTypeError(
@@ -488,7 +554,7 @@ namespace Jint.Runtime
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)
         {
-            if (o._type == Types.Undefined || o._type == Types.Null)
+            if (o._type < InternalTypes.Boolean)
             {
                 ExceptionHelper.ThrowTypeError(engine);
             }
@@ -496,7 +562,7 @@ namespace Jint.Runtime
 
         public static IEnumerable<Tuple<MethodBase, JsValue[]>> FindBestMatch<T>(Engine engine, T[] methods, Func<T, bool, JsValue[]> argumentProvider) where T : MethodBase
         {
-            System.Collections.Generic.List<Tuple<T, JsValue[]>> matchingByParameterCount = null;
+            List<Tuple<T, JsValue[]>> matchingByParameterCount = null;
             foreach (var m in methods)
             {
                 bool hasParams = false;
@@ -519,7 +585,7 @@ namespace Jint.Runtime
                         yield break;
                     }
 
-                    matchingByParameterCount = matchingByParameterCount ?? new System.Collections.Generic.List<Tuple<T, JsValue[]>>();
+                    matchingByParameterCount = matchingByParameterCount ?? new List<Tuple<T, JsValue[]>>();
                     matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, arguments));
                 }
                 else if (parameterInfos.Length > arguments.Length)
@@ -535,7 +601,7 @@ namespace Jint.Runtime
                     {
                         // create missing arguments from default values
 
-                        var argsWithDefaults = new System.Collections.Generic.List<JsValue>(arguments);
+                        var argsWithDefaults = new List<JsValue>(arguments);
                         for (var i = arguments.Length; i < parameterInfos.Length; i++)
                         {
                             var param = parameterInfos[i];
@@ -543,7 +609,7 @@ namespace Jint.Runtime
                             argsWithDefaults.Add(value);
                         }
 
-                        matchingByParameterCount = matchingByParameterCount ?? new System.Collections.Generic.List<Tuple<T, JsValue[]>>();
+                        matchingByParameterCount = matchingByParameterCount ?? new List<Tuple<T, JsValue[]>>();
                         matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, argsWithDefaults.ToArray()));
                     }
                 }

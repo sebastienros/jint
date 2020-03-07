@@ -25,8 +25,7 @@ namespace Jint.Pooling
         {
             return new ArgumentsInstance(_engine)
             {
-                Prototype = _engine.Object.PrototypeObject,
-                Extensible = true
+                _prototype = _engine.Object.PrototypeObject
             };
         }
 

@@ -9,16 +9,15 @@ namespace Jint.Native
     /// </summary>
     public sealed class JsSymbol : JsValue, IEquatable<JsSymbol>
     {
-        internal readonly string _value;
+        internal readonly JsValue _value;
 
-        public JsSymbol(string value) : base(Types.Symbol)
+        internal JsSymbol(string value) : this(new JsString(value))
         {
-            _value = value;
         }
 
         internal JsSymbol(JsValue value) : base(Types.Symbol)
         {
-            _value = value.IsUndefined() ? "" : value.ToString();
+            _value = value;
         }
 
         public override object ToObject()
@@ -28,12 +27,13 @@ namespace Jint.Native
 
         public override string ToString()
         {
-            return "Symbol(" + _value + ")";
+            var value = _value.IsUndefined() ? "" : _value.AsString();
+            return "Symbol(" + value + ")";
         }
 
         public override bool Equals(JsValue obj)
         {
-            return ReferenceEquals(this, obj);
+            return Equals(obj as JsSymbol);
         }
 
         public bool Equals(JsSymbol other)

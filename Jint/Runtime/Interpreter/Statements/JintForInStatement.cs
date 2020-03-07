@@ -49,16 +49,16 @@ namespace Jint.Runtime.Interpreter.Statements
 
             // keys are constructed using the prototype chain
             var cursor = obj;
-            var processedKeys = new HashSet<string>();
+            var processedKeys = new HashSet<JsString>();
 
             while (!ReferenceEquals(cursor, null))
             {
                 var keys = _engine.Object.GetOwnPropertyNames(Undefined.Instance, Arguments.From(cursor)).AsArray();
 
                 var length = keys.GetLength();
-                for (var i = 0; i < length; i++)
+                for (uint i = 0; i < length; i++)
                 {
-                    var p = keys.GetOwnProperty(TypeConverter.ToString(i)).Value.AsStringWithoutTypeCheck();
+                    var p = (JsString) keys.GetOwnProperty(i).Value;
 
                     if (processedKeys.Contains(p))
                     {

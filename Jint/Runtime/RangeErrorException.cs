@@ -1,11 +1,9 @@
-﻿using System;
-
-namespace Jint.Runtime
+﻿namespace Jint.Runtime
 {
     /// <summary>
     /// Workaround for situation where engine is not easily accessible.
     /// </summary>
-    internal sealed class RangeErrorException : Exception
+    internal sealed class RangeErrorException : JintException
     {
         public RangeErrorException(string message) : base(message)
         {

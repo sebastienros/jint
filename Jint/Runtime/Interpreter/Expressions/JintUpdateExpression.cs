@@ -31,7 +31,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             _leftIdentifier = _argument as JintIdentifierExpression;
-            _evalOrArguments = _leftIdentifier?._expressionName == "eval" || _leftIdentifier?._expressionName == "arguments";
+            _evalOrArguments = _leftIdentifier?.HasEvalOrArguments == true;
         }
 
         protected override object EvaluateInternal()
@@ -45,22 +45,31 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private object UpdateNonIdentifier()
         {
-            var value = (Reference) _argument.Evaluate();
-            value.AssertValid(_engine);
+            if (!(_argument.Evaluate() is Reference reference))
+            {
+                return ExceptionHelper.ThrowTypeError<object>(_engine, "Invalid left-hand side expression");
+            }
 
-            var oldValue = TypeConverter.ToNumber(_engine.GetValue(value, false));
-            var newValue = oldValue + _change;
+            reference.AssertValid(_engine);
 
-            _engine.PutValue(value, newValue);
-            _engine._referencePool.Return(value);
+            var value = _engine.GetValue(reference, false);
+            var isInteger = value._type == InternalTypes.Integer;
+            var newValue = isInteger
+                ? JsNumber.Create(value.AsInteger() + _change)
+                : JsNumber.Create(TypeConverter.ToNumber(value) + _change);
 
-            return JsNumber.Create(_prefix ? newValue : oldValue);
+            _engine.PutValue(reference, newValue);
+            _engine._referencePool.Return(reference);
+
+            return _prefix
+                ? newValue
+                : (isInteger ? value : JsNumber.Create(TypeConverter.ToNumber(value)));
         }
 
         private JsValue UpdateIdentifier()
         {
             var strict = StrictModeScope.IsStrictModeCode;
-            var name = _leftIdentifier._expressionName;
+            var name = _leftIdentifier.ExpressionName;
             if (TryGetIdentifierEnvironmentWithBindingValue(
                 name,
                 out var environmentRecord,
@@ -71,11 +80,15 @@ namespace Jint.Runtime.Interpreter.Expressions
                     ExceptionHelper.ThrowSyntaxError(_engine);
                 }
 
-                var oldValue = TypeConverter.ToNumber(value);
-                var newValue = oldValue + _change;
+                var isInteger = value._type == InternalTypes.Integer;
+                var newValue = isInteger
+                    ? JsNumber.Create(value.AsInteger() + _change)
+                    : JsNumber.Create(TypeConverter.ToNumber(value) + _change);
 
                 environmentRecord.SetMutableBinding(name, newValue, strict);
-                return JsNumber.Create(_prefix ? newValue : oldValue);
+                return _prefix
+                    ? newValue
+                    : (isInteger ? value : JsNumber.Create(TypeConverter.ToNumber(value)));
             }
 
             return null;

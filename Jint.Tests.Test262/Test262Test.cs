@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 using Newtonsoft.Json.Linq;
 using Xunit;
 using Xunit.Abstractions;
@@ -13,7 +15,7 @@ namespace Jint.Tests.Test262
 {
     public abstract class Test262Test
     {
-        private static readonly string[] Sources;
+        private static readonly Dictionary<string, string> Sources;
 
         private static readonly string BasePath;
 
@@ -24,7 +26,7 @@ namespace Jint.Tests.Test262
 
         private static readonly HashSet<string> _strictSkips =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
+        
         static Test262Test()
         {
             //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
@@ -37,17 +39,22 @@ namespace Jint.Tests.Test262
 
             string[] files =
             {
-                @"harness\sta.js",
-                @"harness\assert.js",
-                @"harness\propertyHelper.js",
-                @"harness\compareArray.js",
-                @"harness\decimalToHexString.js",
+                "sta.js",
+                "assert.js",
+                "propertyHelper.js",
+                "compareArray.js",
+                "decimalToHexString.js",
+                "proxyTrapsHelper.js",
+                "dateConstants.js",
+                "assertRelativeDateMs.js",
+                "regExpUtils.js",
+                "compareIterator.js"
             };
 
-            Sources = new string[files.Length];
+            Sources = new Dictionary<string, string>(files.Length);
             for (var i = 0; i < files.Length; i++)
             {
-                Sources[i] = File.ReadAllText(Path.Combine(BasePath, files[i]));
+                Sources[files[i]] = File.ReadAllText(Path.Combine(BasePath, "harness", files[i]));
             }
 
             var content = File.ReadAllText(Path.Combine(BasePath, "test/skipped.json"));
@@ -67,13 +74,28 @@ namespace Jint.Tests.Test262
         {
             var engine = new Engine(cfg => cfg
                 .LocalTimeZone(_pacificTimeZone)
-                .Strict(strict));
+                .Strict(strict)
+            );
 
-            for (int i = 0; i < Sources.Length; ++i)
+            engine.Execute(Sources["sta.js"]);
+            engine.Execute(Sources["assert.js"]);
+            engine.SetValue("print", new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
+            
+            var includes = Regex.Match(code, @"includes: \[(.+?)\]");
+            if (includes.Success)
             {
-                engine.Execute(Sources[i]);
+                var files = includes.Groups[1].Captures[0].Value.Split(',');
+                foreach (var file in files)
+                {
+                    engine.Execute(Sources[file.Trim()]);
+                }
             }
 
+            if (code.IndexOf("propertyHelper.js", StringComparison.OrdinalIgnoreCase) != -1)
+            {
+                engine.Execute(Sources["propertyHelper.js"]);
+            }
+            
             string lastError = null;
 
             bool negative = code.IndexOf("negative:", StringComparison.Ordinal) > -1;
@@ -121,7 +143,7 @@ namespace Jint.Tests.Test262
 
         public static IEnumerable<object[]> SourceFiles(string pathPrefix, bool skipped)
         {
-            var results = new List<object[]>();
+            var results = new ConcurrentBag<object[]>();
             var fixturesPath = Path.Combine(BasePath, "test");
             var searchPath = Path.Combine(fixturesPath, pathPrefix);
             var files = Directory.GetFiles(searchPath, "*", SearchOption.AllDirectories);
@@ -136,7 +158,7 @@ namespace Jint.Tests.Test262
                 var flags = Regex.Match(code, "flags: \\[(.+?)\\]");
                 if (flags.Success)
                 {
-                    var items = flags.Groups[1].Captures[0].Value.Split(",");
+                    var items = flags.Groups[1].Captures[0].Value.Split(',');
                     foreach (var item in items.Select(x => x.Trim()))
                     {
                         switch (item)
@@ -153,7 +175,7 @@ namespace Jint.Tests.Test262
                 var features = Regex.Match(code, "features: \\[(.+?)\\]");
                 if (features.Success)
                 {
-                    var items = features.Groups[1].Captures[0].Value.Split(",");
+                    var items = features.Groups[1].Captures[0].Value.Split(',');
                     foreach (var item in items.Select(x => x.Trim()))
                     {
                         switch (item)
@@ -171,49 +193,9 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "class keyword not implemented";
                                 break;
-                            case "Symbol.species":
-                                skip = true;
-                                reason = "Symbol.species not implemented";
-                                break;
-                            case "Proxy":
-                                skip = true;
-                                reason = "Proxies not implemented";
-                                break;
                             case "object-spread":
                                 skip = true;
                                 reason = "Object spread not implemented";
-                                break;
-                            case "Symbol.unscopables":
-                                skip = true;
-                                reason = "Symbol.unscopables not implemented";
-                                break;
-                            case "Symbol.match":
-                                skip = true;
-                                reason = "Symbol.match not implemented";
-                                break;
-                            case "Symbol.matchAll":
-                                skip = true;
-                                reason = "Symbol.matchAll not implemented";
-                                break;
-                            case "Symbol.split":
-                                skip = true;
-                                reason = "Symbol.split not implemented";
-                                break;
-                            case "String.prototype.matchAll":
-                                skip = true;
-                                reason = "proposal stage";
-                                break;
-                            case "Symbol.search":
-                                skip = true;
-                                reason = "Symbol.search not implemented";
-                                break;
-                            case "Symbol.replace":
-                                skip = true;
-                                reason = "Symbol.replace not implemented";
-                                break;
-                            case "Symbol.toStringTag":
-                                skip = true;
-                                reason = "Symbol.toStringTag not implemented";
                                 break;
                             case "BigInt":
                                 skip = true;
@@ -243,10 +225,30 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "super not implemented";
                                 break;
+                            case "String.prototype.replaceAll":
+                                skip = true;
+                                reason = "not in spec yet";
+                                break;
+                            case "u180e":
+                                skip = true;
+                                reason = "unicode/regexp not implemented";
+                                break;
+                            case "regexp-match-indices":
+                                skip = true;
+                                reason = "regexp-match-indices not implemented";
+                                break;
+                            case "regexp-named-groups":
+                                skip = true;
+                                reason = "regexp-named-groups not implemented";
+                                break;
+                            case "regexp-lookbehind":
+                                skip = true;
+                                reason = "regexp-lookbehind not implemented";
+                                break;
                         }
                     }
                 }
-
+                
                 if (code.IndexOf("SpecialCasing.txt") > -1)
                 {
                     skip = true;
@@ -257,6 +259,24 @@ namespace Jint.Tests.Test262
                 {
                     skip = true;
                     reason = "Esprima problem, Unexpected token *";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/property-escapes/generated/"))
+                {
+                    skip = true;
+                    reason = "Esprima problem, Invalid regular expression";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/unicode_"))
+                {
+                    skip = true;
+                    reason = "Unicode support and its special cases need more work";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/CharacterClassEscapes/"))
+                {
+                    skip = true;
+                    reason = "for-of not implemented";
                 }
 
                 if (file.EndsWith("tv-line-continuation.js")

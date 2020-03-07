@@ -1,8 +1,7 @@
 using System;
-using System.Collections.Generic;
-using System.Threading;
 using Esprima.Ast;
 using Jint.Collections;
+using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -14,11 +13,8 @@ namespace Jint.Runtime.Interpreter.Expressions
     /// </summary>
     internal sealed class JintObjectExpression : JintExpression
     {
-        // cache key container for array iteration for less allocations
-        private static readonly ThreadLocal<HashSet<string>> _nameDuplicateChecks = new ThreadLocal<HashSet<string>>(() => new HashSet<string>());
-
-        private JintExpression[] _valueExpressions;
-        private ObjectProperty[] _properties;
+        private JintExpression[] _valueExpressions = ArrayExt.Empty<JintExpression>();
+        private ObjectProperty[] _properties = ArrayExt.Empty<ObjectProperty>();
 
         // check if we can do a shortcut when all are object properties
         // and don't require duplicate checking
@@ -26,8 +22,17 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private class ObjectProperty
         {
-            internal string _name;
-            internal Property _value;
+            internal readonly string _key;
+            private JsString _keyJsString;
+            internal readonly Property _value;
+
+            public ObjectProperty(string key, Property property)
+            {
+                _key = key;
+                _value = property;
+            }
+
+            public JsString KeyJsString => _keyJsString ??= _key != null ? JsString.Create(_key) : null;
         }
 
         public JintObjectExpression(Engine engine, ObjectExpression expression) : base(engine, expression)
@@ -37,14 +42,17 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize()
         {
+            _canBuildFast = true;
             var expression = (ObjectExpression) _expression;
+            if (expression.Properties.Count == 0)
+            {
+                // empty object initializer
+                return;
+            }
+            
             _valueExpressions = new JintExpression[expression.Properties.Count];
             _properties = new ObjectProperty[expression.Properties.Count];
 
-            var propertyNames = _nameDuplicateChecks.Value;
-            propertyNames.Clear();
-
-            _canBuildFast = true;
             for (var i = 0; i < _properties.Length; i++)
             {
                 var property = expression.Properties[i];
@@ -52,19 +60,15 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (property.Key is Literal literal)
                 {
-                    propName = literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
+                    propName = EsprimaExtensions.LiteralKeyToString(literal);
                 }
 
-                if (property.Key is Identifier identifier)
+                if (!property.Computed && property.Key is Identifier identifier)
                 {
                     propName = identifier.Name;
                 }
 
-                _properties[i] = new ObjectProperty
-                {
-                    _name = propName,
-                    _value = property
-                };
+                _properties[i] = new ObjectProperty(propName, property);
 
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
                 {
@@ -77,7 +81,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                     _canBuildFast = false;
                 }
 
-                _canBuildFast &= propertyNames.Add(propName);
                 _canBuildFast &= propName != null;
             }
         }
@@ -95,43 +98,44 @@ namespace Jint.Runtime.Interpreter.Expressions
         private object BuildObjectFast()
         {
             var obj = _engine.Object.Construct(0);
-            var properties = _properties.Length > 1
-                ? new StringDictionarySlim<PropertyDescriptor>(_properties.Length)
-                : new StringDictionarySlim<PropertyDescriptor>();
+            if (_properties.Length == 0)
+            {
+                return obj;
+            }
 
+            var properties = new PropertyDictionary(_properties.Length, checkExistingKeys: true);
             for (var i = 0; i < _properties.Length; i++)
             {
                 var objectProperty = _properties[i];
                 var valueExpression = _valueExpressions[i];
-                var propValue = valueExpression.GetValue();
-                properties[objectProperty._name] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+                var propValue = valueExpression.GetValue().Clone();
+                properties[objectProperty._key] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
             }
-
-            obj._properties = properties;
+            obj.SetProperties(properties);
             return obj;
         }
-                                                
+
         private object BuildObjectNormal()
         {
-            var obj = _engine.Object.Construct(System.Math.Max(2, _properties.Length));
+            var obj = _engine.Object.Construct(_properties.Length);
             bool isStrictModeCode = StrictModeScope.IsStrictModeCode;
 
             for (var i = 0; i < _properties.Length; i++)
             {
                 var objectProperty = _properties[i];
                 var property = objectProperty._value;
-                var propName = objectProperty._name ?? objectProperty._value.Key.GetKey(_engine);
+                var propName = objectProperty.KeyJsString ?? property.GetKey(_engine);
 
                 PropertyDescriptor propDesc;
 
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
                 {
                     var expr = _valueExpressions[i];
-                    var propValue = expr.GetValue();
+                    var propValue = expr.GetValue().Clone();
                     if (expr._expression.IsFunctionWithName())
                     {
                         var functionInstance = (FunctionInstance) propValue;
-                        functionInstance.SetFunctionName(objectProperty._name);
+                        functionInstance.SetFunctionName(propName);
                     }
                     propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
                 }
@@ -145,8 +149,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                         _engine.ExecutionContext.LexicalEnvironment,
                         isStrictModeCode
                     );
-                    functionInstance.SetFunctionName(objectProperty._name);
-                    functionInstance._prototype = null;
+                    functionInstance.SetFunctionName(propName);
+                    functionInstance._prototypeDescriptor = null;
 
                     propDesc = new GetSetPropertyDescriptor(
                         get: property.Kind == PropertyKind.Get ? functionInstance : null,
@@ -158,7 +162,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return ExceptionHelper.ThrowArgumentOutOfRangeException<object>();
                 }
 
-                obj.DefineOwnProperty(propName, propDesc, false);
+                obj.DefineOwnProperty(propName, propDesc);
             }
 
             return obj;

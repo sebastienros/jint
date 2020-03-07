@@ -21,10 +21,17 @@ namespace Jint.Benchmark
         private string targetObject;
         private JsValue[] targetJsObject;
 
-        private const string script = @"
+        private const string NonArrowFunctionScript = @"
 function output(d) {
     var doc = d.SubDocuments.find(function(x){return x.Id==='testing';});
     return { Id : d.Id, Deleted : d.Deleted, SubTestId : (doc!==null&&doc!==undefined)?doc.Id:null, Values : d.SubDocuments.map(function(x){return {TargetId:x.TargetId,TargetValue:x.TargetValue,SubDocuments:x.SubDocuments.filter(function(s){return (s!==null&&s!==undefined);}).map(function(s){return {TargetId:s.TargetId,TargetValue:s.TargetValue};})};}) };
+}
+";
+
+        private const string ArrowFunctionScript = @"
+function output(d) {
+    var doc = d.SubDocuments.find(x => x.Id==='testing');
+    return { Id : d.Id, Deleted : d.Deleted, SubTestId : (doc!==null&&doc!==undefined)?doc.Id:null, Values : d.SubDocuments.map(x => ({ TargetId:x.TargetId,TargetValue:x.TargetValue,SubDocuments:x.SubDocuments.filter(s => (s!==null&&s!==undefined)).map(s => ({ TargetId: s.TargetId, TargetValue: s.TargetValue}))})) };
 }
 ";
 
@@ -72,7 +79,7 @@ function output(d) {
                 }
             }
 
-            CreateEngine();
+            CreateEngine(Arrow ? ArrowFunctionScript : NonArrowFunctionScript);
         }
 
         private static void InitializeEngine(Options options)
@@ -87,6 +94,9 @@ function output(d) {
         [Params(500)]
         public int N { get; set; }
 
+        [Params(true, false)]
+        public bool Arrow { get; set; }
+
         [Benchmark]
         public void Benchmark()
         {
@@ -97,84 +107,12 @@ function output(d) {
             }
         }
 
-        private void CreateEngine()
+        private void CreateEngine(string script)
         {
             engine = new Engine(InitializeEngine);
-            engine.Execute(Polyfills);
             engine.Execute(script);
             engine.Execute(targetObject);
             targetJsObject = new[] {engine.GetValue("d")};
         }
-
-        private const string Polyfills = @"
-//https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/endsWith
-if (!String.prototype.endsWith) {
-    String.prototype.endsWith = function (searchStr, position) {
-        if (!(position < this.length))
-            position = this.length;
-        else
-            position |= 0; // round position
-        return this.substr(position - searchStr.length,
-            searchStr.length) === searchStr;
-    };
-}
-//https://github.com/jsPolyfill/Array.prototype.find/blob/master/find.js
-if (!Array.prototype.find) {
-    Array.prototype.find = Array.prototype.find || function(callback) {
-        if (this === null) {
-            throw new TypeError('Array.prototype.find called on null or undefined');
-        } else if (typeof callback !== 'function') {
-            throw new TypeError('callback must be a function');
-        }
-        var list = Object(this);
-        // Makes sures is always has an positive integer as length.
-        var length = list.length >>> 0;
-        var thisArg = arguments[1];
-        for (var i = 0; i < length; i++) {
-            var element = list[i];
-            if ( callback.call(thisArg, element, i, list) ) {
-                return element;
-            }
-        }
-    };
-}
-
-if (!Array.prototype.fastFilter) {
-    Array.prototype.fastFilter = function(callback) {
-        var results = [];
-        var item;
-        var len = this.length;
-        for (var i = 0, len = len; i < len; i++) {
-            item = this[i];
-            if (callback(item)) results.push(item);
-        }
-        return results;
-    }
-}
-
-if (!Array.prototype.fastMap) {
-    Array.prototype.fastMap = function(callback) {
-        var h = [];
-        var len = this.length;
-        for (var i = 0, len = len; i < len; i++) {
-            h.push(callback(this[i]));
-        }
-        return h;
-    }
-}
-
-
-if (!Array.prototype.fastFind) {
-    Array.prototype.fastFind = function(callback) {
-        var item;
-        var len = this.length;
-        for (var i = 0, len = len; i < len; i++) {
-            item = this[i];
-            if (callback(item)) return item;
-        }
-    }
-}
-
-";
     }
 }

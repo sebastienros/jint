@@ -24,9 +24,8 @@ namespace Jint.Native.Function
         {
             var obj = new FunctionPrototype(engine)
             {
-                Extensible = true,
                 // The value of the [[Prototype]] internal property of the Function prototype object is the standard built-in Object prototype object
-                Prototype = engine.Object.PrototypeObject,
+                _prototype = engine.Object.PrototypeObject,
                 _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero
             };
 
@@ -35,7 +34,7 @@ namespace Jint.Native.Function
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(5)
+            var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true),
@@ -43,7 +42,7 @@ namespace Jint.Native.Function
                 ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1), true, false, true),
                 ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1), true, false, true)
             };
-
+            SetProperties(properties);
         }
 
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)
@@ -53,28 +52,29 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowTypeError(Engine);
             });
 
+            var func = thisObj as IConstructor;
+            
             var thisArg = arguments.At(0);
             var f = new BindFunctionInstance(Engine)
             {
-                Extensible = true,
                 TargetFunction = thisObj,
                 BoundThis = thisArg,
                 BoundArgs = arguments.Skip(1),
-                Prototype = Engine.Function.PrototypeObject
+                _prototype = Engine.Function.PrototypeObject
             };
 
             if (target is FunctionInstance functionInstance)
             {
-                var l = TypeConverter.ToNumber(functionInstance.Get("length")) - (arguments.Length - 1);
-                f.SetOwnProperty("length", new PropertyDescriptor(System.Math.Max(l, 0), PropertyFlag.AllForbidden));
+                var l = TypeConverter.ToNumber(functionInstance.Get(CommonProperties.Length, functionInstance)) - (arguments.Length - 1);
+                f.SetOwnProperty(CommonProperties.Length, new PropertyDescriptor(System.Math.Max(l, 0), PropertyFlag.AllForbidden));
             }
             else
             {
-                f.SetOwnProperty("length", PropertyDescriptor.AllForbiddenDescriptor.NumberZero);
+                f.SetOwnProperty(CommonProperties.Length, PropertyDescriptor.AllForbiddenDescriptor.NumberZero);
             }
 
-            f.DefineOwnProperty("caller", _engine._getSetThrower, false);
-            f.DefineOwnProperty("arguments", _engine._getSetThrower, false);
+            f.DefineOwnProperty(CommonProperties.Caller, _engine._getSetThrower);
+            f.DefineOwnProperty(CommonProperties.Arguments, _engine._getSetThrower);
 
             return f;
         }
@@ -89,7 +89,7 @@ namespace Jint.Native.Function
             return "function() {{ ... }}";
         }
 
-        private JsValue Apply(JsValue thisObject, JsValue[] arguments)
+        internal JsValue Apply(JsValue thisObject, JsValue[] arguments)
         {
             var func = thisObject as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(Engine);
             var thisArg = arguments.At(0);
@@ -100,21 +100,22 @@ namespace Jint.Native.Function
                 return func.Call(thisArg, Arguments.Empty);
             }
 
-            var argArrayObj = argArray as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
-            var operations = ArrayPrototype.ArrayOperations.For(argArrayObj);
-
-            uint n = operations.GetLength();
-            var argList = _engine._jsValueArrayPool.RentArray((int) n);
-            for (uint i = 0; i < n; i++)
-            {
-                var nextArg = operations.Get(i);
-                argList[i] = nextArg;
-            }
+            var argList = CreateListFromArrayLike(argArray);
 
             var result = func.Call(thisArg, argList);
-            _engine._jsValueArrayPool.ReturnArray(argList);
 
             return result;
+        }
+
+        internal JsValue[] CreateListFromArrayLike(JsValue argArray, Types? elementTypes = null)
+        {
+            var argArrayObj = argArray as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine);
+            var operations = ArrayOperations.For(argArrayObj);
+            var allowedTypes = elementTypes ??
+                               Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.Object;
+            
+            var argList = operations.GetAll(allowedTypes);
+            return argList;
         }
 
         private JsValue CallImpl(JsValue thisObject, JsValue[] arguments)

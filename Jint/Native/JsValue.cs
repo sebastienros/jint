@@ -7,6 +7,7 @@ using System.Threading;
 using Jint.Native.Array;
 using Jint.Native.Date;
 using Jint.Native.Iterator;
+using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.Symbol;
@@ -21,9 +22,14 @@ namespace Jint.Native
     {
         public static readonly JsValue Undefined = new JsUndefined();
         public static readonly JsValue Null = new JsNull();
-        internal readonly Types _type;
+        internal readonly InternalTypes _type;
 
         protected JsValue(Types type)
+        {
+            _type = (InternalTypes) type;
+        }
+
+        internal JsValue(InternalTypes type)
         {
             _type = type;
         }
@@ -32,26 +38,25 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPrimitive()
         {
-            return _type != Types.Object && _type != Types.None;
+            return (_type & (InternalTypes.Primitive | InternalTypes.Undefined | InternalTypes.Null)) != 0;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsUndefined()
         {
-            return _type == Types.Undefined;
+            return _type == InternalTypes.Undefined;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool IsNullOrUndefined()
         {
-            return _type < Types.Boolean;
+            return _type < InternalTypes.Boolean;
         }
 
         [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsArray()
+        public virtual bool IsArray()
         {
             return this is ArrayInstance;
         }
@@ -67,6 +72,17 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsRegExp()
         {
+            if (!(this is ObjectInstance oi))
+            {
+                return false;
+            }
+            
+            var matcher = oi.Get(GlobalSymbolRegistry.Match);
+            if (!matcher.IsUndefined())
+            {
+                return TypeConverter.ToBoolean(matcher);
+            }
+
             return this is RegExpInstance;
         }
 
@@ -74,49 +90,49 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsObject()
         {
-            return _type == Types.Object;
+            return (_type & InternalTypes.Object) != 0;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsString()
         {
-            return _type == Types.String;
+            return (_type & InternalTypes.String) != 0;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsNumber()
         {
-            return _type == Types.Number;
+            return (_type & (InternalTypes.Number | InternalTypes.Integer)) != 0;
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool IsInteger()
+        {
+            return _type == InternalTypes.Integer;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsBoolean()
         {
-            return _type == Types.Boolean;
+            return _type == InternalTypes.Boolean;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsNull()
         {
-            return _type == Types.Null;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsCompletion()
-        {
-            return _type == Types.Completion;
+            return _type == InternalTypes.Null;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsSymbol()
         {
-            return _type == Types.Symbol;
+            return _type == InternalTypes.Symbol;
         }
 
         [Pure]
@@ -163,14 +179,14 @@ namespace Jint.Native
 
             return iterator;
         }
-        
+
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool TryGetIterator(Engine engine, out IIterator iterator)
         {
             var objectInstance = TypeConverter.ToObject(engine, this);
 
-            if (!objectInstance.TryGetValue(GlobalSymbolRegistry.Iterator._value, out var value)
+            if (!objectInstance.TryGetValue(GlobalSymbolRegistry.Iterator, out var value)
                 || !(value is ICallable callable))
             {
                 iterator = null;
@@ -214,18 +230,6 @@ namespace Jint.Native
         }
 
         [Pure]
-        public Completion AsCompletion()
-        {
-            if (_type != Types.Completion)
-            {
-                ExceptionHelper.ThrowArgumentException("The value is not a completion record");
-            }
-
-            // TODO not implemented
-            return new Completion(CompletionType.Normal, Native.Undefined.Instance, null, default);
-        }
-
-        [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T TryCast<T>() where T : class
         {
@@ -264,12 +268,15 @@ namespace Jint.Native
             return null;
         }
 
-        // ReSharper disable once ConvertToAutoPropertyWhenPossible // PERF
         public Types Type
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return _type; }
+            get => _type == InternalTypes.Integer
+                ? Types.Number
+                : (Types) (_type & ~InternalTypes.InternalFlags);
         }
+
+        internal virtual bool IsConstructor => this is IConstructor;
 
         /// <summary>
         /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance
@@ -358,8 +365,7 @@ namespace Jint.Native
             var arrayLength = (uint) array.Length;
 
             var jsArray = new ArrayInstance(e, arrayLength);
-            jsArray.Prototype = e.Array.PrototypeObject;
-            jsArray.Extensible = true;
+            jsArray._prototype = e.Array.PrototypeObject;
 
             for (uint i = 0; i < arrayLength; ++i)
             {
@@ -367,7 +373,7 @@ namespace Jint.Native
                 jsArray.WriteArrayValue(i, new PropertyDescriptor(jsItem, PropertyFlag.ConfigurableEnumerableWritable));
             }
 
-            jsArray.SetOwnProperty("length", new PropertyDescriptor(arrayLength, PropertyFlag.OnlyWritable));
+            jsArray.SetOwnProperty(CommonProperties.Length, new PropertyDescriptor(arrayLength, PropertyFlag.OnlyWritable));
 
             return jsArray;
         }
@@ -394,28 +400,46 @@ namespace Jint.Native
         /// <param name="thisObj">The this value inside the function call.</param>
         /// <param name="arguments">The arguments of the function call.</param>
         /// <returns>The value returned by the function call.</returns>
-        public JsValue Invoke(JsValue thisObj, JsValue[] arguments)
+        internal JsValue Invoke(JsValue thisObj, JsValue[] arguments)
         {
             var callable = this as ICallable ?? ExceptionHelper.ThrowArgumentException<ICallable>("Can only invoke functions");
             return callable.Call(thisObj, arguments);
         }
-
-        public static bool ReturnOnAbruptCompletion(ref JsValue argument)
+        
+        /// <summary>
+        /// Invoke the given property as function.
+        /// </summary>
+        /// <param name="v">Serves as both the lookup point for the property and the this value of the call</param>
+        /// <param name="propertyName">Property that should be ICallable</param>
+        /// <param name="arguments">The arguments of the function call.</param>
+        /// <returns>The value returned by the function call.</returns>
+        internal static JsValue Invoke(JsValue v, JsValue propertyName, JsValue[] arguments)
         {
-            if (!argument.IsCompletion())
-            {
-                return false;
-            }
+            var func = v.Get(propertyName);
+            var callable = func as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
+            return callable.Call(v, arguments);
+        }
 
-            var completion = argument.AsCompletion();
-            if (completion.IsAbrupt())
-            {
-                return true;
-            }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public JsValue Get(JsValue property)
+        {
+            return Get(property, this);
+        }
 
-            argument = completion.Value;
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.12.3
+        /// </summary>
+        public virtual JsValue Get(JsValue property, JsValue receiver)
+        {
+            return Undefined;
+        }
 
-            return false;
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/#sec-ordinary-object-internal-methods-and-internal-slots-set-p-v-receiver
+        /// </summary>
+        public virtual bool Set(JsValue property, JsValue value, JsValue receiver)
+        {
+            return ExceptionHelper.ThrowNotSupportedException<bool>();
         }
 
         public override string ToString()
@@ -425,22 +449,12 @@ namespace Jint.Native
 
         public static bool operator ==(JsValue a, JsValue b)
         {
-            if ((object)a == null)
+            if ((object) a == null)
             {
-                if ((object)b == null)
-                {
-                    return true;
-                }
-
-                return false;
+                return (object) b == null;
             }
 
-            if ((object)b == null)
-            {
-                return false;
-            }
-
-            return a.Equals(b);
+            return (object) b != null && a.Equals(b);
         }
 
         public static bool operator !=(JsValue a, JsValue b)
@@ -463,22 +477,32 @@ namespace Jint.Native
             return !a.Equals(b);
         }
 
-        static public implicit operator JsValue(char value)
+        public static implicit operator JsValue(char value)
         {
             return JsString.Create(value);
         }
 
-        static public implicit operator JsValue(int value)
+        public static implicit operator JsValue(int value)
         {
             return JsNumber.Create(value);
         }
 
-        static public implicit operator JsValue(uint value)
+        public static implicit operator JsValue(uint value)
         {
             return JsNumber.Create(value);
         }
 
-        static public implicit operator JsValue(double value)
+        public static implicit operator JsValue(double value)
+        {
+            return JsNumber.Create(value);
+        }
+
+        public static implicit operator JsValue(long value)
+        {
+            return JsNumber.Create(value);
+        }
+
+        public static implicit operator JsValue(ulong value)
         {
             return JsNumber.Create(value);
         }
@@ -488,13 +512,14 @@ namespace Jint.Native
             return value ? JsBoolean.True : JsBoolean.False;
         }
 
+        [DebuggerStepThrough]
         public static implicit operator JsValue(string value)
         {
             if (value == null)
             {
                 return Null;
             }
-                
+
             return JsString.Create(value);
         }
 
@@ -550,12 +575,77 @@ namespace Jint.Native
                         Value = value.AsObject().GetType().Name;
                         break;
                     case Types.Symbol:
-                        Value = value.AsSymbol() + " (symbol)";
+                        var jsValue = ((JsSymbol) value)._value;
+                        Value = (jsValue.IsUndefined() ? "" : jsValue.ToString()) + " (symbol)";
                         break;
                     default:
                         Value = "Unknown";
                         break;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Some values need to be cloned in order to be assigned, like ConcatenatedString.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal JsValue Clone()
+        {
+            // concatenated string and arguments currently may require cloning
+            return (_type & InternalTypes.RequiresCloning) == 0
+                ? this
+                : DoClone();
+        }
+
+        internal virtual JsValue DoClone()
+        {
+            return this;
+        }
+
+        internal static bool SameValue(JsValue x, JsValue y)
+        {
+            var typea = TypeConverter.GetInternalPrimitiveType(x);
+            var typeb = TypeConverter.GetInternalPrimitiveType(y);
+
+            if (typea != typeb)
+            {
+                return false;
+            }
+
+            switch (typea)
+            {
+                case Types.Number:
+                    if (x._type == y._type && x._type == InternalTypes.Integer)
+                    {
+                        return x.AsInteger() == y.AsInteger();
+                    }
+
+                    var nx = TypeConverter.ToNumber(x);
+                    var ny = TypeConverter.ToNumber(y);
+
+                    if (double.IsNaN(nx) && double.IsNaN(ny))
+                    {
+                        return true;
+                    }
+
+                    if (nx == ny)
+                    {
+                        if (nx == 0)
+                        {
+                            // +0 !== -0
+                            return NumberInstance.IsNegativeZero(nx) == NumberInstance.IsNegativeZero(ny);
+                        }
+
+                        return true;
+                    }
+
+                    return false;
+                case Types.String:
+                    return TypeConverter.ToString(x) == TypeConverter.ToString(y);
+                case Types.Boolean:
+                    return TypeConverter.ToBoolean(x) == TypeConverter.ToBoolean(y);
+                default:
+                    return x == y;
             }
         }
     }

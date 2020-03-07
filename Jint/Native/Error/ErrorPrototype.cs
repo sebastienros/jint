@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using Jint.Collections;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -21,17 +22,16 @@ namespace Jint.Native.Error
         {
             var obj = new ErrorPrototype(engine, name)
             {
-                Extensible = true,
                 _errorConstructor = errorConstructor,
             };
 
-            if (name != "Error")
+            if (name.ToString() != "Error")
             {
-                obj.Prototype = engine.Error.PrototypeObject;
+                obj._prototype = engine.Error.PrototypeObject;
             }
             else
             {
-                obj.Prototype = engine.Object.PrototypeObject;
+                obj._prototype = engine.Object.PrototypeObject;
             }
 
             return obj;
@@ -39,9 +39,13 @@ namespace Jint.Native.Error
 
         protected override void Initialize()
         {
-            _properties["constructor"] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable);
-            _properties["message"] = new PropertyDescriptor("", true, false, true);
-            _properties["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true);
+            var properties = new PropertyDictionary(3, checkExistingKeys: false)
+            {
+                ["constructor"] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable),
+                ["message"] = new PropertyDescriptor("", PropertyFlag.Configurable | PropertyFlag.Writable),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), PropertyFlag.Configurable | PropertyFlag.Writable)
+            };
+            SetProperties(properties);
         }
 
         public JsValue ToString(JsValue thisObject, JsValue[] arguments)
@@ -52,9 +56,9 @@ namespace Jint.Native.Error
                 ExceptionHelper.ThrowTypeError(Engine);
             }
 
-            var name = TypeConverter.ToString(o.Get("name"));
+            var name = TypeConverter.ToString(o.Get("name", this));
 
-            var msgProp = o.Get("message");
+            var msgProp = o.Get("message", this);
             string msg;
             if (msgProp.IsUndefined())
             {

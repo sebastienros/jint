@@ -6,7 +6,7 @@ namespace Jint.Native.Symbol
     public class SymbolInstance : ObjectInstance, IPrimitiveInstance
     {
         public SymbolInstance(Engine engine)
-            : base(engine, objectClass: "Symbol")
+            : base(engine, ObjectClass.Symbol)
         {
         }
 

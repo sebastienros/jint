@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Dynamic;
 using System.Linq.Expressions;
 using System.Reflection;
+using Jint.Extensions;
 using Jint.Native;
 
 namespace Jint.Runtime.Interop
@@ -10,11 +13,16 @@ namespace Jint.Runtime.Interop
     public class DefaultTypeConverter : ITypeConverter
     {
         private readonly Engine _engine;
-        private static readonly ConcurrentDictionary<string, bool> _knownConversions = new ConcurrentDictionary<string, bool>();
 
-        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new Type[] { typeof(object), typeof(Type), typeof(IFormatProvider) });
-        private static readonly MethodInfo jsValueFromObject = typeof(JsValue).GetMethod("FromObject");
-        private static readonly MethodInfo jsValueToObject = typeof(JsValue).GetMethod("ToObject");
+#if NETSTANDARD
+        private static readonly ConcurrentDictionary<(Type Source, Type Target), bool> _knownConversions = new ConcurrentDictionary<(Type Source, Type Target), bool>();
+#else
+        private static readonly ConcurrentDictionary<string, bool> _knownConversions = new ConcurrentDictionary<string, bool>();
+#endif
+
+        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new [] { typeof(object), typeof(Type), typeof(IFormatProvider) });
+        private static readonly MethodInfo jsValueFromObject = typeof(JsValue).GetMethod(nameof(JsValue.FromObject));
+        private static readonly MethodInfo jsValueToObject = typeof(JsValue).GetMethod(nameof(JsValue.ToObject));
 
         public DefaultTypeConverter(Engine engine)
         {
@@ -200,12 +208,70 @@ namespace Jint.Runtime.Interop
                 type = Nullable.GetUnderlyingType(type);
             }
 
+            if (value is ExpandoObject eObj)
+            {
+                // public empty constructor required
+                var constructors = type.GetConstructors();
+                // value types
+                if (type.IsValueType && constructors.Length > 0)
+                {
+                    return null;
+                }
+
+                // reference types - return null if no valid constructor is found
+                if(!type.IsValueType)
+                {
+                    var found = false;
+                    foreach (var constructor in constructors)
+                    {
+                        if (constructor.GetParameters().Length == 0 && constructor.IsPublic)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        // found no valid constructor
+                        return null;
+                    }
+                }
+
+                var dict = (IDictionary<string, object>) eObj;
+                var obj = Activator.CreateInstance(type, ArrayExt.Empty<object>());
+
+                var members = type.GetMembers();
+                foreach (var member in members)
+                {
+                    // only use fields an properties
+                    if (member.MemberType != MemberTypes.Property &&
+                        member.MemberType != MemberTypes.Field)
+                    {
+                        continue;
+                    }
+
+                    var name = member.Name.UpperToLowerCamelCase();
+                    if (dict.TryGetValue(name, out var val))
+                    {
+                        var output = Convert(val, member.GetDefinedType(), formatProvider);
+                        member.SetValue(obj, output);
+                    }
+                }
+
+                return obj;
+            }
+
             return System.Convert.ChangeType(value, type, formatProvider);
         }
 
         public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)
         {
+#if NETSTANDARD
+            var key = value == null ? (null, type) : (value.GetType(), type);
+#else
             var key = value == null ? $"Null->{type}" : $"{value.GetType()}->{type}";
+#endif
 
             var canConvert = _knownConversions.GetOrAdd(key, _ =>
             {

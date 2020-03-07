@@ -1,91 +1,81 @@
 [
   {
-    "source": "built-ins/Array/prototype/concat/create-ctor-non-object.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/RegExp/character-class-escape-non-whitespace.js",
+    "reason": "Unicode support not built-in to .NET the same way, requires more work"
   },
   {
-    "source": "built-ins/Array/prototype/map/create-ctor-non-object.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/RegExp/property-escapes/character-class.js",
+    "reason": "Unicode support not built-in to .NET the same way, requires more work"
   },
   {
-    "source": "built-ins/Array/prototype/slice/create-ctor-non-object.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/RegExp/prototype/Symbol.match/builtin-infer-unicode.js",
+    "reason": "Unicode support not built-in to .NET the same way, requires more work"
   },
   {
-    "source": "built-ins/Array/prototype/splice/create-ctor-non-object.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/RegExp/prototype/Symbol.match/builtin-success-u-return-val-groups.js",
+    "reason": "Unicode support not built-in to .NET the same way, requires more work"
   },
   {
-    "source": "built-ins/Array/of/construct-this-with-the-number-of-arguments.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/RegExp/prototype/Symbol.match/u-advance-after-empty.js",
+    "reason": "Unicode support not built-in to .NET the same way, requires more work"
   },
   {
-    "source": "built-ins/Array/from/iter-set-length-err",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/RegExp/prototype/Symbol.replace/u-advance-after-empty.js",
+    "reason": "Unicode support not built-in to .NET the same way, requires more work"
   },
   {
-    "source": "built-ins/Array/from/Array.from_forwards-length-for-array-likes.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/RegExp/prototype/Symbol.search/u-lastindex-advance.js",
+    "reason": "Unicode support not built-in to .NET the same way, requires more work"
+  },
+
+
+  {
+    "source": "built-ins/RegExp/S15.10.2.11_A1_T5.js",
+    "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
   },
   {
-    "source": "built-ins/Array/from/iter-cstm-ctor.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/RegExp/S15.10.2.11_A1_T7.js",
+    "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
   },
   {
-    "source": "built-ins/Array/from/iter-cstm-ctor-err.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/RegExp/S15.10.4.1_A8_T2.js",
+    "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
   },
   {
-    "source": "built-ins/Array/from/source-object-constructor.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
+    "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
   },
   {
-    "source": "built-ins/Array/of/return-abrupt-from-contructor.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/RegExp/S15.10.2.5_A1_T4.js",
+    "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
   },
   {
-    "source": "built-ins/Array/prototype/concat/create-ctor-poisoned.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/RegExp/prototype/exec/u-lastindex-adv.js",
+    "reason": "Esprima strips unicode sequence and match logic does not work"
   },
   {
-    "source": "built-ins/Array/prototype/map/create-ctor-poisoned.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/String/raw/special-characters.js",
+    "reason": "Windows line ending differences"
   },
   {
-    "source": "built-ins/Array/prototype/slice/create-ctor-poisoned.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/Symbol/species/builtin-getter-name.js",
+    "reason": "Promise not implemented"
   },
   {
-    "source": "built-ins/Array/prototype/splice/create-ctor-poisoned.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/Symbol/species/subclassing.js",
+    "reason": "subclassing not implemented"
   },
   {
-    "source": "built-ins/Array/of/return-a-custom-instance.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/Date/subclassing.js",
+    "reason": "subclassing not implemented"
   },
   {
-    "source": "built-ins/Array/of/return-abrupt-from-data-property.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/Date/parse/time-value-maximum-range.js",
+    "reason": "parsing of large/small years not implemented in .NET (-271821, +271821)"
   },
   {
-    "source": "built-ins/Array/of/return-abrupt-from-setting-length.js",
-    "reason": "Constructor functions not implemented"
-  },
-  {
-    "source": "built-ins/Array/of/sets-length.js",
-    "reason": "Constructor functions not implemented"
-  },
-  {
-    "source": "built-ins/Array/from/iter-set-length-err.js",
-    "reason": "Constructor functions not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/filter/create-ctor-non-object.js",
-    "reason": "Constructor functions not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/filter/create-ctor-poisoned.js",
-    "reason": "Constructor functions not implemented"
+    "source": "built-ins/Proxy/enumerate/removed-does-not-trigger.js",
+    "reason": "for-of not implemented"
   },
   {
     "source": "built-ins/Array/from/items-is-arraybuffer.js",
@@ -180,22 +170,6 @@
     "reason": "WeakSet not implemented"
   },
   {
-    "source": "built-ins/Array/prototype/reverse/length-exceeding-integer-limit-with-proxy.js",
-    "reason": "proxies not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/slice/length-exceeding-integer-limit-proxied-array.js",
-    "reason": "proxies not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/splice/create-non-array-invalid-len.js",
-    "reason": "requires constructor functions"
-  },
-  {
-    "source": "built-ins/Array/from/iter-set-elem-prop-err.js",
-    "reason": "requires constructor functions"
-  },
-  {
     "source": "built-ins/Array/prototype/toLocaleString/primitive_this_value.js",
     "reason": "requires toLocaleString changes"
   },
@@ -286,6 +260,26 @@
     "reason": "code point iteration not implemented"
   },
   {
+    "source": "built-ins/Date/prototype/toTimeString/format.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Date/prototype/toString/format.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Date/parse/zero.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Date/prototype/toUTCString/format.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Date/prototype/toDateString/format.js",
+    "reason": "let/const not implemented"
+  },
+  {
     "source": "language/statements/for-in/head-const-bound-names-fordecl-tdz.js",
     "reason": "let/const not implemented"
   },
@@ -330,15 +324,27 @@
     "reason": "let/const not implemented"
   },
   {
+    "source": "built-ins/Symbol/prototype/description/description-symboldescriptivestring.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Symbol/prototype/description/get.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Symbol/prototype/description/this-val-non-symbol.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Symbol/prototype/description/this-val-symbol.js",
+    "reason": "let/const not implemented"
+  },
+  {
+    "source": "built-ins/Symbol/prototype/description/wrapper.js",
+    "reason": "let/const not implemented"
+  },
+  {
     "source": "language/statements/for-in/head-var-bound-names-dup.js",
-    "reason": "destructing not implemented"
-  },
-  {
-    "source": "language/rest-parameters/arrow-function.js",
-    "reason": "Github issue #600 - rest parameters hang when not set"
-  },
-  {
-    "source": "language/rest-parameters/object-pattern.js",
     "reason": "destructing not implemented"
   },
   {
@@ -350,16 +356,8 @@
     "reason": "Line feed problems (git, windows, linux)"
   },
   {
-    "source": "built-ins/Number/prototype/toPrecision/range.js",
-    "reason": "Github issue #599 - dtoa function not precise enough"
-  },
-  {
     "source": "built-ins/Number/prototype/toFixed/range.js",
-    "reason": "Github issue #599 - dtoa function not precise enough"
-  },
-  {
-    "source": "built-ins/Number/prototype/toExponential/range.js",
-    "reason": "Github issue #599 - dtoa function not precise enough"
+    "reason": "100 fraction digits is not supported due to .NET format specifier limitation"
   },
   {
     "source": "language/types/number/8.5.1.js",
@@ -584,41 +582,20 @@
 
   {
     "source": "language/expressions/object/method.js",
-    "reason": "setPrototypeOf not implemented"
+    "reason": "super not implemented"
   },
   {
     "source": "language/expressions/object/setter-super-prop.js",
-    "reason": "setPrototypeOf not implemented"
+    "reason": "super not implemented"
   },
   {
     "source": "language/expressions/object/getter-super-prop.js",
-    "reason": "setPrototypeOf not implemented"
+    "reason": "super not implemented"
   },
 
 
   {
     "source": "language/expressions/object/fn-name-arrow.js",
-    "reason": "symbols not identifiable in property name"
-  },
-  {
-    "source": "language/expressions/object/fn-name-cover.js",
-    "reason": "symbols not identifiable in property name"
-  },
-  {
-    "source": "language/expressions/object/fn-name-fn.js",
-    "reason": "symbols not identifiable in property name"
-  },
-  {
-    "source": "language/expressions/object/method-definition/fn-name-fn.js",
-    "reason": "symbols not identifiable in property name"
-  },
-  {
-    "source": "language/expressions/object/method-definition/name-name-prop-symbol.js",
-    "reason": "symbols not identifiable in property name"
-  },
-
-
-  {
     "source": "language/expressions/arrow-function/scope-paramsbody-var-open.js",
     "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
   },
@@ -844,5 +821,37 @@
   {
     "source": "language/expressions/function/params-trailing-comma-single.js",
     "reason": "Esprima problem"
-  }
+  },
+  {
+    "source": "built-ins/RegExp/prototype/source/value-u.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "built-ins/RegExp/prototype/source/value-line-terminator.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "built-ins/RegExp/S15.10.2.13_A1_T1.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "built-ins/RegExp/S15.10.2.13_A1_T17.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "built-ins/RegExp/S15.10.2.13_A1_T2.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "built-ins/RegExp/S15.10.2.13_A2_T1.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "built-ins/RegExp/S15.10.2.13_A2_T2.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "built-ins/RegExp/S15.10.2.13_A2_T8.js",
+    "reason": "Esprima problem"
+  },
 ]

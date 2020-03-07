@@ -12,6 +12,9 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly bool _isDebugMode;
         private readonly int _maxRecursionDepth;
 
+        private CachedArgumentsHolder _cachedArguments;
+        private bool _cached;
+
         private readonly JintExpression _calleeExpression;
         private bool _hasSpreads;
 
@@ -55,7 +58,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (cacheable)
             {
-                expression.Cached = true;
+                _cached = true;
                 var arguments = ArrayExt.Empty<JsValue>();
                 if (cachedArgumentsHolder.JintArguments.Length > 0)
                 {
@@ -66,7 +69,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 cachedArgumentsHolder.CachedArguments = arguments;
             }
 
-            expression.CachedArguments = cachedArgumentsHolder;
+            _cachedArguments = cachedArgumentsHolder;
         }
 
         protected override object EvaluateInternal()
@@ -81,9 +84,9 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
 
-            var cachedArguments = (CachedArgumentsHolder) expression.CachedArguments;
+            var cachedArguments = _cachedArguments;
             var arguments = ArrayExt.Empty<JsValue>();
-            if (expression.Cached)
+            if (_cached)
             {
                 arguments = cachedArguments.CachedArguments;
             }
@@ -103,12 +106,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            var func = _engine.GetValue(callee, false);
 
+            var func = _engine.GetValue(callee, false);
             var r = callee as Reference;
+
             if (_maxRecursionDepth >= 0)
             {
-                var stackItem = new CallStackElement(expression, func, r?._name ?? "anonymous function");
+                var stackItem = new CallStackElement(expression, func, r?.GetReferencedName()?.ToString() ?? "anonymous function");
 
                 var recursionDepth = _engine.CallStack.Push(stackItem);
 
@@ -119,12 +123,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            if (func._type == Types.Undefined)
+            if (func._type == InternalTypes.Undefined)
             {
                 ExceptionHelper.ThrowTypeError(_engine, r == null ? "" : $"Object has no method '{r.GetReferencedName()}'");
             }
 
-            if (func._type != Types.Object)
+            if (!func.IsObject())
             {
                 if (_engine._referenceResolver == null || !_engine._referenceResolver.TryGetCallable(_engine, callee, out func))
                 {
@@ -142,18 +146,19 @@ namespace Jint.Runtime.Interpreter.Expressions
             var thisObject = Undefined.Instance;
             if (r != null)
             {
-                if (r.IsPropertyReference())
+                var baseValue = r.GetBase();
+                if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0)
                 {
-                    thisObject = r._baseValue;
+                    thisObject = baseValue;
                 }
                 else
                 {
-                    var env = (EnvironmentRecord) r._baseValue;
+                    var env = (EnvironmentRecord) baseValue;
                     thisObject = env.ImplicitThisValue();
                 }
 
                 // is it a direct call to eval ? http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.1.1
-                if (r._name == "eval" && callable is EvalFunctionInstance instance)
+                if (r.GetReferencedName() == CommonProperties.Eval && callable is EvalFunctionInstance instance)
                 {
                     var value = instance.Call(thisObject, arguments, true);
                     _engine._referencePool.Return(r);
@@ -173,7 +178,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _engine.CallStack.Pop();
             }
 
-            if (!expression.Cached && arguments.Length > 0)
+            if (!_cached && arguments.Length > 0)
             {
                 _engine._jsValueArrayPool.ReturnArray(arguments);
             }
@@ -182,7 +187,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return result;
         }
 
-        internal class CachedArgumentsHolder
+        private class CachedArgumentsHolder
         {
             internal JintExpression[] JintArguments;
             internal JsValue[] CachedArguments;

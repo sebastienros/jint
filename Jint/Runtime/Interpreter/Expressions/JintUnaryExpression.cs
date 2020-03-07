@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Proxy;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
@@ -10,10 +11,34 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _argument;
         private readonly UnaryOperator _operator;
 
-        public JintUnaryExpression(Engine engine, UnaryExpression expression) : base(engine, expression)
+        private JintUnaryExpression(Engine engine, UnaryExpression expression) : base(engine, expression)
         {
             _argument = Build(engine, expression.Argument);
             _operator = expression.Operator;
+        }
+
+        internal static JintExpression Build(Engine engine, UnaryExpression expression)
+        {
+            if (expression.Operator == UnaryOperator.Minus
+                && expression.Argument is Literal literal)
+            {
+                var value = JintLiteralExpression.ConvertToJsValue(literal);
+                if (!(value is null))
+                {
+                    // valid for caching
+                    return new JintConstantExpression(engine, expression, EvaluateMinus(value));
+                }
+            }
+
+            return new JintUnaryExpression(engine, expression);
+        }
+
+        public override JsValue GetValue()
+        {
+            // need to notify correct node when taking shortcut
+            _engine._lastSyntaxNode = _expression;
+
+            return (JsValue) EvaluateInternal();
         }
 
         protected override object EvaluateInternal()
@@ -21,11 +46,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             switch (_operator)
             {
                 case UnaryOperator.Plus:
-                    return JsNumber.Create(TypeConverter.ToNumber(_argument.GetValue()));
+                    var plusValue = _argument.GetValue();
+                    return plusValue.IsInteger() && plusValue.AsInteger() != 0
+                        ? plusValue
+                        : JsNumber.Create(TypeConverter.ToNumber(plusValue));
 
                 case UnaryOperator.Minus:
-                    var n = TypeConverter.ToNumber(_argument.GetValue());
-                    return JsNumber.Create(double.IsNaN(n) ? double.NaN : n * -1);
+                    return EvaluateMinus(_argument.GetValue());
 
                 case UnaryOperator.BitwiseNot:
                     return JsNumber.Create(~TypeConverter.ToInt32(_argument.GetValue()));
@@ -42,7 +69,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (r.IsUnresolvableReference())
                     {
-                        if (r._strict)
+                        if (r.IsStrictReference())
                         {
                             ExceptionHelper.ThrowSyntaxError(_engine);
                         }
@@ -54,21 +81,26 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (r.IsPropertyReference())
                     {
                         var o = TypeConverter.ToObject(_engine, r.GetBase());
-                        var jsValue = o.Delete(r._name, r._strict);
+                        var deleteStatus  = o.Delete(r.GetReferencedName());
+                        if (!deleteStatus && r.IsStrictReference())
+                        {
+                            ExceptionHelper.ThrowTypeError(_engine);
+                        }
+
                         _engine._referencePool.Return(r);
-                        return jsValue ? JsBoolean.True : JsBoolean.False;
+                        return deleteStatus ? JsBoolean.True : JsBoolean.False;
                     }
 
-                    if (r._strict)
+                    if (r.IsStrictReference())
                     {
                         ExceptionHelper.ThrowSyntaxError(_engine);
                     }
 
                     var bindings = r.GetBase().TryCast<EnvironmentRecord>();
-                    var referencedName = r.GetReferencedName();
+                    var property = r.GetReferencedName();
                     _engine._referencePool.Return(r);
 
-                    return bindings.DeleteBinding(referencedName) ? JsBoolean.True : JsBoolean.False;
+                    return bindings.DeleteBinding(property.ToString()) ? JsBoolean.True : JsBoolean.False;
 
                 case UnaryOperator.Void:
                     _argument.GetValue();
@@ -103,9 +135,15 @@ namespace Jint.Runtime.Interpreter.Expressions
                         case Types.Boolean: return JsString.BooleanString;
                         case Types.Number: return JsString.NumberString;
                         case Types.String: return JsString.StringString;
+                        case Types.Symbol: return JsString.SymbolString;
                     }
 
-                    if (v.TryCast<ICallable>() != null)
+                    if (v is ProxyInstance)
+                    {
+                        return JsString.ObjectString;
+                    }
+
+                    if (v is ICallable)
                     {
                         return JsString.FunctionString;
                     }
@@ -115,6 +153,22 @@ namespace Jint.Runtime.Interpreter.Expressions
                 default:
                     return ExceptionHelper.ThrowArgumentException<object>();
             }
+        }
+
+        private static JsNumber EvaluateMinus(JsValue value)
+        {
+            var minusValue = value;
+            if (minusValue.IsInteger())
+            {
+                var asInteger = minusValue.AsInteger();
+                if (asInteger != 0)
+                {
+                    return JsNumber.Create(asInteger * -1);
+                }
+            }
+
+            var n = TypeConverter.ToNumber(minusValue);
+            return JsNumber.Create(double.IsNaN(n) ? double.NaN : n * -1);
         }
     }
 }

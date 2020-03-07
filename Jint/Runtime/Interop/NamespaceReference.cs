@@ -23,23 +23,13 @@ namespace Jint.Runtime.Interop
             _path = path;
         }
 
-        public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            if (throwOnError)
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "Can't define a property of a NamespaceReference");
-            }
-
             return false;
         }
 
-        public override bool Delete(string propertyName, bool throwOnError)
+        public override bool Delete(JsValue property)
         {
-            if (throwOnError)
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "Can't delete a property of a NamespaceReference");
-            }
-
             return false;
         }
 
@@ -52,7 +42,7 @@ namespace Jint.Runtime.Interop
                 var genericTypeReference = arguments[i];
                 if (genericTypeReference.IsUndefined()
                     || !genericTypeReference.IsObject() 
-                    || genericTypeReference.AsObject().Class != "TypeReference")
+                    || genericTypeReference.AsObject().Class != ObjectClass.TypeReference)
                 {
                     ExceptionHelper.ThrowTypeError(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
                 }
@@ -75,14 +65,13 @@ namespace Jint.Runtime.Interop
             }
             catch (Exception e)
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?", e);
-                return null;
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?", e);
             }
         }
 
-        public override JsValue Get(string propertyName)
+        public override JsValue Get(JsValue property, JsValue receiver)
         {
-            var newPath = _path + "." + propertyName;
+            var newPath = _path + "." + property;
 
             return GetPath(newPath);
         }
@@ -196,7 +185,7 @@ namespace Jint.Runtime.Interop
             }
         }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
             return PropertyDescriptor.Undefined;
         }

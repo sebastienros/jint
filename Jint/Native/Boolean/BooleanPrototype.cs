@@ -20,9 +20,8 @@ namespace Jint.Native.Boolean
         {
             var obj = new BooleanPrototype(engine)
             {
-                Prototype = engine.Object.PrototypeObject,
+                _prototype = engine.Object.PrototypeObject,
                 PrimitiveValue = false,
-                Extensible = true,
                 _booleanConstructor = booleanConstructor
             };
 
@@ -31,17 +30,18 @@ namespace Jint.Native.Boolean
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(3)
+            var properties = new PropertyDictionary(3, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_booleanConstructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToBooleanString, 0, PropertyFlag.Configurable), true, false, true),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true)
             };
+            SetProperties(properties);
         }
 
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
         {
-            if (thisObj._type == Types.Boolean)
+            if (thisObj._type == InternalTypes.Boolean)
             {
                 return thisObj;
             }
@@ -57,7 +57,7 @@ namespace Jint.Native.Boolean
         private JsValue ToBooleanString(JsValue thisObj, JsValue[] arguments)
         {
             var b = ValueOf(thisObj, Arguments.Empty);
-            return ((JsBoolean) b)._value ? "true" : "false";
+            return ((JsBoolean) b)._value ? JsString.TrueString : JsString.FalseString;
         }
     }
 }

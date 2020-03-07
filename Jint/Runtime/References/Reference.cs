@@ -11,58 +11,54 @@ namespace Jint.Runtime.References
     /// </summary>
     public sealed class Reference
     {
-        internal JsValue _baseValue;
-        internal string _name;
+        private JsValue _baseValue;
+        private JsValue _property;
         internal bool _strict;
 
-        public Reference(JsValue baseValue, string name, bool strict)
+        public Reference(JsValue baseValue, JsValue property, bool strict)
         {
             _baseValue = baseValue;
-            _name = name;
+            _property = property;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public JsValue GetBase()
-        {
-            return _baseValue;
-        }
+        public JsValue GetBase() => _baseValue;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public string GetReferencedName()
-        {
-            return _name;
-        }
+        public JsValue GetReferencedName() => _property;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsStrict()
-        {
-            return _strict;
-        }
+        public bool IsStrictReference() => _strict;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasPrimitiveBase()
         {
-            return _baseValue._type != Types.Object && _baseValue._type != Types.None;
+            return (_baseValue._type & InternalTypes.Primitive) != 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsUnresolvableReference()
         {
-            return _baseValue._type == Types.Undefined;
+            return _baseValue._type == InternalTypes.Undefined;
+        }
+
+        public bool IsSuperReference()
+        {
+            // TODO super not implemented
+            return false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPropertyReference()
         {
-            // http://www.ecma-international.org/ecma-262/5.1/#sec-8.7
-            return _baseValue._type != Types.Object && _baseValue._type != Types.None
-                   || _baseValue._type == Types.Object && !(_baseValue is EnvironmentRecord);
+            // http://www.ecma-international.org/ecma-262/#sec-ispropertyreference
+            return (_baseValue._type & (InternalTypes.Primitive | InternalTypes.Object)) != 0;
         }
 
-        internal Reference Reassign(JsValue baseValue, string name, bool strict)
+        internal Reference Reassign(JsValue baseValue, JsValue name, bool strict)
         {
             _baseValue = baseValue;
-            _name = name;
+            _property = name;
             _strict = strict;
 
             return this;
@@ -70,7 +66,9 @@ namespace Jint.Runtime.References
 
         internal void AssertValid(Engine engine)
         {
-            if (_strict && (_name == "eval" || _name == "arguments") && _baseValue is EnvironmentRecord)
+            if (_strict
+                && (_baseValue._type & InternalTypes.ObjectEnvironmentRecord) != 0
+                && (_property == CommonProperties.Eval || _property == CommonProperties.Arguments))
             {
                 ExceptionHelper.ThrowSyntaxError(engine);
             }

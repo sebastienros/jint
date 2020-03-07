@@ -40,18 +40,16 @@ namespace Jint.Runtime.Debugger
 
         internal void AddToDebugCallStack(CallExpression callExpression)
         {
-            var identifier = callExpression.Callee as Identifier;
-            if (identifier != null)
+            if (callExpression.Callee is Identifier identifier)
             {
                 var stack = identifier.Name + "(";
-                var paramStrings = new System.Collections.Generic.List<string>();
+                var paramStrings = new List<string>();
 
                 foreach (var argument in callExpression.Arguments)
                 {
                     if (argument != null)
                     {
-                        var argIdentifier = argument as Identifier;
-                        paramStrings.Add(argIdentifier != null ? argIdentifier.Name : "null");
+                        paramStrings.Add(argument is Identifier argIdentifier ? argIdentifier.Name : "null");
                     }
                     else
                     {
@@ -147,7 +145,12 @@ namespace Jint.Runtime.Debugger
 
         private DebugInformation CreateDebugInformation(Statement statement)
         {
-            var info = new DebugInformation { CurrentStatement = statement, CallStack = _debugCallStack };
+            var info = new DebugInformation
+            {
+                CurrentStatement = statement,
+                CallStack = _debugCallStack,
+                CurrentMemoryUsage = _engine.CurrentMemoryUsage
+            };
 
             if (_engine.ExecutionContext.LexicalEnvironment != null)
             {

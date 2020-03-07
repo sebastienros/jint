@@ -25,8 +25,7 @@ namespace Jint.Native.Map
         {
             var obj = new MapConstructor(engine)
             {
-                Extensible = true,
-                Prototype = engine.Function.PrototypeObject
+                _prototype = engine.Function.PrototypeObject
             };
 
             // The value of the [[Prototype]] internal property of the Map constructor is the Function prototype object
@@ -35,18 +34,18 @@ namespace Jint.Native.Map
             obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
 
             // The initial value of Map.prototype is the Map prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(2)
+            var symbols = new SymbolDictionary(1)
             {
-                [GlobalSymbolRegistry.Species._value] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
+                [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
             };
-
+            SetSymbols(symbols);
         }
 
         private static JsValue Species(JsValue thisObject, JsValue[] arguments)
@@ -61,15 +60,14 @@ namespace Jint.Native.Map
                 ExceptionHelper.ThrowTypeError(_engine, "Constructor Map requires 'new'");
             }
 
-            return Construct(arguments);
+            return Construct(arguments, thisObject);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var instance = new MapInstance(Engine)
             {
-                Prototype = PrototypeObject,
-                Extensible = true
+                _prototype = PrototypeObject
             };
 
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
@@ -93,7 +91,7 @@ namespace Jint.Native.Map
                 IIterator iterator) : base(engine, iterator, 2)
             {
                 _instance = instance;
-                var setterProperty = instance.GetProperty("set");
+                var setterProperty = instance.GetProperty(CommonProperties.Set);
 
                 if (setterProperty is null
                     || !setterProperty.TryGetValue(instance, out var setterValue)
@@ -111,8 +109,8 @@ namespace Jint.Native.Map
                     return;
                 }
 
-                oi.TryGetValue("0", out var key);
-                oi.TryGetValue("1", out var value);
+                oi.TryGetValue(JsString.NumberZeroString, out var key);
+                oi.TryGetValue(JsString.NumberOneString, out var value);
 
                 args[0] = key;
                 args[1] = value;

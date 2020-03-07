@@ -12,8 +12,10 @@ namespace Jint.Runtime.Interop
 {
     public sealed class TypeReference : FunctionInstance, IConstructor, IObjectWrapper
     {
+        private static readonly JsString _name = new JsString("typereference");
+
         private TypeReference(Engine engine)
-            : base(engine, "typereference", null, null, false, "TypeReference")
+            : base(engine, _name, strict: false, ObjectClass.TypeReference)
         {
         }
 
@@ -22,15 +24,15 @@ namespace Jint.Runtime.Interop
         public static TypeReference CreateTypeReference(Engine engine, Type type)
         {
             var obj = new TypeReference(engine);
-            obj.Extensible = false;
+            obj.PreventExtensions();
             obj.ReferenceType = type;
 
             // The value of the [[Prototype]] internal property of the TypeReference constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
+            obj._prototype = engine.Function.PrototypeObject;
             obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
 
             // The initial value of Boolean.prototype is the Boolean prototype object
-            obj._prototype = new PropertyDescriptor(engine.Object.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(engine.Object.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
@@ -38,15 +40,15 @@ namespace Jint.Runtime.Interop
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             // direct calls on a TypeReference constructor object is equivalent to the new operator
-            return Construct(arguments);
+            return Construct(arguments, thisObject);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (arguments.Length == 0 && ReferenceType.IsValueType)
             {
                 var instance = Activator.CreateInstance(ReferenceType);
-                var result = TypeConverter.ToObject(Engine, JsValue.FromObject(Engine, instance));
+                var result = TypeConverter.ToObject(Engine, FromObject(Engine, instance));
 
                 return result;
             }
@@ -92,8 +94,7 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            ExceptionHelper.ThrowTypeError(_engine, "No public methods with the specified arguments were found.");
-            return null;
+            return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "No public methods with the specified arguments were found.");
         }
 
         public override bool HasInstance(JsValue v)
@@ -108,59 +109,38 @@ namespace Jint.Runtime.Interop
             return base.HasInstance(v);
         }
 
-        public override bool DefineOwnProperty(string propertyName, PropertyDescriptor desc, bool throwOnError)
+        public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            if (throwOnError)
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "Can't define a property of a TypeReference");
-            }
-
             return false;
         }
 
-        public override bool Delete(string propertyName, bool throwOnError)
+        public override bool Delete(JsValue property)
         {
-            if (throwOnError)
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "Can't delete a property of a TypeReference");
-            }
-
             return false;
         }
 
-        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
-            if (!CanPut(propertyName))
+            if (!CanPut(property))
             {
-                if (throwOnError)
-                {
-                    ExceptionHelper.ThrowTypeError(Engine);
-                }
-
-                return;
+                return false;
             }
 
-            var ownDesc = GetOwnProperty(propertyName);
+            var ownDesc = GetOwnProperty(property);
 
             if (ownDesc == null)
             {
-                if (throwOnError)
-                {
-                    ExceptionHelper.ThrowTypeError(_engine, "Unknown member: " + propertyName);
-                }
-                else
-                {
-                    return;
-                }
+                return false;
             }
 
             ownDesc.Value = value;
+            return true;
         }
 
-        public override PropertyDescriptor GetOwnProperty(string propertyName)
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
             // todo: cache members locally
-
+            var name = property.ToString();
             if (ReferenceType.IsEnum)
             {
                 Array enumValues = Enum.GetValues(ReferenceType);
@@ -168,7 +148,7 @@ namespace Jint.Runtime.Interop
 
                 for (int i = 0; i < enumValues.Length; i++)
                 {
-                    if (enumNames.GetValue(i) as string == propertyName)
+                    if (enumNames.GetValue(i) as string == name)
                     {
                         return new PropertyDescriptor((int) enumValues.GetValue(i), PropertyFlag.AllForbidden);
                     }
@@ -176,13 +156,13 @@ namespace Jint.Runtime.Interop
                 return PropertyDescriptor.Undefined;
             }
 
-            var propertyInfo = ReferenceType.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Static);
+            var propertyInfo = ReferenceType.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
             if (propertyInfo != null)
             {
                 return new PropertyInfoDescriptor(Engine, propertyInfo, Type);
             }
 
-            var fieldInfo = ReferenceType.GetField(propertyName, BindingFlags.Public | BindingFlags.Static);
+            var fieldInfo = ReferenceType.GetField(name, BindingFlags.Public | BindingFlags.Static);
             if (fieldInfo != null)
             {
                 return new FieldInfoDescriptor(Engine, fieldInfo, Type);
@@ -191,7 +171,7 @@ namespace Jint.Runtime.Interop
             List<MethodInfo> methodInfo = null;
             foreach (var mi in ReferenceType.GetMethods(BindingFlags.Public | BindingFlags.Static))
             {
-                if (mi.Name == propertyName)
+                if (mi.Name == name)
                 {
                     methodInfo = methodInfo ?? new List<MethodInfo>();
                     methodInfo.Add(mi);

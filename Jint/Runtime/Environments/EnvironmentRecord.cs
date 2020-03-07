@@ -10,21 +10,23 @@ namespace Jint.Runtime.Environments
     {
         protected readonly Engine _engine;
 
-        protected EnvironmentRecord(Engine engine) : base(Types.Object)
+        protected EnvironmentRecord(Engine engine) : base(InternalTypes.ObjectEnvironmentRecord)
         {
             _engine = engine;
         }
 
         /// <summary>
-        /// Determines if an environment record has a binding for an identifier. 
+        /// Determines if an environment record has a binding for an identifier.
         /// </summary>
         /// <param name="name">The identifier of the binding</param>
         /// <returns><c>true</c> if it does and <c>false</c> if it does not.</returns>
         public abstract bool HasBinding(string name);
 
-        internal abstract bool TryGetBinding(string name, bool strict, out Binding binding);
-
-        internal abstract JsValue UnwrapBindingValue(string name, bool strict, in Binding binding);
+        internal abstract bool TryGetBinding(
+            in Key name,
+            bool strict,
+            out Binding binding,
+            out JsValue value);
 
         /// <summary>
         /// Creates a new mutable binding in an environment record.
@@ -35,15 +37,15 @@ namespace Jint.Runtime.Environments
         public abstract void CreateMutableBinding(string name, JsValue value, bool canBeDeleted = false);
 
         /// <summary>
-        /// Sets the value of an already existing mutable binding in an environment record. 
+        /// Sets the value of an already existing mutable binding in an environment record.
         /// </summary>
         /// <param name="name">The identifier of the binding</param>
         /// <param name="value">The value of the binding.</param>
         /// <param name="strict">The identify strict mode references.</param>
         public abstract void SetMutableBinding(string name, JsValue value, bool strict);
-        
+
         /// <summary>
-        /// Returns the value of an already existing binding from an environment record. 
+        /// Returns the value of an already existing binding from an environment record.
         /// </summary>
         /// <param name="name">The identifier of the binding</param>
         /// <param name="strict">The identify strict mode references.</param>
@@ -67,25 +69,17 @@ namespace Jint.Runtime.Environments
         /// Returns an array of all the defined binding names
         /// </summary>
         /// <returns>The array of all defined bindings</returns>
-        public abstract string[] GetAllBindingNames();
+        internal abstract string[] GetAllBindingNames();
         
         public override object ToObject()
         {
-            ExceptionHelper.ThrowNotSupportedException();
-            return null;
+            return ExceptionHelper.ThrowNotSupportedException<object>();
         }
 
         public override bool Equals(JsValue other)
         {
-            ExceptionHelper.ThrowNotSupportedException();
-            return false;
+            return ExceptionHelper.ThrowNotSupportedException<bool>();
         }
-
-        /// <summary>
-        /// Informs whether arguments instance was accessed and maybe thus stored,
-        /// which makes it unsuitable for pooling and reuse.
-        /// </summary>
-        internal abstract void FunctionWasCalled();
     }
 }
 

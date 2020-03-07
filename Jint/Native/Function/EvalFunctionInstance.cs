@@ -14,7 +14,7 @@ namespace Jint.Native.Function
         public EvalFunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) 
             : base(engine, _functionName, parameters, scope, strict)
         {
-            Prototype = Engine.Function.PrototypeObject;
+            _prototype = Engine.Function.PrototypeObject;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
         }
 
@@ -57,7 +57,7 @@ namespace Jint.Native.Function
                                 Engine.EnterExecutionContext(strictVarEnv, strictVarEnv, Engine.ExecutionContext.ThisBinding);
                             }
 
-                            bool argumentInstanceRented = Engine.DeclarationBindingInstantiation(
+                            var argumentsInstance = Engine.DeclarationBindingInstantiation(
                                 DeclarationBindingType.EvalCode,
                                 program.HoistingScope,
                                 functionInstance: this,
@@ -67,11 +67,7 @@ namespace Jint.Native.Function
                             var result = statement.Execute();
                             var value = result.GetValueOrDefault();
 
-                            if (argumentInstanceRented)
-                            {
-                                lexicalEnvironment?._record?.FunctionWasCalled();
-                                _engine.ExecutionContext.VariableEnvironment?._record?.FunctionWasCalled();
-                            }
+                            argumentsInstance?.FunctionWasCalled();
 
                             if (result.Type == CompletionType.Throw)
                             {
@@ -105,8 +101,7 @@ namespace Jint.Native.Function
                     ExceptionHelper.ThrowReferenceError(_engine, (string) null);
                 }
 
-                ExceptionHelper.ThrowSyntaxError(_engine);
-                return null;
+                return ExceptionHelper.ThrowSyntaxError<JsValue>(_engine);
             }
         }
     }

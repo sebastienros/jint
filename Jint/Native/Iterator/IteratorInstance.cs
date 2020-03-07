@@ -3,6 +3,7 @@ using System.Linq;
 using Jint.Native.Array;
 using Jint.Native.Map;
 using Jint.Native.Object;
+using Jint.Native.RegExp;
 using Jint.Native.Set;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -20,7 +21,7 @@ namespace Jint.Native.Iterator
 
         public IteratorInstance(
             Engine engine,
-            IEnumerable<JsValue> enumerable) : base(engine, "Iterator")
+            IEnumerable<JsValue> enumerable) : base(engine, ObjectClass.Iterator)
         {
             _enumerable = enumerable.GetEnumerator();
         }
@@ -49,6 +50,14 @@ namespace Jint.Native.Iterator
         {
         }
 
+        private ObjectInstance CreateIterResultObject(JsValue value, bool done)
+        {
+            var obj = _engine.Object.Construct(2);
+            obj.SetDataProperty("value", value);
+            obj.SetDataProperty("done", done);
+            return obj;
+        }
+
         private class KeyValueIteratorPosition : ObjectInstance
         {
             internal static readonly ObjectInstance Done = new KeyValueIteratorPosition(null, null, null);
@@ -61,11 +70,9 @@ namespace Jint.Native.Iterator
                     var arrayInstance = engine.Array.ConstructFast(2);
                     arrayInstance.SetIndexValue(0, key, false);
                     arrayInstance.SetIndexValue(1, value, false);
-                    SetOwnProperty("value", new PropertyDescriptor(arrayInstance, PropertyFlag.AllForbidden));
+                    SetProperty("value", new PropertyDescriptor(arrayInstance, PropertyFlag.AllForbidden));
                 }
-                SetOwnProperty(
-                    "done",
-                    done ? PropertyDescriptor.AllForbiddenDescriptor.BooleanTrue : PropertyDescriptor.AllForbiddenDescriptor.BooleanFalse);
+                SetProperty("done", done ? PropertyDescriptor.AllForbiddenDescriptor.BooleanTrue : PropertyDescriptor.AllForbiddenDescriptor.BooleanFalse);
             }
         }
 
@@ -78,9 +85,9 @@ namespace Jint.Native.Iterator
                 var done = ReferenceEquals(null, value);
                 if (!done)
                 {
-                    SetOwnProperty("value", new PropertyDescriptor(value, PropertyFlag.AllForbidden));
+                    SetProperty("value", new PropertyDescriptor(value, PropertyFlag.AllForbidden));
                 }
-                SetOwnProperty("done", new PropertyDescriptor(done, PropertyFlag.AllForbidden));
+                SetProperty("done", new PropertyDescriptor(done, PropertyFlag.AllForbidden));
             }
         }
 
@@ -113,7 +120,7 @@ namespace Jint.Native.Iterator
 
         public class ArrayLikeIterator : IteratorInstance
         {
-            private readonly ArrayPrototype.ArrayOperations _array;
+            private readonly ArrayOperations _array;
             private uint? _end;
             private uint _position;
 
@@ -125,7 +132,7 @@ namespace Jint.Native.Iterator
                     return;
                 }
 
-                _array = ArrayPrototype.ArrayOperations.For(objectInstance);
+                _array = ArrayOperations.For(objectInstance);
                 _position = 0;
             }
 
@@ -222,13 +229,13 @@ namespace Jint.Native.Iterator
 
         public class ArrayLikeKeyIterator : IteratorInstance
         {
-            private readonly ArrayPrototype.ArrayOperations _operations;
+            private readonly ArrayOperations _operations;
             private uint _position;
             private bool _closed;
 
             public ArrayLikeKeyIterator(Engine engine, ObjectInstance objectInstance) : base(engine)
             {
-                _operations = ArrayPrototype.ArrayOperations.For(objectInstance);
+                _operations = ArrayOperations.For(objectInstance);
                 _position = 0;
             }
 
@@ -247,13 +254,13 @@ namespace Jint.Native.Iterator
 
         public class ArrayLikeValueIterator : IteratorInstance
         {
-            private readonly ArrayPrototype.ArrayOperations _operations;
+            private readonly ArrayOperations _operations;
             private uint _position;
             private bool _closed;
 
             public ArrayLikeValueIterator(Engine engine, ObjectInstance objectInstance) : base(engine)
             {
-                _operations = ArrayPrototype.ArrayOperations.For(objectInstance);
+                _operations = ArrayOperations.For(objectInstance);
                 _position = 0;
             }
 
@@ -279,7 +286,7 @@ namespace Jint.Native.Iterator
             public ObjectWrapper(ObjectInstance target)
             {
                 _target = target;
-                _callable = (ICallable) target.Get("next");
+                _callable = (ICallable) target.Get(CommonProperties.Next, target);
             }
 
             public ObjectInstance Next()
@@ -289,7 +296,7 @@ namespace Jint.Native.Iterator
 
             public void Return()
             {
-                if (_target.TryGetValue("return", out var func))
+                if (_target.TryGetValue(CommonProperties.Return, out var func))
                 {
                     ((ICallable) func).Call(_target, Arguments.Empty);
                 }
@@ -318,6 +325,62 @@ namespace Jint.Native.Iterator
 
                 _closed = true;
                 return ValueIteratorPosition.Done;
+            }
+        }
+        
+        internal class RegExpStringIterator : IteratorInstance
+        {
+            private readonly RegExpInstance _iteratingRegExp;
+            private readonly string _s;
+            private readonly bool _global;
+            private readonly bool _unicode;
+
+            private bool _done;
+
+            public RegExpStringIterator(Engine engine, ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode) : base(engine)
+            {
+                if (!(iteratingRegExp is RegExpInstance r))
+                {
+                    ExceptionHelper.ThrowTypeError(engine);
+                    return;
+                }
+                
+                _iteratingRegExp = r;
+                _s = iteratedString;
+                _global = global;
+                _unicode = unicode;
+            }
+
+            public override ObjectInstance Next()
+            {
+                if (_done)
+                {
+                    return CreateIterResultObject(Undefined, true);
+                }
+                
+                var match  = RegExpPrototype.RegExpExec(_iteratingRegExp, _s);
+                if (match.IsNull())
+                {
+                    _done = true;
+                    return CreateIterResultObject(Undefined, true);
+                }
+
+                if (_global)
+                {
+                    var macthStr = TypeConverter.ToString(match.Get(JsString.NumberZeroString));
+                    if (macthStr == "")
+                    {
+                        var thisIndex = TypeConverter.ToLength(_iteratingRegExp.Get(RegExpInstance.PropertyLastIndex));
+                        var nextIndex = thisIndex + 1;
+                        _iteratingRegExp.Set(RegExpInstance.PropertyLastIndex, nextIndex, true);
+                    }
+                }
+                else
+                {
+                    _done = true;
+                }
+
+                return CreateIterResultObject(match, false);
             }
         }
     }

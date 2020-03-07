@@ -153,8 +153,7 @@ namespace Jint.Native.Json
                         };
             }
 
-            ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, code));
-            return null;
+            return ExceptionHelper.ThrowSyntaxError<Token>(_engine, string.Format(Messages.UnexpectedToken, code));
         }
 
         private Token ScanNumericLiteral()
@@ -183,7 +182,7 @@ namespace Jint.Native.Json
                     // decimal number starts with '0' such as '09' is illegal.
                     if (ch > 0 && IsDecimalDigit(ch))
                     {
-                        ExceptionHelper.ThrowArgumentException(Messages.UnexpectedToken);
+                        ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, ch));
                     }
                 }
 
@@ -222,7 +221,7 @@ namespace Jint.Native.Json
                 }
                 else
                 {
-                    ExceptionHelper.ThrowArgumentException(Messages.UnexpectedToken);
+                    ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, _source.CharCodeAt(_index)));
                 }
             }
 
@@ -258,8 +257,7 @@ namespace Jint.Native.Json
                 };
             }
 
-            ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, s));
-            return null;
+            return ExceptionHelper.ThrowSyntaxError<Token>(_engine, string.Format(Messages.UnexpectedToken, s));
         }
 
         private Token ScanNullLiteral()
@@ -284,8 +282,7 @@ namespace Jint.Native.Json
                 };
             }
 
-            ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, s));
-            return null;
+            return ExceptionHelper.ThrowSyntaxError<Token>(_engine, string.Format(Messages.UnexpectedToken, s));
         }
 
         private Token ScanStringLiteral()
@@ -672,7 +669,7 @@ namespace Jint.Native.Json
 
         private ObjectInstance ParseJsonArray()
         {
-            var elements = new System.Collections.Generic.List<JsValue>();
+            var elements = new List<JsValue>();
 
             Expect("[");
 
@@ -770,7 +767,7 @@ namespace Jint.Native.Json
                     return (bool) Lex().Value ? JsBoolean.True : JsBoolean.False;
                 case Tokens.String:
                     // implicit conversion operator goes through caching
-                    return (string) Lex().Value;
+                    return new JsString((string) Lex().Value);
                 case Tokens.Number:
                     return (double) Lex().Value;
             }
@@ -826,7 +823,7 @@ namespace Jint.Native.Json
             {
                 if (options.Tokens)
                 {
-                    _extra.Tokens = new System.Collections.Generic.List<Token>();
+                    _extra.Tokens = new List<Token>();
                 }
 
             }
@@ -838,8 +835,7 @@ namespace Jint.Native.Json
                 JsValue jsv = ParseJsonValue();
 
                 Peek();
-                Tokens type = _lookahead.Type;
-                object value = _lookahead.Value;
+
                 if(_lookahead.Type != Tokens.EOF)
                 {
                     ExceptionHelper.ThrowSyntaxError(_engine, $"Unexpected {_lookahead.Type} {_lookahead.Value}");
@@ -857,7 +853,7 @@ namespace Jint.Native.Json
             public int? Loc;
             public int[] Range;
 
-            public System.Collections.Generic.List<Token> Tokens;
+            public List<Token> Tokens;
         }
 
         private enum Tokens
@@ -881,7 +877,7 @@ namespace Jint.Native.Json
 
         static class Messages
         {
-            public const string UnexpectedToken = "Unexpected token {0}";
+            public const string UnexpectedToken = "Unexpected token '{0}'";
             public const string UnexpectedNumber = "Unexpected number";
             public const string UnexpectedString = "Unexpected string";
             public const string UnexpectedEOS = "Unexpected end of input";

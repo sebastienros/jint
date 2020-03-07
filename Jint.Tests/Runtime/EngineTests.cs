@@ -10,6 +10,7 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Jint.Tests.Runtime
 {
@@ -19,10 +20,10 @@ namespace Jint.Tests.Runtime
         private int countBreak = 0;
         private StepMode stepMode;
 
-        public EngineTests()
+        public EngineTests(ITestOutputHelper output)
         {
             _engine = new Engine()
-                .SetValue("log", new Action<object>(Console.WriteLine))
+                .SetValue("log", new Action<object>( o => output.WriteLine(o.ToString())))
                 .SetValue("assert", new Action<bool>(Assert.True))
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
                 ;
@@ -378,8 +379,8 @@ namespace Jint.Tests.Runtime
                 var n = 8;
                 var o = Array(n);
                 for (var i = 0; i < n; i++) o[i] = i;
-                assert(o[0] == 0);
-                assert(o[7] == 7);
+                equal(0, o[0]);
+                equal(7, o[7]);
             ");
         }
 
@@ -390,8 +391,8 @@ namespace Jint.Tests.Runtime
                 var n = 1024*10+2;
                 var o = Array(n);
                 for (var i = 0; i < n; i++) o[i] = i;
-                assert(o[0] == 0);
-                assert(o[n - 1] == n -1);
+                equal(0, o[0]);
+                equal(n -1, o[n - 1]);
             ");
         }
 
@@ -436,18 +437,19 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldConvertDateToNumber()
+        public void DateConstructorWithInvalidParameters()
         {
             RunTest(@"
-                assert(Number(new Date(0)) === 0);
+                var dt = new Date (1,  Infinity);
+                assert(isNaN(dt.getTime()));
             ");
         }
 
         [Fact]
-        public void DatePrimitiveValueShouldBeNaN()
+        public void ShouldConvertDateToNumber()
         {
             RunTest(@"
-                assert(isNaN(Date.prototype.valueOf()));
+                assert(Number(new Date(0)) === 0);
             ");
         }
 
@@ -552,7 +554,7 @@ namespace Jint.Tests.Runtime
                     str += z;
                 }
 
-                assert(str == 'xystrz');
+                equal('xystrz', str);
             ");
         }
 
@@ -720,15 +722,6 @@ namespace Jint.Tests.Runtime
             );
         }
 
-#if NET452
-        [Fact]
-        public void ShouldThrowMemoryLimitExceeded()
-        {
-            Assert.Throws<PlatformNotSupportedException>(
-                () => new Engine(cfg => cfg.LimitMemory(2048)).Execute("a=[]; while(true){ a.push(0); }")
-            );
-        }
-#else
         [Fact]
         public void ShouldThrowMemoryLimitExceeded()
         {
@@ -736,7 +729,6 @@ namespace Jint.Tests.Runtime
                 () => new Engine(cfg => cfg.LimitMemory(2048)).Execute("a=[]; while(true){ a.push(0); }")
             );
         }
-#endif
 
         [Fact]
         public void ShouldThrowTimeout()
@@ -893,6 +885,24 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldAllowRecursionLimitWithoutReferencedName()
+        {
+            const string input = @"(function () {
+                var factorial = function(n) {
+                    if (n>1) {
+                        return n * factorial(n - 1);
+                    }
+                };
+
+                var result = factorial(38);
+            })();
+            ";
+
+            var engine = new Engine(o => o.LimitRecursion(20));
+            Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute(input));
+        }
+
+        [Fact]
         public void ShouldConvertDoubleToStringWithoutLosingPrecision()
         {
             RunTest(@"
@@ -925,7 +935,7 @@ namespace Jint.Tests.Runtime
         public void ShouldNotAlterSlashesInRegex()
         {
             RunTest(@"
-                assert(new RegExp('/').toString() === '///');
+                equal('/\\//', new RegExp('/').toString());
             ");
         }
 
@@ -991,7 +1001,7 @@ namespace Jint.Tests.Runtime
             ");
 
             var obj = _engine.GetValue("obj").AsObject();
-            var getFoo = obj.Get("getFoo");
+            var getFoo = obj.Get("getFoo", obj);
 
             Assert.Equal("foo is 5, bar is 7", _engine.Invoke(getFoo, obj, new object[] { 7 }).AsString());
         }
@@ -1004,7 +1014,7 @@ namespace Jint.Tests.Runtime
             ");
 
             var obj = _engine.GetValue("obj").AsObject();
-            var foo = obj.Get("foo");
+            var foo = obj.Get("foo", obj);
 
             Assert.Throws<ArgumentException>(() => _engine.Invoke(foo, obj, new object[] { }));
         }
@@ -1240,10 +1250,10 @@ namespace Jint.Tests.Runtime
             Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
 
             var epochToLocalString = engine.Execute("var d = new Date(0); d.toString();").GetCompletionValue().AsString();
-            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+00:11", epochToLocalString);
+            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+0011", epochToLocalString);
 
             var epochToUTCString = engine.Execute("var d = new Date(0); d.toUTCString();").GetCompletionValue().AsString();
-            Assert.Equal("Thu Jan 01 1970 00:00:00 GMT", epochToUTCString);
+            Assert.Equal("Thu, 01 Jan 1970 00:00:00 GMT", epochToUTCString);
         }
 
         [Theory]
@@ -1347,7 +1357,8 @@ namespace Jint.Tests.Runtime
             engine.Execute(
                 string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
 
-            var expected = testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz", CultureInfo.InvariantCulture);
+            var expected = testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+            expected += testDateTimeOffset.ToString(" 'GMT'zzz", CultureInfo.InvariantCulture).Replace(":", "");
             var actual = engine.Execute("d.toString();").GetCompletionValue().ToString();
 
             Assert.Equal(expected, actual);
@@ -1841,9 +1852,9 @@ var prep = function (fn) { fn(); };
                   , key
                   , i = 0;
                 target[key = keys[i++]] = source[key];
-                assert(i == 1);
-                assert(key == 'a');
-                assert(target[key] == 3);
+                equal(1, i);
+                equal('a', key);
+                equal(3, target[key]);
             ");
         }
 
@@ -1904,9 +1915,9 @@ var prep = function (fn) { fn(); };
             engine.Execute(@"
                     var d = new Date(1433160000000);
 
-                    equal('Mon Jun 01 2015 05:00:00 GMT-07:00', d.toString());
+                    equal('Mon Jun 01 2015 05:00:00 GMT-0700', d.toString());
                     equal('Mon Jun 01 2015', d.toDateString());
-                    equal('05:00:00 GMT-07:00', d.toTimeString());
+                    equal('05:00:00 GMT-0700', d.toTimeString());
                     equal('lundi 1 juin 2015 05:00:00', d.toLocaleString());
                     equal('lundi 1 juin 2015', d.toLocaleDateString());
                     equal('05:00:00', d.toLocaleTimeString());
@@ -1926,7 +1937,7 @@ var prep = function (fn) { fn(); };
             engine.Execute(@"
                     var d = new Date(2016, 8, 1);
 
-                    equal('Thu Sep 01 2016 00:00:00 GMT-04:00', d.toString());
+                    equal('Thu Sep 01 2016 00:00:00 GMT-0400', d.toString());
                     equal('Thu Sep 01 2016', d.toDateString());
             ");
         }
@@ -2020,7 +2031,7 @@ var prep = function (fn) { fn(); };
         [Fact]
         public void RegExpPrototypeToString()
         {
-            RunTest("assert(RegExp.prototype.toString() === '//');");
+            RunTest("assert(RegExp.prototype.toString() === '/(?:)/');");
         }
 
         [Fact]
@@ -2635,8 +2646,8 @@ function output(x) {
 	var values = x.Values;
 	var generated = x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {});
 	return {
-        TestDictionary1 : values, 
-        TestDictionary2 : x.Values, 
+        TestDictionary1 : values,
+        TestDictionary2 : x.Values,
         TestDictionaryDirectAccess1 : Object.keys(x.Values).length,
         TestDictionaryDirectAccess2 : Object.keys(x.Values),
         TestDictionaryDirectAccess4 : Object.keys(x.Values).map(function(a){return x.Values[a];}),
@@ -2654,11 +2665,11 @@ function output(x) {
         TestGeneratedDictionarySum1 : Object.keys(generated).map(function(a){return{Key: a,Value:generated[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0),
         TestGeneratedDictionarySum2 : Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).map(function(a){return{Key: a,Value:x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0),
         TestGeneratedDictionaryAverage1 : Object.keys(generated).map(function(a){return{Key: a,Value:generated[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(generated).length||1),
-        TestGeneratedDictionaryAverage2 : Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).map(function(a){return{Key: a,Value:x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).length||1), 
+        TestGeneratedDictionaryAverage2 : Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).map(function(a){return{Key: a,Value:x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})[a]};}).map(function(a){return a.Value;}).reduce(function(a, b) { return a + b; }, 0)/(Object.keys(x.Elements.reduce(function(_obj, _cur) {_obj[(function(a){return a.Name;})(_cur)] = (function(a){return a.Decimal;})(_cur);return _obj;}, {})).length||1),
         TestGeneratedDictionaryDirectAccess1 : Object.keys(generated),
         TestGeneratedDictionaryDirectAccess2 : Object.keys(generated).map(function(a){return generated[a];}),
-        TestGeneratedDictionaryDirectAccess3 : Object.keys(generated).length, 
-        TestList1 : elements.reduce(function(a, b) { return a + b; }, 0), 
+        TestGeneratedDictionaryDirectAccess3 : Object.keys(generated).length,
+        TestList1 : elements.reduce(function(a, b) { return a + b; }, 0),
         TestList2 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0),
         TestList3 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0),
         TestList4 : x.Elements.map(function(a){return a.Decimal;}).reduce(function(a, b) { return a + b; }, 0)/(x.Elements.length||1),
@@ -2667,8 +2678,8 @@ function output(x) {
 };
 ";
             _engine.Execute(program);
-            var result1 = (ObjectInstance) _engine.Execute("output(x1)").GetCompletionValue();
-            var result2 = (ObjectInstance) _engine.Execute("output(x2)").GetCompletionValue();
+            var result1 = (ObjectInstance)_engine.Execute("output(x1)").GetCompletionValue();
+            var result2 = (ObjectInstance)_engine.Execute("output(x2)").GetCompletionValue();
 
             Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum1")));
             Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum2")));
@@ -2718,13 +2729,13 @@ function output(x) {
                 var r = [...arr2, ...arr1];
             ");
 
-            var arrayInstance = (ArrayInstance) _engine.GetValue("r");
+            var arrayInstance = (ArrayInstance)_engine.GetValue("r");
             Assert.Equal(arrayInstance[0], 3);
             Assert.Equal(arrayInstance[1], 4);
             Assert.Equal(arrayInstance[2], 1);
             Assert.Equal(arrayInstance[3], 2);
 
-            arrayInstance = (ArrayInstance) _engine.GetValue("s");
+            arrayInstance = (ArrayInstance)_engine.GetValue("s");
             Assert.Equal(arrayInstance[0], 'a');
             Assert.Equal(arrayInstance[1], 'b');
             Assert.Equal(arrayInstance[2], 'c');
@@ -2749,6 +2760,88 @@ function output(x) {
 
             result = function.Invoke(3, JsValue.Undefined).ToString();
             Assert.Equal("15", result);
+        }
+
+        [Fact]
+        public void ShouldReportErrorForInvalidJson()
+        {
+            var engine = new Engine();
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("JSON.parse('[01]')"));
+            Assert.Equal("Unexpected token '1'", ex.Message);
+
+            var voidCompletion = engine.Execute("try { JSON.parse('01') } catch (e) {}").GetCompletionValue();
+            Assert.Equal(JsValue.Undefined, voidCompletion);
+        }
+
+        [Fact]
+        public void ShouldParseAnonymousToTypeObject()
+        {
+            var obj = new Wrapper();
+            var engine = new Engine()
+                .SetValue("x", obj);
+            var js = @"
+x.test = {
+    name: 'Testificate',
+    init (a, b) {
+        return a + b
+    }
+}";
+            engine.Execute(js);
+
+            Assert.Equal("Testificate", obj.Test.Name);
+            Assert.Equal(5, obj.Test.Init(2, 3));
+        }
+
+        [Fact]
+        public void ShouldOverrideDefaultTypeConverter()
+        {
+            var engine = new Engine
+            {
+                ClrTypeConverter = new TestTypeConverter()
+            };
+            Assert.IsType<TestTypeConverter>(engine.ClrTypeConverter);
+            engine.SetValue("x", new Testificate());
+            Assert.Throws<JavaScriptException>(() => engine.Execute("c.Name"));
+        }
+
+        [Fact]
+        public void ShouldAllowDollarPrefixForProperties()
+        {
+            _engine.SetValue("str", "Hello");
+            _engine.Execute("equal(undefined, str.$ref);");
+            _engine.Execute("equal(undefined, str.ref);");
+            _engine.Execute("equal(undefined, str.$foo);");
+            _engine.Execute("equal(undefined, str.foo);");
+            _engine.Execute("equal(undefined, str['$foo']);");
+            _engine.Execute("equal(undefined, str['foo']);");
+
+            _engine.Execute("equal(false, str.hasOwnProperty('$foo'));");
+            _engine.Execute("equal(false, str.hasOwnProperty('foo'));");
+        }
+
+        private class Wrapper
+        {
+            public Testificate Test { get; set; }
+        }
+
+        private class Testificate
+        {
+            public string Name { get; set; }
+            public Func<int, int, int> Init { get; set; }
+        }
+
+        private class TestTypeConverter : Jint.Runtime.Interop.ITypeConverter
+        {
+
+            public object Convert(object value, Type type, IFormatProvider formatProvider)
+            {
+                throw new NotImplementedException();
+            }
+
+            public bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)
+            {
+                throw new NotImplementedException();
+            }
         }
     }
 }

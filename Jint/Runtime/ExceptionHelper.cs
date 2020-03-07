@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 using Jint.Native;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.References;
@@ -36,7 +37,7 @@ namespace Jint.Runtime
 
         public static void ThrowReferenceError(Engine engine, Reference reference)
         {
-            ThrowReferenceError(engine, reference?.GetReferencedName());
+            ThrowReferenceError(engine, reference?.GetReferencedName()?.ToString());
         }
 
         public static void ThrowReferenceError(Engine engine, string name)
@@ -86,9 +87,9 @@ namespace Jint.Runtime
             throw new JavaScriptException(engine.UriError);
         }
 
-        public static void ThrowNotImplementedException()
+        public static void ThrowNotImplementedException(string message = null)
         {
-            throw new NotImplementedException();
+            throw new NotImplementedException(message);
         }
 
         public static T ThrowNotImplementedException<T>()
@@ -99,6 +100,11 @@ namespace Jint.Runtime
         public static T ThrowArgumentOutOfRangeException<T>()
         {
             throw new ArgumentOutOfRangeException();
+        }
+
+        public static T ThrowArgumentOutOfRangeException<T>(string paramName, string message)
+        {
+            throw new ArgumentOutOfRangeException(paramName, message);
         }
 
         public static void ThrowArgumentOutOfRangeException(string paramName, string message)
@@ -154,6 +160,17 @@ namespace Jint.Runtime
         public static T ThrowArgumentNullException<T>(string paramName)
         {
             throw new ArgumentNullException(paramName);
+        }
+
+        public static void ThrowMeaningfulException(Engine engine, TargetInvocationException exception)
+        {
+            var meaningfulException = exception.InnerException ?? exception;
+
+            var handler = engine.Options._ClrExceptionsHandler;
+            if (handler != null && handler(meaningfulException))
+                ThrowError(engine, meaningfulException.Message);
+
+            throw meaningfulException;
         }
 
         public static void ThrowError(Engine engine, string message)

@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Collections;
 using Jint.Native.Array;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.Symbol;
@@ -31,9 +30,8 @@ namespace Jint.Native.String
         {
             var obj = new StringPrototype(engine)
             {
-                Prototype = engine.Object.PrototypeObject,
+                _prototype = engine.Object.PrototypeObject,
                 PrimitiveValue = JsString.Empty,
-                Extensible = true,
                 _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero,
                 _stringConstructor = stringConstructor,
             };
@@ -43,41 +41,50 @@ namespace Jint.Native.String
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(40)
+            const PropertyFlag lengthFlags = PropertyFlag.Configurable;
+            const PropertyFlag propertyFlags = lengthFlags | PropertyFlag.Writable;
+            var properties = new PropertyDictionary(35, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_stringConstructor, PropertyFlag.NonEnumerable),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 0, PropertyFlag.Configurable), true, false, true),
-                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),
-                ["charAt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "charAt", CharAt, 1, PropertyFlag.Configurable), true, false, true),
-                ["charCodeAt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "charCodeAt", CharCodeAt, 1, PropertyFlag.Configurable), true, false, true),
-                ["codePointAt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "codePointAt", CodePointAt, 1, PropertyFlag.Configurable), true, false, true),
-                ["concat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), true, false, true),
-                ["indexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), true, false, true),
-                ["endsWith"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "endsWith", EndsWith, 1, PropertyFlag.Configurable), true, false, true),
-                ["startsWith"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "startsWith", StartsWith, 1, PropertyFlag.Configurable), true, false, true),
-                ["lastIndexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), true, false, true),
-                ["localeCompare"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "localeCompare", LocaleCompare, 1, PropertyFlag.Configurable), true, false, true),
-                ["match"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "match", Match, 1, PropertyFlag.Configurable), true, false, true),
-                ["replace"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "replace", Replace, 2, PropertyFlag.Configurable), true, false, true),
-                ["search"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "search", Search, 1, PropertyFlag.Configurable), true, false, true),
-                ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), true, false, true),
-                ["split"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "split", Split, 2, PropertyFlag.Configurable), true, false, true),
-                ["substr"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "substr", Substr, 2), true, false, true),
-                ["substring"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "substring", Substring, 2, PropertyFlag.Configurable), true, false, true),
-                ["toLowerCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLowerCase", ToLowerCase, 0, PropertyFlag.Configurable), true, false, true),
-                ["toLocaleLowerCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleLowerCase", ToLocaleLowerCase, 0, PropertyFlag.Configurable), true, false, true),
-                ["toUpperCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toUpperCase", ToUpperCase, 0, PropertyFlag.Configurable), true, false, true),
-                ["toLocaleUpperCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleUpperCase", ToLocaleUpperCase, 0, PropertyFlag.Configurable), true, false, true),
-                ["trim"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trim", Trim, 0, PropertyFlag.Configurable), true, false, true),
-                ["trimStart"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trimStart", TrimStart, 0, PropertyFlag.Configurable), true, false, true),
-                ["trimEnd"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trimEnd", TrimEnd, 0, PropertyFlag.Configurable), true, false, true),
-                ["padStart"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "padStart", PadStart, 1, PropertyFlag.Configurable), true, false, true),
-                ["padEnd"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "padEnd", PadEnd, 1, PropertyFlag.Configurable), true, false, true),
-                ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), true, false, true),
-                ["normalize"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "normalize", Normalize, 0, PropertyFlag.Configurable), true, false, true),
-                ["repeat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "repeat", Repeat, 1, PropertyFlag.Configurable), true, false, true),
-                [GlobalSymbolRegistry.Iterator._value] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.iterator]", Iterator, 0, PropertyFlag.Configurable), true, false, true)
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 0, lengthFlags), propertyFlags),
+                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), propertyFlags),
+                ["charAt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "charAt", CharAt, 1, lengthFlags), propertyFlags),
+                ["charCodeAt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "charCodeAt", CharCodeAt, 1, lengthFlags), propertyFlags),
+                ["codePointAt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "codePointAt", CodePointAt, 1, lengthFlags), propertyFlags),
+                ["concat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "concat", Concat, 1, lengthFlags), propertyFlags),
+                ["indexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, lengthFlags), propertyFlags),
+                ["endsWith"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "endsWith", EndsWith, 1, lengthFlags), propertyFlags),
+                ["startsWith"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "startsWith", StartsWith, 1, lengthFlags), propertyFlags),
+                ["lastIndexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, lengthFlags), propertyFlags),
+                ["localeCompare"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "localeCompare", LocaleCompare, 1, lengthFlags), propertyFlags),
+                ["match"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "match", Match, 1, lengthFlags), propertyFlags),
+                ["matchAll"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "matchAll", MatchAll, 1, lengthFlags), propertyFlags),
+                ["replace"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "replace", Replace, 2, lengthFlags), propertyFlags),
+                ["search"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "search", Search, 1, lengthFlags), propertyFlags),
+                ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, lengthFlags), propertyFlags),
+                ["split"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "split", Split, 2, lengthFlags), propertyFlags),
+                ["substr"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "substr", Substr, 2), propertyFlags),
+                ["substring"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "substring", Substring, 2, lengthFlags), propertyFlags),
+                ["toLowerCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLowerCase", ToLowerCase, 0, lengthFlags), propertyFlags),
+                ["toLocaleLowerCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleLowerCase", ToLocaleLowerCase, 0, lengthFlags), propertyFlags),
+                ["toUpperCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toUpperCase", ToUpperCase, 0, lengthFlags), propertyFlags),
+                ["toLocaleUpperCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleUpperCase", ToLocaleUpperCase, 0, lengthFlags), propertyFlags),
+                ["trim"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trim", Trim, 0, lengthFlags), propertyFlags),
+                ["trimStart"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trimStart", TrimStart, 0, lengthFlags), propertyFlags),
+                ["trimEnd"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trimEnd", TrimEnd, 0, lengthFlags), propertyFlags),
+                ["padStart"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "padStart", PadStart, 1, lengthFlags), propertyFlags),
+                ["padEnd"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "padEnd", PadEnd, 1, lengthFlags), propertyFlags),
+                ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, lengthFlags), propertyFlags),
+                ["normalize"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "normalize", Normalize, 0, lengthFlags), propertyFlags),
+                ["repeat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "repeat", Repeat, 1, lengthFlags), propertyFlags)
             };
+            SetProperties(properties);
+
+            var symbols = new SymbolDictionary(1)
+            {
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.iterator]", Iterator, 0, lengthFlags), propertyFlags)
+            };
+            SetSymbols(symbols);
         }
 
         private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)
@@ -192,21 +199,21 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(_engine, thisObj);
             var s = TypeConverter.ToString(thisObj);
-            return s.ToUpper();
+            return new JsString(s.ToUpper());
         }
 
         private JsValue ToUpperCase(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(_engine, thisObj);
             var s = TypeConverter.ToString(thisObj);
-            return s.ToUpperInvariant();
+            return new JsString(s.ToUpperInvariant());
         }
 
         private JsValue ToLocaleLowerCase(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(_engine, thisObj);
             var s = TypeConverter.ToString(thisObj);
-            return s.ToLower();
+            return new JsString(s.ToLower());
         }
 
         private JsValue ToLowerCase(JsValue thisObj, JsValue[] arguments)
@@ -217,6 +224,14 @@ namespace Jint.Native.String
         }
 
         private static int ToIntegerSupportInfinity(JsValue numberVal)
+        {
+            return numberVal._type == InternalTypes.Integer
+                ? numberVal.AsInteger()
+                : ToIntegerSupportInfinityUnlikely(numberVal);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static int ToIntegerSupportInfinityUnlikely(JsValue numberVal)
         {
             var doubleVal = TypeConverter.ToInteger(numberVal);
             int intVal;
@@ -260,15 +275,15 @@ namespace Jint.Native.String
 
             if (length == 0)
             {
-                return string.Empty;
+                return JsString.Empty;
             }
 
             if (length == 1)
             {
-                return TypeConverter.ToString(s[from]);
+                return JsString.Create(s[from]);
             }
 
-            return s.Substring(from, length);
+            return new JsString(s.Substring(from, length));
         }
 
         private JsValue Substr(JsValue thisObj, JsValue[] arguments)
@@ -283,7 +298,7 @@ namespace Jint.Native.String
             length = System.Math.Min(System.Math.Max(length, 0), s.Length - start);
             if (length <= 0)
             {
-                return "";
+                return JsString.Empty;
             }
 
             var startIndex = TypeConverter.ToInt32(start);
@@ -301,13 +316,28 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
 
             var separator = arguments.At(0);
+            var limit = arguments.At(1);
+
+            // fast path for empty regexp
+            if (separator is RegExpInstance R && R.Source == RegExpInstance.regExpForMatchingAllCharacters)
+            {
+                separator = JsString.Empty;
+            }
+            
+            if (separator is ObjectInstance oi)
+            {
+                var splitter = GetMethod(_engine, oi, GlobalSymbolRegistry.Split);
+                if (splitter != null)
+                {
+                    return splitter.Call(separator, new[] { thisObj, limit });
+                }
+            }
 
             // Coerce into a number, true will become 1
-            var l = arguments.At(1);
-            var limit = l.IsUndefined() ? uint.MaxValue : TypeConverter.ToUint32(l);
+            var lim = limit.IsUndefined() ? uint.MaxValue : TypeConverter.ToUint32(limit);
             var len = s.Length;
 
-            if (limit == 0)
+            if (lim == 0)
             {
                 return Engine.Array.Construct(Arguments.Empty);
             }
@@ -328,106 +358,47 @@ namespace Jint.Native.String
             {
                 if (!separator.IsRegExp())
                 {
-                    separator = TypeConverter.ToString(separator); // Coerce into a string, for an object call toString()
+                    separator = TypeConverter.ToJsString(separator); // Coerce into a string, for an object call toString()
                 }
             }
 
-            var rx = TypeConverter.ToObject(Engine, separator) as RegExpInstance;
+            return SplitWithStringSeparator(_engine, separator, s, lim);
+        }
 
-            const string regExpForMatchingAllCharactere = "(?:)";
+        internal static JsValue SplitWithStringSeparator(Engine engine, JsValue separator, string s, uint lim)
+        {
+            var segments = StringExecutionContext.Current.SplitSegmentList;
+            segments.Clear();
+            var sep = TypeConverter.ToString(separator);
 
-            if (!ReferenceEquals(rx, null) &&
-                rx.Source != regExpForMatchingAllCharactere // We need pattern to be defined -> for s.split(new RegExp)
-                )
+            if (sep == string.Empty)
             {
-                var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
-                var match = rx.Value.Match(s, 0);
-
-                if (!match.Success) // No match at all return the string in an array
+                if (s.Length > segments.Capacity)
                 {
-                    a.SetIndexValue(0, s, updateLength: true);
-                    return a;
+                    segments.Capacity = s.Length;
                 }
 
-                int lastIndex = 0;
-                uint index = 0;
-                while (match.Success && index < limit)
+                for (var i = 0; i < s.Length; i++)
                 {
-                    if (match.Length == 0 && (match.Index == 0 || match.Index == len || match.Index == lastIndex))
-                    {
-                        match = match.NextMatch();
-                        continue;
-                    }
-
-                    // Add the match results to the array.
-                    a.SetIndexValue(index++, s.Substring(lastIndex, match.Index - lastIndex), updateLength: true);
-
-                    if (index >= limit)
-                    {
-                        return a;
-                    }
-
-                    lastIndex = match.Index + match.Length;
-                    for (int i = 1; i < match.Groups.Count; i++)
-                    {
-                        var group = match.Groups[i];
-                        var item = Undefined;
-                        if (group.Captures.Count > 0)
-                        {
-                            item = match.Groups[i].Value;
-                        }
-
-                        a.SetIndexValue(index++, item, updateLength: true);
-
-                        if (index >= limit)
-                        {
-                            return a;
-                        }
-                    }
-
-                    match = match.NextMatch();
-                    if (!match.Success) // Add the last part of the split
-                    {
-                        a.SetIndexValue(index++, s.Substring(lastIndex), updateLength: true);
-                    }
+                    segments.Add(TypeConverter.ToString(s[i]));
                 }
-
-                return a;
             }
             else
             {
-                var segments = StringExecutionContext.Current.SplitSegmentList;
-                segments.Clear();
-                var sep = TypeConverter.ToString(separator);
-
-                if (sep == string.Empty || (!ReferenceEquals(rx, null) && rx.Source == regExpForMatchingAllCharactere)) // for s.split(new RegExp)
-                {
-                    if (s.Length > segments.Capacity)
-                    {
-                        segments.Capacity = s.Length;
-                    }
-
-                    for (var i = 0; i < s.Length; i++)
-                    {
-                        segments.Add(TypeConverter.ToString(s[i]));
-                    }
-                }
-                else
-                {
-                    var array = StringExecutionContext.Current.SplitArray1;
-                    array[0] = sep;
-                    segments.AddRange(s.Split(array, StringSplitOptions.None));
-                }
-
-                var length = (uint) System.Math.Min(segments.Count, limit);
-                var a = Engine.Array.ConstructFast(length);
-                for (int i = 0; i < length; i++)
-                {
-                    a.SetIndexValue((uint) i, segments[i], updateLength: false);
-                }
-                a.SetLength(length);
-                return a;
+                var array = StringExecutionContext.Current.SplitArray1;
+                array[0] = sep;
+                segments.AddRange(s.Split(array, StringSplitOptions.None));
             }
+
+            var length = (uint) System.Math.Min(segments.Count, lim);
+            var a = engine.Array.ConstructFast(length);
+            for (int i = 0; i < length; i++)
+            {
+                a.SetIndexValue((uint) i, segments[i], updateLength: false);
+            }
+
+            a.SetLength(length);
+            return a;
         }
 
         private JsValue Slice(JsValue thisObj, JsValue[] arguments)
@@ -441,7 +412,7 @@ namespace Jint.Native.String
             }
             if (double.IsPositiveInfinity(start))
             {
-                return string.Empty;
+                return JsString.Empty;
             }
 
             var s = TypeConverter.ToString(thisObj);
@@ -460,258 +431,133 @@ namespace Jint.Native.String
 
             if (span == 0)
             {
-                return string.Empty;
+                return JsString.Empty;
             }
 
             if (span == 1)
             {
-                return TypeConverter.ToString(s[from]);
+                return JsString.Create(s[from]);
             }
 
-            return s.Substring(from, span);
+            return new JsString(s.Substring(from, span));
         }
 
         private JsValue Search(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
-
-            var s = TypeConverter.ToString(thisObj);
-
             var regex = arguments.At(0);
-
-            if (regex.IsUndefined())
+            
+            if (regex is ObjectInstance oi)
             {
-                regex = string.Empty;
-            }
-            else if (regex.IsNull())
-            {
-                regex = Native.Null.Text;
-            }
-
-            var rx = TypeConverter.ToObject(Engine, regex) as RegExpInstance ?? (RegExpInstance)Engine.RegExp.Construct(new[] { regex });
-            var match = rx.Value.Match(s);
-            if (!match.Success)
-            {
-                return -1;
+                var searcher = GetMethod(_engine, oi, GlobalSymbolRegistry.Search);
+                if (searcher != null)
+                {
+                    return searcher.Call(regex, new[] { thisObj });
+                }
             }
 
-            return match.Index;
+            var rx = (RegExpInstance) Engine.RegExp.Construct(new[] {regex});
+            var s = TypeConverter.ToString(thisObj);
+            return Invoke(rx, GlobalSymbolRegistry.Search, new JsValue[] { s });
         }
 
         private JsValue Replace(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var thisString = TypeConverter.ToString(thisObj);
             var searchValue = arguments.At(0);
             var replaceValue = arguments.At(1);
 
-            // If the second parameter is not a function we create one
-            var replaceFunction = replaceValue.TryCast<FunctionInstance>();
-            if (ReferenceEquals(replaceFunction, null))
+            if (!searchValue.IsNullOrUndefined())
             {
-                replaceFunction = new ClrFunctionInstance(Engine, "anonymous", (self, args) =>
+                var replacer = GetMethod(_engine, searchValue, GlobalSymbolRegistry.Replace);
+                if (replacer != null)
                 {
-                    var replaceString = TypeConverter.ToString(replaceValue);
-                    var matchValue = TypeConverter.ToString(args.At(0));
-                    var matchIndex = (int)TypeConverter.ToInteger(args.At(args.Length - 2));
-
-                    // Check if the replacement string contains any patterns.
-                    bool replaceTextContainsPattern = replaceString.IndexOf('$') >= 0;
-
-                    // If there is no pattern, replace the pattern as is.
-                    if (replaceTextContainsPattern == false)
-                        return replaceString;
-
-                    // Patterns
-                    // $$	Inserts a "$".
-                    // $&	Inserts the matched substring.
-                    // $`	Inserts the portion of the string that precedes the matched substring.
-                    // $'	Inserts the portion of the string that follows the matched substring.
-                    // $n or $nn	Where n or nn are decimal digits, inserts the nth parenthesized submatch string, provided the first argument was a RegExp object.
-                    using (var replacementBuilder = StringBuilderPool.Rent())
-                    {
-                        for (int i = 0; i < replaceString.Length; i++)
-                        {
-                            char c = replaceString[i];
-                            if (c == '$' && i < replaceString.Length - 1)
-                            {
-                                c = replaceString[++i];
-                                if (c == '$')
-                                    replacementBuilder.Builder.Append('$');
-                                else if (c == '&')
-                                    replacementBuilder.Builder.Append(matchValue);
-                                else if (c == '`')
-                                    replacementBuilder.Builder.Append(thisString.Substring(0, matchIndex));
-                                else if (c == '\'')
-                                    replacementBuilder.Builder.Append(thisString.Substring(matchIndex + matchValue.Length));
-                                else if (c >= '0' && c <= '9')
-                                {
-                                    int matchNumber1 = c - '0';
-
-                                    // The match number can be one or two digits long.
-                                    int matchNumber2 = 0;
-                                    if (i < replaceString.Length - 1 && replaceString[i + 1] >= '0' && replaceString[i + 1] <= '9')
-                                        matchNumber2 = matchNumber1 * 10 + (replaceString[i + 1] - '0');
-
-                                    // Try the two digit capture first.
-                                    if (matchNumber2 > 0 && matchNumber2 < args.Length - 2)
-                                    {
-                                        // Two digit capture replacement.
-                                        replacementBuilder.Builder.Append(TypeConverter.ToString(args[matchNumber2]));
-                                        i++;
-                                    }
-                                    else if (matchNumber1 > 0 && matchNumber1 < args.Length - 2)
-                                    {
-                                        // Single digit capture replacement.
-                                        replacementBuilder.Builder.Append(TypeConverter.ToString(args[matchNumber1]));
-                                    }
-                                    else
-                                    {
-                                        // Capture does not exist.
-                                        replacementBuilder.Builder.Append('$');
-                                        i--;
-                                    }
-                                }
-                                else
-                                {
-                                    // Unknown replacement pattern.
-                                    replacementBuilder.Builder.Append('$');
-                                    replacementBuilder.Builder.Append(c);
-                                }
-                            }
-                            else
-                                replacementBuilder.Builder.Append(c);
-                        }
-
-                        return replacementBuilder.ToString();
-                    }
-
-                });
-            }
-
-            // searchValue is a regular expression
-
-            if (searchValue.IsNull())
-            {
-                searchValue = Native.Null.Text;
-            }
-            if (searchValue.IsUndefined())
-            {
-                searchValue = Native.Undefined.Text;
-            }
-
-            var rx = TypeConverter.ToObject(Engine, searchValue) as RegExpInstance;
-            if (!ReferenceEquals(rx, null))
-            {
-                // Replace the input string with replaceText, recording the last match found.
-                string result = rx.Value.Replace(thisString, match =>
-                {
-                    var args = new JsValue[match.Groups.Count + 2];
-                    for (var k = 0; k < match.Groups.Count; k++)
-                    {
-                        var group = match.Groups[k];
-                        args[k] = @group.Value;
-                    }
-
-                    args[match.Groups.Count] = match.Index;
-                    args[match.Groups.Count + 1] = thisString;
-
-                    var v = TypeConverter.ToString(replaceFunction.Call(Undefined, args));
-                    return v;
-                }, rx.Global == true ? -1 : 1);
-
-                // Set the deprecated RegExp properties if at least one match was found.
-                //if (lastMatch != null)
-                //    this.Engine.RegExp.SetDeprecatedProperties(input, lastMatch);
-
-                return result;
-            }
-
-            // searchValue is a string
-            else
-            {
-                var substr = TypeConverter.ToString(searchValue);
-
-                // Find the first occurrance of substr.
-                int start = thisString.IndexOf(substr, StringComparison.Ordinal);
-                if (start == -1)
-                    return thisString;
-                int end = start + substr.Length;
-
-                var args = _engine._jsValueArrayPool.RentArray(3);
-                args[0] = substr;
-                args[1] = start;
-                args[2] = thisString;
-
-                var replaceString = TypeConverter.ToString(replaceFunction.Call(Undefined, args));
-
-                _engine._jsValueArrayPool.ReturnArray(args);
-
-                // Replace only the first match.
-                using (var result = StringBuilderPool.Rent())
-                {
-                    result.Builder.EnsureCapacity(thisString.Length + (substr.Length - substr.Length));
-                    result.Builder.Append(thisString, 0, start);
-                    result.Builder.Append(replaceString);
-                    result.Builder.Append(thisString, end, thisString.Length - end);
-                    return result.ToString();
+                    return replacer.Call(searchValue, new[] { thisObj, replaceValue});
                 }
             }
+            
+            var thisString = TypeConverter.ToJsString(thisObj);
+            var searchString = TypeConverter.ToString(searchValue);
+            var functionalReplace = replaceValue is ICallable;
+
+            if (!functionalReplace)
+            {
+                replaceValue = TypeConverter.ToJsString(replaceValue);
+            }
+
+            var pos = thisString.IndexOf(searchString, StringComparison.Ordinal);
+            var matched = searchString;
+            if (pos < 0)
+            {
+                return thisString;
+            }
+
+            string replStr;
+            if (functionalReplace)
+            {
+                var replValue = ((ICallable) replaceValue).Call(Undefined, new JsValue[] {matched, pos, thisString});
+                replStr = TypeConverter.ToString(replValue);
+            }
+            else
+            {
+                var captures = ArrayExt.Empty<string>();
+                replStr =  RegExpPrototype.GetSubstitution(matched, thisString.ToString(), pos, captures, Undefined, TypeConverter.ToString(replaceValue));
+            }
+
+            var tailPos = pos + matched.Length;
+            var newString = thisString.Substring(0, pos) + replStr + thisString.Substring(tailPos);
+
+            return newString;
         }
 
         private JsValue Match(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
+            var regex = arguments.At(0);
+            if (regex is ObjectInstance oi)
+            {
+                var matcher = GetMethod(_engine, oi, GlobalSymbolRegistry.Match);
+                if (matcher != null)
+                {
+                    return matcher.Call(regex, new[] { thisObj });
+                }
+            }
+            
+            var rx = (RegExpInstance) Engine.RegExp.Construct(new[] {regex});
+
             var s = TypeConverter.ToString(thisObj);
+            return Invoke(rx, GlobalSymbolRegistry.Match, new JsValue[] { s });
+        }
+
+        private JsValue MatchAll(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(_engine, thisObj);
 
             var regex = arguments.At(0);
-            var rx = regex.TryCast<RegExpInstance>();
-
-            rx = rx ?? (RegExpInstance) Engine.RegExp.Construct(new[] {regex});
-
-            var global = ((JsBoolean) rx.Get("global"))._value;
-            if (!global)
+            if (!regex.IsNullOrUndefined())
             {
-                return Engine.RegExp.PrototypeObject.Exec(rx, Arguments.From(s));
-            }
-            else
-            {
-                rx.Put("lastIndex", 0, false);
-                var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
-                double previousLastIndex = 0;
-                uint n = 0;
-                var lastMatch = true;
-                while (lastMatch)
+                if (regex.IsRegExp())
                 {
-                    var result = Engine.RegExp.PrototypeObject.Exec(rx, Arguments.From(s)).TryCast<ObjectInstance>();
-                    if (ReferenceEquals(result, null))
+                    var flags = regex.Get(RegExpPrototype.PropertyFlags);
+                    TypeConverter.CheckObjectCoercible(_engine, flags);
+                    if (TypeConverter.ToString(flags).IndexOf('g') < 0)
                     {
-                        lastMatch = false;
-                    }
-                    else
-                    {
-                        var thisIndex = ((JsNumber) rx.Get("lastIndex"))._value;
-                        if (thisIndex == previousLastIndex)
-                        {
-                            rx.Put("lastIndex", thisIndex + 1, false);
-                            previousLastIndex = thisIndex;
-                        }
-
-                        var matchStr = result.Get("0");
-                        a.SetIndexValue(n, matchStr, updateLength: false);
-                        n++;
+                        ExceptionHelper.ThrowTypeError(_engine);
                     }
                 }
-                if (n == 0)
+                var matcher = GetMethod(_engine, (ObjectInstance) regex, GlobalSymbolRegistry.MatchAll);
+                if (matcher != null)
                 {
-                    return Null;
+                    return matcher.Call(regex, new[] { thisObj });
                 }
-                a.SetLength(n);
-                return a;
             }
+            
+            var s = TypeConverter.ToString(thisObj);
+            var rx = (RegExpInstance) Engine.RegExp.Construct(new[] { regex, "g" });
 
+            return Invoke(rx, GlobalSymbolRegistry.MatchAll, new JsValue[] { s });
         }
 
         private JsValue LocaleCompare(JsValue thisObj, JsValue[] arguments)
@@ -840,7 +686,7 @@ namespace Jint.Native.String
             {
                 return JsNumber.DoubleNaN;
             }
-            return (double) s[position];
+            return (long) s[position];
         }
 
         private JsValue CodePointAt(JsValue thisObj, JsValue[] arguments)
@@ -855,10 +701,10 @@ namespace Jint.Native.String
                 return Undefined;
             }
 
-            var first = (double) s[position];
+            var first = (long) s[position];
             if (first >= 0xD800 && first <= 0xDBFF && s.Length > position + 1)
             {
-                double second = s[position + 1];
+                long second = s[position + 1];
                 if (second >= 0xDC00 && second <= 0xDFFF)
                 {
                     return (first - 0xD800) * 0x400 + second - 0xDC00 + 0x10000;
@@ -875,10 +721,9 @@ namespace Jint.Native.String
             var size = s.Length;
             if (position >= size || position < 0)
             {
-                return "";
+                return JsString.Empty;
             }
-            return TypeConverter.ToString(s[(int) position]);
-
+            return JsString.Create(s[(int) position]);
         }
 
         private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
@@ -934,7 +779,7 @@ namespace Jint.Native.String
                 ? " "
                 : TypeConverter.ToString(padStringValue);
 
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToJsString(thisObj);
             if (s.Length > targetLength || padString.Length == 0)
             {
                 return s;

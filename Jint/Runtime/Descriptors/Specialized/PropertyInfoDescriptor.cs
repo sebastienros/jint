@@ -21,26 +21,46 @@ namespace Jint.Runtime.Descriptors.Specialized
 
         protected internal override JsValue CustomValue
         {
-            get => JsValue.FromObject(_engine, _propertyInfo.GetValue(_item, null));
+            get
+            {
+                object v;
+                try
+                {
+                    v = _propertyInfo.GetValue(_item, null);
+                }
+                catch (TargetInvocationException exception)
+                {
+                    ExceptionHelper.ThrowMeaningfulException(_engine, exception);
+                    throw;
+                }
+
+                return JsValue.FromObject(_engine, v);
+            }
             set
             {
-                var currentValue = value;
                 object obj;
-                if (_propertyInfo.PropertyType == typeof (JsValue))
+                if (_propertyInfo.PropertyType == typeof(JsValue))
                 {
-                    obj = currentValue;
+                    obj = value;
                 }
                 else
                 {
                     // attempt to convert the JsValue to the target type
-                    obj = currentValue.ToObject();
+                    obj = value.ToObject();
                     if (obj != null && obj.GetType() != _propertyInfo.PropertyType)
                     {
                         obj = _engine.ClrTypeConverter.Convert(obj, _propertyInfo.PropertyType, CultureInfo.InvariantCulture);
                     }
                 }
 
-                _propertyInfo.SetValue(_item, obj, null);
+                try
+                {
+                    _propertyInfo.SetValue(_item, obj, null);
+                }
+                catch (TargetInvocationException exception)
+                {
+                    ExceptionHelper.ThrowMeaningfulException(_engine, exception);
+                }
             }
         }
     }

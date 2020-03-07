@@ -8,7 +8,7 @@ namespace Jint.Runtime.Descriptors.Specialized
     {
         private readonly EnvironmentRecord _env;
         private readonly Engine _engine;
-        private readonly string _name;
+        private readonly Key _name;
 
         private GetterFunctionInstance _get;
         private SetterFunctionInstance _set;
@@ -24,12 +24,12 @@ namespace Jint.Runtime.Descriptors.Specialized
             _name = name;
         }
 
-        public override JsValue Get => _get = _get ?? new GetterFunctionInstance(_engine, DoGet);
-        public override JsValue Set => _set = _set ?? new SetterFunctionInstance(_engine, DoSet);
+        public override JsValue Get => _get ??= new GetterFunctionInstance(_engine, DoGet);
+        public override JsValue Set => _set ??= new SetterFunctionInstance(_engine, DoSet);
 
         private JsValue DoGet(JsValue n)
         {
-            return _env.TryGetBinding(_name, false, out var binding)
+            return _env.TryGetBinding(_name, false, out var binding, out _)
                 ? binding.Value
                 : JsValue.Undefined;
         }

@@ -16,7 +16,7 @@ namespace Jint.Benchmark
             {"dromaeo-object-array", null},
             {"dromaeo-object-regexp", null},
             {"dromaeo-object-string", null},
-            //{"dromaeo-string-base64", null}
+            {"dromaeo-string-base64", null}
         };
 
         private Engine engine;

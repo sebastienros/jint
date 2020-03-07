@@ -33,8 +33,8 @@ namespace Jint.Native.Function
         {
             _function = function;
 
-            Extensible = false;
-            Prototype = Engine.Function.PrototypeObject;
+            PreventExtensions();
+            _prototype = Engine.Function.PrototypeObject;
 
             _length = new PropertyDescriptor(JsNumber.Create(function._length), PropertyFlag.Configurable);
             _thisBinding = _engine.ExecutionContext.ThisBinding;
@@ -63,7 +63,7 @@ namespace Jint.Native.Function
 
                 try
                 {
-                    var argumentInstanceRented = _engine.DeclarationBindingInstantiation(
+                    _engine.DeclarationBindingInstantiation(
                         DeclarationBindingType.FunctionCode,
                         _function._hoistingScope,
                         functionInstance: this,
@@ -71,13 +71,7 @@ namespace Jint.Native.Function
 
                     var result = _function._body.Execute();
 
-                    var value = result.GetValueOrDefault();
-
-                    if (argumentInstanceRented)
-                    {
-                        _engine.ExecutionContext.LexicalEnvironment?._record?.FunctionWasCalled();
-                        _engine.ExecutionContext.VariableEnvironment?._record?.FunctionWasCalled();
-                    }
+                    var value = result.GetValueOrDefault().Clone();
 
                     if (result.Type == CompletionType.Throw)
                     {
@@ -98,22 +92,24 @@ namespace Jint.Native.Function
             }
         }
 
-        public override void Put(string propertyName, JsValue value, bool throwOnError)
+        public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
-            AssertValidPropertyName(propertyName);
-            base.Put(propertyName, value, throwOnError);
+            AssertValidPropertyName(property);
+            return base.Set(property, value, receiver);
         }
 
-        public override JsValue Get(string propertyName)
+        public override JsValue Get(JsValue property, JsValue receiver)
         {
-            AssertValidPropertyName(propertyName);
-            return base.Get(propertyName);
+            AssertValidPropertyName(property);
+            return base.Get(property, receiver);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void AssertValidPropertyName(string propertyName)
+        private void AssertValidPropertyName(JsValue property)
         {
-            if (propertyName == "caller" || propertyName ==  "callee" || propertyName == "arguments")
+            if (property == CommonProperties.Caller
+                || property ==  CommonProperties.Callee
+                || property == CommonProperties.Arguments)
             {
                 ExceptionHelper.ThrowTypeError(_engine, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
             }

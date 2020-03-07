@@ -2,6 +2,7 @@
 using Jint.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -12,7 +13,7 @@ namespace Jint.Native.Math
     {
         private Random _random;
 
-        private MathInstance(Engine engine) : base(engine, "Math")
+        private MathInstance(Engine engine) : base(engine, ObjectClass.Math)
         {
         }
 
@@ -20,8 +21,7 @@ namespace Jint.Native.Math
         {
             var math = new MathInstance(engine)
             {
-                Extensible = true,
-                Prototype = engine.Object.PrototypeObject
+                _prototype = engine.Object.PrototypeObject
             };
 
             return math;
@@ -29,7 +29,7 @@ namespace Jint.Native.Math
 
         protected override void Initialize()
         {
-            _properties = new StringDictionarySlim<PropertyDescriptor>(45)
+            var properties = new PropertyDictionary(45, checkExistingKeys: false)
             {
                 ["abs"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "abs", Abs, 1, PropertyFlag.Configurable), true, false, true),
                 ["acos"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "acos", Acos, 1, PropertyFlag.Configurable), true, false, true),
@@ -75,6 +75,13 @@ namespace Jint.Native.Math
                 ["SQRT1_2"] = new PropertyDescriptor(System.Math.Sqrt(0.5), false, false, false),
                 ["SQRT2"] = new PropertyDescriptor(System.Math.Sqrt(2), false, false, false)
             };
+            SetProperties(properties);
+
+            var symbols = new SymbolDictionary(1)
+            {
+                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(new JsString("Math"), PropertyFlag.Configurable)
+            };
+            SetSymbols(symbols);
         }
 
         private static JsValue Abs(JsValue thisObject, JsValue[] arguments)
@@ -365,6 +372,13 @@ namespace Jint.Native.Math
                 return JsNumber.DoubleNegativeInfinity;
             }
 
+#if NETFRAMEWORK
+            if (x < 0 && x > -1)
+            {
+                return JsNumber.NegativeZero;
+            }
+#endif
+            
             return System.Math.Ceiling(x);
         }
 

@@ -7,6 +7,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintTaggedTemplateExpression : JintExpression
     {
+        internal static  readonly JsString PropertyRaw = new JsString("raw");
+        
         private readonly TaggedTemplateExpression _taggedTemplateExpression;
         private JintExpression _tagIdentifier;
         private JintTemplateLiteralExpression _quasi;
@@ -55,14 +57,14 @@ namespace Jint.Runtime.Interpreter.Expressions
             var count = (uint) _quasi._templateLiteralExpression.Quasis.Count;
             var template = _engine.Array.ConstructFast(count);
             var rawObj = _engine.Array.ConstructFast(count);
-            for (int i = 0; i < _quasi._templateLiteralExpression.Quasis.Count; ++i)
+            for (uint i = 0; i < _quasi._templateLiteralExpression.Quasis.Count; ++i)
             {
-                var templateElementValue = _quasi._templateLiteralExpression.Quasis[i].Value;
-                template.SetIndexValue((uint) i, templateElementValue.Cooked, updateLength: false);
-                rawObj.SetIndexValue((uint) i, templateElementValue.Raw, updateLength: false);
+                var templateElementValue = _quasi._templateLiteralExpression.Quasis[(int) i].Value;
+                template.SetIndexValue(i, templateElementValue.Cooked, updateLength: false);
+                rawObj.SetIndexValue(i, templateElementValue.Raw, updateLength: false);
             }
 
-            template.DefineOwnProperty("raw", new PropertyDescriptor(rawObj, PropertyFlag.AllForbidden), false);
+            template.DefineOwnProperty(PropertyRaw, new PropertyDescriptor(rawObj, PropertyFlag.AllForbidden));
             return template;
         }
     }

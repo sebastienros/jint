@@ -47,13 +47,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 value = JsValue.Undefined;
                 done = false;
 
-                if (item.TryGetValue("done", out var d) && d.AsBoolean())
+                if (item.TryGetValue(CommonProperties.Done, out var d) && d.AsBoolean())
                 {
                     done = true;
                     return false;
                 }
 
-                if (!item.TryGetValue("value", out value))
+                if (!item.TryGetValue(CommonProperties.Value, out value))
                 {
                     return false;
                 }
@@ -63,11 +63,11 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var obj = TypeConverter.ToObject(engine, argument);
 
-            ArrayPrototype.ArrayOperations arrayOperations = null;
+            ArrayOperations arrayOperations = null;
             IIterator iterator = null;
             if (obj.IsArrayLike)
             {
-                arrayOperations = ArrayPrototype.ArrayOperations.For(obj);
+                arrayOperations = ArrayOperations.For(obj);
             }
             else
             {
@@ -133,7 +133,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             protocol.Execute();
                         }
 
-                        if (restElement.Argument is Identifier leftIdentifier)
+                        if (restElement.Argument is Esprima.Ast.Identifier leftIdentifier)
                         {
                             AssignToIdentifier(engine, leftIdentifier.Name, array);
                         }
@@ -166,7 +166,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             if (assignmentPattern.Right.IsFunctionWithName())
                             {
-                                ((FunctionInstance) value).SetFunctionName(leftIdentifier.Name);
+                                ((FunctionInstance) value).SetFunctionName(new JsString(leftIdentifier.Name));
                             }
                             AssignToIdentifier(engine, leftIdentifier.Name, value);
                         }
@@ -195,8 +195,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             for (uint i = 0; i < pattern.Properties.Count; i++)
             {
                 var left = pattern.Properties[(int) i];
-                string sourceKey;
-                Identifier identifier = left.Key as Identifier;
+                JsValue sourceKey;
+                var identifier = left.Key as Identifier;
                 if (identifier == null)
                 {
                     var keyExpression = Build(engine, left.Key);
@@ -244,7 +244,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        private static void AssignToIdentifier(Engine engine,
+        private static void AssignToIdentifier(
+            Engine engine,
             string name,
             JsValue rval)
         {

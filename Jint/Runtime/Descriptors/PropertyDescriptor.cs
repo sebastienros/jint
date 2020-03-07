@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Object;
@@ -6,6 +7,7 @@ using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime.Descriptors
 {
+    [DebuggerDisplay("Value: {Value}, Flags: {Flags}")]
     public class PropertyDescriptor
     {
         public static readonly PropertyDescriptor Undefined = new UndefinedPropertyDescriptor();
@@ -225,12 +227,12 @@ namespace Jint.Runtime.Descriptors
                 ExceptionHelper.ThrowTypeError(engine);
             }
 
-            var getProperty = obj.GetProperty("get");
+            var getProperty = obj.GetProperty(CommonProperties.Get);
             var hasGetProperty = getProperty != Undefined;
-            var setProperty = obj.GetProperty("set");
+            var setProperty = obj.GetProperty(CommonProperties.Set);
             var hasSetProperty = setProperty != Undefined;
 
-            if ((obj.HasProperty("value") || obj.HasProperty("writable")) &&
+            if ((obj.HasProperty(CommonProperties.Value) || obj.HasProperty(CommonProperties.Writable)) &&
                 (hasGetProperty || hasSetProperty))
             {
                 ExceptionHelper.ThrowTypeError(engine);
@@ -240,27 +242,27 @@ namespace Jint.Runtime.Descriptors
                 ? new GetSetPropertyDescriptor(null, null, PropertyFlag.None)
                 : new PropertyDescriptor(PropertyFlag.None);
 
-            var enumerableProperty = obj.GetProperty("enumerable");
+            var enumerableProperty = obj.GetProperty(CommonProperties.Enumerable);
             if (enumerableProperty != Undefined)
             {
                 desc.Enumerable = TypeConverter.ToBoolean(obj.UnwrapJsValue(enumerableProperty));
                 desc.EnumerableSet = true;
             }
 
-            var configurableProperty = obj.GetProperty("configurable");
+            var configurableProperty = obj.GetProperty(CommonProperties.Configurable);
             if (configurableProperty != Undefined)
             {
                 desc.Configurable = TypeConverter.ToBoolean(obj.UnwrapJsValue(configurableProperty));
                 desc.ConfigurableSet = true;
             }
 
-            var valueProperty = obj.GetProperty("value");
+            var valueProperty = obj.GetProperty(CommonProperties.Value);
             if (valueProperty != Undefined)
             {
                 desc.Value = obj.UnwrapJsValue(valueProperty);
             }
 
-            var writableProperty = obj.GetProperty("writable");
+            var writableProperty = obj.GetProperty(CommonProperties.Writable);
             if (writableProperty != Undefined)
             {
                 desc.Writable = TypeConverter.ToBoolean(obj.UnwrapJsValue(writableProperty));
@@ -308,22 +310,23 @@ namespace Jint.Runtime.Descriptors
             }
 
             var obj = engine.Object.Construct(Arguments.Empty);
-            obj._properties = new StringDictionarySlim<PropertyDescriptor>(4);
+            var properties = new PropertyDictionary(4, checkExistingKeys: false);
 
             if (desc.IsDataDescriptor())
             {
-                obj._properties["value"] =  new PropertyDescriptor(desc.Value ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
-                obj._properties["writable"] = new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable);
+                properties["value"] =  new PropertyDescriptor(desc.Value ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
+                properties["writable"] = new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable);
             }
             else
             {
-                obj._properties["get"] = new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
-                obj._properties["set"] = new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
+                properties["get"] = new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
+                properties["set"] = new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
-            obj._properties["enumerable"] = new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable);
-            obj._properties["configurable"] = new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable);
+            properties["enumerable"] = new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable);
+            properties["configurable"] = new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable);
 
+            obj.SetProperties(properties);
             return obj;
         }
 
@@ -400,12 +403,22 @@ namespace Jint.Runtime.Descriptors
 
         internal sealed class AllForbiddenDescriptor : PropertyDescriptor
         {
+            private static readonly PropertyDescriptor[] _cache;
+
             public static readonly AllForbiddenDescriptor NumberZero = new AllForbiddenDescriptor(JsNumber.Create(0));
             public static readonly AllForbiddenDescriptor NumberOne = new AllForbiddenDescriptor(JsNumber.Create(1));
-            public static readonly AllForbiddenDescriptor NumberTwo = new AllForbiddenDescriptor(JsNumber.Create(2));
 
             public static readonly AllForbiddenDescriptor BooleanFalse = new AllForbiddenDescriptor(JsBoolean.False);
             public static readonly AllForbiddenDescriptor BooleanTrue = new AllForbiddenDescriptor(JsBoolean.True);
+
+            static AllForbiddenDescriptor()
+            {
+                _cache = new PropertyDescriptor[10];
+                for (int i = 0; i < _cache.Length; ++i)
+                {
+                    _cache[i] = new AllForbiddenDescriptor(JsNumber.Create(i));
+                }
+            }
 
             private AllForbiddenDescriptor(JsValue value)
                 : base(PropertyFlag.AllForbidden)
@@ -415,17 +428,10 @@ namespace Jint.Runtime.Descriptors
 
             public static PropertyDescriptor ForNumber(int number)
             {
-                switch (number)
-                {
-                    case 2:
-                        return NumberTwo;
-                    case 1:
-                        return NumberOne;
-                    case 0:
-                        return NumberZero;
-                    default:
-                        return new PropertyDescriptor(number, PropertyFlag.AllForbidden);
-                }
+                var temp = _cache;
+                return (uint) number < temp.Length
+                    ? temp[number]
+                    : new PropertyDescriptor(number, PropertyFlag.AllForbidden);
             }
         }
     }

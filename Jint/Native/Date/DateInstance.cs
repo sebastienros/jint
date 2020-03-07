@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -7,29 +8,41 @@ namespace Jint.Native.Date
     public class DateInstance : ObjectInstance
     {
         // Maximum allowed value to prevent DateTime overflow
-        internal static readonly double Max = (DateTime.MaxValue - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
+        private static readonly double Max = (DateTime.MaxValue - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
 
         // Minimum allowed value to prevent DateTime overflow
-        internal static readonly double Min = -(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc) - DateTime.MinValue).TotalMilliseconds;
+        private static readonly double Min = -(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc) - DateTime.MinValue).TotalMilliseconds;
 
         public DateInstance(Engine engine)
-            : base(engine, objectClass: "Date")
+            : base(engine, ObjectClass.Date)
         {
+            PrimitiveValue = double.NaN;
         }
 
         public DateTime ToDateTime()
         {
-            if (double.IsNaN(PrimitiveValue) || PrimitiveValue > Max || PrimitiveValue < Min)
-            {
-                ExceptionHelper.ThrowRangeError(Engine);
-                return DateTime.MinValue;
-            }
-            else
-            {
-                return DateConstructor.Epoch.AddMilliseconds(PrimitiveValue);
-            }
+            return DateTimeRangeValid 
+                ? DateConstructor.Epoch.AddMilliseconds(PrimitiveValue)
+                : ExceptionHelper.ThrowRangeError<DateTime>(Engine);
         }
 
         public double PrimitiveValue { get; set; }
+
+        internal bool DateTimeRangeValid => !double.IsNaN(PrimitiveValue) && PrimitiveValue <= Max && PrimitiveValue >= Min;
+
+        public override string ToString()
+        {
+            if (double.IsNaN(PrimitiveValue))
+            {
+                return "NaN";
+            }
+
+            if (double.IsInfinity(PrimitiveValue))
+            {
+                return "Infinity";
+            }
+
+            return ToDateTime().ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'K", CultureInfo.InvariantCulture);
+        }
     }
 }

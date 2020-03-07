@@ -166,7 +166,7 @@ ES6 features which are being implemented:
 - [ ] [module loaders](https://github.com/lukehoban/es6features/blob/master/README.md#module-loaders)
 - [x] [map + set](https://github.com/lukehoban/es6features/blob/master/README.md#map--set--weakmap--weakset)
 - [ ] [weakmap + weakset](https://github.com/lukehoban/es6features/blob/master/README.md#map--set--weakmap--weakset)
-- [ ] [proxies](https://github.com/lukehoban/es6features/blob/master/README.md#proxies)
+- [x] [proxies](https://github.com/lukehoban/es6features/blob/master/README.md#proxies)
 - [x] [symbols](https://github.com/lukehoban/es6features/blob/master/README.md#symbols)
 - [ ] [subclassable built-ins](https://github.com/lukehoban/es6features/blob/master/README.md#subclassable-built-ins)
 - [ ] [promises](https://github.com/lukehoban/es6features/blob/master/README.md#promises)
@@ -176,7 +176,7 @@ ES6 features which are being implemented:
 - [x] [array APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
 - [ ] [object APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
 - [x] [binary and octal literals](https://github.com/lukehoban/es6features/blob/master/README.md#binary-and-octal-literals)
-- [ ] [reflect api](https://github.com/lukehoban/es6features/blob/master/README.md#reflect-api)
+- [x] [reflect api](https://github.com/lukehoban/es6features/blob/master/README.md#reflect-api)
 - [ ] [tail calls](https://github.com/lukehoban/es6features/blob/master/README.md#tail-calls)
 
 ### .NET Interoperability
@@ -215,6 +215,6 @@ Continuous Integration kindly provided by  [AppVeyor](https://www.appveyor.com)
 
 - The recommended branch is __dev__, any PR should target this branch
 - The __dev__ branch is automatically built and published on [Myget](https://www.myget.org/feed/Packages/jint)
-- The __dev__ branch is occasionally merged to __master__ and published on [NuGet](https://www.nuget.org/feed/Packages/jint)
+- The __dev__ branch is occasionally merged to __master__ and published on [NuGet](https://www.nuget.org/packages/jint)
 - The 3.x releases have more features (from es6) and is faster than the 2.x ones. They run the same test suite so they are as reliable. For instance [RavenDB](https://github.com/ravendb/ravendb) is using the 3.x version.
 - The 3.x versions are marked as _beta_ as they might get breaking changes while es6 features are added. 

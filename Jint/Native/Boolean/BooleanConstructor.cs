@@ -17,16 +17,15 @@ namespace Jint.Native.Boolean
         public static BooleanConstructor CreateBooleanConstructor(Engine engine)
         {
             var obj = new BooleanConstructor(engine);
-            obj.Extensible = true;
 
             // The value of the [[Prototype]] internal property of the Boolean constructor is the Function prototype object
-            obj.Prototype = engine.Function.PrototypeObject;
+            obj._prototype = engine.Function.PrototypeObject;
             obj.PrototypeObject = BooleanPrototype.CreatePrototypeObject(engine, obj);
 
             obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
 
             // The initial value of Boolean.prototype is the Boolean prototype object
-            obj._prototype = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
@@ -44,9 +43,7 @@ namespace Jint.Native.Boolean
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.7.2.1
         /// </summary>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             return Construct(TypeConverter.ToBoolean(arguments.At(0)));
         }
@@ -62,9 +59,8 @@ namespace Jint.Native.Boolean
         {
             var instance = new BooleanInstance(Engine)
             {
-                Prototype = PrototypeObject,
+                _prototype = PrototypeObject,
                 PrimitiveValue = value,
-                Extensible = true
             };
 
             return instance;
