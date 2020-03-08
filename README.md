@@ -142,6 +142,93 @@ This example is using French as the default culture.
     engine.Execute("new Number(1.23).toLocaleString()"); // 1,23
 ```
 
+## Constraints 
+
+Constraints are used during script execution to ensure that requirements around resource consumption are met, for example:
+
+* Scripts should not use more than X memory.
+* Scripts should only run for a maximum amount of time.
+
+You can configure them via the options:
+
+```c#
+var engine = new Engine(options => {
+
+    // Limit memory allocations to MB
+    options.LimitMemory(4_000_000);
+
+    // Set a timeout to 4 seconds.
+    options.TimeoutInterval(TimeSpan.FromSeconds(4));
+
+    // Set limit of 1000 executed statements.
+    options.MaxStatements(1000);
+
+    // Use a cancellation token.
+    options.CancellationToken(cancellationToken);
+}
+```
+
+You can also write a custom constraint by implementing the `IConstraint` interface:
+
+```c#
+public interface IConstraint
+{
+    /// Called before a script is executed and useful when you us an engine object for multiple executions.
+    void Reset();
+
+    // Called before each statement to check if your requirements are met.
+    void Check();
+}
+```
+
+For example we can write a constraint that stops scripts when the CPU usage gets too high:
+
+```c#
+class MyCPUConstraint : IConstraint
+{
+    public void Reset()
+    {
+    }
+
+    public void Check()
+    {
+        var cpuUsage = GetCPUUsage();
+
+        if (cpuUsage > 0.8) // 80%
+        {
+            throw new OperationCancelledException();
+        }
+    }
+}
+
+var engine = new Engine(options =>
+{
+    options.Constraint(new MyCPUConstraint());
+});
+```
+
+When you reuse the engine you want to use cancellation tokens you have to reset the token before each call of `Execute`:
+
+```c#
+var constraint = new CancellationConstraint();
+
+var engine = new Engine(options =>
+{
+    options.Constraint(constraint);
+});
+
+for (var i = 0; i < 10; i++) 
+{
+    using (var tcs = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+    {
+        constraint.Reset(tcs.Token);
+
+        engine.SetValue("a", 1);
+        engine.Execute("a++");
+    }
+}
+```
+
 ## Implemented features:
 
 ### ECMAScript 5.1

@@ -139,6 +139,7 @@ namespace Jint
             }
             return this;
         }
+
         public Options LimitMemory(long memoryLimit)
         {
             _constraints.RemoveAll(x => x is MemoryLimit);
