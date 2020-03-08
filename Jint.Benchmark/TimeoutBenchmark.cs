@@ -17,12 +17,12 @@ namespace Jint.Benchmark
         {
             engineTimeout1 = new Engine(options =>
             {
-                options.WithConstraint(new TimeConstraint(TimeSpan.FromSeconds(5)));
+                options.Constraint(new TimeConstraint(TimeSpan.FromSeconds(5)));
             });
 
             engineTimeout2 = new Engine(options =>
             {
-                options.WithConstraint(new TimeConstraint2(TimeSpan.FromSeconds(5)));
+                options.Constraint(new TimeConstraint2(TimeSpan.FromSeconds(5)));
             });
         }
 
