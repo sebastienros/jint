@@ -4,7 +4,7 @@ using System.Threading;
 
 namespace Jint.Constraints
 {
-    public sealed class TimeConstraint2 : IConstraint
+    internal sealed class TimeConstraint2 : IConstraint
     {
         private readonly TimeSpan _timeout;
         private CancellationTokenSource cts;

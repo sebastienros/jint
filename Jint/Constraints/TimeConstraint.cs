@@ -3,7 +3,7 @@ using System;
 
 namespace Jint.Constraints
 {
-    public sealed class TimeConstraint : IConstraint
+    internal sealed class TimeConstraint : IConstraint
     {
         private readonly long _maxTicks;
         private long _timeoutTicks;

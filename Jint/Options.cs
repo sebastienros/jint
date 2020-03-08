@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Object;
@@ -155,12 +156,21 @@ namespace Jint
 
             if (timeoutInterval > TimeSpan.Zero && timeoutInterval < TimeSpan.MaxValue)
             {
-                _constraints.Add(new TimeConstraint(timeoutInterval));
+                _constraints.Add(new TimeConstraint2(timeoutInterval));
             }
             return this;
         }
 
-        public Options WithConstraint(IConstraint constraint)
+        public Options CancellationToken(CancellationToken cancellationToken)
+        {
+            if (cancellationToken != default)
+            {
+                _constraints.Add(new CancellationConstraint(cancellationToken));
+            }
+            return this;
+        }
+
+        public Options Constraint(IConstraint constraint)
         {
             if (constraint != null)
             {

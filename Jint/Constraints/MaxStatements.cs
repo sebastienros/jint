@@ -1,11 +1,8 @@
 ﻿using Jint.Runtime;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Jint.Constraints
 {
-    class MaxStatements : IConstraint
+    internal sealed class MaxStatements : IConstraint
     {
         private readonly int _maxStatements;
         private int _statementsCount;

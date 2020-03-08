@@ -1,11 +1,9 @@
 ﻿using Jint.Runtime;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Jint.Constraints
 {
-    public sealed class MemoryLimit : IConstraint
+    internal sealed class MemoryLimit : IConstraint
     {
         private static readonly Func<long> GetAllocatedBytesForCurrentThread;
         private readonly long _memoryLimit;
