@@ -412,6 +412,7 @@ namespace Jint
 
         internal void RunBeforeExecuteStatementChecks(Statement statement)
         {
+            // Avoid allocating the enumerator because we run this loop very often.
             for (var i = 0; i < _constraints.Count; i++)
             {
                 _constraints[i].Check();

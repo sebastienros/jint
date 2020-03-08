@@ -25,6 +25,10 @@ namespace Jint.Constraints
         public void Reset()
         {
             cts?.Dispose();
+
+            // This cancellation token source is very likely not disposed property, but it only allocates a timer, so not a big deal.
+            // But using the cancellation token source is faster because we do not have to check the current time for each statement,
+            // which means less system calls.
             cts = new CancellationTokenSource(_timeout);
         }
     }
