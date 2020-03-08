@@ -163,6 +163,8 @@ namespace Jint
 
         public Options CancellationToken(CancellationToken cancellationToken)
         {
+            _constraints.RemoveAll(x => x is CancellationConstraint);
+
             if (cancellationToken != default)
             {
                 _constraints.Add(new CancellationConstraint(cancellationToken));
