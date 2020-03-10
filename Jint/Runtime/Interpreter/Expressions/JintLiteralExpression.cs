@@ -37,18 +37,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (literal.TokenType == TokenType.NumericLiteral)
             {
-                var isIntValue = int.TryParse(literal.Raw, out var intValue);
-                if (!isIntValue && literal.Raw.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-                {
-                    // TODO spanify
-                    var hex = literal.Raw.Substring(2);
-                    if (uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var hexIntValue))
-                    {
-                        return JsNumber.Create(hexIntValue);
-                    }
-                }
-
-                return isIntValue
+                var intValue = (int) literal.NumericValue;
+                return literal.NumericValue == intValue
                        && (intValue != 0 || BitConverter.DoubleToInt64Bits(literal.NumericValue) != JsNumber.NegativeZeroBits)
                     ? JsNumber.Create(intValue)
                     : JsNumber.Create(literal.NumericValue);
