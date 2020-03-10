@@ -1886,6 +1886,16 @@ var prep = function (fn) { fn(); };
         }
 
         [Fact]
+        public void HexZeroAsArrayIndexShouldWork()
+        {
+            var engine = new Engine();
+            engine.Execute("var t = '1234'; var value = null;");
+            Assert.Equal("1", engine.Execute("value = t[0x0];").GetValue("value").AsString());
+            Assert.Equal("1", engine.Execute("value = t[0];").GetValue("value").AsString());
+            Assert.Equal("1", engine.Execute("value = t['0'];").GetValue("value").AsString());
+        }
+
+        [Fact]
         public void DatePrototypeFunctionWorkOnDateOnly()
         {
             RunTest(@"
