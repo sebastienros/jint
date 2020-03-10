@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -36,7 +37,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (literal.TokenType == TokenType.NumericLiteral)
             {
-                return int.TryParse(literal.Raw, out var intValue)
+                var intValue = (int) literal.NumericValue;
+                return literal.NumericValue == intValue
                        && (intValue != 0 || BitConverter.DoubleToInt64Bits(literal.NumericValue) != JsNumber.NegativeZeroBits)
                     ? JsNumber.Create(intValue)
                     : JsNumber.Create(literal.NumericValue);

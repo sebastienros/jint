@@ -546,27 +546,16 @@ namespace Jint
                 else
                 {
                     // check if we are accessing a string, boxing operation can be costly to do index access
-                    ObjectInstance o;
-                    if (baseValue is JsString s)
+                    // we have good chance to have fast path with integer or string indexer
+                    ObjectInstance o = null;
+                    if ((property._type & (InternalTypes.String | InternalTypes.Integer)) != 0
+                        && baseValue is JsString s
+                        && TryHandleStringValue(property, s, ref o, out var jsValue))
                     {
-                        if (property == CommonProperties.Length)
-                        {
-                            return s.Length;
-                        }
-
-                        if (property is JsNumber number && number.IsInteger())
-                        {
-                            var index = number.AsInteger();
-                            if (index < 0 || index >= s.Length)
-                            {
-                                return JsValue.Undefined;
-                            }
-                            return s[index];
-                        }
-
-                        o = String.PrototypeObject;
+                        return jsValue;
                     }
-                    else
+
+                    if (o is null)
                     {
                         o = TypeConverter.ToObject(this, baseValue);
                     }
@@ -606,6 +595,40 @@ namespace Jint
             }
 
             return bindingValue;
+        }
+
+        private bool TryHandleStringValue(JsValue property, JsString s, ref ObjectInstance o, out JsValue jsValue)
+        {
+            if (property == CommonProperties.Length)
+            {
+                jsValue = JsNumber.Create((uint) s.Length);
+                return true;
+            }
+
+            if (property is JsNumber number && number.IsInteger())
+            {
+                var index = number.AsInteger();
+                var str = s._value;
+                if (index < 0 || index >= str.Length)
+                {
+                    jsValue = JsValue.Undefined;
+                    return true;
+                }
+
+                jsValue = JsString.Create(str[index]);
+                return true;
+            }
+
+            if (property is JsString propertyString
+                && propertyString._value.Length > 0
+                && char.IsLower(propertyString._value[0]))
+            {
+                // trying to find property that's always in prototype
+                o = String.PrototypeObject;
+            }
+
+            jsValue = JsValue.Undefined;
+            return false;
         }
 
         /// <summary>
