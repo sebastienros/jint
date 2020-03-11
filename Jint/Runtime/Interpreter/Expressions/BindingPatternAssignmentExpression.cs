@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
@@ -41,7 +42,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private static void HandleArrayPattern(Engine engine, ArrayPattern pattern, JsValue argument)
         {
-            bool ConsumeFromIterator(IIterator it, out JsValue value, out bool done)
+            static bool ConsumeFromIterator(IIterator it, out JsValue value, out bool done)
             {
                 var item = it.Next();
                 value = JsValue.Undefined;
@@ -133,7 +134,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             protocol.Execute();
                         }
 
-                        if (restElement.Argument is Esprima.Ast.Identifier leftIdentifier)
+                        if (restElement.Argument is Identifier leftIdentifier)
                         {
                             AssignToIdentifier(engine, leftIdentifier.Name, array);
                         }
@@ -191,56 +192,77 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private static void HandleObjectPattern(Engine engine, ObjectPattern pattern, JsValue argument)
         {
+            var processedProperties = pattern.Properties.Count > 0 && pattern.Properties[pattern.Properties.Count - 1] is RestElement
+                ? new HashSet<string>()
+                : null;
+
             var source = TypeConverter.ToObject(engine, argument);
-            for (uint i = 0; i < pattern.Properties.Count; i++)
+            for (var i = 0; i < pattern.Properties.Count; i++)
             {
-                var left = pattern.Properties[(int) i];
-                JsValue sourceKey;
-                var identifier = left.Key as Identifier;
-                if (identifier == null)
+                if (pattern.Properties[i] is Property p)
                 {
-                    var keyExpression = Build(engine, left.Key);
-                    sourceKey = TypeConverter.ToPropertyKey(keyExpression.GetValue());
+                    JsValue sourceKey;
+                    var identifier = p.Key as Identifier;
+                    if (identifier == null)
+                    {
+                        var keyExpression = Build(engine, p.Key);
+                        sourceKey = TypeConverter.ToPropertyKey(keyExpression.GetValue());
+                    }
+                    else
+                    {
+                        sourceKey = identifier.Name;
+                    }
+
+                    processedProperties?.Add(sourceKey.AsStringWithoutTypeCheck());
+                    source.TryGetValue(sourceKey, out var value);
+                    if (p.Value is AssignmentPattern assignmentPattern)
+                    {
+                        if (value.IsUndefined() && assignmentPattern.Right is Expression expression)
+                        {
+                            var jintExpression = Build(engine, expression);
+
+                            value = jintExpression.GetValue();
+                        }
+
+                        if (assignmentPattern.Left is BindingPattern bp)
+                        {
+                            ProcessPatterns(engine, bp, value);
+                            continue;
+                        }
+
+                        var target = assignmentPattern.Left as Identifier ?? identifier;
+
+                        if (assignmentPattern.Right.IsFunctionWithName())
+                        {
+                            ((FunctionInstance) value).SetFunctionName(target.Name);
+                        }
+
+                        AssignToIdentifier(engine, target.Name, value);
+                    }
+                    else if (p.Value is BindingPattern bindingPattern)
+                    {
+                        ProcessPatterns(engine, bindingPattern, value);
+                    }
+                    else
+                    {
+                        var target = p.Value as Identifier ?? identifier;
+                        AssignToIdentifier(engine, target.Name, value);
+                    }
                 }
                 else
                 {
-                    sourceKey = identifier.Name;
-                }
-
-                source.TryGetValue(sourceKey, out var value);
-                if (left.Value is AssignmentPattern assignmentPattern)
-                {
-                    if (value.IsUndefined() && assignmentPattern.Right is Expression expression)
+                    var restElement = (RestElement) pattern.Properties[i];
+                    if (restElement.Argument is Identifier leftIdentifier)
                     {
-                        var jintExpression = Build(engine, expression);
-
-                        value = jintExpression.GetValue();
+                        var rest = source.CreateRestObject(processedProperties);
+                        AssignToIdentifier(engine, leftIdentifier.Name, rest);
                     }
-                    
-                    if (assignmentPattern.Left is BindingPattern bp)
+                    else if (restElement.Argument is BindingPattern bp)
                     {
-                        ProcessPatterns(engine, bp, value);
-                        continue;
+                        ProcessPatterns(engine, bp, argument);
                     }
-                    
-                    var target = assignmentPattern.Left as Identifier ?? identifier;
+                }
 
-                    if (assignmentPattern.Right.IsFunctionWithName())
-                    {
-                        ((FunctionInstance) value).SetFunctionName(target.Name);
-                    }
-
-                    AssignToIdentifier(engine, target.Name, value);
-                }
-                else if (left.Value is BindingPattern bindingPattern)
-                {
-                    ProcessPatterns(engine, bindingPattern, value);
-                }
-                else
-                {
-                    var target = left.Value as Identifier ?? identifier;
-                    AssignToIdentifier(engine, target.Name, value);
-                }
             }
         }
 

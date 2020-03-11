@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Collections;
@@ -179,7 +180,7 @@ namespace Jint.Runtime.Environments
 
         private void SetFunctionParameterUnlikely(
             INode parameter,
-            JsValue[]arguments,
+            JsValue[] arguments,
             int index,
             bool initiallyEmpty)
         {
@@ -187,32 +188,7 @@ namespace Jint.Runtime.Environments
 
             if (parameter is RestElement restElement)
             {
-                // index + 1 == parameters.count because rest is last
-                int restCount = arguments.Length - (index + 1) + 1;
-                uint count = restCount > 0 ? (uint) restCount : 0;
-
-                var rest = _engine.Array.ConstructFast(count);
-
-                uint targetIndex = 0;
-                for (var argIndex = index; argIndex < arguments.Length; ++argIndex)
-                {
-                    rest.SetIndexValue(targetIndex++, arguments[argIndex], updateLength: false);
-                }
-
-                argument = rest;
-
-                if (restElement.Argument is Identifier restIdentifier)
-                {
-                    SetItemSafely(restIdentifier.Name, argument, initiallyEmpty);
-                }
-                else if (restElement.Argument is BindingPattern bindingPattern)
-                {
-                    SetFunctionParameter(bindingPattern, new [] { argument }, index, initiallyEmpty);
-                }
-                else
-                {
-                    ExceptionHelper.ThrowSyntaxError(_engine, "Rest parameters can only be identifiers or arrays");
-                }
+                HandleRestElementArray(restElement, arguments, index, initiallyEmpty);
             }
             else if (parameter is ArrayPattern arrayPattern)
             {
@@ -263,67 +239,144 @@ namespace Jint.Runtime.Environments
 
                 var argumentObject = argument.AsObject();
 
+                var processedProperties = objectPattern.Properties.Count > 0 && objectPattern.Properties[objectPattern.Properties.Count - 1] is RestElement
+                    ? new HashSet<string>()
+                    : null;
+
                 var jsValues = _engine._jsValueArrayPool.RentArray(1);
                 foreach (var property in objectPattern.Properties)
                 {
-                    if (property.Key is Identifier propertyIdentifier)
+                    if (property is Property p)
                     {
-                        argument = argumentObject.Get(propertyIdentifier.Name);
-                    }
-                    else if (property.Key is Literal propertyLiteral)
-                    {
-                        argument = argumentObject.Get(propertyLiteral.Raw);
-                    }
-                    else if (property.Key is CallExpression callExpression)
-                    {
-                        var jintCallExpression = JintExpression.Build(_engine, callExpression);
-                        argument = argumentObject.Get(jintCallExpression.GetValue().AsString());
-                    }
+                        JsString propertyName;
+                        if (p.Key is Identifier propertyIdentifier)
+                        {
+                            propertyName = JsString.Create(propertyIdentifier.Name);
+                        }
+                        else if (p.Key is Literal propertyLiteral)
+                        {
+                            propertyName = JsString.Create(propertyLiteral.Raw);
+                        }
+                        else if (p.Key is CallExpression callExpression)
+                        {
+                            var jintCallExpression = JintExpression.Build(_engine, callExpression);
+                            propertyName = (JsString) jintCallExpression.GetValue();
+                        }
+                        else
+                        {
+                            propertyName = ExceptionHelper.ThrowArgumentOutOfRangeException<JsString>("property", "unknown object pattern property type");
+                        }
 
-                    jsValues[0] = argument;
-                    SetFunctionParameter(property.Value, jsValues, 0, initiallyEmpty);
+                        processedProperties?.Add(propertyName.AsStringWithoutTypeCheck());
+                        jsValues[0] = argumentObject.Get(propertyName);
+                        SetFunctionParameter(p.Value, jsValues, 0, initiallyEmpty);
+                    }
+                    else
+                    {
+                        if (((RestElement) property).Argument is Identifier restIdentifier)
+                        {
+                            var rest = argumentObject.CreateRestObject(processedProperties);
+                            SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
+                        }
+                        else
+                        {
+                            ExceptionHelper.ThrowSyntaxError(_engine, "Object rest parameter can only be objects");
+                        }
+                    }
                 }
                 _engine._jsValueArrayPool.ReturnArray(jsValues);
             }
             else if (parameter is AssignmentPattern assignmentPattern)
             {
-                var idLeft = assignmentPattern.Left as Identifier;
-                if (idLeft != null
-                    && assignmentPattern.Right is Identifier idRight
-                    && idLeft.Name == idRight.Name)
+                HandleAssignmentPatternOrExpression(assignmentPattern.Left, assignmentPattern.Right, argument, initiallyEmpty);
+            }
+            else if (parameter is AssignmentExpression assignmentExpression)
+            {
+                HandleAssignmentPatternOrExpression(assignmentExpression.Left, assignmentExpression.Right, argument, initiallyEmpty);
+            }
+        }
+
+        private void HandleRestElementArray(
+            RestElement restElement,
+            JsValue[] arguments,
+            int index,
+            bool initiallyEmpty)
+        {
+            // index + 1 == parameters.count because rest is last
+            int restCount = arguments.Length - (index + 1) + 1;
+            uint count = restCount > 0 ? (uint) restCount : 0;
+
+            var rest = _engine.Array.ConstructFast(count);
+
+            uint targetIndex = 0;
+            for (var argIndex = index; argIndex < arguments.Length; ++argIndex)
+            {
+                rest.SetIndexValue(targetIndex++, arguments[argIndex], updateLength: false);
+            }
+
+            if (restElement.Argument is Identifier restIdentifier)
+            {
+                SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
+            }
+            else if (restElement.Argument is BindingPattern bindingPattern)
+            {
+                SetFunctionParameter(bindingPattern, new JsValue[]
                 {
-                    ExceptionHelper.ThrowReferenceError(_engine, idRight.Name);
+                    rest
+                }, index, initiallyEmpty);
+            }
+            else
+            {
+                ExceptionHelper.ThrowSyntaxError(_engine, "Rest parameters can only be identifiers or arrays");
+            }
+        }
+
+        private void HandleAssignmentPatternOrExpression(
+            INode left,
+            INode right,
+            JsValue argument,
+            bool initiallyEmpty)
+        {
+            var idLeft = left as Identifier;
+            if (idLeft != null
+                && right is Identifier idRight
+                && idLeft.Name == idRight.Name)
+            {
+                ExceptionHelper.ThrowReferenceError(_engine, idRight.Name);
+            }
+
+            if (argument.IsUndefined())
+            {
+                JsValue RunInNewParameterEnvironment(JintExpression exp)
+                {
+                    var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
+                    var paramVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+
+                    _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.ThisBinding);
+                    var result = exp.GetValue();
+                    _engine.LeaveExecutionContext();
+
+                    return result;
                 }
 
-                if (argument.IsUndefined())
+                var expression = right.As<Expression>();
+                var jintExpression = JintExpression.Build(_engine, expression);
+
+                argument = jintExpression is JintSequenceExpression
+                    ? RunInNewParameterEnvironment(jintExpression)
+                    : jintExpression.GetValue();
+
+                if (idLeft != null && right.IsFunctionWithName())
                 {
-                    JsValue RunInNewParameterEnvironment(JintExpression exp)
-                    {
-                        var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                        var paramVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-
-                        _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.ThisBinding);
-                        var result = exp.GetValue();
-                        _engine.LeaveExecutionContext();
-
-                        return result;
-                    }
-
-                    var expression = assignmentPattern.Right.As<Expression>();
-                    var jintExpression = JintExpression.Build(_engine, expression);
-
-                    argument = jintExpression is JintSequenceExpression
-                        ? RunInNewParameterEnvironment(jintExpression)
-                        : jintExpression.GetValue();
-
-                    if (idLeft != null && assignmentPattern.Right.IsFunctionWithName())
-                    {
-                        ((FunctionInstance) argument).SetFunctionName(idLeft.Name);
-                    }
+                    ((FunctionInstance) argument).SetFunctionName(idLeft.Name);
                 }
+            }
 
-                SetFunctionParameter(assignmentPattern.Left, new []{ argument }, 0, initiallyEmpty);
-            }        }
+            SetFunctionParameter(left, new[]
+            {
+                argument
+            }, 0, initiallyEmpty);
+        }
 
         private void SetItemSafely(in Key name, JsValue argument, bool initiallyEmpty)
         {

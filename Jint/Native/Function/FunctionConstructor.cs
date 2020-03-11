@@ -73,7 +73,7 @@ namespace Jint.Native.Function
             {
                 var functionExpression = "function f(" + p + ") { " + body + "}";
                 var parser = new JavaScriptParser(functionExpression, ParserOptions);
-                function = (IFunction) parser.ParseProgram().Body[0];
+                function = (IFunction) parser.ParseScript().Body[0];
             }
             catch (ParserException)
             {
@@ -95,7 +95,7 @@ namespace Jint.Native.Function
         /// </summary>
         /// <param name="functionDeclaration"></param>
         /// <returns></returns>
-        public FunctionInstance CreateFunctionObject(FunctionDeclaration functionDeclaration)
+        public FunctionInstance CreateFunctionObject(IFunctionDeclaration functionDeclaration)
         {
             var functionObject = new ScriptFunctionInstance(
                 Engine,

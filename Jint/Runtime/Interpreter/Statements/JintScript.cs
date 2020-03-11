@@ -2,11 +2,11 @@ using Esprima.Ast;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
-    internal sealed class JintProgram : JintStatement<Program>
+    internal sealed class JintScript : JintStatement<Script>
     {
         private readonly JintStatementList _list;
 
-        public JintProgram(Engine engine, Program statement) : base(engine, statement)
+        public JintScript(Engine engine, Script script) : base(engine, script)
         {
             _list = new JintStatementList(_engine, null, _statement.Body);
         }

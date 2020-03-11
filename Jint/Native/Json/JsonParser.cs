@@ -552,7 +552,7 @@ namespace Jint.Native.Json
         {
             if (_extra.Range != null)
             {
-                node.Range = new Range(_state.MarkerStack.Pop(), _index);
+                node.Range = new Esprima.Ast.Range(_state.MarkerStack.Pop(), _index);
             }
             if (_extra.Loc.HasValue)
             {
