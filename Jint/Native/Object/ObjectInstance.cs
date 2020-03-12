@@ -1216,6 +1216,55 @@ namespace Jint.Native.Object
             return rest;
         }
 
+        internal JsValue EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind kind)
+        {
+            var ownKeys = GetOwnPropertyKeys(Types.String);
+
+            var array = Engine.Array.ConstructFast((uint) ownKeys.Count);
+            uint index = 0;
+
+            for (var i = 0; i < ownKeys.Count; i++)
+            {
+                var property = ownKeys[i];
+                var desc = GetOwnProperty(property);
+                if (desc != PropertyDescriptor.Undefined && desc.Enumerable)
+                {
+                    if (kind == EnumerableOwnPropertyNamesKind.Key)
+                    {
+                        array.SetIndexValue(index, property, updateLength: false);
+                    }
+                    else
+                    {
+                        var value = Get(property);
+                        if (kind == EnumerableOwnPropertyNamesKind.Value)
+                        {
+                            array.SetIndexValue(index, value, updateLength: false);
+                        }
+                        else
+                        {
+                            array.SetIndexValue(index, _engine.Array.Construct(new[]
+                            {
+                                property,
+                                value
+                            }), updateLength: false);
+                        }
+                    }
+
+                    index++;
+                }
+            }
+
+            array.SetLength(index);
+            return array;
+        }
+
+        internal enum EnumerableOwnPropertyNamesKind
+        {
+            Key,
+            Value,
+            KeyValue
+        }
+
         internal ObjectInstance AssertThisIsObjectInstance(JsValue value, string methodName)
         {
             return value as ObjectInstance ?? ThrowIncompatibleReceiver<ObjectInstance>(value, methodName);

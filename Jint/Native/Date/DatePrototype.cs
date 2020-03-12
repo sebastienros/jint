@@ -694,12 +694,12 @@ namespace Jint.Native.Date
             }
 
             var toIso = o.Get("toISOString", o);
-            if (!toIso.Is<ICallable>())
+            if (!(toIso is ICallable callable))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
             }
 
-            return toIso.TryCast<ICallable>().Call(o, Arguments.Empty);
+            return callable.Call(o, Arguments.Empty);
         }
 
         public const int HoursPerDay = 24;

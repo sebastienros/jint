@@ -513,22 +513,7 @@ namespace Jint.Runtime
                     return null;
             }
         }
-
-        internal static Types GetInternalPrimitiveType(JsValue value)
-        {
-            if (!value.IsObject())
-            {
-                return value.Type;
-            }
-
-            if (value is IPrimitiveInstance primitive)
-            {
-                return primitive.Type;
-            }
-
-            return Types.Object;
-        }
-
+        
         internal static void CheckObjectCoercible(
             Engine engine,
             JsValue o,
