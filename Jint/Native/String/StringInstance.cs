@@ -80,13 +80,15 @@ namespace Jint.Native.String
 
         public override List<JsValue> GetOwnPropertyKeys(Types types)
         {
-            var indexes = new List<JsValue>(PrimitiveValue.Length);
+            var keys = new List<JsValue>(PrimitiveValue.Length + 1);
             for (uint i = 0; i < PrimitiveValue.Length; ++i)
             {
-                indexes.Add(JsString.Create(i));
+                keys.Add(JsString.Create(i));
             }
 
-            return indexes;
+            keys.Add(JsString.LengthString);
+
+            return keys;
         }
 
         protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)

@@ -40,6 +40,7 @@ namespace Jint.Native.Object
                 ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 1, lengthFlags), propertyFlags),
                 ["getPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getPrototypeOf", GetPrototypeOf, 1), propertyFlags),
                 ["getOwnPropertyDescriptor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2), propertyFlags),
+                ["getOwnPropertyDescriptors"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyDescriptors", GetOwnPropertyDescriptors, 1), propertyFlags),
                 ["getOwnPropertyNames"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyNames", GetOwnPropertyNames, 1), propertyFlags),
                 ["getOwnPropertySymbols"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertySymbols", GetOwnPropertySymbols, 1), propertyFlags),
                 ["create"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "create", Create, 2), propertyFlags),
@@ -199,15 +200,32 @@ namespace Jint.Native.Object
             return o;
         }
 
-        public JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsValue[] arguments)
+        internal JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            var o = TypeConverter.ToObject(_engine, arguments.At(0));
 
             var p = arguments.At(1);
             var name = TypeConverter.ToPropertyKey(p);
 
             var desc = o.GetOwnProperty(name);
             return PropertyDescriptor.FromPropertyDescriptor(Engine, desc);
+        }
+
+        private JsValue GetOwnPropertyDescriptors(JsValue thisObject, JsValue[] arguments)
+        {
+            var o = TypeConverter.ToObject(_engine, arguments.At(0));
+            var ownKeys = o.GetOwnPropertyKeys(Types.String | Types.Symbol);
+            var descriptors = _engine.Object.Construct(0);
+            foreach (var key in ownKeys)
+            {
+                var desc = o.GetOwnProperty(key);
+                var descriptor = PropertyDescriptor.FromPropertyDescriptor(Engine, desc);
+                if (descriptor != Undefined)
+                {
+                    descriptors.CreateDataProperty(key, descriptor);
+                }
+            }
+            return descriptors;
         }
 
         public JsValue GetOwnPropertyNames(JsValue thisObject, JsValue[] arguments)
