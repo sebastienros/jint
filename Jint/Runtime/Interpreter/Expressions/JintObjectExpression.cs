@@ -55,30 +55,41 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             for (var i = 0; i < _properties.Length; i++)
             {
-                var property = (Property) expression.Properties[i];
                 string propName = null;
-
-                if (property.Key is Literal literal)
+                var property = expression.Properties[i];
+                if (property is Property p)
                 {
-                    propName = EsprimaExtensions.LiteralKeyToString(literal);
+                    if (p.Key is Literal literal)
+                    {
+                        propName = EsprimaExtensions.LiteralKeyToString(literal);
+                    }
+
+                    if (!p.Computed && p.Key is Identifier identifier)
+                    {
+                        propName = identifier.Name;
+                    }
+
+                    _properties[i] = new ObjectProperty(propName, p);
+
+                    if (p.Kind == PropertyKind.Init || p.Kind == PropertyKind.Data)
+                    {
+                        var propertyValue = (Expression) p.Value;
+                        _valueExpressions[i] = Build(_engine, propertyValue);
+                        _canBuildFast &= !propertyValue.IsFunctionWithName();
+                    }
+                    else
+                    {
+                        _canBuildFast = false;
+                    }
                 }
-
-                if (!property.Computed && property.Key is Identifier identifier)
+                else if (property is SpreadElement spreadElement)
                 {
-                    propName = identifier.Name;
-                }
-
-                _properties[i] = new ObjectProperty(propName, property);
-
-                if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
-                {
-                    var propertyValue = (Expression) property.Value;
-                    _valueExpressions[i] = Build(_engine, propertyValue);
-                    _canBuildFast &= !propertyValue.IsFunctionWithName();
+                    _canBuildFast = false;
+                    // TODO
                 }
                 else
                 {
-                    _canBuildFast = false;
+                    ExceptionHelper.ThrowArgumentOutOfRangeException("property", "cannot handle property " + property);
                 }
 
                 _canBuildFast &= propName != null;
