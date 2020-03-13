@@ -41,6 +41,7 @@ namespace Jint.Tests.Test262
             {
                 "sta.js",
                 "assert.js",
+                "arrayContains.js",
                 "propertyHelper.js",
                 "compareArray.js",
                 "decimalToHexString.js",
@@ -48,6 +49,7 @@ namespace Jint.Tests.Test262
                 "dateConstants.js",
                 "assertRelativeDateMs.js",
                 "regExpUtils.js",
+                "nans.js",
                 "compareIterator.js"
             };
 

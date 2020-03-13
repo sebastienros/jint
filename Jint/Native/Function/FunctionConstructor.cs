@@ -33,7 +33,7 @@ namespace Jint.Native.Function
             obj._prototype = obj.PrototypeObject;
 
             obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-            obj._length =  PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
+            obj._length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
 
             return obj;
         }

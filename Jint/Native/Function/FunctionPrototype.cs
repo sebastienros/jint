@@ -52,8 +52,6 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowTypeError(Engine);
             });
 
-            var func = thisObj as IConstructor;
-            
             var thisArg = arguments.At(0);
             var f = new BindFunctionInstance(Engine)
             {

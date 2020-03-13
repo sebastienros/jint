@@ -1,8 +1,6 @@
 ﻿using System.Collections.Generic;
 using Jint.Collections;
-using Jint.Native.Array;
 using Jint.Native.Function;
-using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -38,11 +36,12 @@ namespace Jint.Native.Object
             {
                 ["assign"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "assign", Assign, 2, lengthFlags), propertyFlags),
                 ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 1, lengthFlags), propertyFlags),
+                ["fromEntries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromEntries", FromEntries, 1, lengthFlags), propertyFlags),
                 ["getPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getPrototypeOf", GetPrototypeOf, 1), propertyFlags),
                 ["getOwnPropertyDescriptor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2), propertyFlags),
-                ["getOwnPropertyDescriptors"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyDescriptors", GetOwnPropertyDescriptors, 1), propertyFlags),
+                ["getOwnPropertyDescriptors"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyDescriptors", GetOwnPropertyDescriptors, 1, lengthFlags), propertyFlags),
                 ["getOwnPropertyNames"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyNames", GetOwnPropertyNames, 1), propertyFlags),
-                ["getOwnPropertySymbols"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertySymbols", GetOwnPropertySymbols, 1), propertyFlags),
+                ["getOwnPropertySymbols"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertySymbols", GetOwnPropertySymbols, 1, lengthFlags), propertyFlags),
                 ["create"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "create", Create, 2), propertyFlags),
                 ["defineProperty"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "defineProperty", DefineProperty, 3), propertyFlags),
                 ["defineProperties"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "defineProperties", DefineProperties, 2), propertyFlags),
@@ -96,6 +95,16 @@ namespace Jint.Native.Object
             var obj = TypeConverter.ToObject(_engine, arguments.At(0));
             var nameList = obj.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.KeyValue);
             return nameList;
+        }
+
+        private JsValue FromEntries(JsValue thisObject, JsValue[] arguments)
+        {
+            var iterable = arguments.At(0);
+            TypeConverter.CheckObjectCoercible(_engine, iterable);
+
+            // TODO
+
+            return Null;
         }
 
         private static JsValue Is(JsValue thisObject, JsValue[] arguments)
@@ -177,7 +186,7 @@ namespace Jint.Native.Object
             return obj.Prototype ?? Null;
         }
 
-        public JsValue SetPrototypeOf(JsValue thisObject, JsValue[] arguments)
+        private JsValue SetPrototypeOf(JsValue thisObject, JsValue[] arguments)
         {
             var oArg = arguments.At(0);
             TypeConverter.CheckObjectCoercible(_engine, oArg);
@@ -231,42 +240,18 @@ namespace Jint.Native.Object
         public JsValue GetOwnPropertyNames(JsValue thisObject, JsValue[] arguments)
         {
             var o = arguments.As<ObjectInstance>(0, _engine);
-
-            uint n = 0;
-
-            ArrayInstance array = null;
-            var ownProperties = o.GetOwnPropertyKeys(Types.String);
-            if (o is StringInstance s)
-            {
-                var length = s.PrimitiveValue.Length;
-                array = Engine.Array.ConstructFast((uint) (ownProperties.Count + length + 1));
-                for (var i = 0; i < length; i++)
-                {
-                    array.SetIndexValue(n++, TypeConverter.ToString(i), updateLength: false);
-                }
-
-                array.SetIndexValue(n++, CommonProperties.Length, updateLength: false);
-            }
-
-            array = array ?? Engine.Array.ConstructFast((uint) ownProperties.Count);
-            for (var i = 0; i < ownProperties.Count; i++)
-            {
-                var p = ownProperties[i];
-                array.SetIndexValue(n++, p, false);
-            }
-
-            array.SetLength(n);
-            return array;
+            var names = o.GetOwnPropertyKeys(Types.String);
+            return _engine.Array.Construct(names.ToArray());
         }
 
-        public JsValue GetOwnPropertySymbols(JsValue thisObject, JsValue[] arguments)
+        private JsValue GetOwnPropertySymbols(JsValue thisObject, JsValue[] arguments)
         {
             var o = arguments.As<ObjectInstance>(0, _engine);
             var keys = o.GetOwnPropertyKeys(Types.Symbol);
             return _engine.Array.Construct(keys.ToArray());
         }
 
-        public JsValue Create(JsValue thisObject, JsValue[] arguments)
+        private JsValue Create(JsValue thisObject, JsValue[] arguments)
         {
             var prototype = arguments.At(0);
             if (!prototype.IsObject() && !prototype.IsNull())
@@ -290,7 +275,7 @@ namespace Jint.Native.Object
             return obj;
         }
 
-        public JsValue DefineProperty(JsValue thisObject, JsValue[] arguments)
+        private JsValue DefineProperty(JsValue thisObject, JsValue[] arguments)
         {
             var o = arguments.As<ObjectInstance>(0, _engine);
             var p = arguments.At(1);
@@ -303,7 +288,7 @@ namespace Jint.Native.Object
             return o;
         }
 
-        public JsValue DefineProperties(JsValue thisObject, JsValue[] arguments)
+        private JsValue DefineProperties(JsValue thisObject, JsValue[] arguments)
         {
             var o = arguments.As<ObjectInstance>(0, _engine);
             var properties = arguments.At(1);
@@ -328,9 +313,13 @@ namespace Jint.Native.Object
             return o;
         }
 
-        public JsValue Seal(JsValue thisObject, JsValue[] arguments)
+        private JsValue Seal(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            if (!(arguments.At(0) is ObjectInstance o))
+            {
+                return arguments.At(0);
+            }
+
             var properties = new List<KeyValuePair<JsValue, PropertyDescriptor>>(o.GetOwnProperties());
             foreach (var prop in properties)
             {
@@ -349,11 +338,14 @@ namespace Jint.Native.Object
             return o;
         }
 
-        public JsValue Freeze(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Freeze(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
-            var properties = new List<KeyValuePair<JsValue, PropertyDescriptor>>(o.GetOwnProperties());
-            foreach (var p in properties)
+            if (!(arguments.At(0) is ObjectInstance o))
+            {
+                return arguments.At(0);
+            }
+
+            foreach (var p in o.GetOwnProperties())
             {
                 var desc = o.GetOwnProperty(p.Key);
                 if (desc.IsDataDescriptor())
@@ -379,16 +371,24 @@ namespace Jint.Native.Object
             return o;
         }
 
-        public JsValue PreventExtensions(JsValue thisObject, JsValue[] arguments)
+        private static JsValue PreventExtensions(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            if (!(arguments.At(0) is ObjectInstance o))
+            {
+                return arguments.At(0);
+            }
+
             o.PreventExtensions();
             return o;
         }
 
-        public JsValue IsSealed(JsValue thisObject, JsValue[] arguments)
+        private static JsValue IsSealed(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            if (!(arguments.At(0) is ObjectInstance o))
+            {
+                return arguments.At(0);
+            }
+
             foreach (var prop in o.GetOwnProperties())
             {
                 if (prop.Value.Configurable)
@@ -405,9 +405,13 @@ namespace Jint.Native.Object
             return false;
         }
 
-        public JsValue IsFrozen(JsValue thisObject, JsValue[] arguments)
+        private static JsValue IsFrozen(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            if (!(arguments.At(0) is ObjectInstance o))
+            {
+                return arguments.At(0);
+            }
+
             foreach (var pair in o.GetOwnProperties())
             {
                 var desc = pair.Value;
@@ -432,9 +436,13 @@ namespace Jint.Native.Object
             return false;
         }
 
-        public JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
+        internal static JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            if (!(arguments.At(0) is ObjectInstance o))
+            {
+                return arguments.At(0);
+            }
+
             return o.Extensible;
         }
 

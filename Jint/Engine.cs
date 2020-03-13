@@ -263,13 +263,13 @@ namespace Jint
         public SymbolConstructor Symbol { get; }
         public EvalFunctionInstance Eval { get; }
 
-        public ErrorConstructor Error => _error ?? (_error = ErrorConstructor.CreateErrorConstructor(this, _errorFunctionName));
-        public ErrorConstructor EvalError => _evalError ?? (_evalError = ErrorConstructor.CreateErrorConstructor(this, _evalErrorFunctionName));
-        public ErrorConstructor SyntaxError => _syntaxError ?? (_syntaxError = ErrorConstructor.CreateErrorConstructor(this, _syntaxErrorFunctionName));
-        public ErrorConstructor TypeError => _typeError ?? (_typeError = ErrorConstructor.CreateErrorConstructor(this, _typeErrorFunctionName));
-        public ErrorConstructor RangeError => _rangeError ?? (_rangeError = ErrorConstructor.CreateErrorConstructor(this, _rangeErrorFunctionName));
-        public ErrorConstructor ReferenceError => _referenceError ?? (_referenceError = ErrorConstructor.CreateErrorConstructor(this, _referenceErrorFunctionName));
-        public ErrorConstructor UriError => _uriError ?? (_uriError = ErrorConstructor.CreateErrorConstructor(this, _uriErrorFunctionName));
+        public ErrorConstructor Error => _error ??= ErrorConstructor.CreateErrorConstructor(this, _errorFunctionName);
+        public ErrorConstructor EvalError => _evalError ??= ErrorConstructor.CreateErrorConstructor(this, _evalErrorFunctionName);
+        public ErrorConstructor SyntaxError => _syntaxError ??= ErrorConstructor.CreateErrorConstructor(this, _syntaxErrorFunctionName);
+        public ErrorConstructor TypeError => _typeError ??= ErrorConstructor.CreateErrorConstructor(this, _typeErrorFunctionName);
+        public ErrorConstructor RangeError => _rangeError ??= ErrorConstructor.CreateErrorConstructor(this, _rangeErrorFunctionName);
+        public ErrorConstructor ReferenceError => _referenceError ??= ErrorConstructor.CreateErrorConstructor(this, _referenceErrorFunctionName);
+        public ErrorConstructor UriError => _uriError ??= ErrorConstructor.CreateErrorConstructor(this, _uriErrorFunctionName);
 
         public ref readonly ExecutionContext ExecutionContext
         {

@@ -441,7 +441,10 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static JsValue ToPropertyKeyNonString(JsValue o)
         {
-            return new JsString(ToStringNonString(ToPrimitive(o, Types.String)));
+            var primitive = ToPrimitive(o, Types.String);
+            return primitive._type == InternalTypes.Symbol
+                ? primitive
+                : new JsString(ToStringNonString(primitive));
         }
 
         /// <summary>

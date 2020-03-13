@@ -1,4 +1,5 @@
 ﻿using Jint.Collections;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -26,7 +27,7 @@ namespace Jint.Native.Object
         protected override void Initialize()
         {
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            const PropertyFlag lengthFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+            const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             var properties = new PropertyDictionary(8, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_objectConstructor, propertyFlags),
@@ -116,7 +117,14 @@ namespace Jint.Native.Object
             }
 
             var o = TypeConverter.ToObject(Engine, thisObject);
-            return "[object " + o.Class + "]";
+
+            var tag = o.Get(GlobalSymbolRegistry.ToStringTag);
+            if (!tag.IsString())
+            {
+                tag = o.Class.ToString();
+            }
+
+            return "[object " + tag + "]";
         }
 
         /// <summary>

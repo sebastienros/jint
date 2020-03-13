@@ -167,7 +167,7 @@ namespace Jint.Native.Function
             if (property == CommonProperties.Name)
             {
                 return !(_name is null)
-                    ? _nameDescriptor ?? (_nameDescriptor = new PropertyDescriptor(_name, PropertyFlag.Configurable))
+                    ? _nameDescriptor ??= new PropertyDescriptor(_name, PropertyFlag.Configurable)
                     :  PropertyDescriptor.Undefined;
             }
 

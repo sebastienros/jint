@@ -616,6 +616,11 @@
     "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
   },
 
+  {
+    "source": "built-ins/Object/prototype/toString/proxy-function.js",
+    "reason": "generators not implemented"
+  },
+
   // Esprima problems
 
   {

@@ -140,6 +140,10 @@ namespace Jint.Native.Reflect
 
         private JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsValue[] arguments)
         {
+            if (!arguments.At(0).IsObject())
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "Reflect.getOwnPropertyDescriptor called on non-object");
+            }
             return _engine.Object.GetOwnPropertyDescriptor(Undefined, arguments);
         }
 
@@ -155,9 +159,9 @@ namespace Jint.Native.Reflect
             return _engine.Array.CreateArrayFromList(keys);
         }
 
-        private JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
+        private static JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
         {
-            return _engine.Object.IsExtensible(Undefined, arguments);
+            return ObjectConstructor.IsExtensible(Undefined, arguments);
         }
 
         private JsValue PreventExtensions(JsValue thisObject, JsValue[] arguments)
