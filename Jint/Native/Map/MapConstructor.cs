@@ -65,57 +65,20 @@ namespace Jint.Native.Map
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var instance = new MapInstance(Engine)
+            var map = new MapInstance(Engine)
             {
                 _prototype = PrototypeObject
             };
 
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
+                var adder = map.Get("set");
                 var iterator = arguments.At(0).GetIterator(_engine);
-                var mapProtocol = new MapProtocol(_engine, instance, iterator);
-                mapProtocol.Execute();
+
+                IteratorProtocol.AddEntriesFromIterable(map, iterator, adder);
             }
 
-            return instance;
-        }
-
-        private sealed class MapProtocol : IteratorProtocol
-        {
-            private readonly MapInstance _instance;
-            private readonly ICallable _setter;
-
-            public MapProtocol(
-                Engine engine,
-                MapInstance instance,
-                IIterator iterator) : base(engine, iterator, 2)
-            {
-                _instance = instance;
-                var setterProperty = instance.GetProperty(CommonProperties.Set);
-
-                if (setterProperty is null
-                    || !setterProperty.TryGetValue(instance, out var setterValue)
-                    || (_setter = setterValue as ICallable) is null)
-                {
-                    ExceptionHelper.ThrowTypeError(_engine, "set must be callable");
-                }
-            }
-
-            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
-            {
-                if (!(currentValue is ObjectInstance oi))
-                {
-                    ExceptionHelper.ThrowTypeError(_engine, "iterator's value must be an object");
-                    return;
-                }
-
-                oi.TryGetValue(JsString.NumberZeroString, out var key);
-                oi.TryGetValue(JsString.NumberOneString, out var value);
-
-                args[0] = key;
-                args[1] = value;
-                _setter.Call(_instance, args);
-            }
+            return map;
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Jint.Collections;
 using Jint.Native.Function;
+using Jint.Native.Iterator;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -102,9 +103,14 @@ namespace Jint.Native.Object
             var iterable = arguments.At(0);
             TypeConverter.CheckObjectCoercible(_engine, iterable);
 
-            // TODO
+            var obj = _engine.Object.Construct(0);
 
-            return Null;
+            var adder = CreateDataPropertyOnObject.Instance;
+            var iterator = arguments.At(0).GetIterator(_engine);
+
+            IteratorProtocol.AddEntriesFromIterable(obj, iterator, adder);
+
+            return obj;
         }
 
         private static JsValue Is(JsValue thisObject, JsValue[] arguments)
@@ -456,6 +462,27 @@ namespace Jint.Native.Object
         {
             var o = TypeConverter.ToObject(_engine, arguments.At(0));
             return o.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.Value);
+        }
+
+        private sealed class CreateDataPropertyOnObject : ICallable
+        {
+            internal static readonly CreateDataPropertyOnObject Instance = new CreateDataPropertyOnObject();
+
+            private CreateDataPropertyOnObject()
+            {
+            }
+
+            public JsValue Call(JsValue thisObject, JsValue[] arguments)
+            {
+                var o = (ObjectInstance) thisObject;
+                var key = arguments.At(0);
+                var value = arguments.At(1);
+                var propertyKey = TypeConverter.ToPropertyKey(key);
+
+                o.CreateDataPropertyOrThrow(propertyKey, value);
+
+                return Undefined;
+            }
         }
     }
 }

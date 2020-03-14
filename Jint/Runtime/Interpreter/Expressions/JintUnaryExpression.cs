@@ -130,14 +130,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return JsString.ObjectString;
                     }
 
-                    var type = v.Type;
-
-                    if (value is IPrimitiveInstance primitive)
-                    {
-                        type = primitive.Type;
-                    }
-
-                    switch (type)
+                    switch (v.Type)
                     {
                         case Types.Boolean: return JsString.BooleanString;
                         case Types.Number: return JsString.NumberString;
