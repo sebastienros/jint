@@ -587,6 +587,11 @@
     "reason": "let not implemented"
   },
   {
+    "source": "language/expressions/call/spread-obj-symbol-property.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
     "source": "built-ins/Object/entries/tamper-with-global-object.js",
     "mode": "strict",
     "reason": "let not implemented"

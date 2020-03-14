@@ -213,7 +213,7 @@ namespace Jint.Native.Object
             }
         }
 
-        public virtual List<JsValue> GetOwnPropertyKeys(Types types)
+        public virtual List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
         {
             EnsureInitialized();
 
@@ -1199,21 +1199,18 @@ namespace Jint.Native.Object
 
         internal void CopyDataProperties(
             ObjectInstance target,
-            HashSet<string> processedProperties)
+            HashSet<JsValue> processedProperties)
         {
-            if (_properties is null)
+            var keys = GetOwnPropertyKeys();
+            for (var i = 0; i < keys.Count; i++)
             {
-                return;
-            }
-            
-            foreach (var pair in _properties)
-            {
-                if (processedProperties == null || !processedProperties.Contains(pair.Key))
+                var key = keys[i];
+                if (processedProperties == null || !processedProperties.Contains(key))
                 {
-                    var descriptor = pair.Value;
-                    if (descriptor.Enumerable)
+                    var desc = GetOwnProperty(key);
+                    if (desc.Enumerable)
                     {
-                        target.SetDataProperty(pair.Key, UnwrapJsValue(descriptor, this));
+                        target.CreateDataProperty(key, UnwrapJsValue(desc, this));
                     }
                 }
             }

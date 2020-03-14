@@ -239,7 +239,7 @@ namespace Jint.Runtime.Environments
                 var argumentObject = argument.AsObject();
 
                 var processedProperties = objectPattern.Properties.Count > 0 && objectPattern.Properties[objectPattern.Properties.Count - 1] is RestElement
-                    ? new HashSet<string>()
+                    ? new HashSet<JsValue>()
                     : null;
 
                 var jsValues = _engine._jsValueArrayPool.RentArray(1);

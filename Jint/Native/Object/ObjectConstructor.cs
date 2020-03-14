@@ -77,7 +77,7 @@ namespace Jint.Native.Object
                 }
 
                 var from = TypeConverter.ToObject(_engine, nextSource);
-                var keys = from.GetOwnPropertyKeys(Types.String | Types.Symbol);
+                var keys = from.GetOwnPropertyKeys();
                 foreach (var nextKey in keys)
                 {
                     var desc = from.GetOwnProperty(nextKey);
@@ -229,7 +229,7 @@ namespace Jint.Native.Object
         private JsValue GetOwnPropertyDescriptors(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_engine, arguments.At(0));
-            var ownKeys = o.GetOwnPropertyKeys(Types.String | Types.Symbol);
+            var ownKeys = o.GetOwnPropertyKeys();
             var descriptors = _engine.Object.Construct(0);
             foreach (var key in ownKeys)
             {

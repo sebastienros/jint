@@ -1,5 +1,4 @@
 ﻿using Jint.Collections;
-using Jint.Native.Proxy;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -117,34 +116,7 @@ namespace Jint.Native.Object
             var tag = o.Get(GlobalSymbolRegistry.ToStringTag);
             if (!tag.IsString())
             {
-                tag = JsString.ObjectString;
-                
-                var type = o.Type;
-                if (o is IPrimitiveInstance primitiveInstance)
-                {
-                    type = primitiveInstance.Type;
-                }
-
-                switch (type)
-                {
-                    case Types.Boolean:
-                        tag = JsString.BooleanString;
-                        break;
-                    case Types.Number:
-                        tag = JsString.NumberString;
-                        break;
-                    case Types.String:
-                        tag = JsString.StringString;
-                        break;
-                    case Types.Symbol:
-                        tag = JsString.SymbolString;
-                        break;
-                }
-
-                if (o is ICallable)
-                {
-                    tag = JsString.FunctionString;
-                }
+                tag = o.Class.ToString();
             }
 
             return "[object " + tag + "]";

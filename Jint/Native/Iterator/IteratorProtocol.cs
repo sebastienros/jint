@@ -113,13 +113,13 @@ namespace Jint.Native.Iterator
                         currentValue = JsValue.Undefined;
                     }
 
+                    close = true;
                     if (!(currentValue is ObjectInstance oi))
                     {
                         ExceptionHelper.ThrowTypeError(target.Engine, "iterator's value must be an object");
                         return;
                     }
 
-                    close = true;
                     var k = oi.Get(JsString.NumberZeroString);
                     var v = oi.Get(JsString.NumberOneString);
 

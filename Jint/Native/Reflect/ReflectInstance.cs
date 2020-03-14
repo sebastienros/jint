@@ -155,7 +155,7 @@ namespace Jint.Native.Reflect
                 return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Reflect.get called on non-object");
             }
 
-            var keys = o.GetOwnPropertyKeys(Types.String | Types.Symbol);
+            var keys = o.GetOwnPropertyKeys();
             return _engine.Array.CreateArrayFromList(keys);
         }
 
