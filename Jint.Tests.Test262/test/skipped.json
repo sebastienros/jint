@@ -181,6 +181,10 @@
     "source": "built-ins/Array/prototype/toLocaleString/primitive_this_value_getter.js",
     "reason": "requires toLocaleString changes"
   },
+  {
+    "source": "built-ins/Object/prototype/toLocaleString/primitive_this_value_getter.js",
+    "reason": "requires toLocaleString changes"
+  },
 
   // experimentals start
 
@@ -598,6 +602,11 @@
   },
   {
     "source": "built-ins/Object/values/tamper-with-global-object.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "built-ins/Object/keys/proxy-keys.js",
     "mode": "strict",
     "reason": "let not implemented"
   },

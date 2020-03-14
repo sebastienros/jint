@@ -90,7 +90,9 @@ namespace Jint.Native.Object
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(Engine, thisObject);
-            return Invoke(o, "toString", System.Array.Empty<JsValue>());
+            var func = o.Get("toString");
+            var callable = func as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
+            return TypeConverter.ToString(callable.Call(thisObject, arguments));
         }
 
         /// <summary>
