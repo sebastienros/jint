@@ -239,14 +239,14 @@ namespace Jint.Native.Object
 
         public JsValue GetOwnPropertyNames(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            var o = TypeConverter.ToObject(_engine, arguments.At(0));
             var names = o.GetOwnPropertyKeys(Types.String);
             return _engine.Array.Construct(names.ToArray());
         }
 
         private JsValue GetOwnPropertySymbols(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            var o = TypeConverter.ToObject(_engine, arguments.At(0));
             var keys = o.GetOwnPropertyKeys(Types.Symbol);
             return _engine.Array.Construct(keys.ToArray());
         }
@@ -436,7 +436,7 @@ namespace Jint.Native.Object
             return false;
         }
 
-        internal static JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
+        private static JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
         {
             if (!(arguments.At(0) is ObjectInstance o))
             {

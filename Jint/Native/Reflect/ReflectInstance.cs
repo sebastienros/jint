@@ -159,9 +159,15 @@ namespace Jint.Native.Reflect
             return _engine.Array.CreateArrayFromList(keys);
         }
 
-        private static JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
+        private JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
         {
-            return ObjectConstructor.IsExtensible(Undefined, arguments);
+            var target = arguments.At(0);
+            if (!(target is ObjectInstance o))
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Reflect.isExtensible called on non-object");
+            }
+
+            return o.Extensible;
         }
 
         private JsValue PreventExtensions(JsValue thisObject, JsValue[] arguments)

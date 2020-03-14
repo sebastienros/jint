@@ -6,7 +6,7 @@ namespace Jint.Runtime
 {
     public static class Arguments
     {
-        public static readonly JsValue[] Empty = ArrayExt.Empty<JsValue>();
+        public static readonly JsValue[] Empty = Array.Empty<JsValue>();
 
         public static JsValue[] From(params JsValue[] o)
         {
@@ -50,7 +50,7 @@ namespace Jint.Runtime
             var newLength = args.Length - count;
             if (newLength <= 0)
             {
-                return ArrayExt.Empty<JsValue>();
+                return Array.Empty<JsValue>();
             }
 
             var array = new JsValue[newLength];

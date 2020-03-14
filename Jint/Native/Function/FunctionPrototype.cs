@@ -1,5 +1,4 @@
-﻿using System;
-using Jint.Collections;
+﻿using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -119,7 +118,7 @@ namespace Jint.Native.Function
         private JsValue CallImpl(JsValue thisObject, JsValue[] arguments)
         {
             var func = thisObject as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(Engine);
-            JsValue[] values = ArrayExt.Empty<JsValue>();
+            JsValue[] values = System.Array.Empty<JsValue>();
             if (arguments.Length > 1)
             {
                 values = new JsValue[arguments.Length - 1];

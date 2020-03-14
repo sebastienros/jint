@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Jint.Native;
 
 namespace Jint.Pooling
@@ -41,7 +40,7 @@ namespace Jint.Pooling
         {
             if (size == 0)
             {
-                return ArrayExt.Empty<JsValue>();
+                return System.Array.Empty<JsValue>();
             }
             if (size == 1)
             {

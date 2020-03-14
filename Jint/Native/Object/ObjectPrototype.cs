@@ -90,12 +90,7 @@ namespace Jint.Native.Object
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(Engine, thisObject);
-            var toString = o.Get("toString", o).TryCast<ICallable>(x =>
-            {
-                ExceptionHelper.ThrowTypeError(Engine);
-            });
-
-            return toString.Call(o, Arguments.Empty);
+            return Invoke(o, "toString", System.Array.Empty<JsValue>());
         }
 
         /// <summary>

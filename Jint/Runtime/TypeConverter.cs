@@ -119,7 +119,7 @@ namespace Jint.Runtime
         /// </summary>
         internal static JsValue OrdinaryToPrimitive(ObjectInstance input, Types hint = Types.None)
         {
-            var callOrder = ArrayExt.Empty<JsString>();
+            var callOrder = Array.Empty<JsString>();
             if (hint == Types.String)
             {
                 callOrder = StringHintCallOrder;

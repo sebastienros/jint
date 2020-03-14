@@ -452,7 +452,7 @@ namespace Jint.Native.Global
                         v = (c - 0xD800) * 0x400 + (kChar - 0xDC00) + 0x10000;
                     }
 
-                    byte[] octets = ArrayExt.Empty<byte>();
+                    byte[] octets = System.Array.Empty<byte>();
 
                     if (v >= 0 && v <= 0x007F)
                     {
@@ -536,7 +536,7 @@ namespace Jint.Native.Global
             _stringBuilder.EnsureCapacity(strLen);
             _stringBuilder.Clear();
 
-            var octets = ArrayExt.Empty<byte>();
+            var octets = System.Array.Empty<byte>();
 
             for (var k = 0; k < strLen; k++)
             {

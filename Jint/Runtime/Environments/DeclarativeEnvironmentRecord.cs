@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Collections;
@@ -128,7 +127,7 @@ namespace Jint.Runtime.Environments
         {
             if (_dictionary is null)
             {
-                return ArrayExt.Empty<string>();
+                return System.Array.Empty<string>();
             }
 
             var keys = new string[_dictionary.Count];
@@ -198,7 +197,7 @@ namespace Jint.Runtime.Environments
                 }
 
                 ArrayInstance array = null;
-                var arrayContents = ArrayExt.Empty<JsValue>();
+                var arrayContents = System.Array.Empty<JsValue>();
                 if (argument.IsArray())
                 {
                     array = argument.AsArray();

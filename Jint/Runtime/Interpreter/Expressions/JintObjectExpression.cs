@@ -1,4 +1,3 @@
-using System;
 using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native;
@@ -13,8 +12,8 @@ namespace Jint.Runtime.Interpreter.Expressions
     /// </summary>
     internal sealed class JintObjectExpression : JintExpression
     {
-        private JintExpression[] _valueExpressions = ArrayExt.Empty<JintExpression>();
-        private ObjectProperty[] _properties = ArrayExt.Empty<ObjectProperty>();
+        private JintExpression[] _valueExpressions = System.Array.Empty<JintExpression>();
+        private ObjectProperty[] _properties = System.Array.Empty<ObjectProperty>();
 
         // check if we can do a shortcut when all are object properties
         // and don't require duplicate checking

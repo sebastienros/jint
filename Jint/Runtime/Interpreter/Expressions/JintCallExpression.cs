@@ -1,4 +1,3 @@
-using System;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
@@ -59,7 +58,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (cacheable)
             {
                 _cached = true;
-                var arguments = ArrayExt.Empty<JsValue>();
+                var arguments = System.Array.Empty<JsValue>();
                 if (cachedArgumentsHolder.JintArguments.Length > 0)
                 {
                     arguments = new JsValue[cachedArgumentsHolder.JintArguments.Length];
@@ -85,7 +84,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
 
             var cachedArguments = _cachedArguments;
-            var arguments = ArrayExt.Empty<JsValue>();
+            var arguments = System.Array.Empty<JsValue>();
             if (_cached)
             {
                 arguments = cachedArguments.CachedArguments;

@@ -501,7 +501,7 @@ namespace Jint.Native.String
             }
             else
             {
-                var captures = ArrayExt.Empty<string>();
+                var captures = System.Array.Empty<string>();
                 replStr =  RegExpPrototype.GetSubstitution(matched, thisString.ToString(), pos, captures, Undefined, TypeConverter.ToString(replaceValue));
             }
 

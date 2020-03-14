@@ -87,7 +87,7 @@ namespace Jint.Native.Object
         internal ObjectInstance Construct(IConstructor f, JsValue[] argumentsList = null, IConstructor newTarget = null)
         {
             newTarget ??= f;
-            argumentsList ??= ArrayExt.Empty<JsValue>();
+            argumentsList ??= System.Array.Empty<JsValue>();
             return f.Construct(argumentsList, (JsValue) newTarget);
         }
 
