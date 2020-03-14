@@ -274,7 +274,8 @@ namespace Jint.Runtime.Environments
                     {
                         if (((RestElement) property).Argument is Identifier restIdentifier)
                         {
-                            var rest = argumentObject.CreateRestObject(processedProperties);
+                            var rest = _engine.Object.Construct(argumentObject.Properties.Count - processedProperties.Count);
+                            argumentObject.CopyDataProperties(rest, processedProperties);
                             SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
                         }
                         else

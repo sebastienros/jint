@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 
@@ -84,7 +86,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 else if (property is SpreadElement spreadElement)
                 {
                     _canBuildFast = false;
-                    // TODO
+                    _properties[i] = null;
+                    _valueExpressions[i] = Build(_engine, spreadElement.Argument);
                 }
                 else
                 {
@@ -133,6 +136,17 @@ namespace Jint.Runtime.Interpreter.Expressions
             for (var i = 0; i < _properties.Length; i++)
             {
                 var objectProperty = _properties[i];
+
+                if (objectProperty is null)
+                {
+                    // spread
+                    if (_valueExpressions[i].GetValue() is ObjectInstance source)
+                    {
+                        source.CopyDataProperties(obj, null);
+                    }
+                    continue;
+                }
+                
                 var property = objectProperty._value;
                 var propName = objectProperty.KeyJsString ?? property.GetKey(_engine);
 

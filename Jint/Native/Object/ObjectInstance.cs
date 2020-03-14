@@ -1197,23 +1197,26 @@ namespace Jint.Native.Object
             return jsValue as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(engine, "Value returned for property '" + p + "' of object is not a function");
         }
 
-        internal ObjectInstance CreateRestObject(
+        internal void CopyDataProperties(
+            ObjectInstance target,
             HashSet<string> processedProperties)
         {
-            var rest = _engine.Object.Construct(_properties.Count - processedProperties.Count);
+            if (_properties is null)
+            {
+                return;
+            }
+            
             foreach (var pair in _properties)
             {
-                if (!processedProperties.Contains(pair.Key))
+                if (processedProperties == null || !processedProperties.Contains(pair.Key))
                 {
                     var descriptor = pair.Value;
                     if (descriptor.Enumerable)
                     {
-                        rest.SetDataProperty(pair.Key, UnwrapJsValue(descriptor, this));
+                        target.SetDataProperty(pair.Key, UnwrapJsValue(descriptor, this));
                     }
                 }
             }
-
-            return rest;
         }
 
         internal JsValue EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind kind)
@@ -1226,6 +1229,12 @@ namespace Jint.Native.Object
             for (var i = 0; i < ownKeys.Count; i++)
             {
                 var property = ownKeys[i];
+
+                if (!property.IsString())
+                {
+                    continue;
+                }
+                
                 var desc = GetOwnProperty(property);
                 if (desc != PropertyDescriptor.Undefined && desc.Enumerable)
                 {

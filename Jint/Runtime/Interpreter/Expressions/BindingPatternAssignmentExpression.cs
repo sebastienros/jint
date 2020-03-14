@@ -254,7 +254,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var restElement = (RestElement) pattern.Properties[i];
                     if (restElement.Argument is Identifier leftIdentifier)
                     {
-                        var rest = source.CreateRestObject(processedProperties);
+                        var rest = engine.Object.Construct(source.Properties.Count - processedProperties.Count);
+                        source.CopyDataProperties(rest, processedProperties);
                         AssignToIdentifier(engine, leftIdentifier.Name, rest);
                     }
                     else if (restElement.Argument is BindingPattern bp)
