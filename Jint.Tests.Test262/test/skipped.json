@@ -181,6 +181,10 @@
     "source": "built-ins/Array/prototype/toLocaleString/primitive_this_value_getter.js",
     "reason": "requires toLocaleString changes"
   },
+  {
+    "source": "built-ins/Object/prototype/toLocaleString/primitive_this_value_getter.js",
+    "reason": "requires toLocaleString changes"
+  },
 
   // experimentals start
 
@@ -426,6 +430,187 @@
     "mode": "strict",
     "reason": "let not implemented"
   },
+  {
+    "source": "language/expressions/call/spread-obj-override-immutable.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/call/spread-obj-overrides-prev-properties.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/call/spread-obj-skip-non-enumerable.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/call/spread-obj-with-overrides.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/call/spread-sngl-obj-ident.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/call/spread-obj-mult-spread.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/call/spread-obj-getter-descriptor.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/call/spread-obj-mult-spread-getter.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/call/spread-obj-getter-init.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/call/spread-mult-obj-ident.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/new/spread-mult-obj-ident.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/new/spread-obj-getter-descriptor.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/new/spread-obj-getter-init.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/new/spread-obj-mult-spread-getter.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/new/spread-obj-mult-spread.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/new/spread-obj-override-immutable.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/new/spread-obj-overrides-prev-properties.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/new/spread-obj-skip-non-enumerable.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/new/spread-obj-with-overrides.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/new/spread-sngl-obj-ident.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/array/spread-mult-obj-ident.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/array/spread-obj-getter-descriptor.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/array/spread-obj-getter-init.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/array/spread-obj-mult-spread-getter.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/array/spread-obj-mult-spread.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/array/spread-obj-override-immutable.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/array/spread-obj-overrides-prev-properties.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/array/spread-obj-skip-non-enumerable.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/array/spread-obj-with-overrides.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/array/spread-sngl-obj-ident.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/array/spread-obj-symbol-property.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/new/spread-obj-symbol-property.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/call/spread-obj-symbol-property.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "built-ins/Object/entries/tamper-with-global-object.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "built-ins/Object/values/tamper-with-global-object.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "built-ins/Object/keys/proxy-keys.js",
+    "mode": "strict",
+    "reason": "let not implemented"
+  },
+
 
   // class support
   {
@@ -614,6 +799,11 @@
   {
     "source": "language/expressions/object/scope-setter-paramsbody-var-open.js",
     "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+  },
+
+  {
+    "source": "built-ins/Object/prototype/toString/proxy-function.js",
+    "reason": "generators not implemented"
   },
 
   // Esprima problems

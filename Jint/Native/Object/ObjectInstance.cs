@@ -87,7 +87,7 @@ namespace Jint.Native.Object
         internal ObjectInstance Construct(IConstructor f, JsValue[] argumentsList = null, IConstructor newTarget = null)
         {
             newTarget ??= f;
-            argumentsList ??= ArrayExt.Empty<JsValue>();
+            argumentsList ??= System.Array.Empty<JsValue>();
             return f.Construct(argumentsList, (JsValue) newTarget);
         }
 
@@ -213,7 +213,7 @@ namespace Jint.Native.Object
             }
         }
 
-        public virtual List<JsValue> GetOwnPropertyKeys(Types types)
+        public virtual List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
         {
             EnsureInitialized();
 
@@ -1197,23 +1197,78 @@ namespace Jint.Native.Object
             return jsValue as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(engine, "Value returned for property '" + p + "' of object is not a function");
         }
 
-        internal ObjectInstance CreateRestObject(
-            HashSet<string> processedProperties)
+        internal void CopyDataProperties(
+            ObjectInstance target,
+            HashSet<JsValue> processedProperties)
         {
-            var rest = _engine.Object.Construct(_properties.Count - processedProperties.Count);
-            foreach (var pair in _properties)
+            var keys = GetOwnPropertyKeys();
+            for (var i = 0; i < keys.Count; i++)
             {
-                if (!processedProperties.Contains(pair.Key))
+                var key = keys[i];
+                if (processedProperties == null || !processedProperties.Contains(key))
                 {
-                    var descriptor = pair.Value;
-                    if (descriptor.Enumerable)
+                    var desc = GetOwnProperty(key);
+                    if (desc.Enumerable)
                     {
-                        rest.SetDataProperty(pair.Key, UnwrapJsValue(descriptor, this));
+                        target.CreateDataProperty(key, UnwrapJsValue(desc, this));
                     }
                 }
             }
+        }
 
-            return rest;
+        internal JsValue EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind kind)
+        {
+            var ownKeys = GetOwnPropertyKeys(Types.String);
+
+            var array = Engine.Array.ConstructFast((uint) ownKeys.Count);
+            uint index = 0;
+
+            for (var i = 0; i < ownKeys.Count; i++)
+            {
+                var property = ownKeys[i];
+
+                if (!property.IsString())
+                {
+                    continue;
+                }
+                
+                var desc = GetOwnProperty(property);
+                if (desc != PropertyDescriptor.Undefined && desc.Enumerable)
+                {
+                    if (kind == EnumerableOwnPropertyNamesKind.Key)
+                    {
+                        array.SetIndexValue(index, property, updateLength: false);
+                    }
+                    else
+                    {
+                        var value = Get(property);
+                        if (kind == EnumerableOwnPropertyNamesKind.Value)
+                        {
+                            array.SetIndexValue(index, value, updateLength: false);
+                        }
+                        else
+                        {
+                            array.SetIndexValue(index, _engine.Array.Construct(new[]
+                            {
+                                property,
+                                value
+                            }), updateLength: false);
+                        }
+                    }
+
+                    index++;
+                }
+            }
+
+            array.SetLength(index);
+            return array;
+        }
+
+        internal enum EnumerableOwnPropertyNamesKind
+        {
+            Key,
+            Value,
+            KeyValue
         }
 
         internal ObjectInstance AssertThisIsObjectInstance(JsValue value, string methodName)

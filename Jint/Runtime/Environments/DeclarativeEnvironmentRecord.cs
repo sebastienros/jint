@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Collections;
@@ -128,7 +127,7 @@ namespace Jint.Runtime.Environments
         {
             if (_dictionary is null)
             {
-                return ArrayExt.Empty<string>();
+                return System.Array.Empty<string>();
             }
 
             var keys = new string[_dictionary.Count];
@@ -198,7 +197,7 @@ namespace Jint.Runtime.Environments
                 }
 
                 ArrayInstance array = null;
-                var arrayContents = ArrayExt.Empty<JsValue>();
+                var arrayContents = System.Array.Empty<JsValue>();
                 if (argument.IsArray())
                 {
                     array = argument.AsArray();
@@ -240,7 +239,7 @@ namespace Jint.Runtime.Environments
                 var argumentObject = argument.AsObject();
 
                 var processedProperties = objectPattern.Properties.Count > 0 && objectPattern.Properties[objectPattern.Properties.Count - 1] is RestElement
-                    ? new HashSet<string>()
+                    ? new HashSet<JsValue>()
                     : null;
 
                 var jsValues = _engine._jsValueArrayPool.RentArray(1);
@@ -275,7 +274,8 @@ namespace Jint.Runtime.Environments
                     {
                         if (((RestElement) property).Argument is Identifier restIdentifier)
                         {
-                            var rest = argumentObject.CreateRestObject(processedProperties);
+                            var rest = _engine.Object.Construct(argumentObject.Properties.Count - processedProperties.Count);
+                            argumentObject.CopyDataProperties(rest, processedProperties);
                             SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
                         }
                         else

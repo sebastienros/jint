@@ -249,14 +249,7 @@ namespace Jint.Native
 
             return null;
         }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Is<T>()
-        {
-            return IsObject() && this is T;
-        }
-
+        
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T As<T>() where T : ObjectInstance
@@ -604,8 +597,8 @@ namespace Jint.Native
 
         internal static bool SameValue(JsValue x, JsValue y)
         {
-            var typea = TypeConverter.GetInternalPrimitiveType(x);
-            var typeb = TypeConverter.GetInternalPrimitiveType(y);
+            var typea = x.Type;
+            var typeb = y.Type;
 
             if (typea != typeb)
             {
@@ -644,8 +637,13 @@ namespace Jint.Native
                     return TypeConverter.ToString(x) == TypeConverter.ToString(y);
                 case Types.Boolean:
                     return TypeConverter.ToBoolean(x) == TypeConverter.ToBoolean(y);
-                default:
+                case Types.Undefined:
+                case Types.Null:
+                    return true;
+                case Types.Symbol:
                     return x == y;
+                default:
+                    return ReferenceEquals(x, y);
             }
         }
     }

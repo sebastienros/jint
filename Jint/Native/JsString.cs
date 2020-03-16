@@ -26,6 +26,7 @@ namespace Jint.Native
         internal static readonly JsString NumberOneString = new JsString("1");
         internal static readonly JsString TrueString = new JsString("true");
         internal static readonly JsString FalseString = new JsString("false");
+        internal static readonly JsString LengthString = new JsString("length");
 
         internal string _value;
 

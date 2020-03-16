@@ -79,7 +79,7 @@ namespace Jint.Runtime
                 }
                 else
                 {
-                    _array = ArrayExt.Empty<ExecutionContext>();
+                    _array = Array.Empty<ExecutionContext>();
                 }
             }
         }

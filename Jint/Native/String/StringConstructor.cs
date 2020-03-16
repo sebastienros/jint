@@ -30,7 +30,7 @@ namespace Jint.Native.String
             // The value of the [[Prototype]] internal property of the String constructor is the Function prototype object
             obj.PrototypeObject = StringPrototype.CreatePrototypeObject(engine, obj);
 
-            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
+            obj._length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
 
             // The initial value of String.prototype is the String prototype object
             obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);

@@ -26,12 +26,13 @@ namespace Jint.Native.Proxy
         private static readonly JsString TrapConstruct = new JsString("construct");
 
         private static readonly JsString KeyFunctionRevoke = new JsString("revoke");
+        private static readonly JsString KeyIsArray = new JsString("isArray");
 
         public ProxyInstance(
             Engine engine,
             ObjectInstance target,
             ObjectInstance handler)
-            : base(engine, JsString.Empty, false, ObjectClass.Proxy)
+            : base(engine, JsString.Empty, false, target.Class)
         {
             _target = target;
             _handler = handler;
@@ -71,10 +72,7 @@ namespace Jint.Native.Proxy
 
         public override bool IsArray()
         {
-            if (_handler is null)
-            {
-                return ExceptionHelper.ThrowTypeError<bool>(_engine);
-            }
+            AssertNotRevoked(KeyIsArray);
             return _target.IsArray();
         }
 
@@ -183,7 +181,7 @@ namespace Jint.Native.Proxy
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            if (!TryCallHandler(TrapGetOwnPropertyDescriptor, new JsValue[] {_target, property, this}, out var result))
+            if (!TryCallHandler(TrapGetOwnPropertyDescriptor, new[] {_target, property, this}, out var result))
             {
                 return _target.GetOwnProperty(property);
             }
@@ -474,7 +472,7 @@ namespace Jint.Native.Proxy
             }
         }
 
-        internal void AssertTargetNotRevoked(JsValue key)
+        private void AssertTargetNotRevoked(JsValue key)
         {
             if (_target is null)
             {

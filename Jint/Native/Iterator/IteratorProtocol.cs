@@ -1,4 +1,5 @@
 ﻿using Jint.Native.Array;
+using Jint.Native.Object;
 using Jint.Runtime;
 
 namespace Jint.Native.Iterator
@@ -85,5 +86,62 @@ namespace Jint.Native.Iterator
 
             return jsValue;
         }
+
+        internal static void AddEntriesFromIterable(ObjectInstance target, IIterator iterable, object adder)
+        {
+            if (!(adder is ICallable callable))
+            {
+                ExceptionHelper.ThrowTypeError(target.Engine, "set must be callable");
+                return;
+            }
+
+            var close = false;
+            var args = target.Engine._jsValueArrayPool.RentArray(2);
+            try
+            {
+                do
+                {
+                    var item = iterable.Next();
+                    if (item.TryGetValue(CommonProperties.Done, out var done) && done.AsBoolean())
+                    {
+                        close = true;
+                        break;
+                    }
+
+                    if (!item.TryGetValue(CommonProperties.Value, out var currentValue))
+                    {
+                        currentValue = JsValue.Undefined;
+                    }
+
+                    close = true;
+                    if (!(currentValue is ObjectInstance oi))
+                    {
+                        ExceptionHelper.ThrowTypeError(target.Engine, "iterator's value must be an object");
+                        return;
+                    }
+
+                    var k = oi.Get(JsString.NumberZeroString);
+                    var v = oi.Get(JsString.NumberOneString);
+
+                    args[0] = k;
+                    args[1] = v;
+
+                    callable.Call(target, args);
+                } while (true);
+            }
+            catch
+            {
+                if (close)
+                {
+                    iterable.Return();
+                }
+                throw;
+            }
+            finally
+            {
+                target.Engine._jsValueArrayPool.ReturnArray(args);
+            }
+        }
+
     }
 }

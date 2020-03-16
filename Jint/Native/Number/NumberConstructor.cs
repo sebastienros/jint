@@ -31,7 +31,7 @@ namespace Jint.Native.Number
             // The value of the [[Prototype]] internal property of the Number constructor is the Function prototype object
             obj.PrototypeObject = NumberPrototype.CreatePrototypeObject(engine, obj);
 
-            obj._length = new PropertyDescriptor(1, PropertyFlag.AllForbidden);
+            obj._length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
 
             // The initial value of Number.prototype is the Number prototype object
             obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);

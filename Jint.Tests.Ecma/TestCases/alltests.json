@@ -22790,28 +22790,28 @@
     source: "ch15/15.2/15.2.3/15.2.3.10/15.2.3.10-0-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.10/15.2.3.10-1-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.10/15.2.3.10-1-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.10/15.2.3.10-1-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.10/15.2.3.10-1-4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.10/15.2.3.10-1.js"
   },
   {
@@ -22960,8 +22960,8 @@
     source: "ch15/15.2/15.2.3/15.2.3.11/15.2.3.11-0-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.11/15.2.3.11-1.js"
   },
   {
@@ -23110,23 +23110,23 @@
     source: "ch15/15.2/15.2.3/15.2.3.12/15.2.3.12-0-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.12/15.2.3.12-1-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.12/15.2.3.12-1-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.12/15.2.3.12-1-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.12/15.2.3.12-1-4.js"
   },
   {
@@ -23145,8 +23145,8 @@
     source: "ch15/15.2/15.2.3/15.2.3.12/15.2.3.12-1-7.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.12/15.2.3.12-1.js"
   },
   {
@@ -23395,28 +23395,28 @@
     source: "ch15/15.2/15.2.3/15.2.3.13/15.2.3.13-0-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.13/15.2.3.13-1-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.13/15.2.3.13-1-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.13/15.2.3.13-1-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.13/15.2.3.13-1-4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.13/15.2.3.13-1.js"
   },
   {
@@ -23570,18 +23570,18 @@
     source: "ch15/15.2/15.2.3/15.2.3.14/15.2.3.14-0-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.14/15.2.3.14-1-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.14/15.2.3.14-1-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.14/15.2.3.14-1-3.js"
   },
   {
@@ -23860,33 +23860,33 @@
     source: "ch15/15.2/15.2.3/15.2.3.2/15.2.3.2-2-11.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.2/15.2.3.2-2-12.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.2/15.2.3.2-2-13.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.2/15.2.3.2-2-14.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.2/15.2.3.2-2-15.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.2/15.2.3.2-2-16.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.2/15.2.3.2-2-17.js"
   },
   {
@@ -24015,18 +24015,18 @@
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-1-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-1-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-1-4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-1.js"
   },
   {
@@ -24775,8 +24775,8 @@
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-185.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-186.js"
   },
   {
@@ -24805,8 +24805,8 @@
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-190.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-191.js"
   },
   {
@@ -24820,8 +24820,8 @@
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-193.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-194.js"
   },
   {
@@ -24865,8 +24865,8 @@
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-200.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.3/15.2.3.3-4-201.js"
   },
   {
@@ -25545,18 +25545,18 @@
     source: "ch15/15.2/15.2.3/15.2.3.4/15.2.3.4-1-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.4/15.2.3.4-1-4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.4/15.2.3.4-1-5.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.4/15.2.3.4-1.js"
   },
   {
@@ -35965,28 +35965,28 @@
     source: "ch15/15.2/15.2.3/15.2.3.8/15.2.3.8-0-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.8/15.2.3.8-1-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.8/15.2.3.8-1-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.8/15.2.3.8-1-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.8/15.2.3.8-1-4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.8/15.2.3.8-1.js"
   },
   {
@@ -36180,28 +36180,28 @@
     source: "ch15/15.2/15.2.3/15.2.3.9/15.2.3.9-0-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.9/15.2.3.9-1-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.9/15.2.3.9-1-2.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.9/15.2.3.9-1-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.9/15.2.3.9-1-4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.3/15.2.3.9/15.2.3.9-1.js"
   },
   {
@@ -36500,8 +36500,8 @@
     source: "ch15/15.2/15.2.4/15.2.4.2/S15.2.4.2_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.4/15.2.4.2/S15.2.4.2_A9.js"
   },
   {
@@ -36545,8 +36545,8 @@
     source: "ch15/15.2/15.2.4/15.2.4.3/S15.2.4.3_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.4/15.2.4.3/S15.2.4.3_A9.js"
   },
   {
@@ -36640,8 +36640,8 @@
     source: "ch15/15.2/15.2.4/15.2.4.4/S15.2.4.4_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.4/15.2.4.4/S15.2.4.4_A9.js"
   },
   {
@@ -36695,8 +36695,8 @@
     source: "ch15/15.2/15.2.4/15.2.4.5/S15.2.4.5_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.4/15.2.4.5/S15.2.4.5_A9.js"
   },
   {
@@ -36740,8 +36740,8 @@
     source: "ch15/15.2/15.2.4/15.2.4.6/S15.2.4.6_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.4/15.2.4.6/S15.2.4.6_A9.js"
   },
   {
@@ -36795,8 +36795,8 @@
     source: "ch15/15.2/15.2.4/15.2.4.7/S15.2.4.7_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.2/15.2.4/15.2.4.7/S15.2.4.7_A9.js"
   },
   {
@@ -37135,8 +37135,8 @@
     source: "ch15/15.3/15.3.3/15.3.3.1/S15.3.3.1_A4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "spec has changed",
     source: "ch15/15.3/15.3.3/15.3.3.2/15.3.3.2-1.js"
   },
   {

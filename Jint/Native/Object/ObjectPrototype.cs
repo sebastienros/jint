@@ -1,4 +1,5 @@
 ﻿using Jint.Collections;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -26,15 +27,16 @@ namespace Jint.Native.Object
         protected override void Initialize()
         {
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+            const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             var properties = new PropertyDictionary(8, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_objectConstructor, propertyFlags),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToObjectString), propertyFlags),
-                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString), propertyFlags),
-                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOF", ValueOf), propertyFlags),
-                ["hasOwnProperty"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "hasOwnProperty", HasOwnProperty, 1), propertyFlags),
-                ["isPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isPrototypeOf", IsPrototypeOf, 1), propertyFlags),
-                ["propertyIsEnumerable"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "propertyIsEnumerable", PropertyIsEnumerable, 1), propertyFlags)
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToObjectString, 0, lengthFlags), propertyFlags),
+                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, lengthFlags), propertyFlags),
+                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), propertyFlags),
+                ["hasOwnProperty"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "hasOwnProperty", HasOwnProperty, 1, lengthFlags), propertyFlags),
+                ["isPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isPrototypeOf", IsPrototypeOf, 1, lengthFlags), propertyFlags),
+                ["propertyIsEnumerable"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "propertyIsEnumerable", PropertyIsEnumerable, 1, lengthFlags), propertyFlags)
             };
             SetProperties(properties);
         }
@@ -88,12 +90,9 @@ namespace Jint.Native.Object
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(Engine, thisObject);
-            var toString = o.Get("toString", o).TryCast<ICallable>(x =>
-            {
-                ExceptionHelper.ThrowTypeError(Engine);
-            });
-
-            return toString.Call(o, Arguments.Empty);
+            var func = o.Get("toString");
+            var callable = func as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
+            return TypeConverter.ToString(callable.Call(thisObject, arguments));
         }
 
         /// <summary>
@@ -115,7 +114,14 @@ namespace Jint.Native.Object
             }
 
             var o = TypeConverter.ToObject(Engine, thisObject);
-            return "[object " + o.Class + "]";
+
+            var tag = o.Get(GlobalSymbolRegistry.ToStringTag);
+            if (!tag.IsString())
+            {
+                tag = o.Class.ToString();
+            }
+
+            return "[object " + tag + "]";
         }
 
         /// <summary>

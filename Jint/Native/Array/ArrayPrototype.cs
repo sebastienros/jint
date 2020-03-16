@@ -643,7 +643,7 @@ namespace Jint.Native.Array
                 actualStart = (ulong) System.Math.Min(relativeStart, len);
             }
 
-            var items = ArrayExt.Empty<JsValue>();
+            var items = System.Array.Empty<JsValue>();
             ulong insertCount;
             ulong actualDeleteCount;
             if (arguments.Length == 0)
@@ -662,7 +662,7 @@ namespace Jint.Native.Array
                 var dc = TypeConverter.ToInteger(deleteCount);
                 actualDeleteCount = (ulong) System.Math.Min(System.Math.Max(dc,0), len - actualStart);
 
-                items = ArrayExt.Empty<JsValue>();
+                items = System.Array.Empty<JsValue>();
                 if (arguments.Length > 2)
                 {
                     items = new JsValue[arguments.Length - 2];

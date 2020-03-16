@@ -1,5 +1,4 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -128,7 +127,7 @@ namespace Jint.Runtime.Environments
                 return _bindingObject.GetOwnProperties().Select( x=> x.Key.ToString()).ToArray();
             }
 
-            return ArrayExt.Empty<string>();
+            return System.Array.Empty<string>();
         }
 
         public override bool Equals(JsValue other)

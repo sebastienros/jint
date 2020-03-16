@@ -41,6 +41,7 @@ namespace Jint.Tests.Test262
             {
                 "sta.js",
                 "assert.js",
+                "arrayContains.js",
                 "propertyHelper.js",
                 "compareArray.js",
                 "decimalToHexString.js",
@@ -48,6 +49,7 @@ namespace Jint.Tests.Test262
                 "dateConstants.js",
                 "assertRelativeDateMs.js",
                 "regExpUtils.js",
+                "nans.js",
                 "compareIterator.js"
             };
 
@@ -192,10 +194,6 @@ namespace Jint.Tests.Test262
                             case "class":
                                 skip = true;
                                 reason = "class keyword not implemented";
-                                break;
-                            case "object-spread":
-                                skip = true;
-                                reason = "Object spread not implemented";
                                 break;
                             case "BigInt":
                                 skip = true;

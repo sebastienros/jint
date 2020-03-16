@@ -119,7 +119,7 @@ namespace Jint.Runtime
         /// </summary>
         internal static JsValue OrdinaryToPrimitive(ObjectInstance input, Types hint = Types.None)
         {
-            var callOrder = ArrayExt.Empty<JsString>();
+            var callOrder = Array.Empty<JsString>();
             if (hint == Types.String)
             {
                 callOrder = StringHintCallOrder;
@@ -441,7 +441,11 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static JsValue ToPropertyKeyNonString(JsValue o)
         {
-            return new JsString(ToStringNonString(ToPrimitive(o, Types.String)));
+            const InternalTypes stringOrSymbol = InternalTypes.String | InternalTypes.Symbol;
+            var primitive = ToPrimitive(o, Types.String);
+            return (primitive._type & stringOrSymbol) != 0
+                ? primitive
+                : ToStringNonString(primitive);
         }
 
         /// <summary>
@@ -513,22 +517,7 @@ namespace Jint.Runtime
                     return null;
             }
         }
-
-        internal static Types GetInternalPrimitiveType(JsValue value)
-        {
-            if (!value.IsObject())
-            {
-                return value.Type;
-            }
-
-            if (value is IPrimitiveInstance primitive)
-            {
-                return primitive.Type;
-            }
-
-            return Types.Object;
-        }
-
+        
         internal static void CheckObjectCoercible(
             Engine engine,
             JsValue o,

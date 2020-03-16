@@ -286,12 +286,14 @@ namespace Jint.Native.Iterator
             public ObjectWrapper(ObjectInstance target)
             {
                 _target = target;
-                _callable = (ICallable) target.Get(CommonProperties.Next, target);
+                _callable = target.Get(CommonProperties.Next, target) as ICallable
+                            ?? ExceptionHelper.ThrowTypeError<ICallable>(target.Engine);
             }
 
             public ObjectInstance Next()
             {
-                return (ObjectInstance) _callable.Call(_target, Arguments.Empty);
+                return _callable.Call(_target, Arguments.Empty) as ObjectInstance
+                       ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(_target.Engine);
             }
 
             public void Return()

@@ -1,5 +1,4 @@
-﻿using System;
-using Jint.Collections;
+﻿using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -77,7 +76,7 @@ namespace Jint.Native.Proxy
         private JsValue Revocable(JsValue thisObject, JsValue[] arguments)
         {
             var p = _engine.Proxy.Construct(arguments, Undefined);
-            var result = _engine.Object.Construct(ArrayExt.Empty<JsValue>());
+            var result = _engine.Object.Construct(System.Array.Empty<JsValue>());
             result.DefineOwnProperty(PropertyRevoke, new PropertyDescriptor(new ClrFunctionInstance(_engine, name: null, Revoke, 0, PropertyFlag.Configurable), PropertyFlag.ConfigurableEnumerableWritable));
             result.DefineOwnProperty(PropertyProxy, new PropertyDescriptor(Construct(arguments, thisObject), PropertyFlag.ConfigurableEnumerableWritable));
             return result;

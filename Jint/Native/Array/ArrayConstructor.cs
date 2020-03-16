@@ -1,12 +1,10 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
-using Jint.Native.Proxy;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -100,7 +98,7 @@ namespace Jint.Native.Array
             ObjectInstance instance;
             if (thisObj is IConstructor constructor)
             {
-                instance = constructor.Construct(ArrayExt.Empty<JsValue>(), thisObj);
+                instance = constructor.Construct(System.Array.Empty<JsValue>(), thisObj);
             }
             else
             {
@@ -269,25 +267,12 @@ namespace Jint.Native.Array
 
         private static JsValue IsArray(JsValue o)
         {
-            if (!o.IsObject())
+            if (!(o is ObjectInstance oi))
             {
                 return JsBoolean.False;
             }
 
-            var objectClass = o.AsObject().Class;
-            if (objectClass == ObjectClass.Array)
-            {
-                return JsBoolean.True;
-            }
-
-            if (objectClass == ObjectClass.Proxy)
-            {
-                var proxyInstance = (ProxyInstance) o;
-                proxyInstance.AssertNotRevoked("isArray");
-                return IsArray(proxyInstance._target);
-            }
-
-            return JsBoolean.False;
+            return oi.IsArray();
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -315,12 +300,12 @@ namespace Jint.Native.Array
 
         public ArrayInstance Construct(int capacity)
         {
-            return Construct(System.ArrayExt.Empty<JsValue>(), (uint) capacity);
+            return Construct(System.Array.Empty<JsValue>(), (uint) capacity);
         }
 
         public ArrayInstance Construct(uint capacity)
         {
-            return Construct(System.ArrayExt.Empty<JsValue>(), capacity);
+            return Construct(System.Array.Empty<JsValue>(), capacity);
         }
 
         public ArrayInstance Construct(JsValue[] arguments, uint capacity)
