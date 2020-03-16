@@ -300,7 +300,12 @@ namespace Jint.Native.Iterator
             {
                 if (_target.TryGetValue(CommonProperties.Return, out var func))
                 {
-                    ((ICallable) func).Call(_target, Arguments.Empty);
+                    var value = ((ICallable) func).Call(_target, Arguments.Empty);
+                    if (!value.IsObject())
+                    {
+                        // oops
+                        ExceptionHelper.ThrowTypeError(_target.Engine);
+                    }
                 }
             }
         }

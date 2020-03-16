@@ -81,7 +81,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            bool iterationEnded = false;
+            var done = false;
             for (uint i = 0; i < pattern.Elements.Count; i++)
             {
                 var left = pattern.Elements[(int) i];
@@ -101,7 +101,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else
                     {
-                        if (!ConsumeFromIterator(iterator, out value, out iterationEnded))
+                        if (!ConsumeFromIterator(iterator, out value, out done))
                         {
                             break;
                         }
@@ -110,6 +110,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else if (left is MemberExpression me)
                 {
+                    var reference = GetReferenceFromMember(engine, me);
                     JsValue value;
                     if (arrayOperations != null)
                     {
@@ -117,13 +118,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else
                     {
-                        if (!ConsumeFromIterator(iterator, out value, out iterationEnded))
+                        if (!ConsumeFromIterator(iterator, out value, out done))
                         {
                             break;
                         }
                     }
 
-                    AssignToMember(engine, me, value);
+                    AssignToReference(engine, reference, value);
                 }
                 else if (left is BindingPattern bindingPattern)
                 {
@@ -140,6 +141,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else if (left is RestElement restElement)
                 {
+                    Reference reference = null; 
+                    if (restElement.Argument is MemberExpression memberExpression)
+                    {
+                        reference = GetReferenceFromMember(engine, memberExpression);
+                    }
+                    
                     ArrayInstance array;
                     if (arrayOperations != null)
                     {
@@ -166,9 +173,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         ProcessPatterns(engine, bp, array);
                     }                    
-                    else if (restElement.Argument is MemberExpression memberExpression)
+                    else
                     {
-                        AssignToMember(engine, memberExpression, array);
+                        AssignToReference(engine, reference,  array);
                     }
                 }
                 else if (left is AssignmentPattern assignmentPattern)
@@ -180,7 +187,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else
                     {
-                        ConsumeFromIterator(iterator, out value, out iterationEnded);
+                        ConsumeFromIterator(iterator, out value, out done);
                     }
 
                     if (value.IsUndefined()
@@ -213,7 +220,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            if (!iterationEnded)
+            if (!done)
             {
                 iterator?.Return();
             }
@@ -249,7 +256,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                         if (value.IsUndefined() && assignmentPattern.Right is Expression expression)
                         {
                             var jintExpression = Build(engine, expression);
-
                             value = jintExpression.GetValue();
                         }
 
@@ -274,7 +280,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else if (p.Value is MemberExpression memberExpression)
                     {
-                        AssignToMember(engine, memberExpression, value);
+                        var reference = GetReferenceFromMember(engine, memberExpression);
+                        AssignToReference(engine, reference, value);
                     }
                     else
                     {
@@ -298,9 +305,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else if (restElement.Argument is MemberExpression memberExpression)
                     {
+                        var left = GetReferenceFromMember(engine, memberExpression);
                         var rest = engine.Object.Construct(0);
                         source.CopyDataProperties(rest, processedProperties);
-                        AssignToMember(engine, memberExpression, rest);
+                        AssignToReference(engine, left, rest);
                     }
                     else
                     {
@@ -310,17 +318,18 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        private static void AssignToMember(
-            Engine engine,
-            MemberExpression memberExpression,
-            JsValue rval)
+        private static void AssignToReference(Engine engine,  Reference lref,  JsValue rval)
         {
-            var expression = new JintMemberExpression(engine, memberExpression);
-            var lref = expression.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(engine);
-            lref.AssertValid(engine);
-
             engine.PutValue(lref, rval);
             engine._referencePool.Return(lref);
+        }
+
+        private static Reference GetReferenceFromMember(Engine engine, MemberExpression memberExpression)
+        {
+            var expression = new JintMemberExpression(engine, memberExpression);
+            var reference = expression.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(engine);
+            reference.AssertValid(engine);
+            return reference;
         }
 
         private static void AssignToIdentifier(
