@@ -536,7 +536,7 @@ namespace Jint.Runtime
             MemberExpression expression,
             string referencedName)
         {
-            referencedName = referencedName ?? "The value";
+            referencedName ??= "The value";
             var message = $"{referencedName} is {o}";
             throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, expression.Location);
         }

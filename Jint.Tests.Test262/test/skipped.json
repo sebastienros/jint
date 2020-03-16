@@ -360,6 +360,10 @@
     "reason": "const not implemented"
   },
   {
+    "source": "language/expressions/assignment/dstr-obj-rest-put-const.js",
+    "reason": "const not implemented"
+  },
+  {
     "source": "language/expressions/template-literal/tv-line-terminator-sequence.js",
     "reason": "Line feed problems (git, windows, linux)"
   },
@@ -858,6 +862,10 @@
   },
   {
     "source": "language/expressions/object/let-non-strict-syntax.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/assignment/dstr-obj-id-identifier-yield-ident-valid.js",
     "reason": "Esprima problem"
   },
 ]
