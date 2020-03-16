@@ -5,8 +5,8 @@ using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
-using Jint.Native.Object;
 using Jint.Runtime.Environments;
+using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -85,6 +85,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             for (uint i = 0; i < pattern.Elements.Count; i++)
             {
                 var left = pattern.Elements[(int) i];
+
+                if (left is null)
+                {
+                    // skip
+                    continue;
+                }
+                
                 if (left is Identifier identifier)
                 {
                     JsValue value;
@@ -101,7 +108,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     AssignToIdentifier(engine, identifier.Name, value);
                 }
-                else if (left is MemberExpression computedMemberExpression)
+                else if (left is MemberExpression me)
                 {
                     JsValue value;
                     if (arrayOperations != null)
@@ -116,8 +123,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                     }
 
-                    var member = new JintMemberExpression(engine, computedMemberExpression).GetValue();
-                    AssignToIdentifier(engine, member.ToString(), value);
+                    AssignToMember(engine, me, value);
                 }
                 else if (left is BindingPattern bindingPattern)
                 {
@@ -159,6 +165,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                     else if (restElement.Argument is BindingPattern bp)
                     {
                         ProcessPatterns(engine, bp, array);
+                    }                    
+                    else if (restElement.Argument is MemberExpression memberExpression)
+                    {
+                        AssignToMember(engine, memberExpression, array);
                     }
                 }
                 else if (left is AssignmentPattern assignmentPattern)
@@ -262,10 +272,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         ProcessPatterns(engine, bindingPattern, value);
                     }
-                    else if (p.Value is ComputedMemberExpression computedMemberExpression)
+                    else if (p.Value is MemberExpression memberExpression)
                     {
-                        var computed = new JintMemberExpression(engine, computedMemberExpression).GetValue();
-                        AssignToIdentifier(engine, computed.ToString(), value);
+                        AssignToMember(engine, memberExpression, value);
                     }
                     else
                     {
@@ -287,20 +296,31 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         ProcessPatterns(engine, bp, argument);
                     }
-                    else if (restElement.Argument is StaticMemberExpression staticMemberExpression)
+                    else if (restElement.Argument is MemberExpression memberExpression)
                     {
                         var rest = engine.Object.Construct(0);
                         source.CopyDataProperties(rest, processedProperties);
-                        var property = TypeConverter.ToPropertyKey(Build(engine, staticMemberExpression.Property).GetValue());
-                        AssignToIdentifier(engine, property.ToString(), rest);
+                        AssignToMember(engine, memberExpression, rest);
                     }
                     else
                     {
                         ExceptionHelper.ThrowArgumentException("cannot handle parameter type " + restElement.Argument);
                     }
                 }
-
             }
+        }
+
+        private static void AssignToMember(
+            Engine engine,
+            MemberExpression memberExpression,
+            JsValue rval)
+        {
+            var expression = new JintMemberExpression(engine, memberExpression);
+            var lref = expression.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(engine);
+            lref.AssertValid(engine);
+
+            engine.PutValue(lref, rval);
+            engine._referencePool.Return(lref);
         }
 
         private static void AssignToIdentifier(
@@ -322,6 +342,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else
             {
+                if (strict)
+                {
+                    ExceptionHelper.ThrowReferenceError<Reference>(engine);
+                }
                 env._record.CreateMutableBinding(name, rval);
             }
         }
