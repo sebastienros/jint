@@ -47,6 +47,11 @@ namespace Jint.Runtime.Interop
                 return value;
             }
 
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                type = Nullable.GetUnderlyingType(type);
+            }
+
             if (type.IsEnum)
             {
                 var integer = System.Convert.ChangeType(value, typeof(int), formatProvider);
@@ -201,11 +206,6 @@ namespace Jint.Runtime.Interop
                 var result = Array.CreateInstance(targetElementType, source.Length);
                 itemsConverted.CopyTo(result, 0);
                 return result;
-            }
-
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
-            {
-                type = Nullable.GetUnderlyingType(type);
             }
 
             if (value is ExpandoObject eObj)
