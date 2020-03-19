@@ -1,13 +1,11 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <PropertyGroup>
-    <PackageId>Jint</PackageId>
-    <AssemblyTitle>Jint</AssemblyTitle>
+    <PackageId>Take.Jint.Unnoficial</PackageId>
+    <AssemblyTitle>Unnoficial Jint by Take</AssemblyTitle>
     <Description>Javascript interpreter for .NET which provides full ECMA 5.1 compliance.</Description>
-    <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
-    <VersionPrefix>3.0.0-beta-$(BuildNumber)</VersionPrefix>
+    <VersionPrefix>3.0.0-beta-1716</VersionPrefix>
     <VersionSuffix></VersionSuffix>
-    <PackageId>Jint</PackageId>
     <PackageTags>javascript, interpreter</PackageTags>
     <PackageProjectUrl>https://github.com/sebastienros/jint</PackageProjectUrl>
     <PackageLicenseUrl>https://raw.githubusercontent.com/sebastienros/jint/master/LICENSE.txt</PackageLicenseUrl>

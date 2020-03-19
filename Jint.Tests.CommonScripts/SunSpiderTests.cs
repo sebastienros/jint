@@ -54,6 +54,7 @@ namespace Jint.Tests.CommonScripts
         [InlineData("string-tagcloud", "string-tagcloud.js")]
         [InlineData("string-unpack-code", "string-unpack-code.js")]
         [InlineData("string-validate-input", "string-validate-input.js")]
+        [InlineData("let-works", "let-works.js")]
         public void RunScript(string name, string url)
         {
             var content = GetEmbeddedFile(url);
