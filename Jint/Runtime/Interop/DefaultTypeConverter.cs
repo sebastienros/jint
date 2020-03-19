@@ -20,9 +20,18 @@ namespace Jint.Runtime.Interop
         private static readonly ConcurrentDictionary<string, bool> _knownConversions = new ConcurrentDictionary<string, bool>();
 #endif
 
-        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new [] { typeof(object), typeof(Type), typeof(IFormatProvider) });
-        private static readonly MethodInfo jsValueFromObject = typeof(JsValue).GetMethod(nameof(JsValue.FromObject));
-        private static readonly MethodInfo jsValueToObject = typeof(JsValue).GetMethod(nameof(JsValue.ToObject));
+        private static readonly Type nullableType = typeof(Nullable<>);
+        private static readonly Type intType = typeof(int);
+        private static readonly Type iCallableType = typeof(Func<JsValue, JsValue[], JsValue>);
+        private static readonly Type jsValueType = typeof(JsValue);
+        private static readonly Type objectType = typeof(object);
+        private static readonly Type engineType = typeof(Engine);
+        private static readonly Type typeType = typeof(Type);
+
+        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new [] { objectType, typeType, typeof(IFormatProvider) });
+        private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject));
+        private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject));
+
 
         public DefaultTypeConverter(Engine engine)
         {
@@ -47,9 +56,14 @@ namespace Jint.Runtime.Interop
                 return value;
             }
 
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == nullableType)
+            {
+                type = Nullable.GetUnderlyingType(type);
+            }
+
             if (type.IsEnum)
             {
-                var integer = System.Convert.ChangeType(value, typeof(int), formatProvider);
+                var integer = System.Convert.ChangeType(value, intType, formatProvider);
                 if (integer == null)
                 {
                     ExceptionHelper.ThrowArgumentOutOfRangeException();
@@ -60,7 +74,7 @@ namespace Jint.Runtime.Interop
 
             var valueType = value.GetType();
             // is the javascript value an ICallable instance ?
-            if (valueType == typeof(Func<JsValue, JsValue[], JsValue>))
+            if (valueType == iCallableType)
             {
                 var function = (Func<JsValue, JsValue[], JsValue>)value;
 
@@ -84,20 +98,20 @@ namespace Jint.Runtime.Interop
                             var param = @params[i];
                             if (param.Type.IsValueType)
                             {
-                                var boxing = Expression.Convert(param, typeof(object));
-                                tmpVars[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, typeof(Engine)), boxing);
+                                var boxing = Expression.Convert(param, objectType);
+                                tmpVars[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxing);
                             }
                             else
                             {
-                                tmpVars[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, typeof(Engine)), param);
+                                tmpVars[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), param);
                             }
                         }
-                        var @vars = Expression.NewArrayInit(typeof(JsValue), tmpVars);
+                        var @vars = Expression.NewArrayInit(jsValueType, tmpVars);
 
                         var callExpresion = Expression.Block(Expression.Call(
                                                 Expression.Call(Expression.Constant(function.Target),
                                                     function.Method,
-                                                    Expression.Constant(JsValue.Undefined, typeof(JsValue)),
+                                                    Expression.Constant(JsValue.Undefined, jsValueType),
                                                     @vars),
                                                 jsValueToObject), Expression.Empty());
 
@@ -117,10 +131,10 @@ namespace Jint.Runtime.Interop
                         var initializers = new MethodCallExpression[@params.Length];
                         for (int i = 0; i < @params.Length; i++)
                         {
-                            var boxingExpression = Expression.Convert(@params[i], typeof(object));
-                            initializers[i]= Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, typeof(Engine)), boxingExpression);
+                            var boxingExpression = Expression.Convert(@params[i], objectType);
+                            initializers[i]= Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxingExpression);
                         }
-                        var @vars = Expression.NewArrayInit(typeof(JsValue), initializers);
+                        var @vars = Expression.NewArrayInit(jsValueType, initializers);
 
                         // the final result's type needs to be changed before casting,
                         // for instance when a function returns a number (double) but C# expects an integer
@@ -131,10 +145,10 @@ namespace Jint.Runtime.Interop
                                                     Expression.Call(
                                                             Expression.Call(Expression.Constant(function.Target),
                                                                     function.Method,
-                                                                    Expression.Constant(JsValue.Undefined, typeof(JsValue)),
+                                                                    Expression.Constant(JsValue.Undefined, jsValueType),
                                                                     @vars),
                                                             jsValueToObject),
-                                                        Expression.Constant(returnType, typeof(Type)),
+                                                        Expression.Constant(returnType, typeType),
                                                         Expression.Constant(System.Globalization.CultureInfo.InvariantCulture, typeof(IFormatProvider))
                                                         ),
                                                     returnType);
@@ -156,24 +170,24 @@ namespace Jint.Runtime.Interop
                         var @params = new ParameterExpression[arguments.Length];
                         for (var i = 0; i < @params.Length; i++)
                         {
-                            @params[i] = Expression.Parameter(typeof(object), arguments[i].Name);
+                            @params[i] = Expression.Parameter(objectType, arguments[i].Name);
                         }
 
                         var initializers = new MethodCallExpression[@params.Length];
                         for (int i = 0; i < @params.Length; i++)
                         {
-                            initializers[i] = Expression.Call(null, typeof(JsValue).GetMethod("FromObject"), Expression.Constant(_engine, typeof(Engine)), @params[i]);
+                            initializers[i] = Expression.Call(null, jsValueType.GetMethod("FromObject"), Expression.Constant(_engine, engineType), @params[i]);
                         }
 
-                        var @vars = Expression.NewArrayInit(typeof(JsValue), initializers);
+                        var @vars = Expression.NewArrayInit(jsValueType, initializers);
 
                         var callExpression = Expression.Block(
                                                 Expression.Call(
                                                     Expression.Call(Expression.Constant(function.Target),
                                                         function.Method,
-                                                        Expression.Constant(JsValue.Undefined, typeof(JsValue)),
+                                                        Expression.Constant(JsValue.Undefined, jsValueType),
                                                         @vars),
-                                                    typeof(JsValue).GetMethod("ToObject")),
+                                                    jsValueType.GetMethod("ToObject")),
                                                 Expression.Empty());
 
                         var dynamicExpression = Expression.Invoke(Expression.Lambda(callExpression, new ReadOnlyCollection<ParameterExpression>(@params)), new ReadOnlyCollection<ParameterExpression>(@params));
@@ -201,11 +215,6 @@ namespace Jint.Runtime.Interop
                 var result = Array.CreateInstance(targetElementType, source.Length);
                 itemsConverted.CopyTo(result, 0);
                 return result;
-            }
-
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
-            {
-                type = Nullable.GetUnderlyingType(type);
             }
 
             if (value is ExpandoObject eObj)

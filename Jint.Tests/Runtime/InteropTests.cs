@@ -136,7 +136,7 @@ namespace Jint.Tests.Runtime
             var del = System.Linq.Expressions.Expression.Lambda(exp, parameters).Compile();
 
             _engine.SetValue("add", del);
-            
+
             RunTest(@"
                 assert(add(1,1) === 2);
             ");
@@ -631,11 +631,23 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        private struct TestStruct
+        {
+            public int Value;
+
+            public TestStruct(int value)
+            {
+                Value = value;
+            }
+        }
+
         private class TestClass
         {
             public int? NullableInt { get; set; }
             public DateTime? NullableDate { get; set; }
             public bool? NullableBool { get; set; }
+            public TestEnumInt32? NullableEnum { get; set; }
+            public TestStruct? NullableStruct { get; set; }
         }
 
         [Fact]
@@ -643,15 +655,20 @@ namespace Jint.Tests.Runtime
         {
             var instance = new TestClass();
             _engine.SetValue("instance", instance);
+            _engine.SetValue("TestStruct", typeof(TestStruct));
 
             RunTest(@"
                 instance.NullableInt = 2;
                 instance.NullableDate = new Date();
                 instance.NullableBool = true;
+                instance.NullableEnum = 1;
+                instance.NullableStruct = new TestStruct(5);
 
                 assert(instance.NullableInt===2);
                 assert(instance.NullableDate!=null);
                 assert(instance.NullableBool===true);
+                assert(instance.NullableEnum===1);
+                assert(instance.NullableStruct.Value===5);
             ");
         }
 
@@ -1484,7 +1501,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldImportNamespaceNestedType()
         {
-          RunTest(@"
+            RunTest(@"
                 var shapes = importNamespace('Shapes.Circle');
                 var kinds = shapes.Kind;
                 assert(kinds.Unit === 0);
@@ -1496,7 +1513,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldImportNamespaceNestedNestedType()
         {
-          RunTest(@"
+            RunTest(@"
                 var meta = importNamespace('Shapes.Circle.Meta');
                 var usages = meta.Usage;
                 assert(usages.Public === 0);
@@ -1842,7 +1859,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(engine.Invoke("throwException3").AsString(), exceptionMessage);
             Assert.Throws<ArgumentNullException>(() => engine.Invoke("throwException4"));
         }
-        
+
         [Fact]
         public void ArrayFromShouldConvertListToArrayLike()
         {
@@ -1867,7 +1884,7 @@ namespace Jint.Tests.Runtime
                 assert(arr[1].Name === 'Mika');
             ");
         }
-        
+
         [Fact]
         public void ArrayFromShouldConvertArrayToArrayLike()
         {
@@ -1892,7 +1909,7 @@ namespace Jint.Tests.Runtime
                 assert(arr[1].Name === 'Mika');
             ");
         }
-        
+
         [Fact]
         public void ArrayFromShouldConvertIEnumerable()
         {
@@ -1901,7 +1918,7 @@ namespace Jint.Tests.Runtime
                 new Person {Name = "Mike"},
                 new Person {Name = "Mika"}
             }.Select(x => x);
-            
+
             _engine.SetValue("a", enumerable);
 
             RunTest(@"
@@ -1928,6 +1945,6 @@ namespace Jint.Tests.Runtime
             engine.Execute("P.Name = 'b';");
             engine.Execute("P.Name += 'c';");
             Assert.Equal("bc", p.Name);
-        } 
+        }
     }
 }
