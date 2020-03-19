@@ -6,9 +6,6 @@
     <EmbeddedResource Include="Scripts\*.*" />
   </ItemGroup>
   <ItemGroup>
-    <None Remove="Scripts\let-works.js" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
   </ItemGroup>
   <ItemGroup>
