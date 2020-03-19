@@ -8,7 +8,7 @@
     <VersionSuffix></VersionSuffix>
     <PackageTags>javascript, interpreter</PackageTags>
     <PackageProjectUrl>https://github.com/sebastienros/jint</PackageProjectUrl>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/sebastienros/jint/master/LICENSE.txt</PackageLicenseUrl>
+    <License>https://raw.githubusercontent.com/takenet/jint/master/LICENSE.txt</License>
 
     <!-- SourceLink support -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
