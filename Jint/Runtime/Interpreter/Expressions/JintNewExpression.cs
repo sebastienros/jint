@@ -1,3 +1,4 @@
+using System;
 using Esprima.Ast;
 using Jint.Native;
 
@@ -5,19 +6,25 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintNewExpression : JintExpression
     {
-        private readonly JintExpression _calleeExpression;
-        private JintExpression[] _jintArguments;
+        private JintExpression _calleeExpression;
+        private JintExpression[] _jintArguments = Array.Empty<JintExpression>();
         private bool _hasSpreads;
 
         public JintNewExpression(Engine engine, NewExpression expression) : base(engine, expression)
         {
             _initialized = false;
-            _calleeExpression = Build(engine, expression.Callee);
         }
 
         protected override void Initialize()
         {
             var expression = (NewExpression) _expression;
+            _calleeExpression = Build(_engine, expression.Callee);
+
+            if (expression.Arguments.Count <= 0)
+            {
+                return;
+            }
+
             _jintArguments = new JintExpression[expression.Arguments.Count];
             for (var i = 0; i < _jintArguments.Length; i++)
             {
@@ -29,7 +36,11 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected override object EvaluateInternal()
         {
             JsValue[] arguments;
-            if (_hasSpreads)
+            if (_jintArguments.Length == 0)
+            {
+                arguments = Array.Empty<JsValue>();
+            }
+            else if (_hasSpreads)
             {
                 arguments = BuildArgumentsWithSpreads(_jintArguments);
             }

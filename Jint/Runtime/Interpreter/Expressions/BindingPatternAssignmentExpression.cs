@@ -44,21 +44,16 @@ namespace Jint.Runtime.Interpreter.Expressions
         
         private static bool ConsumeFromIterator(IIterator it, out JsValue value, out bool done)
         {
-            var item = it.Next();
             value = JsValue.Undefined;
             done = false;
 
-            if (item.TryGetValue(CommonProperties.Done, out var d) && d.AsBoolean())
+            if (!it.TryIteratorStep(out var d))
             {
                 done = true;
                 return false;
             }
 
-            if (!item.TryGetValue(CommonProperties.Value, out value))
-            {
-                return false;
-            }
-
+            d.TryGetValue(CommonProperties.Value, out value);
             return true;
         }
         
@@ -80,7 +75,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            var done = true;
+            var close = false;
+            var done = false;
             try
             {
                 for (uint i = 0; i < pattern.Elements.Count; i++)
@@ -102,7 +98,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            done = false;
                             if (!ConsumeFromIterator(iterator, out value, out done))
                             {
                                 break;
@@ -120,7 +115,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            done = false;
                             if (!ConsumeFromIterator(iterator, out value, out done))
                             {
                                 break;
@@ -138,8 +132,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            done = false;
-                            value = iterator.Next();
+                            close = false;
+                            iterator.TryIteratorStep(out var temp);
+                            value = temp;
                         }
                         ProcessPatterns(engine, bindingPattern, value);
                     }
@@ -164,7 +159,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            done = false;
+                            close = false;
                             array = engine.Array.ConstructFast(0);
                             var protocol = new ArrayConstructor.ArrayProtocol(engine, obj, array, iterator, null);
                             protocol.Execute();
@@ -224,12 +219,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                         break;
                     }
                 }
+
+                close = true;
             }
             finally
             {
-                if (!done)
+                if (close && !done)
                 {
-                    iterator?.Return();
+                    iterator?.Close(CompletionType.Normal);
                 }
             }
         }
@@ -359,10 +356,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else
             {
-                if (strict)
-                {
-                    ExceptionHelper.ThrowReferenceError<Reference>(engine);
-                }
                 env._record.CreateMutableBinding(name, rval);
             }
         }

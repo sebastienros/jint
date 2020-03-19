@@ -1,6 +1,5 @@
 ﻿using Jint.Collections;
 using Jint.Native.Function;
-using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -66,46 +65,43 @@ namespace Jint.Native.Set
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var instance = new SetInstance(Engine)
+            var set = new SetInstance(Engine)
             {
                 _prototype = PrototypeObject
             };
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
-                var iterator = arguments.At(0).GetIterator(_engine);
-                var protocol = new SetProtocol(_engine, instance, iterator);
-                protocol.Execute();
-            }
-
-            return instance;
-        }
-
-        private sealed class SetProtocol : IteratorProtocol
-        {
-            private readonly SetInstance _instance;
-            private readonly ICallable _adder;
-
-            public SetProtocol(
-                Engine engine,
-                SetInstance instance,
-                IIterator iterator) : base(engine, iterator, 1)
-            {
-                _instance = instance;
-                var setterProperty = instance.GetProperty("add");
-
-                if (setterProperty is null
-                    || !setterProperty.TryGetValue(instance, out var setterValue)
-                    || (_adder = setterValue as ICallable) is null)
+                var adderValue = set.Get("add");
+                if (!(adderValue is ICallable adder))
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "add must be callable");
+                    return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "add must be callable");
+                }
+
+                var iterable = arguments.At(0).GetIterator(_engine);
+
+                try
+                {
+                    var args = new JsValue[1];
+                    do
+                    {
+                        if (!iterable.TryIteratorStep(out var next))
+                        {
+                            return set;
+                        }
+
+                        next.TryGetValue(CommonProperties.Value, out var nextValue);
+                        args[0] = nextValue;
+                        adder.Call(set, args);
+                    } while (true);
+                }
+                catch
+                {
+                    iterable.Close(CompletionType.Throw);
+                    throw;
                 }
             }
 
-            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
-            {
-                args[0] = ExtractValueFromIteratorInstance(currentValue);
-                _adder.Call(_instance, args);
-            }
+            return set;
         }
     }
 }
