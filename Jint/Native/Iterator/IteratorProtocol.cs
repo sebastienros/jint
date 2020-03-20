@@ -23,15 +23,17 @@ namespace Jint.Native.Iterator
             _argCount = argCount;
         }
 
-        internal void Execute()
+        internal bool Execute()
         {
             var args = _engine._jsValueArrayPool.RentArray(_argCount);
+            var done = false;
             try
             {
                 do
                 {
                     if (!_iterator.TryIteratorStep(out var item))
                     {
+                        done = true;
                         break;
                     }
 
@@ -54,6 +56,7 @@ namespace Jint.Native.Iterator
             }
 
             IterationEnd();
+            return done;
         }
 
         protected void IteratorClose(CompletionType completionType)

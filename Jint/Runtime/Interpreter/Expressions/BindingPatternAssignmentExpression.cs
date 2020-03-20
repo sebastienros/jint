@@ -115,10 +115,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            if (!ConsumeFromIterator(iterator, out value, out done))
-                            {
-                                break;
-                            }
+                            ConsumeFromIterator(iterator, out value, out done);
                         }
 
                         AssignToReference(engine, reference, value);
@@ -162,7 +159,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             close = false;
                             array = engine.Array.ConstructFast(0);
                             var protocol = new ArrayConstructor.ArrayProtocol(engine, obj, array, iterator, null);
-                            protocol.Execute();
+                            done = protocol.Execute();
                         }
 
                         if (restElement.Argument is Identifier leftIdentifier)
