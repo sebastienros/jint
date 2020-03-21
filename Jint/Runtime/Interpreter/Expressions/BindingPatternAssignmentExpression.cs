@@ -78,15 +78,27 @@ namespace Jint.Runtime.Interpreter.Expressions
             var completionType = CompletionType.Normal;
             var close = false;
             var done = false;
+            uint i = 0;
             try
             {
-                for (uint i = 0; i < pattern.Elements.Count; i++)
+                for (; i < pattern.Elements.Count; i++)
                 {
                     var left = pattern.Elements[(int) i];
 
                     if (left is null)
                     {
-                        // skip
+                        if (arrayOperations != null)
+                        {
+                            arrayOperations.TryGetValue(i, out _);
+                        }
+                        else
+                        {
+                            if (!ConsumeFromIterator(iterator, out _, out done))
+                            {
+                                break;
+                            }
+                        }
+                        // skip assignment
                         continue;
                     }
                 
@@ -139,6 +151,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else if (left is RestElement restElement)
                     {
+                        close = true;
                         Reference reference = null; 
                         if (restElement.Argument is MemberExpression memberExpression)
                         {
@@ -160,6 +173,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             array = engine.Array.ConstructFast(0);
                             uint index = 0;
+                            done = true;
                             do
                             {
                                 if (!iterator.TryIteratorStep(out var item))
@@ -235,6 +249,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             catch
             {
                 completionType = CompletionType.Throw;
+                close = true;
                 throw;
             }
             finally
