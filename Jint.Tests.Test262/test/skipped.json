@@ -1,5 +1,9 @@
 [
   {
+    "source": "language/expressions/assignment/fn-name-lhs-cover.js",
+    "reason": "Currently quite impossible to detect if assignment target is CoverParenthesizedExpression"
+  },
+  {
     "source": "built-ins/RegExp/character-class-escape-non-whitespace.js",
     "reason": "Unicode support not built-in to .NET the same way, requires more work"
   },

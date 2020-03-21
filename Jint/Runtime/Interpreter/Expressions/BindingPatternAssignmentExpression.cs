@@ -75,6 +75,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
+            var completionType = CompletionType.Normal;
             var close = false;
             var done = false;
             try
@@ -103,10 +104,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                                 break;
                             }
                         }
-                        AssignToIdentifier(engine, identifier.Name, value);
+                        AssignToIdentifier(engine, identifier.Name, value, checkReference: false);
                     }
                     else if (left is MemberExpression me)
                     {
+                        close = true;
                         var reference = GetReferenceFromMember(engine, me);
                         JsValue value;
                         if (arrayOperations != null)
@@ -164,7 +166,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         if (restElement.Argument is Identifier leftIdentifier)
                         {
-                            AssignToIdentifier(engine, leftIdentifier.Name, array);
+                            AssignToIdentifier(engine, leftIdentifier.Name, array, checkReference: false);
                         }
                         else if (restElement.Argument is BindingPattern bp)
                         {
@@ -202,7 +204,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                                 ((FunctionInstance) value).SetFunctionName(new JsString(leftIdentifier.Name));
                             }
 
-                            AssignToIdentifier(engine, leftIdentifier.Name, value);
+                            AssignToIdentifier(engine, leftIdentifier.Name, value, checkReference: false);
                         }
                         else if (assignmentPattern.Left is BindingPattern bp)
                         {
@@ -219,11 +221,16 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 close = true;
             }
+            catch
+            {
+                completionType = CompletionType.Throw;
+                throw;
+            }
             finally
             {
                 if (close && !done)
                 {
-                    iterator?.Close(CompletionType.Normal);
+                    iterator?.Close(completionType);
                 }
             }
         }
@@ -274,7 +281,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             ((FunctionInstance) value).SetFunctionName(target.Name);
                         }
 
-                        AssignToIdentifier(engine, target.Name, value);
+                        AssignToIdentifier(engine, target.Name, value, checkReference: false);
                     }
                     else if (p.Value is BindingPattern bindingPattern)
                     {
@@ -288,7 +295,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     else
                     {
                         var target = p.Value as Identifier ?? identifier;
-                        AssignToIdentifier(engine, target.Name, value);
+                        AssignToIdentifier(engine, target.Name, value, checkReference: false);
                     }
                 }
                 else
@@ -299,7 +306,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         var count = Math.Max(0, source.Properties?.Count ?? 0) - processedProperties.Count;
                         var rest = engine.Object.Construct(count);
                         source.CopyDataProperties(rest, processedProperties);
-                        AssignToIdentifier(engine, leftIdentifier.Name, rest);
+                        AssignToIdentifier(engine, leftIdentifier.Name, rest, checkReference: false);
                     }
                     else if (restElement.Argument is BindingPattern bp)
                     {
@@ -337,7 +344,8 @@ namespace Jint.Runtime.Interpreter.Expressions
         private static void AssignToIdentifier(
             Engine engine,
             string name,
-            JsValue rval)
+            JsValue rval,
+            bool checkReference)
         {
             var env = engine.ExecutionContext.LexicalEnvironment;
 
@@ -353,6 +361,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else
             {
+                if (checkReference && strict)
+                {
+                    ExceptionHelper.ThrowReferenceError<Reference>(engine);
+                }
                 env._record.CreateMutableBinding(name, rval);
             }
         }
