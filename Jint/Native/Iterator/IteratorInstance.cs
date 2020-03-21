@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -332,7 +333,18 @@ namespace Jint.Native.Iterator
                     return;
                 }
 
-                var innerResult = ((ICallable) func).Call(_target, Arguments.Empty);
+                var innerResult = Undefined;
+                try
+                {
+                    innerResult = ((ICallable) func).Call(_target, Arguments.Empty);
+                }
+                catch
+                {
+                    if (completion != CompletionType.Throw)
+                    {
+                        throw;
+                    }
+                }
                 if (completion != CompletionType.Throw && !innerResult.IsObject())
                 {
                     ExceptionHelper.ThrowTypeError(_target.Engine);

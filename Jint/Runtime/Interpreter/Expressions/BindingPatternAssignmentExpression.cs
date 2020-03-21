@@ -158,10 +158,21 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            close = false;
                             array = engine.Array.ConstructFast(0);
-                            var protocol = new ArrayConstructor.ArrayProtocol(engine, obj, array, iterator, null);
-                            done = protocol.Execute();
+                            uint index = 0;
+                            do
+                            {
+                                if (!iterator.TryIteratorStep(out var item))
+                                {
+                                    done = true;
+                                    break;
+                                }
+
+                                item.TryGetValue(CommonProperties.Value, out var value);
+                                array.SetIndexValue(index++, value, updateLength: false);
+                            } while (true);
+
+                            array.SetLength(index);
                         }
 
                         if (restElement.Argument is Identifier leftIdentifier)
@@ -294,8 +305,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else
                     {
-                        var target = p.Value as Identifier ?? identifier;
-                        AssignToIdentifier(engine, target.Name, value, checkReference: false);
+                        var identifierReference = p.Value as Identifier;
+                        var target = identifierReference ?? identifier;
+                        AssignToIdentifier(engine, target.Name, value, false);
                     }
                 }
                 else
