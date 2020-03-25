@@ -148,7 +148,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            close = false;
                             iterator.TryIteratorStep(out var temp);
                             value = temp;
                         }
@@ -254,7 +253,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             catch
             {
                 completionType = CompletionType.Throw;
-                close = true;
                 throw;
             }
             finally
@@ -279,7 +277,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     JsValue sourceKey;
                     var identifier = p.Key as Identifier;
-                    if (identifier == null)
+                    if (identifier == null || p.Computed)
                     {
                         var keyExpression = Build(engine, p.Key);
                         sourceKey = TypeConverter.ToPropertyKey(keyExpression.GetValue());
@@ -290,9 +288,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     processedProperties?.Add(sourceKey.AsStringWithoutTypeCheck());
-                    source.TryGetValue(sourceKey, out var value);
                     if (p.Value is AssignmentPattern assignmentPattern)
                     {
+                        source.TryGetValue(sourceKey, out var value);
                         if (value.IsUndefined() && assignmentPattern.Right is Expression expression)
                         {
                             var jintExpression = Build(engine, expression);
@@ -316,17 +314,20 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else if (p.Value is BindingPattern bindingPattern)
                     {
+                        source.TryGetValue(sourceKey, out var value);
                         ProcessPatterns(engine, bindingPattern, value, checkReference);
                     }
                     else if (p.Value is MemberExpression memberExpression)
                     {
                         var reference = GetReferenceFromMember(engine, memberExpression);
+                        source.TryGetValue(sourceKey, out var value);
                         AssignToReference(engine, reference, value);
                     }
                     else
                     {
                         var identifierReference = p.Value as Identifier;
                         var target = identifierReference ?? identifier;
+                        source.TryGetValue(sourceKey, out var value);
                         AssignToIdentifier(engine, target.Name, value, checkReference);
                     }
                 }
