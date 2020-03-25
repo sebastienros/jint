@@ -464,7 +464,7 @@ namespace Jint.Runtime.Environments
                 if (_index >= 0)
                 {
                     _instance.SetLength((uint) _index);
-                    ReturnIterator();
+                    IteratorClose(CompletionType.Normal);
                 }
             }
         }

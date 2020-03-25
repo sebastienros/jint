@@ -23,16 +23,17 @@ namespace Jint.Native.Iterator
             _argCount = argCount;
         }
 
-        internal void Execute()
+        internal bool Execute()
         {
             var args = _engine._jsValueArrayPool.RentArray(_argCount);
+            var done = false;
             try
             {
                 do
                 {
-                    var item = _iterator.Next();
-                    if (item.TryGetValue(CommonProperties.Done, out var done) && done.AsBoolean())
+                    if (!_iterator.TryIteratorStep(out var item))
                     {
+                        done = true;
                         break;
                     }
 
@@ -46,7 +47,7 @@ namespace Jint.Native.Iterator
             }
             catch
             {
-                ReturnIterator();
+                IteratorClose(CompletionType.Throw);
                 throw;
             }
             finally
@@ -55,11 +56,12 @@ namespace Jint.Native.Iterator
             }
 
             IterationEnd();
+            return done;
         }
 
-        protected void ReturnIterator()
+        protected void IteratorClose(CompletionType completionType)
         {
-            _iterator.Return();
+            _iterator.Close(completionType);
         }
 
         protected virtual bool ShouldContinue => true;
@@ -91,30 +93,26 @@ namespace Jint.Native.Iterator
         {
             if (!(adder is ICallable callable))
             {
-                ExceptionHelper.ThrowTypeError(target.Engine, "set must be callable");
+                ExceptionHelper.ThrowTypeError(target.Engine, "adder must be callable");
                 return;
             }
 
-            var close = false;
             var args = target.Engine._jsValueArrayPool.RentArray(2);
+
+            var skipClose = true;
             try
             {
                 do
                 {
-                    var item = iterable.Next();
-                    if (item.TryGetValue(CommonProperties.Done, out var done) && done.AsBoolean())
+                    if (!iterable.TryIteratorStep(out var nextItem))
                     {
-                        close = true;
-                        break;
+                        return;
                     }
 
-                    if (!item.TryGetValue(CommonProperties.Value, out var currentValue))
-                    {
-                        currentValue = JsValue.Undefined;
-                    }
+                    nextItem.TryGetValue(CommonProperties.Value, out var temp);
 
-                    close = true;
-                    if (!(currentValue is ObjectInstance oi))
+                    skipClose = false;
+                    if (!(temp is ObjectInstance oi))
                     {
                         ExceptionHelper.ThrowTypeError(target.Engine, "iterator's value must be an object");
                         return;
@@ -131,9 +129,9 @@ namespace Jint.Native.Iterator
             }
             catch
             {
-                if (close)
+                if (!skipClose)
                 {
-                    iterable.Return();
+                    iterable.Close(CompletionType.Throw);
                 }
                 throw;
             }
@@ -142,6 +140,5 @@ namespace Jint.Native.Iterator
                 target.Engine._jsValueArrayPool.ReturnArray(args);
             }
         }
-
     }
 }

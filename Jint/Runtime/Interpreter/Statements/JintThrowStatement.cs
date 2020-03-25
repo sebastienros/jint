@@ -8,11 +8,16 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintThrowStatement : JintStatement<ThrowStatement>
     {
-        private readonly JintExpression _argument;
+        private JintExpression _argument;
 
         public JintThrowStatement(Engine engine, ThrowStatement statement) : base(engine, statement)
         {
-            _argument = JintExpression.Build(engine, _statement.Argument);
+            _initialized = false;
+        }
+
+        protected override void Initialize()
+        {
+            _argument = JintExpression.Build(_engine, _statement.Argument);
         }
 
         protected override Completion ExecuteInternal()

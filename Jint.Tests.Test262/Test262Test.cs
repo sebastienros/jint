@@ -195,6 +195,10 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "class keyword not implemented";
                                 break;
+                            case "const":
+                                skip = true;
+                                reason = "const keyword not implemented";
+                                break;
                             case "BigInt":
                                 skip = true;
                                 reason = "BigInt not implemented";

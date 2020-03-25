@@ -73,7 +73,8 @@ namespace Jint.Runtime.Interpreter.Statements
                         BindingPatternAssignmentExpression.ProcessPatterns(
                             _engine,
                             declaration.LeftPattern,
-                            declaration.Init.GetValue());
+                            declaration.Init.GetValue(),
+                            checkReference: false /* we are variable assignment*/);
                     }
                     else if (declaration.LeftIdentifier == null
                         || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(

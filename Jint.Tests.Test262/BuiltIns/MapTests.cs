@@ -1,6 +1,6 @@
 ﻿using Xunit;
 
-namespace Jint.Tests.Test262
+namespace Jint.Tests.Test262.BuiltIns
 {
     public class MapTests : Test262Test
     {

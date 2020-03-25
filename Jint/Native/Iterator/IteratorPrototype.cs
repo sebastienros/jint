@@ -51,7 +51,8 @@ namespace Jint.Native.Iterator
                 return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
             }
 
-            return iterator.Next();
+            iterator.TryIteratorStep(out var result);
+            return result;
         }
     }
 }

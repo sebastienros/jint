@@ -1,5 +1,9 @@
 [
   {
+    "source": "language/expressions/assignment/fn-name-lhs-cover.js",
+    "reason": "Currently quite impossible to detect if assignment target is CoverParenthesizedExpression"
+  },
+  {
     "source": "built-ins/RegExp/character-class-escape-non-whitespace.js",
     "reason": "Unicode support not built-in to .NET the same way, requires more work"
   },
@@ -360,6 +364,10 @@
     "reason": "const not implemented"
   },
   {
+    "source": "language/expressions/assignment/dstr-obj-rest-put-const.js",
+    "reason": "const not implemented"
+  },
+  {
     "source": "language/expressions/template-literal/tv-line-terminator-sequence.js",
     "reason": "Line feed problems (git, windows, linux)"
   },
@@ -383,6 +391,18 @@
   },
 
   // let support
+  {
+    "source": "language/expressions/assignment/dstr-array-rest-nested-obj-undefined-own.js",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/assignment/dstr-array-rest-nested-obj-undefined.js",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/expressions/assignment/dstr-array-rest-nested-obj-undefined-hole.js",
+    "reason": "let not implemented"
+  },
   {
     "source": "language/statements/for/dstr-const-ary-ptrn-rest-obj-prop-id.js",
     "reason": "let not implemented"
@@ -858,6 +878,10 @@
   },
   {
     "source": "language/expressions/object/let-non-strict-syntax.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/expressions/assignment/dstr-obj-id-identifier-yield-ident-valid.js",
     "reason": "Esprima problem"
   },
 ]
