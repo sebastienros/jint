@@ -129,56 +129,18 @@ namespace Jint
             return this;
         }
 
-        public Options MaxStatements(int maxStatements = 0)
-        {
-            _constraints.RemoveAll(x => x is MaxStatements);
-            
-            if (maxStatements > 0 && maxStatements < int.MaxValue)
-            {
-                _constraints.Add(new MaxStatements(maxStatements));
-            }
-            return this;
-        }
-
-        public Options LimitMemory(long memoryLimit)
-        {
-            _constraints.RemoveAll(x => x is MemoryLimit);
-
-            if (memoryLimit > 0 && memoryLimit < int.MaxValue)
-            {
-                _constraints.Add(new MemoryLimit(memoryLimit));
-            }
-            return this;
-        }
-
-        public Options TimeoutInterval(TimeSpan timeoutInterval)
-        {
-            _constraints.RemoveAll(x => x is TimeConstraint);
-
-            if (timeoutInterval > TimeSpan.Zero && timeoutInterval < TimeSpan.MaxValue)
-            {
-                _constraints.Add(new TimeConstraint2(timeoutInterval));
-            }
-            return this;
-        }
-
-        public Options CancellationToken(CancellationToken cancellationToken)
-        {
-            _constraints.RemoveAll(x => x is CancellationConstraint);
-
-            if (cancellationToken != default)
-            {
-                _constraints.Add(new CancellationConstraint(cancellationToken));
-            }
-            return this;
-        }
-
         public Options Constraint(IConstraint constraint)
         {
             if (constraint != null)
             {
                 _constraints.Add(constraint);
             }
+            return this;
+        }
+
+        public Options WithoutConstraint(Predicate<IConstraint> predicate)
+        {
+            _constraints.RemoveAll(predicate);
             return this;
         }
 
