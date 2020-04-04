@@ -57,9 +57,6 @@ namespace Jint
 
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
-        private int _statementsCount;
-        private long _initialMemoryUsage;
-        private long _timeoutTicks;
         internal INode _lastSyntaxNode;
 
         // lazy properties
@@ -74,11 +71,9 @@ namespace Jint
         private List<BreakPoint> _breakPoints;
 
         // cached access
+        private readonly List<IConstraint> _constraints;
         private readonly bool _isDebugMode;
         internal readonly bool _isStrict;
-        private readonly int _maxStatements;
-        private readonly long _memoryLimit;
-        internal readonly bool _runBeforeStatementChecks;
         internal readonly IReferenceResolver _referenceResolver;
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
@@ -152,16 +147,6 @@ namespace Jint
 
         internal readonly JintCallStack CallStack = new JintCallStack();
 
-        static Engine()
-        {
-            var methodInfo = typeof(GC).GetMethod("GetAllocatedBytesForCurrentThread");
-
-            if (methodInfo != null)
-            {
-                GetAllocatedBytesForCurrentThread =  (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), null, methodInfo);
-            }
-        }
-
         public Engine() : this(null)
         {
         }
@@ -216,13 +201,8 @@ namespace Jint
             // gather some options as fields for faster checks
             _isDebugMode = Options.IsDebugMode;
             _isStrict = Options.IsStrict;
-            _maxStatements = Options._MaxStatements;
+            _constraints = Options._Constraints;
             _referenceResolver = Options.ReferenceResolver;
-            _memoryLimit = Options._MemoryLimit;
-            _runBeforeStatementChecks = (_maxStatements > 0 &&_maxStatements < int.MaxValue)
-                                        || Options._TimeoutInterval.Ticks > 0
-                                        || _memoryLimit > 0
-                                        || _isDebugMode;
 
             _referencePool = new ReferencePool();
             _argumentsInstancePool = new ArgumentsInstancePool(this);
@@ -304,8 +284,6 @@ namespace Jint
         }
         #endregion
 
-        private static readonly Func<long> GetAllocatedBytesForCurrentThread;
-
         public void EnterExecutionContext(
             LexicalEnvironment lexicalEnvironment,
             LexicalEnvironment variableEnvironment,
@@ -364,23 +342,12 @@ namespace Jint
         /// <summary>
         /// Initializes the statements count
         /// </summary>
-        public void ResetStatementsCount()
+        public void ResetConstraints()
         {
-            _statementsCount = 0;
-        }
-
-        public void ResetMemoryUsage()
-        {
-            if (GetAllocatedBytesForCurrentThread != null)
+            for (var i = 0; i < _constraints.Count; i++)
             {
-                _initialMemoryUsage = GetAllocatedBytesForCurrentThread();
+                _constraints[i].Reset();
             }
-        }
-
-        public void ResetTimeoutTicks()
-        {
-            var timeoutIntervalTicks = Options._TimeoutInterval.Ticks;
-            _timeoutTicks = timeoutIntervalTicks > 0 ? DateTime.UtcNow.Ticks + timeoutIntervalTicks : 0;
         }
 
         /// <summary>
@@ -404,14 +371,7 @@ namespace Jint
 
         public Engine Execute(Script program)
         {
-            ResetStatementsCount();
-
-            if (_memoryLimit > 0)
-            {
-                ResetMemoryUsage();
-            }
-
-            ResetTimeoutTicks();
+            ResetConstraints();
             ResetLastStatement();
             ResetCallStack();
 
@@ -452,30 +412,10 @@ namespace Jint
 
         internal void RunBeforeExecuteStatementChecks(Statement statement)
         {
-            if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
+            // Avoid allocating the enumerator because we run this loop very often.
+            for (var i = 0; i < _constraints.Count; i++)
             {
-                ExceptionHelper.ThrowStatementsCountOverflowException();
-            }
-
-            if (_timeoutTicks > 0 && _timeoutTicks < DateTime.UtcNow.Ticks)
-            {
-                ExceptionHelper.ThrowTimeoutException();
-            }
-
-            if (_memoryLimit > 0)
-            {
-                if (GetAllocatedBytesForCurrentThread != null)
-                {
-                    CurrentMemoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
-                    if (CurrentMemoryUsage > _memoryLimit)
-                    {
-                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {CurrentMemoryUsage} but is limited to {_memoryLimit}");
-                    }
-                }
-                else
-                {
-                    ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
-                }
+                _constraints[i].Check();
             }
 
             if (_isDebugMode)
