@@ -42,7 +42,7 @@ deploy:
       branch: rel/3.0-beta
     server: https://www.nuget.org/api/v2/package
     api_key:
-      secure: afBcTXCXlelAScAZiDD3rOM/CmOMtdrW4fXKWeS7/bFfKN0AFmxyp3TUX5OM3haf
+      secure: yZBBCLlJTphpHCezRUxyDny1mBbDw7xFG/2Rwt21A8khKp6KJCxFEYx4k9IihOjO
     skip_symbols: true
     artifact: /.*\.nupkg/  
   - provider: NuGet
@@ -50,6 +50,6 @@ deploy:
       branch: master
     server: https://www.nuget.org/api/v2/package
     api_key:
-      secure: afBcTXCXlelAScAZiDD3rOM/CmOMtdrW4fXKWeS7/bFfKN0AFmxyp3TUX5OM3haf
+      secure: yZBBCLlJTphpHCezRUxyDny1mBbDw7xFG/2Rwt21A8khKp6KJCxFEYx4k9IihOjO
     skip_symbols: true
     artifact: /.*\.nupkg/
