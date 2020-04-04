@@ -46,12 +46,6 @@ namespace Jint.Runtime.Descriptors.Specialized
                 }
             }
 
-            // throw if no indexer found
-            if (_indexer == null)
-            {
-                ExceptionHelper.ThrowInvalidOperationException("No matching indexer found.");
-            }
-
             Writable = engine.Options._IsClrWriteAllowed;
         }
 
@@ -64,6 +58,11 @@ namespace Jint.Runtime.Descriptors.Specialized
         {
             get
             {
+                if (_indexer == null)
+                {
+                    return JsValue.Undefined;
+                }
+
                 var getter = _indexer.GetGetMethod();
 
                 if (getter == null)
@@ -93,6 +92,11 @@ namespace Jint.Runtime.Descriptors.Specialized
 
             set
             {
+                if (_indexer == null)
+                {
+                    return;
+                }
+
                 var setter = _indexer.GetSetMethod();
                 if (setter == null)
                 {

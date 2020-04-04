@@ -52,6 +52,11 @@ namespace Jint.Runtime.Interop
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
+            if (property.IsSymbol())
+            {
+                return PropertyDescriptor.Undefined;
+            }
+
             if (TryGetProperty(property, out var x))
             {
                 return x;
