@@ -386,7 +386,9 @@ namespace Jint
         internal Engine Execute(Script program, bool threadLock)
         {
             if (threadLock)
+            {
                 _threadLock.Wait();
+            }
 
             try
             {
@@ -416,7 +418,9 @@ namespace Jint
             finally
             {
                 if (threadLock)
+                {
                     _threadLock.Release();
+                }
             }
 
             return this;
@@ -439,7 +443,7 @@ namespace Jint
 
             if (startContinuationsTask)
             {
-                Task.Run(async () =>
+                Task.Factory.StartNew(async () =>
                 {
                     while (true)
                     {
