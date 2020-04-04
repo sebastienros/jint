@@ -490,6 +490,8 @@ namespace Jint.Runtime
                     return Null.Text;
                 case InternalTypes.Object when o is IPrimitiveInstance p:
                     return ToString(ToPrimitive(p.PrimitiveValue, Types.String));
+                case InternalTypes.Object when o is Interop.IObjectWrapper p:
+                    return p.Target?.ToString();
                 default:
                     return ToString(ToPrimitive(o, Types.String));
             }

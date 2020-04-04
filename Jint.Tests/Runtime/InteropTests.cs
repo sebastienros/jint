@@ -1946,5 +1946,19 @@ namespace Jint.Tests.Runtime
             engine.Execute("P.Name += 'c';");
             Assert.Equal("bc", p.Name);
         }
+
+        [Fact]
+        public void ShouldNotResolvetoPrimitiveSymbol()
+        {
+            var engine = new Engine(options => 
+                options.AllowClr(typeof(FloatIndexer).GetTypeInfo().Assembly));
+            var c = engine.Execute(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                return new domain.FloatIndexer();
+            ").GetCompletionValue();
+
+            Assert.NotNull(c.ToString());
+            Assert.Equal((uint)0, c.As<ObjectInstance>().Length);
+        }
     }
 }
