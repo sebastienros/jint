@@ -4,7 +4,7 @@ namespace Jint.Tests.Test262.Language.Statements
 {
     public class ForOfTests : Test262Test
     {
-        [Theory(Skip = "for of not implemented", DisplayName = "language\\statements\\for-of")]
+        [Theory(DisplayName = "language\\statements\\for-of")]
         [MemberData(nameof(SourceFiles), "language\\statements\\for-of", false)]
         [MemberData(nameof(SourceFiles), "language\\statements\\for-of", true, Skip = "Skipped")]
         protected void ForOf(SourceFile sourceFile)

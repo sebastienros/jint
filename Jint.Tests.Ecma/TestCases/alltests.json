@@ -6855,18 +6855,18 @@
     source: "ch10/10.6/10.6-13-a-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller has been deprecated",
     source: "ch10/10.6/10.6-13-b-1-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller has been deprecated",
     source: "ch10/10.6/10.6-13-b-2-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller has been deprecated",
     source: "ch10/10.6/10.6-13-b-3-s.js"
   },
   {
@@ -6885,18 +6885,18 @@
     source: "ch10/10.6/10.6-13-c-3-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller has been deprecated",
     source: "ch10/10.6/10.6-14-1-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller has been deprecated",
     source: "ch10/10.6/10.6-14-b-1-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller has been deprecated",
     source: "ch10/10.6/10.6-14-b-4-s.js"
   },
   {
@@ -17295,8 +17295,8 @@
     source: "ch13/13.2/S13.2.2_A9.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller has been deprecated",
     source: "ch13/13.2/S13.2.3_A1.js"
   },
   {

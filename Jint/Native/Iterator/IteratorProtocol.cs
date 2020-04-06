@@ -37,10 +37,7 @@ namespace Jint.Native.Iterator
                         break;
                     }
 
-                    if (!item.TryGetValue(CommonProperties.Value, out var currentValue))
-                    {
-                        currentValue = JsValue.Undefined;
-                    }
+                    var currentValue = item.Get(CommonProperties.Value);
 
                     ProcessItem(args, currentValue);
                 } while (ShouldContinue);
@@ -109,7 +106,7 @@ namespace Jint.Native.Iterator
                         return;
                     }
 
-                    nextItem.TryGetValue(CommonProperties.Value, out var temp);
+                    var temp = nextItem.Get(CommonProperties.Value);
 
                     skipClose = false;
                     if (!(temp is ObjectInstance oi))

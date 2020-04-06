@@ -2,10 +2,12 @@
 using System.Threading;
 using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Argument
 {
@@ -85,14 +87,17 @@ namespace Jint.Native.Argument
             // step 13
             if (!_strict)
             {
-                SetOwnProperty(CommonProperties.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
+                DefinePropertyOrThrow(CommonProperties.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
             }
             // step 14
             else
             {
-                DefineOwnProperty(CommonProperties.Caller, _engine._getSetThrower);
-                DefineOwnProperty(CommonProperties.Callee, _engine._getSetThrower);
+                DefinePropertyOrThrow(CommonProperties.Caller, _engine._getSetThrower);
+                DefinePropertyOrThrow(CommonProperties.Callee, _engine._getSetThrower);
             }
+
+            var iteratorFunction = new ClrFunctionInstance(Engine, "iterator", _engine.Array.PrototypeObject.Values, 0, PropertyFlag.Configurable);
+            DefinePropertyOrThrow(GlobalSymbolRegistry.Iterator, new PropertyDescriptor(iteratorFunction, PropertyFlag.Writable | PropertyFlag.Configurable));
         }
 
         public ObjectInstance ParameterMap { get; set; }

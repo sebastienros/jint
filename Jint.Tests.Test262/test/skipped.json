@@ -368,6 +368,42 @@
     "reason": "const not implemented"
   },
   {
+    "source": "language/statements/for-of/dstr-obj-rest-put-const.js",
+    "reason": "const not implemented"
+  },
+  {
+    "source": "language/statements/for-of/head-const-bound-names-fordecl-tdz.js",
+    "reason": "const not implemented"
+  },
+  {
+    "source": "language/statements/for-of/head-const-fresh-binding-per-iteration.js",
+    "reason": "const not implemented"
+  },
+  {
+    "source": "language/statements/for-of/dstr-const-ary-ptrn-rest-obj-prop-id.js",
+    "reason": "const not implemented"
+  },
+  {
+    "source": "language/statements/for-of/head-let-bound-names-fordecl-tdz.js",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/statements/for-of/head-let-destructuring.js",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/statements/for-of/head-let-fresh-binding-per-iteration.js",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/statements/for-of/dstr-let-ary-ptrn-rest-obj-prop-id.js",
+    "reason": "let not implemented"
+  },
+  {
+    "source": "language/statements/for-of/dstr-var-ary-ptrn-rest-obj-prop-id.js",
+    "reason": "let not implemented"
+  },
+  {
     "source": "language/expressions/template-literal/tv-line-terminator-sequence.js",
     "reason": "Line feed problems (git, windows, linux)"
   },
@@ -741,6 +777,30 @@
     "source": "language/expressions/object/method-definition/name-prototype-prop.js",
     "reason": "class not implemented"
   },
+  {
+    "source": "language/statements/for-of/dstr-const-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/for-of/dstr-const-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/for-of/dstr-let-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/for-of/dstr-let-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/for-of/dstr-var-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/for-of/dstr-var-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
 
 
   {
@@ -882,6 +942,10 @@
   },
   {
     "source": "language/expressions/assignment/dstr-obj-id-identifier-yield-ident-valid.js",
+    "reason": "Esprima problem"
+  },
+  {
+    "source": "language/statements/for-of/dstr-obj-id-identifier-yield-ident-valid.js",
     "reason": "Esprima problem"
   },
 ]

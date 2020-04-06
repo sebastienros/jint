@@ -106,8 +106,8 @@ namespace Jint.Native.Array
 
             return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "cannot construct iterator");
         }
-        
-        private ObjectInstance Values(JsValue thisObj, JsValue[] arguments)
+
+        internal ObjectInstance Values(JsValue thisObj, JsValue[] arguments)
         {
             if (thisObj is ObjectInstance oi && oi.IsArrayLike)
             {
