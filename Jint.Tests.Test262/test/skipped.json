@@ -400,6 +400,10 @@
     "reason": "let not implemented"
   },
   {
+    "source": "language/statements/for-of/dstr-var-ary-ptrn-rest-obj-prop-id.js",
+    "reason": "let not implemented"
+  },
+  {
     "source": "language/expressions/template-literal/tv-line-terminator-sequence.js",
     "reason": "Line feed problems (git, windows, linux)"
   },

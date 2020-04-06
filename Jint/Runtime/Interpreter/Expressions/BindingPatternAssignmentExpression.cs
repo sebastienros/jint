@@ -186,7 +186,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                                     break;
                                 }
 
-                                item.TryGetValue(CommonProperties.Value, out var value);
+                                var value = item.Get(CommonProperties.Value);
                                 array.SetIndexValue(index++, value, updateLength: false);
                             } while (true);
 
@@ -199,7 +199,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else if (restElement.Argument is BindingPattern bp)
                         {
-                            ProcessPatterns(engine, bp, array, checkReference);
+                            ProcessPatterns(engine, bp, array, checkReference: false);
                         }                    
                         else
                         {

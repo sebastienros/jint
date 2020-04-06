@@ -64,15 +64,14 @@ namespace Jint.Runtime.Interpreter.Statements
                     v = stmt.Value;
                 }
 
-                var stmtType = stmt.Type;
-                if (stmtType == CompletionType.Break && (stmt.Identifier == null || stmt.Identifier == _statement?.LabelSet?.Name))
+                if (stmt.Type == CompletionType.Break && (stmt.Identifier == null || stmt.Identifier == _statement?.LabelSet?.Name))
                 {
                     return new Completion(CompletionType.Normal, stmt.Value, null, Location);
                 }
 
-                if (stmtType != CompletionType.Continue || ((stmt.Identifier != null) && stmt.Identifier != _statement?.LabelSet?.Name))
+                if (stmt.Type != CompletionType.Continue || ((stmt.Identifier != null) && stmt.Identifier != _statement?.LabelSet?.Name))
                 {
-                    if (stmtType != CompletionType.Normal)
+                    if (stmt.Type != CompletionType.Normal)
                     {
                         return stmt;
                     }

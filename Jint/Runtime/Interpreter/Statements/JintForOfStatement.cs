@@ -56,7 +56,6 @@ namespace Jint.Runtime.Interpreter.Statements
             if (!(experValue is IIterator iterator))
             {
                 var obj = TypeConverter.ToObject(_engine, experValue);
-
                 obj.TryGetIterator(_engine, out iterator);
             }
 
@@ -65,6 +64,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 return ExceptionHelper.ThrowTypeError<Completion>(_engine, _identifier + " is not iterable");
             }
 
+            var completionType = CompletionType.Normal;
             var v = JsValue.Undefined;
             var close = false;
             try
@@ -72,17 +72,15 @@ namespace Jint.Runtime.Interpreter.Statements
                 do
                 {
                     iterator.TryIteratorStep(out var item);
-                    if (item.TryGetValue("done", out var done) && TypeConverter.ToBoolean(done))
+                    var done = item.Get(CommonProperties.Done);
+                    if (TypeConverter.ToBoolean(done))
                     {
                         // we can close after checks pass
                         close = true;
                         break;
                     }
 
-                    if (!item.TryGetValue("value", out var currentValue))
-                    {
-                        currentValue = JsValue.Undefined;
-                    }
+                    var currentValue = item.Get(CommonProperties.Value);
 
                     // we can close after checks pass
                     close = true;
@@ -93,7 +91,7 @@ namespace Jint.Runtime.Interpreter.Statements
                             _engine,
                             _leftPattern,
                             currentValue,
-                            false /* we are doing assignment */);
+                            checkReference: !(_statement.Left is VariableDeclaration));
                     }
                     else
                     {
@@ -108,25 +106,31 @@ namespace Jint.Runtime.Interpreter.Statements
                         v = stmt.Value;
                     }
 
-                    if (stmt.Type == CompletionType.Break)
+                    if (stmt.Type == CompletionType.Break && (stmt.Identifier == null || stmt.Identifier == _statement?.LabelSet?.Name))
                     {
-                        return new Completion(CompletionType.Normal, v, null, Location);
+                        return new Completion(CompletionType.Normal, stmt.Value, null, Location);
                     }
 
-                    if (stmt.Type != CompletionType.Continue)
+                    if (stmt.Type != CompletionType.Continue || ((stmt.Identifier != null) && stmt.Identifier != _statement?.LabelSet?.Name))
                     {
                         if (stmt.Type != CompletionType.Normal)
                         {
                             return stmt;
                         }
                     }
+                    
                 } while (true);
             }
+            catch
+            {
+                completionType = CompletionType.Throw;
+                throw;
+            }   
             finally
             {
                 if (close)
                 {
-                    iterator.Close(CompletionType.Normal);
+                    iterator.Close(completionType);
                 }
             }
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 using Jint.Native.Array;
@@ -311,7 +312,7 @@ namespace Jint.Native.Iterator
             {
                 result = IteratorNext();
 
-                if (result.TryGetValue(CommonProperties.Done, out var done) && done.AsBoolean())
+                if (result.TryGetValue(CommonProperties.Done, out var done) && TypeConverter.ToBoolean(done))
                 {
                     return false;
                 }
@@ -353,26 +354,21 @@ namespace Jint.Native.Iterator
 
         internal class StringIterator : IteratorInstance
         {
-            private readonly string _str;
-            private int _position;
-            private bool _closed;
+            private readonly TextElementEnumerator _iterator;
 
             public StringIterator(Engine engine, string str) : base(engine)
             {
-                _str = str;
-                _position = 0;
+                _iterator = StringInfo.GetTextElementEnumerator(str);
             }
 
             public override bool TryIteratorStep(out ObjectInstance nextItem)
             {
-                var length = _str.Length;
-                if (!_closed && _position < length)
+                if (_iterator.MoveNext())
                 {
-                    nextItem = new ValueIteratorPosition(_engine, _str[_position++]);
+                    nextItem = new ValueIteratorPosition(_engine, (string) _iterator.Current);
                     return true;
                 }
 
-                _closed = true;
                 nextItem = KeyValueIteratorPosition.Done;
                 return false;
             }
