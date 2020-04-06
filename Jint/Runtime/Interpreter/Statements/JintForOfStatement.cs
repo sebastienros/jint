@@ -11,14 +11,18 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintForOfStatement : JintStatement<ForOfStatement>
     {
-        private readonly JintExpression _identifier;
-        private readonly BindingPattern _leftPattern;
+        private JintStatement _body;
+        private JintExpression _identifier;
+        private BindingPattern _leftPattern;
 
-        private readonly JintStatement _body;
-
-        private readonly JintExpression _right;
+        private JintExpression _right;
 
         public JintForOfStatement(Engine engine, ForOfStatement statement) : base(engine, statement)
+        {
+            _initialized = false;
+        }
+
+        protected override void Initialize()
         {
             if (_statement.Left is VariableDeclaration variableDeclaration)
             {
@@ -29,20 +33,20 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
                 else
                 {
-                    _identifier = JintExpression.Build(engine, (Identifier) element);
+                    _identifier = JintExpression.Build(_engine, (Identifier) element);
                 }
             }
-            else if (statement.Left is BindingPattern bindingPattern)
+            else if (_statement.Left is BindingPattern bindingPattern)
             {
                 _leftPattern = bindingPattern;
             }
             else
             {
-                _identifier = JintExpression.Build(engine, (Expression) _statement.Left);
+                _identifier = JintExpression.Build(_engine, (Expression) _statement.Left);
             }
 
-            _body = Build(engine, _statement.Body);
-            _right = JintExpression.Build(engine, statement.Right);
+            _body = Build(_engine, _statement.Body);
+            _right = JintExpression.Build(_engine, _statement.Right);
         }
 
         protected override Completion ExecuteInternal()
@@ -62,7 +66,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
 
             var v = JsValue.Undefined;
-            bool close = false;
+            var close = false;
             try
             {
                 do
@@ -79,17 +83,17 @@ namespace Jint.Runtime.Interpreter.Statements
                     {
                         currentValue = JsValue.Undefined;
                     }
-                    
+
                     // we can close after checks pass
                     close = true;
 
                     if (_leftPattern != null)
                     {
                         BindingPatternAssignmentExpression.ProcessPatterns(
-                            _engine, 
+                            _engine,
                             _leftPattern,
                             currentValue,
-                            checkReference: false /* we are doing assignment */);
+                            false /* we are doing assignment */);
                     }
                     else
                     {
@@ -116,7 +120,6 @@ namespace Jint.Runtime.Interpreter.Statements
                             return stmt;
                         }
                     }
-
                 } while (true);
             }
             finally
