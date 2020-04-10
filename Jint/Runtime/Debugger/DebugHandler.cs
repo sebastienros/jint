@@ -152,9 +152,9 @@ namespace Jint.Runtime.Debugger
                 CurrentMemoryUsage = _engine.CurrentMemoryUsage
             };
 
-            if (_engine.ExecutionContext.LexicalEnvironment != null)
+            if (_engine.ExecutionContext.VariableEnvironment != null)
             {
-                var lexicalEnvironment = _engine.ExecutionContext.LexicalEnvironment;
+                var lexicalEnvironment = _engine.ExecutionContext.VariableEnvironment;
                 info.Locals = GetLocalVariables(lexicalEnvironment);
                 info.Globals = GetGlobalVariables(lexicalEnvironment);
             }

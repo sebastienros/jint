@@ -380,7 +380,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             JsValue rval,
             bool checkReference)
         {
-            var env = engine.ExecutionContext.LexicalEnvironment;
+            var env = engine.ExecutionContext.VariableEnvironment;
 
             var strict = StrictModeScope.IsStrictModeCode;
             if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
@@ -398,7 +398,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     ExceptionHelper.ThrowReferenceError<Reference>(engine);
                 }
-                env._record.CreateMutableBinding(name, rval);
+
+                env._record.CreateMutableBinding(name, canBeDeleted: false);
+                if (!rval.IsUndefined())
+                {
+                    env._record.InitializeBinding(name, rval);
+                }
             }
         }
     }

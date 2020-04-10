@@ -179,10 +179,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else if (_arrayPattern != null)
                 {
-                    foreach (var element in _arrayPattern.Elements)
-                    {
-                        AssignToIdentifier(_engine, _leftIdentifier, _right, false);
-                    }
+                    AssignToIdentifier(_engine, _leftIdentifier, _right, false);
                 }
 
                 return rval ?? SetValue();

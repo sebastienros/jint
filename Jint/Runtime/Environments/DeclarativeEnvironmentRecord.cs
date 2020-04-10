@@ -51,15 +51,33 @@ namespace Jint.Runtime.Environments
             return success;
         }
 
-        public override void CreateMutableBinding(string name, JsValue value, bool canBeDeleted = false)
+        public override void CreateMutableBinding(string name, bool canBeDeleted)
         {
-            _dictionary[name] = new Binding(value, canBeDeleted, mutable: true);
+            _dictionary[name] = new Binding(null, canBeDeleted, mutable: true);
+        }
+        
+        public override void CreateImmutableBinding(string name, bool strict)
+        {
+            _dictionary[name] = new Binding(null, canBeDeleted: false, mutable: false);
+        }
+
+        public override void InitializeBinding(string name, JsValue value)
+        {
+            _dictionary.TryGetValue(name, out var binding);
+            _dictionary[name] = binding.ChangeValue(value);
         }
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
             var key = name;
             _dictionary.TryGetValue(key, out var binding);
+            
+            // Is it an uninitialized binding?
+            if (!binding.IsInitialized())
+            {
+                ExceptionHelper.ThrowReferenceError(_engine, name);
+            }
+            
             if (binding.Mutable)
             {
                 _dictionary[key] = binding.ChangeValue(value);
@@ -393,29 +411,6 @@ namespace Jint.Runtime.Environments
                 else
                 {
                     ExceptionHelper.ThrowTypeError(_engine, "Can't update the value of an immutable binding.");
-                }
-            }
-        }
-
-        internal void AddVariableDeclarations(ref NodeList<VariableDeclaration> variableDeclarations)
-        {
-            var variableDeclarationsCount = variableDeclarations.Count;
-            for (var i = 0; i < variableDeclarationsCount; i++)
-            {
-                var variableDeclaration = variableDeclarations[i];
-                var declarationsCount = variableDeclaration.Declarations.Count;
-                for (var j = 0; j < declarationsCount; j++)
-                {
-                    var d = variableDeclaration.Declarations[j];
-                    if (d.Id is Identifier id)
-                    {
-                        Key dn = id.Name;
-                        if (!ContainsKey(dn))
-                        {
-                            var binding = new Binding(Undefined, canBeDeleted: false, mutable: true);
-                            _dictionary[dn] = binding;
-                        }
-                    }
                 }
             }
         }

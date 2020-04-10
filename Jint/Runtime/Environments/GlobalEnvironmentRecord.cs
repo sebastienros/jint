@@ -44,13 +44,26 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2.2
         /// </summary>
-        public override void CreateMutableBinding(string name, JsValue value, bool configurable = false)
+        public override void CreateMutableBinding(string name, bool canBeDeleted)
         {
-            var propertyDescriptor = configurable
-                ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding)
-                : new PropertyDescriptor(value, PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
+            var propertyDescriptor = canBeDeleted
+                ? new PropertyDescriptor(null, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding)
+                : new PropertyDescriptor(null, PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
 
             _global.DefinePropertyOrThrow(name, propertyDescriptor);
+        }
+        
+        public override void CreateImmutableBinding(string name, bool strict)
+        {
+            _global.DefinePropertyOrThrow(name, new PropertyDescriptor(null, PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding));
+        }
+
+        public override void InitializeBinding(string name, JsValue value)
+        {
+            if (!_global.Set(name, value))
+            {
+                ExceptionHelper.ThrowTypeError(_engine);
+            }
         }
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)

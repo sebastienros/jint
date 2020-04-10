@@ -57,9 +57,10 @@ namespace Jint.Native.Function
                                 Engine.EnterExecutionContext(strictVarEnv, strictVarEnv, Engine.ExecutionContext.ThisBinding);
                             }
 
+                            var hoistingScope = HoistingScope.HoistFunctionScope(program);
                             var argumentsInstance = Engine.DeclarationBindingInstantiation(
                                 DeclarationBindingType.EvalCode,
-                                program.HoistingScope,
+                                hoistingScope,
                                 functionInstance: this,
                                 arguments);
 

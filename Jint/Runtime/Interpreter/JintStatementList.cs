@@ -1,5 +1,8 @@
-﻿using Esprima.Ast;
+﻿using System.Collections.Generic;
+using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter
@@ -99,6 +102,42 @@ namespace Jint.Runtime.Interpreter
                 c = new Completion(CompletionType.Throw, error, null, s.Location);
             }
             return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier, c.Location);
-        } 
+        }
+        
+        public IEnumerable<VariableDeclaration> GetLexicallyScopedDeclarations()
+        {
+            if (_statement is null)
+            {
+                yield break;
+            }
+            foreach(var statement in _statement.ChildNodes)
+            {
+                if (statement is VariableDeclaration v && v.Kind != VariableDeclarationKind.Var)
+                {
+                    yield return v;
+                }
+            }
+        }
+
+        public void BlockDeclarationInstantiation(EnvironmentRecord record)
+        {
+            foreach (var variableDeclaration in GetLexicallyScopedDeclarations())
+            {
+                foreach (var declaration in variableDeclaration.Declarations)
+                {
+                    var identifier = (JintIdentifierExpression)JintExpression.Build(_engine, (Expression)declaration.Id);
+
+                    if (variableDeclaration.Kind == VariableDeclarationKind.Const)
+                    {
+                        record.CreateImmutableBinding(identifier._expressionName, true);
+                    }
+                    else if (variableDeclaration.Kind == VariableDeclarationKind.Let)
+                    {
+                        record.CreateMutableBinding(identifier._expressionName, false);
+                    }
+                }
+            }
+
+        }
     }
 }

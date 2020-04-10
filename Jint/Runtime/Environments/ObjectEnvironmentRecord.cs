@@ -75,15 +75,31 @@ namespace Jint.Runtime.Environments
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2.2
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-createmutablebinding-n-d
         /// </summary>
-        public override void CreateMutableBinding(string name, JsValue value, bool configurable = false)
+        public override void CreateMutableBinding(string name, bool canBeDeleted)
         {
-            var propertyDescriptor = configurable
-                ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding)
-                : new PropertyDescriptor(value, PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
+            var propertyDescriptor = canBeDeleted
+                ? new PropertyDescriptor(Undefined, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding)
+                : new PropertyDescriptor(Undefined, PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
 
             _bindingObject.DefinePropertyOrThrow(name, propertyDescriptor);
+        }
+        
+        /// <summary>
+        ///  http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-createimmutablebinding-n-s
+        /// </summary>
+        public override void CreateImmutableBinding(string name, bool strict = false)
+        {
+            ExceptionHelper.ThrowInvalidOperationException("The concrete Environment Record method CreateImmutableBinding is never used within this specification in association with Object Environment Records.");
+        }
+
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-initializebinding-n-v
+        /// </summary>
+        public override void InitializeBinding(string name, JsValue value)
+        {
+            SetMutableBinding(name, value, false);
         }
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)

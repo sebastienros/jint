@@ -269,9 +269,9 @@ namespace Jint
         public event DebugStepDelegate Step;
         public event BreakDelegate Break;
 
-        internal DebugHandler DebugHandler => _debugHandler ?? (_debugHandler = new DebugHandler(this));
+        internal DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this);
 
-        public List<BreakPoint> BreakPoints => _breakPoints ?? (_breakPoints = new List<BreakPoint>());
+        public List<BreakPoint> BreakPoints => _breakPoints ??= new List<BreakPoint>();
 
         internal StepMode? InvokeStepEvent(DebugInformation info)
         {
@@ -377,13 +377,22 @@ namespace Jint
 
             using (new StrictModeScope(_isStrict || program.Strict))
             {
+                var hoistingScope = HoistingScope.HoistFunctionScope(program);
+
                 DeclarationBindingInstantiation(
                     DeclarationBindingType.GlobalCode,
-                    program.HoistingScope,
+                    hoistingScope,
                     functionInstance: null,
                     arguments: null);
 
                 var list = new JintStatementList(this, null, program.Body);
+                
+                // Registers all locally scoped declarations (let, const)
+                //var env = LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment);
+                //EnterExecutionContext(env, ExecutionContext.LexicalEnvironment, ExecutionContext.ThisBinding);
+
+                //list.BlockDeclarationInstantiation(ExecutionContext.LexicalEnvironment._record);
+                
                 var result = list.Execute();
                 if (result.Type == CompletionType.Throw)
                 {
@@ -606,6 +615,16 @@ namespace Jint
                 ((EnvironmentRecord) baseValue).SetMutableBinding(property.ToString(), value, reference.IsStrictReference());
             }
         }
+        
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-initializereferencedbinding
+        /// </summary>
+        public void InitializeReferenceBinding(Reference reference, JsValue value)
+        {
+            var baseValue = (EnvironmentRecord) reference.GetBase();
+            baseValue.InitializeBinding(TypeConverter.ToString(reference.GetReferencedName()), value);
+        }
+
 
         private static JsValue GetThisValue(Reference reference)
         {
@@ -705,6 +724,15 @@ namespace Jint
             _referencePool.Return(reference);
             return jsValue;
         }
+        
+        // http://www.ecma-international.org/ecma-262/6.0/#sec-resolvebinding
+        internal Reference ResolveBinding(string name, LexicalEnvironment env = null)
+        {
+            env ??= ExecutionContext.LexicalEnvironment;
+
+            // TODO return LexicalEnvironment.GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
+            return null;
+        }
 
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
         internal ArgumentsInstance DeclarationBindingInstantiation(
@@ -748,52 +776,45 @@ namespace Jint
                         var argAlreadyDeclared = env.HasBinding(argName);
                         if (!argAlreadyDeclared)
                         {
-                            env.CreateMutableBinding(argName, v);
+                            env.CreateMutableBinding(argName, canBeDeleted: false);
                         }
 
                         env.SetMutableBinding(argName, v, strict);
                     }
-                    env.CreateMutableBinding("arguments", argsObj);
+                    env.CreateImmutableBinding("arguments", strict);
+                    env.InitializeBinding("arguments", argsObj);
                 }
             }
 
-            var functionDeclarations = hoistingScope.FunctionDeclarations;
-            if (functionDeclarations.Count > 0)
+            var functionDeclarations = hoistingScope._functionDeclarations;
+            if (functionDeclarations != null)
             {
-                AddFunctionDeclarations(ref functionDeclarations, env, configurableBindings, strict);
+                AddFunctionDeclarations(functionDeclarations, env, configurableBindings, strict);
             }
 
-            var variableDeclarations = hoistingScope.VariableDeclarations;
-            if (variableDeclarations.Count == 0)
+            var variableDeclarations = hoistingScope._variablesDeclarations;
+            if (variableDeclarations is null)
             {
                 return argsObj;
             }
 
-            // process all variable declarations in the current parser scope
-            if (!ReferenceEquals(der, null))
+            var variableDeclarationsCount = variableDeclarations.Count;
+            for (var i = 0; i < variableDeclarationsCount; i++)
             {
-                der.AddVariableDeclarations(ref variableDeclarations);
-            }
-            else
-            {
-                // slow path
-                var variableDeclarationsCount = variableDeclarations.Count;
-                for (var i = 0; i < variableDeclarationsCount; i++)
+                var variableDeclaration = variableDeclarations[i];
+                var declarations = variableDeclaration.Declarations;
+                var declarationsCount = declarations.Count;
+                for (var j = 0; j < declarationsCount; j++)
                 {
-                    var variableDeclaration = variableDeclarations[i];
-                    var declarations = variableDeclaration.Declarations;
-                    var declarationsCount = declarations.Count;
-                    for (var j = 0; j < declarationsCount; j++)
+                    var d = declarations[j];
+                    if (d.Id is Identifier id1)
                     {
-                        var d = declarations[j];
-                        if (d.Id is Identifier id1)
+                        var name = id1.Name;
+                        var varAlreadyDeclared = env.HasBinding(name);
+                        if (!varAlreadyDeclared)
                         {
-                            var name = id1.Name;
-                            var varAlreadyDeclared = env.HasBinding(name);
-                            if (!varAlreadyDeclared)
-                            {
-                                env.CreateMutableBinding(name, Undefined.Instance);
-                            }
+                            env.CreateMutableBinding(name, canBeDeleted: false);
+                            env.InitializeBinding(name, Undefined.Instance);
                         }
                     }
                 }
@@ -803,7 +824,7 @@ namespace Jint
         }
 
         private void AddFunctionDeclarations(
-            ref NodeList<IFunctionDeclaration> functionDeclarations,
+            List<FunctionDeclaration> functionDeclarations,
             EnvironmentRecord env,
             bool configurableBindings,
             bool strict)
@@ -818,6 +839,7 @@ namespace Jint
                 if (!funcAlreadyDeclared)
                 {
                     env.CreateMutableBinding(fn, configurableBindings);
+                    env.InitializeBinding(fn, fo);
                 }
                 else
                 {

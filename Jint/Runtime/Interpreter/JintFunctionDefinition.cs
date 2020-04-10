@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using Esprima;
 using Esprima.Ast;
 using Jint.Runtime.Interpreter.Statements;
 
@@ -21,7 +20,7 @@ namespace Jint.Runtime.Interpreter
         public JintFunctionDefinition(Engine engine, IFunction function)
         {
             _function = function;
-            _hoistingScope = function.HoistingScope;
+            _hoistingScope = HoistingScope.HoistFunctionScope(function);
             _name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id.Name : null;
             _strict = function.Strict;
             _parameterNames = GetParameterNames(function);

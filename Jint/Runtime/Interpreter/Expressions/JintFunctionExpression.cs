@@ -27,7 +27,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (_function._name != null)
             {
-                envRec.CreateMutableBinding(_function._name, closure);
+                envRec.CreateMutableBinding(_function._name, canBeDeleted: false);
+                envRec.InitializeBinding(_function._name, closure);
             }
 
             return closure;
