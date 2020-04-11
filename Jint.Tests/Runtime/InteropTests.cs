@@ -674,13 +674,20 @@ namespace Jint.Tests.Runtime
             ");
         }
 
-        private class ReadOnlyList : IReadOnlyList<int>
+        private class ReadOnlyList : IReadOnlyList<Person>
         {
-            private static readonly int[] _data = Enumerable.Range(1, 6).ToArray();
-            
-            public IEnumerator<int> GetEnumerator()
+            private static readonly Person[] _data = new  Person[]
             {
-                return ((IEnumerable<int>) _data).GetEnumerator();
+                new Person()
+                {
+                    Age = 12,
+                    Name = "johtn"
+                },
+            };
+            
+            public IEnumerator<Person> GetEnumerator()
+            {
+                return ((IEnumerable<Person>) _data).GetEnumerator();
             }
 
             IEnumerator IEnumerable.GetEnumerator()
@@ -690,7 +697,7 @@ namespace Jint.Tests.Runtime
 
             public int Count => _data.Length;
 
-            public int this[int index] => _data[index];
+            public Person this[int index] => _data[index];
         }
         
         [Fact]
@@ -703,16 +710,8 @@ namespace Jint.Tests.Runtime
 
             _engine.SetValue("o", obj);
 
-            var first = _engine.Execute("o.values[0]").GetCompletionValue().AsNumber();
-            Assert.Equal(1, first);
-            
-            var parts = _engine.Execute("o.values.filter(function(x){ return x % 2 == 0; })").GetCompletionValue().ToObject();
+            var name = _engine.Execute("o.values.filter(x => x.age == 12)[0].name").GetCompletionValue().ToString();
 
-            Assert.True(parts.GetType().IsArray);
-            Assert.Equal(3, ((object[])parts).Length);
-            Assert.Equal(2d, ((object[])parts)[0]);
-            Assert.Equal(4d, ((object[])parts)[1]);
-            Assert.Equal(6d, ((object[])parts)[2]);
         }
 
         [Fact]
