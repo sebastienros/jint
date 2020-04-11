@@ -57,7 +57,7 @@ namespace Jint.Native.Array
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
-        internal override bool IsArrayLike => true;
+        public override bool IsArrayLike => true;
 
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {

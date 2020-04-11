@@ -18,7 +18,7 @@ namespace Jint
         private bool _allowClr;
         private bool _allowClrWrite = true;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
-        private Func<object, ObjectInstance> _wrapObjectHandler;
+        private Func<Engine, object, ObjectInstance> _wrapObjectHandler;
         private int _maxRecursionDepth = -1;
         private TimeSpan _regexTimeoutInterval = TimeSpan.FromSeconds(10);
         private CultureInfo _culture = CultureInfo.CurrentCulture;
@@ -82,7 +82,7 @@ namespace Jint
         /// ObjectInstance using class ObjectWrapper. This function can be used to
         /// register a handler for a customized handling.
         /// </summary>
-        public Options SetWrapObjectHandler(Func<object, ObjectInstance> wrapObjectHandler)
+        public Options SetWrapObjectHandler(Func<Engine, object, ObjectInstance> wrapObjectHandler)
         {
             _wrapObjectHandler = wrapObjectHandler;
             return this;
@@ -201,7 +201,7 @@ namespace Jint
 
         internal List<IConstraint> _Constraints => _constraints;
 
-        internal Func<object, ObjectInstance> _WrapObjectHandler => _wrapObjectHandler;
+        internal Func<Engine, object, ObjectInstance> _WrapObjectHandler => _wrapObjectHandler;
 
         internal int MaxRecursionDepth => _maxRecursionDepth;
 

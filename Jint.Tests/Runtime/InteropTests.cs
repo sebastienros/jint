@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -676,15 +675,13 @@ namespace Jint.Tests.Runtime
 
         private class ReadOnlyList : IReadOnlyList<Person>
         {
-            private static readonly Person[] _data = new  Person[]
+            private readonly Person[] _data;
+
+            public ReadOnlyList(params Person[] data)
             {
-                new Person()
-                {
-                    Age = 12,
-                    Name = "johtn"
-                },
-            };
-            
+                _data = data;
+            }
+
             public IEnumerator<Person> GetEnumerator()
             {
                 return ((IEnumerable<Person>) _data).GetEnumerator();
@@ -701,16 +698,36 @@ namespace Jint.Tests.Runtime
         }
         
         [Fact]
-        public void ShouldAddArrayPrototypeForArrayLikeClrObjects()
+        public void CanAddArrayPrototypeForArrayLikeClrObjects()
         {
+            var e = new Engine(cfg => cfg
+                .AllowClr(typeof(Person).Assembly)
+                .SetWrapObjectHandler((engine, target) =>
+                {
+                    var instance = new ObjectWrapper(engine, target);
+                    if (instance.IsArrayLike)
+                    {
+                        instance.SetPrototypeOf(engine.Array.PrototypeObject);
+                    }
+                    return instance;
+                })
+            );
+
+            var person = new Person
+            {
+                Age = 12,
+                Name = "John"
+            };
+            
             dynamic obj = new
             {
-                values = new ReadOnlyList()
+                values = new ReadOnlyList(person)
             };
 
-            _engine.SetValue("o", obj);
+            e.SetValue("o", obj);
 
-            var name = _engine.Execute("o.values.filter(x => x.age == 12)[0].name").GetCompletionValue().ToString();
+            var name = e.Execute("o.values.filter(x => x.age == 12)[0].name").GetCompletionValue().ToString();
+            Assert.Equal("John", name);
 
         }
 

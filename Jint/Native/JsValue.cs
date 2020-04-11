@@ -348,7 +348,7 @@ namespace Jint.Native
 
             // if no known type could be guessed, wrap it as an ObjectInstance
             var h = engine.Options._WrapObjectHandler;
-            var o = h?.Invoke(value) ?? new ObjectWrapper(engine, value);
+            var o = h?.Invoke(engine, value) ?? new ObjectWrapper(engine, value);
             return o;
         }
 

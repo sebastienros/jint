@@ -1090,9 +1090,9 @@ namespace Jint.Native.Object
             }
         }
 
-        internal virtual bool IsArrayLike => TryGetValue(CommonProperties.Length, out var lengthValue)
-                                             && lengthValue.IsNumber()
-                                             && ((JsNumber) lengthValue)._value >= 0;
+        public virtual bool IsArrayLike => TryGetValue(CommonProperties.Length, out var lengthValue)
+                                           && lengthValue.IsNumber()
+                                           && ((JsNumber) lengthValue)._value >= 0;
 
 
         public virtual uint Length => (uint) TypeConverter.ToLength(Get(CommonProperties.Length));

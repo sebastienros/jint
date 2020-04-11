@@ -32,9 +32,6 @@ namespace Jint.Runtime.Interop
                 var functionInstance = new ClrFunctionInstance(engine, "length", (thisObj, arguments) => JsNumber.Create((int) lengthProperty.GetValue(obj)));
                 var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
                 AddProperty(CommonProperties.Length, descriptor);
-                
-                // finally, add support for array's methods by default
-                _prototype = engine.Array.PrototypeObject;
             }
         }
 
@@ -64,7 +61,7 @@ namespace Jint.Runtime.Interop
 
         public object Target { get; }
 
-        internal override bool IsArrayLike { get; }
+        public override bool IsArrayLike { get; }
 
         public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
