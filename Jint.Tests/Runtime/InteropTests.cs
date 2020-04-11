@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -670,6 +672,47 @@ namespace Jint.Tests.Runtime
                 assert(instance.NullableEnum===1);
                 assert(instance.NullableStruct.Value===5);
             ");
+        }
+
+        private class ReadOnlyList : IReadOnlyList<int>
+        {
+            private static readonly int[] _data = Enumerable.Range(1, 6).ToArray();
+            
+            public IEnumerator<int> GetEnumerator()
+            {
+                return ((IEnumerable<int>) _data).GetEnumerator();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return _data.GetEnumerator();
+            }
+
+            public int Count => _data.Length;
+
+            public int this[int index] => _data[index];
+        }
+        
+        [Fact]
+        public void ShouldAddArrayPrototypeForArrayLikeClrObjects()
+        {
+            dynamic obj = new
+            {
+                values = new ReadOnlyList()
+            };
+
+            _engine.SetValue("o", obj);
+
+            var first = _engine.Execute("o.values[0]").GetCompletionValue().AsNumber();
+            Assert.Equal(1, first);
+            
+            var parts = _engine.Execute("o.values.filter(function(x){ return x % 2 == 0; })").GetCompletionValue().ToObject();
+
+            Assert.True(parts.GetType().IsArray);
+            Assert.Equal(3, ((object[])parts).Length);
+            Assert.Equal(2d, ((object[])parts)[0]);
+            Assert.Equal(4d, ((object[])parts)[1]);
+            Assert.Equal(6d, ((object[])parts)[2]);
         }
 
         [Fact]
