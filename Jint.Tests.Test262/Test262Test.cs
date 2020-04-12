@@ -195,10 +195,6 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "class keyword not implemented";
                                 break;
-                            case "const":
-                                skip = true;
-                                reason = "const keyword not implemented";
-                                break;
                             case "BigInt":
                                 skip = true;
                                 reason = "BigInt not implemented";
@@ -206,10 +202,6 @@ namespace Jint.Tests.Test262
                             case "generators":
                                 skip = true;
                                 reason = "generators not implemented";
-                                break;
-                            case "let":
-                                skip = true;
-                                reason = "let not implemented";
                                 break;
                             case "async-functions":
                                 skip = true;

@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interpreter
         public JintFunctionDefinition(Engine engine, IFunction function)
         {
             _function = function;
-            _hoistingScope = HoistingScope.HoistFunctionScope(function);
+            _hoistingScope = HoistingScope.Hoist(function, HoistingScope.HoistingMode.Script);
             _name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id.Name : null;
             _strict = function.Strict;
             _parameterNames = GetParameterNames(function);

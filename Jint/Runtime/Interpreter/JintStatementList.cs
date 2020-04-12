@@ -2,7 +2,6 @@
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
-using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter
@@ -103,41 +102,42 @@ namespace Jint.Runtime.Interpreter
             }
             return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier, c.Location);
         }
-        
-        public IEnumerable<VariableDeclaration> GetLexicallyScopedDeclarations()
+
+        internal static void BlockDeclarationInstantiation(
+            Engine engine,
+            EnvironmentRecord record,
+            List<VariableDeclaration> lexicalDeclarations)
         {
-            if (_statement is null)
+            if (lexicalDeclarations is null)
             {
-                yield break;
+                return;
             }
-            foreach(var statement in _statement.ChildNodes)
+
+            for (var i = 0; i < lexicalDeclarations.Count; i++)
             {
-                if (statement is VariableDeclaration v && v.Kind != VariableDeclarationKind.Var)
+                var variableDeclaration = lexicalDeclarations[i];
+                if (variableDeclaration.Kind == VariableDeclarationKind.Var)
                 {
-                    yield return v;
+                    continue;
+                }
+
+                ref readonly var nodeList = ref variableDeclaration.Declarations;
+                for (var j = 0; j < nodeList.Count; j++)
+                {
+                    var declaration = nodeList[j];
+                    if (declaration.Id is Identifier identifier)
+                    {
+                        if (variableDeclaration.Kind == VariableDeclarationKind.Const)
+                        {
+                            record.CreateImmutableBinding(identifier.Name, strict: true);
+                        }
+                        else if (variableDeclaration.Kind == VariableDeclarationKind.Let)
+                        {
+                            record.CreateMutableBinding(identifier.Name, canBeDeleted: false);
+                        }
+                    }
                 }
             }
-        }
-
-        public void BlockDeclarationInstantiation(EnvironmentRecord record)
-        {
-            foreach (var variableDeclaration in GetLexicallyScopedDeclarations())
-            {
-                foreach (var declaration in variableDeclaration.Declarations)
-                {
-                    var identifier = (JintIdentifierExpression)JintExpression.Build(_engine, (Expression)declaration.Id);
-
-                    if (variableDeclaration.Kind == VariableDeclarationKind.Const)
-                    {
-                        record.CreateImmutableBinding(identifier._expressionName, true);
-                    }
-                    else if (variableDeclaration.Kind == VariableDeclarationKind.Let)
-                    {
-                        record.CreateMutableBinding(identifier._expressionName, false);
-                    }
-                }
-            }
-
         }
     }
 }

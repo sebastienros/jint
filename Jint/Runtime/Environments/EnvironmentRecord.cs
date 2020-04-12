@@ -33,14 +33,14 @@ namespace Jint.Runtime.Environments
         /// </summary>
         /// <param name="name">The identifier of the binding.</param>
         /// <param name="canBeDeleted"><c>true</c> if the binding may be subsequently deleted.</param>
-        public abstract void CreateMutableBinding(string name, bool canBeDeleted);
+        public abstract void CreateMutableBinding(string name, bool canBeDeleted = false);
         
         /// <summary>
         /// Creates a new but uninitialized immutable binding in an environment record.
         /// </summary>
         /// <param name="name">The identifier of the binding.</param>
         /// <param name="strict"><c>false</c> if the binding may used before it's been initialized.</param>
-        public abstract void CreateImmutableBinding(string name, bool strict);
+        public abstract void CreateImmutableBinding(string name, bool strict = true);
 
         /// <summary>
         /// Set the value of an already existing but uninitialized binding in an Environment Record.

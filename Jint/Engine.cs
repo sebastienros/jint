@@ -377,7 +377,7 @@ namespace Jint
 
             using (new StrictModeScope(_isStrict || program.Strict))
             {
-                var hoistingScope = HoistingScope.HoistFunctionScope(program);
+                var hoistingScope = HoistingScope.Hoist(program, HoistingScope.HoistingMode.Script);
 
                 DeclarationBindingInstantiation(
                     DeclarationBindingType.GlobalCode,
@@ -386,12 +386,6 @@ namespace Jint
                     arguments: null);
 
                 var list = new JintStatementList(this, null, program.Body);
-                
-                // Registers all locally scoped declarations (let, const)
-                //var env = LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment);
-                //EnterExecutionContext(env, ExecutionContext.LexicalEnvironment, ExecutionContext.ThisBinding);
-
-                //list.BlockDeclarationInstantiation(ExecutionContext.LexicalEnvironment._record);
                 
                 var result = list.Execute();
                 if (result.Type == CompletionType.Throw)
@@ -733,7 +727,7 @@ namespace Jint
             // TODO return LexicalEnvironment.GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
             return null;
         }
-
+        
         //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
         internal ArgumentsInstance DeclarationBindingInstantiation(
             DeclarationBindingType declarationBindingType,
@@ -742,7 +736,7 @@ namespace Jint
             JsValue[] arguments)
         {
             var env = ExecutionContext.VariableEnvironment._record;
-            bool configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
+            var configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
             var strict = StrictModeScope.IsStrictModeCode;
             ArgumentsInstance argsObj = null;
 
@@ -793,12 +787,7 @@ namespace Jint
             }
 
             var variableDeclarations = hoistingScope._variablesDeclarations;
-            if (variableDeclarations is null)
-            {
-                return argsObj;
-            }
-
-            var variableDeclarationsCount = variableDeclarations.Count;
+            var variableDeclarationsCount = variableDeclarations?.Count;
             for (var i = 0; i < variableDeclarationsCount; i++)
             {
                 var variableDeclaration = variableDeclarations[i];
@@ -819,6 +808,32 @@ namespace Jint
                     }
                 }
             }
+            
+            var lexicalDeclarations = hoistingScope._lexicalDeclarations;
+            var lexicalDeclarationsCount = lexicalDeclarations?.Count;
+            for (var i = 0; i < lexicalDeclarationsCount; i++)
+            {
+                var variableDeclaration = lexicalDeclarations[i];
+                var declarations = variableDeclaration.Declarations;
+                var declarationsCount = declarations.Count;
+                for (var j = 0; j < declarationsCount; j++)
+                {
+                    var d = declarations[j];
+                    if (d.Id is Identifier id1)
+                    {
+                        var name = id1.Name;
+                        if (variableDeclaration.Kind == VariableDeclarationKind.Const)
+                        {
+                            env.CreateImmutableBinding(name, strict: true);
+                        }
+                        else
+                        {
+                            env.CreateMutableBinding(name, canBeDeleted: false);
+                        }
+                    }
+                }
+            }
+
 
             return argsObj;
         }
@@ -876,14 +891,6 @@ namespace Jint
         internal void UpdateLexicalEnvironment(LexicalEnvironment newEnv)
         {
             _executionContexts.ReplaceTopLexicalEnvironment(newEnv);
-        }
-
-        private static void AssertNotNullOrEmpty(string propertyName, string propertyValue)
-        {
-            if (string.IsNullOrEmpty(propertyValue))
-            {
-                ExceptionHelper.ThrowArgumentException(propertyName);
-            }
         }
     }
 }

@@ -51,14 +51,14 @@ namespace Jint.Runtime.Environments
             return success;
         }
 
-        public override void CreateMutableBinding(string name, bool canBeDeleted)
+        public override void CreateMutableBinding(string name, bool canBeDeleted = false)
         {
-            _dictionary[name] = new Binding(null, canBeDeleted, mutable: true);
+            _dictionary[name] = new Binding(null, canBeDeleted, mutable: true, strict: false);
         }
         
-        public override void CreateImmutableBinding(string name, bool strict)
+        public override void CreateImmutableBinding(string name, bool strict = true)
         {
-            _dictionary[name] = new Binding(null, canBeDeleted: false, mutable: false);
+            _dictionary[name] = new Binding(null, canBeDeleted: false, mutable: false, strict: false);
         }
 
         public override void InitializeBinding(string name, JsValue value)
@@ -69,8 +69,21 @@ namespace Jint.Runtime.Environments
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
-            var key = name;
-            _dictionary.TryGetValue(key, out var binding);
+            if (!_dictionary.TryGetValue(name, out var binding))
+            {
+                if (strict)
+                {
+                    ExceptionHelper.ThrowReferenceError(_engine, name);
+                }
+                CreateMutableBinding(name, true);
+                InitializeBinding(name, value);
+                return;
+            }
+
+            if (binding.Strict)
+            {
+                strict = true;
+            }
             
             // Is it an uninitialized binding?
             if (!binding.IsInitialized())
@@ -80,7 +93,7 @@ namespace Jint.Runtime.Environments
             
             if (binding.Mutable)
             {
-                _dictionary[key] = binding.ChangeValue(value);
+                _dictionary[name] = binding.ChangeValue(value);
             }
             else
             {
@@ -166,7 +179,7 @@ namespace Jint.Runtime.Environments
             bool empty = _dictionary.Count == 0;
             if (!(argumentsInstance is null))
             {
-                _dictionary[KnownKeys.Arguments] = new Binding(argumentsInstance, canBeDeleted: false, mutable: true);
+                _dictionary[KnownKeys.Arguments] = new Binding(argumentsInstance, canBeDeleted: false, mutable: true, strict: false);
             }
 
             ref readonly var parameters = ref functionDeclaration.Params;
@@ -400,7 +413,7 @@ namespace Jint.Runtime.Environments
         {
             if (initiallyEmpty || !TryGetValue(name, out var existing))
             {
-                _dictionary[name] = new Binding(argument, false, true);
+                _dictionary[name] = new Binding(argument, canBeDeleted: false, mutable: true, strict: false);
             }
             else
             {

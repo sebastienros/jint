@@ -60,8 +60,7 @@ namespace Jint.Runtime.Interpreter.Statements
             switch (statement.Type)
             {
                 case Nodes.BlockStatement:
-                    var statementListItems = ((BlockStatement) statement).Body;
-                    return new JintBlockStatement(engine, new JintStatementList(engine, statement, statementListItems));
+                    return new JintBlockStatement(engine, (BlockStatement) statement);
 
                 case Nodes.ReturnStatement:
                     return new JintReturnStatement(engine, (ReturnStatement) statement);

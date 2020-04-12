@@ -3,35 +3,46 @@ using Esprima.Ast;
 
 namespace Jint
 {
-    internal sealed class HoistingScope
+    internal readonly struct HoistingScope
     {
         internal readonly List<FunctionDeclaration> _functionDeclarations;
         internal readonly List<VariableDeclaration> _variablesDeclarations;
+        internal readonly List<VariableDeclaration> _lexicalDeclarations;
 
-        private HoistingScope(List<FunctionDeclaration> functionDeclarations, List<VariableDeclaration> variables)
+        private HoistingScope(
+            List<FunctionDeclaration> functionDeclarations, 
+            List<VariableDeclaration> variables,
+            List<VariableDeclaration> lexicalDeclarations)
         {
-            _variablesDeclarations = variables;
             _functionDeclarations = functionDeclarations;
+            _variablesDeclarations = variables;
+            _lexicalDeclarations = lexicalDeclarations;
         }
 
-        public static HoistingScope HoistFunctionScope(INode node)
+        internal enum HoistingMode
         {
-            var treeWalker = new FunctionScopeAstWalker();
+            Script = 1,
+            Block = 2,
+        }
+
+        public static HoistingScope Hoist(INode node, HoistingMode mode)
+        {
+            var treeWalker = new AstWalker(mode);
             treeWalker.Visit(node);
-            return new HoistingScope(treeWalker._functions, treeWalker._variables);
+            return new HoistingScope(treeWalker._functions, treeWalker._variableDeclarations, treeWalker._lexicalDeclarations);
         }
 
-        public static HoistingScope HoistBlockScope(BlockStatement statement)
+        private sealed class AstWalker
         {
-            var treeWalker = new BlockWalker();
-            treeWalker.Visit(statement);
-            return new HoistingScope(null, treeWalker._variables);
-        }
-
-        private sealed class FunctionScopeAstWalker
-        {
-            internal List<VariableDeclaration> _variables;
+            private readonly HoistingMode _mode;
+            internal List<VariableDeclaration> _variableDeclarations;
+            internal List<VariableDeclaration> _lexicalDeclarations;
             internal List<FunctionDeclaration> _functions;
+
+            public AstWalker(HoistingMode mode)
+            {
+                _mode = mode;
+            }
 
             public void Visit(INode node)
             {
@@ -43,49 +54,33 @@ namespace Jint
                         continue;
                     }
                     
-                    if (childNode is VariableDeclaration variableDeclaration
-                        && variableDeclaration.Kind == VariableDeclarationKind.Var)
+                    if (childNode is VariableDeclaration variableDeclaration)
                     {
-                        _variables ??= new List<VariableDeclaration>();
-                        _variables.Add(variableDeclaration);
+                        if (_mode == HoistingMode.Script && variableDeclaration.Kind == VariableDeclarationKind.Var)
+                        {
+                            _variableDeclarations ??= new List<VariableDeclaration>();
+                            _variableDeclarations.Add(variableDeclaration);
+                        }
+                        if (variableDeclaration.Kind != VariableDeclarationKind.Var)
+                        {
+                            _lexicalDeclarations ??= new List<VariableDeclaration>();
+                            _lexicalDeclarations.Add(variableDeclaration);
+                        }
                     }     
-                    else if (childNode is FunctionDeclaration functionDeclaration)
+                    else if (_mode == HoistingMode.Script && childNode is FunctionDeclaration functionDeclaration)
                     {
                         _functions ??= new List<FunctionDeclaration>();
                         _functions.Add(functionDeclaration);
                     }
 
-                    if (childNode.Type != Nodes.FunctionDeclaration
+                    if ((_mode & HoistingMode.Script) != 0 
+                        && childNode.Type != Nodes.FunctionDeclaration
                         && childNode.Type != Nodes.ArrowFunctionExpression
                         && childNode.Type != Nodes.ArrowParameterPlaceHolder
                         && childNode.Type != Nodes.FunctionExpression)
                     {
                         Visit(childNode);
                     }
-                }
-            }
-        }
-
-        private sealed class BlockWalker
-        {
-            internal List<VariableDeclaration> _variables;
-
-            public void Visit(INode node)
-            {
-                foreach (var childNode in node.ChildNodes)
-                {
-                    if (childNode is null)
-                    {
-                        // array expression can push null nodes in Esprima
-                        continue;
-                    }
-                    
-                    if (childNode is VariableDeclaration variableDeclaration
-                        && variableDeclaration.Kind != VariableDeclarationKind.Var)
-                    {
-                        _variables ??= new List<VariableDeclaration>();
-                        _variables.Add(variableDeclaration);
-                    }     
                 }
             }
         }

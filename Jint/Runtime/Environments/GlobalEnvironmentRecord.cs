@@ -44,7 +44,7 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2.2
         /// </summary>
-        public override void CreateMutableBinding(string name, bool canBeDeleted)
+        public override void CreateMutableBinding(string name, bool canBeDeleted = false)
         {
             var propertyDescriptor = canBeDeleted
                 ? new PropertyDescriptor(null, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding)
@@ -53,7 +53,7 @@ namespace Jint.Runtime.Environments
             _global.DefinePropertyOrThrow(name, propertyDescriptor);
         }
         
-        public override void CreateImmutableBinding(string name, bool strict)
+        public override void CreateImmutableBinding(string name, bool strict = true)
         {
             _global.DefinePropertyOrThrow(name, new PropertyDescriptor(null, PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding));
         }

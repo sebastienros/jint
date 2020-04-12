@@ -77,7 +77,7 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-createmutablebinding-n-d
         /// </summary>
-        public override void CreateMutableBinding(string name, bool canBeDeleted)
+        public override void CreateMutableBinding(string name, bool canBeDeleted = false)
         {
             var propertyDescriptor = canBeDeleted
                 ? new PropertyDescriptor(Undefined, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding)
@@ -89,7 +89,7 @@ namespace Jint.Runtime.Environments
         /// <summary>
         ///  http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-createimmutablebinding-n-s
         /// </summary>
-        public override void CreateImmutableBinding(string name, bool strict = false)
+        public override void CreateImmutableBinding(string name, bool strict = true)
         {
             ExceptionHelper.ThrowInvalidOperationException("The concrete Environment Record method CreateImmutableBinding is never used within this specification in association with Object Environment Records.");
         }
