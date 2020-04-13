@@ -11,7 +11,6 @@ namespace Jint.Runtime.Interpreter.Expressions
         public JintArrowFunctionExpression(Engine engine, IFunction function)
             : base(engine, ArrowParameterPlaceHolder.Empty)
         {
-
             _function = new JintFunctionDefinition(engine, function);
         }
 

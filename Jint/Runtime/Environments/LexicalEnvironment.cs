@@ -52,9 +52,11 @@ namespace Jint.Runtime.Environments
 
         public static LexicalEnvironment NewDeclarativeEnvironment(Engine engine, LexicalEnvironment outer = null)
         {
-            var environment = new LexicalEnvironment(engine, null, null);
-            environment._record = new DeclarativeEnvironmentRecord(engine);
-            environment._outer = outer;
+            var environment = new LexicalEnvironment(engine, null, null)
+            {
+                _record = new DeclarativeEnvironmentRecord(engine),
+                _outer = outer
+            };
 
             return environment;
         }

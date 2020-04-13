@@ -46,9 +46,6 @@ namespace Jint.Native.Function
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.1
         /// </summary>
-        /// <param name="thisArg"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
         public override JsValue Call(JsValue thisArg, JsValue[] arguments)
         {
             var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);

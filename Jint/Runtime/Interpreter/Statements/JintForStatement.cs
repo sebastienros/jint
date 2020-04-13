@@ -1,53 +1,127 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-12.6.3
+    /// http://www.ecma-international.org/ecma-262/#sec-forbodyevaluation
     /// </summary>
     internal sealed class JintForStatement : JintStatement<ForStatement>
     {
-        private readonly JintStatement _body;
-        private readonly JintStatement _initStatement;
-        private readonly JintExpression _initExpression;
-        private readonly JintExpression _test;
-        private readonly JintExpression _update;
+        private JintVariableDeclaration _initStatement;
+        private JintExpression _initExpression;
+        
+        private JintExpression _test;
+        private JintExpression _increment;
+        
+        private JintStatement _body;
 
         public JintForStatement(Engine engine, ForStatement statement) : base(engine, statement)
         {
-            _body = Build(engine, _statement.Body);
+            _initialized = false;
+        }
+
+        protected override void Initialize()
+        {
+            _body = Build(_engine, _statement.Body);
 
             if (_statement.Init != null)
             {
                 if (_statement.Init.Type == Nodes.VariableDeclaration)
                 {
-                    _initStatement = Build(engine, (Statement) _statement.Init);
+                    var variableDeclaration = (VariableDeclaration) _statement.Init;
+                    _initStatement = new JintVariableDeclaration(_engine, variableDeclaration);
                 }
                 else
                 {
-                    _initExpression = JintExpression.Build(engine, (Expression) statement.Init);
+                    _initExpression = JintExpression.Build(_engine, (Expression) _statement.Init);
                 }
             }
 
             if (_statement.Test != null)
             {
-                _test = JintExpression.Build(engine, statement.Test);
+                _test = JintExpression.Build(_engine, _statement.Test);
             }
 
             if (_statement.Update != null)
             {
-                _update = JintExpression.Build(engine, statement.Update);
+                _increment = JintExpression.Build(_engine, _statement.Update);
             }
         }
 
         protected override Completion ExecuteInternal()
         {
-            _initStatement?.Execute();
-            _initExpression?.GetValue();
+            LexicalEnvironment oldEnv = null;
+            if (_initStatement?._statement != null && _initStatement._statement.Kind != VariableDeclarationKind.Var)
+            {
+                oldEnv = _engine.ExecutionContext.LexicalEnvironment;
+                var loopEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                InitializeEnvironmentForBoundNames(loopEnv);
+                _engine.UpdateLexicalEnvironment(loopEnv);
+            }
 
-            JsValue v = Undefined.Instance;
+            try
+            {
+                if (_initExpression != null)
+                {
+                    _initExpression?.GetValue();
+                }
+                else
+                {
+                    _initStatement?.Execute();
+                }
+
+                return ForBodyEvaluation();
+            }
+            finally
+            {
+                if (oldEnv != null)
+                {
+                    _engine.UpdateLexicalEnvironment(oldEnv);
+                }
+            }
+        }
+
+        private void InitializeEnvironmentForBoundNames(LexicalEnvironment loopEnv)
+        {
+            var loopEnvRec = loopEnv._record;
+            var variableDeclaration = _initStatement._statement;
+            ref readonly var nodeList = ref variableDeclaration.Declarations;
+            for (var j = 0; j < nodeList.Count; j++)
+            {
+                var declaration = nodeList[j];
+                if (declaration.Id is Identifier identifier)
+                {
+                    if (variableDeclaration.Kind == VariableDeclarationKind.Const)
+                    {
+                        loopEnvRec.CreateImmutableBinding(identifier.Name, true);
+                    }
+                    else
+                    {
+                        loopEnvRec.CreateMutableBinding(identifier.Name, false);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/#sec-forbodyevaluation
+        /// </summary>
+        private Completion ForBodyEvaluation()
+        {
+            var v = Undefined.Instance;
+
+            var shouldCreatePerIterationEnvironment =
+                _initStatement?._statement != null
+                && _initStatement._statement.Kind != VariableDeclarationKind.Var;
+
+            if (shouldCreatePerIterationEnvironment)
+            {
+                CreatePerIterationEnvironment();
+            }
+
             while (true)
             {
                 if (_test != null)
@@ -58,27 +132,56 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                 }
 
-                var stmt = _body.Execute();
-                if (!ReferenceEquals(stmt.Value, null))
+                var result = _body.Execute();
+                if (!ReferenceEquals(result.Value, null))
                 {
-                    v = stmt.Value;
+                    v = result.Value;
                 }
 
-                if (stmt.Type == CompletionType.Break && (stmt.Identifier == null || stmt.Identifier == _statement?.LabelSet?.Name))
+                if (result.Type == CompletionType.Break && (result.Identifier == null || result.Identifier == _statement?.LabelSet?.Name))
                 {
-                    return new Completion(CompletionType.Normal, stmt.Value, null, Location);
+                    return new Completion(CompletionType.Normal, result.Value, null, Location);
                 }
 
-                if (stmt.Type != CompletionType.Continue || ((stmt.Identifier != null) && stmt.Identifier != _statement?.LabelSet?.Name))
+                if (result.Type != CompletionType.Continue || (result.Identifier != null && result.Identifier != _statement?.LabelSet?.Name))
                 {
-                    if (stmt.Type != CompletionType.Normal)
+                    if (result.Type != CompletionType.Normal)
                     {
-                        return stmt;
+                        return result;
                     }
                 }
 
-                _update?.GetValue();
+                if (shouldCreatePerIterationEnvironment)
+                {
+                    CreatePerIterationEnvironment();
+                }
+
+                _increment?.GetValue();
             }
+        }
+
+        private void CreatePerIterationEnvironment()
+        {
+            var lastIterationEnv = _engine.ExecutionContext.LexicalEnvironment;
+            var lastIterationEnvRec = lastIterationEnv._record;
+            var outer = lastIterationEnv._outer;
+            var thisIterationEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, outer);
+            var thisIterationEnvRec = thisIterationEnv._record;
+            
+            ref readonly var declarations = ref _initStatement._statement.Declarations;
+            for (var j = 0; j < declarations.Count; j++)
+            {
+                var declaration = declarations[j];
+                if (declaration.Id is Identifier identifier)
+                {
+                    var bn = identifier.Name;
+                    thisIterationEnvRec.CreateMutableBinding(bn, false);
+                    var lastValue = lastIterationEnvRec.GetBindingValue(bn, true);
+                    thisIterationEnvRec.InitializeBinding(bn, lastValue);
+                }
+            }
+
+            _engine.UpdateLexicalEnvironment(thisIterationEnv);
         }
     }
 }

@@ -76,6 +76,14 @@ namespace Jint.Runtime.Interpreter.Statements
                             declaration.Init.GetValue(),
                             checkReference: false /* we are variable assignment*/);
                     }
+                    else if (_statement.Kind != VariableDeclarationKind.Var)
+                    {                        
+                        var lhs = (Reference) declaration.Left.Evaluate();
+                        var value = declaration.Init.GetValue().Clone();
+                        lhs.InitializeReferencedBinding(value);
+                        _engine._referencePool.Return(lhs);
+                        
+                    }
                     else if (declaration.LeftIdentifier == null
                         || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
                             _engine,

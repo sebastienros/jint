@@ -73,5 +73,10 @@ namespace Jint.Runtime.References
                 ExceptionHelper.ThrowSyntaxError(engine);
             }
         }
+
+        internal void InitializeReferencedBinding(JsValue value)
+        {
+            ((EnvironmentRecord) _baseValue).InitializeBinding(TypeConverter.ToString(_property), value);
+        }
     }
 }

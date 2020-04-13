@@ -47,7 +47,7 @@ namespace Jint.Runtime.Environments
         {
             binding = default;
             var success = _dictionary.TryGetValue(name, out binding);
-            value = success ? UnwrapBindingValue(strict, binding) : default;
+            value = success && binding.IsInitialized() ? UnwrapBindingValue(strict, binding) : default;
             return success;
         }
 
@@ -88,7 +88,7 @@ namespace Jint.Runtime.Environments
             // Is it an uninitialized binding?
             if (!binding.IsInitialized())
             {
-                ExceptionHelper.ThrowReferenceError(_engine, name);
+                ExceptionHelper.ThrowReferenceError<object>(_engine, message: "the binding " + name + " has not been initialized");
             }
             
             if (binding.Mutable)

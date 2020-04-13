@@ -104,8 +104,7 @@ namespace Jint.Runtime.Interpreter
         }
 
         internal static void BlockDeclarationInstantiation(
-            Engine engine,
-            EnvironmentRecord record,
+            LexicalEnvironment env,
             List<VariableDeclaration> lexicalDeclarations)
         {
             if (lexicalDeclarations is null)
@@ -113,14 +112,10 @@ namespace Jint.Runtime.Interpreter
                 return;
             }
 
+            var envRec = env._record;
             for (var i = 0; i < lexicalDeclarations.Count; i++)
             {
                 var variableDeclaration = lexicalDeclarations[i];
-                if (variableDeclaration.Kind == VariableDeclarationKind.Var)
-                {
-                    continue;
-                }
-
                 ref readonly var nodeList = ref variableDeclaration.Declarations;
                 for (var j = 0; j < nodeList.Count; j++)
                 {
@@ -129,13 +124,19 @@ namespace Jint.Runtime.Interpreter
                     {
                         if (variableDeclaration.Kind == VariableDeclarationKind.Const)
                         {
-                            record.CreateImmutableBinding(identifier.Name, strict: true);
+                            envRec.CreateImmutableBinding(identifier.Name, strict: true);
                         }
-                        else if (variableDeclaration.Kind == VariableDeclarationKind.Let)
+                        else
                         {
-                            record.CreateMutableBinding(identifier.Name, canBeDeleted: false);
+                            envRec.CreateMutableBinding(identifier.Name, canBeDeleted: false);
                         }
                     }
+                    // else if 
+                    /*  If d is a FunctionDeclaration, a GeneratorDeclaration, an AsyncFunctionDeclaration, or an AsyncGeneratorDeclaration, then
+                     * Let fn be the sole element of the BoundNames of d.
+                     * Let fo be the result of performing InstantiateFunctionObject for d with argument env.
+                     * Perform envRec.InitializeBinding(fn, fo).
+                     */
                 }
             }
         }

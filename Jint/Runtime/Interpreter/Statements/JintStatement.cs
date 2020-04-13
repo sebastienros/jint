@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal abstract class JintStatement<T> : JintStatement where T : Statement
     {
-        protected readonly T _statement;
+        internal readonly T _statement;
 
         protected JintStatement(Engine engine, T statement) : base(engine, statement)
         {

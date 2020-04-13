@@ -400,10 +400,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
 
                 env._record.CreateMutableBinding(name, canBeDeleted: false);
-                if (!rval.IsUndefined())
-                {
-                    env._record.InitializeBinding(name, rval);
-                }
+                env._record.InitializeBinding(name, rval);
             }
         }
     }

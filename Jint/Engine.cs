@@ -377,7 +377,7 @@ namespace Jint
 
             using (new StrictModeScope(_isStrict || program.Strict))
             {
-                var hoistingScope = HoistingScope.Hoist(program, HoistingScope.HoistingMode.Script);
+                var hoistingScope = HoistingScope.GetFunctionLevelDeclarations(program);
 
                 DeclarationBindingInstantiation(
                     DeclarationBindingType.GlobalCode,

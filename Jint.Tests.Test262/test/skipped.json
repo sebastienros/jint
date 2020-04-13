@@ -670,6 +670,22 @@
 
   // class support
   {
+    "source": "language/statements/let/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/let/dstr-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/const/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/const/dstr-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
     "source": "language/expressions/arrow-function/dstr-dflt-ary-ptrn-elem-id-init-fn-name-class.js",
     "reason": "class not implemented"
   },

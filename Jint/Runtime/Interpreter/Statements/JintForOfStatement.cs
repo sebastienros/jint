@@ -14,6 +14,7 @@ namespace Jint.Runtime.Interpreter.Statements
         private JintStatement _body;
         private JintExpression _identifier;
         private BindingPattern _leftPattern;
+        private VariableDeclarationKind _variableDeclarationKind = VariableDeclarationKind.Var;
 
         private JintExpression _right;
 
@@ -26,6 +27,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             if (_statement.Left is VariableDeclaration variableDeclaration)
             {
+                _variableDeclarationKind = variableDeclaration.Kind;
                 var element = variableDeclaration.Declarations[0].Id;
                 if (element is BindingPattern bindingPattern)
                 {
@@ -92,6 +94,11 @@ namespace Jint.Runtime.Interpreter.Statements
                             _leftPattern,
                             currentValue,
                             checkReference: !(_statement.Left is VariableDeclaration));
+                    }
+                    else if (_variableDeclarationKind != VariableDeclarationKind.Var)
+                    {
+                        var lhsRef = (Reference) _identifier.Evaluate();
+                        lhsRef.InitializeReferencedBinding(currentValue);
                     }
                     else
                     {
