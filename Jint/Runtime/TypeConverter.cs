@@ -576,7 +576,7 @@ namespace Jint.Runtime
                         yield break;
                     }
 
-                    matchingByParameterCount = matchingByParameterCount ?? new List<Tuple<T, JsValue[]>>();
+                    matchingByParameterCount ??= new List<Tuple<T, JsValue[]>>();
                     matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, arguments));
                 }
                 else if (parameterInfos.Length > arguments.Length)

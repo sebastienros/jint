@@ -282,7 +282,8 @@ namespace Jint.Runtime.Interop
             var key = value == null ? $"Null->{type}" : $"{value.GetType()}->{type}";
 #endif
 
-            var canConvert = _knownConversions.GetOrAdd(key, _ =>
+            // string conversion is not stable, "filter" -> int is invalid, "0" -> int is valid
+            var canConvert = value is string || _knownConversions.GetOrAdd(key, _ =>
             {
                 try
                 {

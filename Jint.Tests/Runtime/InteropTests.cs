@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -670,6 +671,64 @@ namespace Jint.Tests.Runtime
                 assert(instance.NullableEnum===1);
                 assert(instance.NullableStruct.Value===5);
             ");
+        }
+
+        private class ReadOnlyList : IReadOnlyList<Person>
+        {
+            private readonly Person[] _data;
+
+            public ReadOnlyList(params Person[] data)
+            {
+                _data = data;
+            }
+
+            public IEnumerator<Person> GetEnumerator()
+            {
+                return ((IEnumerable<Person>) _data).GetEnumerator();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return _data.GetEnumerator();
+            }
+
+            public int Count => _data.Length;
+
+            public Person this[int index] => _data[index];
+        }
+        
+        [Fact]
+        public void CanAddArrayPrototypeForArrayLikeClrObjects()
+        {
+            var e = new Engine(cfg => cfg
+                .AllowClr(typeof(Person).Assembly)
+                .SetWrapObjectHandler((engine, target) =>
+                {
+                    var instance = new ObjectWrapper(engine, target);
+                    if (instance.IsArrayLike)
+                    {
+                        instance.SetPrototypeOf(engine.Array.PrototypeObject);
+                    }
+                    return instance;
+                })
+            );
+
+            var person = new Person
+            {
+                Age = 12,
+                Name = "John"
+            };
+            
+            dynamic obj = new
+            {
+                values = new ReadOnlyList(person)
+            };
+
+            e.SetValue("o", obj);
+
+            var name = e.Execute("o.values.filter(x => x.age == 12)[0].name").GetCompletionValue().ToString();
+            Assert.Equal("John", name);
+
         }
 
         [Fact]
