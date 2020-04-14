@@ -905,6 +905,10 @@
   // Esprima problems
 
   {
+    "source": "language/statements/for-of/dstr-obj-id-init-let.js",
+    "reason": "Esprima problem"
+  },
+  {
     "source": "language/statements/for/head-lhs-let.js",
     "reason": "Esprima problem"
   },

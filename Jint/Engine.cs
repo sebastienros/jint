@@ -579,7 +579,6 @@ namespace Jint
         /// </summary>
         internal void PutValue(Reference reference, JsValue value)
         {
-            var property = reference.GetReferencedName();
             var baseValue = reference.GetBase();
             if (reference.IsUnresolvableReference())
             {
@@ -588,7 +587,7 @@ namespace Jint
                     ExceptionHelper.ThrowReferenceError(this, reference);
                 }
 
-                Global.Set(property, value);
+                Global.Set(reference.GetReferencedName(), value);
             }
             else if (reference.IsPropertyReference())
             {
@@ -597,8 +596,7 @@ namespace Jint
                     baseValue = TypeConverter.ToObject(this, baseValue);
                 }
 
-                var thisValue = GetThisValue(reference);
-                var succeeded = baseValue.Set(property, value, thisValue);
+                var succeeded = baseValue.Set(reference.GetReferencedName(), value, GetThisValue(reference));
                 if (!succeeded && reference.IsStrictReference())
                 {
                     ExceptionHelper.ThrowTypeError(this);
@@ -606,7 +604,7 @@ namespace Jint
             }
             else
             {
-                ((EnvironmentRecord) baseValue).SetMutableBinding(property.ToString(), value, reference.IsStrictReference());
+                ((EnvironmentRecord) baseValue).SetMutableBinding(TypeConverter.ToString(reference.GetReferencedName()), value, reference.IsStrictReference());
             }
         }
         

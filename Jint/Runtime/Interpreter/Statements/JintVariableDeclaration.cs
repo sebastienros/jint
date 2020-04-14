@@ -80,9 +80,12 @@ namespace Jint.Runtime.Interpreter.Statements
                     {                        
                         var lhs = (Reference) declaration.Left.Evaluate();
                         var value = declaration.Init.GetValue().Clone();
+                        if (declaration.Init._expression.IsFunctionWithName())
+                        {
+                            ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
+                        }
                         lhs.InitializeReferencedBinding(value);
                         _engine._referencePool.Return(lhs);
-                        
                     }
                     else if (declaration.LeftIdentifier == null
                         || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(

@@ -29,18 +29,20 @@ namespace Jint
                 treeWalker._lexicalDeclarations);
         }
 
-        public static HoistingScope GetLexicalDeclarations(INode node)
+        public static List<VariableDeclaration> GetLexicalDeclarations(INode node)
         {
             var treeWalker = new LexicalWalker();
             treeWalker.Visit(node);
-            return new HoistingScope(functionDeclarations: null, variableDeclarations: null, treeWalker._lexicalDeclarations);
+            return treeWalker._lexicalDeclarations;
         }
 
-        public static HoistingScope GetLexicalDeclarations(BlockStatement statement)
+        public static List<VariableDeclaration> GetLexicalDeclarations(BlockStatement statement)
         {
             List<VariableDeclaration> lexicalDeclarations = null ;
-            foreach (var node in statement.Body)
+            ref readonly var statementListItems = ref statement.Body;
+            for (var i = 0; i < statementListItems.Count; i++)
             {
+                var node = statementListItems[i];
                 if (node is VariableDeclaration rootVariable)
                 {
                     if (rootVariable.Kind != VariableDeclarationKind.Var)
@@ -51,7 +53,27 @@ namespace Jint
                 }
             }
             
-            return new HoistingScope(functionDeclarations: null, variableDeclarations: null, lexicalDeclarations);
+            return lexicalDeclarations;
+        }
+
+        public static List<VariableDeclaration> GetLexicalDeclarations(SwitchCase statement)
+        {
+            List<VariableDeclaration> lexicalDeclarations = null ;
+            ref readonly var statementListItems = ref statement.Consequent;
+            for (var i = 0; i < statementListItems.Count; i++)
+            {
+                var node = statementListItems[i];
+                if (node is VariableDeclaration rootVariable)
+                {
+                    if (rootVariable.Kind != VariableDeclarationKind.Var)
+                    {
+                        lexicalDeclarations = new List<VariableDeclaration>();
+                        lexicalDeclarations.Add(rootVariable);
+                    }
+                }
+            }
+
+            return lexicalDeclarations;
         }
 
         private sealed class ScriptWalker

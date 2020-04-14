@@ -58,7 +58,7 @@ namespace Jint.Runtime.Environments
         
         public override void CreateImmutableBinding(string name, bool strict = true)
         {
-            _dictionary[name] = new Binding(null, canBeDeleted: false, mutable: false, strict: false);
+            _dictionary[name] = new Binding(null, canBeDeleted: false, mutable: false, strict);
         }
 
         public override void InitializeBinding(string name, JsValue value)
@@ -84,7 +84,7 @@ namespace Jint.Runtime.Environments
             {
                 strict = true;
             }
-            
+
             // Is it an uninitialized binding?
             if (!binding.IsInitialized())
             {
@@ -99,7 +99,7 @@ namespace Jint.Runtime.Environments
             {
                 if (strict)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "Can't update the value of an immutable binding.");
+                    ExceptionHelper.ThrowTypeError(_engine, "Assignment to constant variable.");
                 }
             }
         }

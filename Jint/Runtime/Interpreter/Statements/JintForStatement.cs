@@ -54,7 +54,8 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override Completion ExecuteInternal()
         {
             LexicalEnvironment oldEnv = null;
-            if (_initStatement?._statement != null && _initStatement._statement.Kind != VariableDeclarationKind.Var)
+            if (_initStatement?._statement != null
+                && _initStatement._statement.Kind != VariableDeclarationKind.Var)
             {
                 oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                 var loopEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
@@ -115,7 +116,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
             var shouldCreatePerIterationEnvironment =
                 _initStatement?._statement != null
-                && _initStatement._statement.Kind != VariableDeclarationKind.Var;
+                && _initStatement._statement.Kind == VariableDeclarationKind.Let;
 
             if (shouldCreatePerIterationEnvironment)
             {

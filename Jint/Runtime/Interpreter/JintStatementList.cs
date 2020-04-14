@@ -107,11 +107,6 @@ namespace Jint.Runtime.Interpreter
             LexicalEnvironment env,
             List<VariableDeclaration> lexicalDeclarations)
         {
-            if (lexicalDeclarations is null)
-            {
-                return;
-            }
-
             var envRec = env._record;
             for (var i = 0; i < lexicalDeclarations.Count; i++)
             {

@@ -6,17 +6,23 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintUpdateExpression : JintExpression
     {
-        private readonly JintExpression _argument;
-        private readonly int _change;
-        private readonly bool _prefix;
+        private JintExpression _argument;
+        private int _change;
+        private bool _prefix;
 
-        private readonly JintIdentifierExpression _leftIdentifier;
-        private readonly bool _evalOrArguments;
+        private JintIdentifierExpression _leftIdentifier;
+        private bool _evalOrArguments;
 
         public JintUpdateExpression(Engine engine, UpdateExpression expression) : base(engine, expression)
         {
+            _initialized = false;
+        }
+
+        protected override void Initialize()
+        {
+            var expression = (UpdateExpression) _expression;
             _prefix = expression.Prefix;
-            _argument = Build(engine, expression.Argument);
+            _argument = Build(_engine, expression.Argument);
             if (expression.Operator == UnaryOperator.Increment)
             {
                 _change = 1;
