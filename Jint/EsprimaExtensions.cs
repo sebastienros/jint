@@ -12,7 +12,7 @@ namespace Jint
     {
         public static JsValue GetKey(this Property property, Engine engine) => GetKey(property.Key, engine, property.Computed);
 
-        internal static JsValue GetKey<T>(this T expression, Engine engine, bool computed) where T : class, Expression
+        private static JsValue GetKey<T>(this T expression, Engine engine, bool computed) where T : class, Expression
         {
             if (expression is Literal literal)
             {
