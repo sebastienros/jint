@@ -95,12 +95,12 @@ namespace Jint.Native.Function
         /// </summary>
         /// <param name="functionDeclaration"></param>
         /// <returns></returns>
-        public FunctionInstance CreateFunctionObject(IFunctionDeclaration functionDeclaration)
+        public FunctionInstance CreateFunctionObject(IFunctionDeclaration functionDeclaration, LexicalEnvironment env)
         {
             var functionObject = new ScriptFunctionInstance(
                 Engine,
                 functionDeclaration,
-                LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment),
+                env, 
                 functionDeclaration.Strict);
 
             return functionObject;

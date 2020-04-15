@@ -12,7 +12,7 @@ namespace Jint.Runtime.Environments
     /// </summary>
     internal sealed class ObjectEnvironmentRecord : EnvironmentRecord
     {
-        private readonly ObjectInstance _bindingObject;
+        internal readonly ObjectInstance _bindingObject;
         private readonly bool _provideThis;
 
         public ObjectEnvironmentRecord(Engine engine, ObjectInstance bindingObject, bool provideThis) : base(engine)
@@ -126,6 +126,13 @@ namespace Jint.Runtime.Environments
             return _bindingObject.Delete(name);
         }
 
+        public override bool HasThisBinding() => false;
+
+        public override bool HasSuperBinding() => false;
+
+        public override JsValue WithBaseObject() => Undefined; // TODO unless their withEnvironment flag is true.
+
+        
         public override JsValue ImplicitThisValue()
         {
             if (_provideThis)

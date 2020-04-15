@@ -15,7 +15,7 @@ namespace Jint.Runtime.Environments
     /// Represents a declarative environment record
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.1
     /// </summary>
-    internal sealed class DeclarativeEnvironmentRecord : EnvironmentRecord
+    internal class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
         private readonly HybridDictionary<Binding> _dictionary = new HybridDictionary<Binding>();
 
@@ -147,6 +147,12 @@ namespace Jint.Runtime.Environments
 
             return true;
         }
+        
+        public override bool HasThisBinding() => false;
+
+        public override bool HasSuperBinding() => false;
+
+        public override JsValue WithBaseObject() => Undefined;
 
         public override JsValue ImplicitThisValue()
         {

@@ -71,6 +71,12 @@ namespace Jint.Runtime.Environments
         /// <param name="name">The identifier of the binding</param>
         /// <returns><true>true</true> if the deletion is successfull.</returns>
         public abstract bool DeleteBinding(string name);
+        
+        public abstract bool HasThisBinding();
+
+        public abstract bool HasSuperBinding();
+
+        public abstract JsValue WithBaseObject();
 
         /// <summary>
         /// Returns the value to use as the <c>this</c> value on calls to function objects that are obtained as binding values from this environment record.
