@@ -176,7 +176,7 @@ namespace Jint.Runtime.Environments
 
             return keys;
         }
-
+       
         internal void AddFunctionParameters(
             JsValue[] arguments,
             ArgumentsInstance argumentsInstance,

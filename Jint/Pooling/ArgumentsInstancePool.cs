@@ -29,15 +29,16 @@ namespace Jint.Pooling
             };
         }
 
+        public ArgumentsInstance Rent(JsValue[] argumentsList) => Rent(null, null, argumentsList, null);
+
         public ArgumentsInstance Rent(
             FunctionInstance func, 
-            string[] names, 
-            JsValue[] args, 
-            EnvironmentRecord env, 
-            bool strict)
+            string[] formals, 
+            JsValue[] argumentsList, 
+            EnvironmentRecord env)
         {
             var obj = _pool.Allocate();
-            obj.Prepare(func, names, args, env, strict);
+            obj.Prepare(func, formals, argumentsList, env);
             return obj;
         }
 

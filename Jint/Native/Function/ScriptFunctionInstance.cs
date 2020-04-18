@@ -29,7 +29,7 @@ namespace Jint.Native.Function
             JintFunctionDefinition function,
             LexicalEnvironment scope,
             bool strict)
-            : base(engine, function._name, function._parameterNames, scope, strict)
+            : base(engine, function, scope, strict)
         {
             _function = function;
 
@@ -57,9 +57,6 @@ namespace Jint.Native.Function
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.1
         /// </summary>
-        /// <param name="thisArg"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
         public override JsValue Call(JsValue thisArg, JsValue[] arguments)
         {
             var strict = _strict || _engine._isStrict;
@@ -90,9 +87,7 @@ namespace Jint.Native.Function
 
                 try
                 {
-                    var argumentsInstance = _engine.DeclarationBindingInstantiation(
-                        DeclarationBindingType.FunctionCode,
-                        _function._hoistingScope,
+                    var argumentsInstance = _engine.FunctionDeclarationInstantiation(
                         functionInstance: this,
                         arguments);
 

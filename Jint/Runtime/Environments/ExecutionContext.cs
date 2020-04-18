@@ -15,9 +15,14 @@ namespace Jint.Runtime.Environments
         public readonly LexicalEnvironment VariableEnvironment;
         public readonly JsValue ThisBinding;
 
-        public ExecutionContext UpdateLexicalEnvironment(LexicalEnvironment newEnv)
+        public ExecutionContext UpdateLexicalEnvironment(LexicalEnvironment lexicalEnvironment)
         {
-            return new ExecutionContext(newEnv, VariableEnvironment, ThisBinding);
+            return new ExecutionContext(lexicalEnvironment, VariableEnvironment, ThisBinding);
+        }
+
+        public ExecutionContext UpdateVariableEnvironment(LexicalEnvironment variableEnvironment)
+        {
+            return new ExecutionContext(LexicalEnvironment, variableEnvironment, ThisBinding);
         }
     }
 }

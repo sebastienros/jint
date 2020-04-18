@@ -11,8 +11,8 @@ namespace Jint.Native.Function
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
         private static readonly JsString _functionName = new JsString("eval");
 
-        public EvalFunctionInstance(Engine engine, string[] parameters, LexicalEnvironment scope, bool strict) 
-            : base(engine, _functionName, parameters, scope, strict)
+        public EvalFunctionInstance(Engine engine, bool strict) 
+            : base(engine, _functionName, strict)
         {
             _prototype = Engine.Function.PrototypeObject;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
@@ -58,17 +58,14 @@ namespace Jint.Native.Function
                             }
 
                             var hoistingScope = HoistingScope.GetFunctionLevelDeclarations(program);
-                            var argumentsInstance = Engine.DeclarationBindingInstantiation(
-                                DeclarationBindingType.EvalCode,
+                            Engine.EvalDeclarationInstantiation(
                                 hoistingScope,
                                 functionInstance: this,
-                                arguments);
+                                arguments: arguments);
 
                             var statement = JintStatement.Build(_engine, program);
                             var result = statement.Execute();
                             var value = result.GetValueOrDefault();
-
-                            argumentsInstance?.FunctionWasCalled();
 
                             if (result.Type == CompletionType.Throw)
                             {

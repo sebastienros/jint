@@ -10,20 +10,24 @@ namespace Jint.Runtime.Interpreter
         internal readonly IFunction _function;
         internal readonly string _name;
         internal readonly bool _strict;
-        internal readonly string[] _parameterNames;
+        internal string[] _parameterNames;
         internal readonly JintStatement _body;
         internal bool _hasRestParameter;
         internal int _length;
 
         public readonly HoistingScope _hoistingScope;
+        internal bool _hasDuplicates;
+        internal bool _isSimpleParameterList;
+        internal bool _hasParameterExpressions;
+        internal bool _hasArguments;
 
         public JintFunctionDefinition(Engine engine, IFunction function)
         {
             _function = function;
-            _hoistingScope = HoistingScope.GetFunctionLevelDeclarations(function);
+            _hoistingScope = HoistingScope.GetFunctionLevelDeclarations(function, collectVarNames: true, collectLexicalNames: true);
             _name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id.Name : null;
             _strict = function.Strict;
-            _parameterNames = GetParameterNames(function);
+             ProcessParameters(function);
 
             Statement bodyStatement;
             if (function.Expression)
@@ -57,14 +61,17 @@ namespace Jint.Runtime.Interpreter
             if (parameter is RestElement restElement)
             {
                 _hasRestParameter = true;
+                _hasParameterExpressions = true; 
                 return GetParameterIdentifiers(restElement.Argument);
             }
             if (parameter is ArrayPattern arrayPattern)
             {
+                _hasParameterExpressions = true; 
                 return arrayPattern.Elements.SelectMany(GetParameterIdentifiers);
             }
             if (parameter is ObjectPattern objectPattern)
             {
+                _hasParameterExpressions = true; 
                 return objectPattern.Properties.SelectMany(property =>
                     property is Property p
                         ? GetParameterIdentifiers(p.Value)
@@ -73,40 +80,45 @@ namespace Jint.Runtime.Interpreter
             }
             if (parameter is AssignmentPattern assignmentPattern)
             {
+                _hasParameterExpressions = true; 
                 return GetParameterIdentifiers(assignmentPattern.Left);
             }
 
             return Enumerable.Empty<Identifier>();
         }
 
-        private string[] GetParameterNames(IFunction functionDeclaration)
+        private void ProcessParameters(IFunction functionDeclaration)
         {
             var parameterNames = new List<string>();
             var functionDeclarationParams = functionDeclaration.Params;
             int count = functionDeclarationParams.Count;
-            bool onlyIdentifiers = true;
+            _isSimpleParameterList  = true;
             for (var i = 0; i < count; i++)
             {
                 var parameter = functionDeclarationParams[i];
                 if (parameter is Identifier id)
                 {
+                    _hasDuplicates |= parameterNames.Contains(id.Name);
+                    _hasArguments = id.Name == "arguments";
                     parameterNames.Add(id.Name);
-                    if (onlyIdentifiers)
+                    if (_isSimpleParameterList )
                     {
                         _length++;
                     }
                 }
                 else
                 {
-                    onlyIdentifiers = false;
+                    _isSimpleParameterList  = false;
                     foreach (var identifier in GetParameterIdentifiers(parameter))
                     {
+                        _hasDuplicates |= parameterNames.Contains(identifier.Name);
+                        _hasArguments = identifier.Name == "arguments";
                         parameterNames.Add(identifier.Name);
                     }
                 }
             }
 
-            return parameterNames.ToArray();
+            _parameterNames = parameterNames.ToArray();
         }
     }
 }

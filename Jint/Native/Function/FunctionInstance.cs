@@ -4,6 +4,7 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Function
 {
@@ -16,29 +17,18 @@ namespace Jint.Native.Function
         private JsValue _name;
         private PropertyDescriptor _nameDescriptor;
 
-        protected readonly LexicalEnvironment _scope;
-        protected internal readonly string[] _formalParameters;
+        protected LexicalEnvironment _scope;
+        internal readonly JintFunctionDefinition _functionDefinition;
         protected readonly bool _strict;
-
-        protected FunctionInstance(
-            Engine engine,
-            string name,
-            string[] parameters,
-            LexicalEnvironment scope,
-            bool strict)
-            : this(engine, !string.IsNullOrWhiteSpace(name) ? new JsString(name) : null, parameters, scope, strict)
-        {
-        }
 
         internal FunctionInstance(
             Engine engine,
-            JsString name,
-            string[] parameters,
+            JintFunctionDefinition function,
             LexicalEnvironment scope,
             bool strict)
-            : this(engine, name, strict)
+            : this(engine, !string.IsNullOrWhiteSpace(function._name) ? new JsString(function._name) : null,  strict)
         {
-            _formalParameters = parameters;
+            _functionDefinition = function;
             _scope = scope;
         }
 
@@ -60,10 +50,6 @@ namespace Jint.Native.Function
         /// <param name="arguments"></param>
         /// <returns></returns>
         public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
-
-        internal LexicalEnvironment Scope => _scope;
-
-        internal string[] FormalParameters => _formalParameters;
 
         public bool Strict => _strict;
 

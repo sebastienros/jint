@@ -208,7 +208,7 @@ namespace Jint
             _argumentsInstancePool = new ArgumentsInstancePool(this);
             _jsValueArrayPool = new JsValueArrayPool();
 
-            Eval = new EvalFunctionInstance(this, System.Array.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
+            Eval = new EvalFunctionInstance(this, StrictModeScope.IsStrictModeCode);
             Global.SetProperty(CommonProperties.Eval, new PropertyDescriptor(Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
 
             if (Options._IsClrAllowed)
@@ -753,7 +753,7 @@ namespace Jint
             {
                 for (var i = functionDeclarations.Count - 1; i >= 0; i--)
                 {
-                     var d = functionDeclarations[i];
+                    var d = functionDeclarations[i];
                     var fn = d.Id.Name;
                     if (!declaredFunctionNames.Contains(fn))
                     {
@@ -835,59 +835,263 @@ namespace Jint
             }
         }
 
-        
-        //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
-        internal ArgumentsInstance DeclarationBindingInstantiation(
-            DeclarationBindingType declarationBindingType,
-            HoistingScope hoistingScope,
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/#sec-functiondeclarationinstantiation
+        /// </summary>
+        internal ArgumentsInstance FunctionDeclarationInstantiation(
+            FunctionInstance functionInstance,
+            JsValue[] argumentsList)
+        {
+            var func = functionInstance._functionDefinition;
+
+            var calleeContext = ExecutionContext;
+            var env = calleeContext.LexicalEnvironment;
+            var envRec = env._record;
+            var strict = StrictModeScope.IsStrictModeCode;
+            var parameterNames = func._parameterNames;
+            var hasDuplicates = func._hasDuplicates;
+            var simpleParameterList = func._isSimpleParameterList;
+            var hasParameterExpressions = func._hasParameterExpressions;
+
+            var hoistingScope = functionInstance._functionDefinition._hoistingScope;
+            var functionDeclarations = hoistingScope._functionDeclarations;
+            var varDeclarations = hoistingScope._variablesDeclarations;
+            var varNames = hoistingScope._varNames;
+            var lexicalNames = hoistingScope._lexicalNames;
+
+            HashSet<string> functionNames = null;
+            LinkedList<FunctionDeclaration> functionToInitialize = null;
+
+            if (functionDeclarations != null)
+            {
+                functionNames = new HashSet<string>();
+                functionToInitialize = new LinkedList<FunctionDeclaration>();
+                for (var i = functionDeclarations.Count - 1; i >= 0; i--)
+                {
+                    var d = functionDeclarations[i];
+                    var fn = d.Id.Name;
+                    if (functionNames.Add(fn))
+                    {
+                        functionNames.Add(fn);
+                        functionToInitialize.AddFirst(d);
+                    }
+                }
+            }
+
+            const string ParameterNameArguments = "arguments";
+
+            var argumentsObjectNeeded = true;
+            if (functionInstance is ArrowFunctionInstance) // TODO If func.[[ThisMode]] is lexical, then
+            {
+                argumentsObjectNeeded = false;
+            }
+            else if (func._hasArguments)
+            {
+                argumentsObjectNeeded = false;
+            }
+            else if (!hasParameterExpressions)
+            {
+                if (functionNames?.Contains(ParameterNameArguments) == true 
+                    || lexicalNames?.Contains(ParameterNameArguments) == true)
+                {
+                    argumentsObjectNeeded = false;
+                }
+            }
+
+            foreach (var paramName in parameterNames)
+            {
+                var alreadyDeclared = envRec.HasBinding(paramName);
+                if (!alreadyDeclared)
+                {
+                    envRec.CreateMutableBinding(paramName, canBeDeleted: false);
+                    if (hasDuplicates)
+                    {
+                        envRec.InitializeBinding(paramName, JsValue.Undefined);
+                    }
+                }
+            }
+
+            ArgumentsInstance ao = null;
+
+            // TODO cache
+            var parameterBindings = new List<string>(func._parameterNames);
+            if (argumentsObjectNeeded)
+            {
+                if (strict || !simpleParameterList)
+                {
+                    ao = CreateUnmappedArgumentsObject(argumentsList);
+                }
+                else
+                {
+                    // NOTE: mapped argument object is only provided for non-strict functions that don't have a rest parameter,
+                    // any parameter default value initializers, or any destructured parameters.
+                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, envRec);
+                }
+
+                if (strict)
+                {
+                    envRec.CreateImmutableBinding(ParameterNameArguments, strict: false);
+                }
+                else
+                {
+                    envRec.CreateMutableBinding(ParameterNameArguments, canBeDeleted: false);
+                }
+                envRec.InitializeBinding(ParameterNameArguments, ao);
+                parameterBindings.Add(ParameterNameArguments);
+            }
+            
+            // Let iteratorRecord be CreateListIteratorRecord(argumentsList).
+            // If hasDuplicates is true, then
+            //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and undefined as arguments.
+            // Else,
+            //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
+
+            if (envRec is DeclarativeEnvironmentRecord der)
+            {
+                der.AddFunctionParameters(argumentsList, ao, functionInstance._functionDefinition._function);
+            }
+            else
+            {
+                for (int i = 0; i < parameterNames.Length; i++)
+                {
+                    var argName = parameterNames[i];
+                    var v = argumentsList.At(i);
+                    v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionInstance._functionDefinition._function, v, (uint) i);
+                    envRec.InitializeBinding(argName, v);
+                }
+            }
+
+            LexicalEnvironment varEnv;
+            EnvironmentRecord varEnvRec;
+            if (!hasParameterExpressions)
+            {
+                // NOTE: Only a single lexical environment is needed for the parameters and top-level vars.
+                var instantiatedVarNames = varNames != null ? new HashSet<string>(parameterBindings) : null; 
+                for (var i = 0; i < varNames?.Count; i++)
+                {
+                    var n = varNames[i];
+                    if (instantiatedVarNames.Add(n))
+                    {
+                        envRec.CreateMutableBinding(n, canBeDeleted: false);
+                        envRec.InitializeBinding(n, JsValue.Undefined);
+                    }
+                }
+
+                varEnv = env;
+                varEnvRec = envRec;
+            }
+            else
+            {
+                // NOTE: A separate Environment Record is needed to ensure that closures created by expressions
+                // in the formal parameter list do not have visibility of declarations in the function body.
+                varEnv = LexicalEnvironment.NewDeclarativeEnvironment(this, env);
+                varEnvRec = varEnv._record;
+                
+                UpdateVariableEnvironment(varEnv);
+                
+                var instantiatedVarNames = varNames != null ? new HashSet<string>(parameterBindings) : null; 
+                for (var i = 0; i < varNames?.Count; i++)
+                {
+                    var n = varNames[i];
+                    if (instantiatedVarNames.Add(n))
+                    {
+                        varEnvRec.CreateMutableBinding(n, canBeDeleted: false);
+                        JsValue initialValue;
+                        if (!parameterBindings.Contains(n) || functionNames?.Contains(n) == true)
+                        {
+                            initialValue = JsValue.Undefined;
+                        }
+                        else
+                        {
+                            initialValue = envRec.GetBindingValue(n, strict: false);
+                        }
+
+                        varEnvRec.InitializeBinding(n, initialValue);
+                    }
+                }
+            }
+
+            LexicalEnvironment lexEnv;
+            if (!strict)
+            {
+                lexEnv = LexicalEnvironment.NewDeclarativeEnvironment(this, varEnv);
+                // NOTE: Non-strict functions use a separate lexical Environment Record for top-level lexical declarations
+                // so that a direct eval can determine whether any var scoped declarations introduced by the eval code conflict
+                // with pre-existing top-level lexically scoped declarations. This is not needed for strict functions
+                // because a strict direct eval always places all declarations into a new Environment Record.
+            }
+            else
+            {
+                lexEnv = varEnv;
+            }
+
+            var lexEnvRec = lexEnv._record;
+            
+            UpdateLexicalEnvironment(lexEnv);
+
+            var lexicalDeclarations = hoistingScope._lexicalDeclarations;
+            var lexicalDeclarationsCount = lexicalDeclarations?.Count;
+            for (var i = 0; i < lexicalDeclarationsCount; i++)
+            {
+                var d = lexicalDeclarations[i];
+                ref readonly var nodeList = ref d.Declarations;
+                var declarationsCount = nodeList.Count;
+                for (var j = 0; j < declarationsCount; j++)
+                {
+                    var node = nodeList[j];
+                    if (node.Id is Identifier identifier)
+                    {
+                        var dn = identifier.Name;
+                        if (d.Kind == VariableDeclarationKind.Const)
+                        {
+                            lexEnvRec.CreateImmutableBinding(dn, strict: true);
+                        }
+                        else
+                        {
+                            lexEnvRec.CreateMutableBinding(dn, canBeDeleted: false);
+                        }
+                    }
+                }
+            }
+
+            if (functionToInitialize != null)
+            {
+                foreach (var f in functionToInitialize)
+                {
+                    var fn = f.Id.Name;
+                    var fo = Function.CreateFunctionObject(f, lexEnv);
+                    varEnvRec.SetMutableBinding(fn, fo, strict: false);
+                }
+            }
+            
+            return ao;
+        }
+
+        private ArgumentsInstance CreateMappedArgumentsObject(
+            FunctionInstance func, 
+            string[] formals,
+            JsValue[] argumentsList, 
+            EnvironmentRecord envRec)
+        {
+            return _argumentsInstancePool.Rent(func, formals, argumentsList, envRec);
+        }
+
+        private ArgumentsInstance CreateUnmappedArgumentsObject(JsValue[] argumentsList)
+        {
+            return _argumentsInstancePool.Rent(argumentsList);
+        }
+
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/#sec-evaldeclarationinstantiation
+        /// </summary>
+        internal void EvalDeclarationInstantiation(HoistingScope hoistingScope,
             FunctionInstance functionInstance,
             JsValue[] arguments)
         {
             var environment = ExecutionContext.LexicalEnvironment;
             var envRec = environment._record;
-            var configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
+            var configurableBindings = true;
             var strict = StrictModeScope.IsStrictModeCode;
-            ArgumentsInstance argsObj = null;
-
-            var der = envRec as DeclarativeEnvironmentRecord;
-            if (declarationBindingType == DeclarationBindingType.FunctionCode)
-            {
-                // arrow functions don't needs arguments
-                var arrowFunctionInstance = functionInstance as ArrowFunctionInstance;
-                argsObj = arrowFunctionInstance is null
-                    ? _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, envRec, strict)
-                    : null;
-
-                var functionDeclaration = (functionInstance as ScriptFunctionInstance)?.FunctionDeclaration ??
-                                          arrowFunctionInstance?.FunctionDeclaration;
-
-                if (!ReferenceEquals(der, null))
-                {
-                    der.AddFunctionParameters(arguments, argsObj, functionDeclaration);
-                }
-                else
-                {
-                    // TODO: match functionality with DeclarationEnvironmentRecord.AddFunctionParameters here
-                    // slow path
-                    var parameters = functionInstance._formalParameters;
-                    for (uint i = 0; i < (uint) parameters.Length; i++)
-                    {
-                        var argName = parameters[i];
-                        var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
-                        v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionDeclaration, v, i);
-
-                        var argAlreadyDeclared = envRec.HasBinding(argName);
-                        if (!argAlreadyDeclared)
-                        {
-                            envRec.CreateMutableBinding(argName, canBeDeleted: false);
-                        }
-
-                        envRec.SetMutableBinding(argName, v, strict);
-                    }
-                    envRec.CreateImmutableBinding("arguments", strict);
-                    envRec.InitializeBinding("arguments", argsObj);
-                }
-            }
 
             var functionDeclarations = hoistingScope._functionDeclarations;
             if (functionDeclarations != null)
@@ -942,9 +1146,6 @@ namespace Jint
                     }
                 }
             }
-
-
-            return argsObj;
         }
 
         private void AddFunctionDeclarations(
@@ -1001,6 +1202,12 @@ namespace Jint
         internal void UpdateLexicalEnvironment(LexicalEnvironment newEnv)
         {
             _executionContexts.ReplaceTopLexicalEnvironment(newEnv);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void UpdateVariableEnvironment(LexicalEnvironment newEnv)
+        {
+            _executionContexts.ReplaceTopVariableEnvironment(newEnv);
         }
     }
 }

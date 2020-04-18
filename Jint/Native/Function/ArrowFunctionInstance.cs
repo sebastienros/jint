@@ -29,7 +29,7 @@ namespace Jint.Native.Function
             JintFunctionDefinition function,
             LexicalEnvironment scope,
             bool strict)
-            : base(engine, (string) null, function._parameterNames, scope, strict)
+            : base(engine, function, scope, strict)
         {
             _function = function;
 
@@ -60,9 +60,7 @@ namespace Jint.Native.Function
 
                 try
                 {
-                    _engine.DeclarationBindingInstantiation(
-                        DeclarationBindingType.FunctionCode,
-                        _function._hoistingScope,
+                    _engine.FunctionDeclarationInstantiation(
                         functionInstance: this,
                         arguments);
 
