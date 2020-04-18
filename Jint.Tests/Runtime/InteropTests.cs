@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -728,7 +729,16 @@ namespace Jint.Tests.Runtime
 
             var name = e.Execute("o.values.filter(x => x.age == 12)[0].name").GetCompletionValue().ToString();
             Assert.Equal("John", name);
-
+        }
+        
+        [Fact]
+        public void CanAccessExpandoObject()
+        {
+            var engine = new Engine();
+            dynamic expando = new ExpandoObject();
+            expando.Name = "test";
+            engine.SetValue("expando", expando);
+            Assert.Equal("test", engine.Execute("expando.Name").GetCompletionValue().ToString());
         }
 
         [Fact]
