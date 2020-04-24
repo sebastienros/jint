@@ -105,6 +105,8 @@ namespace Jint.Runtime.Descriptors.Specialized
                             throw;
                         case ArgumentOutOfRangeException _:
                             return JsValue.Undefined;
+                        case IndexOutOfRangeException _:
+                            return JsValue.Undefined;
                         default:
                             throw tie.InnerException;
                     }
