@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaration>
     {
-        private static readonly Completion VoidCompletion = new Completion(CompletionType.Normal, Undefined.Instance, null, default);
+        private static readonly Completion VoidCompletion = new Completion(CompletionType.Normal, null, null, default);
 
         private ResolvedDeclaration[] _declarations;
 
@@ -17,7 +17,8 @@ namespace Jint.Runtime.Interpreter.Statements
             internal JintExpression Left;
             internal BindingPattern LeftPattern;
             internal JintExpression Init;
-            internal JintIdentifierExpression LeftIdentifier;
+            internal JintIdentifierExpression LeftIdentifierExpression;
+            internal Identifier LeftIdentifier;
             internal bool EvalOrArguments;
         }
 
@@ -55,7 +56,8 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     Left = left,
                     LeftPattern = bindingPattern,
-                    LeftIdentifier = leftIdentifier,
+                    LeftIdentifierExpression = leftIdentifier,
+                    LeftIdentifier = _statement.Kind == VariableDeclarationKind.Let ? declaration.Id as Identifier : null,
                     EvalOrArguments = leftIdentifier?.HasEvalOrArguments == true,
                     Init = init
                 };
@@ -87,10 +89,10 @@ namespace Jint.Runtime.Interpreter.Statements
                         lhs.InitializeReferencedBinding(value);
                         _engine._referencePool.Return(lhs);
                     }
-                    else if (declaration.LeftIdentifier == null
+                    else if (declaration.LeftIdentifierExpression == null
                         || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
                             _engine,
-                            declaration.LeftIdentifier,
+                            declaration.LeftIdentifierExpression,
                             declaration.Init,
                             declaration.EvalOrArguments) is null)
                     {
@@ -108,6 +110,10 @@ namespace Jint.Runtime.Interpreter.Statements
                         _engine.PutValue(lhs, value);
                         _engine._referencePool.Return(lhs);
                     }
+                }
+                else if (declaration.LeftIdentifier != null)
+                {
+                    _engine.ExecutionContext.LexicalEnvironment._record.InitializeBinding(declaration.LeftIdentifier.Name, JsValue.Undefined);
                 }
             }
 

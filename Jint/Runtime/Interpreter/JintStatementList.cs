@@ -60,6 +60,9 @@ namespace Jint.Runtime.Interpreter
             JintStatement s = null;
             var c = new Completion(CompletionType.Normal, null, null, _engine._lastSyntaxNode?.Location ?? default);
             Completion sl = c;
+            
+            // The value of a StatementList is the value of the last value-producing item in the StatementList
+            JsValue lastValue = null;
             try
             {
                 foreach (var pair in _jintStatements)
@@ -74,8 +77,8 @@ namespace Jint.Runtime.Interpreter
                             c.Identifier,
                             c.Location);
                     }
-
                     sl = c;
+                    lastValue = c.Value ?? lastValue;
                 }
             }
             catch (JavaScriptException v)
@@ -100,7 +103,7 @@ namespace Jint.Runtime.Interpreter
                 });
                 c = new Completion(CompletionType.Throw, error, null, s.Location);
             }
-            return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier, c.Location);
+            return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Identifier, c.Location);
         }
 
         internal static void BlockDeclarationInstantiation(

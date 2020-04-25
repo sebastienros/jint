@@ -60,7 +60,7 @@ namespace Jint.Native.String
             return JsString.Create(new string(chars));
         }
 
-        private static JsValue FromCodePoint(JsValue thisObj, JsValue[] arguments)
+        private JsValue FromCodePoint(JsValue thisObj, JsValue[] arguments)
         {
             var codeUnits = new List<JsValue>();
             string result = "";
@@ -73,7 +73,7 @@ namespace Jint.Native.String
                     || double.IsNaN(codePoint)
                     || TypeConverter.ToInt32(codePoint) != codePoint)
                 {
-                    return ExceptionHelper.ThrowRangeErrorNoEngine<JsValue>("Invalid code point " + codePoint);
+                    return ExceptionHelper.ThrowRangeError<JsValue>(_engine, "Invalid code point " + codePoint);
                 }
 
                 var point = (uint) codePoint;

@@ -41,7 +41,7 @@ namespace Jint.Runtime.Interpreter.Statements
             var experValue = _right.GetValue();
             if (experValue.IsNullOrUndefined())
             {
-                return new Completion(CompletionType.Normal, null, null, Location);
+                return new Completion(CompletionType.Normal, JsValue.Undefined, null, Location);
             }
 
             var obj = TypeConverter.ToObject(_engine, experValue);
