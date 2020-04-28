@@ -27,10 +27,23 @@ namespace Jint
             _lexicalNames = lexicalNames;
         }
 
-        public static HoistingScope GetFunctionLevelDeclarations(INode node, bool collectVarNames = false, bool collectLexicalNames = false)
+        public static HoistingScope GetProgramLevelDeclarations(INode node, bool collectVarNames = false, bool collectLexicalNames = false)
         {
             var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames);
             treeWalker.Visit(node, true);
+            return new HoistingScope(
+                treeWalker._functions,
+                treeWalker._varNames,
+                treeWalker._variableDeclarations,
+                treeWalker._lexicalDeclarations,
+                treeWalker._lexicalNames);
+        }
+        
+        public static HoistingScope GetFunctionLevelDeclarations(IFunction node, bool collectVarNames = false, bool collectLexicalNames = false)
+        {
+            var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames);
+            treeWalker.Visit(node.Body, true);
+            
             return new HoistingScope(
                 treeWalker._functions,
                 treeWalker._varNames,

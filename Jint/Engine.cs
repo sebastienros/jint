@@ -583,7 +583,7 @@ namespace Jint
                     ExceptionHelper.ThrowReferenceError(this, reference);
                 }
 
-                Global.Set(reference.GetReferencedName(), value);
+                Global.Set(reference.GetReferencedName(), value, throwOnError: false);
             }
             else if (reference.IsPropertyReference())
             {
@@ -731,7 +731,7 @@ namespace Jint
         {
             var envRec = (GlobalEnvironmentRecord) env._record;
 
-            var hoistingScope = HoistingScope.GetFunctionLevelDeclarations(script);
+            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(script);
             var functionDeclarations = hoistingScope._functionDeclarations;
             var varDeclarations = hoistingScope._variablesDeclarations;
             var lexDeclarations = hoistingScope._lexicalDeclarations;

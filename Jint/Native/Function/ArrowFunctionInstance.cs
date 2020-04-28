@@ -53,10 +53,7 @@ namespace Jint.Native.Function
             var strict = Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
             {
-                _engine.EnterExecutionContext(
-                    localEnv,
-                    localEnv,
-                    _thisBinding);
+                _engine.EnterExecutionContext(localEnv, localEnv,  _thisBinding);
 
                 try
                 {

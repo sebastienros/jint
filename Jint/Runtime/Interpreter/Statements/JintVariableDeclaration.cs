@@ -1,5 +1,4 @@
 using Esprima.Ast;
-using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
@@ -18,7 +17,6 @@ namespace Jint.Runtime.Interpreter.Statements
             internal BindingPattern LeftPattern;
             internal JintExpression Init;
             internal JintIdentifierExpression LeftIdentifierExpression;
-            internal Identifier LeftIdentifier;
             internal bool EvalOrArguments;
         }
 
@@ -57,7 +55,6 @@ namespace Jint.Runtime.Interpreter.Statements
                     Left = left,
                     LeftPattern = bindingPattern,
                     LeftIdentifierExpression = leftIdentifier,
-                    LeftIdentifier = _statement.Kind == VariableDeclarationKind.Let ? declaration.Id as Identifier : null,
                     EvalOrArguments = leftIdentifier?.HasEvalOrArguments == true,
                     Init = init
                 };
@@ -110,10 +107,6 @@ namespace Jint.Runtime.Interpreter.Statements
                         _engine.PutValue(lhs, value);
                         _engine._referencePool.Return(lhs);
                     }
-                }
-                else if (declaration.LeftIdentifier != null)
-                {
-                    _engine.ExecutionContext.LexicalEnvironment._record.InitializeBinding(declaration.LeftIdentifier.Name, JsValue.Undefined);
                 }
             }
 

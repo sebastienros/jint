@@ -88,7 +88,7 @@ namespace Jint.Runtime.Environments
             // Is it an uninitialized binding?
             if (!binding.IsInitialized())
             {
-                ExceptionHelper.ThrowReferenceError<object>(_engine, message: "the binding " + name + " has not been initialized");
+                ExceptionHelper.ThrowReferenceError<object>(_engine, message: "Cannot access '" +  name + "' before initialization");
             }
             
             if (binding.Mutable)

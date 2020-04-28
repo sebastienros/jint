@@ -1,4 +1,5 @@
 ﻿using Jint.Native;
+using Jint.Native.Function;
 using Jint.Native.Global;
 using Jint.Native.Object;
 
@@ -59,6 +60,11 @@ namespace Jint.Runtime.Environments
             };
 
             return environment;
+        }
+
+        public static LexicalEnvironment NewFunctionEnvironment(Engine engine, JsValue thisValue, FunctionInstance functionObject, JsValue newTarget, LexicalEnvironment outer)
+        {
+            return new LexicalEnvironment(engine, new FunctionEnvironmentRecord(engine, thisValue, functionObject, newTarget), outer);
         }
 
         internal static LexicalEnvironment NewGlobalEnvironment(Engine engine, GlobalObject objectInstance)
