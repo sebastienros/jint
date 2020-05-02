@@ -63,7 +63,7 @@ namespace Jint
                 {
                     if (rootVariable.Kind != VariableDeclarationKind.Var)
                     {
-                        lexicalDeclarations = new List<VariableDeclaration>();
+                        lexicalDeclarations ??= new List<VariableDeclaration>();
                         lexicalDeclarations.Add(rootVariable);
                     }
                 }
@@ -83,7 +83,7 @@ namespace Jint
                 {
                     if (rootVariable.Kind != VariableDeclarationKind.Var)
                     {
-                        lexicalDeclarations = new List<VariableDeclaration>();
+                        lexicalDeclarations ??= new List<VariableDeclaration>();
                         lexicalDeclarations.Add(rootVariable);
                     }
                 }

@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
@@ -35,20 +36,21 @@ namespace Jint.Runtime.Interpreter.Statements
                 JintExpression left = null;
                 JintExpression init = null;
                 BindingPattern bindingPattern = null;
+
+                if (declaration.Id is Expression expression)
+                {
+                    left = JintExpression.Build(_engine, expression);
+                }
+                else if (declaration.Id is BindingPattern bp)
+                {
+                    bindingPattern = bp;
+                }
+                
                 if (declaration.Init != null)
                 {
-                    if (declaration.Id is Expression expression)
-                    {
-                        left = JintExpression.Build(_engine, expression);
-                    }
-                    else if (declaration.Id is BindingPattern bp)
-                    {
-                        bindingPattern = bp;
-                    }
-                        
                     init = JintExpression.Build(_engine, declaration.Init);
                 }
-
+                
                 var leftIdentifier = left as JintIdentifierExpression;
                 _declarations[i] = new ResolvedDeclaration
                 {
@@ -65,7 +67,22 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             foreach (var declaration in _declarations)
             {
-                if (declaration.Init != null)
+                if (_statement.Kind != VariableDeclarationKind.Var && declaration.Left != null)
+                {                        
+                    var lhs = (Reference) declaration.Left.Evaluate();
+                    var value = JsValue.Undefined;
+                    if (declaration.Init != null)
+                    {
+                        value = declaration.Init.GetValue().Clone();
+                        if (declaration.Init._expression.IsFunctionWithName())
+                        {
+                            ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
+                        }
+                    }
+                    lhs.InitializeReferencedBinding(value);
+                    _engine._referencePool.Return(lhs);
+                }
+                else if (declaration.Init != null)
                 {
                     if (declaration.LeftPattern != null)
                     {
@@ -74,17 +91,6 @@ namespace Jint.Runtime.Interpreter.Statements
                             declaration.LeftPattern,
                             declaration.Init.GetValue(),
                             checkReference: false /* we are variable assignment*/);
-                    }
-                    else if (_statement.Kind != VariableDeclarationKind.Var)
-                    {                        
-                        var lhs = (Reference) declaration.Left.Evaluate();
-                        var value = declaration.Init.GetValue().Clone();
-                        if (declaration.Init._expression.IsFunctionWithName())
-                        {
-                            ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
-                        }
-                        lhs.InitializeReferencedBinding(value);
-                        _engine._referencePool.Return(lhs);
                     }
                     else if (declaration.LeftIdentifierExpression == null
                         || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(

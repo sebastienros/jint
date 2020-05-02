@@ -81,8 +81,7 @@ namespace Jint.Native.Function
                     thisBinding = thisArg;
                 }
 
-                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
-
+                var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, thisBinding, this, newTarget: Undefined, outer: _scope);
                 _engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
 
                 try
