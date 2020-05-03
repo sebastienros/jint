@@ -11,7 +11,7 @@ namespace Jint.Native.Function
             : base(engine, _functionName, false)
         {
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
-            _scope = engine.GlobalEnvironment;
+            _environment = engine.GlobalEnvironment;
             PreventExtensions();
         }
 

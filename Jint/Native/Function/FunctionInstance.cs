@@ -17,7 +17,7 @@ namespace Jint.Native.Function
         private JsValue _name;
         private PropertyDescriptor _nameDescriptor;
 
-        protected internal LexicalEnvironment _scope;
+        protected internal LexicalEnvironment _environment;
         internal readonly JintFunctionDefinition _functionDefinition;
         protected readonly bool _strict;
 
@@ -29,7 +29,7 @@ namespace Jint.Native.Function
             : this(engine, !string.IsNullOrWhiteSpace(function._name) ? new JsString(function._name) : null,  strict)
         {
             _functionDefinition = function;
-            _scope = scope;
+            _environment = scope;
         }
 
         internal FunctionInstance(

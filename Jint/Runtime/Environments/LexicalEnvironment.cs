@@ -62,9 +62,9 @@ namespace Jint.Runtime.Environments
             return environment;
         }
 
-        public static LexicalEnvironment NewFunctionEnvironment(Engine engine, FunctionInstance functionObject, JsValue newTarget)
+        public static LexicalEnvironment NewFunctionEnvironment(Engine engine, FunctionInstance f, JsValue newTarget)
         {
-            return new LexicalEnvironment(engine, new FunctionEnvironmentRecord(engine, functionObject, newTarget), functionObject._scope);
+            return new LexicalEnvironment(engine, new FunctionEnvironmentRecord(engine, f, newTarget), f._environment);
         }
 
         internal static LexicalEnvironment NewGlobalEnvironment(Engine engine, GlobalObject objectInstance)

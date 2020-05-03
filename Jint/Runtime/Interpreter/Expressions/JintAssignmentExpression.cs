@@ -147,27 +147,33 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal sealed class SimpleAssignmentExpression : JintExpression
         {
-            private readonly JintExpression _left;
-            private readonly JintExpression _right;
+            private JintExpression _left;
+            private JintExpression _right;
 
-            private readonly JintIdentifierExpression _leftIdentifier;
-            private readonly bool _evalOrArguments;
-            private readonly ArrayPattern _arrayPattern;
+            private JintIdentifierExpression _leftIdentifier;
+            private bool _evalOrArguments;
+            private ArrayPattern _arrayPattern;
 
             public SimpleAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
             {
-                if (expression.Left is ArrayPattern arrayPattern)
+                _initialized = false;
+            }
+
+            protected override void Initialize()
+            {
+                var assignmentExpression = (AssignmentExpression)_expression;
+                if (assignmentExpression.Left is ArrayPattern arrayPattern)
                 {
                     _arrayPattern = arrayPattern;
                 }
                 else
                 {
-                    _left = Build(engine, (Expression) expression.Left);
+                    _left = Build(_engine, (Expression) assignmentExpression.Left);
                     _leftIdentifier = _left as JintIdentifierExpression;
                     _evalOrArguments = _leftIdentifier?.HasEvalOrArguments == true;
                 }
 
-                _right = Build(engine, expression.Right);
+                _right = Build(_engine, assignmentExpression.Right);
             }
 
             protected override object EvaluateInternal()

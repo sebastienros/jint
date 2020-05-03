@@ -49,7 +49,7 @@ namespace Jint.Native.Function
             var strict = Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
             {
-                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
+                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _environment);
                 _engine.EnterExecutionContext(localEnv, localEnv);
 
                 try

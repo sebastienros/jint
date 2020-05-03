@@ -106,6 +106,9 @@ namespace Jint.Runtime.Interpreter
             return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Identifier, c.Location);
         }
 
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/#sec-blockdeclarationinstantiation
+        /// </summary>
         internal static void BlockDeclarationInstantiation(
             LexicalEnvironment env,
             List<VariableDeclaration> lexicalDeclarations)
