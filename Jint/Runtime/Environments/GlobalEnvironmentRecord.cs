@@ -2,6 +2,7 @@
 using System.Linq;
 using Jint.Native;
 using Jint.Native.Global;
+using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Environments
@@ -20,6 +21,8 @@ namespace Jint.Runtime.Environments
             _objectRecord = new ObjectEnvironmentRecord(engine, global, false);
             _declarativeRecord = new DeclarativeEnvironmentRecord(engine);
         }
+
+        public ObjectInstance GlobalThisValue => _objectRecord._bindingObject;
 
         public override bool HasBinding(string name)
         {
@@ -126,7 +129,7 @@ namespace Jint.Runtime.Environments
             return Undefined;
         }
 
-        public JsValue GetThisBinding()
+        public override JsValue GetThisBinding()
         {
             return _objectRecord._bindingObject;
         }

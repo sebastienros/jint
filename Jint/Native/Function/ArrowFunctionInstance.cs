@@ -10,7 +10,6 @@ namespace Jint.Native.Function
     public sealed class ArrowFunctionInstance : FunctionInstance
     {
         private readonly JintFunctionDefinition _function;
-        private readonly JsValue _thisBinding;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/#sec-arrow-function-definitions
@@ -37,7 +36,6 @@ namespace Jint.Native.Function
             _prototype = Engine.Function.PrototypeObject;
 
             _length = new PropertyDescriptor(JsNumber.Create(function._length), PropertyFlag.Configurable);
-            _thisBinding = _engine.ExecutionContext.ThisBinding;
         }
 
         // for example RavenDB wants to inspect this
@@ -48,12 +46,11 @@ namespace Jint.Native.Function
         /// </summary>
         public override JsValue Call(JsValue thisArg, JsValue[] arguments)
         {
-            var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
-
             var strict = Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
             {
-                _engine.EnterExecutionContext(localEnv, localEnv,  _thisBinding);
+                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
+                _engine.EnterExecutionContext(localEnv, localEnv);
 
                 try
                 {

@@ -176,7 +176,12 @@ namespace Jint.Runtime.Environments
 
             return keys;
         }
-       
+
+        public override JsValue GetThisBinding()
+        {
+            throw new System.NotImplementedException();
+        }
+
         internal void AddFunctionParameters(
             JsValue[] arguments,
             ArgumentsInstance argumentsInstance,
@@ -389,7 +394,7 @@ namespace Jint.Runtime.Environments
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var paramVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
 
-                    _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.ThisBinding);
+                    _engine.EnterExecutionContext(paramVarEnv, paramVarEnv);
                     var result = exp.GetValue();
                     _engine.LeaveExecutionContext();
 

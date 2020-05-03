@@ -99,6 +99,8 @@ namespace Jint.Runtime.Environments
         {
             return ExceptionHelper.ThrowNotSupportedException<bool>();
         }
+
+        public abstract JsValue GetThisBinding();
     }
 }
 

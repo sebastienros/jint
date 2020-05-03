@@ -17,7 +17,7 @@ namespace Jint.Native.Function
         private JsValue _name;
         private PropertyDescriptor _nameDescriptor;
 
-        protected LexicalEnvironment _scope;
+        protected internal LexicalEnvironment _scope;
         internal readonly JintFunctionDefinition _functionDefinition;
         protected readonly bool _strict;
 
@@ -52,7 +52,7 @@ namespace Jint.Native.Function
         public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
 
         public bool Strict => _strict;
-
+        
         public virtual bool HasInstance(JsValue v)
         {
             if (!(v is ObjectInstance o))

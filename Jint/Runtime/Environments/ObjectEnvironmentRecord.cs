@@ -157,5 +157,10 @@ namespace Jint.Runtime.Environments
         {
             return ReferenceEquals(_bindingObject, other);
         }
+
+        public override JsValue GetThisBinding()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

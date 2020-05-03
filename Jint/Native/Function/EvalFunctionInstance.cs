@@ -58,7 +58,6 @@ namespace Jint.Native.Function
 
             using (new StrictModeScope(strictEval))
             {
-                var thisBinding = ctx.ThisBinding;
                 LexicalEnvironment lexEnv;
                 LexicalEnvironment varEnv;
                 if (direct)
@@ -68,7 +67,6 @@ namespace Jint.Native.Function
                 }
                 else
                 {
-                    thisBinding = _engine.Global;
                     lexEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, Engine.GlobalEnvironment);
                     varEnv = Engine.GlobalEnvironment;
                 }
@@ -80,7 +78,7 @@ namespace Jint.Native.Function
 
                 // If ctx is not already suspended, suspend ctx.
                 
-                Engine.EnterExecutionContext(lexEnv, varEnv, thisBinding);
+                Engine.EnterExecutionContext(lexEnv, varEnv);
                 
                 try
                 {

@@ -24,16 +24,18 @@ namespace Jint.Runtime.Environments
 
         public FunctionEnvironmentRecord(
             Engine engine, 
-            JsValue thisValue, 
             FunctionInstance functionObject,
             JsValue newTarget) : base(engine)
         {
-            _thisValue = thisValue;
             _functionObject = functionObject;
             _newTarget = newTarget;
             if (functionObject is ArrowFunctionInstance)
             {
                 _thisBindingStatus = ThisBindingStatus.Lexical;
+            }
+            else
+            {
+                _thisBindingStatus = ThisBindingStatus.Uninitialized;
             }
         }
 
@@ -61,7 +63,7 @@ namespace Jint.Runtime.Environments
             return value;
         }
 
-        public JsValue GetThisBinding()
+        public override JsValue GetThisBinding()
         {
             return _thisBindingStatus == ThisBindingStatus.Uninitialized 
                 ? ExceptionHelper.ThrowReferenceError<JsValue>(_engine)

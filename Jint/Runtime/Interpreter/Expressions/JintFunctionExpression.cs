@@ -17,7 +17,6 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected override object EvaluateInternal()
         {
             var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
-            var envRec = (DeclarativeEnvironmentRecord) funcEnv._record;
 
             var closure = new ScriptFunctionInstance(
                 _engine,
@@ -27,6 +26,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (_function._name != null)
             {
+                var envRec = (DeclarativeEnvironmentRecord) funcEnv._record;
                 envRec.CreateMutableBinding(_function._name, canBeDeleted: false);
                 envRec.InitializeBinding(_function._name, closure);
             }

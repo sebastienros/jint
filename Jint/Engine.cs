@@ -192,7 +192,7 @@ namespace Jint
             GlobalEnvironment = LexicalEnvironment.NewGlobalEnvironment(this, Global);
 
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
-            EnterExecutionContext(GlobalEnvironment, GlobalEnvironment, Global);
+            EnterExecutionContext(GlobalEnvironment, GlobalEnvironment);
 
             Options = new Options();
 
@@ -284,17 +284,16 @@ namespace Jint
         }
         #endregion
 
-        public void EnterExecutionContext(
+        public ExecutionContext EnterExecutionContext(
             LexicalEnvironment lexicalEnvironment,
-            LexicalEnvironment variableEnvironment,
-            JsValue thisBinding)
+            LexicalEnvironment variableEnvironment)
         {
             var context = new ExecutionContext(
                 lexicalEnvironment,
-                variableEnvironment,
-                thisBinding);
+                variableEnvironment);
 
             _executionContexts.Push(context);
+            return context;
         }
 
         public Engine SetValue(JsValue name, Delegate value)
@@ -613,7 +612,6 @@ namespace Jint
             baseValue.InitializeBinding(TypeConverter.ToString(reference.GetReferencedName()), value);
         }
 
-
         private static JsValue GetThisValue(Reference reference)
         {
             if (reference.IsSuperReference())
@@ -744,10 +742,13 @@ namespace Jint
             }
         }
 
-        internal EnvironmentRecord ResolveThisBinding()
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/#sec-resolvethisbinding
+        /// </summary>
+        internal JsValue ResolveThisBinding()
         {
             var envRec = GetThisEnvironment();
-            return null;  // TODO envRec.GetThisBinding();
+            return envRec.GetThisBinding();
         }
         
         /// <summary>
