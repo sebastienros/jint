@@ -17,6 +17,7 @@ namespace Jint
         private bool _allowDebuggerStatement;
         private bool _allowClr;
         private bool _allowClrWrite = true;
+        private bool _ignoreCasingResolveProperty = true;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private Func<Engine, object, ObjectInstance> _wrapObjectHandler;
         private int _maxRecursionDepth = -1;
@@ -181,6 +182,16 @@ namespace Jint
             return this;
         }
 
+        /// <summary>
+        /// Allow ObjectWrapper's ResolveProperty to _strictly_ match the case whrn resolving properties. 
+        /// The default behaviour is to ignore casing.
+        /// </summary>
+        public Options IgnoreCasingInResolveProperty(bool ignoreCasingResolveProperty = true)
+        {
+            _ignoreCasingResolveProperty = ignoreCasingResolveProperty;
+            return this;
+        }
+
         internal bool _IsGlobalDiscarded => _discardGlobal;
 
         internal bool IsStrict => _strict;
@@ -192,6 +203,8 @@ namespace Jint
         internal bool _IsClrAllowed => _allowClr;
 
         internal bool _IsClrWriteAllowed => _allowClrWrite;
+
+        internal bool _IsIgnoredCasingResolveProperty => _ignoreCasingResolveProperty;
 
         internal Predicate<Exception> _ClrExceptionsHandler => _clrExceptionsHandler;
 
