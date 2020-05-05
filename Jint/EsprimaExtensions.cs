@@ -12,7 +12,7 @@ namespace Jint
     {
         public static JsValue GetKey(this Property property, Engine engine) => GetKey(property.Key, engine, property.Computed);
 
-        private static JsValue GetKey<T>(this T expression, Engine engine, bool computed) where T : class, Expression
+        private static JsValue GetKey<T>(this T expression, Engine engine, bool computed) where T : Expression
         {
             if (expression is Literal literal)
             {
@@ -33,7 +33,7 @@ namespace Jint
         }
 
         private static bool TryGetComputedPropertyKey<T>(T expression, Engine engine, out JsValue propertyKey)
-            where T : class, Expression
+            where T : Expression
         {
             if (expression.Type == Nodes.Identifier
                 || expression.Type == Nodes.CallExpression
@@ -50,7 +50,7 @@ namespace Jint
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool IsFunctionWithName<T>(this T node) where T : class, INode
+        internal static bool IsFunctionWithName<T>(this T node) where T : Node
         {
             var type = node.Type;
             return type == Nodes.FunctionExpression || type == Nodes.ArrowFunctionExpression || type == Nodes.ArrowParameterPlaceHolder;

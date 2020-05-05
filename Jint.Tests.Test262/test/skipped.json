@@ -33,6 +33,20 @@
   },
 
 
+  // http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics
+  {
+    "source": "language/statements/let/block-local-closure-set-before-initialization.js",
+    "reason": "not implemented (block level functions)"
+  },
+  {
+    "source": "language/block-scope/shadowing/dynamic-lookup-from-closure.js",
+    "reason": "not implemented (block level functions)"
+  },
+  {
+    "source": "language/block-scope/shadowing/lookup-from-closure.js",
+    "reason": "not implemented (block level functions)"
+  },
+
   {
     "source": "language/statements/let/block-local-closure-set-before-initialization.js",
     "reason": "http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics not implemented (block level functions)"

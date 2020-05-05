@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 JintArguments = new JintExpression[expression.Arguments.Count]
             };
 
-            bool CanSpread(INode e)
+            bool CanSpread(Node e)
             {
                 return e?.Type == Nodes.SpreadElement
                     || e is AssignmentExpression ae && ae.Right?.Type == Nodes.SpreadElement;

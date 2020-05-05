@@ -16,12 +16,12 @@ namespace Jint.Runtime.Interpreter
 
         private readonly Engine _engine;
         private readonly Statement _statement;
-        private readonly NodeList<IStatementListItem> _statements;
+        private readonly NodeList<Statement> _statements;
 
         private Pair[] _jintStatements;
         private bool _initialized;
 
-        public JintStatementList(Engine engine, Statement statement, NodeList<IStatementListItem> statements)
+        public JintStatementList(Engine engine, Statement statement, NodeList<Statement> statements)
         {
             _engine = engine;
             _statement = statement;
@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interpreter
             var jintStatements = new Pair[_statements.Count];
             for (var i = 0; i < jintStatements.Length; i++)
             {
-                var esprimaStatement = (Statement) _statements[i];
+                var esprimaStatement = _statements[i];
                 jintStatements[i] = new Pair
                 {
                     Statement = JintStatement.Build(_engine, esprimaStatement),

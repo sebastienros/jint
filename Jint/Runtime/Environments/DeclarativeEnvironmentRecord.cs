@@ -203,7 +203,7 @@ namespace Jint.Runtime.Environments
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetFunctionParameter(
-            INode parameter,
+            Node parameter,
             JsValue[] arguments,
             int index,
             bool initiallyEmpty)
@@ -220,7 +220,7 @@ namespace Jint.Runtime.Environments
         }
 
         private void SetFunctionParameterUnlikely(
-            INode parameter,
+            Node parameter,
             JsValue[] arguments,
             int index,
             bool initiallyEmpty)
@@ -374,8 +374,8 @@ namespace Jint.Runtime.Environments
         }
 
         private void HandleAssignmentPatternOrExpression(
-            INode left,
-            INode right,
+            Node left,
+            Node right,
             JsValue argument,
             bool initiallyEmpty)
         {

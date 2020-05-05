@@ -14,7 +14,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private JintAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
         {
-            _left = Build(engine, (Expression) expression.Left);
+            _left = Build(engine, expression.Left);
             _right = Build(engine, expression.Right);
             _operator = expression.Operator;
         }
@@ -23,15 +23,12 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             if (expression.Operator == AssignmentOperator.Assign)
             {
-                if (expression.Left is Expression)
-                {
-                    return new SimpleAssignmentExpression(engine, expression);
-                }
-
                 if (expression.Left is BindingPattern)
                 {
                     return new BindingPatternAssignmentExpression(engine, expression);
                 }
+
+                return new SimpleAssignmentExpression(engine, expression);
             }
 
             return new JintAssignmentExpression(engine, expression);
@@ -152,7 +149,6 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             private JintIdentifierExpression _leftIdentifier;
             private bool _evalOrArguments;
-            private ArrayPattern _arrayPattern;
 
             public SimpleAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
             {
@@ -161,17 +157,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override void Initialize()
             {
-                var assignmentExpression = (AssignmentExpression)_expression;
-                if (assignmentExpression.Left is ArrayPattern arrayPattern)
-                {
-                    _arrayPattern = arrayPattern;
-                }
-                else
-                {
-                    _left = Build(_engine, (Expression) assignmentExpression.Left);
-                    _leftIdentifier = _left as JintIdentifierExpression;
-                    _evalOrArguments = _leftIdentifier?.HasEvalOrArguments == true;
-                }
+                var assignmentExpression = ((AssignmentExpression) _expression);
+                _left = Build(_engine, assignmentExpression.Left);
+                _leftIdentifier = _left as JintIdentifierExpression;
+                _evalOrArguments = _leftIdentifier?.HasEvalOrArguments == true;
 
                 _right = Build(_engine, assignmentExpression.Right);
             }
@@ -183,11 +172,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     rval = AssignToIdentifier(_engine, _leftIdentifier, _right, _evalOrArguments);
                 }
-                else if (_arrayPattern != null)
-                {
-                    AssignToIdentifier(_engine, _leftIdentifier, _right, hasEvalOrArguments: false);
-                }
-
                 return rval ?? SetValue();
             }
 

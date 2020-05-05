@@ -10,7 +10,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly JsValue _value;
 
-        public JintConstantExpression(Engine engine, INode expression, JsValue value) : base(engine, expression)
+        public JintConstantExpression(Engine engine, Expression expression, JsValue value) : base(engine, expression)
         {
             _value = value;
         }

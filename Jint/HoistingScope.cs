@@ -27,7 +27,7 @@ namespace Jint
             _lexicalNames = lexicalNames;
         }
 
-        public static HoistingScope GetProgramLevelDeclarations(INode node, bool collectVarNames = false, bool collectLexicalNames = false)
+        public static HoistingScope GetProgramLevelDeclarations(Node node, bool collectVarNames = false, bool collectLexicalNames = false)
         {
             var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames);
             treeWalker.Visit(node, true);
@@ -110,7 +110,7 @@ namespace Jint
                 _collectLexicalNames = collectLexicalNames;
             }
 
-            public void Visit(INode node, bool root)
+            public void Visit(Node node, bool root)
             {
                 foreach (var childNode in node.ChildNodes)
                 {
@@ -167,7 +167,8 @@ namespace Jint
                     if (childNode.Type != Nodes.FunctionDeclaration
                         && childNode.Type != Nodes.ArrowFunctionExpression
                         && childNode.Type != Nodes.ArrowParameterPlaceHolder
-                        && childNode.Type != Nodes.FunctionExpression)
+                        && childNode.Type != Nodes.FunctionExpression
+                        && childNode.ChildNodes.Count > 0)
                     {
                         Visit(childNode, false);
                     }

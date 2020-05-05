@@ -52,7 +52,7 @@ namespace Jint.Runtime.Interpreter
             _body = JintStatement.Build(engine, bodyStatement);
         }
 
-        private IEnumerable<Identifier> GetParameterIdentifiers(INode parameter)
+        private IEnumerable<Identifier> GetParameterIdentifiers(Node parameter)
         {
             if (parameter is Identifier identifier)
             {

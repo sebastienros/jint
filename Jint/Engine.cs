@@ -57,7 +57,7 @@ namespace Jint
 
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
-        internal INode _lastSyntaxNode;
+        internal Node _lastSyntaxNode;
 
         // lazy properties
         private ErrorConstructor _error;
@@ -693,7 +693,7 @@ namespace Jint
         /// <summary>
         /// Gets the last evaluated <see cref="INode"/>.
         /// </summary>
-        public INode GetLastSyntaxNode()
+        public Node GetLastSyntaxNode()
         {
             return _lastSyntaxNode;
         }

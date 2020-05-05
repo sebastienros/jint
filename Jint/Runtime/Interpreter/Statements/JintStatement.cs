@@ -127,7 +127,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
         }
 
-        internal static Completion? FastResolve(IStatementListItem statement)
+        internal static Completion? FastResolve(StatementListItem statement)
         {
             if (statement is ReturnStatement rs && rs.Argument is Literal l)
             {

@@ -37,13 +37,13 @@ namespace Jint.Runtime.Interpreter.Statements
                 JintExpression init = null;
                 BindingPattern bindingPattern = null;
 
-                if (declaration.Id is Expression expression)
-                {
-                    left = JintExpression.Build(_engine, expression);
-                }
-                else if (declaration.Id is BindingPattern bp)
+                if (declaration.Id is BindingPattern bp)
                 {
                     bindingPattern = bp;
+                }
+                else
+                {
+                    left = JintExpression.Build(_engine, declaration.Id);
                 }
                 
                 if (declaration.Init != null)

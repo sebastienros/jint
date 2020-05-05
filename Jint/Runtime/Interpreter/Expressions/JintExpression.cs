@@ -14,9 +14,9 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected bool _initialized = true;
 
         protected readonly Engine _engine;
-        protected internal readonly INode _expression;
+        protected internal readonly Expression _expression;
 
-        protected JintExpression(Engine engine, INode expression)
+        protected JintExpression(Engine engine, Expression expression)
         {
             _engine = engine;
             _expression = expression;
