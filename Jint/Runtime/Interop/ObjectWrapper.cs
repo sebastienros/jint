@@ -21,21 +21,20 @@ namespace Jint.Runtime.Interop
             var type = obj.GetType();
             if (ObjectIsArrayLikeClrCollection(type))
             {
-                IsArrayLike = true;
-                // create a forwarder to produce length from Count or Length, whichever is present
+                // create a forwarder to produce length from Count or Length if one of them is present
                 var lengthProperty = type.GetProperty("Count") ?? type.GetProperty("Length");
                 if (lengthProperty is null)
                 {
-                    ExceptionHelper.ThrowArgumentException("collection is supposed to either have Count or Length property");
                     return;
                 }
+                IsArrayLike = true;
                 var functionInstance = new ClrFunctionInstance(engine, "length", (thisObj, arguments) => JsNumber.Create((int) lengthProperty.GetValue(obj)));
                 var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
                 AddProperty(CommonProperties.Length, descriptor);
             }
         }
 
-        internal static bool ObjectIsArrayLikeClrCollection(Type type)
+        private static bool ObjectIsArrayLikeClrCollection(Type type)
         {
             if (typeof(ICollection).IsAssignableFrom(type))
             {
