@@ -36,8 +36,8 @@ namespace Jint.Tests.Runtime
 
         private async void RunTest(string source)
         {
-            //_engine.Execute(source);
-            await _engine.ExecuteAsync(source);
+            _engine.Execute(source);
+            //await _engine.ExecuteAsync(source);
         }
 
         private string GetEmbeddedFile(string filename)
@@ -481,7 +481,6 @@ namespace Jint.Tests.Runtime
         public void TypeofObjectShouldReturnString()
         {
             RunTest(@"
-                x = undefined;  //When running both the async and sync tests the async fails, as this has already been initialized to an object by the sync (so we set it to undefined)
                 assert(typeof x === 'undefined');
                 assert(typeof 0 === 'number');
                 var x = 0;
