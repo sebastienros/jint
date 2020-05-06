@@ -405,7 +405,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(ulong i)
         {
-            return i >= 0 && i < (ulong) intToString.Length
+            return i < (ulong) intToString.Length
                 ? intToString[i]
                 : i.ToString();
         }

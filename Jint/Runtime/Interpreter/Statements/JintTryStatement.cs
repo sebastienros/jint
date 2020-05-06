@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Runtime.Environments;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -50,6 +51,39 @@ namespace Jint.Runtime.Interpreter.Statements
             if (_finalizer != null)
             {
                 var f = _finalizer.Execute();
+                if (f.Type == CompletionType.Normal)
+                {
+                    return b;
+                }
+
+                return f;
+            }
+
+            return b;
+        }
+
+        protected async override Task<Completion> ExecuteInternalAsync()
+        {
+            var b = await _block.ExecuteAsync();
+            if (b.Type == CompletionType.Throw)
+            {
+                // execute catch
+                if (_catch != null)
+                {
+                    var c = b.Value;
+                    var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
+                    var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                    catchEnv._record.CreateMutableBinding(_catchParamName, c);
+
+                    _engine.UpdateLexicalEnvironment(catchEnv);
+                    b = _catch.Execute();
+                    _engine.UpdateLexicalEnvironment(oldEnv);
+                }
+            }
+
+            if (_finalizer != null)
+            {
+                var f = await _finalizer.ExecuteAsync();
                 if (f.Type == CompletionType.Normal)
                 {
                     return b;

@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Iterator;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -126,6 +127,94 @@ namespace Jint.Runtime.Interpreter.Statements
                 completionType = CompletionType.Throw;
                 throw;
             }   
+            finally
+            {
+                if (close)
+                {
+                    iterator.Close(completionType);
+                }
+            }
+
+            return new Completion(CompletionType.Normal, v, null, Location);
+        }
+
+        protected async override Task<Completion> ExecuteInternalAsync()
+        {
+            var experValue = await _right.GetValueAsync();
+
+            if (!(experValue is IIterator iterator))
+            {
+                var obj = TypeConverter.ToObject(_engine, experValue);
+                obj.TryGetIterator(_engine, out iterator);
+            }
+
+            if (iterator is null)
+            {
+                return ExceptionHelper.ThrowTypeError<Completion>(_engine, _identifier + " is not iterable");
+            }
+
+            var completionType = CompletionType.Normal;
+            var v = JsValue.Undefined;
+            var close = false;
+            try
+            {
+                do
+                {
+                    iterator.TryIteratorStep(out var item);
+                    var done = item.Get(CommonProperties.Done);
+                    if (TypeConverter.ToBoolean(done))
+                    {
+                        // we can close after checks pass
+                        close = true;
+                        break;
+                    }
+
+                    var currentValue = item.Get(CommonProperties.Value);
+
+                    // we can close after checks pass
+                    close = true;
+
+                    if (_leftPattern != null)
+                    {
+                        BindingPatternAssignmentExpression.ProcessPatterns(
+                            _engine,
+                            _leftPattern,
+                            currentValue,
+                            checkReference: !(_statement.Left is VariableDeclaration));
+                    }
+                    else
+                    {
+                        var varRef = (Reference)await _identifier.EvaluateAsync();
+                        _engine.PutValue(varRef, currentValue);
+                    }
+
+                    var stmt = await _body.ExecuteAsync();
+
+                    if (!ReferenceEquals(stmt.Value, null))
+                    {
+                        v = stmt.Value;
+                    }
+
+                    if (stmt.Type == CompletionType.Break && (stmt.Identifier == null || stmt.Identifier == _statement?.LabelSet?.Name))
+                    {
+                        return new Completion(CompletionType.Normal, stmt.Value, null, Location);
+                    }
+
+                    if (stmt.Type != CompletionType.Continue || ((stmt.Identifier != null) && stmt.Identifier != _statement?.LabelSet?.Name))
+                    {
+                        if (stmt.Type != CompletionType.Normal)
+                        {
+                            return stmt;
+                        }
+                    }
+
+                } while (true);
+            }
+            catch
+            {
+                completionType = CompletionType.Throw;
+                throw;
+            }
             finally
             {
                 if (close)

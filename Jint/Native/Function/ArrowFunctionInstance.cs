@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Esprima.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -70,6 +71,49 @@ namespace Jint.Native.Function
                         arguments);
 
                     var result = _function._body.Execute();
+
+                    var value = result.GetValueOrDefault().Clone();
+
+                    if (result.Type == CompletionType.Throw)
+                    {
+                        ExceptionHelper.ThrowJavaScriptException(_engine, value, result);
+                    }
+
+                    if (result.Type == CompletionType.Return)
+                    {
+                        return value;
+                    }
+                }
+                finally
+                {
+                    _engine.LeaveExecutionContext();
+                }
+
+                return Undefined;
+            }
+        }
+
+        public async override Task<JsValue> CallAsync(JsValue thisArg, JsValue[] arguments)
+        {
+            var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
+
+            var strict = Strict || _engine._isStrict;
+            using (new StrictModeScope(strict, true))
+            {
+                _engine.EnterExecutionContext(
+                    localEnv,
+                    localEnv,
+                    _thisBinding);
+
+                try
+                {
+                    _engine.DeclarationBindingInstantiation(
+                        DeclarationBindingType.FunctionCode,
+                        _function._hoistingScope,
+                        functionInstance: this,
+                        arguments);
+
+                    var result = await _function._body.ExecuteAsync();
 
                     var value = result.GetValueOrDefault().Clone();
 

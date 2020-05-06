@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -145,6 +146,114 @@ namespace Jint.Runtime.Interpreter.Expressions
             return lval;
         }
 
+        protected async override Task<object> EvaluateInternalAsync()
+        {
+            var lref = await _left.EvaluateAsync() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
+
+            var rval = await _right.GetValueAsync();
+            var lval = _engine.GetValue(lref, false);
+
+            switch (_operator)
+            {
+                case AssignmentOperator.PlusAssign:
+                    if (AreIntegerOperands(lval, rval))
+                    {
+                        lval = (long)lval.AsInteger() + rval.AsInteger();
+                    }
+                    else
+                    {
+                        var lprim = TypeConverter.ToPrimitive(lval);
+                        var rprim = TypeConverter.ToPrimitive(rval);
+
+                        if (lprim.IsString() || rprim.IsString())
+                        {
+                            if (!(lprim is JsString jsString))
+                            {
+                                jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
+                            }
+
+                            lval = jsString.Append(rprim);
+                        }
+                        else
+                        {
+                            lval = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
+                        }
+                    }
+
+                    break;
+
+                case AssignmentOperator.MinusAssign:
+                    lval = AreIntegerOperands(lval, rval)
+                        ? JsNumber.Create(lval.AsInteger() - rval.AsInteger())
+                        : JsNumber.Create(TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval));
+                    break;
+
+                case AssignmentOperator.TimesAssign:
+                    if (AreIntegerOperands(lval, rval))
+                    {
+                        lval = (long)lval.AsInteger() * rval.AsInteger();
+                    }
+                    else if (lval.IsUndefined() || rval.IsUndefined())
+                    {
+                        lval = Undefined.Instance;
+                    }
+                    else
+                    {
+                        lval = TypeConverter.ToNumber(lval) * TypeConverter.ToNumber(rval);
+                    }
+
+                    break;
+
+                case AssignmentOperator.DivideAssign:
+                    lval = Divide(lval, rval);
+                    break;
+
+                case AssignmentOperator.ModuloAssign:
+                    if (lval.IsUndefined() || rval.IsUndefined())
+                    {
+                        lval = Undefined.Instance;
+                    }
+                    else
+                    {
+                        lval = TypeConverter.ToNumber(lval) % TypeConverter.ToNumber(rval);
+                    }
+
+                    break;
+
+                case AssignmentOperator.BitwiseAndAssign:
+                    lval = TypeConverter.ToInt32(lval) & TypeConverter.ToInt32(rval);
+                    break;
+
+                case AssignmentOperator.BitwiseOrAssign:
+                    lval = TypeConverter.ToInt32(lval) | TypeConverter.ToInt32(rval);
+                    break;
+
+                case AssignmentOperator.BitwiseXOrAssign:
+                    lval = TypeConverter.ToInt32(lval) ^ TypeConverter.ToInt32(rval);
+                    break;
+
+                case AssignmentOperator.LeftShiftAssign:
+                    lval = TypeConverter.ToInt32(lval) << (int)(TypeConverter.ToUint32(rval) & 0x1F);
+                    break;
+
+                case AssignmentOperator.RightShiftAssign:
+                    lval = TypeConverter.ToInt32(lval) >> (int)(TypeConverter.ToUint32(rval) & 0x1F);
+                    break;
+
+                case AssignmentOperator.UnsignedRightShiftAssign:
+                    lval = (uint)TypeConverter.ToInt32(lval) >> (int)(TypeConverter.ToUint32(rval) & 0x1F);
+                    break;
+
+                default:
+                    return ExceptionHelper.ThrowNotImplementedException<object>();
+            }
+
+            _engine.PutValue(lref, lval);
+
+            _engine._referencePool.Return(lref);
+            return lval;
+        }
+
         internal sealed class SimpleAssignmentExpression : JintExpression
         {
             private readonly JintExpression _left;
@@ -188,6 +297,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return rval ?? SetValue();
             }
 
+            protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
+
             private JsValue SetValue()
             {
                 // slower version
@@ -201,7 +312,37 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return rval;
             }
 
-            internal static JsValue AssignToIdentifier(
+            internal static JsValue AssignToIdentifier(Engine engine, JintIdentifierExpression left, JintExpression right, bool hasEvalOrArguments)
+            {
+                var env = engine.ExecutionContext.LexicalEnvironment;
+                var strict = StrictModeScope.IsStrictModeCode;
+                if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                    env,
+                    left.ExpressionName,
+                    strict,
+                    out var environmentRecord,
+                    out _))
+                {
+                    if (strict && hasEvalOrArguments)
+                    {
+                        ExceptionHelper.ThrowSyntaxError(engine);
+                    }
+
+                    var rval = right.GetValue().Clone();
+
+                    if (right._expression.IsFunctionWithName())
+                    {
+                        ((FunctionInstance)rval).SetFunctionName(left.ExpressionName);
+                    }
+
+                    environmentRecord.SetMutableBinding(left.ExpressionName, rval, strict);
+                    return rval;
+                }
+
+                return null;
+            }
+
+            internal async static Task<JsValue> AssignToIdentifierAsync(
                 Engine engine,
                 JintIdentifierExpression left,
                 JintExpression right,
@@ -221,7 +362,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         ExceptionHelper.ThrowSyntaxError(engine);
                     }
 
-                    var rval = right.GetValue().Clone();
+                    var rval = (await right.GetValueAsync()).Clone();
 
                     if (right._expression.IsFunctionWithName())
                     {

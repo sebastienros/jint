@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -97,6 +98,67 @@ namespace Jint.Native.Function
                         arguments);
 
                     var result = _function._body.Execute();
+
+                    var value = result.GetValueOrDefault().Clone();
+
+                    argumentsInstance?.FunctionWasCalled();
+
+                    if (result.Type == CompletionType.Throw)
+                    {
+                        ExceptionHelper.ThrowJavaScriptException(_engine, value, result);
+                    }
+
+                    if (result.Type == CompletionType.Return)
+                    {
+                        return value;
+                    }
+                }
+                finally
+                {
+                    _engine.LeaveExecutionContext();
+                }
+
+                return Undefined;
+            }
+        }
+
+        public async override Task<JsValue> CallAsync(JsValue thisArg, JsValue[] arguments)
+        {
+            var strict = _strict || _engine._isStrict;
+            using (new StrictModeScope(strict, true))
+            {
+                // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
+                JsValue thisBinding;
+                if (StrictModeScope.IsStrictModeCode)
+                {
+                    thisBinding = thisArg;
+                }
+                else if (thisArg.IsNullOrUndefined())
+                {
+                    thisBinding = _engine.Global;
+                }
+                else if (!thisArg.IsObject())
+                {
+                    thisBinding = TypeConverter.ToObject(_engine, thisArg);
+                }
+                else
+                {
+                    thisBinding = thisArg;
+                }
+
+                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
+
+                _engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
+
+                try
+                {
+                    var argumentsInstance = _engine.DeclarationBindingInstantiation(
+                        DeclarationBindingType.FunctionCode,
+                        _function._hoistingScope,
+                        functionInstance: this,
+                        arguments);
+
+                    var result = await _function._body.ExecuteAsync();
 
                     var value = result.GetValueOrDefault().Clone();
 

@@ -1,6 +1,7 @@
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Interpreter.Expressions;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -78,6 +79,45 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
 
                 _update?.GetValue();
+            }
+        }
+
+        protected async override Task<Completion> ExecuteInternalAsync()
+        {
+            if (_initExpression != null) await _initStatement?.ExecuteAsync();
+            if (_initExpression != null) await _initExpression.GetValueAsync();
+
+            JsValue v = Undefined.Instance;
+            while (true)
+            {
+                if (_test != null)
+                {
+                    if (!TypeConverter.ToBoolean(await _test.GetValueAsync()))
+                    {
+                        return new Completion(CompletionType.Normal, v, null, Location);
+                    }
+                }
+
+                var stmt = _body.Execute();
+                if (!ReferenceEquals(stmt.Value, null))
+                {
+                    v = stmt.Value;
+                }
+
+                if (stmt.Type == CompletionType.Break && (stmt.Identifier == null || stmt.Identifier == _statement?.LabelSet?.Name))
+                {
+                    return new Completion(CompletionType.Normal, stmt.Value, null, Location);
+                }
+
+                if (stmt.Type != CompletionType.Continue || ((stmt.Identifier != null) && stmt.Identifier != _statement?.LabelSet?.Name))
+                {
+                    if (stmt.Type != CompletionType.Normal)
+                    {
+                        return stmt;
+                    }
+                }
+
+                await _update?.GetValueAsync();
             }
         }
     }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
@@ -31,6 +32,13 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected override object EvaluateInternal()
         {
             var rightValue = _right.GetValue();
+            ProcessPatterns(_engine, _pattern, rightValue, true);
+            return rightValue;
+        }
+
+        protected async override Task<object> EvaluateInternalAsync()
+        {
+            var rightValue = await _right.GetValueAsync();
             ProcessPatterns(_engine, _pattern, rightValue, true);
             return rightValue;
         }

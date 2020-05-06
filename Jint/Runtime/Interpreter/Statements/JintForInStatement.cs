@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Descriptors;
@@ -59,6 +60,78 @@ namespace Jint.Runtime.Interpreter.Statements
                 for (uint i = 0; i < length; i++)
                 {
                     var p = (JsString) keys.GetOwnProperty(i).Value;
+
+                    if (processedKeys.Contains(p))
+                    {
+                        continue;
+                    }
+
+                    processedKeys.Add(p);
+
+                    // collection might be modified by inner statement
+                    if (cursor.GetOwnProperty(p) == PropertyDescriptor.Undefined)
+                    {
+                        continue;
+                    }
+
+                    var value = cursor.GetOwnProperty(p);
+                    if (!value.Enumerable)
+                    {
+                        continue;
+                    }
+
+                    _engine.PutValue(varRef, p);
+
+                    var stmt = _body.Execute();
+                    if (!ReferenceEquals(stmt.Value, null))
+                    {
+                        v = stmt.Value;
+                    }
+
+                    if (stmt.Type == CompletionType.Break)
+                    {
+                        return new Completion(CompletionType.Normal, v, null, Location);
+                    }
+
+                    if (stmt.Type != CompletionType.Continue)
+                    {
+                        if (stmt.Type != CompletionType.Normal)
+                        {
+                            return stmt;
+                        }
+                    }
+                }
+
+                cursor = cursor.Prototype;
+            }
+
+            return new Completion(CompletionType.Normal, v, null, Location);
+        }
+
+        protected async override Task<Completion> ExecuteInternalAsync()
+        {
+            var varRef = await _identifier.EvaluateAsync() as Reference;
+            var experValue = await _right.GetValueAsync();
+            if (experValue.IsNullOrUndefined())
+            {
+                return new Completion(CompletionType.Normal, null, null, Location);
+            }
+
+            var obj = TypeConverter.ToObject(_engine, experValue);
+            var v = Undefined.Instance;
+
+            // keys are constructed using the prototype chain
+            var cursor = obj;
+            var processedKeys = new HashSet<JsString>();
+
+            while (!ReferenceEquals(cursor, null))
+            {
+                var keys = _engine.Object.GetOwnPropertyNames(Undefined.Instance, Arguments.From(cursor)).AsArray();
+
+                var length = keys.GetLength();
+                for (uint i = 0; i < length; i++)
+                {
+                    var p = (JsString)keys.GetOwnProperty(i).Value;
 
                     if (processedKeys.Contains(p))
                     {

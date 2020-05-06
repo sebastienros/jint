@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Esprima;
 using Esprima.Ast;
 using Jint.Runtime.Interpreter.Expressions;
@@ -44,7 +45,25 @@ namespace Jint.Runtime.Interpreter.Statements
             return ExecuteInternal();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Task<Completion> ExecuteAsync()
+        {
+            _engine._lastSyntaxNode = _statement;
+            _engine.RunBeforeExecuteStatementChecks(_statement);
+
+            if (!_initialized)
+            {
+                Initialize();
+                _initialized = true;
+            }
+
+            return ExecuteInternalAsync();
+        }
+
         protected abstract Completion ExecuteInternal();
+
+        protected virtual Task<Completion> ExecuteInternalAsync()
+            => Task.FromResult(ExecuteInternal());
 
         public Location Location => _statement.Location;
 
