@@ -297,7 +297,23 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return rval ?? SetValue();
             }
 
-            protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
+            protected async override Task<object> EvaluateInternalAsync()
+            {
+                JsValue rval = null;
+                if (_leftIdentifier != null)
+                {
+                    rval = await AssignToIdentifierAsync(_engine, _leftIdentifier, _right, _evalOrArguments);
+                }
+                else if (_arrayPattern != null)
+                {
+                    foreach (var element in _arrayPattern.Elements)
+                    {
+                        await AssignToIdentifierAsync(_engine, _leftIdentifier, _right, false);
+                    }
+                }
+
+                return rval ?? SetValue();
+            }
 
             private JsValue SetValue()
             {
