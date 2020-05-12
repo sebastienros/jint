@@ -216,7 +216,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     else
                     {
                         arguments = _engine._jsValueArrayPool.RentArray(cachedArguments.JintArguments.Length);
-                        BuildArguments(cachedArguments.JintArguments, arguments);
+                        await BuildArgumentsAsync(cachedArguments.JintArguments, arguments);
                     }
                 }
             }

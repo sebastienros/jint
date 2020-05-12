@@ -378,6 +378,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected async static Task BuildArgumentsAsync(JintExpression[] jintExpressions, JsValue[] targetArray)
+        {
+            for (var i = 0; i < jintExpressions.Length; i++)
+            {
+                targetArray[i] = (await jintExpressions[i].GetValueAsync()).Clone();
+            }
+        }
+
         protected JsValue[] BuildArgumentsWithSpreads(JintExpression[] jintExpressions)
         {
             var args = new System.Collections.Generic.List<JsValue>(jintExpressions.Length);
