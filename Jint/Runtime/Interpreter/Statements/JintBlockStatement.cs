@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -14,6 +15,11 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override Completion ExecuteInternal()
         {
             return _statementList.Execute();
+        }
+
+        protected override Task<Completion> ExecuteInternalAsync()
+        {
+            return _statementList.ExecuteAsync();
         }
     }
 }

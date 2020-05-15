@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
@@ -482,6 +483,11 @@ namespace Jint.Native.Object
                 o.CreateDataPropertyOrThrow(propertyKey, value);
 
                 return Undefined;
+            }
+
+            public Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments)
+            {
+                return Task.FromResult(Call(thisObject, arguments));
             }
         }
     }

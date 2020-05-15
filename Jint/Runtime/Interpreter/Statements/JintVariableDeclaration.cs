@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -78,6 +79,47 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                     else if (declaration.LeftIdentifier == null
                         || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
+                            _engine,
+                            declaration.LeftIdentifier,
+                            declaration.Init,
+                            declaration.EvalOrArguments) is null)
+                    {
+                        // slow path
+                        var lhs = (Reference)declaration.Left.Evaluate();
+                        lhs.AssertValid(_engine);
+
+                        var value = declaration.Init.GetValue().Clone();
+
+                        if (declaration.Init._expression.IsFunctionWithName())
+                        {
+                            ((FunctionInstance)value).SetFunctionName(lhs.GetReferencedName());
+                        }
+
+                        _engine.PutValue(lhs, value);
+                        _engine._referencePool.Return(lhs);
+                    }
+                }
+            }
+
+            return VoidCompletion;
+        }
+
+        protected async override Task<Completion> ExecuteInternalAsync()
+        {
+            foreach (var declaration in _declarations)
+            {
+                if (declaration.Init != null)
+                {
+                    if (declaration.LeftPattern != null)
+                    {
+                        BindingPatternAssignmentExpression.ProcessPatterns(
+                            _engine,
+                            declaration.LeftPattern,
+                            declaration.Init.GetValue(),
+                            checkReference: false /* we are variable assignment*/);
+                    }
+                    else if (declaration.LeftIdentifier == null
+                        || await JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifierAsync(
                             _engine,
                             declaration.LeftIdentifier,
                             declaration.Init,

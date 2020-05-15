@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Runtime.Interpreter.Expressions;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -23,6 +24,12 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override Completion ExecuteInternal()
         {
             var jsValue = _argument.GetValue();
+            return new Completion(CompletionType.Throw, jsValue, null, _statement.Location);
+        }
+
+        protected async override Task<Completion> ExecuteInternalAsync()
+        {
+            var jsValue = await _argument.GetValueAsync();
             return new Completion(CompletionType.Throw, jsValue, null, _statement.Location);
         }
     }

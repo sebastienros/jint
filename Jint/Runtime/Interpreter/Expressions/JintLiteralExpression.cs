@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -60,6 +61,8 @@ namespace Jint.Runtime.Interpreter.Expressions
         }
 
         protected override object EvaluateInternal() => ResolveValue();
+        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
+
 
         private JsValue ResolveValue()
         {

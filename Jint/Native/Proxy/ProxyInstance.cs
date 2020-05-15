@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -47,6 +48,17 @@ namespace Jint.Native.Proxy
             }
 
             return ((ICallable) _target).Call(thisObject, arguments);
+        }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments)
+        {
+            var jsValues = new[] { _target, thisObject, _engine.Array.Construct(arguments) };
+            if (TryCallHandler(TrapApply, jsValues, out var result))
+            {
+                return Task.FromResult(result);
+            }
+
+            return ((ICallable)_target).CallAsync(thisObject, arguments);
         }
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)

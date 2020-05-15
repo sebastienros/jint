@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Esprima" Version="1.0.1270" />
+    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
   </ItemGroup>
 </Project>

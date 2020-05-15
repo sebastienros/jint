@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
+using System.Threading.Tasks;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
@@ -68,6 +69,9 @@ namespace Jint.Runtime.Interop
                 return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?", e);
             }
         }
+
+        public Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) 
+            => Task.FromResult(Call(thisObject, arguments));
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {

@@ -34,9 +34,10 @@ namespace Jint.Tests.Runtime
         }
 
 
-        private void RunTest(string source)
+        private async void RunTest(string source)
         {
             _engine.Execute(source);
+            //await _engine.ExecuteAsync(source);
         }
 
         private string GetEmbeddedFile(string filename)
