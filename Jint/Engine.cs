@@ -711,15 +711,31 @@ namespace Jint
             return jsValue;
         }
         
-        // http://www.ecma-international.org/ecma-262/6.0/#sec-resolvebinding
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/#sec-resolvebinding
+        /// </summary>
         internal Reference ResolveBinding(string name, LexicalEnvironment env = null)
         {
             env ??= ExecutionContext.LexicalEnvironment;
-
-            // TODO return LexicalEnvironment.GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
-            return null;
+            return GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
         }
-        
+
+        private Reference GetIdentifierReference(LexicalEnvironment lex, string name, in bool strict)
+        {
+            if (lex is null)
+            {
+                return new Reference(JsValue.Undefined, name, strict);
+            }
+
+            var envRec = lex._record;
+            if (envRec.HasBinding(name))
+            {
+                return new Reference(envRec, name, strict);
+            }
+
+            return GetIdentifierReference(lex._outer, name, strict);
+        }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/#sec-getthisenvironment
         /// </summary>
