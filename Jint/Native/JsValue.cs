@@ -428,7 +428,7 @@ namespace Jint.Native
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-ordinary-object-internal-methods-and-internal-slots-set-p-v-receiver
+        /// https://tc39.es/ecma262/#sec-ordinary-object-internal-methods-and-internal-slots-set-p-v-receiver
         /// </summary>
         public virtual bool Set(JsValue property, JsValue value, JsValue receiver)
         {

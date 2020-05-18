@@ -6,7 +6,7 @@ using Jint.Runtime.Interpreter.Expressions;
 namespace Jint.Runtime.Interpreter.Statements
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/#sec-forbodyevaluation
+    /// https://tc39.es/ecma262/#sec-forbodyevaluation
     /// </summary>
     internal sealed class JintForStatement : JintStatement<ForStatement>
     {
@@ -108,7 +108,7 @@ namespace Jint.Runtime.Interpreter.Statements
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-forbodyevaluation
+        /// https://tc39.es/ecma262/#sec-forbodyevaluation
         /// </summary>
         private Completion ForBodyEvaluation()
         {

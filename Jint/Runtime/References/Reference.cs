@@ -51,7 +51,7 @@ namespace Jint.Runtime.References
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPropertyReference()
         {
-            // http://www.ecma-international.org/ecma-262/#sec-ispropertyreference
+            // https://tc39.es/ecma262/#sec-ispropertyreference
             return (_baseValue._type & (InternalTypes.Primitive | InternalTypes.Object)) != 0;
         }
 

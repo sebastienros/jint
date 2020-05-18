@@ -25,7 +25,7 @@ namespace Jint.Native.Function
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-performeval
+        /// https://tc39.es/ecma262/#sec-performeval
         /// </summary>
         public JsValue Call(JsValue thisObject, JsValue[] arguments, bool direct)
         {

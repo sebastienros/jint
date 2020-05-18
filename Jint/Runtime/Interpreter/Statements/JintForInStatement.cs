@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Native;
@@ -12,7 +11,7 @@ using Jint.Runtime.References;
 namespace Jint.Runtime.Interpreter.Statements
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/#sec-for-in-and-for-of-statements
+    /// https://tc39.es/ecma262/#sec-for-in-and-for-of-statements
     /// </summary>
     internal sealed class JintForInStatement : JintStatement<ForInStatement>
     {
@@ -90,7 +89,7 @@ namespace Jint.Runtime.Interpreter.Statements
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-runtime-semantics-forin-div-ofheadevaluation-tdznames-expr-iterationkind
+        /// https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofheadevaluation-tdznames-expr-iterationkind
         /// </summary>
         private bool HeadEvaluation(out IIterator result)
         {
@@ -130,7 +129,7 @@ namespace Jint.Runtime.Interpreter.Statements
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset
+        /// https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofbodyevaluation-lhs-stmt-iterator-lhskind-labelset
         /// </summary>
         private Completion BodyEvaluation(
             JintExpression lhs,

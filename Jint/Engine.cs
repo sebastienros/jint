@@ -570,7 +570,7 @@ namespace Jint
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-putvalue
+        /// https://tc39.es/ecma262/#sec-putvalue
         /// </summary>
         internal void PutValue(Reference reference, JsValue value)
         {
@@ -712,7 +712,7 @@ namespace Jint
         }
         
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-resolvebinding
+        /// https://tc39.es/ecma262/#sec-resolvebinding
         /// </summary>
         internal Reference ResolveBinding(string name, LexicalEnvironment env = null)
         {
@@ -737,7 +737,7 @@ namespace Jint
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-getthisenvironment
+        /// https://tc39.es/ecma262/#sec-getthisenvironment
         /// </summary>
         internal EnvironmentRecord GetThisEnvironment()
         {
@@ -759,7 +759,7 @@ namespace Jint
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-resolvethisbinding
+        /// https://tc39.es/ecma262/#sec-resolvethisbinding
         /// </summary>
         internal JsValue ResolveThisBinding()
         {
@@ -768,7 +768,7 @@ namespace Jint
         }
         
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-globaldeclarationinstantiation
+        /// https://tc39.es/ecma262/#sec-globaldeclarationinstantiation
         /// </summary>
         private void GlobalDeclarationInstantiation(
             Script script,
@@ -880,7 +880,7 @@ namespace Jint
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-functiondeclarationinstantiation
+        /// https://tc39.es/ecma262/#sec-functiondeclarationinstantiation
         /// </summary>
         internal ArgumentsInstance FunctionDeclarationInstantiation(
             FunctionInstance functionInstance,
@@ -1126,7 +1126,7 @@ namespace Jint
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-evaldeclarationinstantiation
+        /// https://tc39.es/ecma262/#sec-evaldeclarationinstantiation
         /// </summary>
         internal void EvalDeclarationInstantiation(
             Script script,

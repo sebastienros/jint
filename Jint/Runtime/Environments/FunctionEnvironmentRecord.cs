@@ -5,7 +5,7 @@ using Jint.Native.Object;
 namespace Jint.Runtime.Environments
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/#sec-function-environment-records
+    /// https://tc39.es/ecma262/#sec-function-environment-records
     /// </summary>
     internal sealed class FunctionEnvironmentRecord : DeclarativeEnvironmentRecord
     {

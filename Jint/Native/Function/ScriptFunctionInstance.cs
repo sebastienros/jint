@@ -55,7 +55,7 @@ namespace Jint.Native.Function
         public IFunction FunctionDeclaration => _function._function;
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
+        /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
         /// </summary>
         public override JsValue Call(JsValue thisArgument, JsValue[] arguments)
         {

@@ -59,7 +59,7 @@ namespace Jint.Native.RegExp
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-regexp-pattern-flags
+        /// https://tc39.es/ecma262/#sec-regexp-pattern-flags
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {

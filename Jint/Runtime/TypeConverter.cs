@@ -77,7 +77,7 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-toprimitive
+        /// https://tc39.es/ecma262/#sec-toprimitive
         /// </summary>
         public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.None)
         {
@@ -115,7 +115,7 @@ namespace Jint.Runtime
         private static readonly JsString[] NumberHintCallOrder = { (JsString) "valueOf", (JsString) "toString"};
         
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-ordinarytoprimitive
+        /// https://tc39.es/ecma262/#sec-ordinarytoprimitive
         /// </summary>
         internal static JsValue OrdinaryToPrimitive(ObjectInstance input, Types hint = Types.None)
         {
@@ -290,7 +290,7 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-tolength
+        /// https://tc39.es/ecma262/#sec-tolength
         /// </summary>
         public static ulong ToLength(JsValue o)
         {
@@ -304,7 +304,7 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-tointeger
+        /// https://tc39.es/ecma262/#sec-tointeger
         /// </summary>
         public static double ToInteger(JsValue o)
         {

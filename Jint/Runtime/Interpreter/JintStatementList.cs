@@ -107,7 +107,7 @@ namespace Jint.Runtime.Interpreter
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-blockdeclarationinstantiation
+        /// https://tc39.es/ecma262/#sec-blockdeclarationinstantiation
         /// </summary>
         internal static void BlockDeclarationInstantiation(
             LexicalEnvironment env,
