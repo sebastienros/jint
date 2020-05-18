@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
@@ -17,6 +18,7 @@ namespace Jint.Runtime.Interpreter.Statements
         private JintExpression _increment;
         
         private JintStatement _body;
+        private List<string> _boundNames;
 
         public JintForStatement(Engine engine, ForStatement statement) : base(engine, statement)
         {
@@ -32,6 +34,11 @@ namespace Jint.Runtime.Interpreter.Statements
                 if (_statement.Init.Type == Nodes.VariableDeclaration)
                 {
                     var variableDeclaration = (VariableDeclaration) _statement.Init;
+                    if (variableDeclaration.Kind != VariableDeclarationKind.Var)
+                    {
+                        _boundNames = new List<string>();
+                        JintForInStatement.GetBoundNames(variableDeclaration, _boundNames);
+                    }
                     _initStatement = new JintVariableDeclaration(_engine, variableDeclaration);
                 }
                 else
@@ -54,12 +61,26 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override Completion ExecuteInternal()
         {
             LexicalEnvironment oldEnv = null;
-            if (_initStatement?._statement != null
-                && _initStatement._statement.Kind != VariableDeclarationKind.Var)
+            LexicalEnvironment loopEnv = null;
+            if (_boundNames != null)
             {
                 oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                var loopEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                InitializeEnvironmentForBoundNames(loopEnv);
+                loopEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                var loopEnvRec = loopEnv._record;
+                var kind = _initStatement._statement.Kind;
+                for (var i = 0; i < _boundNames.Count; i++)
+                {
+                    var name = _boundNames[i];
+                    if (kind == VariableDeclarationKind.Const)
+                    {
+                        loopEnvRec.CreateImmutableBinding(name, true);
+                    }
+                    else
+                    {
+                        loopEnvRec.CreateMutableBinding(name, false);
+                    }
+                }
+
                 _engine.UpdateLexicalEnvironment(loopEnv);
             }
 
@@ -71,7 +92,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
                 else
                 {
-                    _initStatement?.Execute();
+                    _initStatement?.ExecuteDeclaration(loopEnv);
                 }
 
                 return ForBodyEvaluation();
@@ -85,28 +106,6 @@ namespace Jint.Runtime.Interpreter.Statements
             }
         }
 
-        private void InitializeEnvironmentForBoundNames(LexicalEnvironment loopEnv)
-        {
-            var loopEnvRec = loopEnv._record;
-            var variableDeclaration = _initStatement._statement;
-            ref readonly var nodeList = ref variableDeclaration.Declarations;
-            for (var j = 0; j < nodeList.Count; j++)
-            {
-                var declaration = nodeList[j];
-                if (declaration.Id is Identifier identifier)
-                {
-                    if (variableDeclaration.Kind == VariableDeclarationKind.Const)
-                    {
-                        loopEnvRec.CreateImmutableBinding(identifier.Name, true);
-                    }
-                    else
-                    {
-                        loopEnvRec.CreateMutableBinding(identifier.Name, false);
-                    }
-                }
-            }
-        }
-
         /// <summary>
         /// https://tc39.es/ecma262/#sec-forbodyevaluation
         /// </summary>
@@ -114,10 +113,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             var v = Undefined.Instance;
 
-            var shouldCreatePerIterationEnvironment =
-                _initStatement?._statement != null
-                && _initStatement._statement.Kind == VariableDeclarationKind.Let;
-
+            var shouldCreatePerIterationEnvironment = _initStatement?._statement?.Kind == VariableDeclarationKind.Let;
             if (shouldCreatePerIterationEnvironment)
             {
                 CreatePerIterationEnvironment();
@@ -163,23 +159,23 @@ namespace Jint.Runtime.Interpreter.Statements
 
         private void CreatePerIterationEnvironment()
         {
+            if (_boundNames == null || _boundNames.Count == 0)
+            {
+                return;
+            }
+            
             var lastIterationEnv = _engine.ExecutionContext.LexicalEnvironment;
             var lastIterationEnvRec = lastIterationEnv._record;
             var outer = lastIterationEnv._outer;
             var thisIterationEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, outer);
             var thisIterationEnvRec = thisIterationEnv._record;
             
-            ref readonly var declarations = ref _initStatement._statement.Declarations;
-            for (var j = 0; j < declarations.Count; j++)
+            for (var j = 0; j < _boundNames.Count; j++)
             {
-                var declaration = declarations[j];
-                if (declaration.Id is Identifier identifier)
-                {
-                    var bn = identifier.Name;
-                    thisIterationEnvRec.CreateMutableBinding(bn, false);
-                    var lastValue = lastIterationEnvRec.GetBindingValue(bn, true);
-                    thisIterationEnvRec.InitializeBinding(bn, lastValue);
-                }
+                var bn = _boundNames[j];
+                thisIterationEnvRec.CreateMutableBinding(bn, false);
+                var lastValue = lastIterationEnvRec.GetBindingValue(bn, true);
+                thisIterationEnvRec.InitializeBinding(bn, lastValue);
             }
 
             _engine.UpdateLexicalEnvironment(thisIterationEnv);

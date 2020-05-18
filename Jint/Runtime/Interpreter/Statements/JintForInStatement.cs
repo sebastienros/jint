@@ -149,6 +149,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 while (true)
                 {
+                    LexicalEnvironment iterationEnv = null;
                     if (!iteratorRecord.TryIteratorStep(out var nextResult))
                     {
                         return new Completion(CompletionType.Normal, v, null, Location);
@@ -171,7 +172,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                     else
                     {
-                        var iterationEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                        iterationEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
                         if (_tdzNames != null)
                         {
                             BindingInstantiation(iterationEnv);
@@ -205,7 +206,7 @@ namespace Jint.Runtime.Interpreter.Statements
                             _engine,
                             _assignmentPattern,
                             nextValue,
-                            !(_statement.Left is VariableDeclaration));
+                            iterationEnv);
 
                         if (lhsKind == LhsKind.Assignment)
                         {
@@ -271,42 +272,54 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             var envRec = (DeclarativeEnvironmentRecord) environment._record;
             var variableDeclaration = (VariableDeclaration) _statement.Left;
-            ref readonly var declarations = ref variableDeclaration.Declarations;
             var boundNames = new List<string>();
-            for (var i = 0; i < declarations.Count; i++)
+            GetBoundNames(variableDeclaration, boundNames);
+            for (var i = 0; i < boundNames.Count; i++)
             {
-                boundNames.Clear();
-                GetBoundNames(declarations[i].Id, boundNames);
-                for (var j = 0; j < boundNames.Count; j++)
+                var name = boundNames[i];
+                if (variableDeclaration.Kind == VariableDeclarationKind.Const)
                 {
-                    var name = boundNames[j];
-                    if (variableDeclaration.Kind == VariableDeclarationKind.Const)
-                    {
-                        envRec.CreateImmutableBinding(name, strict: true);
-                    }
-                    else
-                    {
-                        envRec.CreateMutableBinding(name, canBeDeleted: false);
-                    }
+                    envRec.CreateImmutableBinding(name, strict: true);
+                }
+                else
+                {
+                    envRec.CreateMutableBinding(name, canBeDeleted: false);
                 }
             }
         }
 
-        private static void GetBoundNames(Node parameter, List<string> target)
+        internal static void GetBoundNames(VariableDeclaration variableDeclaration, List<string> target)
         {
-            if (parameter.Type == Nodes.Literal)
+            ref readonly var declarations = ref variableDeclaration.Declarations;
+            for (var i = 0; i < declarations.Count; i++)
+            {
+                var declaration = declarations[i];
+                GetBoundNames(declaration.Id, target);
+            }
+        }
+
+        internal static void GetBoundNames(Node parameter, List<string> target)
+        {
+            if (parameter is null || parameter.Type == Nodes.Literal)
             {
                 return;
             }
             
-            if (parameter is Identifier identifier)
+            // try to get away without a loop
+            if (parameter is Identifier id)
             {
-                target.Add(identifier.Name);
+                target.Add(id.Name);
                 return;
             }
 
             while (true)
             {
+                if (parameter is Identifier identifier)
+                {
+                    target.Add(identifier.Name);
+                    return;
+                }
+                
                 if (parameter is RestElement restElement)
                 {
                     parameter = restElement.Argument;

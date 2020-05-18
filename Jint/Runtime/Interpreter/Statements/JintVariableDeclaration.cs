@@ -1,6 +1,7 @@
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
 
@@ -65,10 +66,21 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
+            return ExecuteDeclaration();
+        }
+
+        internal Completion ExecuteDeclaration(LexicalEnvironment environment = null)
+        {
+            if (!_initialized)
+            {
+                _initialized = true;
+                Initialize();
+            }
+            
             foreach (var declaration in _declarations)
             {
                 if (_statement.Kind != VariableDeclarationKind.Var && declaration.Left != null)
-                {                        
+                {
                     var lhs = (Reference) declaration.Left.Evaluate();
                     var value = JsValue.Undefined;
                     if (declaration.Init != null)
@@ -79,6 +91,7 @@ namespace Jint.Runtime.Interpreter.Statements
                             ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
                         }
                     }
+
                     lhs.InitializeReferencedBinding(value);
                     _engine._referencePool.Return(lhs);
                 }
@@ -90,14 +103,14 @@ namespace Jint.Runtime.Interpreter.Statements
                             _engine,
                             declaration.LeftPattern,
                             declaration.Init.GetValue(),
-                            checkReference: false /* we are variable assignment*/);
+                            environment);
                     }
                     else if (declaration.LeftIdentifierExpression == null
-                        || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
-                            _engine,
-                            declaration.LeftIdentifierExpression,
-                            declaration.Init,
-                            declaration.EvalOrArguments) is null)
+                             || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
+                                 _engine,
+                                 declaration.LeftIdentifierExpression,
+                                 declaration.Init,
+                                 declaration.EvalOrArguments) is null)
                     {
                         // slow path
                         var lhs = (Reference) declaration.Left.Evaluate();

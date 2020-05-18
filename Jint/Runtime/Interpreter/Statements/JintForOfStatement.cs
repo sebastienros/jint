@@ -93,7 +93,7 @@ namespace Jint.Runtime.Interpreter.Statements
                             _engine,
                             _leftPattern,
                             currentValue,
-                            checkReference: !(_statement.Left is VariableDeclaration));
+                            null);
                     }
                     else if (_variableDeclarationKind != VariableDeclarationKind.Var)
                     {
