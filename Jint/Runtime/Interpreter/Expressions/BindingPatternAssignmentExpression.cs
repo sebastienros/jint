@@ -121,6 +121,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                                 break;
                             }
                         }
+
                         AssignToIdentifier(engine, identifier.Name, value, checkReference);
                     }
                     else if (left is MemberExpression me)
@@ -291,9 +292,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (p.Value is AssignmentPattern assignmentPattern)
                     {
                         source.TryGetValue(sourceKey, out var value);
-                        if (value.IsUndefined() && assignmentPattern.Right is Expression expression)
+                        if (value.IsUndefined())
                         {
-                            var jintExpression = Build(engine, expression);
+                            var jintExpression = Build(engine, assignmentPattern.Right);
                             value = jintExpression.GetValue();
                         }
 
@@ -380,7 +381,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             JsValue rval,
             bool checkReference)
         {
-            var env = engine.ExecutionContext.VariableEnvironment;
+            var env = engine.ExecutionContext.LexicalEnvironment;
 
             var strict = StrictModeScope.IsStrictModeCode;
             if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(

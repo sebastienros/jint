@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Native;
@@ -34,27 +35,28 @@ namespace Jint.Runtime.Interpreter.Statements
             _lhsKind = LhsKind.Assignment;
             if (_statement.Left is VariableDeclaration variableDeclaration)
             {
+                _lhsKind = variableDeclaration.Kind == VariableDeclarationKind.Var 
+                    ? LhsKind.VarBinding
+                    : LhsKind.LexicalBinding;
+
+                var variableDeclarationDeclaration = variableDeclaration.Declarations[0];
+                var id = variableDeclarationDeclaration.Id;
+                if (_lhsKind == LhsKind.LexicalBinding)
+                {
+                    _tdzNames = new List<string>(1);
+                    GetBoundNames(id, _tdzNames);
+                }
+
                 _iterationKind = IterationKind.Enumerate;
-                var element = variableDeclaration.Declarations[0].Id;
-                if (element is BindingPattern bindingPattern)
+                if (id is BindingPattern bindingPattern)
                 {
                     _assignmentPattern = bindingPattern;
                     _destructuring = true;
                 }
                 else
                 {
-                    var identifier = (Identifier) element;
-                    _lhsKind = LhsKind.VarBinding;
-                    if (variableDeclaration.Kind != VariableDeclarationKind.Var)
-                    {
-                        _lhsKind = LhsKind.LexicalBinding;
-                        _tdzNames = new List<string>(1)
-                        {
-                            identifier.Name
-                        };
-                    }
-
-                    _expr = JintExpression.Build(_engine, identifier);
+                    var identifier = (Identifier) id;
+                    _expr = new JintIdentifierExpression(_engine, identifier);
                 }
             }
             else if (_statement.Left is BindingPattern bindingPattern)
@@ -70,7 +72,7 @@ namespace Jint.Runtime.Interpreter.Statements
             else
             {
                 _iterationKind = IterationKind.Enumerate;
-                _expr = JintExpression.Build(_engine, (Identifier) _statement.Left);
+                _expr = new JintIdentifierExpression(_engine, (Identifier) _statement.Left);
             }
 
             _body = Build(_engine, _statement.Body);
@@ -93,18 +95,17 @@ namespace Jint.Runtime.Interpreter.Statements
         private bool HeadEvaluation(out IIterator result)
         {
             var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
+            var tdz = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
             if (_tdzNames != null)
             {
-                var tdz = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
                 var TDZEnvRec = tdz._record;
                 foreach (var name in _tdzNames)
                 {
                     TDZEnvRec.CreateMutableBinding(name);
                 }
-
-                _engine.UpdateLexicalEnvironment(tdz);
             }
 
+            _engine.UpdateLexicalEnvironment(tdz);
             var exprRef = _right.Evaluate();
             _engine.UpdateLexicalEnvironment(oldEnv);
 
@@ -171,13 +172,12 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                     else
                     {
-                        LexicalEnvironment iterationEnv;
+                        var iterationEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
                         if (_tdzNames != null)
                         {
-                            iterationEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
                             BindingInstantiation(iterationEnv);
-                            _engine.UpdateLexicalEnvironment(iterationEnv);
                         }
+                        _engine.UpdateLexicalEnvironment(iterationEnv);
 
                         if (!destructuring)
                         {
@@ -202,13 +202,15 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                     else
                     {
+                        BindingPatternAssignmentExpression.ProcessPatterns(
+                            _engine,
+                            _assignmentPattern,
+                            nextValue,
+                            !(_statement.Left is VariableDeclaration));
+
                         if (lhsKind == LhsKind.Assignment)
                         {
-                            BindingPatternAssignmentExpression.ProcessPatterns(
-                                _engine,
-                                _assignmentPattern,
-                                nextValue,
-                                !(_statement.Left is VariableDeclaration));
+                            // DestructuringAssignmentEvaluation of assignmentPattern using nextValue as the argument.
                         }
                         else if (lhsKind == LhsKind.VarBinding)
                         {
@@ -221,6 +223,8 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
 
                     var result = stmt.Execute();
+                    _engine.UpdateLexicalEnvironment(oldEnv);
+                    
                     if (!ReferenceEquals(result.Value, null))
                     {
                         v = result.Value;
@@ -269,18 +273,77 @@ namespace Jint.Runtime.Interpreter.Statements
             var envRec = (DeclarativeEnvironmentRecord) environment._record;
             var variableDeclaration = (VariableDeclaration) _statement.Left;
             ref readonly var declarations = ref variableDeclaration.Declarations;
+            var boundNames = new List<string>();
             for (var i = 0; i < declarations.Count; i++)
             {
-                var declarator = declarations[i];
-                var name = ((Identifier) declarator.Id).Name;
-                if (variableDeclaration.Kind == VariableDeclarationKind.Const)
+                boundNames.Clear();
+                GetBoundNames(declarations[i].Id, boundNames);
+                for (var j = 0; j < boundNames.Count; j++)
                 {
-                    envRec.CreateImmutableBinding(name, strict: true);
+                    var name = boundNames[j];
+                    if (variableDeclaration.Kind == VariableDeclarationKind.Const)
+                    {
+                        envRec.CreateImmutableBinding(name, strict: true);
+                    }
+                    else
+                    {
+                        envRec.CreateMutableBinding(name, canBeDeleted: false);
+                    }
                 }
-                else
+            }
+        }
+
+        private static void GetBoundNames(Node parameter, List<string> target)
+        {
+            if (parameter.Type == Nodes.Literal)
+            {
+                return;
+            }
+            
+            if (parameter is Identifier identifier)
+            {
+                target.Add(identifier.Name);
+                return;
+            }
+
+            while (true)
+            {
+                if (parameter is RestElement restElement)
                 {
-                    envRec.CreateMutableBinding(name, canBeDeleted: false);
+                    parameter = restElement.Argument;
+                    continue;
                 }
+                else if (parameter is ArrayPattern arrayPattern)
+                {
+                    ref readonly var arrayPatternElements = ref arrayPattern.Elements;
+                    for (var i = 0; i < arrayPatternElements.Count; i++)
+                    {
+                        var expression = arrayPatternElements[i];
+                        GetBoundNames(expression, target);
+                    }
+                }
+                else if (parameter is ObjectPattern objectPattern)
+                {
+                    ref readonly var objectPatternProperties = ref objectPattern.Properties;
+                    for (var i = 0; i < objectPatternProperties.Count; i++)
+                    {
+                        var property = objectPatternProperties[i];
+                        if (property is Property p)
+                        {
+                            GetBoundNames(p.Value, target);
+                        }
+                        else
+                        {
+                            GetBoundNames((RestElement) property, target);
+                        }
+                    }
+                }
+                else if (parameter is AssignmentPattern assignmentPattern)
+                {
+                    parameter = assignmentPattern.Left;
+                    continue;
+                }
+                break;
             }
         }
 

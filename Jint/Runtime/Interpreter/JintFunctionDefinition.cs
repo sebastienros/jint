@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using Esprima.Ast;
 using Jint.Runtime.Interpreter.Statements;
 
@@ -52,39 +51,81 @@ namespace Jint.Runtime.Interpreter
             _body = JintStatement.Build(engine, bodyStatement);
         }
 
-        private IEnumerable<Identifier> GetParameterIdentifiers(Node parameter)
+        private static void GetBoundNames(
+            Expression parameter,
+            List<string> target, 
+            bool checkDuplicates, 
+            ref bool _hasRestParameter, 
+            ref bool _hasParameterExpressions, 
+            ref bool _hasDuplicates)
         {
             if (parameter is Identifier identifier)
             {
-                return new [] { identifier };
-            }
-            if (parameter is RestElement restElement)
-            {
-                _hasRestParameter = true;
-                _hasParameterExpressions = true; 
-                return GetParameterIdentifiers(restElement.Argument);
-            }
-            if (parameter is ArrayPattern arrayPattern)
-            {
-                _hasParameterExpressions = true; 
-                return arrayPattern.Elements.SelectMany(GetParameterIdentifiers);
-            }
-            if (parameter is ObjectPattern objectPattern)
-            {
-                _hasParameterExpressions = true; 
-                return objectPattern.Properties.SelectMany(property =>
-                    property is Property p
-                        ? GetParameterIdentifiers(p.Value)
-                        : GetParameterIdentifiers((RestElement) property)
-                );
-            }
-            if (parameter is AssignmentPattern assignmentPattern)
-            {
-                _hasParameterExpressions = true; 
-                return GetParameterIdentifiers(assignmentPattern.Left);
+                _hasDuplicates |= checkDuplicates && target.Contains(identifier.Name);
+                target.Add(identifier.Name);
+                return;
             }
 
-            return Enumerable.Empty<Identifier>();
+            while (true)
+            {
+                if (parameter is RestElement restElement)
+                {
+                    _hasRestParameter = true;
+                    _hasParameterExpressions = true;
+                    parameter = restElement.Argument;
+                    continue;
+                }
+                else if (parameter is ArrayPattern arrayPattern)
+                {
+                    _hasParameterExpressions = true;
+                    ref readonly var arrayPatternElements = ref arrayPattern.Elements;
+                    for (var i = 0; i < arrayPatternElements.Count; i++)
+                    {
+                        var expression = arrayPatternElements[i];
+                        GetBoundNames(
+                            expression, 
+                            target,
+                            checkDuplicates,
+                            ref _hasRestParameter,
+                            ref _hasParameterExpressions,
+                            ref _hasDuplicates);
+                    }
+                }
+                else if (parameter is ObjectPattern objectPattern)
+                {
+                    _hasParameterExpressions = true;
+                    ref readonly var objectPatternProperties = ref objectPattern.Properties;
+                    for (var i = 0; i < objectPatternProperties.Count; i++)
+                    {
+                        var property = objectPatternProperties[i];
+                        if (property is Property p)
+                        {
+                            GetBoundNames(
+                                p.Value, 
+                                target,
+                                checkDuplicates,
+                                ref _hasRestParameter,
+                                ref _hasParameterExpressions,
+                                ref _hasDuplicates);
+                        }
+                        else
+                        {
+                            _hasRestParameter = true;
+                            _hasParameterExpressions = true;
+                            parameter = ((RestElement) property).Argument;
+                            continue;
+                        }
+                    }
+                }
+                else if (parameter is AssignmentPattern assignmentPattern)
+                {
+                    _hasParameterExpressions = true;
+                    parameter = assignmentPattern.Left;
+                    continue;
+                }
+
+                break;
+            }
         }
 
         private void ProcessParameters(IFunction functionDeclaration)
@@ -101,19 +142,20 @@ namespace Jint.Runtime.Interpreter
                     _hasDuplicates |= parameterNames.Contains(id.Name);
                     _hasArguments = id.Name == "arguments";
                     parameterNames.Add(id.Name);
-                    if (_isSimpleParameterList )
+                    if (_isSimpleParameterList)
                     {
                         _length++;
                     }
                 }
-                else
+                else if (parameter.Type != Nodes.Literal)
                 {
                     _isSimpleParameterList  = false;
-                    foreach (var identifier in GetParameterIdentifiers(parameter))
+                    int start = parameterNames.Count;
+                    GetBoundNames(parameter, parameterNames, checkDuplicates: true, ref _hasRestParameter, ref _hasParameterExpressions, ref _hasDuplicates);
+                    for (var j = start; j < parameterNames.Count; j++)
                     {
-                        _hasDuplicates |= parameterNames.Contains(identifier.Name);
-                        _hasArguments = identifier.Name == "arguments";
-                        parameterNames.Add(identifier.Name);
+                        var identifier = parameterNames[j];
+                        _hasArguments = identifier == "arguments";
                     }
                 }
             }
