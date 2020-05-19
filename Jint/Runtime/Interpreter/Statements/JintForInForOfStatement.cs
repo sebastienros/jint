@@ -18,10 +18,10 @@ namespace Jint.Runtime.Interpreter.Statements
         private readonly Node _leftNode;
         private readonly Statement _forBody;
         private readonly Expression _rightExpression;
+        private readonly IterationKind _iterationKind;
 
         private JintStatement _body;
         private JintExpression _expr;
-        private IterationKind _iterationKind;
         private BindingPattern _assignmentPattern;
         private JintExpression _right;
         private List<string> _tdzNames;
@@ -36,6 +36,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _leftNode = statement.Left;
             _rightExpression = statement.Right;
             _forBody = statement.Body;
+            _iterationKind = IterationKind.Enumerate;
         }
 
         public JintForInForOfStatement(
@@ -46,6 +47,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _leftNode = statement.Left;
             _rightExpression = statement.Right;
             _forBody = statement.Body;
+            _iterationKind = IterationKind.Iterate;
         }
 
         protected override void Initialize()
@@ -65,11 +67,10 @@ namespace Jint.Runtime.Interpreter.Statements
                     id.GetBoundNames(_tdzNames);
                 }
 
-                _iterationKind = IterationKind.Enumerate;
                 if (id is BindingPattern bindingPattern)
                 {
-                    _assignmentPattern = bindingPattern;
                     _destructuring = true;
+                    _assignmentPattern = bindingPattern;
                 }
                 else
                 {
@@ -79,17 +80,15 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             else if (_leftNode is BindingPattern bindingPattern)
             {
-                _iterationKind = IterationKind.Iterate;
+                _destructuring = true;
                 _assignmentPattern = bindingPattern;
             }
             else if (_leftNode is MemberExpression memberExpression)
             {
-                _iterationKind = IterationKind.Enumerate;
                 _expr = new JintMemberExpression(_engine, memberExpression);
             }
             else
             {
-                _iterationKind = IterationKind.Enumerate;
                 _expr = new JintIdentifierExpression(_engine, (Identifier) _leftNode);
             }
 
@@ -141,7 +140,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             else
             {
-                result = exprValue.GetIterator(_engine);
+                result = exprValue as IIterator ?? exprValue.GetIterator(_engine);
             }
 
             return true;
@@ -164,6 +163,9 @@ namespace Jint.Runtime.Interpreter.Statements
             var destructuring = _destructuring;
             string lhsName = null;
 
+            var completionType = CompletionType.Normal;
+            var close = false;
+
             try
             {
                 while (true)
@@ -171,6 +173,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     LexicalEnvironment iterationEnv = null;
                     if (!iteratorRecord.TryIteratorStep(out var nextResult))
                     {
+                        close = true;
                         return new Completion(CompletionType.Normal, v, null, Location);
                     }
 
@@ -180,6 +183,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
 
                     nextResult.TryGetValue("value", out var nextValue);
+                    close = true;
 
                     Reference lhsRef = null;
                     if (lhsKind != LhsKind.LexicalBinding)
@@ -265,24 +269,18 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             catch
             {
-                if (iteratorKind == IteratorKind.Async)
+                if (iterationKind == IterationKind.Iterate)
                 {
-                    //  AsyncIteratorClose(iteratorRecord, status).
+                    completionType = CompletionType.Throw;
                 }
-
-                if (iterationKind == IterationKind.Enumerate)
-                {
-                    // ok
-                }
-                else
-                {
-                    iteratorRecord.Close(CompletionType.Throw);
-                }
-
                 throw;
             }
             finally
             {
+                if (close)
+                {
+                    iteratorRecord.Close(completionType);
+                }
                 _engine.UpdateLexicalEnvironment(oldEnv);
             }
         }
