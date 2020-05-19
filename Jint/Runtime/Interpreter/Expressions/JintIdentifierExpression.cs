@@ -1,3 +1,4 @@
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
 
@@ -9,7 +10,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JsString _expressionNameJsValue; 
         private readonly JsValue _calculatedValue;
 
-        public JintIdentifierExpression(Engine engine, Esprima.Ast.Identifier expression) : base(engine, expression)
+        public JintIdentifierExpression(Engine engine, Identifier expression) : base(engine, expression)
         {
             _expressionName = expression.Name;
             if (expression.Name == "undefined")

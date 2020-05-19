@@ -33,13 +33,13 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 if (_statement.Init.Type == Nodes.VariableDeclaration)
                 {
-                    var variableDeclaration = (VariableDeclaration) _statement.Init;
-                    if (variableDeclaration.Kind != VariableDeclarationKind.Var)
+                    var d = (VariableDeclaration) _statement.Init;
+                    if (d.Kind != VariableDeclarationKind.Var)
                     {
                         _boundNames = new List<string>();
-                        JintForInStatement.GetBoundNames(variableDeclaration, _boundNames);
+                        d.GetBoundNames(_boundNames);
                     }
-                    _initStatement = new JintVariableDeclaration(_engine, variableDeclaration);
+                    _initStatement = new JintVariableDeclaration(_engine, d);
                 }
                 else
                 {

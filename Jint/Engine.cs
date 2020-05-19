@@ -32,9 +32,7 @@ using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
-using Jint.Runtime.Interpreter.Statements;
 using Jint.Runtime.References;
-using ExecutionContext = Jint.Runtime.Environments.ExecutionContext;
 
 namespace Jint
 {
@@ -822,7 +820,7 @@ namespace Jint
                 {
                     var d = varDeclarations[i];
                     boundNames.Clear();
-                    JintForInStatement.GetBoundNames(d, boundNames);
+                    d.GetBoundNames(boundNames);
                     for (var j = 0; j < boundNames.Count; j++)
                     {
                         var vn = boundNames[j];
@@ -846,7 +844,7 @@ namespace Jint
                 {
                     var d = lexDeclarations[i];
                     boundNames.Clear();
-                    JintForInStatement.GetBoundNames(d, boundNames);
+                    d.GetBoundNames(boundNames);
                     for (var j = 0; j < boundNames.Count; j++)
                     {
                         var dn = boundNames[j];
@@ -1077,7 +1075,7 @@ namespace Jint
             {
                 var d = lexicalDeclarations[i];
                 boundNames.Clear();;
-                JintForInStatement.GetBoundNames(d, boundNames);
+                d.GetBoundNames(boundNames);
                 for (var j = 0; j < boundNames.Count; j++)
                 {
                     var dn = boundNames[j];
@@ -1205,7 +1203,7 @@ namespace Jint
             {
                 var variableDeclaration = variableDeclarations[i];
                 boundNames.Clear();
-                JintForInStatement.GetBoundNames(variableDeclaration, boundNames);
+                variableDeclaration.GetBoundNames(boundNames);
                 for (var j = 0; j < boundNames.Count; j++)
                 {
                     var vn = boundNames[j];
@@ -1230,11 +1228,12 @@ namespace Jint
             for (var i = 0; i < lexicalDeclarationsCount; i++)
             {
                 boundNames.Clear();
-                JintForInStatement.GetBoundNames(lexicalDeclarations[i], boundNames);
+                var d = lexicalDeclarations[i];
+                d.GetBoundNames(boundNames);
                 for (var j = 0; j < boundNames.Count; j++)
                 {
                     var dn = boundNames[j];
-                    if (lexicalDeclarations[i].Kind == VariableDeclarationKind.Const)
+                    if (d.Kind == VariableDeclarationKind.Const)
                     {
                         lexEnvRec.CreateImmutableBinding(dn, strict: true);
                     }

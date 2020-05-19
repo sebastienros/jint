@@ -13,8 +13,12 @@ namespace Jint.Runtime.Interpreter.Statements
     /// <summary>
     /// https://tc39.es/ecma262/#sec-for-in-and-for-of-statements
     /// </summary>
-    internal sealed class JintForInStatement : JintStatement<ForInStatement>
+    internal sealed class JintForInForOfStatement : JintStatement<Statement>
     {
+        private readonly Node _leftNode;
+        private readonly Statement _forBody;
+        private readonly Expression _rightExpression;
+
         private JintStatement _body;
         private JintExpression _expr;
         private IterationKind _iterationKind;
@@ -24,15 +28,30 @@ namespace Jint.Runtime.Interpreter.Statements
         private bool _destructuring;
         private LhsKind _lhsKind;
 
-        public JintForInStatement(Engine engine, ForInStatement statement) : base(engine, statement)
+        public JintForInForOfStatement(
+            Engine engine, 
+            ForInStatement statement) : base(engine, statement)
         {
             _initialized = false;
+            _leftNode = statement.Left;
+            _rightExpression = statement.Right;
+            _forBody = statement.Body;
+        }
+
+        public JintForInForOfStatement(
+            Engine engine,
+            ForOfStatement statement) : base(engine, statement)
+        {
+            _initialized = false;
+            _leftNode = statement.Left;
+            _rightExpression = statement.Right;
+            _forBody = statement.Body;
         }
 
         protected override void Initialize()
         {
             _lhsKind = LhsKind.Assignment;
-            if (_statement.Left is VariableDeclaration variableDeclaration)
+            if (_leftNode is VariableDeclaration variableDeclaration)
             {
                 _lhsKind = variableDeclaration.Kind == VariableDeclarationKind.Var 
                     ? LhsKind.VarBinding
@@ -43,7 +62,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 if (_lhsKind == LhsKind.LexicalBinding)
                 {
                     _tdzNames = new List<string>(1);
-                    GetBoundNames(id, _tdzNames);
+                    id.GetBoundNames(_tdzNames);
                 }
 
                 _iterationKind = IterationKind.Enumerate;
@@ -58,12 +77,12 @@ namespace Jint.Runtime.Interpreter.Statements
                     _expr = new JintIdentifierExpression(_engine, identifier);
                 }
             }
-            else if (_statement.Left is BindingPattern bindingPattern)
+            else if (_leftNode is BindingPattern bindingPattern)
             {
                 _iterationKind = IterationKind.Iterate;
                 _assignmentPattern = bindingPattern;
             }
-            else if (_statement.Left is MemberExpression memberExpression)
+            else if (_leftNode is MemberExpression memberExpression)
             {
                 _iterationKind = IterationKind.Enumerate;
                 _expr = new JintMemberExpression(_engine, memberExpression);
@@ -71,11 +90,11 @@ namespace Jint.Runtime.Interpreter.Statements
             else
             {
                 _iterationKind = IterationKind.Enumerate;
-                _expr = new JintIdentifierExpression(_engine, (Identifier) _statement.Left);
+                _expr = new JintIdentifierExpression(_engine, (Identifier) _leftNode);
             }
 
-            _body = Build(_engine, _statement.Body);
-            _right = JintExpression.Build(_engine, _statement.Right);
+            _body = Build(_engine, _forBody);
+            _right = JintExpression.Build(_engine, _rightExpression);
         }
 
         protected override Completion ExecuteInternal()
@@ -181,7 +200,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                         if (!destructuring)
                         {
-                            lhsName ??= ((Identifier) ((VariableDeclaration) _statement.Left).Declarations[0].Id).Name;
+                            lhsName ??= ((Identifier) ((VariableDeclaration) _leftNode).Declarations[0].Id).Name;
                             lhsRef = _engine.ResolveBinding(lhsName);
                         }
                     }
@@ -271,9 +290,9 @@ namespace Jint.Runtime.Interpreter.Statements
         private void BindingInstantiation(LexicalEnvironment environment)
         {
             var envRec = (DeclarativeEnvironmentRecord) environment._record;
-            var variableDeclaration = (VariableDeclaration) _statement.Left;
+            var variableDeclaration = (VariableDeclaration) _leftNode;
             var boundNames = new List<string>();
-            GetBoundNames(variableDeclaration, boundNames);
+            variableDeclaration.GetBoundNames(boundNames);
             for (var i = 0; i < boundNames.Count; i++)
             {
                 var name = boundNames[i];
@@ -285,77 +304,6 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     envRec.CreateMutableBinding(name, canBeDeleted: false);
                 }
-            }
-        }
-
-        internal static void GetBoundNames(VariableDeclaration variableDeclaration, List<string> target)
-        {
-            ref readonly var declarations = ref variableDeclaration.Declarations;
-            for (var i = 0; i < declarations.Count; i++)
-            {
-                var declaration = declarations[i];
-                GetBoundNames(declaration.Id, target);
-            }
-        }
-
-        internal static void GetBoundNames(Node parameter, List<string> target)
-        {
-            if (parameter is null || parameter.Type == Nodes.Literal)
-            {
-                return;
-            }
-            
-            // try to get away without a loop
-            if (parameter is Identifier id)
-            {
-                target.Add(id.Name);
-                return;
-            }
-
-            while (true)
-            {
-                if (parameter is Identifier identifier)
-                {
-                    target.Add(identifier.Name);
-                    return;
-                }
-                
-                if (parameter is RestElement restElement)
-                {
-                    parameter = restElement.Argument;
-                    continue;
-                }
-                else if (parameter is ArrayPattern arrayPattern)
-                {
-                    ref readonly var arrayPatternElements = ref arrayPattern.Elements;
-                    for (var i = 0; i < arrayPatternElements.Count; i++)
-                    {
-                        var expression = arrayPatternElements[i];
-                        GetBoundNames(expression, target);
-                    }
-                }
-                else if (parameter is ObjectPattern objectPattern)
-                {
-                    ref readonly var objectPatternProperties = ref objectPattern.Properties;
-                    for (var i = 0; i < objectPatternProperties.Count; i++)
-                    {
-                        var property = objectPatternProperties[i];
-                        if (property is Property p)
-                        {
-                            GetBoundNames(p.Value, target);
-                        }
-                        else
-                        {
-                            GetBoundNames((RestElement) property, target);
-                        }
-                    }
-                }
-                else if (parameter is AssignmentPattern assignmentPattern)
-                {
-                    parameter = assignmentPattern.Left;
-                    continue;
-                }
-                break;
             }
         }
 

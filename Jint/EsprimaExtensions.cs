@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
@@ -71,6 +72,77 @@ namespace Jint
         internal static string DoubleToString(double d)
         {
             return (d - (long) d) == 0 ? ((long) d).ToString() : d.ToString(CultureInfo.InvariantCulture);
+        }
+        
+        internal static void GetBoundNames(this VariableDeclaration variableDeclaration, List<string> target)
+        {
+            ref readonly var declarations = ref variableDeclaration.Declarations;
+            for (var i = 0; i < declarations.Count; i++)
+            {
+                var declaration = declarations[i];
+                GetBoundNames(declaration.Id, target);
+            }
+        }
+
+        internal static void GetBoundNames(this Node parameter, List<string> target)
+        {
+            if (parameter is null || parameter.Type == Nodes.Literal)
+            {
+                return;
+            }
+            
+            // try to get away without a loop
+            if (parameter is Identifier id)
+            {
+                target.Add(id.Name);
+                return;
+            }
+
+            while (true)
+            {
+                if (parameter is Identifier identifier)
+                {
+                    target.Add(identifier.Name);
+                    return;
+                }
+                
+                if (parameter is RestElement restElement)
+                {
+                    parameter = restElement.Argument;
+                    continue;
+                }
+                else if (parameter is ArrayPattern arrayPattern)
+                {
+                    ref readonly var arrayPatternElements = ref arrayPattern.Elements;
+                    for (var i = 0; i < arrayPatternElements.Count; i++)
+                    {
+                        var expression = arrayPatternElements[i];
+                        GetBoundNames(expression, target);
+                    }
+                }
+                else if (parameter is ObjectPattern objectPattern)
+                {
+                    ref readonly var objectPatternProperties = ref objectPattern.Properties;
+                    for (var i = 0; i < objectPatternProperties.Count; i++)
+                    {
+                        var property = objectPatternProperties[i];
+                        if (property is Property p)
+                        {
+                            GetBoundNames(p.Value, target);
+                        }
+                        else
+                        {
+                            GetBoundNames((RestElement) property, target);
+                        }
+                    }
+                }
+                else if (parameter is AssignmentPattern assignmentPattern)
+                {
+                    parameter = assignmentPattern.Left;
+                    continue;
+                }
+                break;
+            }
         }
     }
 }
