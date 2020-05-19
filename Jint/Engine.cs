@@ -32,6 +32,7 @@ using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
+using Jint.Runtime.Interpreter.Statements;
 using Jint.Runtime.References;
 using ExecutionContext = Jint.Runtime.Environments.ExecutionContext;
 
@@ -814,28 +815,26 @@ namespace Jint
                 }
             }
 
+            var boundNames = new List<string>();
             if (varDeclarations != null)
             {
                 for (var i = 0; i < varDeclarations.Count; i++)
                 {
                     var d = varDeclarations[i];
-                    ref readonly var nodeList = ref d.Declarations;
-                    for (var j = 0; j < nodeList.Count; j++)
+                    boundNames.Clear();
+                    JintForInStatement.GetBoundNames(d, boundNames);
+                    for (var j = 0; j < boundNames.Count; j++)
                     {
-                        var declaration = nodeList[j];
-                        if (declaration.Id is Identifier id)
+                        var vn = boundNames[j];
+                        if (!declaredFunctionNames.Contains(vn))
                         {
-                            var vn = id.Name;
-                            if (!declaredFunctionNames.Contains(vn))
+                            var vnDefinable = envRec.CanDeclareGlobalVar(vn);
+                            if (!vnDefinable)
                             {
-                                var vnDefinable = envRec.CanDeclareGlobalVar(vn);
-                                if (!vnDefinable)
-                                {
-                                    ExceptionHelper.ThrowTypeError(this);
-                                }
-
-                                declaredVarNames.Add(vn);
+                                ExceptionHelper.ThrowTypeError(this);
                             }
+
+                            declaredVarNames.Add(vn);
                         }
                     }
                 }
@@ -846,21 +845,18 @@ namespace Jint
                 for (var i = 0; i < lexDeclarations.Count; i++)
                 {
                     var d = lexDeclarations[i];
-                    ref readonly var nodeList = ref d.Declarations;
-                    for (var j = 0; j < nodeList.Count; j++)
+                    boundNames.Clear();
+                    JintForInStatement.GetBoundNames(d, boundNames);
+                    for (var j = 0; j < boundNames.Count; j++)
                     {
-                        var declaration = nodeList[j];
-                        if (declaration.Id is Identifier id)
+                        var dn = boundNames[j];
+                        if (d.Kind == VariableDeclarationKind.Const)
                         {
-                            var dn = id.Name;
-                            if (d.Kind == VariableDeclarationKind.Const)
-                            {
-                                envRec.CreateImmutableBinding(dn, strict: true);
-                            }
-                            else
-                            {
-                                envRec.CreateMutableBinding(dn, canBeDeleted: false);
-                            }
+                            envRec.CreateImmutableBinding(dn, strict: true);
+                        }
+                        else
+                        {
+                            envRec.CreateMutableBinding(dn, canBeDeleted: false);
                         }
                     }
                 }
@@ -873,9 +869,10 @@ namespace Jint
                 envRec.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: false);
             }
 
-            foreach (var vn in declaredVarNames)
+            for (var i = 0; i < declaredVarNames.Count; i++)
             {
-                envRec.CreateGlobalVarBinding(vn, canBeDeleted: false);                
+                var vn = declaredVarNames[i];
+                envRec.CreateGlobalVarBinding(vn, canBeDeleted: false);
             }
         }
 
@@ -1075,25 +1072,22 @@ namespace Jint
 
             var lexicalDeclarations = hoistingScope._lexicalDeclarations;
             var lexicalDeclarationsCount = lexicalDeclarations?.Count;
+            var boundNames = new List<string>();; 
             for (var i = 0; i < lexicalDeclarationsCount; i++)
             {
                 var d = lexicalDeclarations[i];
-                ref readonly var nodeList = ref d.Declarations;
-                var declarationsCount = nodeList.Count;
-                for (var j = 0; j < declarationsCount; j++)
+                boundNames.Clear();;
+                JintForInStatement.GetBoundNames(d, boundNames);
+                for (var j = 0; j < boundNames.Count; j++)
                 {
-                    var node = nodeList[j];
-                    if (node.Id is Identifier identifier)
+                    var dn = boundNames[j];
+                    if (d.Kind == VariableDeclarationKind.Const)
                     {
-                        var dn = identifier.Name;
-                        if (d.Kind == VariableDeclarationKind.Const)
-                        {
-                            lexEnvRec.CreateImmutableBinding(dn, strict: true);
-                        }
-                        else
-                        {
-                            lexEnvRec.CreateMutableBinding(dn, canBeDeleted: false);
-                        }
+                        lexEnvRec.CreateImmutableBinding(dn, strict: true);
+                    }
+                    else
+                    {
+                        lexEnvRec.CreateMutableBinding(dn, canBeDeleted: false);
                     }
                 }
             }
@@ -1203,32 +1197,30 @@ namespace Jint
                 }
             }
 
+            var boundNames = new List<string>();
             var declaredVarNames = new List<string>();
             var variableDeclarations = hoistingScope._variablesDeclarations;
             var variableDeclarationsCount = variableDeclarations?.Count;
             for (var i = 0; i < variableDeclarationsCount; i++)
             {
                 var variableDeclaration = variableDeclarations[i];
-                var declarations = variableDeclaration.Declarations;
-                var declarationsCount = declarations.Count;
-                for (var j = 0; j < declarationsCount; j++)
+                boundNames.Clear();
+                JintForInStatement.GetBoundNames(variableDeclaration, boundNames);
+                for (var j = 0; j < boundNames.Count; j++)
                 {
-                    var d = declarations[j];
-                    if (d.Id is Identifier id)
+                    var vn = boundNames[j];
+                    if (!declaredFunctionNames.Contains(vn))
                     {
-                        var vn = id.Name;
-                        if (!declaredFunctionNames.Contains(vn))
+                        if (varEnvRec is GlobalEnvironmentRecord ger)
                         {
-                            if (varEnvRec is GlobalEnvironmentRecord ger)
+                            var vnDefinable = ger.CanDeclareGlobalFunction(vn);
+                            if (!vnDefinable)
                             {
-                                var vnDefinable = ger.CanDeclareGlobalFunction(vn);
-                                if (!vnDefinable)
-                                {
-                                    ExceptionHelper.ThrowTypeError(this);
-                                }
+                                ExceptionHelper.ThrowTypeError(this);
                             }
-                            declaredVarNames.Add(vn);
                         }
+
+                        declaredVarNames.Add(vn);
                     }
                 }
             }
@@ -1237,22 +1229,18 @@ namespace Jint
             var lexicalDeclarationsCount = lexicalDeclarations?.Count;
             for (var i = 0; i < lexicalDeclarationsCount; i++)
             {
-                var declarations = lexicalDeclarations[i].Declarations;
-                var declarationsCount = declarations.Count;
-                for (var j = 0; j < declarationsCount; j++)
+                boundNames.Clear();
+                JintForInStatement.GetBoundNames(lexicalDeclarations[i], boundNames);
+                for (var j = 0; j < boundNames.Count; j++)
                 {
-                    var d = declarations[j];
-                    if (d.Id is Identifier id)
+                    var dn = boundNames[j];
+                    if (lexicalDeclarations[i].Kind == VariableDeclarationKind.Const)
                     {
-                        var dn = id.Name;
-                        if (lexicalDeclarations[i].Kind == VariableDeclarationKind.Const)
-                        {
-                            lexEnvRec.CreateImmutableBinding(dn, strict: true);
-                        }
-                        else
-                        {
-                            lexEnvRec.CreateMutableBinding(dn, canBeDeleted: false);
-                        }
+                        lexEnvRec.CreateImmutableBinding(dn, strict: true);
+                    }
+                    else
+                    {
+                        lexEnvRec.CreateMutableBinding(dn, canBeDeleted: false);
                     }
                 }
             }

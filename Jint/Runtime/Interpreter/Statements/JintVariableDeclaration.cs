@@ -1,7 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
-using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
 
@@ -66,11 +65,6 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
-            return ExecuteDeclaration();
-        }
-
-        internal Completion ExecuteDeclaration(LexicalEnvironment environment = null)
-        {
             if (!_initialized)
             {
                 _initialized = true;
@@ -99,6 +93,10 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     if (declaration.LeftPattern != null)
                     {
+                        var environment = _statement.Kind != VariableDeclarationKind.Var
+                            ? _engine.ExecutionContext.LexicalEnvironment
+                            : null;
+
                         BindingPatternAssignmentExpression.ProcessPatterns(
                             _engine,
                             declaration.LeftPattern,

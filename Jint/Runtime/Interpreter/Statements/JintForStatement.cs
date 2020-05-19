@@ -92,7 +92,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
                 else
                 {
-                    _initStatement?.ExecuteDeclaration(loopEnv);
+                    _initStatement?.Execute();
                 }
 
                 return ForBodyEvaluation();
