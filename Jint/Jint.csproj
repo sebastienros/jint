@@ -7,6 +7,6 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Esprima" Version="2.0.0-beta-1292" />
+    <PackageReference Include="Esprima" Version="2.0.0-beta-1295" />
   </ItemGroup>
 </Project>
