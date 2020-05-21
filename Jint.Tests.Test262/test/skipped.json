@@ -689,7 +689,31 @@
 
   // class support
   {
+    "source": "language/global-code/script-decl-lex.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/global-code/script-decl-lex-deletion.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/global-code/script-decl-var-collision.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/global-code/script-decl-lex-lex.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/global-code/decl-lex.js",
+    "reason": "class not implemented"
+  },
+  {
     "source": "language/statements/let/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/global-code/decl-lex-deletion.js",
     "reason": "class not implemented"
   },
   {

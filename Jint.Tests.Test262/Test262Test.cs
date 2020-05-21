@@ -5,7 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Esprima;
+using Jint.Native;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Newtonsoft.Json.Linq;
 using Xunit;
@@ -82,6 +85,24 @@ namespace Jint.Tests.Test262
             engine.Execute(Sources["sta.js"]);
             engine.Execute(Sources["assert.js"]);
             engine.SetValue("print", new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
+
+            var o = engine.Object.Construct(Arguments.Empty);
+            o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunctionInstance(engine, "evalScript", (thisObj, args) =>
+            {
+                if (args.Length > 1)
+                {
+                    throw new Exception("only script parsing supported");
+                }
+
+                var options = new ParserOptions { AdaptRegexp = true, Tolerant = false };
+                var parser = new JavaScriptParser(args.At(0).AsString(), options);
+                var script = parser.ParseScript(strict);
+
+                var value = engine.Execute(script).GetCompletionValue();
+                
+                return value;
+            }), true, true, true));
+            engine.SetValue("$262", o);
             
             var includes = Regex.Match(code, @"includes: \[(.+?)\]");
             if (includes.Success)

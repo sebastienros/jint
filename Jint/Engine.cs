@@ -770,15 +770,6 @@ namespace Jint
             var varDeclarations = hoistingScope._variablesDeclarations;
             var lexDeclarations = hoistingScope._lexicalDeclarations;
             
-            // *** following is handled by Esprima ***
-            // For each name in lexNames, do
-            //    If envRec.HasVarDeclaration(name) is true, throw a SyntaxError exception.
-            //    If envRec.HasLexicalDeclaration(name) is true, throw a SyntaxError exception.
-            //    Let hasRestrictedGlobal be ? envRec.HasRestrictedGlobalProperty(name).
-            //    If hasRestrictedGlobal is true, throw a SyntaxError exception.
-            // For each name in varNames, do
-            //    If envRec.HasLexicalDeclaration(name) is true, throw a SyntaxError exception.
-
             var functionToInitialize = new LinkedList<FunctionDeclaration>();
             var declaredFunctionNames = new HashSet<string>();
             var declaredVarNames = new List<string>();
@@ -838,6 +829,13 @@ namespace Jint
                     for (var j = 0; j < boundNames.Count; j++)
                     {
                         var dn = boundNames[j];
+                        if (envRec.HasVarDeclaration(dn) 
+                            || envRec.HasLexicalDeclaration(dn)
+                            || envRec.HasRestrictedGlobalProperty(dn))
+                        {
+                            ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{dn}' has already been declared");
+                        }
+                        
                         if (d.Kind == VariableDeclarationKind.Const)
                         {
                             envRec.CreateImmutableBinding(dn, strict: true);
