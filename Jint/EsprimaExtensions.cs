@@ -13,21 +13,21 @@ namespace Jint
     {
         public static JsValue GetKey(this Property property, Engine engine) => GetKey(property.Key, engine, property.Computed);
 
-        private static JsValue GetKey<T>(this T expression, Engine engine, bool computed) where T : Expression
+        public static JsValue GetKey<T>(this T expression, Engine engine, bool resolveComputed = false) where T : Expression
         {
             if (expression is Literal literal)
             {
                 return LiteralKeyToString(literal);
             }
 
-            if (!computed && expression is Identifier identifier)
+            if (!resolveComputed && expression is Identifier identifier)
             {
                 return identifier.Name;
             }
 
-            if (!TryGetComputedPropertyKey(expression, engine, out var propertyKey))
+            if (!resolveComputed || !TryGetComputedPropertyKey(expression, engine, out var propertyKey))
             {
-                ExceptionHelper.ThrowArgumentException("Unable to extract correct key, node type: " + expression.Type);
+                return ExceptionHelper.ThrowArgumentException<JsValue>("Unable to extract correct key, node type: " + expression.Type);
             }
 
             return propertyKey;
