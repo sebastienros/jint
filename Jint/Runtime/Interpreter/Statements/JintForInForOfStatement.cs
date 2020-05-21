@@ -103,7 +103,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 return new Completion(CompletionType.Normal, JsValue.Undefined, null, Location);
             }
 
-            return BodyEvaluation(_expr, _body, keyResult, IterationKind.Enumerate, _lhsKind, false);
+            return BodyEvaluation(_expr, _body, keyResult, IterationKind.Enumerate, _lhsKind);
         }
 
         /// <summary>
@@ -155,7 +155,6 @@ namespace Jint.Runtime.Interpreter.Statements
             IIterator iteratorRecord,
             IterationKind iterationKind,
             LhsKind lhsKind,
-            bool labelSet, 
             IteratorKind iteratorKind = IteratorKind.Sync)
         {
             var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
@@ -182,7 +181,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         // nextResult = await nextResult;
                     }
 
-                    nextResult.TryGetValue("value", out var nextValue);
+                    var nextValue = nextResult.Get(CommonProperties.Value);
                     close = true;
 
                     Reference lhsRef = null;
@@ -229,7 +228,8 @@ namespace Jint.Runtime.Interpreter.Statements
                             _engine,
                             _assignmentPattern,
                             nextValue,
-                            iterationEnv);
+                            iterationEnv,
+                            checkObjectPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
 
                         if (lhsKind == LhsKind.Assignment)
                         {
@@ -253,12 +253,12 @@ namespace Jint.Runtime.Interpreter.Statements
                         v = result.Value;
                     }
 
-                    if (result.Type == CompletionType.Break)
+                    if (result.Type == CompletionType.Break && (result.Identifier == null || result.Identifier == _statement?.LabelSet?.Name))
                     {
                         return new Completion(CompletionType.Normal, v, null, Location);
                     }
 
-                    if (result.Type != CompletionType.Continue)
+                    if (result.Type != CompletionType.Continue || (result.Identifier != null && result.Identifier != _statement?.LabelSet?.Name))
                     {
                         if (result.Type != CompletionType.Normal)
                         {
@@ -269,10 +269,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             catch
             {
-                if (iterationKind == IterationKind.Iterate)
-                {
-                    completionType = CompletionType.Throw;
-                }
+                completionType = CompletionType.Throw;
                 throw;
             }
             finally
