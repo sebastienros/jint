@@ -233,59 +233,49 @@ namespace Jint.Runtime.Environments
             }
             else if (parameter is ArrayPattern arrayPattern)
             {
-                if (argument.IsNull())
-                {
-                    ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is null");
-                }
-
-                ArrayInstance array = null;
-                var arrayContents = System.Array.Empty<JsValue>();
-                if (argument.IsArray())
-                {
-                    array = argument.AsArray();
-                }
-                else if (argument.IsObject() && argument.TryGetIterator(_engine, out var iterator))
-                {
-                    array = _engine.Array.ConstructFast(0);
-                    var protocol = new ArrayPatternProtocol(_engine, array, iterator, arrayPattern.Elements.Count);
-                    protocol.Execute();
-                }
-
-                if (!ReferenceEquals(array, null))
-                {
-                    arrayContents = new JsValue[array.GetLength()];
-
-                    for (uint i = 0; i < (uint) arrayContents.Length; i++)
-                    {
-                        arrayContents[i] = array.Get(i);
-                    }
-                }
-
-                for (uint arrayIndex = 0; arrayIndex < arrayPattern.Elements.Count; arrayIndex++)
-                {
-                    SetFunctionParameter(arrayPattern.Elements[(int) arrayIndex], arrayContents, (int) arrayIndex, initiallyEmpty);
-                }
+                HandleArrayPattern(initiallyEmpty, argument, arrayPattern);
             }
             else if (parameter is ObjectPattern objectPattern)
             {
-                if (argument.IsNullOrUndefined())
-                {
-                    ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is null or undefined");
-                }
+                HandleObjectPattern(initiallyEmpty, argument, objectPattern);
+            }
+            else if (parameter is AssignmentPattern assignmentPattern)
+            {
+                HandleAssignmentPatternOrExpression(assignmentPattern.Left, assignmentPattern.Right, argument, initiallyEmpty);
+            }
+            else if (parameter is AssignmentExpression assignmentExpression)
+            {
+                HandleAssignmentPatternOrExpression(assignmentExpression.Left, assignmentExpression.Right, argument, initiallyEmpty);
+            }
+        }
 
-                if (!argument.IsObject())
-                {
-                    return;
-                }
+        private void HandleObjectPattern(bool initiallyEmpty, JsValue argument, ObjectPattern objectPattern)
+        {
+            if (argument.IsNullOrUndefined())
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is null or undefined");
+            }
 
-                var argumentObject = argument.AsObject();
+            if (!argument.IsObject())
+            {
+                return;
+            }
 
-                var processedProperties = objectPattern.Properties.Count > 0 && objectPattern.Properties[objectPattern.Properties.Count - 1] is RestElement
-                    ? new HashSet<JsValue>()
-                    : null;
+            var argumentObject = argument.AsObject();
 
-                var jsValues = _engine._jsValueArrayPool.RentArray(1);
-                foreach (var property in objectPattern.Properties)
+            var processedProperties = objectPattern.Properties.Count > 0 &&
+                                      objectPattern.Properties[objectPattern.Properties.Count - 1] is RestElement
+                ? new HashSet<JsValue>()
+                : null;
+
+            var jsValues = _engine._jsValueArrayPool.RentArray(1);
+            foreach (var property in objectPattern.Properties)
+            {
+                var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
+                var paramVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                _engine.EnterExecutionContext(paramVarEnv, paramVarEnv);
+
+                try
                 {
                     if (property is Property p)
                     {
@@ -300,8 +290,9 @@ namespace Jint.Runtime.Environments
                         }
                         else if (p.Key is CallExpression callExpression)
                         {
-                            var jintCallExpression = JintExpression.Build(_engine, callExpression);
-                            propertyName = (JsString) jintCallExpression.GetValue();
+                            var jintCallExpression = new JintCallExpression(_engine, callExpression);
+                            var jsValue = jintCallExpression.GetValue();
+                            propertyName = TypeConverter.ToJsString(jsValue);
                         }
                         else
                         {
@@ -326,15 +317,48 @@ namespace Jint.Runtime.Environments
                         }
                     }
                 }
-                _engine._jsValueArrayPool.ReturnArray(jsValues);
+                finally
+                {
+                    _engine.LeaveExecutionContext();
+                }
             }
-            else if (parameter is AssignmentPattern assignmentPattern)
+
+            _engine._jsValueArrayPool.ReturnArray(jsValues);
+        }
+
+        private void HandleArrayPattern(bool initiallyEmpty, JsValue argument, ArrayPattern arrayPattern)
+        {
+            if (argument.IsNull())
             {
-                HandleAssignmentPatternOrExpression(assignmentPattern.Left, assignmentPattern.Right, argument, initiallyEmpty);
+                ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is null");
             }
-            else if (parameter is AssignmentExpression assignmentExpression)
+
+            ArrayInstance array = null;
+            var arrayContents = System.Array.Empty<JsValue>();
+            if (argument.IsArray())
             {
-                HandleAssignmentPatternOrExpression(assignmentExpression.Left, assignmentExpression.Right, argument, initiallyEmpty);
+                array = argument.AsArray();
+            }
+            else if (argument.IsObject() && argument.TryGetIterator(_engine, out var iterator))
+            {
+                array = _engine.Array.ConstructFast(0);
+                var protocol = new ArrayPatternProtocol(_engine, array, iterator, arrayPattern.Elements.Count);
+                protocol.Execute();
+            }
+
+            if (!ReferenceEquals(array, null))
+            {
+                arrayContents = new JsValue[array.GetLength()];
+
+                for (uint i = 0; i < (uint) arrayContents.Length; i++)
+                {
+                    arrayContents[i] = array.Get(i);
+                }
+            }
+
+            for (uint arrayIndex = 0; arrayIndex < arrayPattern.Elements.Count; arrayIndex++)
+            {
+                SetFunctionParameter(arrayPattern.Elements[(int) arrayIndex], arrayContents, (int) arrayIndex, initiallyEmpty);
             }
         }
 
@@ -389,24 +413,21 @@ namespace Jint.Runtime.Environments
 
             if (argument.IsUndefined())
             {
-                JsValue RunInNewParameterEnvironment(JintExpression exp)
-                {
-                    var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                    var paramVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-
-                    _engine.EnterExecutionContext(paramVarEnv, paramVarEnv);
-                    var result = exp.GetValue();
-                    _engine.LeaveExecutionContext();
-
-                    return result;
-                }
-
                 var expression = right.As<Expression>();
                 var jintExpression = JintExpression.Build(_engine, expression);
 
-                argument = jintExpression is JintSequenceExpression
-                    ? RunInNewParameterEnvironment(jintExpression)
-                    : jintExpression.GetValue();
+                var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
+                var paramVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+
+                _engine.EnterExecutionContext(paramVarEnv, paramVarEnv);
+                try
+                {
+                    argument = jintExpression.GetValue();
+                }
+                finally
+                {
+                    _engine.LeaveExecutionContext();
+                }
 
                 if (idLeft != null && right.IsFunctionWithName())
                 {

@@ -590,7 +590,7 @@ namespace Jint
                     baseValue = TypeConverter.ToObject(this, baseValue);
                 }
 
-                var succeeded = baseValue.Set(reference.GetReferencedName(), value, GetThisValue(reference));
+                var succeeded = baseValue.Set(reference.GetReferencedName(), value, reference.GetThisValue());
                 if (!succeeded && reference.IsStrictReference())
                 {
                     ExceptionHelper.ThrowTypeError(this);
@@ -609,16 +609,6 @@ namespace Jint
         {
             var baseValue = (EnvironmentRecord) reference.GetBase();
             baseValue.InitializeBinding(TypeConverter.ToString(reference.GetReferencedName()), value);
-        }
-
-        private static JsValue GetThisValue(Reference reference)
-        {
-            if (reference.IsSuperReference())
-            {
-                return ExceptionHelper.ThrowNotImplementedException<JsValue>();
-            }
-
-            return reference.GetBase();
         }
 
         /// <summary>
@@ -1049,6 +1039,14 @@ namespace Jint
                     }
                 }
             }
+            
+            // NOTE: Annex B.3.3.1 adds additional steps at this point. 
+            // A https://tc39.es/ecma262/#sec-web-compat-functiondeclarationinstantiation
+            if (!strict)
+            {
+                
+            }
+            
 
             LexicalEnvironment lexEnv;
             if (!strict)

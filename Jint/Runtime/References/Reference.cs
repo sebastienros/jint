@@ -54,6 +54,16 @@ namespace Jint.Runtime.References
             // https://tc39.es/ecma262/#sec-ispropertyreference
             return (_baseValue._type & (InternalTypes.Primitive | InternalTypes.Object)) != 0;
         }
+        
+        public JsValue GetThisValue()
+        {
+            if (IsSuperReference())
+            {
+                return ExceptionHelper.ThrowNotImplementedException<JsValue>();
+            }
+
+            return GetBase();
+        }
 
         internal Reference Reassign(JsValue baseValue, JsValue name, bool strict)
         {

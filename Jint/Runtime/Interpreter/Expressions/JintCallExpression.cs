@@ -148,7 +148,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var baseValue = r.GetBase();
                 if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0)
                 {
-                    thisObject = baseValue;
+                    thisObject = r.GetThisValue();
                 }
                 else
                 {
