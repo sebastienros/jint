@@ -27,10 +27,13 @@ namespace Jint
             _lexicalNames = lexicalNames;
         }
 
-        public static HoistingScope GetProgramLevelDeclarations(Node node, bool collectVarNames = false, bool collectLexicalNames = false)
+        public static HoistingScope GetProgramLevelDeclarations(
+            Script script,
+            bool collectVarNames = false, 
+            bool collectLexicalNames = false)
         {
-            var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames);
-            treeWalker.Visit(node, true);
+            var treeWalker = new ScriptWalker(StrictModeScope.IsStrictModeCode, collectVarNames, collectLexicalNames);
+            treeWalker.Visit(script, null);
             return new HoistingScope(
                 treeWalker._functions,
                 treeWalker._varNames,
@@ -39,10 +42,13 @@ namespace Jint
                 treeWalker._lexicalNames);
         }
         
-        public static HoistingScope GetFunctionLevelDeclarations(IFunction node, bool collectVarNames = false, bool collectLexicalNames = false)
+        public static HoistingScope GetFunctionLevelDeclarations(
+            IFunction node,
+            bool collectVarNames = false,
+            bool collectLexicalNames = false)
         {
-            var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames);
-            treeWalker.Visit(node.Body, true);
+            var treeWalker = new ScriptWalker(StrictModeScope.IsStrictModeCode, collectVarNames, collectLexicalNames);
+            treeWalker.Visit(node.Body, null);
             
             return new HoistingScope(
                 treeWalker._functions,
@@ -59,14 +65,19 @@ namespace Jint
             for (var i = 0; i < statementListItems.Count; i++)
             {
                 var node = statementListItems[i];
-                if (node is VariableDeclaration rootVariable)
+                if (node.Type != Nodes.VariableDeclaration)
                 {
-                    if (rootVariable.Kind != VariableDeclarationKind.Var)
-                    {
-                        lexicalDeclarations ??= new List<VariableDeclaration>();
-                        lexicalDeclarations.Add(rootVariable);
-                    }
+                    continue;
                 }
+
+                var rootVariable = (VariableDeclaration) node;
+                if (rootVariable.Kind == VariableDeclarationKind.Var)
+                {
+                    continue;
+                }
+
+                lexicalDeclarations ??= new List<VariableDeclaration>();
+                lexicalDeclarations.Add(rootVariable);
             }
             
             return lexicalDeclarations;
@@ -79,14 +90,19 @@ namespace Jint
             for (var i = 0; i < statementListItems.Count; i++)
             {
                 var node = statementListItems[i];
-                if (node is VariableDeclaration rootVariable)
+                if (node.Type != Nodes.VariableDeclaration)
                 {
-                    if (rootVariable.Kind != VariableDeclarationKind.Var)
-                    {
-                        lexicalDeclarations ??= new List<VariableDeclaration>();
-                        lexicalDeclarations.Add(rootVariable);
-                    }
+                    continue;
                 }
+                
+                var rootVariable = (VariableDeclaration) node;
+                if (rootVariable.Kind == VariableDeclarationKind.Var)
+                {
+                    continue;
+                }
+
+                lexicalDeclarations ??= new List<VariableDeclaration>();
+                lexicalDeclarations.Add(rootVariable);
             }
 
             return lexicalDeclarations;
@@ -96,6 +112,7 @@ namespace Jint
         {
             internal List<FunctionDeclaration> _functions;
 
+            private readonly bool _strict;
             private readonly bool _collectVarNames;
             internal List<VariableDeclaration> _variableDeclarations;
             internal List<string> _varNames;
@@ -104,13 +121,14 @@ namespace Jint
             internal List<VariableDeclaration> _lexicalDeclarations;
             internal List<string> _lexicalNames;
 
-            public ScriptWalker(bool collectVarNames, bool collectLexicalNames)
+            public ScriptWalker(bool strict, bool collectVarNames, bool collectLexicalNames)
             {
+                _strict = strict;
                 _collectVarNames = collectVarNames;
                 _collectLexicalNames = collectLexicalNames;
             }
 
-            public void Visit(Node node, bool root)
+            public void Visit(Node node, Node parent)
             {
                 foreach (var childNode in node.ChildNodes)
                 {
@@ -120,8 +138,9 @@ namespace Jint
                         continue;
                     }
 
-                    if (childNode is VariableDeclaration variableDeclaration)
+                    if (childNode.Type == Nodes.VariableDeclaration)
                     {
+                        var variableDeclaration = (VariableDeclaration) childNode;
                         if (variableDeclaration.Kind == VariableDeclarationKind.Var)
                         {
                             _variableDeclarations ??= new List<VariableDeclaration>();
@@ -140,7 +159,7 @@ namespace Jint
                             }
                         }
 
-                        if (root && variableDeclaration.Kind != VariableDeclarationKind.Var)
+                        if (parent is null && variableDeclaration.Kind != VariableDeclarationKind.Var)
                         {
                             _lexicalDeclarations ??= new List<VariableDeclaration>();
                             _lexicalDeclarations.Add(variableDeclaration);
@@ -158,10 +177,12 @@ namespace Jint
                             }
                         }
                     }
-                    else if (childNode is FunctionDeclaration functionDeclaration)
+                    else if (childNode.Type == Nodes.FunctionDeclaration 
+                             // in strict mode cannot include function declarations directly under block or case clauses
+                             && (!_strict || parent is null || (parent.Type != Nodes.BlockStatement && parent.Type != Nodes.SwitchCase)))
                     {
                         _functions ??= new List<FunctionDeclaration>();
-                        _functions.Add(functionDeclaration);
+                        _functions.Add((FunctionDeclaration) childNode);
                     }
 
                     if (childNode.Type != Nodes.FunctionDeclaration
@@ -170,7 +191,7 @@ namespace Jint
                         && childNode.Type != Nodes.FunctionExpression
                         && childNode.ChildNodes.Count > 0)
                     {
-                        Visit(childNode, false);
+                        Visit(childNode, node);
                     }
                 }
             }
