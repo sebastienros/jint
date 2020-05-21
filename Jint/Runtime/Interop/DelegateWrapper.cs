@@ -17,7 +17,7 @@ namespace Jint.Runtime.Interop
         private readonly bool _delegateContainsParamsArgument;
 
         public DelegateWrapper(Engine engine, Delegate d)
-            : base(engine, _name, false)
+            : base(engine, _name, FunctionThisMode.Global)
         {
             _d = d;
             _prototype = engine.Function.PrototypeObject;

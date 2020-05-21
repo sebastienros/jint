@@ -28,7 +28,7 @@ namespace Jint.Native.Function
             JintFunctionDefinition function,
             LexicalEnvironment scope,
             bool strict)
-            : base(engine, function, scope, strict)
+            : base(engine, function, scope, strict ? FunctionThisMode.Strict : FunctionThisMode.Lexical)
         {
             _function = function;
 

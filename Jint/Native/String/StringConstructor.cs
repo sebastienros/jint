@@ -16,7 +16,7 @@ namespace Jint.Native.String
         private static readonly JsString _functionName = new JsString("String");
 
         public StringConstructor(Engine engine)
-            : base(engine, _functionName, strict: false)
+            : base(engine, _functionName, FunctionThisMode.Global)
         {
         }
 

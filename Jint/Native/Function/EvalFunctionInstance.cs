@@ -12,8 +12,8 @@ namespace Jint.Native.Function
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
         private static readonly JsString _functionName = new JsString("eval");
 
-        public EvalFunctionInstance(Engine engine, bool strict) 
-            : base(engine, _functionName, strict)
+        public EvalFunctionInstance(Engine engine) 
+            : base(engine, _functionName, StrictModeScope.IsStrictModeCode ? FunctionThisMode.Strict : FunctionThisMode.Global)
         {
             _prototype = Engine.Function.PrototypeObject;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
@@ -53,7 +53,7 @@ namespace Jint.Native.Function
                 return Undefined;
             }
 
-            var strictEval = script.Strict;
+            var strictEval = script.Strict || _engine._isStrict;
             var ctx = _engine.ExecutionContext;
 
             using (new StrictModeScope(strictEval))

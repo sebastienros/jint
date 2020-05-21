@@ -10,6 +10,13 @@ namespace Jint.Native.Function
 {
     public abstract class FunctionInstance : ObjectInstance, ICallable
     {
+        internal enum FunctionThisMode
+        {
+            Lexical,
+            Strict,
+            Global
+        }
+
         protected internal PropertyDescriptor _prototypeDescriptor;
 
         protected PropertyDescriptor _length;
@@ -19,14 +26,14 @@ namespace Jint.Native.Function
 
         protected internal LexicalEnvironment _environment;
         internal readonly JintFunctionDefinition _functionDefinition;
-        protected readonly bool _strict;
+        internal readonly FunctionThisMode _thisMode;
 
         internal FunctionInstance(
             Engine engine,
             JintFunctionDefinition function,
             LexicalEnvironment scope,
-            bool strict)
-            : this(engine, !string.IsNullOrWhiteSpace(function._name) ? new JsString(function._name) : null,  strict)
+            FunctionThisMode thisMode)
+            : this(engine, !string.IsNullOrWhiteSpace(function._name) ? new JsString(function._name) : null,  thisMode)
         {
             _functionDefinition = function;
             _environment = scope;
@@ -35,12 +42,12 @@ namespace Jint.Native.Function
         internal FunctionInstance(
             Engine engine,
             JsString name,
-            bool strict,
+            FunctionThisMode thisMode = FunctionThisMode.Global,
             ObjectClass objectClass = ObjectClass.Function)
             : base(engine, objectClass)
         {
             _name = name;
-            _strict = strict;
+            _thisMode = thisMode;
         }
 
         /// <summary>
@@ -51,7 +58,7 @@ namespace Jint.Native.Function
         /// <returns></returns>
         public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
 
-        public bool Strict => _strict;
+        public bool Strict => _thisMode == FunctionThisMode.Strict;
         
         public virtual bool HasInstance(JsValue v)
         {
@@ -90,7 +97,7 @@ namespace Jint.Native.Function
             var v = base.Get(property, receiver);
 
             if (property == CommonProperties.Caller
-                && ((v.As<FunctionInstance>()?._strict).GetValueOrDefault()))
+                && v.As<FunctionInstance>()?._thisMode == FunctionThisMode.Strict)
             {
                 ExceptionHelper.ThrowTypeError(_engine);
             }

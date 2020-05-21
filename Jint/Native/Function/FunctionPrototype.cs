@@ -15,7 +15,7 @@ namespace Jint.Native.Function
         private static readonly JsString _functionName = new JsString("Function");
 
         private FunctionPrototype(Engine engine)
-            : base(engine, _functionName, strict: false)
+            : base(engine, _functionName)
         {
         }
 

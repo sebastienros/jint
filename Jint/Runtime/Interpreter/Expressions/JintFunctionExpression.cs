@@ -18,11 +18,15 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
 
+            var functionThisMode = _function._strict || _engine._isStrict
+                ? FunctionInstance.FunctionThisMode.Strict 
+                : FunctionInstance.FunctionThisMode.Global;
+
             var closure = new ScriptFunctionInstance(
                 _engine,
                 _function,
                 funcEnv,
-                _function._strict);
+                functionThisMode);
 
             if (_function._name != null)
             {

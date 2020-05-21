@@ -14,7 +14,7 @@ namespace Jint.Native.Set
         private static readonly JsString _functionName = new JsString("Set");
 
         private SetConstructor(Engine engine)
-            : base(engine, _functionName, false)
+            : base(engine, _functionName, FunctionThisMode.Global)
         {
         }
 

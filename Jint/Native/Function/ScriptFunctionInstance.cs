@@ -20,7 +20,7 @@ namespace Jint.Native.Function
             IFunction functionDeclaration,
             LexicalEnvironment scope,
             bool strict)
-            : this(engine, new JintFunctionDefinition(engine, functionDeclaration), scope, strict)
+            : this(engine, new JintFunctionDefinition(engine, functionDeclaration), scope, strict ? FunctionThisMode.Strict : FunctionThisMode.Global)
         {
         }
 
@@ -28,8 +28,8 @@ namespace Jint.Native.Function
             Engine engine,
             JintFunctionDefinition function,
             LexicalEnvironment scope,
-            bool strict)
-            : base(engine, function, scope, strict)
+            FunctionThisMode thisMode)
+            : base(engine, function, scope, thisMode)
         {
             _function = function;
 
@@ -44,7 +44,7 @@ namespace Jint.Native.Function
 
             _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
-            if (strict)
+            if (thisMode == FunctionThisMode.Strict)
             {
                 DefineOwnProperty(CommonProperties.Caller, engine._getSetThrower);
                 DefineOwnProperty(CommonProperties.Arguments, engine._getSetThrower);
@@ -63,7 +63,7 @@ namespace Jint.Native.Function
             var calleeContext = PrepareForOrdinaryCall(this, Undefined);
             OrdinaryCallBindThis(this, calleeContext, thisArgument);
 
-            var strict = _strict || _engine._isStrict;
+            var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
             {
                 try
@@ -95,14 +95,17 @@ namespace Jint.Native.Function
             }
         }
 
-        private void OrdinaryCallBindThis(ScriptFunctionInstance f, in ExecutionContext calleeContext, JsValue thisArgument)
+        private void OrdinaryCallBindThis(
+            ScriptFunctionInstance f,
+            ExecutionContext calleeContext, 
+            JsValue thisArgument)
         {
             // we have separate arrow function instance, so this is never true
             // Let thisMode be F.[[ThisMode]].
             // If thisMode is lexical, return NormalCompletion(undefined).
             var localEnv = calleeContext.LexicalEnvironment;
             JsValue thisValue;
-            if (_strict || _engine._isStrict)
+            if (f._thisMode == FunctionThisMode.Strict)
             {
                 thisValue = thisArgument;
             }
@@ -113,7 +116,6 @@ namespace Jint.Native.Function
                     var globalEnv = _engine.GlobalEnvironment;
                     var globalEnvRec = (GlobalEnvironmentRecord) globalEnv._record;
                     thisValue = globalEnvRec.GlobalThisValue;
-                    thisValue = _engine.Global;
                 }
                 else
                 {

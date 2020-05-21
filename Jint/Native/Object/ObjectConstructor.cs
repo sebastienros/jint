@@ -13,7 +13,7 @@ namespace Jint.Native.Object
         private static readonly JsString _name = new JsString("delegate");
 
         private ObjectConstructor(Engine engine)
-            : base(engine, _name, false)
+            : base(engine, _name)
         {
         }
 

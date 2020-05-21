@@ -9,7 +9,7 @@ namespace Jint.Native.Function
         private static readonly JsString _name = new JsString("bind");
 
         public BindFunctionInstance(Engine engine)
-            : base(engine, _name, false)
+            : base(engine, _name, FunctionThisMode.Global)
         {
         }
 
