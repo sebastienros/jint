@@ -35,7 +35,12 @@ namespace Jint.Runtime.Interpreter.Expressions
             return rightValue;
         }
 
-        internal static void ProcessPatterns(Engine engine, BindingPattern pattern, JsValue argument, LexicalEnvironment environment)
+        internal static void ProcessPatterns(
+            Engine engine,
+            BindingPattern pattern,
+            JsValue argument,
+            LexicalEnvironment environment,
+            bool checkObjectPatternPropertyReference = true)
         {
             if (pattern is ArrayPattern ap)
             {
@@ -43,7 +48,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else if (pattern is ObjectPattern op)
             {
-                HandleObjectPattern(engine, op, argument, environment);
+                HandleObjectPattern(engine, op, argument, environment, checkObjectPatternPropertyReference);
             }
         }
         
@@ -138,7 +143,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             ConsumeFromIterator(iterator, out value, out done);
                         }
 
-                        AssignToReference(engine, reference, value);
+                        AssignToReference(engine, reference, value, environment);
                     }
                     else if (left is BindingPattern bindingPattern)
                     {
@@ -204,7 +209,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }                    
                         else
                         {
-                            AssignToReference(engine, reference,  array);
+                            AssignToReference(engine, reference,  array, environment);
                         }
                     }
                     else if (left is AssignmentPattern assignmentPattern)
@@ -263,7 +268,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        private static void HandleObjectPattern(Engine engine, ObjectPattern pattern, JsValue argument, LexicalEnvironment environment)
+        private static void HandleObjectPattern(Engine engine, ObjectPattern pattern, JsValue argument, LexicalEnvironment environment, bool checkReference)
         {
             var processedProperties = pattern.Properties.Count > 0 && pattern.Properties[pattern.Properties.Count - 1] is RestElement
                 ? new HashSet<JsValue>()
@@ -320,14 +325,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         var reference = GetReferenceFromMember(engine, memberExpression);
                         source.TryGetValue(sourceKey, out var value);
-                        AssignToReference(engine, reference, value);
+                        AssignToReference(engine, reference, value, environment);
                     }
                     else
                     {
                         var identifierReference = p.Value as Identifier;
                         var target = identifierReference ?? identifier;
-                        source.TryGetValue(sourceKey, out var value);
-                        AssignToIdentifier(engine, target.Name, value, environment);
+                        source.TryGetValue(sourceKey, out var v);
+                        AssignToIdentifier(engine, target.Name, v, environment, checkReference);
                     }
                 }
                 else
@@ -349,7 +354,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         var left = GetReferenceFromMember(engine, memberExpression);
                         var rest = engine.Object.Construct(0);
                         source.CopyDataProperties(rest, processedProperties);
-                        AssignToReference(engine, left, rest);
+                        AssignToReference(engine, left, rest, environment);
                     }
                     else
                     {
@@ -359,10 +364,21 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        private static void AssignToReference(Engine engine,  Reference lref,  JsValue rval)
+        private static void AssignToReference(
+            Engine engine,
+            Reference lhs,
+            JsValue v,
+            LexicalEnvironment environment)
         {
-            engine.PutValue(lref, rval);
-            engine._referencePool.Return(lref);
+            if (environment is null)
+            {
+                engine.PutValue(lhs, v);
+            }
+            else
+            {
+                lhs.InitializeReferencedBinding(v);
+            }
+            engine._referencePool.Return(lhs);
         }
 
         private static Reference GetReferenceFromMember(Engine engine, MemberExpression memberExpression)
@@ -377,17 +393,17 @@ namespace Jint.Runtime.Interpreter.Expressions
             Engine engine,
             string name,
             JsValue rval,
-            LexicalEnvironment environment)
+            LexicalEnvironment environment,
+            bool checkReference = true)
         {
             var lhs = engine.ResolveBinding(name, environment);
             if (environment != null)
             {
-                var baseReference = (EnvironmentRecord) lhs.GetBase();
-                baseReference.InitializeBinding(name, rval);
+                lhs.InitializeReferencedBinding(rval);
             }
             else
             {
-                if (lhs.IsUnresolvableReference() && StrictModeScope.IsStrictModeCode)
+                if (checkReference && lhs.IsUnresolvableReference() && StrictModeScope.IsStrictModeCode)
                 {
                     ExceptionHelper.ThrowReferenceError<Reference>(engine);
                 }

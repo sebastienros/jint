@@ -101,7 +101,8 @@ namespace Jint.Runtime.Interpreter.Statements
                             _engine,
                             declaration.LeftPattern,
                             declaration.Init.GetValue(),
-                            environment);
+                            environment,
+                            checkObjectPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
                     }
                     else if (declaration.LeftIdentifierExpression == null
                              || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
