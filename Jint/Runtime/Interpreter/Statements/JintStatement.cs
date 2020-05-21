@@ -32,8 +32,11 @@ namespace Jint.Runtime.Interpreter.Statements
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion Execute()
         {
-            _engine._lastSyntaxNode = _statement;
-            _engine.RunBeforeExecuteStatementChecks(_statement);
+            if (_statement.Type != Nodes.BlockStatement)
+            {
+                _engine._lastSyntaxNode = _statement;
+                _engine.RunBeforeExecuteStatementChecks(_statement);
+            }
 
             if (!_initialized)
             {

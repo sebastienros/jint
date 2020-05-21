@@ -101,8 +101,8 @@ namespace Jint.Runtime.Debugger
             }
             else if (old == StepMode.Into && _stepMode == StepMode.Over)
             {
-                var expressionStatement = statement as ExpressionStatement;
-                if (expressionStatement != null && expressionStatement.Expression is CallExpression)
+                if (statement is ExpressionStatement expressionStatement 
+                    && expressionStatement.Expression is CallExpression)
                 {
                     _callBackStepOverDepth = _debugCallStack.Count;
                 }

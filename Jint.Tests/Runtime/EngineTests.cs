@@ -1825,7 +1825,7 @@ var prep = function (fn) { fn(); };
             Assert.Equal(3, countBreak);
         }
 
-        [Fact(Skip = "TODO investigate")]
+        [Fact]
         public void ShouldStepAllStatementsWithoutInvocationsIfStepOver()
         {
             countBreak = 0;
