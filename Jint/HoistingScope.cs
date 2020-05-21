@@ -179,7 +179,7 @@ namespace Jint
                     }
                     else if (childNode.Type == Nodes.FunctionDeclaration 
                              // in strict mode cannot include function declarations directly under block or case clauses
-                             && (!_strict || parent is null || (parent.Type != Nodes.BlockStatement && parent.Type != Nodes.SwitchCase)))
+                             && (!_strict || parent is null || (parent.Type != Nodes.BlockStatement && parent.Type != Nodes.SwitchStatement)))
                     {
                         _functions ??= new List<FunctionDeclaration>();
                         _functions.Add((FunctionDeclaration) childNode);
