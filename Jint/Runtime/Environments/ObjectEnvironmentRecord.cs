@@ -14,11 +14,17 @@ namespace Jint.Runtime.Environments
     {
         internal readonly ObjectInstance _bindingObject;
         private readonly bool _provideThis;
+        private readonly bool _withEnvironment;
 
-        public ObjectEnvironmentRecord(Engine engine, ObjectInstance bindingObject, bool provideThis) : base(engine)
+        public ObjectEnvironmentRecord(
+            Engine engine,
+            ObjectInstance bindingObject, 
+            bool provideThis, 
+            bool withEnvironment) : base(engine)
         {
             _bindingObject = bindingObject;
             _provideThis = provideThis;
+            _withEnvironment = withEnvironment;
         }
 
         public override bool HasBinding(string name)
@@ -31,6 +37,11 @@ namespace Jint.Runtime.Environments
                 return false;
             }
 
+            if (!_withEnvironment)
+            {
+                return true;
+            }
+            
             return !IsBlocked(name);
         }
 
@@ -48,7 +59,13 @@ namespace Jint.Runtime.Environments
             // we unwrap by name
             binding = default;
 
-            if (!HasProperty(name.Name) || IsBlocked(name))
+            if (!HasProperty(name.Name))
+            {
+                value = default;
+                return false;
+            }
+
+            if (_withEnvironment && IsBlocked(name))
             {
                 value = default;
                 return false;
@@ -130,7 +147,7 @@ namespace Jint.Runtime.Environments
 
         public override bool HasSuperBinding() => false;
 
-        public override JsValue WithBaseObject() => Undefined; // TODO unless their withEnvironment flag is true.
+        public override JsValue WithBaseObject() => _withEnvironment ? _bindingObject : Undefined;
 
         
         public override JsValue ImplicitThisValue()

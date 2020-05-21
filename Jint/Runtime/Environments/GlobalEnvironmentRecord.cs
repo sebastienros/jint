@@ -18,7 +18,7 @@ namespace Jint.Runtime.Environments
 
         public GlobalEnvironmentRecord(Engine engine, GlobalObject global) : base(engine)
         {
-            _objectRecord = new ObjectEnvironmentRecord(engine, global, false);
+            _objectRecord = new ObjectEnvironmentRecord(engine, global, provideThis: false, withEnvironment: false);
             _declarativeRecord = new DeclarativeEnvironmentRecord(engine);
         }
 
