@@ -33,7 +33,7 @@ namespace Jint.Pooling
 
         public ArgumentsInstance Rent(
             FunctionInstance func,
-            string[] formals,
+            Key[] formals,
             JsValue[] argumentsList,
             EnvironmentRecord env, 
             bool hasRestParameter)

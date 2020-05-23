@@ -707,14 +707,14 @@ namespace Jint.Native.Global
         
         // optimized versions with string parameter and without virtual dispatch for global environment usage
 
-        internal bool HasProperty(in Key property)
+        internal bool HasProperty(Key property)
         {
             return GetOwnProperty(property) != PropertyDescriptor.Undefined;
         }
 
-        internal PropertyDescriptor GetProperty(in Key property) => GetOwnProperty(property);
+        internal PropertyDescriptor GetProperty(Key property) => GetOwnProperty(property);
 
-        internal bool DefinePropertyOrThrow(in Key property, PropertyDescriptor desc)
+        internal bool DefinePropertyOrThrow(Key property, PropertyDescriptor desc)
         {
             if (!DefineOwnProperty(property, desc))
             {
@@ -724,7 +724,7 @@ namespace Jint.Native.Global
             return true;
         }
 
-        internal bool DefineOwnProperty(in Key property, PropertyDescriptor desc)
+        internal bool DefineOwnProperty(Key property, PropertyDescriptor desc)
         {
             var current = GetOwnProperty(property);
             if (current == desc)
@@ -743,13 +743,13 @@ namespace Jint.Native.Global
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal PropertyDescriptor GetOwnProperty(in Key property)
+        internal PropertyDescriptor GetOwnProperty(Key property)
         {
             Properties.TryGetValue(property, out var descriptor);
             return descriptor ?? PropertyDescriptor.Undefined;
         }
         
-        internal bool Set(in Key property, JsValue value)
+        internal bool Set(Key property, JsValue value)
         {
             // here we are called only from global environment record context
             // we can take some shortcuts to be faster
@@ -789,9 +789,9 @@ namespace Jint.Native.Global
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void SetOwnProperty(in Key property, PropertyDescriptor desc)
+        internal void SetOwnProperty(Key property, PropertyDescriptor desc)
         {
-            SetProperty(in property, desc);
+            SetProperty(property, desc);
         }
     }
 }

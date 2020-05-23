@@ -109,7 +109,7 @@ namespace Jint
 
         internal readonly struct ClrPropertyDescriptorFactoriesKey : IEquatable<ClrPropertyDescriptorFactoriesKey>
         {
-            public ClrPropertyDescriptorFactoriesKey(Type type, in Key propertyName)
+            public ClrPropertyDescriptorFactoriesKey(Type type, Key propertyName)
             {
                 Type = type;
                 PropertyName = propertyName;
@@ -885,8 +885,7 @@ namespace Jint
 
             ArgumentsInstance ao = null;
 
-            const string ParameterNameArguments = "arguments";
-            if (configuration._argumentsObjectNeeded)
+            if (configuration.ArgumentsObjectNeeded)
             {
                 if (strict || !simpleParameterList)
                 {
@@ -896,16 +895,16 @@ namespace Jint
                 {
                     // NOTE: mapped argument object is only provided for non-strict functions that don't have a rest parameter,
                     // any parameter default value initializers, or any destructured parameters.
-                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, envRec, configuration._hasRestParameter);
+                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, envRec, configuration.HasRestParameter);
                 }
 
                 if (strict)
                 {
-                    envRec.CreateImmutableBindingAndInitialize(ParameterNameArguments, strict: false, ao);
+                    envRec.CreateImmutableBindingAndInitialize(KnownKeys.Arguments, strict: false, ao);
                 }
                 else
                 {
-                    envRec.CreateMutableBindingAndInitialize(ParameterNameArguments, canBeDeleted: false, ao);
+                    envRec.CreateMutableBindingAndInitialize(KnownKeys.Arguments, canBeDeleted: false, ao);
                 }
             }
             
@@ -915,17 +914,20 @@ namespace Jint
             // Else,
             //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
 
-            envRec.AddFunctionParameters(argumentsList, ao, functionInstance._functionDefinition.Function);
+            envRec.AddFunctionParameters(func.Function, argumentsList);
 
             LexicalEnvironment varEnv;
             DeclarativeEnvironmentRecord varEnvRec;
             if (!hasParameterExpressions)
             {
                 // NOTE: Only a single lexical environment is needed for the parameters and top-level vars.
-                var instantiatedVarNames = configuration._varNames != null ? new HashSet<string>(configuration._parameterBindings) : null; 
-                for (var i = 0; i < configuration._varNames?.Count; i++)
+                var instantiatedVarNames = configuration.VarNames != null 
+                    ? new HashSet<Key>(configuration.ParameterBindings)
+                    : null;
+
+                for (var i = 0; i < configuration.VarNames?.Count; i++)
                 {
-                    var n = configuration._varNames[i];
+                    var n = configuration.VarNames[i];
                     if (instantiatedVarNames.Add(n))
                     {
                         envRec.CreateMutableBindingAndInitialize(n, canBeDeleted: false, JsValue.Undefined);
@@ -944,14 +946,17 @@ namespace Jint
                 
                 UpdateVariableEnvironment(varEnv);
                 
-                var instantiatedVarNames = configuration._varNames != null ? new HashSet<string>(configuration._parameterBindings) : null; 
-                for (var i = 0; i < configuration._varNames?.Count; i++)
+                var instantiatedVarNames = configuration.VarNames != null 
+                    ? new HashSet<Key>(configuration.ParameterBindings) 
+                    : null;
+                
+                for (var i = 0; i < configuration.VarNames?.Count; i++)
                 {
-                    var n = configuration._varNames[i];
+                    var n = configuration.VarNames[i];
                     if (instantiatedVarNames.Add(n))
                     {
                         JsValue initialValue;
-                        if (!configuration._parameterBindings.Contains(n) || configuration.functionNames.Contains(n))
+                        if (!configuration.ParameterBindings.Contains(n) || configuration.FunctionNames.Contains(n))
                         {
                             initialValue = JsValue.Undefined;
                         }
@@ -1008,7 +1013,7 @@ namespace Jint
                 }
             }
 
-            foreach (var f in configuration.functionsToInitialize)
+            foreach (var f in configuration.FunctionsToInitialize)
             {
                 var fn = f.Id.Name;
                 var fo = Function.CreateFunctionObject(f, lexEnv);
@@ -1020,7 +1025,7 @@ namespace Jint
 
         private ArgumentsInstance CreateMappedArgumentsObject(
             FunctionInstance func, 
-            string[] formals,
+            Key[] formals,
             JsValue[] argumentsList, 
             EnvironmentRecord envRec,
             bool hasRestParameter)

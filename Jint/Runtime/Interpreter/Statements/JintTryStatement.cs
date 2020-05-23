@@ -10,7 +10,7 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         private readonly JintStatement _block;
         private readonly JintStatement _catch;
-        private readonly string _catchParamName;
+        private readonly Key _catchParamName;
         private readonly JintStatement _finalizer;
 
         public JintTryStatement(Engine engine, TryStatement statement) : base(engine, statement)

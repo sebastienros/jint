@@ -71,18 +71,18 @@ namespace Jint.Runtime.Interpreter
 
         internal class State
         {
-            public bool _hasRestParameter;
-            public int _length;
-            public string[] ParameterNames;
+            public bool HasRestParameter;
+            public int Length;
+            public Key[] ParameterNames;
             public bool HasDuplicates;
             public bool IsSimpleParameterList;
             public bool HasParameterExpressions;
-            public bool _argumentsObjectNeeded;
-            public List<string> _varNames;
-            public FunctionDeclaration[] functionsToInitialize;
-            public HashSet<string> functionNames = new HashSet<string>();
+            public bool ArgumentsObjectNeeded;
+            public List<Key> VarNames;
+            public FunctionDeclaration[] FunctionsToInitialize;
+            public readonly HashSet<Key> FunctionNames = new HashSet<Key>();
             public List<VariableDeclaration> _lexicalDeclarations;
-            public HashSet<string> _parameterBindings;
+            public HashSet<Key> ParameterBindings;
         }
 
         private State DoInitialize(FunctionInstance functionInstance)
@@ -94,7 +94,7 @@ namespace Jint.Runtime.Interpreter
             var hoistingScope = HoistingScope.GetFunctionLevelDeclarations(Function, collectVarNames: true, collectLexicalNames: true);
             var functionDeclarations = hoistingScope._functionDeclarations;
             var lexicalNames = hoistingScope._lexicalNames;
-            state._varNames = hoistingScope._varNames;
+            state.VarNames = hoistingScope._varNames;
             state._lexicalDeclarations = hoistingScope._lexicalDeclarations;
 
             LinkedList<FunctionDeclaration> functionsToInitialize = null;
@@ -106,50 +106,51 @@ namespace Jint.Runtime.Interpreter
                 {
                     var d = functionDeclarations[i];
                     var fn = d.Id.Name;
-                    if (state.functionNames.Add(fn))
+                    if (state.FunctionNames.Add(fn))
                     {
                         functionsToInitialize.AddFirst(d);
                     }
                 }
             }
 
-            state.functionsToInitialize = functionsToInitialize != null
+            state.FunctionsToInitialize = functionsToInitialize != null
                 ? functionsToInitialize.ToArray()
                 : Array.Empty<FunctionDeclaration>();
 
             const string ParameterNameArguments = "arguments";
 
-            state._argumentsObjectNeeded = true;
+            state.ArgumentsObjectNeeded = true;
             if (functionInstance._thisMode == FunctionInstance.FunctionThisMode.Lexical)
             {
-                state._argumentsObjectNeeded = false;
+                state.ArgumentsObjectNeeded = false;
             }
             else if (hasArguments)
             {
-                state._argumentsObjectNeeded = false;
+                state.ArgumentsObjectNeeded = false;
             }
             else if (!state.HasParameterExpressions)
             {
-                if (state.functionNames.Contains(ParameterNameArguments) || lexicalNames?.Contains(ParameterNameArguments) == true)
+                if (state.FunctionNames.Contains(ParameterNameArguments)
+                    || lexicalNames?.Contains(ParameterNameArguments) == true)
                 {
-                    state._argumentsObjectNeeded = false;
+                    state.ArgumentsObjectNeeded = false;
                 }
             }
             
-            var parameterBindings = new HashSet<string>(state.ParameterNames);
-            if (state._argumentsObjectNeeded)
+            var parameterBindings = new HashSet<Key>(state.ParameterNames);
+            if (state.ArgumentsObjectNeeded)
             {
-                parameterBindings.Add(ParameterNameArguments);
+                parameterBindings.Add(KnownKeys.Arguments);
             }
 
-            state._parameterBindings = parameterBindings;
+            state.ParameterBindings = parameterBindings;
 
             return state;
         }
 
         private static void GetBoundNames(
             Expression parameter,
-            List<string> target, 
+            List<Key> target, 
             bool checkDuplicates, 
             ref bool _hasRestParameter, 
             ref bool _hasParameterExpressions, 
@@ -239,7 +240,7 @@ namespace Jint.Runtime.Interpreter
 
             ref readonly var functionDeclarationParams = ref function.Params;
             var count = functionDeclarationParams.Count;
-            var parameterNames = new List<string>(count);
+            var parameterNames = new List<Key>(count);
             for (var i = 0; i < count; i++)
             {
                 var parameter = functionDeclarationParams[i];
@@ -250,7 +251,7 @@ namespace Jint.Runtime.Interpreter
                     parameterNames.Add(id.Name);
                     if (state.IsSimpleParameterList)
                     {
-                        state._length++;
+                        state.Length++;
                     }
                 }
                 else if (parameter.Type != Nodes.Literal)
@@ -260,7 +261,7 @@ namespace Jint.Runtime.Interpreter
                         parameter, 
                         parameterNames,
                         checkDuplicates: true,
-                        ref state._hasRestParameter,
+                        ref state.HasRestParameter,
                         ref state.HasParameterExpressions, 
                         ref state.HasDuplicates,
                         ref hasArguments);

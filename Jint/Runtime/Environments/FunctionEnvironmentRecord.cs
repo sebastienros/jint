@@ -2,7 +2,6 @@
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Argument;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
@@ -84,33 +83,25 @@ namespace Jint.Runtime.Environments
                 : ((ObjectInstance) _homeObject).Prototype;
         }
 
-        /// <summary>
-        /// Optimization to have logic near record internal structures.
-        /// </summary>
-        internal void InitializeParameters(string[] parameterNames, bool hasDuplicates)
+
+        // optimization to have logic near record internal structures.
+
+        internal void InitializeParameters(Key[] parameterNames, bool hasDuplicates)
         {
+            var value = hasDuplicates ? Undefined : null;
+            var directSet = !hasDuplicates && _dictionary.Count == 0;
             foreach (var paramName in parameterNames)
             {
-                var alreadyDeclared = HasBinding(paramName);
-                if (!alreadyDeclared)
+                if (directSet || !_dictionary.ContainsKey(paramName))
                 {
-                    var value = hasDuplicates ? JsValue.Undefined : null;
                     _dictionary[paramName] = new Binding(value, canBeDeleted: false, mutable: true, strict: false);
                 }
             }
         }
         
-        internal void AddFunctionParameters(
-            JsValue[] arguments,
-            ArgumentsInstance argumentsInstance,
-            IFunction functionDeclaration)
+        internal void AddFunctionParameters(IFunction functionDeclaration, JsValue[] arguments)
         {
             bool empty = _dictionary.Count == 0;
-            if (!(argumentsInstance is null))
-            {
-                _dictionary[KnownKeys.Arguments] = new Binding(argumentsInstance, canBeDeleted: false, mutable: true, strict: false);
-            }
-
             ref readonly var parameters = ref functionDeclaration.Params;
             var count = parameters.Count;
             for (var i = 0; i < count; i++)
@@ -118,7 +109,6 @@ namespace Jint.Runtime.Environments
                 SetFunctionParameter(parameters[i], arguments, i, empty);
             }
         }
-        
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetFunctionParameter(
@@ -361,7 +351,7 @@ namespace Jint.Runtime.Environments
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SetItemSafely(in Key name, JsValue argument, bool initiallyEmpty)
+        private void SetItemSafely(Key name, JsValue argument, bool initiallyEmpty)
         {
             if (initiallyEmpty)
             {

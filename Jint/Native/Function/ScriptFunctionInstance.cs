@@ -36,7 +36,7 @@ namespace Jint.Native.Function
 
             _prototype = _engine.Function.PrototypeObject;
 
-            _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this)._length), PropertyFlag.Configurable);
+            _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
 
             var proto = new ObjectInstanceWithConstructor(engine, this)
             {

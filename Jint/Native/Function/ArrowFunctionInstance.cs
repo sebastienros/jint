@@ -36,7 +36,7 @@ namespace Jint.Native.Function
             PreventExtensions();
             _prototype = Engine.Function.PrototypeObject;
 
-            _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this)._length), PropertyFlag.Configurable);
+            _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
         }
 
         // for example RavenDB wants to inspect this

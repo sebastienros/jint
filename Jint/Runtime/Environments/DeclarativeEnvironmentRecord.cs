@@ -18,11 +18,11 @@ namespace Jint.Runtime.Environments
 
         public sealed override bool HasBinding(string name)
         {
-            return _dictionary.ContainsKey((Key) name);
+            return _dictionary.ContainsKey(name);
         }
 
         internal sealed override bool TryGetBinding(
-            in Key name,
+            Key name,
             bool strict,
             out Binding binding,
             out JsValue value)
@@ -33,12 +33,12 @@ namespace Jint.Runtime.Environments
             return success;
         }
 
-        internal void CreateMutableBindingAndInitialize(string name, bool canBeDeleted, JsValue value)
+        internal void CreateMutableBindingAndInitialize(Key name, bool canBeDeleted, JsValue value)
         {
             _dictionary[name] = new Binding(value, canBeDeleted, mutable: true, strict: false);
         }
 
-        internal void CreateImmutableBindingAndInitialize(string name, bool strict, JsValue value)
+        internal void CreateImmutableBindingAndInitialize(Key name, bool strict, JsValue value)
         {
             _dictionary[name] = new Binding(value, canBeDeleted: false, mutable: false, strict);
         }
@@ -61,13 +61,14 @@ namespace Jint.Runtime.Environments
 
         public sealed override void SetMutableBinding(string name, JsValue value, bool strict)
         {
-            if (!_dictionary.TryGetValue(name, out var binding))
+            var key = (Key) name;
+            if (!_dictionary.TryGetValue(key, out var binding))
             {
                 if (strict)
                 {
-                    ExceptionHelper.ThrowReferenceError(_engine, name);
+                    ExceptionHelper.ThrowReferenceError(_engine, key);
                 }
-                CreateMutableBindingAndInitialize(name, canBeDeleted: true, value);
+                CreateMutableBindingAndInitialize(key, canBeDeleted: true, value);
                 return;
             }
 
@@ -79,12 +80,12 @@ namespace Jint.Runtime.Environments
             // Is it an uninitialized binding?
             if (!binding.IsInitialized())
             {
-                ExceptionHelper.ThrowReferenceError<object>(_engine, message: "Cannot access '" +  name + "' before initialization");
+                ExceptionHelper.ThrowReferenceError<object>(_engine, message: "Cannot access '" +  key + "' before initialization");
             }
             
             if (binding.Mutable)
             {
-                _dictionary[name] = binding.ChangeValue(value);
+                _dictionary[key] = binding.ChangeValue(value);
             }
             else
             {

@@ -51,7 +51,7 @@ namespace Jint.Runtime.Environments
         }
 
         internal override bool TryGetBinding(
-            in Key name,
+            Key name,
             bool strict,
             out Binding binding,
             out JsValue value)

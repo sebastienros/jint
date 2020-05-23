@@ -23,7 +23,7 @@ namespace Jint.Runtime.Environments
         public abstract bool HasBinding(string name);
 
         internal abstract bool TryGetBinding(
-            in Key name,
+            Key name,
             bool strict,
             out Binding binding,
             out JsValue value);

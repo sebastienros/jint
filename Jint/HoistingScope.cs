@@ -8,14 +8,14 @@ namespace Jint
         internal readonly List<FunctionDeclaration> _functionDeclarations;
         
         internal readonly List<VariableDeclaration> _variablesDeclarations;
-        internal readonly List<string> _varNames;
+        internal readonly List<Key> _varNames;
 
         internal readonly List<VariableDeclaration> _lexicalDeclarations;
         internal readonly List<string> _lexicalNames;
 
         private HoistingScope(
             List<FunctionDeclaration> functionDeclarations,
-            List<string> varNames,
+            List<Key> varNames,
             List<VariableDeclaration> variableDeclarations,
             List<VariableDeclaration> lexicalDeclarations,
             List<string> lexicalNames)
@@ -115,7 +115,7 @@ namespace Jint
             private readonly bool _strict;
             private readonly bool _collectVarNames;
             internal List<VariableDeclaration> _variableDeclarations;
-            internal List<string> _varNames;
+            internal List<Key> _varNames;
 
             private readonly bool _collectLexicalNames;
             internal List<VariableDeclaration> _lexicalDeclarations;
@@ -147,7 +147,7 @@ namespace Jint
                             _variableDeclarations.Add(variableDeclaration);
                             if (_collectVarNames)
                             {
-                                _varNames ??= new List<string>();
+                                _varNames ??= new List<Key>();
                                 ref readonly var nodeList = ref variableDeclaration.Declarations;
                                 foreach (var declaration in nodeList)
                                 {

@@ -76,7 +76,7 @@ namespace Jint.Collections
             _entries = InitialEntries;
         }
 
-        public bool ContainsKey(in Key key)
+        public bool ContainsKey(Key key)
         {
             Entry[] entries = _entries;
             for (int i = _buckets[key.HashCode & (_buckets.Length-1)] - 1;
@@ -89,7 +89,7 @@ namespace Jint.Collections
             return false;
         }
 
-        public bool TryGetValue(in Key key, out TValue value)
+        public bool TryGetValue(Key key, out TValue value)
         {
             Entry[] entries = _entries;
             for (int i = _buckets[key.HashCode & (_buckets.Length - 1)] - 1;
@@ -106,7 +106,7 @@ namespace Jint.Collections
             return false;
         }
 
-        public bool Remove(in Key key)
+        public bool Remove(Key key)
         {
             Entry[] entries = _entries;
             int bucketIndex = key.HashCode & (_buckets.Length - 1);
@@ -151,7 +151,7 @@ namespace Jint.Collections
         /// </summary>
         /// <param name="key">Key to look for</param>
         /// <returns>Reference to the new or existing value</returns>
-        public ref TValue GetOrAddValueRef(in Key key)
+        public ref TValue GetOrAddValueRef(Key key)
         {
             Entry[] entries = _entries;
             int bucketIndex = key.HashCode & (_buckets.Length - 1);
@@ -165,14 +165,14 @@ namespace Jint.Collections
             return ref AddKey(key, bucketIndex);
         }
 
-        public ref TValue this[in Key key]
+        public ref TValue this[Key key]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref GetOrAddValueRef(key);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private ref TValue AddKey(in Key key, int bucketIndex)
+        private ref TValue AddKey(Key key, int bucketIndex)
         {
             Entry[] entries = _entries;
             int entryIndex;

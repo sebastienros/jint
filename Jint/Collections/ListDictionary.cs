@@ -11,7 +11,7 @@ namespace Jint.Collections
         private int _count;
         private bool _checkExistingKeys;
 
-        public ListDictionary(in Key key, TValue value, bool checkExistingKeys)
+        public ListDictionary(Key key, TValue value, bool checkExistingKeys)
         {
             _checkExistingKeys = checkExistingKeys;
             _head = new DictionaryNode
@@ -22,7 +22,7 @@ namespace Jint.Collections
             _count = 1;
         }
 
-        public TValue this[in Key key]
+        public TValue this[Key key]
         {
             get
             {
@@ -56,7 +56,7 @@ namespace Jint.Collections
             }
         }
 
-        public bool TryGetValue(in Key key, out TValue value)
+        public bool TryGetValue(Key key, out TValue value)
         {
             var node = _head;
             while (node != null)
@@ -80,7 +80,7 @@ namespace Jint.Collections
             get => _count;
         }
 
-        public void Add(in Key key, TValue value)
+        public void Add(Key key, TValue value)
         {
             DictionaryNode last = null;
             DictionaryNode node;
@@ -99,7 +99,7 @@ namespace Jint.Collections
             AddNode(key, value, last);
         }
 
-        private void AddNode(in Key key, TValue value, DictionaryNode last)
+        private void AddNode(Key key, TValue value, DictionaryNode last)
         {
             var newNode = new DictionaryNode
             {
@@ -123,7 +123,7 @@ namespace Jint.Collections
             _head = null;
         }
 
-        public bool ContainsKey(in Key key)
+        public bool ContainsKey(Key key)
         {
             for (var node = _head; node != null; node = node.Next)
             {
@@ -157,7 +157,7 @@ namespace Jint.Collections
             return new NodeEnumerator(this);
         }
 
-        public bool Remove(in Key key)
+        public bool Remove(Key key)
         {
             DictionaryNode last = null;
             DictionaryNode node;

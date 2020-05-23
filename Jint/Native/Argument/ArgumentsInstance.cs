@@ -20,7 +20,7 @@ namespace Jint.Native.Argument
         private static readonly ThreadLocal<HashSet<string>> _mappedNamed = new ThreadLocal<HashSet<string>>(() => new HashSet<string>());
 
         private FunctionInstance _func;
-        private string[] _names;
+        private Key[] _names;
         private JsValue[] _args;
         private EnvironmentRecord _env;
         private bool _canReturnToPool;
@@ -33,7 +33,7 @@ namespace Jint.Native.Argument
 
         internal void Prepare(
             FunctionInstance func, 
-            string[] names, 
+            Key[] names, 
             JsValue[] args, 
             EnvironmentRecord env,
             bool hasRestParameter)
@@ -76,16 +76,16 @@ namespace Jint.Native.Argument
                     var mappedNamed = _mappedNamed.Value;
                     mappedNamed.Clear();
 
+                    map = Engine.Object.Construct(Arguments.Empty);
+
                     for (uint i = 0; i < (uint) args.Length; i++)
                     {
                         SetOwnProperty(i, new PropertyDescriptor(args[i], PropertyFlag.ConfigurableEnumerableWritable));
                         if (i < _names.Length)
                         {
                             var name = _names[i];
-                            if (!mappedNamed.Contains(name))
+                            if (mappedNamed.Add(name))
                             {
-                                map ??= Engine.Object.Construct(Arguments.Empty);
-                                mappedNamed.Add(name);
                                 map.SetOwnProperty(i, new ClrAccessDescriptor(_env, Engine, name));
                             }
                         }
