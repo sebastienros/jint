@@ -55,7 +55,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var strict = isStrictModeCode;
                 TryGetIdentifierEnvironmentWithBindingValue(
                     strict,
-                    _objectIdentifierExpression.ExpressionName,
+                    _objectIdentifierExpression._expressionName,
                     out _,
                     out baseValue);
             }

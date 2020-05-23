@@ -86,15 +86,25 @@ namespace Jint.Runtime.Environments
 
         // optimization to have logic near record internal structures.
 
-        internal void InitializeParameters(Key[] parameterNames, bool hasDuplicates)
+        internal void InitializeParameters(
+            Key[] parameterNames,
+            bool hasDuplicates, 
+            JsValue[] arguments)
         {
             var value = hasDuplicates ? Undefined : null;
             var directSet = !hasDuplicates && _dictionary.Count == 0;
-            foreach (var paramName in parameterNames)
+            for (var i = 0; (uint) i < (uint) parameterNames.Length; i++)
             {
+                var paramName = parameterNames[i];
                 if (directSet || !_dictionary.ContainsKey(paramName))
                 {
-                    _dictionary[paramName] = new Binding(value, canBeDeleted: false, mutable: true, strict: false);
+                    var parameterValue = value;
+                    if (arguments != null)
+                    {
+                        parameterValue = (uint) i < (uint) arguments.Length ? arguments[i] : Undefined;
+                    }
+
+                    _dictionary[paramName] = new Binding(parameterValue, canBeDeleted: false, mutable: true, strict: false);
                 }
             }
         }

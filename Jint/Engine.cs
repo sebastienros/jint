@@ -881,10 +881,10 @@ namespace Jint
             var simpleParameterList = configuration.IsSimpleParameterList;
             var hasParameterExpressions = configuration.HasParameterExpressions;
 
-            envRec.InitializeParameters(parameterNames, hasDuplicates);
+            var canInitializeParametersOnDeclaration = simpleParameterList && !configuration.HasDuplicates;
+            envRec.InitializeParameters(parameterNames, hasDuplicates, canInitializeParametersOnDeclaration ? argumentsList : null);
 
             ArgumentsInstance ao = null;
-
             if (configuration.ArgumentsObjectNeeded)
             {
                 if (strict || !simpleParameterList)
@@ -907,14 +907,18 @@ namespace Jint
                     envRec.CreateMutableBindingAndInitialize(KnownKeys.Arguments, canBeDeleted: false, ao);
                 }
             }
+
+            if (!canInitializeParametersOnDeclaration)
+            {
+                // slower set
+                envRec.AddFunctionParameters(func.Function, argumentsList);
+            }
             
             // Let iteratorRecord be CreateListIteratorRecord(argumentsList).
             // If hasDuplicates is true, then
             //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and undefined as arguments.
             // Else,
             //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
-
-            envRec.AddFunctionParameters(func.Function, argumentsList);
 
             LexicalEnvironment varEnv;
             DeclarativeEnvironmentRecord varEnvRec;

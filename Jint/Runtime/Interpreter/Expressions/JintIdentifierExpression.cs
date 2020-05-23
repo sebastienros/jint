@@ -6,7 +6,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintIdentifierExpression : JintExpression
     {
-        private readonly Key _expressionName;
+        internal readonly Key _expressionName;
         private JsString _expressionNameJsValue; 
         private readonly JsValue _calculatedValue;
 

@@ -83,7 +83,7 @@ namespace Jint.Runtime.Interpreter
             public readonly HashSet<Key> FunctionNames = new HashSet<Key>();
             public LexicalVariableDeclaration[] LexicalDeclarations = Array.Empty<LexicalVariableDeclaration>();
             public HashSet<Key> ParameterBindings;
-            public List<VariableValuePair> VarsToInitialize { get; set; }
+            public List<VariableValuePair> VarsToInitialize;
 
             internal struct VariableValuePair
             {
