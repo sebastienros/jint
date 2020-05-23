@@ -3,6 +3,7 @@ using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 
@@ -20,7 +21,7 @@ namespace Jint.Native.Function
             IFunction functionDeclaration,
             LexicalEnvironment scope,
             bool strict)
-            : this(engine, new JintFunctionDefinition(engine, functionDeclaration), scope, strict)
+            : this(engine, new JintFunctionDefinition(engine, functionDeclaration), scope, strict ? FunctionThisMode.Strict : FunctionThisMode.Global)
         {
         }
 
@@ -28,14 +29,14 @@ namespace Jint.Native.Function
             Engine engine,
             JintFunctionDefinition function,
             LexicalEnvironment scope,
-            bool strict)
-            : base(engine, function._name, function._parameterNames, scope, strict)
+            FunctionThisMode thisMode)
+            : base(engine, function, scope, thisMode)
         {
             _function = function;
 
             _prototype = _engine.Function.PrototypeObject;
 
-            _length = new PropertyDescriptor(JsNumber.Create(function._length), PropertyFlag.Configurable);
+            _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
 
             var proto = new ObjectInstanceWithConstructor(engine, this)
             {
@@ -44,7 +45,7 @@ namespace Jint.Native.Function
 
             _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
-            if (strict)
+            if (thisMode == FunctionThisMode.Strict)
             {
                 DefineOwnProperty(CommonProperties.Caller, engine._getSetThrower);
                 DefineOwnProperty(CommonProperties.Arguments, engine._getSetThrower);
@@ -52,54 +53,64 @@ namespace Jint.Native.Function
         }
 
         // for example RavenDB wants to inspect this
-        public IFunction FunctionDeclaration => _function._function;
+        public IFunction FunctionDeclaration => _function.Function;
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.1
+        /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
         /// </summary>
-        /// <param name="thisArg"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
-        public override JsValue Call(JsValue thisArg, JsValue[] arguments)
+        public override JsValue Call(JsValue thisArgument, JsValue[] arguments)
         {
-            var strict = _strict || _engine._isStrict;
-            using (new StrictModeScope(strict, true))
+            // ** PrepareForOrdinaryCall **
+            // var callerContext = _engine.ExecutionContext;
+            // Let calleeRealm be F.[[Realm]].
+            // Set the Realm of calleeContext to calleeRealm.
+            // Set the ScriptOrModule of calleeContext to F.[[ScriptOrModule]].
+            var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
+            // If callerContext is not already suspended, suspend callerContext.
+            // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
+            // NOTE: Any exception objects produced after this point are associated with calleeRealm.
+            // Return calleeContext.
+
+            _engine.EnterExecutionContext(localEnv, localEnv);
+
+            // ** OrdinaryCallBindThis **
+            
+            JsValue thisValue;
+            if (_thisMode == FunctionThisMode.Strict)
             {
-                // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
-                JsValue thisBinding;
-                if (StrictModeScope.IsStrictModeCode)
+                thisValue = thisArgument;
+            }
+            else
+            {
+                if (thisArgument.IsNullOrUndefined())
                 {
-                    thisBinding = thisArg;
-                }
-                else if (thisArg.IsNullOrUndefined())
-                {
-                    thisBinding = _engine.Global;
-                }
-                else if (!thisArg.IsObject())
-                {
-                    thisBinding = TypeConverter.ToObject(_engine, thisArg);
+                    var globalEnv = _engine.GlobalEnvironment;
+                    var globalEnvRec = (GlobalEnvironmentRecord) globalEnv._record;
+                    thisValue = globalEnvRec.GlobalThisValue;
                 }
                 else
                 {
-                    thisBinding = thisArg;
+                    thisValue = TypeConverter.ToObject(_engine, thisArgument);
                 }
+            }
 
-                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
+            var envRec = (FunctionEnvironmentRecord) localEnv._record;
+            envRec.BindThisValue(thisValue);
+            
+            // actual call
 
-                _engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
-
+            var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
+            using (new StrictModeScope(strict, true))
+            {
                 try
                 {
-                    var argumentsInstance = _engine.DeclarationBindingInstantiation(
-                        DeclarationBindingType.FunctionCode,
-                        _function._hoistingScope,
+                    var argumentsInstance = _engine.FunctionDeclarationInstantiation(
                         functionInstance: this,
-                        arguments);
+                        arguments,
+                        localEnv);
 
-                    var result = _function._body.Execute();
-
+                    var result = _function.Body.Execute();
                     var value = result.GetValueOrDefault().Clone();
-
                     argumentsInstance?.FunctionWasCalled();
 
                     if (result.Type == CompletionType.Throw)

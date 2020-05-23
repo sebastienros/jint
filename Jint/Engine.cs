@@ -33,7 +33,6 @@ using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.References;
-using ExecutionContext = Jint.Runtime.Environments.ExecutionContext;
 
 namespace Jint
 {
@@ -57,7 +56,7 @@ namespace Jint
 
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
-        internal INode _lastSyntaxNode;
+        internal Node _lastSyntaxNode;
 
         // lazy properties
         private ErrorConstructor _error;
@@ -110,7 +109,7 @@ namespace Jint
 
         internal readonly struct ClrPropertyDescriptorFactoriesKey : IEquatable<ClrPropertyDescriptorFactoriesKey>
         {
-            public ClrPropertyDescriptorFactoriesKey(Type type, in Key propertyName)
+            public ClrPropertyDescriptorFactoriesKey(Type type, Key propertyName)
             {
                 Type = type;
                 PropertyName = propertyName;
@@ -192,7 +191,7 @@ namespace Jint
             GlobalEnvironment = LexicalEnvironment.NewGlobalEnvironment(this, Global);
 
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
-            EnterExecutionContext(GlobalEnvironment, GlobalEnvironment, Global);
+            EnterExecutionContext(GlobalEnvironment, GlobalEnvironment);
 
             Options = new Options();
 
@@ -208,7 +207,7 @@ namespace Jint
             _argumentsInstancePool = new ArgumentsInstancePool(this);
             _jsValueArrayPool = new JsValueArrayPool();
 
-            Eval = new EvalFunctionInstance(this, System.Array.Empty<string>(), LexicalEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment), StrictModeScope.IsStrictModeCode);
+            Eval = new EvalFunctionInstance(this);
             Global.SetProperty(CommonProperties.Eval, new PropertyDescriptor(Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
 
             if (Options._IsClrAllowed)
@@ -269,9 +268,9 @@ namespace Jint
         public event DebugStepDelegate Step;
         public event BreakDelegate Break;
 
-        internal DebugHandler DebugHandler => _debugHandler ?? (_debugHandler = new DebugHandler(this));
+        internal DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this);
 
-        public List<BreakPoint> BreakPoints => _breakPoints ?? (_breakPoints = new List<BreakPoint>());
+        public List<BreakPoint> BreakPoints => _breakPoints ??= new List<BreakPoint>();
 
         internal StepMode? InvokeStepEvent(DebugInformation info)
         {
@@ -284,17 +283,16 @@ namespace Jint
         }
         #endregion
 
-        public void EnterExecutionContext(
+        public ExecutionContext EnterExecutionContext(
             LexicalEnvironment lexicalEnvironment,
-            LexicalEnvironment variableEnvironment,
-            JsValue thisBinding)
+            LexicalEnvironment variableEnvironment)
         {
             var context = new ExecutionContext(
                 lexicalEnvironment,
-                variableEnvironment,
-                thisBinding);
+                variableEnvironment);
 
             _executionContexts.Push(context);
+            return context;
         }
 
         public Engine SetValue(JsValue name, Delegate value)
@@ -377,13 +375,12 @@ namespace Jint
 
             using (new StrictModeScope(_isStrict || program.Strict))
             {
-                DeclarationBindingInstantiation(
-                    DeclarationBindingType.GlobalCode,
-                    program.HoistingScope,
-                    functionInstance: null,
-                    arguments: null);
+                GlobalDeclarationInstantiation(
+                    program,
+                    GlobalEnvironment);
 
                 var list = new JintStatementList(this, null, program.Body);
+                
                 var result = list.Execute();
                 if (result.Type == CompletionType.Throw)
                 {
@@ -572,11 +569,10 @@ namespace Jint
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-putvalue
+        /// https://tc39.es/ecma262/#sec-putvalue
         /// </summary>
         internal void PutValue(Reference reference, JsValue value)
         {
-            var property = reference.GetReferencedName();
             var baseValue = reference.GetBase();
             if (reference.IsUnresolvableReference())
             {
@@ -585,7 +581,7 @@ namespace Jint
                     ExceptionHelper.ThrowReferenceError(this, reference);
                 }
 
-                Global.Set(property, value);
+                Global.Set(reference.GetReferencedName(), value, throwOnError: false);
             }
             else if (reference.IsPropertyReference())
             {
@@ -594,8 +590,7 @@ namespace Jint
                     baseValue = TypeConverter.ToObject(this, baseValue);
                 }
 
-                var thisValue = GetThisValue(reference);
-                var succeeded = baseValue.Set(property, value, thisValue);
+                var succeeded = baseValue.Set(reference.GetReferencedName(), value, reference.GetThisValue());
                 if (!succeeded && reference.IsStrictReference())
                 {
                     ExceptionHelper.ThrowTypeError(this);
@@ -603,18 +598,17 @@ namespace Jint
             }
             else
             {
-                ((EnvironmentRecord) baseValue).SetMutableBinding(property.ToString(), value, reference.IsStrictReference());
+                ((EnvironmentRecord) baseValue).SetMutableBinding(TypeConverter.ToString(reference.GetReferencedName()), value, reference.IsStrictReference());
             }
         }
-
-        private static JsValue GetThisValue(Reference reference)
+        
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-initializereferencedbinding
+        /// </summary>
+        public void InitializeReferenceBinding(Reference reference, JsValue value)
         {
-            if (reference.IsSuperReference())
-            {
-                return ExceptionHelper.ThrowNotImplementedException<JsValue>();
-            }
-
-            return reference.GetBase();
+            var baseValue = (EnvironmentRecord) reference.GetBase();
+            baseValue.InitializeBinding(TypeConverter.ToString(reference.GetReferencedName()), value);
         }
 
         /// <summary>
@@ -688,7 +682,7 @@ namespace Jint
         /// <summary>
         /// Gets the last evaluated <see cref="INode"/>.
         /// </summary>
-        public INode GetLastSyntaxNode()
+        public Node GetLastSyntaxNode()
         {
             return _lastSyntaxNode;
         }
@@ -705,149 +699,508 @@ namespace Jint
             _referencePool.Return(reference);
             return jsValue;
         }
-
-        //  http://www.ecma-international.org/ecma-262/5.1/#sec-10.5
-        internal ArgumentsInstance DeclarationBindingInstantiation(
-            DeclarationBindingType declarationBindingType,
-            HoistingScope hoistingScope,
-            FunctionInstance functionInstance,
-            JsValue[] arguments)
+        
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-resolvebinding
+        /// </summary>
+        internal Reference ResolveBinding(string name, LexicalEnvironment env = null)
         {
-            var env = ExecutionContext.VariableEnvironment._record;
-            bool configurableBindings = declarationBindingType == DeclarationBindingType.EvalCode;
-            var strict = StrictModeScope.IsStrictModeCode;
-            ArgumentsInstance argsObj = null;
-
-            var der = env as DeclarativeEnvironmentRecord;
-            if (declarationBindingType == DeclarationBindingType.FunctionCode)
-            {
-                // arrow functions don't needs arguments
-                var arrowFunctionInstance = functionInstance as ArrowFunctionInstance;
-                argsObj = arrowFunctionInstance is null
-                    ? _argumentsInstancePool.Rent(functionInstance, functionInstance._formalParameters, arguments, env, strict)
-                    : null;
-
-                var functionDeclaration = (functionInstance as ScriptFunctionInstance)?.FunctionDeclaration ??
-                                          arrowFunctionInstance?.FunctionDeclaration;
-
-                if (!ReferenceEquals(der, null))
-                {
-                    der.AddFunctionParameters(arguments, argsObj, functionDeclaration);
-                }
-                else
-                {
-                    // TODO: match functionality with DeclarationEnvironmentRecord.AddFunctionParameters here
-                    // slow path
-                    var parameters = functionInstance._formalParameters;
-                    for (uint i = 0; i < (uint) parameters.Length; i++)
-                    {
-                        var argName = parameters[i];
-                        var v = i + 1 > arguments.Length ? Undefined.Instance : arguments[i];
-                        v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionDeclaration, v, i);
-
-                        var argAlreadyDeclared = env.HasBinding(argName);
-                        if (!argAlreadyDeclared)
-                        {
-                            env.CreateMutableBinding(argName, v);
-                        }
-
-                        env.SetMutableBinding(argName, v, strict);
-                    }
-                    env.CreateMutableBinding("arguments", argsObj);
-                }
-            }
-
-            var functionDeclarations = hoistingScope.FunctionDeclarations;
-            if (functionDeclarations.Count > 0)
-            {
-                AddFunctionDeclarations(ref functionDeclarations, env, configurableBindings, strict);
-            }
-
-            var variableDeclarations = hoistingScope.VariableDeclarations;
-            if (variableDeclarations.Count == 0)
-            {
-                return argsObj;
-            }
-
-            // process all variable declarations in the current parser scope
-            if (!ReferenceEquals(der, null))
-            {
-                der.AddVariableDeclarations(ref variableDeclarations);
-            }
-            else
-            {
-                // slow path
-                var variableDeclarationsCount = variableDeclarations.Count;
-                for (var i = 0; i < variableDeclarationsCount; i++)
-                {
-                    var variableDeclaration = variableDeclarations[i];
-                    var declarations = variableDeclaration.Declarations;
-                    var declarationsCount = declarations.Count;
-                    for (var j = 0; j < declarationsCount; j++)
-                    {
-                        var d = declarations[j];
-                        if (d.Id is Identifier id1)
-                        {
-                            var name = id1.Name;
-                            var varAlreadyDeclared = env.HasBinding(name);
-                            if (!varAlreadyDeclared)
-                            {
-                                env.CreateMutableBinding(name, Undefined.Instance);
-                            }
-                        }
-                    }
-                }
-            }
-
-            return argsObj;
+            env ??= ExecutionContext.LexicalEnvironment;
+            return GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
         }
 
-        private void AddFunctionDeclarations(
-            ref NodeList<IFunctionDeclaration> functionDeclarations,
-            EnvironmentRecord env,
-            bool configurableBindings,
-            bool strict)
+        private Reference GetIdentifierReference(LexicalEnvironment lex, string name, in bool strict)
         {
-            var functionDeclarationsCount = functionDeclarations.Count;
-            for (var i = 0; i < functionDeclarationsCount; i++)
+            if (lex is null)
             {
-                var f = functionDeclarations[i];
-                var fn = f.Id.Name;
-                var fo = Function.CreateFunctionObject(f);
-                var funcAlreadyDeclared = env.HasBinding(f.Id.Name);
-                if (!funcAlreadyDeclared)
+                return new Reference(JsValue.Undefined, name, strict);
+            }
+
+            var envRec = lex._record;
+            if (envRec.HasBinding(name))
+            {
+                return new Reference(envRec, name, strict);
+            }
+
+            return GetIdentifierReference(lex._outer, name, strict);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getthisenvironment
+        /// </summary>
+        internal EnvironmentRecord GetThisEnvironment()
+        {
+            // The loop will always terminate because the list of environments always
+            // ends with the global environment which has a this binding.
+            var lex = ExecutionContext.LexicalEnvironment;
+            while (true)
+            {
+                var envRec = lex._record;
+                var exists = envRec.HasThisBinding();
+                if (exists)
                 {
-                    env.CreateMutableBinding(fn, configurableBindings);
+                    return envRec;
                 }
-                else
+
+                var outer = lex._outer;
+                lex = outer;
+            }
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-resolvethisbinding
+        /// </summary>
+        internal JsValue ResolveThisBinding()
+        {
+            var envRec = GetThisEnvironment();
+            return envRec.GetThisBinding();
+        }
+        
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-globaldeclarationinstantiation
+        /// </summary>
+        private void GlobalDeclarationInstantiation(
+            Script script,
+            LexicalEnvironment env)
+        {
+            var envRec = (GlobalEnvironmentRecord) env._record;
+
+            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(script);
+            var functionDeclarations = hoistingScope._functionDeclarations;
+            var varDeclarations = hoistingScope._variablesDeclarations;
+            var lexDeclarations = hoistingScope._lexicalDeclarations;
+            
+            var functionToInitialize = new LinkedList<FunctionDeclaration>();
+            var declaredFunctionNames = new HashSet<string>();
+            var declaredVarNames = new List<string>();
+
+            if (functionDeclarations != null)
+            {
+                for (var i = functionDeclarations.Count - 1; i >= 0; i--)
                 {
-                    if (ReferenceEquals(env, GlobalEnvironment._record))
+                    var d = functionDeclarations[i];
+                    var fn = d.Id.Name;
+                    if (!declaredFunctionNames.Contains(fn))
                     {
-                        var go = Global;
-                        var existingProp = go.GetProperty(fn);
-                        if (existingProp.Configurable)
+                        var fnDefinable = envRec.CanDeclareGlobalFunction(fn);
+                        if (!fnDefinable)
                         {
-                            var flags = PropertyFlag.Writable | PropertyFlag.Enumerable;
-                            if (configurableBindings)
+                            ExceptionHelper.ThrowTypeError(this);
+                        }
+
+                        declaredFunctionNames.Add(fn);
+                        functionToInitialize.AddFirst(d);
+                    }
+                }
+            }
+
+            var boundNames = new List<string>();
+            if (varDeclarations != null)
+            {
+                for (var i = 0; i < varDeclarations.Count; i++)
+                {
+                    var d = varDeclarations[i];
+                    boundNames.Clear();
+                    d.GetBoundNames(boundNames);
+                    for (var j = 0; j < boundNames.Count; j++)
+                    {
+                        var vn = boundNames[j];
+                        if (!declaredFunctionNames.Contains(vn))
+                        {
+                            var vnDefinable = envRec.CanDeclareGlobalVar(vn);
+                            if (!vnDefinable)
                             {
-                                flags |= PropertyFlag.Configurable;
+                                ExceptionHelper.ThrowTypeError(this);
                             }
 
-                            var descriptor = new PropertyDescriptor(Undefined.Instance, flags);
-                            go.DefinePropertyOrThrow(fn, descriptor);
+                            declaredVarNames.Add(vn);
+                        }
+                    }
+                }
+            }
+
+            if (lexDeclarations != null)
+            {
+                for (var i = 0; i < lexDeclarations.Count; i++)
+                {
+                    var d = lexDeclarations[i];
+                    boundNames.Clear();
+                    d.GetBoundNames(boundNames);
+                    for (var j = 0; j < boundNames.Count; j++)
+                    {
+                        var dn = boundNames[j];
+                        if (envRec.HasVarDeclaration(dn) 
+                            || envRec.HasLexicalDeclaration(dn)
+                            || envRec.HasRestrictedGlobalProperty(dn))
+                        {
+                            ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{dn}' has already been declared");
+                        }
+                        
+                        if (d.Kind == VariableDeclarationKind.Const)
+                        {
+                            envRec.CreateImmutableBinding(dn, strict: true);
                         }
                         else
                         {
-                            if (existingProp.IsAccessorDescriptor() || !existingProp.Enumerable)
+                            envRec.CreateMutableBinding(dn, canBeDeleted: false);
+                        }
+                    }
+                }
+            }
+
+            foreach (var f in functionToInitialize)
+            {
+                var fn = f.Id.Name;
+                var fo = Function.CreateFunctionObject(f, env);
+                envRec.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: false);
+            }
+
+            for (var i = 0; i < declaredVarNames.Count; i++)
+            {
+                var vn = declaredVarNames[i];
+                envRec.CreateGlobalVarBinding(vn, canBeDeleted: false);
+            }
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-functiondeclarationinstantiation
+        /// </summary>
+        internal ArgumentsInstance FunctionDeclarationInstantiation(
+            FunctionInstance functionInstance,
+            JsValue[] argumentsList,
+            LexicalEnvironment env)
+        {
+            var func = functionInstance._functionDefinition;
+
+            var envRec = (FunctionEnvironmentRecord) env._record;
+            var strict = StrictModeScope.IsStrictModeCode;
+
+            var configuration = func.Initialize(this, functionInstance);
+            var parameterNames = configuration.ParameterNames;
+            var hasDuplicates = configuration.HasDuplicates;
+            var simpleParameterList = configuration.IsSimpleParameterList;
+            var hasParameterExpressions = configuration.HasParameterExpressions;
+
+            var canInitializeParametersOnDeclaration = simpleParameterList && !configuration.HasDuplicates;
+            envRec.InitializeParameters(parameterNames, hasDuplicates, canInitializeParametersOnDeclaration ? argumentsList : null);
+
+            ArgumentsInstance ao = null;
+            if (configuration.ArgumentsObjectNeeded)
+            {
+                if (strict || !simpleParameterList)
+                {
+                    ao = CreateUnmappedArgumentsObject(argumentsList);
+                }
+                else
+                {
+                    // NOTE: mapped argument object is only provided for non-strict functions that don't have a rest parameter,
+                    // any parameter default value initializers, or any destructured parameters.
+                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, envRec, configuration.HasRestParameter);
+                }
+
+                if (strict)
+                {
+                    envRec.CreateImmutableBindingAndInitialize(KnownKeys.Arguments, strict: false, ao);
+                }
+                else
+                {
+                    envRec.CreateMutableBindingAndInitialize(KnownKeys.Arguments, canBeDeleted: false, ao);
+                }
+            }
+
+            if (!canInitializeParametersOnDeclaration)
+            {
+                // slower set
+                envRec.AddFunctionParameters(func.Function, argumentsList);
+            }
+            
+            // Let iteratorRecord be CreateListIteratorRecord(argumentsList).
+            // If hasDuplicates is true, then
+            //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and undefined as arguments.
+            // Else,
+            //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
+
+            LexicalEnvironment varEnv;
+            DeclarativeEnvironmentRecord varEnvRec;
+            if (!hasParameterExpressions)
+            {
+                // NOTE: Only a single lexical environment is needed for the parameters and top-level vars.
+                for (var i = 0; i < configuration.VarsToInitialize.Count; i++)
+                {
+                    var pair = configuration.VarsToInitialize[i];
+                    envRec.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined);
+                }
+
+                varEnv = env;
+                varEnvRec = envRec;
+            }
+            else
+            {
+                // NOTE: A separate Environment Record is needed to ensure that closures created by expressions
+                // in the formal parameter list do not have visibility of declarations in the function body.
+                varEnv = LexicalEnvironment.NewDeclarativeEnvironment(this, env);
+                varEnvRec = (DeclarativeEnvironmentRecord) varEnv._record;
+                
+                UpdateVariableEnvironment(varEnv);
+
+                for (var i = 0; i < configuration.VarsToInitialize.Count; i++)
+                {
+                    var pair = configuration.VarsToInitialize[i];
+                    var initialValue = pair.InitialValue ?? envRec.GetBindingValue(pair.Name, strict: false);
+                    varEnvRec.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, initialValue);
+                }
+            }
+            
+            // NOTE: Annex B.3.3.1 adds additional steps at this point. 
+            // A https://tc39.es/ecma262/#sec-web-compat-functiondeclarationinstantiation
+
+            LexicalEnvironment lexEnv;
+            if (!strict)
+            {
+                lexEnv = LexicalEnvironment.NewDeclarativeEnvironment(this, varEnv);
+                // NOTE: Non-strict functions use a separate lexical Environment Record for top-level lexical declarations
+                // so that a direct eval can determine whether any var scoped declarations introduced by the eval code conflict
+                // with pre-existing top-level lexically scoped declarations. This is not needed for strict functions
+                // because a strict direct eval always places all declarations into a new Environment Record.
+            }
+            else
+            {
+                lexEnv = varEnv;
+            }
+
+            var lexEnvRec = lexEnv._record;
+            
+            UpdateLexicalEnvironment(lexEnv);
+
+            if (configuration.LexicalDeclarations.Length > 0)
+            {
+                InitializeLexicalDeclarations(configuration.LexicalDeclarations, lexEnvRec);
+            }
+
+            if (configuration.FunctionsToInitialize != null)
+            {
+                InitializeFunctions(configuration.FunctionsToInitialize, lexEnv, varEnvRec);
+            }
+
+            return ao;
+        }
+
+        private void InitializeFunctions(
+            LinkedList<FunctionDeclaration> functionsToInitialize,
+            LexicalEnvironment lexEnv,
+            DeclarativeEnvironmentRecord varEnvRec)
+        {
+            foreach (var f in functionsToInitialize)
+            {
+                var fn = f.Id.Name;
+                var fo = Function.CreateFunctionObject(f, lexEnv);
+                varEnvRec.SetMutableBinding(fn, fo, strict: false);
+            }
+        }
+
+        private static void InitializeLexicalDeclarations(
+            JintFunctionDefinition.State.LexicalVariableDeclaration[] lexicalDeclarations, 
+            EnvironmentRecord lexEnvRec)
+        {
+            foreach (var d in lexicalDeclarations)
+            {
+                for (var j = 0; j < d.BoundNames.Count; j++)
+                {
+                    var dn = d.BoundNames[j];
+                    if (d.Kind == VariableDeclarationKind.Const)
+                    {
+                        lexEnvRec.CreateImmutableBinding(dn, strict: true);
+                    }
+                    else
+                    {
+                        lexEnvRec.CreateMutableBinding(dn, canBeDeleted: false);
+                    }
+                }
+            }
+        }
+
+        private ArgumentsInstance CreateMappedArgumentsObject(
+            FunctionInstance func, 
+            Key[] formals,
+            JsValue[] argumentsList, 
+            DeclarativeEnvironmentRecord envRec,
+            bool hasRestParameter)
+        {
+            return _argumentsInstancePool.Rent(func, formals, argumentsList, envRec, hasRestParameter);
+        }
+
+        private ArgumentsInstance CreateUnmappedArgumentsObject(JsValue[] argumentsList)
+        {
+            return _argumentsInstancePool.Rent(argumentsList);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-evaldeclarationinstantiation
+        /// </summary>
+        internal void EvalDeclarationInstantiation(
+            Script script,
+            LexicalEnvironment varEnv,
+            LexicalEnvironment lexEnv,
+            bool strict)
+        {
+            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(script);
+            
+            var lexEnvRec = (DeclarativeEnvironmentRecord) lexEnv._record;
+            var varEnvRec = varEnv._record;
+
+            if (!strict && hoistingScope._variablesDeclarations != null)
+            {
+                if (varEnvRec is GlobalEnvironmentRecord globalEnvironmentRecord)
+                {
+                    ref readonly var nodes = ref hoistingScope._variablesDeclarations;
+                    for (var i = 0; i < nodes.Count; i++)
+                    {
+                        var variablesDeclaration = nodes[i];
+                        var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
+                        if (globalEnvironmentRecord.HasLexicalDeclaration(identifier.Name))
+                        {
+                            ExceptionHelper.ThrowSyntaxError(this, "Identifier '" + identifier.Name + "' has already been declared");
+                        }
+                    }
+                }
+
+                var thisLex = lexEnv;
+                while (thisLex != varEnv)
+                {
+                    var thisEnvRec = thisLex._record;
+                    if (!(thisEnvRec is ObjectEnvironmentRecord))
+                    {
+                        ref readonly var nodes = ref hoistingScope._variablesDeclarations;
+                        for (var i = 0; i < nodes.Count; i++)
+                        {
+                            var variablesDeclaration = nodes[i];
+                            var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
+                            if (thisEnvRec.HasBinding(identifier.Name))
+                            {
+                                ExceptionHelper.ThrowSyntaxError(this);
+                            }
+                        }
+                    }
+
+                    thisLex = thisLex._outer;
+                }
+            }
+            
+            var functionDeclarations = hoistingScope._functionDeclarations;
+            var functionsToInitialize = new LinkedList<FunctionDeclaration>();
+            var declaredFunctionNames = new HashSet<string>();
+
+            if (functionDeclarations != null)
+            {
+                for (var i = functionDeclarations.Count - 1; i >= 0; i--)
+                {
+                    var d = functionDeclarations[i];
+                    var fn = d.Id.Name;
+                    if (!declaredFunctionNames.Contains(fn))
+                    {
+                        if (varEnvRec is GlobalEnvironmentRecord ger)
+                        {
+                            var fnDefinable = ger.CanDeclareGlobalFunction(fn);
+                            if (!fnDefinable)
                             {
                                 ExceptionHelper.ThrowTypeError(this);
                             }
                         }
+                        declaredFunctionNames.Add(fn);
+                        functionsToInitialize.AddFirst(d);
                     }
                 }
-
-                env.SetMutableBinding(fn, fo, strict);
             }
+
+            var boundNames = new List<string>();
+            var declaredVarNames = new List<string>();
+            var variableDeclarations = hoistingScope._variablesDeclarations;
+            var variableDeclarationsCount = variableDeclarations?.Count;
+            for (var i = 0; i < variableDeclarationsCount; i++)
+            {
+                var variableDeclaration = variableDeclarations[i];
+                boundNames.Clear();
+                variableDeclaration.GetBoundNames(boundNames);
+                for (var j = 0; j < boundNames.Count; j++)
+                {
+                    var vn = boundNames[j];
+                    if (!declaredFunctionNames.Contains(vn))
+                    {
+                        if (varEnvRec is GlobalEnvironmentRecord ger)
+                        {
+                            var vnDefinable = ger.CanDeclareGlobalFunction(vn);
+                            if (!vnDefinable)
+                            {
+                                ExceptionHelper.ThrowTypeError(this);
+                            }
+                        }
+
+                        declaredVarNames.Add(vn);
+                    }
+                }
+            }
+            
+            var lexicalDeclarations = hoistingScope._lexicalDeclarations;
+            var lexicalDeclarationsCount = lexicalDeclarations?.Count;
+            for (var i = 0; i < lexicalDeclarationsCount; i++)
+            {
+                boundNames.Clear();
+                var d = lexicalDeclarations[i];
+                d.GetBoundNames(boundNames);
+                for (var j = 0; j < boundNames.Count; j++)
+                {
+                    var dn = boundNames[j];
+                    if (d.Kind == VariableDeclarationKind.Const)
+                    {
+                        lexEnvRec.CreateImmutableBinding(dn, strict: true);
+                    }
+                    else
+                    {
+                        lexEnvRec.CreateMutableBinding(dn, canBeDeleted: false);
+                    }
+                }
+            }
+
+            foreach (var f in functionsToInitialize)
+            {
+                var fn = f.Id.Name;
+                var fo = Function.CreateFunctionObject(f, lexEnv);
+                if (varEnvRec is GlobalEnvironmentRecord ger)
+                {
+                    ger.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: true);
+                }
+                else
+                {
+                    var bindingExists = varEnvRec.HasBinding(fn);
+                    if (!bindingExists)
+                    {
+                        varEnvRec.CreateMutableBinding(fn, canBeDeleted: true);
+                        varEnvRec.InitializeBinding(fn, fo);
+                    }
+                    else
+                    {
+                        varEnvRec.SetMutableBinding(fn, fo, strict: false);
+                    }
+                }
+            }
+
+            foreach (var vn in declaredVarNames)
+            {
+                if (varEnvRec is GlobalEnvironmentRecord ger)
+                {
+                    ger.CreateGlobalVarBinding(vn, true);
+                }
+                else
+                {
+                    var bindingExists = varEnvRec.HasBinding(vn);
+                    if (!bindingExists)
+                    {
+                        varEnvRec.CreateMutableBinding(vn, canBeDeleted: true);
+                        varEnvRec.InitializeBinding(vn, JsValue.Undefined);
+                    }
+                }
+            }
+
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -856,12 +1209,10 @@ namespace Jint
             _executionContexts.ReplaceTopLexicalEnvironment(newEnv);
         }
 
-        private static void AssertNotNullOrEmpty(string propertyName, string propertyValue)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void UpdateVariableEnvironment(LexicalEnvironment newEnv)
         {
-            if (string.IsNullOrEmpty(propertyValue))
-            {
-                ExceptionHelper.ThrowArgumentException(propertyName);
-            }
+            _executionContexts.ReplaceTopVariableEnvironment(newEnv);
         }
     }
 }

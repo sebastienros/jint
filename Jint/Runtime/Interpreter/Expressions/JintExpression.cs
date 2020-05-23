@@ -14,9 +14,9 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected bool _initialized = true;
 
         protected readonly Engine _engine;
-        protected internal readonly INode _expression;
+        protected internal readonly Expression _expression;
 
-        protected JintExpression(Engine engine, INode expression)
+        protected JintExpression(Engine engine, Expression expression)
         {
             _engine = engine;
             _expression = expression;
@@ -55,80 +55,35 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected internal static JintExpression Build(Engine engine, Expression expression)
         {
-            switch (expression.Type)
+            return expression.Type switch
             {
-                case Nodes.AssignmentExpression:
-                    return JintAssignmentExpression.Build(engine, (AssignmentExpression) expression);
-
-                case Nodes.ArrayExpression:
-                    return new JintArrayExpression(engine, (ArrayExpression) expression);
-
-                case Nodes.ArrowFunctionExpression:
-                    return new JintArrowFunctionExpression(engine, (IFunction) expression);
-
-                case Nodes.BinaryExpression:
-                    return JintBinaryExpression.Build(engine, (BinaryExpression) expression);
-
-                case Nodes.CallExpression:
-                    return new JintCallExpression(engine, (CallExpression) expression);
-
-                case Nodes.ConditionalExpression:
-                    return new JintConditionalExpression(engine, (ConditionalExpression) expression);
-
-                case Nodes.FunctionExpression:
-                    return new JintFunctionExpression(engine, (IFunction) expression);
-
-                case Nodes.Identifier:
-                    return new JintIdentifierExpression(engine, (Identifier) expression);
-
-                case Nodes.Literal:
-                    return JintLiteralExpression.Build(engine, (Literal) expression);
-
-                case Nodes.LogicalExpression:
-                    var binaryExpression = (BinaryExpression) expression;
-                    switch (binaryExpression.Operator)
-                    {
-                        case BinaryOperator.LogicalAnd:
-                            return new JintLogicalAndExpression(engine, binaryExpression);
-                        case BinaryOperator.LogicalOr:
-                            return new JintLogicalOrExpression(engine, binaryExpression);
-                        default:
-                            return ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>();
-                    }
-
-                case Nodes.MemberExpression:
-                    return new JintMemberExpression(engine, (MemberExpression) expression);
-
-                case Nodes.NewExpression:
-                    return new JintNewExpression(engine, (NewExpression) expression);
-
-                case Nodes.ObjectExpression:
-                    return new JintObjectExpression(engine, (ObjectExpression) expression);
-
-                case Nodes.SequenceExpression:
-                    return new JintSequenceExpression(engine, (SequenceExpression) expression);
-
-                case Nodes.ThisExpression:
-                    return new JintThisExpression(engine, (ThisExpression) expression);
-
-                case Nodes.UpdateExpression:
-                    return new JintUpdateExpression(engine, (UpdateExpression) expression);
-
-                case Nodes.UnaryExpression:
-                    return JintUnaryExpression.Build(engine, (UnaryExpression) expression);
-
-                case Nodes.SpreadElement:
-                    return new JintSpreadExpression(engine, (SpreadElement) expression);
-
-                case Nodes.TemplateLiteral:
-                    return new JintTemplateLiteralExpression(engine, (TemplateLiteral) expression);
-
-                case Nodes.TaggedTemplateExpression:
-                    return new JintTaggedTemplateExpression(engine, (TaggedTemplateExpression) expression);
-
-                default:
-                    return ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>(nameof(expression), $"unsupported language element '{expression.Type}'");
-            }
+                Nodes.AssignmentExpression => JintAssignmentExpression.Build(engine, (AssignmentExpression) expression),
+                Nodes.ArrayExpression => new JintArrayExpression(engine, (ArrayExpression) expression),
+                Nodes.ArrowFunctionExpression => new JintArrowFunctionExpression(engine, (IFunction) expression),
+                Nodes.BinaryExpression => JintBinaryExpression.Build(engine, (BinaryExpression) expression),
+                Nodes.CallExpression => new JintCallExpression(engine, (CallExpression) expression),
+                Nodes.ConditionalExpression => new JintConditionalExpression(engine, (ConditionalExpression) expression),
+                Nodes.FunctionExpression => new JintFunctionExpression(engine, (IFunction) expression),
+                Nodes.Identifier => new JintIdentifierExpression(engine, (Identifier) expression),
+                Nodes.Literal => JintLiteralExpression.Build(engine, (Literal) expression),
+                Nodes.LogicalExpression => ((BinaryExpression) expression).Operator switch
+                {
+                    BinaryOperator.LogicalAnd => new JintLogicalAndExpression(engine, (BinaryExpression) expression),
+                    BinaryOperator.LogicalOr => new JintLogicalOrExpression(engine, (BinaryExpression) expression),
+                    _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>()
+                },
+                Nodes.MemberExpression => new JintMemberExpression(engine, (MemberExpression) expression),
+                Nodes.NewExpression => new JintNewExpression(engine, (NewExpression) expression),
+                Nodes.ObjectExpression => new JintObjectExpression(engine, (ObjectExpression) expression),
+                Nodes.SequenceExpression => new JintSequenceExpression(engine, (SequenceExpression) expression),
+                Nodes.ThisExpression => new JintThisExpression(engine, (ThisExpression) expression),
+                Nodes.UpdateExpression => new JintUpdateExpression(engine, (UpdateExpression) expression),
+                Nodes.UnaryExpression => JintUnaryExpression.Build(engine, (UnaryExpression) expression),
+                Nodes.SpreadElement => new JintSpreadExpression(engine, (SpreadElement) expression),
+                Nodes.TemplateLiteral => new JintTemplateLiteralExpression(engine, (TemplateLiteral) expression),
+                Nodes.TaggedTemplateExpression => new JintTaggedTemplateExpression(engine, (TaggedTemplateExpression) expression),
+                _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>(nameof(expression), $"unsupported expression type '{expression.Type}'")
+            };
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -414,7 +369,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected bool TryGetIdentifierEnvironmentWithBindingValue(
-            string expressionName,
+            EnvironmentRecord.BindingName expressionName,
             out EnvironmentRecord record,
             out JsValue value)
         {
@@ -431,7 +386,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected bool TryGetIdentifierEnvironmentWithBindingValue(
             bool strict,
-            in Key expressionName,
+            EnvironmentRecord.BindingName expressionName,
             out EnvironmentRecord record,
             out JsValue value)
         {

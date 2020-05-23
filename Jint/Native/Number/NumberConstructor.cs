@@ -16,7 +16,7 @@ namespace Jint.Native.Number
         internal const long MaxSafeInteger = 9007199254740991;
 
         public NumberConstructor(Engine engine)
-            : base(engine, _functionName, strict: false)
+            : base(engine, _functionName)
         {
 
         }

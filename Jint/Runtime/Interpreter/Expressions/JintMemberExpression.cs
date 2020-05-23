@@ -51,11 +51,11 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (_objectIdentifierExpression != null)
             {
-                baseReferenceName = _objectIdentifierExpression.ExpressionName;
+                baseReferenceName = _objectIdentifierExpression._expressionName.Key.Name;
                 var strict = isStrictModeCode;
                 TryGetIdentifierEnvironmentWithBindingValue(
                     strict,
-                    _objectIdentifierExpression.ExpressionName,
+                    _objectIdentifierExpression._expressionName,
                     out _,
                     out baseValue);
             }

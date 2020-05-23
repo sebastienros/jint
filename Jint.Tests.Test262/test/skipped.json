@@ -33,6 +33,25 @@
   },
 
 
+  // http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics
+  {
+    "source": "language/statements/let/block-local-closure-set-before-initialization.js",
+    "reason": "not implemented (block level functions)"
+  },
+  {
+    "source": "language/block-scope/shadowing/dynamic-lookup-from-closure.js",
+    "reason": "not implemented (block level functions)"
+  },
+  {
+    "source": "language/block-scope/shadowing/lookup-from-closure.js",
+    "reason": "not implemented (block level functions)"
+  },
+
+  {
+    "source": "language/statements/let/block-local-closure-set-before-initialization.js",
+    "reason": "http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics not implemented (block level functions)"
+  },
+
   {
     "source": "built-ins/RegExp/S15.10.2.11_A1_T5.js",
     "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
@@ -670,6 +689,46 @@
 
   // class support
   {
+    "source": "language/global-code/script-decl-lex.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/global-code/script-decl-lex-deletion.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/global-code/script-decl-var-collision.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/global-code/script-decl-lex-lex.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/global-code/decl-lex.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/let/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/global-code/decl-lex-deletion.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/let/dstr-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/const/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "language/statements/const/dstr-obj-ptrn-id-init-fn-name-class.js",
+    "reason": "class not implemented"
+  },
+  {
     "source": "language/expressions/arrow-function/dstr-dflt-ary-ptrn-elem-id-init-fn-name-class.js",
     "reason": "class not implemented"
   },
@@ -888,6 +947,10 @@
 
   // Esprima problems
 
+  {
+    "source": "language/statements/for-of/dstr-obj-id-init-let.js",
+    "reason": "Esprima problem"
+  },
   {
     "source": "language/statements/for/head-lhs-let.js",
     "reason": "Esprima problem"

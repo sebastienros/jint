@@ -20,11 +20,11 @@ namespace Jint.Native.Argument
         private static readonly ThreadLocal<HashSet<string>> _mappedNamed = new ThreadLocal<HashSet<string>>(() => new HashSet<string>());
 
         private FunctionInstance _func;
-        private string[] _names;
+        private Key[] _names;
         private JsValue[] _args;
-        private EnvironmentRecord _env;
-        private bool _strict;
+        private DeclarativeEnvironmentRecord _env;
         private bool _canReturnToPool;
+        private bool _hasRestParameter;
 
         internal ArgumentsInstance(Engine engine)
             : base(engine, ObjectClass.Arguments, InternalTypes.Object | InternalTypes.RequiresCloning)
@@ -33,17 +33,16 @@ namespace Jint.Native.Argument
 
         internal void Prepare(
             FunctionInstance func, 
-            string[] names, 
+            Key[] names, 
             JsValue[] args, 
-            EnvironmentRecord env, 
-            bool strict)
+            DeclarativeEnvironmentRecord env,
+            bool hasRestParameter)
         {
             _func = func;
             _names = names;
             _args = args;
             _env = env;
-            _strict = strict;
-
+            _hasRestParameter = hasRestParameter;
             _canReturnToPool = true;
 
             ClearProperties();
@@ -52,48 +51,51 @@ namespace Jint.Native.Argument
         protected override void Initialize()
         {
             _canReturnToPool = false;
-
-            SetOwnProperty(CommonProperties.Length, new PropertyDescriptor(_args.Length, PropertyFlag.NonEnumerable));
-
             var args = _args;
-            ObjectInstance map = null;
-            if (args.Length > 0)
-            {
-                HashSet<string> mappedNamed = null;
-                if (!_strict)
-                {
-                    mappedNamed = _mappedNamed.Value;
-                    mappedNamed.Clear();
-                }
 
+            DefinePropertyOrThrow(CommonProperties.Length, new PropertyDescriptor(_args.Length, PropertyFlag.NonEnumerable));
+
+            if (_func is null)
+            {
+                // unmapped
+                ParameterMap = null;
+                
                 for (uint i = 0; i < (uint) args.Length; i++)
                 {
-                    SetOwnProperty(i, new PropertyDescriptor(args[i], PropertyFlag.ConfigurableEnumerableWritable));
-                    if (i < _names.Length)
+                    var val = args[i];
+                    CreateDataProperty(JsNumber.Create(i), val);
+                }
+                
+                DefinePropertyOrThrow(CommonProperties.Callee, _engine._getSetThrower);
+            }
+            else
+            {
+                ObjectInstance map = null;
+                if (args.Length > 0)
+                {
+                    var mappedNamed = _mappedNamed.Value;
+                    mappedNamed.Clear();
+
+                    map = Engine.Object.Construct(Arguments.Empty);
+
+                    for (uint i = 0; i < (uint) args.Length; i++)
                     {
-                        var name = _names[i];
-                        if (!_strict && !mappedNamed.Contains(name))
+                        SetOwnProperty(i, new PropertyDescriptor(args[i], PropertyFlag.ConfigurableEnumerableWritable));
+                        if (i < _names.Length)
                         {
-                            map ??= Engine.Object.Construct(Arguments.Empty);
-                            mappedNamed.Add(name);
-                            map.SetOwnProperty(i, new ClrAccessDescriptor(_env, Engine, name));
+                            var name = _names[i];
+                            if (mappedNamed.Add(name))
+                            {
+                                map.SetOwnProperty(i, new ClrAccessDescriptor(_env, Engine, name));
+                            }
                         }
                     }
                 }
-            }
 
-            ParameterMap = map;
+                ParameterMap = map;
 
-            // step 13
-            if (!_strict)
-            {
+                // step 13
                 DefinePropertyOrThrow(CommonProperties.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
-            }
-            // step 14
-            else
-            {
-                DefinePropertyOrThrow(CommonProperties.Caller, _engine._getSetThrower);
-                DefinePropertyOrThrow(CommonProperties.Callee, _engine._getSetThrower);
             }
 
             var iteratorFunction = new ClrFunctionInstance(Engine, "iterator", _engine.Array.PrototypeObject.Values, 0, PropertyFlag.Configurable);
@@ -106,7 +108,7 @@ namespace Jint.Native.Argument
         {
             EnsureInitialized();
 
-            if (!_strict && !ReferenceEquals(ParameterMap, null))
+            if (!ReferenceEquals(ParameterMap, null))
             {
                 var desc = base.GetOwnProperty(property);
                 if (desc == PropertyDescriptor.Undefined)
@@ -167,7 +169,7 @@ namespace Jint.Native.Argument
 
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            if (_func is ScriptFunctionInstance scriptFunctionInstance && scriptFunctionInstance._function._hasRestParameter)
+            if (_hasRestParameter)
             {
                 // immutable
                 return true;
@@ -175,7 +177,7 @@ namespace Jint.Native.Argument
 
             EnsureInitialized();
 
-            if (!_strict && !ReferenceEquals(ParameterMap, null))
+            if (!(_func is null) && !ReferenceEquals(ParameterMap, null))
             {
                 var map = ParameterMap;
                 var isMapped = map.GetOwnProperty(property);
@@ -216,7 +218,7 @@ namespace Jint.Native.Argument
         {
             EnsureInitialized();
 
-            if (!_strict && !ReferenceEquals(ParameterMap, null))
+            if (!(_func is null) && !ReferenceEquals(ParameterMap, null))
             {
                 var map = ParameterMap;
                 var isMapped = map.GetOwnProperty(property);

@@ -28,7 +28,7 @@ namespace Jint.Collections
             }
         }
 
-        public TValue this[in Key key]
+        public TValue this[Key key]
         {
             get
             {
@@ -59,7 +59,7 @@ namespace Jint.Collections
             }
         }
 
-        public bool TryGetValue(in Key key, out TValue value)
+        public bool TryGetValue(Key key, out TValue value)
         {
             if (_dictionary != null)
             {
@@ -75,7 +75,7 @@ namespace Jint.Collections
             return false;
         }
 
-        private void SwitchToDictionary(in Key key, TValue value)
+        private void SwitchToDictionary(Key key, TValue value)
         {
             var dictionary = new StringDictionarySlim<TValue>(InitialDictionarySize);
             foreach (var pair in _list)
@@ -94,7 +94,7 @@ namespace Jint.Collections
             get => _dictionary?.Count ?? _list?.Count ?? 0;
         }
 
-        public void Add(in Key key, TValue value)
+        public void Add(Key key, TValue value)
         {
             if (_dictionary != null)
             {
@@ -137,7 +137,7 @@ namespace Jint.Collections
             }
         }
 
-        public bool ContainsKey(in Key key)
+        public bool ContainsKey(Key key)
         {
             if (_dictionary != null)
             {
@@ -184,7 +184,7 @@ namespace Jint.Collections
             return Enumerable.Empty<KeyValuePair<Key, TValue>>().GetEnumerator();
         }
 
-        public bool Remove(in Key key)
+        public bool Remove(Key key)
         {
             if (_dictionary != null)
             {

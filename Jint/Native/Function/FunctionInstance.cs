@@ -4,11 +4,19 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Function
 {
     public abstract class FunctionInstance : ObjectInstance, ICallable
     {
+        internal enum FunctionThisMode
+        {
+            Lexical,
+            Strict,
+            Global
+        }
+
         protected internal PropertyDescriptor _prototypeDescriptor;
 
         protected PropertyDescriptor _length;
@@ -16,41 +24,30 @@ namespace Jint.Native.Function
         private JsValue _name;
         private PropertyDescriptor _nameDescriptor;
 
-        protected readonly LexicalEnvironment _scope;
-        protected internal readonly string[] _formalParameters;
-        protected readonly bool _strict;
+        protected internal LexicalEnvironment _environment;
+        internal readonly JintFunctionDefinition _functionDefinition;
+        internal readonly FunctionThisMode _thisMode;
 
-        protected FunctionInstance(
+        internal FunctionInstance(
             Engine engine,
-            string name,
-            string[] parameters,
+            JintFunctionDefinition function,
             LexicalEnvironment scope,
-            bool strict)
-            : this(engine, !string.IsNullOrWhiteSpace(name) ? new JsString(name) : null, parameters, scope, strict)
+            FunctionThisMode thisMode)
+            : this(engine, !string.IsNullOrWhiteSpace(function.Name) ? new JsString(function.Name) : null,  thisMode)
         {
+            _functionDefinition = function;
+            _environment = scope;
         }
 
         internal FunctionInstance(
             Engine engine,
             JsString name,
-            string[] parameters,
-            LexicalEnvironment scope,
-            bool strict)
-            : this(engine, name, strict)
-        {
-            _formalParameters = parameters;
-            _scope = scope;
-        }
-
-        internal FunctionInstance(
-            Engine engine,
-            JsString name,
-            bool strict,
+            FunctionThisMode thisMode = FunctionThisMode.Global,
             ObjectClass objectClass = ObjectClass.Function)
             : base(engine, objectClass)
         {
             _name = name;
-            _strict = strict;
+            _thisMode = thisMode;
         }
 
         /// <summary>
@@ -61,12 +58,8 @@ namespace Jint.Native.Function
         /// <returns></returns>
         public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
 
-        internal LexicalEnvironment Scope => _scope;
-
-        internal string[] FormalParameters => _formalParameters;
-
-        public bool Strict => _strict;
-
+        public bool Strict => _thisMode == FunctionThisMode.Strict;
+        
         public virtual bool HasInstance(JsValue v)
         {
             if (!(v is ObjectInstance o))
@@ -104,7 +97,7 @@ namespace Jint.Native.Function
             var v = base.Get(property, receiver);
 
             if (property == CommonProperties.Caller
-                && ((v.As<FunctionInstance>()?._strict).GetValueOrDefault()))
+                && v.As<FunctionInstance>()?._thisMode == FunctionThisMode.Strict)
             {
                 ExceptionHelper.ThrowTypeError(_engine);
             }

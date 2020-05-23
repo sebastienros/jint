@@ -16,7 +16,7 @@ namespace Jint.Native.Function
         private static readonly char[] ArgumentNameSeparator = new[] { ',' };
 
         private FunctionConstructor(Engine engine)
-            : base(engine, _functionName, strict: false)
+            : base(engine, _functionName)
         {
         }
 
@@ -83,11 +83,10 @@ namespace Jint.Native.Function
             var functionObject = new ScriptFunctionInstance(
                 Engine,
                 function,
-                LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment),
+                _engine.GlobalEnvironment,
                 function.Strict);
 
             return functionObject;
-
         }
 
         /// <summary>
@@ -95,13 +94,13 @@ namespace Jint.Native.Function
         /// </summary>
         /// <param name="functionDeclaration"></param>
         /// <returns></returns>
-        public FunctionInstance CreateFunctionObject(IFunctionDeclaration functionDeclaration)
+        public FunctionInstance CreateFunctionObject(FunctionDeclaration functionDeclaration, LexicalEnvironment env)
         {
             var functionObject = new ScriptFunctionInstance(
                 Engine,
                 functionDeclaration,
-                LexicalEnvironment.NewDeclarativeEnvironment(Engine, Engine.ExecutionContext.LexicalEnvironment),
-                functionDeclaration.Strict);
+                env, 
+                functionDeclaration.Strict || _engine._isStrict);
 
             return functionObject;
         }

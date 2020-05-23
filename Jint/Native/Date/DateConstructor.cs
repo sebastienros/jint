@@ -54,7 +54,7 @@ namespace Jint.Native.Date
 
         private static readonly JsString _functionName = new JsString("Date");
 
-        public DateConstructor(Engine engine) : base(engine, _functionName, strict: false)
+        public DateConstructor(Engine engine) : base(engine, _functionName)
         {
         }
 

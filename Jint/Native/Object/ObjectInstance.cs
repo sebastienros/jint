@@ -153,11 +153,11 @@ namespace Jint.Native.Object
         internal void SetProperty(string property, PropertyDescriptor value)
         {
             Key key = property;
-            SetProperty(in key, value);
+            SetProperty(key, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void SetProperty(in Key property, PropertyDescriptor value)
+        internal void SetProperty(Key property, PropertyDescriptor value)
         {
             _properties ??= new PropertyDictionary();
             _properties[property] = value;
@@ -565,7 +565,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-ordinary-object-internal-methods-and-internal-slots-hasproperty-p
+        /// https://tc39.es/ecma262/#sec-ordinary-object-internal-methods-and-internal-slots-hasproperty-p
         /// </summary>
         public virtual bool HasProperty(JsValue property)
         {
@@ -585,7 +585,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-deletepropertyorthrow
+        /// https://tc39.es/ecma262/#sec-deletepropertyorthrow
         /// </summary>
         public bool DeletePropertyOrThrow(JsValue property)
         {
@@ -648,7 +648,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-validateandapplypropertydescriptor
+        /// https://tc39.es/ecma262/#sec-validateandapplypropertydescriptor
         /// </summary>
         protected static bool ValidateAndApplyPropertyDescriptor(ObjectInstance o, JsValue property, bool extensible, PropertyDescriptor desc, PropertyDescriptor current)
         {
@@ -1159,7 +1159,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-createdatapropertyorthrow
+        /// https://tc39.es/ecma262/#sec-createdatapropertyorthrow
         /// </summary>
         internal bool CreateDataProperty(JsValue p, JsValue v)
         {
@@ -1168,7 +1168,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-createdataproperty
+        /// https://tc39.es/ecma262/#sec-createdataproperty
         /// </summary>
         internal bool CreateDataPropertyOrThrow(JsValue p, JsValue v)
         {

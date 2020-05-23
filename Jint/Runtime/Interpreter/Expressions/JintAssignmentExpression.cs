@@ -14,7 +14,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private JintAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
         {
-            _left = Build(engine, (Expression) expression.Left);
+            _left = Build(engine, expression.Left);
             _right = Build(engine, expression.Right);
             _operator = expression.Operator;
         }
@@ -23,15 +23,12 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             if (expression.Operator == AssignmentOperator.Assign)
             {
-                if (expression.Left is Expression)
-                {
-                    return new SimpleAssignmentExpression(engine, expression);
-                }
-
                 if (expression.Left is BindingPattern)
                 {
                     return new BindingPatternAssignmentExpression(engine, expression);
                 }
+
+                return new SimpleAssignmentExpression(engine, expression);
             }
 
             return new JintAssignmentExpression(engine, expression);
@@ -147,27 +144,25 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal sealed class SimpleAssignmentExpression : JintExpression
         {
-            private readonly JintExpression _left;
-            private readonly JintExpression _right;
+            private JintExpression _left;
+            private JintExpression _right;
 
-            private readonly JintIdentifierExpression _leftIdentifier;
-            private readonly bool _evalOrArguments;
-            private readonly ArrayPattern _arrayPattern;
+            private JintIdentifierExpression _leftIdentifier;
+            private bool _evalOrArguments;
 
             public SimpleAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
             {
-                if (expression.Left is ArrayPattern arrayPattern)
-                {
-                    _arrayPattern = arrayPattern;
-                }
-                else
-                {
-                    _left = Build(engine, (Expression) expression.Left);
-                    _leftIdentifier = _left as JintIdentifierExpression;
-                    _evalOrArguments = _leftIdentifier?.HasEvalOrArguments == true;
-                }
+                _initialized = false;
+            }
 
-                _right = Build(engine, expression.Right);
+            protected override void Initialize()
+            {
+                var assignmentExpression = ((AssignmentExpression) _expression);
+                _left = Build(_engine, assignmentExpression.Left);
+                _leftIdentifier = _left as JintIdentifierExpression;
+                _evalOrArguments = _leftIdentifier?.HasEvalOrArguments == true;
+
+                _right = Build(_engine, assignmentExpression.Right);
             }
 
             protected override object EvaluateInternal()
@@ -177,14 +172,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     rval = AssignToIdentifier(_engine, _leftIdentifier, _right, _evalOrArguments);
                 }
-                else if (_arrayPattern != null)
-                {
-                    foreach (var element in _arrayPattern.Elements)
-                    {
-                        AssignToIdentifier(_engine, _leftIdentifier, _right, false);
-                    }
-                }
-
                 return rval ?? SetValue();
             }
 
@@ -211,7 +198,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var strict = StrictModeScope.IsStrictModeCode;
                 if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                     env,
-                    left.ExpressionName,
+                    left._expressionName,
                     strict,
                     out var environmentRecord,
                     out _))
@@ -225,10 +212,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (right._expression.IsFunctionWithName())
                     {
-                        ((FunctionInstance) rval).SetFunctionName(left.ExpressionName);
+                        ((FunctionInstance) rval).SetFunctionName(left._expressionName.StringValue);
                     }
 
-                    environmentRecord.SetMutableBinding(left.ExpressionName, rval, strict);
+                    environmentRecord.SetMutableBinding(left._expressionName, rval, strict);
                     return rval;
                 }
 

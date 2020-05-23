@@ -16340,8 +16340,8 @@
     source: "ch13/13.0/S13_A12_T1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "no longer true with new FunctionDeclarationInstantiation",
     source: "ch13/13.0/S13_A12_T2.js"
   },
   {

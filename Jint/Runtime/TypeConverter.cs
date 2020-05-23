@@ -77,7 +77,7 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-toprimitive
+        /// https://tc39.es/ecma262/#sec-toprimitive
         /// </summary>
         public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.None)
         {
@@ -115,7 +115,7 @@ namespace Jint.Runtime
         private static readonly JsString[] NumberHintCallOrder = { (JsString) "valueOf", (JsString) "toString"};
         
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-ordinarytoprimitive
+        /// https://tc39.es/ecma262/#sec-ordinarytoprimitive
         /// </summary>
         internal static JsValue OrdinaryToPrimitive(ObjectInstance input, Types hint = Types.None)
         {
@@ -290,7 +290,7 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-tolength
+        /// https://tc39.es/ecma262/#sec-tolength
         /// </summary>
         public static ulong ToLength(JsValue o)
         {
@@ -304,7 +304,7 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-tointeger
+        /// https://tc39.es/ecma262/#sec-tointeger
         /// </summary>
         public static double ToInteger(JsValue o)
         {
@@ -474,50 +474,34 @@ namespace Jint.Runtime
         private static string ToStringNonString(JsValue o)
         {
             var type = o._type & ~InternalTypes.InternalFlags;
-            switch (type)
+            return type switch
             {
-                case InternalTypes.Boolean:
-                    return ((JsBoolean) o)._value ? "true" : "false";
-                case InternalTypes.Integer:
-                    return ToString((int) ((JsNumber) o)._value);
-                case InternalTypes.Number:
-                    return ToString(((JsNumber) o)._value);
-                case InternalTypes.Symbol:
-                    return ExceptionHelper.ThrowTypeErrorNoEngine<string>("Cannot convert a Symbol value to a string");
-                case InternalTypes.Undefined:
-                    return Undefined.Text;
-                case InternalTypes.Null:
-                    return Null.Text;
-                case InternalTypes.Object when o is IPrimitiveInstance p:
-                    return ToString(ToPrimitive(p.PrimitiveValue, Types.String));
-                case InternalTypes.Object when o is Interop.IObjectWrapper p:
-                    return p.Target?.ToString();
-                default:
-                    return ToString(ToPrimitive(o, Types.String));
-            }
+                InternalTypes.Boolean => ((JsBoolean) o)._value ? "true" : "false",
+                InternalTypes.Integer => ToString((int) ((JsNumber) o)._value),
+                InternalTypes.Number => ToString(((JsNumber) o)._value),
+                InternalTypes.Symbol => ExceptionHelper.ThrowTypeErrorNoEngine<string>("Cannot convert a Symbol value to a string"),
+                InternalTypes.Undefined => Undefined.Text,
+                InternalTypes.Null => Null.Text,
+                InternalTypes.Object when o is IPrimitiveInstance p => ToString(ToPrimitive(p.PrimitiveValue, Types.String)),
+                InternalTypes.Object when o is Interop.IObjectWrapper p => p.Target?.ToString(),
+                _ => ToString(ToPrimitive(o, Types.String))
+            };
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ObjectInstance ToObject(Engine engine, JsValue value)
         {
             var type = value._type & ~InternalTypes.InternalFlags;
-            switch (type)
+            return type switch
             {
-                case InternalTypes.Object:
-                    return (ObjectInstance) value;
-                case InternalTypes.Boolean:
-                    return engine.Boolean.Construct(((JsBoolean) value)._value);
-                case InternalTypes.Number:
-                case InternalTypes.Integer:
-                    return engine.Number.Construct(((JsNumber) value)._value);
-                case InternalTypes.String:
-                    return engine.String.Construct(value.AsStringWithoutTypeCheck());
-                case InternalTypes.Symbol:
-                    return engine.Symbol.Construct(((JsSymbol) value));
-                default:
-                    ExceptionHelper.ThrowTypeError(engine);
-                    return null;
-            }
+                InternalTypes.Object => (ObjectInstance) value,
+                InternalTypes.Boolean => engine.Boolean.Construct(((JsBoolean) value)._value),
+                InternalTypes.Number => engine.Number.Construct(((JsNumber) value)._value),
+                InternalTypes.Integer => engine.Number.Construct(((JsNumber) value)._value),
+                InternalTypes.String => engine.String.Construct(value.AsStringWithoutTypeCheck()),
+                InternalTypes.Symbol => engine.Symbol.Construct(((JsSymbol) value)),
+                _ => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine)
+            };
         }
         
         internal static void CheckObjectCoercible(

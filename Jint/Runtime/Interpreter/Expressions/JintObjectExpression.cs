@@ -130,7 +130,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private object BuildObjectNormal()
         {
             var obj = _engine.Object.Construct(_properties.Length);
-            bool isStrictModeCode = StrictModeScope.IsStrictModeCode;
+            bool isStrictModeCode = _engine._isStrict || StrictModeScope.IsStrictModeCode;
 
             for (var i = 0; i < _properties.Length; i++)
             {

@@ -6,8 +6,10 @@ namespace Jint.Native.Function
 {
     public sealed class BindFunctionInstance : FunctionInstance, IConstructor
     {
+        private static readonly JsString _name = new JsString("bind");
+
         public BindFunctionInstance(Engine engine)
-            : base(engine, "bind", System.Array.Empty<string>(), null, false)
+            : base(engine, _name, FunctionThisMode.Global)
         {
         }
 

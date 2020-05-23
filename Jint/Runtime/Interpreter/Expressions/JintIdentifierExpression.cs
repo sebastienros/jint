@@ -1,3 +1,4 @@
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
 
@@ -5,23 +6,20 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintIdentifierExpression : JintExpression
     {
-        private readonly Key _expressionName;
-        private JsString _expressionNameJsValue; 
+        internal readonly EnvironmentRecord.BindingName _expressionName;
         private readonly JsValue _calculatedValue;
 
-        public JintIdentifierExpression(Engine engine, Esprima.Ast.Identifier expression) : base(engine, expression)
+        public JintIdentifierExpression(Engine engine, Identifier expression) : base(engine, expression)
         {
-            _expressionName = expression.Name;
+            _expressionName = new EnvironmentRecord.BindingName(expression.Name);
             if (expression.Name == "undefined")
             {
                 _calculatedValue = JsValue.Undefined;
             }
         }
 
-        public string ExpressionName => _expressionName.Name;
-
         public bool HasEvalOrArguments
-            => ExpressionName == CommonProperties.Eval || ExpressionName == CommonProperties.Arguments;
+            => _expressionName.StringValue._value == KnownKeys.Eval || _expressionName.Key == KnownKeys.Arguments;
 
         protected override object EvaluateInternal()
         {
@@ -31,8 +29,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? temp
                 : JsValue.Undefined;
 
-            var property = _expressionNameJsValue ??= new JsString(_expressionName.Name);
-            return _engine._referencePool.Rent(identifierEnvironment, property, strict);
+            return _engine._referencePool.Rent(identifierEnvironment, _expressionName.StringValue, strict);
         }
 
         public override JsValue GetValue()
@@ -46,10 +43,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             var strict = StrictModeScope.IsStrictModeCode;
-            var property = _expressionNameJsValue ??= new JsString(_expressionName);
             return TryGetIdentifierEnvironmentWithBindingValue(strict, _expressionName, out _, out var value)
-                ? value
-                : _engine.GetValue(_engine._referencePool.Rent(JsValue.Undefined, property, strict), true);
+                ? value ?? ExceptionHelper.ThrowReferenceError<JsValue>(_engine, _expressionName.Key.Name + " has not been initialized")
+                : _engine.GetValue(_engine._referencePool.Rent(JsValue.Undefined, _expressionName.StringValue, strict), true);
         }
     }
 }

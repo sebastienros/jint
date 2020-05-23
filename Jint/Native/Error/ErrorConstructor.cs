@@ -10,7 +10,7 @@ namespace Jint.Native.Error
         private JsString _name;
         private static readonly JsString _functionName = new JsString("Error");
 
-        public ErrorConstructor(Engine engine) : base(engine, _functionName, strict: false)
+        public ErrorConstructor(Engine engine) : base(engine, _functionName)
         {
         }
 

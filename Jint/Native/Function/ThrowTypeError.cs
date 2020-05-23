@@ -8,9 +8,10 @@ namespace Jint.Native.Function
         private static readonly JsString _functionName = new JsString("throwTypeError");
 
         public ThrowTypeError(Engine engine)
-            : base(engine, _functionName, System.Array.Empty<string>(), engine.GlobalEnvironment, false)
+            : base(engine, _functionName)
         {
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
+            _environment = engine.GlobalEnvironment;
             PreventExtensions();
         }
 

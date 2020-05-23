@@ -16,7 +16,7 @@ namespace Jint.Native.Symbol
         private static readonly JsString _functionName = new JsString("Symbol");
 
         public SymbolConstructor(Engine engine)
-            : base(engine, _functionName, strict: false)
+            : base(engine, _functionName, FunctionThisMode.Global)
         {
         }
 
