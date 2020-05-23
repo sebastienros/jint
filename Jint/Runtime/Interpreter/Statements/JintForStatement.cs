@@ -168,14 +168,13 @@ namespace Jint.Runtime.Interpreter.Statements
             var lastIterationEnvRec = lastIterationEnv._record;
             var outer = lastIterationEnv._outer;
             var thisIterationEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, outer);
-            var thisIterationEnvRec = thisIterationEnv._record;
+            var thisIterationEnvRec = (DeclarativeEnvironmentRecord) thisIterationEnv._record;
             
             for (var j = 0; j < _boundNames.Count; j++)
             {
                 var bn = _boundNames[j];
-                thisIterationEnvRec.CreateMutableBinding(bn, false);
                 var lastValue = lastIterationEnvRec.GetBindingValue(bn, true);
-                thisIterationEnvRec.InitializeBinding(bn, lastValue);
+                thisIterationEnvRec.CreateMutableBindingAndInitialize(bn, false, lastValue);
             }
 
             _engine.UpdateLexicalEnvironment(thisIterationEnv);

@@ -60,9 +60,44 @@ namespace Jint.Native.Function
         /// </summary>
         public override JsValue Call(JsValue thisArgument, JsValue[] arguments)
         {
-            var callerContext = _engine.ExecutionContext;
-            var calleeContext = PrepareForOrdinaryCall(this, Undefined);
-            OrdinaryCallBindThis(this, calleeContext, thisArgument);
+            // ** PrepareForOrdinaryCall **
+            // var callerContext = _engine.ExecutionContext;
+            // Let calleeRealm be F.[[Realm]].
+            // Set the Realm of calleeContext to calleeRealm.
+            // Set the ScriptOrModule of calleeContext to F.[[ScriptOrModule]].
+            var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
+            // If callerContext is not already suspended, suspend callerContext.
+            // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
+            // NOTE: Any exception objects produced after this point are associated with calleeRealm.
+            // Return calleeContext.
+
+            _engine.EnterExecutionContext(localEnv, localEnv);
+
+            // ** OrdinaryCallBindThis **
+            
+            JsValue thisValue;
+            if (_thisMode == FunctionThisMode.Strict)
+            {
+                thisValue = thisArgument;
+            }
+            else
+            {
+                if (thisArgument.IsNullOrUndefined())
+                {
+                    var globalEnv = _engine.GlobalEnvironment;
+                    var globalEnvRec = (GlobalEnvironmentRecord) globalEnv._record;
+                    thisValue = globalEnvRec.GlobalThisValue;
+                }
+                else
+                {
+                    thisValue = TypeConverter.ToObject(_engine, thisArgument);
+                }
+            }
+
+            var envRec = (FunctionEnvironmentRecord) localEnv._record;
+            envRec.BindThisValue(thisValue);
+            
+            // actual call
 
             var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
@@ -71,7 +106,8 @@ namespace Jint.Native.Function
                 {
                     var argumentsInstance = _engine.FunctionDeclarationInstantiation(
                         functionInstance: this,
-                        arguments);
+                        arguments,
+                        localEnv);
 
                     var result = _function.Body.Execute();
                     var value = result.GetValueOrDefault().Clone();
@@ -94,53 +130,6 @@ namespace Jint.Native.Function
 
                 return Undefined;
             }
-        }
-
-        private void OrdinaryCallBindThis(
-            ScriptFunctionInstance f,
-            ExecutionContext calleeContext, 
-            JsValue thisArgument)
-        {
-            // we have separate arrow function instance, so this is never true
-            // Let thisMode be F.[[ThisMode]].
-            // If thisMode is lexical, return NormalCompletion(undefined).
-            var localEnv = calleeContext.LexicalEnvironment;
-            JsValue thisValue;
-            if (f._thisMode == FunctionThisMode.Strict)
-            {
-                thisValue = thisArgument;
-            }
-            else
-            {
-                if (thisArgument.IsNullOrUndefined())
-                {
-                    var globalEnv = _engine.GlobalEnvironment;
-                    var globalEnvRec = (GlobalEnvironmentRecord) globalEnv._record;
-                    thisValue = globalEnvRec.GlobalThisValue;
-                }
-                else
-                {
-                    thisValue = TypeConverter.ToObject(_engine, thisArgument);
-                }
-            }
-
-            var envRec = (FunctionEnvironmentRecord) localEnv._record;
-            envRec.BindThisValue(thisValue);
-        }
-
-        private ExecutionContext PrepareForOrdinaryCall(FunctionInstance f, JsValue newTarget)
-        {
-            // var callerContext = _engine.ExecutionContext;
-            // Let calleeRealm be F.[[Realm]].
-            // Set the Realm of calleeContext to calleeRealm.
-            // Set the ScriptOrModule of calleeContext to F.[[ScriptOrModule]].
-            var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, f, newTarget);
-            // If callerContext is not already suspended, suspend callerContext.
-            // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
-            // NOTE: Any exception objects produced after this point are associated with calleeRealm.
-            // Return calleeContext.
-            var calleeContext = _engine.EnterExecutionContext(localEnv, localEnv);
-            return calleeContext;
         }
 
         /// <summary>

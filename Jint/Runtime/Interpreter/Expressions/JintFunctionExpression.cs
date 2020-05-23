@@ -31,8 +31,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (_function.Name != null)
             {
                 var envRec = (DeclarativeEnvironmentRecord) funcEnv._record;
-                envRec.CreateMutableBinding(_function.Name, canBeDeleted: false);
-                envRec.InitializeBinding(_function.Name, closure);
+                envRec.CreateMutableBindingAndInitialize(_function.Name, canBeDeleted: false, closure);
             }
 
             return closure;

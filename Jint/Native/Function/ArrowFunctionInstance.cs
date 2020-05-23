@@ -50,14 +50,15 @@ namespace Jint.Native.Function
             var strict = Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
             {
-                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _environment);
+                var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
                 _engine.EnterExecutionContext(localEnv, localEnv);
 
                 try
                 {
                     _engine.FunctionDeclarationInstantiation(
                         functionInstance: this,
-                        arguments);
+                        arguments,
+                        localEnv);
 
                     var result = _function.Body.Execute();
 

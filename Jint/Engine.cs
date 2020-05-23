@@ -867,13 +867,12 @@ namespace Jint
         /// </summary>
         internal ArgumentsInstance FunctionDeclarationInstantiation(
             FunctionInstance functionInstance,
-            JsValue[] argumentsList)
+            JsValue[] argumentsList,
+            LexicalEnvironment env)
         {
             var func = functionInstance._functionDefinition;
 
-            var calleeContext = ExecutionContext;
-            var env = calleeContext.LexicalEnvironment;
-            var envRec = env._record;
+            var envRec = (FunctionEnvironmentRecord) env._record;
             var strict = StrictModeScope.IsStrictModeCode;
 
             var configuration = func.Initialize(this, functionInstance);
@@ -881,19 +880,8 @@ namespace Jint
             var hasDuplicates = configuration.HasDuplicates;
             var simpleParameterList = configuration.IsSimpleParameterList;
             var hasParameterExpressions = configuration.HasParameterExpressions;
-            
-            foreach (var paramName in parameterNames)
-            {
-                var alreadyDeclared = envRec.HasBinding(paramName);
-                if (!alreadyDeclared)
-                {
-                    envRec.CreateMutableBinding(paramName, canBeDeleted: false);
-                    if (hasDuplicates)
-                    {
-                        envRec.InitializeBinding(paramName, JsValue.Undefined);
-                    }
-                }
-            }
+
+            envRec.InitializeParameters(parameterNames, hasDuplicates);
 
             ArgumentsInstance ao = null;
 
@@ -913,13 +901,12 @@ namespace Jint
 
                 if (strict)
                 {
-                    envRec.CreateImmutableBinding(ParameterNameArguments, strict: false);
+                    envRec.CreateImmutableBindingAndInitialize(ParameterNameArguments, strict: false, ao);
                 }
                 else
                 {
-                    envRec.CreateMutableBinding(ParameterNameArguments, canBeDeleted: false);
+                    envRec.CreateMutableBindingAndInitialize(ParameterNameArguments, canBeDeleted: false, ao);
                 }
-                envRec.InitializeBinding(ParameterNameArguments, ao);
             }
             
             // Let iteratorRecord be CreateListIteratorRecord(argumentsList).
@@ -928,23 +915,10 @@ namespace Jint
             // Else,
             //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
 
-            if (envRec is DeclarativeEnvironmentRecord der)
-            {
-                der.AddFunctionParameters(argumentsList, ao, functionInstance._functionDefinition.Function);
-            }
-            else
-            {
-                for (var i = 0; i < parameterNames.Length; i++)
-                {
-                    var argName = parameterNames[i];
-                    var v = argumentsList.At(i);
-                    v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionInstance._functionDefinition.Function, v, (uint) i);
-                    envRec.InitializeBinding(argName, v);
-                }
-            }
+            envRec.AddFunctionParameters(argumentsList, ao, functionInstance._functionDefinition.Function);
 
             LexicalEnvironment varEnv;
-            EnvironmentRecord varEnvRec;
+            DeclarativeEnvironmentRecord varEnvRec;
             if (!hasParameterExpressions)
             {
                 // NOTE: Only a single lexical environment is needed for the parameters and top-level vars.
@@ -954,8 +928,7 @@ namespace Jint
                     var n = configuration._varNames[i];
                     if (instantiatedVarNames.Add(n))
                     {
-                        envRec.CreateMutableBinding(n, canBeDeleted: false);
-                        envRec.InitializeBinding(n, JsValue.Undefined);
+                        envRec.CreateMutableBindingAndInitialize(n, canBeDeleted: false, JsValue.Undefined);
                     }
                 }
 
@@ -967,7 +940,7 @@ namespace Jint
                 // NOTE: A separate Environment Record is needed to ensure that closures created by expressions
                 // in the formal parameter list do not have visibility of declarations in the function body.
                 varEnv = LexicalEnvironment.NewDeclarativeEnvironment(this, env);
-                varEnvRec = varEnv._record;
+                varEnvRec = (DeclarativeEnvironmentRecord) varEnv._record;
                 
                 UpdateVariableEnvironment(varEnv);
                 
@@ -977,9 +950,8 @@ namespace Jint
                     var n = configuration._varNames[i];
                     if (instantiatedVarNames.Add(n))
                     {
-                        varEnvRec.CreateMutableBinding(n, canBeDeleted: false);
                         JsValue initialValue;
-                        if (!configuration._parameterBindings.Contains(n) || configuration.functionNames?.Contains(n) == true)
+                        if (!configuration._parameterBindings.Contains(n) || configuration.functionNames.Contains(n))
                         {
                             initialValue = JsValue.Undefined;
                         }
@@ -988,7 +960,7 @@ namespace Jint
                             initialValue = envRec.GetBindingValue(n, strict: false);
                         }
 
-                        varEnvRec.InitializeBinding(n, initialValue);
+                        varEnvRec.CreateMutableBindingAndInitialize(n, canBeDeleted: false, initialValue);
                     }
                 }
             }
@@ -1020,7 +992,7 @@ namespace Jint
             for (var i = 0; i < lexicalDeclarationsCount; i++)
             {
                 var d = lexicalDeclarations[i];
-                boundNames.Clear();;
+                boundNames.Clear();
                 d.GetBoundNames(boundNames);
                 for (var j = 0; j < boundNames.Count; j++)
                 {
@@ -1072,7 +1044,7 @@ namespace Jint
         {
             var hoistingScope = HoistingScope.GetProgramLevelDeclarations(script);
             
-            var lexEnvRec = lexEnv._record;
+            var lexEnvRec = (DeclarativeEnvironmentRecord) lexEnv._record;
             var varEnvRec = varEnv._record;
 
             if (!strict && hoistingScope._variablesDeclarations != null)
