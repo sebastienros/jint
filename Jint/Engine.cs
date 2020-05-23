@@ -875,56 +875,13 @@ namespace Jint
             var env = calleeContext.LexicalEnvironment;
             var envRec = env._record;
             var strict = StrictModeScope.IsStrictModeCode;
-            var parameterNames = func._parameterNames;
-            var hasDuplicates = func._hasDuplicates;
-            var simpleParameterList = func._isSimpleParameterList;
-            var hasParameterExpressions = func._hasParameterExpressions;
 
-            var hoistingScope = functionInstance._functionDefinition._hoistingScope;
-            var functionDeclarations = hoistingScope._functionDeclarations;
-            var varDeclarations = hoistingScope._variablesDeclarations;
-            var varNames = hoistingScope._varNames;
-            var lexicalNames = hoistingScope._lexicalNames;
-
-            HashSet<string> functionNames = null;
-            LinkedList<FunctionDeclaration> functionsToInitialize = null;
-
-            if (functionDeclarations != null)
-            {
-                functionNames = new HashSet<string>();
-                functionsToInitialize = new LinkedList<FunctionDeclaration>();
-                for (var i = functionDeclarations.Count - 1; i >= 0; i--)
-                {
-                    var d = functionDeclarations[i];
-                    var fn = d.Id.Name;
-                    if (functionNames.Add(fn))
-                    {
-                        functionNames.Add(fn);
-                        functionsToInitialize.AddFirst(d);
-                    }
-                }
-            }
-
-            const string ParameterNameArguments = "arguments";
-
-            var argumentsObjectNeeded = true;
-            if (functionInstance is ArrowFunctionInstance) // TODO If func.[[ThisMode]] is lexical, then
-            {
-                argumentsObjectNeeded = false;
-            }
-            else if (func._hasArguments)
-            {
-                argumentsObjectNeeded = false;
-            }
-            else if (!hasParameterExpressions)
-            {
-                if (functionNames?.Contains(ParameterNameArguments) == true 
-                    || lexicalNames?.Contains(ParameterNameArguments) == true)
-                {
-                    argumentsObjectNeeded = false;
-                }
-            }
-
+            var configuration = func.Initialize(this, functionInstance);
+            var parameterNames = configuration.ParameterNames;
+            var hasDuplicates = configuration.HasDuplicates;
+            var simpleParameterList = configuration.IsSimpleParameterList;
+            var hasParameterExpressions = configuration.HasParameterExpressions;
+            
             foreach (var paramName in parameterNames)
             {
                 var alreadyDeclared = envRec.HasBinding(paramName);
@@ -940,9 +897,8 @@ namespace Jint
 
             ArgumentsInstance ao = null;
 
-            // TODO cache
-            var parameterBindings = new List<string>(func._parameterNames);
-            if (argumentsObjectNeeded)
+            const string ParameterNameArguments = "arguments";
+            if (configuration._argumentsObjectNeeded)
             {
                 if (strict || !simpleParameterList)
                 {
@@ -952,7 +908,7 @@ namespace Jint
                 {
                     // NOTE: mapped argument object is only provided for non-strict functions that don't have a rest parameter,
                     // any parameter default value initializers, or any destructured parameters.
-                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, envRec);
+                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, envRec, configuration._hasRestParameter);
                 }
 
                 if (strict)
@@ -964,7 +920,6 @@ namespace Jint
                     envRec.CreateMutableBinding(ParameterNameArguments, canBeDeleted: false);
                 }
                 envRec.InitializeBinding(ParameterNameArguments, ao);
-                parameterBindings.Add(ParameterNameArguments);
             }
             
             // Let iteratorRecord be CreateListIteratorRecord(argumentsList).
@@ -975,15 +930,15 @@ namespace Jint
 
             if (envRec is DeclarativeEnvironmentRecord der)
             {
-                der.AddFunctionParameters(argumentsList, ao, functionInstance._functionDefinition._function);
+                der.AddFunctionParameters(argumentsList, ao, functionInstance._functionDefinition.Function);
             }
             else
             {
-                for (int i = 0; i < parameterNames.Length; i++)
+                for (var i = 0; i < parameterNames.Length; i++)
                 {
                     var argName = parameterNames[i];
                     var v = argumentsList.At(i);
-                    v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionInstance._functionDefinition._function, v, (uint) i);
+                    v = DeclarativeEnvironmentRecord.HandleAssignmentPatternIfNeeded(functionInstance._functionDefinition.Function, v, (uint) i);
                     envRec.InitializeBinding(argName, v);
                 }
             }
@@ -993,10 +948,10 @@ namespace Jint
             if (!hasParameterExpressions)
             {
                 // NOTE: Only a single lexical environment is needed for the parameters and top-level vars.
-                var instantiatedVarNames = varNames != null ? new HashSet<string>(parameterBindings) : null; 
-                for (var i = 0; i < varNames?.Count; i++)
+                var instantiatedVarNames = configuration._varNames != null ? new HashSet<string>(configuration._parameterBindings) : null; 
+                for (var i = 0; i < configuration._varNames?.Count; i++)
                 {
-                    var n = varNames[i];
+                    var n = configuration._varNames[i];
                     if (instantiatedVarNames.Add(n))
                     {
                         envRec.CreateMutableBinding(n, canBeDeleted: false);
@@ -1016,15 +971,15 @@ namespace Jint
                 
                 UpdateVariableEnvironment(varEnv);
                 
-                var instantiatedVarNames = varNames != null ? new HashSet<string>(parameterBindings) : null; 
-                for (var i = 0; i < varNames?.Count; i++)
+                var instantiatedVarNames = configuration._varNames != null ? new HashSet<string>(configuration._parameterBindings) : null; 
+                for (var i = 0; i < configuration._varNames?.Count; i++)
                 {
-                    var n = varNames[i];
+                    var n = configuration._varNames[i];
                     if (instantiatedVarNames.Add(n))
                     {
                         varEnvRec.CreateMutableBinding(n, canBeDeleted: false);
                         JsValue initialValue;
-                        if (!parameterBindings.Contains(n) || functionNames?.Contains(n) == true)
+                        if (!configuration._parameterBindings.Contains(n) || configuration.functionNames?.Contains(n) == true)
                         {
                             initialValue = JsValue.Undefined;
                         }
@@ -1040,11 +995,6 @@ namespace Jint
             
             // NOTE: Annex B.3.3.1 adds additional steps at this point. 
             // A https://tc39.es/ecma262/#sec-web-compat-functiondeclarationinstantiation
-            if (!strict)
-            {
-                
-            }
-            
 
             LexicalEnvironment lexEnv;
             if (!strict)
@@ -1064,9 +1014,9 @@ namespace Jint
             
             UpdateLexicalEnvironment(lexEnv);
 
-            var lexicalDeclarations = hoistingScope._lexicalDeclarations;
+            var lexicalDeclarations = configuration._lexicalDeclarations;
             var lexicalDeclarationsCount = lexicalDeclarations?.Count;
-            var boundNames = new List<string>();; 
+            var boundNames = new List<string>(); 
             for (var i = 0; i < lexicalDeclarationsCount; i++)
             {
                 var d = lexicalDeclarations[i];
@@ -1086,16 +1036,13 @@ namespace Jint
                 }
             }
 
-            if (functionsToInitialize != null)
+            foreach (var f in configuration.functionsToInitialize)
             {
-                foreach (var f in functionsToInitialize)
-                {
-                    var fn = f.Id.Name;
-                    var fo = Function.CreateFunctionObject(f, lexEnv);
-                    varEnvRec.SetMutableBinding(fn, fo, strict: false);
-                }
+                var fn = f.Id.Name;
+                var fo = Function.CreateFunctionObject(f, lexEnv);
+                varEnvRec.SetMutableBinding(fn, fo, strict: false);
             }
-            
+
             return ao;
         }
 
@@ -1103,9 +1050,10 @@ namespace Jint
             FunctionInstance func, 
             string[] formals,
             JsValue[] argumentsList, 
-            EnvironmentRecord envRec)
+            EnvironmentRecord envRec,
+            bool hasRestParameter)
         {
-            return _argumentsInstancePool.Rent(func, formals, argumentsList, envRec);
+            return _argumentsInstancePool.Rent(func, formals, argumentsList, envRec, hasRestParameter);
         }
 
         private ArgumentsInstance CreateUnmappedArgumentsObject(JsValue[] argumentsList)

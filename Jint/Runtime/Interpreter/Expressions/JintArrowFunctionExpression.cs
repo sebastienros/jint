@@ -22,7 +22,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _engine,
                 _function,
                 funcEnv,
-                _function._strict);
+                _function.Strict);
 
             return closure;
         }

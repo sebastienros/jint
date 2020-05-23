@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 
@@ -35,11 +36,11 @@ namespace Jint.Native.Function
             PreventExtensions();
             _prototype = Engine.Function.PrototypeObject;
 
-            _length = new PropertyDescriptor(JsNumber.Create(function._length), PropertyFlag.Configurable);
+            _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this)._length), PropertyFlag.Configurable);
         }
 
         // for example RavenDB wants to inspect this
-        public IFunction FunctionDeclaration => _function._function;
+        public IFunction FunctionDeclaration => _function.Function;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.1
@@ -58,7 +59,7 @@ namespace Jint.Native.Function
                         functionInstance: this,
                         arguments);
 
-                    var result = _function._body.Execute();
+                    var result = _function.Body.Execute();
 
                     var value = result.GetValueOrDefault().Clone();
 

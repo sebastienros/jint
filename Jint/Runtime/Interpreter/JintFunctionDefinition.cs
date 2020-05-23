@@ -1,54 +1,150 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Esprima.Ast;
+using Jint.Native.Function;
 using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter
 {
+    /// <summary>
+    /// Works as memento for function execution. Optimization to cache things that don't change.
+    /// </summary>
     internal sealed class JintFunctionDefinition
     {
-        internal readonly IFunction _function;
-        internal readonly string _name;
-        internal readonly bool _strict;
-        internal string[] _parameterNames;
-        internal readonly JintStatement _body;
-        internal bool _hasRestParameter;
-        internal int _length;
+        private readonly Engine _engine;
+        
+        private JintStatement _body;
+        
+        public readonly string Name;
+        public readonly bool Strict;
+        public readonly IFunction Function;
 
-        public readonly HoistingScope _hoistingScope;
-        internal bool _hasDuplicates;
-        internal bool _isSimpleParameterList;
-        internal bool _hasParameterExpressions;
-        internal bool _hasArguments;
+        private State _state;
 
-        public JintFunctionDefinition(Engine engine, IFunction function)
+        public JintFunctionDefinition(
+            Engine engine,
+            IFunction function)
         {
-            _function = function;
-            _hoistingScope = HoistingScope.GetFunctionLevelDeclarations(function, collectVarNames: true, collectLexicalNames: true);
-            _name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id.Name : null;
-            _strict = function.Strict;
-             ProcessParameters(function);
+            _engine = engine;
+            Function = function;
+            Name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id.Name : null;
+            Strict = function.Strict;
 
-            Statement bodyStatement;
-            if (function.Expression)
-            {
-                bodyStatement = new ReturnStatement((Expression) function.Body);
-            }
-            else
+            if (!Strict && !function.Expression)
             {
                 // Esprima doesn't detect strict at the moment for
                 // language/expressions/object/method-definition/name-invoke-fn-strict.js
                 var blockStatement = (BlockStatement) function.Body;
-                for (int i = 0; i < blockStatement.Body.Count; ++i)
+                ref readonly var statements = ref blockStatement.Body;
+                for (int i = 0; i < statements.Count; ++i)
                 {
-                    if (blockStatement.Body[i] is Directive d && d.Directiv == "use strict")
+                    if (statements[i] is Directive d && d.Directiv == "use strict")
                     {
-                        _strict = true;
+                        Strict = true;
                     }
                 }
-                bodyStatement = blockStatement;
+            }
+        }
+
+        public JintStatement Body
+        {
+            get
+            {
+                if (_body != null)
+                {
+                    return _body;
+                }
+
+                _body = Function.Expression
+                    ? (JintStatement) new JintReturnStatement(_engine, new ReturnStatement((Expression) Function.Body))
+                    : new JintBlockStatement(_engine, (BlockStatement) Function.Body);
+
+                return _body;
+            }
+        }
+
+        internal State Initialize(Engine engine, FunctionInstance functionInstance)
+        {
+            return _state ??= DoInitialize(functionInstance);
+        }
+
+        internal class State
+        {
+            public bool _hasRestParameter;
+            public int _length;
+            public string[] ParameterNames;
+            public bool HasDuplicates;
+            public bool IsSimpleParameterList;
+            public bool HasParameterExpressions;
+            public bool _argumentsObjectNeeded;
+            public List<string> _varNames;
+            public FunctionDeclaration[] functionsToInitialize;
+            public HashSet<string> functionNames = new HashSet<string>();
+            public List<VariableDeclaration> _lexicalDeclarations;
+            public HashSet<string> _parameterBindings;
+        }
+
+        private State DoInitialize(FunctionInstance functionInstance)
+        {
+            var state = new State();
+            
+            ProcessParameters(Function, state, out var hasArguments);
+
+            var hoistingScope = HoistingScope.GetFunctionLevelDeclarations(Function, collectVarNames: true, collectLexicalNames: true);
+            var functionDeclarations = hoistingScope._functionDeclarations;
+            var lexicalNames = hoistingScope._lexicalNames;
+            state._varNames = hoistingScope._varNames;
+            state._lexicalDeclarations = hoistingScope._lexicalDeclarations;
+
+            LinkedList<FunctionDeclaration> functionsToInitialize = null;
+
+            if (functionDeclarations != null)
+            {
+                functionsToInitialize = new LinkedList<FunctionDeclaration>();
+                for (var i = functionDeclarations.Count - 1; i >= 0; i--)
+                {
+                    var d = functionDeclarations[i];
+                    var fn = d.Id.Name;
+                    if (state.functionNames.Add(fn))
+                    {
+                        functionsToInitialize.AddFirst(d);
+                    }
+                }
             }
 
-            _body = JintStatement.Build(engine, bodyStatement);
+            state.functionsToInitialize = functionsToInitialize != null
+                ? functionsToInitialize.ToArray()
+                : Array.Empty<FunctionDeclaration>();
+
+            const string ParameterNameArguments = "arguments";
+
+            state._argumentsObjectNeeded = true;
+            if (functionInstance._thisMode == FunctionInstance.FunctionThisMode.Lexical)
+            {
+                state._argumentsObjectNeeded = false;
+            }
+            else if (hasArguments)
+            {
+                state._argumentsObjectNeeded = false;
+            }
+            else if (!state.HasParameterExpressions)
+            {
+                if (state.functionNames.Contains(ParameterNameArguments) || lexicalNames?.Contains(ParameterNameArguments) == true)
+                {
+                    state._argumentsObjectNeeded = false;
+                }
+            }
+            
+            var parameterBindings = new HashSet<string>(state.ParameterNames);
+            if (state._argumentsObjectNeeded)
+            {
+                parameterBindings.Add(ParameterNameArguments);
+            }
+
+            state._parameterBindings = parameterBindings;
+
+            return state;
         }
 
         private static void GetBoundNames(
@@ -57,12 +153,14 @@ namespace Jint.Runtime.Interpreter
             bool checkDuplicates, 
             ref bool _hasRestParameter, 
             ref bool _hasParameterExpressions, 
-            ref bool _hasDuplicates)
+            ref bool _hasDuplicates,
+            ref bool hasArguments)
         {
             if (parameter is Identifier identifier)
             {
                 _hasDuplicates |= checkDuplicates && target.Contains(identifier.Name);
                 target.Add(identifier.Name);
+                hasArguments |= identifier.Name == "arguments";
                 return;
             }
 
@@ -75,7 +173,8 @@ namespace Jint.Runtime.Interpreter
                     parameter = restElement.Argument;
                     continue;
                 }
-                else if (parameter is ArrayPattern arrayPattern)
+
+                if (parameter is ArrayPattern arrayPattern)
                 {
                     _hasParameterExpressions = true;
                     ref readonly var arrayPatternElements = ref arrayPattern.Elements;
@@ -88,7 +187,8 @@ namespace Jint.Runtime.Interpreter
                             checkDuplicates,
                             ref _hasRestParameter,
                             ref _hasParameterExpressions,
-                            ref _hasDuplicates);
+                            ref _hasDuplicates,
+                            ref hasArguments);
                     }
                 }
                 else if (parameter is ObjectPattern objectPattern)
@@ -106,7 +206,8 @@ namespace Jint.Runtime.Interpreter
                                 checkDuplicates,
                                 ref _hasRestParameter,
                                 ref _hasParameterExpressions,
-                                ref _hasDuplicates);
+                                ref _hasDuplicates,
+                                ref hasArguments);
                         }
                         else
                         {
@@ -128,39 +229,45 @@ namespace Jint.Runtime.Interpreter
             }
         }
 
-        private void ProcessParameters(IFunction functionDeclaration)
+        private static void ProcessParameters(
+            IFunction function,
+            State state,
+            out bool hasArguments)
         {
-            var parameterNames = new List<string>();
-            var functionDeclarationParams = functionDeclaration.Params;
-            int count = functionDeclarationParams.Count;
-            _isSimpleParameterList  = true;
+            hasArguments = false;
+            state.IsSimpleParameterList  = true;
+
+            ref readonly var functionDeclarationParams = ref function.Params;
+            var count = functionDeclarationParams.Count;
+            var parameterNames = new List<string>(count);
             for (var i = 0; i < count; i++)
             {
                 var parameter = functionDeclarationParams[i];
                 if (parameter is Identifier id)
                 {
-                    _hasDuplicates |= parameterNames.Contains(id.Name);
-                    _hasArguments = id.Name == "arguments";
+                    state.HasDuplicates |= parameterNames.Contains(id.Name);
+                    hasArguments = id.Name == "arguments";
                     parameterNames.Add(id.Name);
-                    if (_isSimpleParameterList)
+                    if (state.IsSimpleParameterList)
                     {
-                        _length++;
+                        state._length++;
                     }
                 }
                 else if (parameter.Type != Nodes.Literal)
                 {
-                    _isSimpleParameterList  = false;
-                    int start = parameterNames.Count;
-                    GetBoundNames(parameter, parameterNames, checkDuplicates: true, ref _hasRestParameter, ref _hasParameterExpressions, ref _hasDuplicates);
-                    for (var j = start; j < parameterNames.Count; j++)
-                    {
-                        var identifier = parameterNames[j];
-                        _hasArguments = identifier == "arguments";
-                    }
+                    state.IsSimpleParameterList = false;
+                    GetBoundNames(
+                        parameter, 
+                        parameterNames,
+                        checkDuplicates: true,
+                        ref state._hasRestParameter,
+                        ref state.HasParameterExpressions, 
+                        ref state.HasDuplicates,
+                        ref hasArguments);
                 }
             }
 
-            _parameterNames = parameterNames.ToArray();
+            state.ParameterNames = parameterNames.ToArray();
         }
     }
 }

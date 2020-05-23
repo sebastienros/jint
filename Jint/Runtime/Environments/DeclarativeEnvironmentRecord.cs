@@ -441,9 +441,22 @@ namespace Jint.Runtime.Environments
             }, 0, initiallyEmpty);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetItemSafely(in Key name, JsValue argument, bool initiallyEmpty)
         {
-            if (initiallyEmpty || !TryGetValue(name, out var existing))
+            if (initiallyEmpty)
+            {
+                _dictionary[name] = new Binding(argument, canBeDeleted: false, mutable: true, strict: false);
+            }
+            else
+            {
+                SetItemCheckExisting(name, argument);
+            }
+        }
+
+        private void SetItemCheckExisting(Key name, JsValue argument)
+        {
+            if (!TryGetValue(name, out var existing))
             {
                 _dictionary[name] = new Binding(argument, canBeDeleted: false, mutable: true, strict: false);
             }

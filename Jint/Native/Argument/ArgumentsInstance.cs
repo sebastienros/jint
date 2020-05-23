@@ -24,6 +24,7 @@ namespace Jint.Native.Argument
         private JsValue[] _args;
         private EnvironmentRecord _env;
         private bool _canReturnToPool;
+        private bool _hasRestParameter;
 
         internal ArgumentsInstance(Engine engine)
             : base(engine, ObjectClass.Arguments, InternalTypes.Object | InternalTypes.RequiresCloning)
@@ -34,12 +35,14 @@ namespace Jint.Native.Argument
             FunctionInstance func, 
             string[] names, 
             JsValue[] args, 
-            EnvironmentRecord env)
+            EnvironmentRecord env,
+            bool hasRestParameter)
         {
             _func = func;
             _names = names;
             _args = args;
             _env = env;
+            _hasRestParameter = hasRestParameter;
             _canReturnToPool = true;
 
             ClearProperties();
@@ -166,7 +169,7 @@ namespace Jint.Native.Argument
 
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            if (_func is ScriptFunctionInstance scriptFunctionInstance && scriptFunctionInstance._function._hasRestParameter)
+            if (_hasRestParameter)
             {
                 // immutable
                 return true;

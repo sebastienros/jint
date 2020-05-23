@@ -18,7 +18,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
 
-            var functionThisMode = _function._strict || _engine._isStrict
+            var functionThisMode = _function.Strict || _engine._isStrict
                 ? FunctionInstance.FunctionThisMode.Strict 
                 : FunctionInstance.FunctionThisMode.Global;
 
@@ -28,11 +28,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 funcEnv,
                 functionThisMode);
 
-            if (_function._name != null)
+            if (_function.Name != null)
             {
                 var envRec = (DeclarativeEnvironmentRecord) funcEnv._record;
-                envRec.CreateMutableBinding(_function._name, canBeDeleted: false);
-                envRec.InitializeBinding(_function._name, closure);
+                envRec.CreateMutableBinding(_function.Name, canBeDeleted: false);
+                envRec.InitializeBinding(_function.Name, closure);
             }
 
             return closure;

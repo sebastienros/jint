@@ -33,7 +33,7 @@ namespace Jint.Native.Function
             JintFunctionDefinition function,
             LexicalEnvironment scope,
             FunctionThisMode thisMode)
-            : this(engine, !string.IsNullOrWhiteSpace(function._name) ? new JsString(function._name) : null,  thisMode)
+            : this(engine, !string.IsNullOrWhiteSpace(function.Name) ? new JsString(function.Name) : null,  thisMode)
         {
             _functionDefinition = function;
             _environment = scope;
