@@ -921,17 +921,10 @@ namespace Jint
             if (!hasParameterExpressions)
             {
                 // NOTE: Only a single lexical environment is needed for the parameters and top-level vars.
-                var instantiatedVarNames = configuration.VarNames != null 
-                    ? new HashSet<Key>(configuration.ParameterBindings)
-                    : null;
-
-                for (var i = 0; i < configuration.VarNames?.Count; i++)
+                for (var i = 0; i < configuration.VarsToInitialize.Count; i++)
                 {
-                    var n = configuration.VarNames[i];
-                    if (instantiatedVarNames.Add(n))
-                    {
-                        envRec.CreateMutableBindingAndInitialize(n, canBeDeleted: false, JsValue.Undefined);
-                    }
+                    var pair = configuration.VarsToInitialize[i];
+                    envRec.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined);
                 }
 
                 varEnv = env;
@@ -945,28 +938,12 @@ namespace Jint
                 varEnvRec = (DeclarativeEnvironmentRecord) varEnv._record;
                 
                 UpdateVariableEnvironment(varEnv);
-                
-                var instantiatedVarNames = configuration.VarNames != null 
-                    ? new HashSet<Key>(configuration.ParameterBindings) 
-                    : null;
-                
-                for (var i = 0; i < configuration.VarNames?.Count; i++)
-                {
-                    var n = configuration.VarNames[i];
-                    if (instantiatedVarNames.Add(n))
-                    {
-                        JsValue initialValue;
-                        if (!configuration.ParameterBindings.Contains(n) || configuration.FunctionNames.Contains(n))
-                        {
-                            initialValue = JsValue.Undefined;
-                        }
-                        else
-                        {
-                            initialValue = envRec.GetBindingValue(n, strict: false);
-                        }
 
-                        varEnvRec.CreateMutableBindingAndInitialize(n, canBeDeleted: false, initialValue);
-                    }
+                for (var i = 0; i < configuration.VarsToInitialize.Count; i++)
+                {
+                    var pair = configuration.VarsToInitialize[i];
+                    var initialValue = pair.InitialValue ?? envRec.GetBindingValue(pair.Name, strict: false);
+                    varEnvRec.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, initialValue);
                 }
             }
             
@@ -991,9 +968,38 @@ namespace Jint
             
             UpdateLexicalEnvironment(lexEnv);
 
-            var lexicalDeclarations = configuration._lexicalDeclarations;
-            var lexicalDeclarationsCount = lexicalDeclarations?.Count;
-            var boundNames = new List<string>(); 
+            if (configuration._lexicalDeclarations != null)
+            {
+                InitializeLexicalDeclarations(configuration._lexicalDeclarations, lexEnvRec);
+            }
+
+            if (configuration.FunctionsToInitialize != null)
+            {
+                InitializeFunctions(configuration.FunctionsToInitialize, lexEnv, varEnvRec);
+            }
+
+            return ao;
+        }
+
+        private void InitializeFunctions(
+            LinkedList<FunctionDeclaration> functionsToInitialize,
+            LexicalEnvironment lexEnv,
+            DeclarativeEnvironmentRecord varEnvRec)
+        {
+            foreach (var f in functionsToInitialize)
+            {
+                var fn = f.Id.Name;
+                var fo = Function.CreateFunctionObject(f, lexEnv);
+                varEnvRec.SetMutableBinding(fn, fo, strict: false);
+            }
+        }
+
+        private static void InitializeLexicalDeclarations(
+            List<VariableDeclaration> lexicalDeclarations, 
+            EnvironmentRecord lexEnvRec)
+        {
+            var lexicalDeclarationsCount = lexicalDeclarations.Count;
+            var boundNames = new List<string>();
             for (var i = 0; i < lexicalDeclarationsCount; i++)
             {
                 var d = lexicalDeclarations[i];
@@ -1012,15 +1018,6 @@ namespace Jint
                     }
                 }
             }
-
-            foreach (var f in configuration.FunctionsToInitialize)
-            {
-                var fn = f.Id.Name;
-                var fo = Function.CreateFunctionObject(f, lexEnv);
-                varEnvRec.SetMutableBinding(fn, fo, strict: false);
-            }
-
-            return ao;
         }
 
         private ArgumentsInstance CreateMappedArgumentsObject(

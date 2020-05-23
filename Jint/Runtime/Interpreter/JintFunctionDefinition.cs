@@ -1,7 +1,6 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Interpreter.Statements;
 
@@ -79,10 +78,17 @@ namespace Jint.Runtime.Interpreter
             public bool HasParameterExpressions;
             public bool ArgumentsObjectNeeded;
             public List<Key> VarNames;
-            public FunctionDeclaration[] FunctionsToInitialize;
+            public LinkedList<FunctionDeclaration> FunctionsToInitialize;
             public readonly HashSet<Key> FunctionNames = new HashSet<Key>();
             public List<VariableDeclaration> _lexicalDeclarations;
             public HashSet<Key> ParameterBindings;
+            public List<VariableValuePair> VarsToInitialize { get; set; }
+
+            internal struct VariableValuePair
+            {
+                public Key Name;
+                public JsValue InitialValue;
+            }
         }
 
         private State DoInitialize(FunctionInstance functionInstance)
@@ -113,9 +119,7 @@ namespace Jint.Runtime.Interpreter
                 }
             }
 
-            state.FunctionsToInitialize = functionsToInitialize != null
-                ? functionsToInitialize.ToArray()
-                : Array.Empty<FunctionDeclaration>();
+            state.FunctionsToInitialize = functionsToInitialize;
 
             const string ParameterNameArguments = "arguments";
 
@@ -144,6 +148,54 @@ namespace Jint.Runtime.Interpreter
             }
 
             state.ParameterBindings = parameterBindings;
+
+
+            var varsToInitialize = new List<State.VariableValuePair>();
+            if (!state.HasParameterExpressions)
+            {
+                var instantiatedVarNames = state.VarNames != null
+                    ? new HashSet<Key>(state.ParameterBindings)
+                    : new HashSet<Key>();
+
+                for (var i = 0; i < state.VarNames?.Count; i++)
+                {
+                    var n = state.VarNames[i];
+                    if (instantiatedVarNames.Add(n))
+                    {
+                        varsToInitialize.Add(new State.VariableValuePair
+                        {
+                            Name = n
+                        });
+                    }
+                }
+            }
+            else
+            {
+                var instantiatedVarNames = state.VarNames != null 
+                    ? new HashSet<Key>(state.ParameterBindings) 
+                    : null;
+                
+                for (var i = 0; i < state.VarNames?.Count; i++)
+                {
+                    var n = state.VarNames[i];
+                    if (instantiatedVarNames.Add(n))
+                    {
+                        JsValue initialValue = null;
+                        if (!state.ParameterBindings.Contains(n) || state.FunctionNames.Contains(n))
+                        {
+                            initialValue = JsValue.Undefined;
+                        }
+
+                        varsToInitialize.Add(new State.VariableValuePair
+                        {
+                            Name = n,
+                            InitialValue = initialValue
+                        });
+                    }
+                }
+            }
+
+            state.VarsToInitialize = varsToInitialize;
 
             return state;
         }

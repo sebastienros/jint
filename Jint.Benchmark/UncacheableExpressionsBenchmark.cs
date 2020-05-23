@@ -30,7 +30,7 @@ function output(d) {
 
         private const string ArrowFunctionScript = @"
 function output(d) {
-    var doc = d.SubDocuments.find(x => x.Id==='testing');
+    let doc = d.SubDocuments.find(x => x.Id==='testing');
     return { Id : d.Id, Deleted : d.Deleted, SubTestId : (doc!==null&&doc!==undefined)?doc.Id:null, Values : d.SubDocuments.map(x => ({ TargetId:x.TargetId,TargetValue:x.TargetValue,SubDocuments:x.SubDocuments.filter(s => (s!==null&&s!==undefined)).map(s => ({ TargetId: s.TargetId, TargetValue: s.TargetValue}))})) };
 }
 ";
