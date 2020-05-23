@@ -23,7 +23,7 @@ namespace Jint.Runtime.Environments
         public abstract bool HasBinding(string name);
 
         internal abstract bool TryGetBinding(
-            Key name,
+            BindingName name,
             bool strict,
             out Binding binding,
             out JsValue value);
@@ -34,7 +34,7 @@ namespace Jint.Runtime.Environments
         /// <param name="name">The identifier of the binding.</param>
         /// <param name="canBeDeleted"><c>true</c> if the binding may be subsequently deleted.</param>
         public abstract void CreateMutableBinding(string name, bool canBeDeleted = false);
-        
+
         /// <summary>
         /// Creates a new but uninitialized immutable binding in an environment record.
         /// </summary>
@@ -57,6 +57,8 @@ namespace Jint.Runtime.Environments
         /// <param name="strict">The identify strict mode references.</param>
         public abstract void SetMutableBinding(string name, JsValue value, bool strict);
 
+        internal abstract void SetMutableBinding(BindingName name, JsValue value, bool strict);
+
         /// <summary>
         /// Returns the value of an already existing binding from an environment record.
         /// </summary>
@@ -71,7 +73,7 @@ namespace Jint.Runtime.Environments
         /// <param name="name">The identifier of the binding</param>
         /// <returns><true>true</true> if the deletion is successfull.</returns>
         public abstract bool DeleteBinding(string name);
-        
+
         public abstract bool HasThisBinding();
 
         public abstract bool HasSuperBinding();
@@ -89,7 +91,7 @@ namespace Jint.Runtime.Environments
         /// </summary>
         /// <returns>The array of all defined bindings</returns>
         internal abstract string[] GetAllBindingNames();
-        
+
         public override object ToObject()
         {
             return ExceptionHelper.ThrowNotSupportedException<object>();
@@ -101,6 +103,21 @@ namespace Jint.Runtime.Environments
         }
 
         public abstract JsValue GetThisBinding();
+
+        /// <summary>
+        /// Helper to cache JsString/Key when environments use different lookups.
+        /// </summary>
+        internal class BindingName
+        {
+            public readonly Key Key;
+            public readonly JsString StringValue;
+
+            public BindingName(string value)
+            {
+                Key = (Key) value;
+                StringValue = JsString.Create(value);
+            }
+        }
     }
 }
 

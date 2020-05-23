@@ -75,7 +75,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JsValue UpdateIdentifier()
         {
             var strict = StrictModeScope.IsStrictModeCode;
-            var name = _leftIdentifier.ExpressionName;
+            var name = _leftIdentifier._expressionName;
             if (TryGetIdentifierEnvironmentWithBindingValue(
                 name,
                 out var environmentRecord,
@@ -91,7 +91,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     ? JsNumber.Create(value.AsInteger() + _change)
                     : JsNumber.Create(TypeConverter.ToNumber(value) + _change);
 
-                environmentRecord.SetMutableBinding(name, newValue, strict);
+                environmentRecord.SetMutableBinding(name.Key.Name, newValue, strict);
                 return _prefix
                     ? newValue
                     : (isInteger ? value : JsNumber.Create(TypeConverter.ToNumber(value)));

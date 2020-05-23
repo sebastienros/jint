@@ -51,7 +51,7 @@ namespace Jint.Runtime.Environments
         }
 
         internal override bool TryGetBinding(
-            Key name,
+            BindingName name,
             bool strict,
             out Binding binding,
             out JsValue value)
@@ -59,29 +59,29 @@ namespace Jint.Runtime.Environments
             // we unwrap by name
             binding = default;
 
-            if (!HasProperty(name.Name))
+            if (!HasProperty(name.StringValue))
             {
                 value = default;
                 return false;
             }
 
-            if (_withEnvironment && IsBlocked(name))
+            if (_withEnvironment && IsBlocked(name.StringValue))
             {
                 value = default;
                 return false;
             }
 
-            var desc = _bindingObject.GetProperty(name.Name);
+            var desc = _bindingObject.GetProperty(name.StringValue);
             value = ObjectInstance.UnwrapJsValue(desc, _bindingObject);
             return true;
         }
 
-        private bool IsBlocked(string property)
+        private bool IsBlocked(JsValue property)
         {
             var unscopables = _bindingObject.Get(GlobalSymbolRegistry.Unscopables);
             if (unscopables is ObjectInstance oi)
             {
-                var blocked = TypeConverter.ToBoolean(oi.Get(new JsString(property)));
+                var blocked = TypeConverter.ToBoolean(oi.Get(property));
                 if (blocked)
                 {
                     return true;
@@ -121,7 +121,12 @@ namespace Jint.Runtime.Environments
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
-            if (!_bindingObject.Set(name, value) && strict)
+            SetMutableBinding(new BindingName(name), value, strict);
+        }
+
+        internal override void SetMutableBinding(BindingName name, JsValue value, bool strict)
+        {
+            if (!_bindingObject.Set(name.StringValue, value) && strict)
             {
                 ExceptionHelper.ThrowTypeError(_engine);
             }

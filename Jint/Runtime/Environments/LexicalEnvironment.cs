@@ -25,7 +25,7 @@ namespace Jint.Runtime.Environments
 
         internal static bool TryGetIdentifierEnvironmentWithBindingValue(
             LexicalEnvironment lex,
-            Key name,
+            EnvironmentRecord.BindingName name,
             bool strict,
             out EnvironmentRecord record,
             out JsValue value)

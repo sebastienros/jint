@@ -1023,7 +1023,7 @@ namespace Jint
             FunctionInstance func, 
             Key[] formals,
             JsValue[] argumentsList, 
-            EnvironmentRecord envRec,
+            DeclarativeEnvironmentRecord envRec,
             bool hasRestParameter)
         {
             return _argumentsInstancePool.Rent(func, formals, argumentsList, envRec, hasRestParameter);

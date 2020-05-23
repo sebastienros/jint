@@ -26,16 +26,16 @@ namespace Jint.Runtime.Environments
 
         public override bool HasBinding(string name)
         {
-            return _declarativeRecord.HasBinding(name) || _objectRecord.HasBinding(name);
+            return (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name)) || _objectRecord.HasBinding(name);
         }
 
         internal override bool TryGetBinding(
-            Key name,
+            BindingName name,
             bool strict,
             out Binding binding,
             out JsValue value)
         {
-            return _declarativeRecord.TryGetBinding(name, strict, out binding, out value)
+            return (_declarativeRecord._hasBindings && _declarativeRecord.TryGetBinding(name, strict, out binding, out value))
                    || _objectRecord.TryGetBinding(name, strict, out binding, out value);
         }
 
@@ -44,7 +44,7 @@ namespace Jint.Runtime.Environments
         /// </summary>
         public override void CreateMutableBinding(string name, bool canBeDeleted = false)
         {
-            if (_declarativeRecord.HasBinding(name))
+            if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
             {
                 ExceptionHelper.ThrowTypeError(_engine, name + " has already been declared");
             }
@@ -54,7 +54,7 @@ namespace Jint.Runtime.Environments
 
         public override void CreateImmutableBinding(string name, bool strict = true)
         {
-            if (_declarativeRecord.HasBinding(name))
+            if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
             {
                 ExceptionHelper.ThrowTypeError(_engine, name + " has already been declared");
             }
@@ -64,7 +64,7 @@ namespace Jint.Runtime.Environments
 
         public override void InitializeBinding(string name, JsValue value)
         {
-            if (_declarativeRecord.HasBinding(name))
+            if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
             {
                 _declarativeRecord.InitializeBinding(name, value);
             }
@@ -76,7 +76,7 @@ namespace Jint.Runtime.Environments
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
-            if (_declarativeRecord.HasBinding(name))
+            if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
             {
                 _declarativeRecord.SetMutableBinding(name, value, strict);
             }
@@ -86,16 +86,28 @@ namespace Jint.Runtime.Environments
             }
         }
 
+        internal override void SetMutableBinding(BindingName name, JsValue value, bool strict)
+        {
+            if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name.Key.Name))
+            {
+                _declarativeRecord.SetMutableBinding(name.Key.Name, value, strict);
+            }
+            else
+            {
+                _objectRecord.SetMutableBinding(name, value, strict);
+            }
+        }
+
         public override JsValue GetBindingValue(string name, bool strict)
         {
-            return _declarativeRecord.HasBinding(name)
+            return _declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name)
                 ? _declarativeRecord.GetBindingValue(name, strict)
                 : _objectRecord.GetBindingValue(name, strict);
         }
 
         public override bool DeleteBinding(string name)
         {
-            if (_declarativeRecord.HasBinding(name))
+            if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
             {
                 return _declarativeRecord.DeleteBinding(name);
             }
