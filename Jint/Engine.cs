@@ -968,9 +968,9 @@ namespace Jint
             
             UpdateLexicalEnvironment(lexEnv);
 
-            if (configuration._lexicalDeclarations != null)
+            if (configuration.LexicalDeclarations.Length > 0)
             {
-                InitializeLexicalDeclarations(configuration._lexicalDeclarations, lexEnvRec);
+                InitializeLexicalDeclarations(configuration.LexicalDeclarations, lexEnvRec);
             }
 
             if (configuration.FunctionsToInitialize != null)
@@ -995,19 +995,14 @@ namespace Jint
         }
 
         private static void InitializeLexicalDeclarations(
-            List<VariableDeclaration> lexicalDeclarations, 
+            JintFunctionDefinition.State.LexicalVariableDeclaration[] lexicalDeclarations, 
             EnvironmentRecord lexEnvRec)
         {
-            var lexicalDeclarationsCount = lexicalDeclarations.Count;
-            var boundNames = new List<string>();
-            for (var i = 0; i < lexicalDeclarationsCount; i++)
+            foreach (var d in lexicalDeclarations)
             {
-                var d = lexicalDeclarations[i];
-                boundNames.Clear();
-                d.GetBoundNames(boundNames);
-                for (var j = 0; j < boundNames.Count; j++)
+                for (var j = 0; j < d.BoundNames.Count; j++)
                 {
-                    var dn = boundNames[j];
+                    var dn = d.BoundNames[j];
                     if (d.Kind == VariableDeclarationKind.Const)
                     {
                         lexEnvRec.CreateImmutableBinding(dn, strict: true);

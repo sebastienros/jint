@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Esprima.Ast;
 using Jint.Native;
@@ -80,7 +81,7 @@ namespace Jint.Runtime.Interpreter
             public List<Key> VarNames;
             public LinkedList<FunctionDeclaration> FunctionsToInitialize;
             public readonly HashSet<Key> FunctionNames = new HashSet<Key>();
-            public List<VariableDeclaration> _lexicalDeclarations;
+            public LexicalVariableDeclaration[] LexicalDeclarations = Array.Empty<LexicalVariableDeclaration>();
             public HashSet<Key> ParameterBindings;
             public List<VariableValuePair> VarsToInitialize { get; set; }
 
@@ -88,6 +89,12 @@ namespace Jint.Runtime.Interpreter
             {
                 public Key Name;
                 public JsValue InitialValue;
+            }
+
+            internal struct LexicalVariableDeclaration
+            {
+                public VariableDeclarationKind Kind;
+                public List<string> BoundNames;
             }
         }
 
@@ -101,7 +108,6 @@ namespace Jint.Runtime.Interpreter
             var functionDeclarations = hoistingScope._functionDeclarations;
             var lexicalNames = hoistingScope._lexicalNames;
             state.VarNames = hoistingScope._varNames;
-            state._lexicalDeclarations = hoistingScope._lexicalDeclarations;
 
             LinkedList<FunctionDeclaration> functionsToInitialize = null;
 
@@ -197,6 +203,25 @@ namespace Jint.Runtime.Interpreter
 
             state.VarsToInitialize = varsToInitialize;
 
+            if (hoistingScope._lexicalDeclarations != null)
+            {
+                var _lexicalDeclarations = hoistingScope._lexicalDeclarations;
+                var lexicalDeclarationsCount = _lexicalDeclarations.Count;
+                var declarations = new State.LexicalVariableDeclaration[lexicalDeclarationsCount];
+                for (var i = 0; i < lexicalDeclarationsCount; i++)
+                {
+                    var d = _lexicalDeclarations[i];
+                    var boundNames = new List<string>();
+                    d.GetBoundNames(boundNames);
+                    declarations[i] = new State.LexicalVariableDeclaration
+                    {
+                        Kind = d.Kind,
+                        BoundNames = boundNames
+                    };
+                }
+                state.LexicalDeclarations = declarations;
+            }
+            
             return state;
         }
 
