@@ -84,7 +84,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected async override Task<Completion> ExecuteInternalAsync()
         {
-            if (_initExpression != null) await _initStatement?.ExecuteAsync();
+            if (_initStatement != null) await _initStatement.ExecuteAsync();
             if (_initExpression != null) await _initExpression.GetValueAsync();
 
             JsValue v = Undefined.Instance;
