@@ -13,10 +13,8 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class FunctionPrototype : FunctionInstance
     {
-        private static readonly JsString _functionName = new JsString("Function");
-
         private FunctionPrototype(Engine engine)
-            : base(engine, _functionName)
+            : base(engine, JsString.Empty)
         {
         }
 
@@ -35,13 +33,14 @@ namespace Jint.Native.Function
         protected override void Initialize()
         {
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+            const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), propertyFlags),
-                ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2), propertyFlags),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
+                ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2, lengthFlags), propertyFlags),
                 ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1), propertyFlags),
-                ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1), propertyFlags)
+                ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1, PropertyFlag.AllForbidden), propertyFlags)
             };
             SetProperties(properties);
             
@@ -59,32 +58,54 @@ namespace Jint.Native.Function
 
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)
         {
-            var target = thisObj.TryCast<ICallable>(x =>
+            if (!(thisObj is ICallable))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
-            });
+                ExceptionHelper.ThrowTypeError(Engine, "Bind must be called on a function");
+            }
 
             var thisArg = arguments.At(0);
             var f = new BindFunctionInstance(Engine)
             {
                 TargetFunction = thisObj,
-                BoundThis = thisArg,
+                BoundThis = thisObj is ArrowFunctionInstance ? Undefined : thisArg,
                 BoundArgs = arguments.Skip(1),
                 _prototype = Engine.Function.PrototypeObject
             };
 
-            if (target is FunctionInstance functionInstance)
+            JsNumber l;
+            var targetHasLength = thisObj.HasOwnProperty(CommonProperties.Length);
+            if (targetHasLength)
             {
-                var l = TypeConverter.ToNumber(functionInstance.Get(CommonProperties.Length, functionInstance)) - (arguments.Length - 1);
-                f.SetOwnProperty(CommonProperties.Length, new PropertyDescriptor(System.Math.Max(l, 0), PropertyFlag.AllForbidden));
+                var targetLen = thisObj.Get(CommonProperties.Length);
+                if (!targetLen.IsNumber())
+                {
+                    l = JsNumber.PositiveZero;
+                }
+                else
+                {
+                    targetLen = TypeConverter.ToInteger(targetLen);
+                    // first argument is target
+                    var argumentsLength = System.Math.Max(0, arguments.Length - 1);
+                    l = JsNumber.Create((uint) System.Math.Max(((JsNumber) targetLen)._value - argumentsLength, 0));
+                }
             }
             else
             {
-                f.SetOwnProperty(CommonProperties.Length, PropertyDescriptor.AllForbiddenDescriptor.NumberZero);
+                l = JsNumber.PositiveZero;
             }
 
+            f._length = new PropertyDescriptor(l, PropertyFlag.Configurable);
+            
             f.DefineOwnProperty(CommonProperties.Caller, _engine._getSetThrower);
             f.DefineOwnProperty(CommonProperties.Arguments, _engine._getSetThrower);
+            
+            var targetName = thisObj.Get(CommonProperties.Name);
+            if (!targetName.IsString())
+            {
+                targetName = JsString.Empty;
+            }
+
+            f.SetFunctionName(targetName, "bound");
 
             return f;
         }

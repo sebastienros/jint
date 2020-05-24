@@ -19,9 +19,7 @@ namespace Jint.Native.Function
 
         protected internal PropertyDescriptor _prototypeDescriptor;
 
-        protected PropertyDescriptor _length;
-
-        private JsValue _name;
+        protected internal PropertyDescriptor _length;
         private PropertyDescriptor _nameDescriptor;
 
         protected internal LexicalEnvironment _environment;
@@ -46,7 +44,10 @@ namespace Jint.Native.Function
             ObjectClass objectClass = ObjectClass.Function)
             : base(engine, objectClass)
         {
-            _name = name;
+            if (!(name is null))
+            {
+                _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
+            }
             _thisMode = thisMode;
         }
 
@@ -115,7 +116,7 @@ namespace Jint.Native.Function
             {
                 yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, _length);
             }
-            if (!(_name is null))
+            if (_nameDescriptor != null)
             {
                 yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Name, GetOwnProperty(CommonProperties.Name));
             }
@@ -137,7 +138,7 @@ namespace Jint.Native.Function
             {
                 keys.Add(CommonProperties.Length);
             }
-            if (!(_name is null))
+            if (_nameDescriptor != null)
             {
                 keys.Add(CommonProperties.Name);
             }
@@ -159,9 +160,7 @@ namespace Jint.Native.Function
             }
             if (property == CommonProperties.Name)
             {
-                return !(_name is null)
-                    ? _nameDescriptor ??= new PropertyDescriptor(_name, PropertyFlag.Configurable)
-                    :  PropertyDescriptor.Undefined;
+                return _nameDescriptor ?? PropertyDescriptor.Undefined;
             }
 
             return base.GetOwnProperty(property);
@@ -179,7 +178,6 @@ namespace Jint.Native.Function
             }
             else if (property == CommonProperties.Name)
             {
-                _name = desc._value;
                 _nameDescriptor = desc;
             }
             else
@@ -200,7 +198,7 @@ namespace Jint.Native.Function
             }
             if (property == CommonProperties.Name)
             {
-                return !(_name is null);
+                return _nameDescriptor != null;
             }
 
             return base.HasOwnProperty(property);
@@ -218,34 +216,26 @@ namespace Jint.Native.Function
             }
             if (property == CommonProperties.Name)
             {
-                _name = null;
                 _nameDescriptor = null;
             }
 
             base.RemoveOwnProperty(property);
         }
 
-        internal void SetFunctionName(JsValue name, bool throwIfExists = false)
+        internal void SetFunctionName(JsValue name, string prefix = null)
         {
-            if (_name is null)
+            if (name is JsSymbol symbol)
             {
-                JsString value;
-                if (name is JsSymbol symbol)
-                {
-                    value = new JsString(symbol._value.IsUndefined()
-                        ? ""
-                        : "[" + symbol._value + "]");
-                }
-                else
-                {
-                    value = name as JsString ?? new JsString(name.ToString());
-                }
-                _name = value;
+                name = symbol._value.IsUndefined()
+                    ? JsString.Empty
+                    : new JsString("[" + symbol._value + "]");
             }
-            else if (throwIfExists)
+            if (!string.IsNullOrWhiteSpace(prefix))
             {
-                ExceptionHelper.ThrowError(_engine, "cannot set name");
+                name = prefix + " " + name;
             }
+
+            _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -273,7 +263,7 @@ namespace Jint.Native.Function
         public override string ToString()
         {
             var native = this is ScriptFunctionInstance ? "" : "[native code]";
-            return $"function {_name}() {{{native}}}";
+            return $"function {UnwrapJsValue(_nameDescriptor)}() {{{native}}}";
         }
     }
 }
