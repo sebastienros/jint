@@ -1,6 +1,7 @@
 ﻿using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -33,15 +34,27 @@ namespace Jint.Native.Function
 
         protected override void Initialize()
         {
+            const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), true, false, true),
-                ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2), true, false, true),
-                ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1), true, false, true),
-                ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1), true, false, true)
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), propertyFlags),
+                ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2), propertyFlags),
+                ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1), propertyFlags),
+                ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1), propertyFlags)
             };
             SetProperties(properties);
+            
+            var symbols = new SymbolDictionary(1)
+            {
+                [GlobalSymbolRegistry.HasInstance] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "[Symbol.hasInstance]", HasInstance, 1, PropertyFlag.Configurable), PropertyFlag.AllForbidden)
+            };
+            SetSymbols(symbols);
+        }
+
+        private JsValue HasInstance(JsValue thisObj, JsValue[] arguments)
+        {
+            return HasInstance(thisObj);
         }
 
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)
