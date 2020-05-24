@@ -269,5 +269,11 @@ namespace Jint.Native.Function
             //    Set proto to realm's intrinsic object named intrinsicDefaultProto.
             return proto ?? intrinsicDefaultProto;
         }
+
+        public override string ToString()
+        {
+            var native = this is ScriptFunctionInstance ? "" : "[native code]";
+            return $"function {_name}() {{{native}}}";
+        }
     }
 }

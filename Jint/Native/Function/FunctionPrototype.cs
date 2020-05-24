@@ -78,12 +78,12 @@ namespace Jint.Native.Function
 
         private JsValue ToString(JsValue thisObj, JsValue[] arguments)
         {
-            if (!(thisObj is FunctionInstance))
+            if (!(thisObj is FunctionInstance func))
             {
                 return ExceptionHelper.ThrowTypeError<FunctionInstance>(_engine, "Function object expected.");
             }
 
-            return "function() {{ ... }}";
+            return func.ToString();
         }
 
         internal JsValue Apply(JsValue thisObject, JsValue[] arguments)
