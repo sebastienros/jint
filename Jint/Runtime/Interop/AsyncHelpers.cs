@@ -16,18 +16,18 @@ namespace Jint.Runtime.Interop
 
             await task;
 
-            // Return the result, unless it's a VoidTaskResult (guard needed to avoid dynamic exception, when accessing .Result on a VoidTaskResult)
-            return IsVoidTaskResult(task)
-                ? null
-                : (object)((dynamic)task)?.Result;
+            // Return the result, if the task has one (must be a generic Task that is not of type VoidTaskResult)
+            return TaskHasResult(task)
+                ? (object)((dynamic)task)?.Result
+                : null;
         }
 
-        private static bool IsVoidTaskResult(Task task)
+        private static bool TaskHasResult(Task task)
         {
             // VoidTaskResult is an internal Microsoft class used as Task<VoidTaskResult> which correlates to the standard non generic Task
             var taskType = task.GetType();
             return taskType.IsGenericType
-                && taskType.GenericTypeArguments[0].Name == "VoidTaskResult";
+                && taskType.GenericTypeArguments[0].Name != "VoidTaskResult";
         }
     }
 }
