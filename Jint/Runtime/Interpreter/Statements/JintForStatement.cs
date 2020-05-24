@@ -98,7 +98,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                 }
 
-                var stmt = _body.Execute();
+                var stmt = await _body.ExecuteAsync();
                 if (!ReferenceEquals(stmt.Value, null))
                 {
                     v = stmt.Value;
