@@ -96,8 +96,8 @@ namespace Jint.Native.Function
 
             f._length = new PropertyDescriptor(l, PropertyFlag.Configurable);
             
-            f.DefineOwnProperty(CommonProperties.Caller, _engine._getSetThrower);
-            f.DefineOwnProperty(CommonProperties.Arguments, _engine._getSetThrower);
+            f.DefineOwnProperty(CommonProperties.Caller, _engine._callerCalleeArgumentsThrower);
+            f.DefineOwnProperty(CommonProperties.Arguments, _engine._callerCalleeArgumentsThrower);
             
             var targetName = thisObj.Get(CommonProperties.Name);
             if (!targetName.IsString())

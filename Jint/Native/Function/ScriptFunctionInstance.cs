@@ -45,10 +45,10 @@ namespace Jint.Native.Function
 
             _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
-            if (!function.Strict && thisMode == FunctionThisMode.Strict)
+            if (function.Strict || thisMode == FunctionThisMode.Strict)
             {
-                DefineOwnProperty(CommonProperties.Caller, engine._getSetThrower);
-                DefineOwnProperty(CommonProperties.Arguments, engine._getSetThrower);
+                DefineOwnProperty(CommonProperties.Caller, engine._callerCalleeArgumentsThrower);
+                DefineOwnProperty(CommonProperties.Arguments, engine._callerCalleeArgumentsThrower);
             }
         }
 

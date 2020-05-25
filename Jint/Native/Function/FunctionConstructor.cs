@@ -11,9 +11,9 @@ namespace Jint.Native.Function
     {
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
         private static readonly JsString _functionName = new JsString("Function");
+        private static readonly JsString _functionNameAnonymous = new JsString("anonymous");
 
         private FunctionInstance _throwTypeError;
-        private static readonly char[] ArgumentNameSeparator = new[] { ',' };
 
         private FunctionConstructor(Engine engine)
             : base(engine, _functionName)
@@ -85,6 +85,8 @@ namespace Jint.Native.Function
                 function,
                 _engine.GlobalEnvironment,
                 function.Strict);
+
+            functionObject.SetFunctionName(_functionNameAnonymous);
 
             return functionObject;
         }

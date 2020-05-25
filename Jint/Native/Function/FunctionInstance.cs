@@ -263,7 +263,8 @@ namespace Jint.Native.Function
         public override string ToString()
         {
             var native = this is ScriptFunctionInstance ? "" : "[native code]";
-            return $"function {UnwrapJsValue(_nameDescriptor)}() {{{native}}}";
+            var name = _nameDescriptor != null ? UnwrapJsValue(_nameDescriptor) : JsString.Empty;
+            return $"function {name}() {{{native}}}";
         }
     }
 }

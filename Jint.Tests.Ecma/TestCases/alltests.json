@@ -37235,8 +37235,8 @@
     source: "ch15/15.3/15.3.4/15.3.4.2/S15.3.4.2_A8.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "the spec has changed",
     source: "ch15/15.3/15.3.4/15.3.4.2/S15.3.4.2_A9.js"
   },
   {
@@ -37490,8 +37490,8 @@
     source: "ch15/15.3/15.3.4/15.3.4.3/S15.3.4.3_A8_T6.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "the spec has changed",
     source: "ch15/15.3/15.3.4/15.3.4.3/S15.3.4.3_A9.js"
   },
   {
@@ -37795,8 +37795,8 @@
     source: "ch15/15.3/15.3.4/15.3.4.5/15.3.4.5-15-1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "the spec has changed",
     source: "ch15/15.3/15.3.4/15.3.4.5/15.3.4.5-15-2.js"
   },
   {
