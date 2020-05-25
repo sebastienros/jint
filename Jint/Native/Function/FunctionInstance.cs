@@ -224,6 +224,11 @@ namespace Jint.Native.Function
 
         internal void SetFunctionName(JsValue name, string prefix = null)
         {
+            if (_nameDescriptor != null)
+            {
+                return;
+            }
+            
             if (name is JsSymbol symbol)
             {
                 name = symbol._value.IsUndefined()
