@@ -1550,8 +1550,23 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        private class FailingObject2
+        {
+            public int this[int index] => throw new ArgumentException("index is bad", nameof(index));
+        }
+
         [Fact]
-        public void ShouldAutomaticallyConvertArraysToFindBestInteropResulution()
+        public void ShouldPropagateIndexerExceptions()
+        {
+            var engine = new Engine();
+            engine.Execute(@"function f2(obj) { return obj[1]; }");
+
+            var failingObject = new FailingObject2();
+            Assert.Throws<ArgumentException>(() => engine.Invoke("f2", failingObject));
+        }
+
+        [Fact]
+        public void ShouldAutomaticallyConvertArraysToFindBestInteropResolution()
         {
             _engine.SetValue("a", new ArrayConverterTestClass());
             _engine.SetValue("item1", new ArrayConverterItem(1));

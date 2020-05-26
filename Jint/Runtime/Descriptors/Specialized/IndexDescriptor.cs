@@ -25,7 +25,7 @@ namespace Jint.Runtime.Descriptors.Specialized
 
             Writable = engine.Options._IsClrWriteAllowed;
         }
-        
+
         public IndexDescriptor(Engine engine, string key, object item)
             : this(engine, item.GetType(), key, item)
         {
@@ -34,9 +34,9 @@ namespace Jint.Runtime.Descriptors.Specialized
         internal static bool TryFindIndexer(
             Engine engine,
             Type targetType,
-            string propertyName, 
+            string propertyName,
             out PropertyInfo indexerProperty,
-            out MethodInfo containsKeyMethod, 
+            out MethodInfo containsKeyMethod,
             out object indexerKey)
         {
             // get all instance indexers with exactly 1 argument
@@ -83,7 +83,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                     ExceptionHelper.ThrowInvalidOperationException("Indexer has no public getter.");
                 }
 
-                object[] parameters = {_key};
+                object[] parameters = { _key };
 
                 if (_containsKey != null)
                 {
@@ -97,12 +97,21 @@ namespace Jint.Runtime.Descriptors.Specialized
                 {
                     return JsValue.FromObject(_engine, getter.Invoke(_target, parameters));
                 }
-                catch
+                catch (TargetInvocationException tie)
                 {
-                    return JsValue.Undefined;
+                    switch (tie.InnerException)
+                    {
+                        case null:
+                            throw;
+                        case ArgumentOutOfRangeException _:
+                            return JsValue.Undefined;
+                        case IndexOutOfRangeException _:
+                            return JsValue.Undefined;
+                        default:
+                            throw tie.InnerException;
+                    }
                 }
             }
-
             set
             {
                 var setter = _indexer.GetSetMethod();
@@ -111,8 +120,19 @@ namespace Jint.Runtime.Descriptors.Specialized
                     ExceptionHelper.ThrowInvalidOperationException("Indexer has no public setter.");
                 }
 
-                object[] parameters = {_key, value?.ToObject()};
-                setter.Invoke(_target, parameters);
+                object[] parameters = { _key,  value?.ToObject() };
+                try
+                {
+                    setter!.Invoke(_target, parameters);
+                }
+                catch (TargetInvocationException tie)
+                {
+                    if (tie.InnerException != null)
+                    {
+                        throw tie.InnerException;
+                    }
+                    throw;
+                }
             }
         }
     }
