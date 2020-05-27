@@ -37735,8 +37735,8 @@
     source: "ch15/15.3/15.3.4/15.3.4.4/S15.3.4.4_A7_T6.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "the spec has changed",
     source: "ch15/15.3/15.3.4/15.3.4.4/S15.3.4.4_A9.js"
   },
   {

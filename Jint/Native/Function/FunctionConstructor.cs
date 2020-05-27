@@ -13,8 +13,6 @@ namespace Jint.Native.Function
         private static readonly JsString _functionName = new JsString("Function");
         private static readonly JsString _functionNameAnonymous = new JsString("anonymous");
 
-        private FunctionInstance _throwTypeError;
-
         private FunctionConstructor(Engine engine)
             : base(engine, _functionName)
         {
@@ -71,7 +69,10 @@ namespace Jint.Native.Function
             IFunction function;
             try
             {
-                var functionExpression = "function f(" + p + ") { " + body + "}";
+                var functionExpression = argCount == 0 
+                    ? "function f(){}" 
+                    : "function f(" + p + "){" + body + "}";
+                
                 var parser = new JavaScriptParser(functionExpression, ParserOptions);
                 function = (IFunction) parser.ParseScript().Body[0];
             }
@@ -86,7 +87,8 @@ namespace Jint.Native.Function
                 _engine.GlobalEnvironment,
                 function.Strict);
 
-            functionObject.SetFunctionName(_functionNameAnonymous);
+            // the function is not actually named f
+            functionObject.SetFunctionName(_functionNameAnonymous, force: true);
 
             return functionObject;
         }
@@ -105,20 +107,6 @@ namespace Jint.Native.Function
                 functionDeclaration.Strict || _engine._isStrict);
 
             return functionObject;
-        }
-
-        public FunctionInstance ThrowTypeError
-        {
-            get
-            {
-                if (!ReferenceEquals(_throwTypeError, null))
-                {
-                    return _throwTypeError;
-                }
-
-                _throwTypeError = new ThrowTypeError(Engine);
-                return _throwTypeError;
-            }
         }
 
         public object Apply(JsValue thisObject, JsValue[] arguments)

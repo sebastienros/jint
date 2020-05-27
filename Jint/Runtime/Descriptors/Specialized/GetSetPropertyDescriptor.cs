@@ -48,14 +48,14 @@ namespace Jint.Runtime.Descriptors.Specialized
             private JsValue _thrower;
             
             public ThrowerPropertyDescriptor(Engine engine, string message)
-                : base(PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet | PropertyFlag.CustomJsValue)
+                : base(PropertyFlag.Configurable | PropertyFlag.CustomJsValue)
             {
                 _engine = engine;
                 _message = message;
             }
 
-            public override JsValue Get => _thrower ??= new ThrowTypeError(_engine, _message);
-            public override JsValue Set => _thrower ??= new ThrowTypeError(_engine, _message);
+            public override JsValue Get => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
+            public override JsValue Set => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
 
             protected internal override JsValue CustomValue
             {

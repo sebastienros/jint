@@ -222,9 +222,9 @@ namespace Jint.Native.Function
             base.RemoveOwnProperty(property);
         }
 
-        internal void SetFunctionName(JsValue name, string prefix = null)
+        internal void SetFunctionName(JsValue name, string prefix = null, bool force = false)
         {
-            if (_nameDescriptor != null)
+            if (!force && _nameDescriptor != null && !UnwrapJsValue(_nameDescriptor).IsUndefined())
             {
                 return;
             }
@@ -267,9 +267,14 @@ namespace Jint.Native.Function
 
         public override string ToString()
         {
-            var native = this is ScriptFunctionInstance ? "" : "[native code]";
-            var name = _nameDescriptor != null ? UnwrapJsValue(_nameDescriptor) : JsString.Empty;
-            return $"function {name}() {{{native}}}";
+            // TODO no way to extract SourceText from Esprima at the moment, just returning native code
+            var nameValue = _nameDescriptor != null ? UnwrapJsValue(_nameDescriptor) : JsString.Empty;
+            var name = "";
+            if (!nameValue.IsUndefined())
+            {
+                name = TypeConverter.ToString(nameValue);
+            }
+            return $"function {name}() {{[native code]}}";
         }
     }
 }

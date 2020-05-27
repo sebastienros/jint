@@ -6,10 +6,7 @@ namespace Jint.Native.Function
 {
     public sealed class BindFunctionInstance : FunctionInstance, IConstructor
     {
-        private static readonly JsString _name = new JsString("bind");
-
-        public BindFunctionInstance(Engine engine)
-            : base(engine, _name, FunctionThisMode.Global)
+        public BindFunctionInstance(Engine engine) : base(engine, null)
         {
         }
 
@@ -55,5 +52,7 @@ namespace Jint.Native.Function
         }
 
         internal override bool IsConstructor => TargetFunction is IConstructor;
+
+        public override string ToString() => "function () { [native code] }";
     }
 }
