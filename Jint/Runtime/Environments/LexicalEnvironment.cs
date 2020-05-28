@@ -33,6 +33,13 @@ namespace Jint.Runtime.Environments
             record = default;
             value = default;
 
+            if (ReferenceEquals(lex, lex._engine.GlobalEnvironment)
+                && lex._record.TryGetBinding(name, strict, out _, out value))
+            {
+                record = lex._record;
+                return true;
+            }
+
             while (lex != null)
             {
                 if (lex._record.TryGetBinding(

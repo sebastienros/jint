@@ -30,13 +30,13 @@ namespace Jint.Runtime.Environments
         }
 
         internal override bool TryGetBinding(
-            BindingName name,
+            in BindingName name,
             bool strict,
             out Binding binding,
             out JsValue value)
         {
             return (_declarativeRecord._hasBindings && _declarativeRecord.TryGetBinding(name, strict, out binding, out value))
-                   || _objectRecord.TryGetBinding(name, strict, out binding, out value);
+                   || _objectRecord.TryGetBindingForGlobal(name, out binding, out value);
         }
 
         /// <summary>
@@ -86,7 +86,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        internal override void SetMutableBinding(BindingName name, JsValue value, bool strict)
+        internal override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
         {
             if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name.Key.Name))
             {

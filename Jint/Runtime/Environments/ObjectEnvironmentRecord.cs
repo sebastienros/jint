@@ -51,7 +51,7 @@ namespace Jint.Runtime.Environments
         }
 
         internal override bool TryGetBinding(
-            BindingName name,
+            in BindingName name,
             bool strict,
             out Binding binding,
             out JsValue value)
@@ -73,6 +73,35 @@ namespace Jint.Runtime.Environments
 
             var desc = _bindingObject.GetProperty(name.StringValue);
             value = ObjectInstance.UnwrapJsValue(desc, _bindingObject);
+            return true;
+        }
+
+        // optimized version because we know some facts
+        internal bool TryGetBindingForGlobal(
+            in BindingName name,
+            out Binding binding,
+            out JsValue value)
+        {
+            // we unwrap by name
+            binding = default;
+            value = default;
+
+            var property = _bindingObject.GetOwnProperty(name.StringValue);
+            if (property == PropertyDescriptor.Undefined)
+            {
+                var parent = _bindingObject._prototype;
+                if (parent != null)
+                {
+                    property = parent.GetOwnProperty(name.StringValue);
+                }
+            }
+
+            if (property == PropertyDescriptor.Undefined)
+            {
+                return false;
+            }
+
+            value = ObjectInstance.UnwrapJsValue(property, _bindingObject);
             return true;
         }
 
@@ -124,7 +153,7 @@ namespace Jint.Runtime.Environments
             SetMutableBinding(new BindingName(name), value, strict);
         }
 
-        internal override void SetMutableBinding(BindingName name, JsValue value, bool strict)
+        internal override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
         {
             if (!_bindingObject.Set(name.StringValue, value) && strict)
             {

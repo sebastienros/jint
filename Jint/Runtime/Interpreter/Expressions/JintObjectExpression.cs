@@ -73,7 +73,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (p.Kind == PropertyKind.Init || p.Kind == PropertyKind.Data)
                     {
-                        var propertyValue = (Expression) p.Value;
+                        var propertyValue = p.Value;
                         _valueExpressions[i] = Build(_engine, propertyValue);
                         _canBuildFast &= !propertyValue.IsFunctionWithName();
                     }

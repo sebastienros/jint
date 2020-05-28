@@ -457,10 +457,7 @@ namespace Jint.Native.Object
                 {
                     return parent.Set(property, value, receiver);
                 }
-                else
-                {
-                    ownDesc = new PropertyDescriptor(Undefined, PropertyFlag.ConfigurableEnumerableWritable);
-                }
+                ownDesc = new PropertyDescriptor(Undefined, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
             if (ownDesc.IsDataDescriptor())
