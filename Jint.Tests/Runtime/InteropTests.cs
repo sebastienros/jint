@@ -2044,5 +2044,39 @@ namespace Jint.Tests.Runtime
             Assert.NotNull(c.ToString());
             Assert.Equal((uint)0, c.As<ObjectInstance>().Length);
         }
+
+        class DictionaryWrapper
+        {
+            public IDictionary<string, object> Values { get; set; }
+        }
+
+        class DictionaryTest
+        {
+            public void Test1(IDictionary<string, object> values)
+            {
+                Assert.Equal(1, Convert.ToInt32(values["a"]));
+            }
+
+            public void Test2(DictionaryWrapper dictionaryObject)
+            {
+                Assert.Equal(1, Convert.ToInt32(dictionaryObject.Values["a"]));
+            }
+        }
+
+        [Fact]
+        public void ShouldBeAbleToPassDictionaryToMethod()
+        {
+            var engine = new Engine();
+            engine.SetValue("dictionaryTest", new DictionaryTest());
+            engine.Execute("dictionaryTest.test1({ a: 1 });");
+        }
+
+        [Fact]
+        public void ShouldBeAbleToPassDictionaryInObjectToMethod()
+        {
+            var engine = new Engine();
+            engine.SetValue("dictionaryTest", new DictionaryTest());
+            engine.Execute("dictionaryTest.test2({ values: { a: 1 } });");
+        }
     }
 }
