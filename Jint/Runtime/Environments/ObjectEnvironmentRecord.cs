@@ -1,8 +1,6 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using Jint.Native;
 using Jint.Native.Object;
-using Jint.Native.Proxy;
 using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 

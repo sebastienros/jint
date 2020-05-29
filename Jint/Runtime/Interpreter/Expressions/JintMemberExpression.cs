@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -53,9 +54,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 baseReferenceName = _objectIdentifierExpression._expressionName.Key.Name;
                 var strict = isStrictModeCode;
-                TryGetIdentifierEnvironmentWithBindingValue(
-                    strict,
+                var env = _engine.ExecutionContext.LexicalEnvironment;
+                LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                    env,
                     _objectIdentifierExpression._expressionName,
+                    strict,
                     out _,
                     out baseValue);
             }

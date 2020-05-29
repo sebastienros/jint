@@ -43,7 +43,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             var strict = StrictModeScope.IsStrictModeCode;
-            return TryGetIdentifierEnvironmentWithBindingValue(strict, _expressionName, out _, out var value)
+            var env = _engine.ExecutionContext.LexicalEnvironment;
+            return LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                env,
+                _expressionName,
+                strict,
+                out _,
+                out var value)
                 ? value ?? ExceptionHelper.ThrowReferenceError<JsValue>(_engine, _expressionName.Key.Name + " has not been initialized")
                 : _engine.GetValue(_engine._referencePool.Rent(JsValue.Undefined, _expressionName.StringValue, strict), true);
         }
