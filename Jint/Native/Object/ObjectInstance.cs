@@ -25,7 +25,7 @@ namespace Jint.Native.Object
         private bool _initialized;
         private readonly ObjectClass _class;
 
-        private PropertyDictionary _properties;
+        internal PropertyDictionary _properties;
         internal SymbolDictionary _symbols;
 
         internal ObjectInstance _prototype;
@@ -684,10 +684,10 @@ namespace Jint.Native.Object
                     {
                         o.SetOwnProperty(property, new GetSetPropertyDescriptor(desc));
                     }
-                }
+            }
 
                 return true;
-            }
+        }
 
             // Step 3
             var currentGet = current.Get;
@@ -742,23 +742,23 @@ namespace Jint.Native.Object
 
                     if (o is object)
                     {
-                        var flags = current.Flags & ~(PropertyFlag.Writable | PropertyFlag.WritableSet);
-                        if (current.IsDataDescriptor())
-                        {
-                            o.SetOwnProperty(property, current = new GetSetPropertyDescriptor(
-                                get: Undefined,
-                                set: Undefined,
-                                flags
-                            ));
-                        }
-                        else
-                        {
-                            o.SetOwnProperty(property, current = new PropertyDescriptor(
-                                value: Undefined,
-                                flags
-                            ));
-                        }
+                    var flags = current.Flags & ~(PropertyFlag.Writable | PropertyFlag.WritableSet);
+                    if (current.IsDataDescriptor())
+                    {
+                        o.SetOwnProperty(property, current = new GetSetPropertyDescriptor(
+                            get: Undefined,
+                            set: Undefined,
+                            flags
+                        ));
                     }
+                    else
+                    {
+                        o.SetOwnProperty(property, current = new PropertyDescriptor(
+                            value: Undefined,
+                            flags
+                        ));
+                    }
+                }
                 }
                 else if (current.IsDataDescriptor() && desc.IsDataDescriptor())
                 {
@@ -795,44 +795,44 @@ namespace Jint.Native.Object
             if (o is object)
             {
                 
-                if (!ReferenceEquals(descValue, null))
-                {
-                    current.Value = descValue;
-                }
+            if (!ReferenceEquals(descValue, null))
+            {
+                current.Value = descValue;
+            }
 
-                if (desc.WritableSet)
-                {
-                    current.Writable = desc.Writable;
-                }
+            if (desc.WritableSet)
+            {
+                current.Writable = desc.Writable;
+            }
 
-                if (desc.EnumerableSet)
-                {
-                    current.Enumerable = desc.Enumerable;
-                }
+            if (desc.EnumerableSet)
+            {
+                current.Enumerable = desc.Enumerable;
+            }
 
-                if (desc.ConfigurableSet)
-                {
-                    current.Configurable = desc.Configurable;
-                }
-                
-                PropertyDescriptor mutable = null;
-                if (!ReferenceEquals(descGet, null))
-                {
-                    mutable = new GetSetPropertyDescriptor(mutable ?? current);
-                    ((GetSetPropertyDescriptor) mutable).SetGet(descGet);
-                }
+            if (desc.ConfigurableSet)
+            {
+                current.Configurable = desc.Configurable;
+            }
 
-                if (!ReferenceEquals(descSet, null))
-                {
-                    mutable = new GetSetPropertyDescriptor(mutable ?? current);
-                    ((GetSetPropertyDescriptor) mutable).SetSet(descSet);
-                }
+            PropertyDescriptor mutable = null;
+            if (!ReferenceEquals(descGet, null))
+            {
+                mutable = new GetSetPropertyDescriptor(mutable ?? current);
+                ((GetSetPropertyDescriptor) mutable).SetGet(descGet);
+            }
 
-                if (mutable != null)
-                {
-                    // replace old with new type that supports get and set
-                    o.FastSetProperty(property, mutable);
-                }
+            if (!ReferenceEquals(descSet, null))
+            {
+                mutable = new GetSetPropertyDescriptor(mutable ?? current);
+                ((GetSetPropertyDescriptor) mutable).SetSet(descSet);
+            }
+
+            if (mutable != null)
+            {
+                // replace old with new type that supports get and set
+                o.FastSetProperty(property, mutable);
+            }
             }
 
             return true;

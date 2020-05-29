@@ -1,6 +1,8 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Native.Proxy;
 using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 
@@ -86,8 +88,7 @@ namespace Jint.Runtime.Environments
             binding = default;
             value = default;
 
-            var property = _bindingObject.GetOwnProperty(name.StringValue);
-            if (property == PropertyDescriptor.Undefined)
+            if (!_bindingObject._properties.TryGetValue(name.Key, out var property))
             {
                 var parent = _bindingObject._prototype;
                 if (parent != null)
