@@ -652,7 +652,7 @@ namespace Jint.Native.String
             {
                 if (arguments[i].Type == Types.String)
                 {
-                    capacity += arguments[i].AsStringWithoutTypeCheck().Length;
+                    capacity += arguments[i].ToString().Length;
                 }
             }
 

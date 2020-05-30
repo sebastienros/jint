@@ -23,7 +23,7 @@ namespace Jint.Runtime.Environments
         public abstract bool HasBinding(string name);
 
         internal abstract bool TryGetBinding(
-            BindingName name,
+            in BindingName name,
             bool strict,
             out Binding binding,
             out JsValue value);
@@ -57,7 +57,7 @@ namespace Jint.Runtime.Environments
         /// <param name="strict">The identify strict mode references.</param>
         public abstract void SetMutableBinding(string name, JsValue value, bool strict);
 
-        internal abstract void SetMutableBinding(BindingName name, JsValue value, bool strict);
+        internal abstract void SetMutableBinding(in BindingName name, JsValue value, bool strict);
 
         /// <summary>
         /// Returns the value of an already existing binding from an environment record.
@@ -107,7 +107,7 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// Helper to cache JsString/Key when environments use different lookups.
         /// </summary>
-        internal class BindingName
+        internal readonly struct BindingName
         {
             public readonly Key Key;
             public readonly JsString StringValue;

@@ -559,7 +559,7 @@ namespace Jint.Native
                         Value = ((JsBoolean) value)._value + " (bool)";
                         break;
                     case Types.String:
-                        Value = value.AsStringWithoutTypeCheck() + " (string)";
+                        Value = value.ToString() + " (string)";
                         break;
                     case Types.Number:
                         Value = ((JsNumber) value)._value + " (number)";

@@ -20,6 +20,8 @@ namespace Jint.Runtime.Interpreter.Statements
         private JintStatement _body;
         private List<string> _boundNames;
 
+        private bool _shouldCreatePerIterationEnvironment;
+
         public JintForStatement(Engine engine, ForStatement statement) : base(engine, statement)
         {
             _initialized = false;
@@ -40,6 +42,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         d.GetBoundNames(_boundNames);
                     }
                     _initStatement = new JintVariableDeclaration(_engine, d);
+                    _shouldCreatePerIterationEnvironment = d.Kind == VariableDeclarationKind.Let;
                 }
                 else
                 {
@@ -113,8 +116,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             var v = Undefined.Instance;
 
-            var shouldCreatePerIterationEnvironment = _initStatement?._statement?.Kind == VariableDeclarationKind.Let;
-            if (shouldCreatePerIterationEnvironment)
+            if (_shouldCreatePerIterationEnvironment)
             {
                 CreatePerIterationEnvironment();
             }
@@ -148,7 +150,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                 }
 
-                if (shouldCreatePerIterationEnvironment)
+                if (_shouldCreatePerIterationEnvironment)
                 {
                     CreatePerIterationEnvironment();
                 }

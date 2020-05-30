@@ -28,8 +28,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             _jintArguments = new JintExpression[expression.Arguments.Count];
             for (var i = 0; i < _jintArguments.Length; i++)
             {
-                _jintArguments[i] = Build(_engine, (Expression) expression.Arguments[i]);
-                _hasSpreads |= _jintArguments[i] is JintSpreadExpression;
+                var argument = expression.Arguments[i];
+                _jintArguments[i] = Build(_engine, argument);
+                _hasSpreads |= argument.Type == Nodes.SpreadElement;
             }
         }
 

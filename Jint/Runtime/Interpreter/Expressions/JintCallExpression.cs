@@ -42,9 +42,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             bool cacheable = true;
             for (var i = 0; i < expression.Arguments.Count; i++)
             {
-                var expressionArgument = (Expression) expression.Arguments[i];
+                var expressionArgument = expression.Arguments[i];
                 cachedArgumentsHolder.JintArguments[i] = Build(_engine, expressionArgument);
-                cacheable &= expressionArgument is Literal;
+                cacheable &= expressionArgument.Type == Nodes.Literal;
                 _hasSpreads |= CanSpread(expressionArgument);
                 if (expressionArgument is ArrayExpression ae)
                 {

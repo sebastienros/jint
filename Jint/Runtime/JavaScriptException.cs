@@ -109,7 +109,7 @@ namespace Jint.Runtime
                 return message;
             }
             if (error.IsString())
-                return error.AsStringWithoutTypeCheck();
+                return error.ToString();
 
             return error.ToString();
         }

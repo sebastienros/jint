@@ -291,7 +291,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         sourceKey = identifier.Name;
                     }
 
-                    processedProperties?.Add(sourceKey.AsStringWithoutTypeCheck());
+                    processedProperties?.Add(sourceKey.ToString());
                     if (p.Value is AssignmentPattern assignmentPattern)
                     {
                         source.TryGetValue(sourceKey, out var value);

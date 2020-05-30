@@ -4,7 +4,6 @@ using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
-using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -367,38 +366,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected bool TryGetIdentifierEnvironmentWithBindingValue(
-            EnvironmentRecord.BindingName expressionName,
-            out EnvironmentRecord record,
-            out JsValue value)
-        {
-            var env = _engine.ExecutionContext.LexicalEnvironment;
-            var strict = StrictModeScope.IsStrictModeCode;
-            return LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                env,
-                expressionName,
-                strict,
-                out record,
-                out value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected bool TryGetIdentifierEnvironmentWithBindingValue(
-            bool strict,
-            EnvironmentRecord.BindingName expressionName,
-            out EnvironmentRecord record,
-            out JsValue value)
-        {
-            var env = _engine.ExecutionContext.LexicalEnvironment;
-            return LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                env,
-                expressionName,
-                strict,
-                out record,
-                out value);
-        }
-        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static bool AreIntegerOperands(JsValue left, JsValue right)
         {

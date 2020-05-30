@@ -23,7 +23,7 @@ namespace Jint.Runtime.Environments
         }
 
         internal sealed override bool TryGetBinding(
-            BindingName name,
+            in BindingName name,
             bool strict,
             out Binding binding,
             out JsValue value)
@@ -65,7 +65,7 @@ namespace Jint.Runtime.Environments
             _dictionary[name] = binding.ChangeValue(value);
         }
 
-        internal override void SetMutableBinding(BindingName name, JsValue value, bool strict)
+        internal override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
         {
             SetMutableBinding(name.Key.Name, value, strict);
         }

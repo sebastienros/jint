@@ -25,13 +25,20 @@ namespace Jint.Runtime.Environments
 
         internal static bool TryGetIdentifierEnvironmentWithBindingValue(
             LexicalEnvironment lex,
-            EnvironmentRecord.BindingName name,
+            in EnvironmentRecord.BindingName name,
             bool strict,
             out EnvironmentRecord record,
             out JsValue value)
         {
             record = default;
             value = default;
+
+            if (ReferenceEquals(lex, lex._engine.GlobalEnvironment)
+                && lex._record.TryGetBinding(name, strict, out _, out value))
+            {
+                record = lex._record;
+                return true;
+            }
 
             while (lex != null)
             {
