@@ -99,7 +99,12 @@ namespace Jint.Runtime.Environments
             }
             else
             {
-                _objectRecord.SetMutableBinding(name, value, strict);
+                // fast inlined path as we know we target global, otherwise would be
+                // _objectRecord.SetMutableBinding(name, value, strict); 
+                if (!_objectRecord._bindingObject.SetForGlobal(name, value) && strict)
+                {
+                    ExceptionHelper.ThrowTypeError(_engine);
+                }
             }
         }
 
@@ -176,7 +181,8 @@ namespace Jint.Runtime.Environments
         public bool CanDeclareGlobalVar(string name)
         {
             var globalObject = _objectRecord._bindingObject;
-            if (globalObject.HasOwnProperty(name))
+
+            if (globalObject._properties.ContainsKey(name))
             {
                 return true;
             }
@@ -187,8 +193,8 @@ namespace Jint.Runtime.Environments
         public bool CanDeclareGlobalFunction(string name)
         {
             var globalObject = _objectRecord._bindingObject;
-            var existingProp = globalObject.GetOwnProperty(name);
-            if (existingProp == PropertyDescriptor.Undefined)
+            if (!globalObject._properties.TryGetValue(name, out var existingProp) 
+                || existingProp == PropertyDescriptor.Undefined)
             {
                 return globalObject.Extensible;
             }
@@ -213,8 +219,7 @@ namespace Jint.Runtime.Environments
             var extensible = globalObject.Extensible;
             if (!hasProperty && extensible)
             {
-                _objectRecord.CreateMutableBinding(name, canBeDeleted);
-                _objectRecord.InitializeBinding(name, Undefined);
+                _objectRecord.CreateMutableBindingAndInitialize(name, Undefined, canBeDeleted);
             }
 
             _varNames.Add(name);

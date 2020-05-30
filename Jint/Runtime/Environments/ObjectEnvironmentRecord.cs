@@ -146,6 +146,18 @@ namespace Jint.Runtime.Environments
                 : new PropertyDescriptor(Undefined, PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
 
             _bindingObject.DefinePropertyOrThrow(name, propertyDescriptor);
+        }  
+        
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-createmutablebinding-n-d
+        /// </summary>
+        internal void CreateMutableBindingAndInitialize(string name, JsValue value, bool canBeDeleted = false)
+        {
+            var propertyDescriptor = canBeDeleted
+                ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding)
+                : new PropertyDescriptor(value, PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
+
+            _bindingObject.DefinePropertyOrThrow(name, propertyDescriptor);
         }
         
         /// <summary>

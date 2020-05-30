@@ -510,14 +510,9 @@ namespace Jint.Native.Object
         {
             _properties.TryGetValue(property.Key, out var ownDesc);
 
-            if (ownDesc == PropertyDescriptor.Undefined)
+            if (ownDesc is null || ownDesc == PropertyDescriptor.Undefined)
             {
-                var parent = GetPrototypeOf();
-                if (!(parent is null))
-                {
-                    return parent.Set(property.StringValue, value, this);
-                }
-                ownDesc = new PropertyDescriptor(Undefined, PropertyFlag.ConfigurableEnumerableWritable);
+                return _prototype.Set(property.StringValue, value, this);
             }
 
             if (ownDesc.IsDataDescriptor())
@@ -528,8 +523,8 @@ namespace Jint.Native.Object
                 }
 
                 _properties.TryGetValue(property.Key, out var current);
-                PropertyDescriptor newDesc = null;
-                if (current != PropertyDescriptor.Undefined)
+                PropertyDescriptor newDesc;
+                if (!(current is null) && current != PropertyDescriptor.Undefined)
                 {
                     if (current.IsAccessorDescriptor() || !current.Writable)
                     {
