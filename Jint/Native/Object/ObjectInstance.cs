@@ -15,7 +15,6 @@ using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
-using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter.Expressions;
 
@@ -509,53 +508,6 @@ namespace Jint.Native.Object
             return true;
         }
         
-        // keep in sync with JsValue property version
-        internal bool SetForGlobal(EnvironmentRecord.BindingName property, JsValue value)
-        {
-            _properties.TryGetValue(property.Key, out var ownDesc);
-
-            if (ownDesc is null || ownDesc == PropertyDescriptor.Undefined)
-            {
-                return _prototype.Set(property.StringValue, value, this);
-            }
-
-            if (ownDesc.IsDataDescriptor())
-            {
-                if (!ownDesc.Writable)
-                {
-                    return false;
-                }
-
-                _properties.TryGetValue(property.Key, out var current);
-                PropertyDescriptor newDesc;
-                if (!(current is null) && current != PropertyDescriptor.Undefined)
-                {
-                    if (current.IsAccessorDescriptor() || !current.Writable)
-                    {
-                        return false;
-                    }
-
-                    newDesc = new PropertyDescriptor(value, PropertyFlag.None);
-                }
-                else
-                {
-                    newDesc = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
-                }
-
-                return ValidateAndApplyPropertyDescriptor(this, property.StringValue, Extensible, newDesc, current);
-            }
-
-            if (!(ownDesc.Set is ICallable setter))
-            {
-                return false;
-            }
-
-            setter.Call(this, new[] {value});
-
-            return true;
-        }
-        
-
         /// <summary>
         /// Returns a Boolean value indicating whether a
         /// [[Put]] operation with PropertyName can be
@@ -730,6 +682,7 @@ namespace Jint.Native.Object
                             };
                         }
 
+                        propertyDescriptor._flags |= desc._flags & PropertyFlag.MutableBinding; 
                         o.SetOwnProperty(property, propertyDescriptor);
                     }
                     else

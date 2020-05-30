@@ -754,9 +754,9 @@ namespace Jint.Native.Global
             // here we are called only from global environment record context
             // we can take some shortcuts to be faster
 
-            if (!Properties.TryGetValue(property, out var existingDescriptor))
+            if (!_properties.TryGetValue(property, out var existingDescriptor))
             {
-                Properties[property] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
+                _properties[property] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
                 return true;
             }
 

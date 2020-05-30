@@ -1,5 +1,4 @@
 ﻿using System.Linq;
-using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -74,51 +73,6 @@ namespace Jint.Runtime.Environments
 
             var desc = _bindingObject.GetProperty(name.StringValue);
             value = ObjectInstance.UnwrapJsValue(desc, _bindingObject);
-            return true;
-        }
-
-        // optimized version because we know some facts
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool TryGetBindingForGlobal(
-            in BindingName name,
-            out Binding binding,
-            out JsValue value)
-        {
-            // we unwrap by name
-            binding = default;
-            value = default;
-
-            // normal case is to find
-            if (_bindingObject._properties._dictionary.TryGetValue(name.Key, out var property)
-                && property != PropertyDescriptor.Undefined)
-            {
-                value = ObjectInstance.UnwrapJsValue(property, _bindingObject);
-                return true;
-            }
-
-            return TryGetBindingForGlobalParent(name, out value, property);
-        }
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private bool TryGetBindingForGlobalParent(
-            in BindingName name,
-            out JsValue value,
-            PropertyDescriptor property)
-        {
-            value = default;
-
-            var parent = _bindingObject._prototype;
-            if (parent != null)
-            {
-                property = parent.GetOwnProperty(name.StringValue);
-            }
-
-            if (property == PropertyDescriptor.Undefined)
-            {
-                return false;
-            }
-
-            value = ObjectInstance.UnwrapJsValue(property, _bindingObject);
             return true;
         }
 

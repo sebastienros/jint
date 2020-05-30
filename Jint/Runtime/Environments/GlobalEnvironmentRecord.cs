@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Global;
 using Jint.Native.Object;
@@ -12,17 +13,19 @@ namespace Jint.Runtime.Environments
     /// </summary>
     internal sealed class GlobalEnvironmentRecord : EnvironmentRecord
     {
+        private readonly GlobalObject _global;
         private readonly DeclarativeEnvironmentRecord _declarativeRecord;
         private readonly ObjectEnvironmentRecord _objectRecord;
         private readonly HashSet<string> _varNames = new HashSet<string>();
 
         public GlobalEnvironmentRecord(Engine engine, GlobalObject global) : base(engine)
         {
+            _global = global;
             _objectRecord = new ObjectEnvironmentRecord(engine, global, provideThis: false, withEnvironment: false);
             _declarativeRecord = new DeclarativeEnvironmentRecord(engine);
         }
 
-        public ObjectInstance GlobalThisValue => _objectRecord._bindingObject;
+        public ObjectInstance GlobalThisValue => _global;
 
         public override bool HasBinding(string name)
         {
@@ -35,8 +38,48 @@ namespace Jint.Runtime.Environments
             out Binding binding,
             out JsValue value)
         {
-            return (_declarativeRecord._hasBindings && _declarativeRecord.TryGetBinding(name, strict, out binding, out value))
-                   || _objectRecord.TryGetBindingForGlobal(name, out binding, out value);
+            if (_declarativeRecord._hasBindings &&
+                _declarativeRecord.TryGetBinding(name, strict, out binding, out value))
+            {
+                return true;
+            }
+
+            // we unwrap by name
+            binding = default;
+            value = default;
+
+            // normal case is to find
+            if (_global._properties._dictionary.TryGetValue(name.Key, out var property)
+                && property != PropertyDescriptor.Undefined)
+            {
+                value = ObjectInstance.UnwrapJsValue(property, _global);
+                return true;
+            }
+
+            return TryGetBindingForGlobalParent(name, out value, property);
+        }
+        
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private bool TryGetBindingForGlobalParent(
+            in BindingName name,
+            out JsValue value,
+            PropertyDescriptor property)
+        {
+            value = default;
+
+            var parent = _global._prototype;
+            if (parent != null)
+            {
+                property = parent.GetOwnProperty(name.StringValue);
+            }
+
+            if (property == PropertyDescriptor.Undefined)
+            {
+                return false;
+            }
+
+            value = ObjectInstance.UnwrapJsValue(property, _global);
+            return true;
         }
 
         /// <summary>
@@ -70,7 +113,10 @@ namespace Jint.Runtime.Environments
             }
             else
             {
-                _objectRecord.InitializeBinding(name, value);
+                if (!_global.Set(name, value))
+                {
+                    ExceptionHelper.ThrowTypeError(_engine);
+                }
             }
         }
 
@@ -84,7 +130,7 @@ namespace Jint.Runtime.Environments
             {
                 // fast inlined path as we know we target global, otherwise would be
                 // _objectRecord.SetMutableBinding(name, value, strict); 
-                if (!_objectRecord._bindingObject.SetForGlobal(new BindingName(name), value) && strict)
+                if (!_global.Set(name, value) && strict)
                 {
                     ExceptionHelper.ThrowTypeError(_engine);
                 }
@@ -101,7 +147,7 @@ namespace Jint.Runtime.Environments
             {
                 // fast inlined path as we know we target global, otherwise would be
                 // _objectRecord.SetMutableBinding(name, value, strict); 
-                if (!_objectRecord._bindingObject.SetForGlobal(name, value) && strict)
+                if (!_global.Set(name.Key, value) && strict)
                 {
                     ExceptionHelper.ThrowTypeError(_engine);
                 }
@@ -122,7 +168,7 @@ namespace Jint.Runtime.Environments
                 return _declarativeRecord.DeleteBinding(name);
             }
 
-            if (_objectRecord._bindingObject.HasOwnProperty(name))
+            if (_global.HasOwnProperty(name))
             {
                 var status = _objectRecord.DeleteBinding(name);
                 if (status)
@@ -153,7 +199,7 @@ namespace Jint.Runtime.Environments
 
         public override JsValue GetThisBinding()
         {
-            return _objectRecord._bindingObject;
+            return _global;
         }
 
         public bool HasVarDeclaration(string name)
@@ -168,8 +214,7 @@ namespace Jint.Runtime.Environments
 
         public bool HasRestrictedGlobalProperty(string name)
         {
-            var globalObject = _objectRecord._bindingObject;
-            var existingProp = globalObject.GetOwnProperty(name);
+            var existingProp = _global.GetOwnProperty(name);
             if (existingProp == PropertyDescriptor.Undefined)
             {
                 return false;
@@ -180,23 +225,20 @@ namespace Jint.Runtime.Environments
 
         public bool CanDeclareGlobalVar(string name)
         {
-            var globalObject = _objectRecord._bindingObject;
-
-            if (globalObject._properties.ContainsKey(name))
+            if (_global._properties.ContainsKey(name))
             {
                 return true;
             }
 
-            return globalObject.Extensible;
+            return _global.Extensible;
         }
 
         public bool CanDeclareGlobalFunction(string name)
         {
-            var globalObject = _objectRecord._bindingObject;
-            if (!globalObject._properties.TryGetValue(name, out var existingProp) 
+            if (!_global._properties.TryGetValue(name, out var existingProp) 
                 || existingProp == PropertyDescriptor.Undefined)
             {
-                return globalObject.Extensible;
+                return _global.Extensible;
             }
 
             if (existingProp.Configurable)
@@ -214,10 +256,8 @@ namespace Jint.Runtime.Environments
 
         public void CreateGlobalVarBinding(string name, bool canBeDeleted)
         {
-            var globalObject = _objectRecord._bindingObject;
-            var hasProperty = globalObject.HasOwnProperty(name);
-            var extensible = globalObject.Extensible;
-            if (!hasProperty && extensible)
+            var hasProperty = _global.HasOwnProperty(name);
+            if (!hasProperty && _global.Extensible)
             {
                 _objectRecord.CreateMutableBindingAndInitialize(name, Undefined, canBeDeleted);
             }
@@ -227,8 +267,7 @@ namespace Jint.Runtime.Environments
 
         public void CreateGlobalFunctionBinding(string name, JsValue value, bool canBeDeleted)
         {
-            var globalObject = _objectRecord._bindingObject;
-            var existingProp = globalObject.GetOwnProperty(name);
+            var existingProp = _global.GetOwnProperty(name);
 
             PropertyDescriptor desc;
             if (existingProp == PropertyDescriptor.Undefined || existingProp.Configurable)
@@ -240,8 +279,8 @@ namespace Jint.Runtime.Environments
                 desc = new PropertyDescriptor(value, PropertyFlag.None);
             }
 
-            globalObject.DefinePropertyOrThrow(name, desc);
-            globalObject.Set(name, value, false);
+            _global.DefinePropertyOrThrow(name, desc);
+            _global.Set(name, value, false);
             _varNames.Add(name);
         }
 
@@ -252,7 +291,7 @@ namespace Jint.Runtime.Environments
 
         internal override string[] GetAllBindingNames()
         {
-            return _objectRecord._bindingObject.GetOwnProperties().Select(x => x.Key.ToString()).ToArray();
+            return _global.GetOwnProperties().Select(x => x.Key.ToString()).ToArray();
         }
 
         public override bool Equals(JsValue other)
