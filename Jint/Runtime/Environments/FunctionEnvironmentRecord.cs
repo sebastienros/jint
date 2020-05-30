@@ -218,7 +218,7 @@ namespace Jint.Runtime.Environments
                             propertyName = ExceptionHelper.ThrowArgumentOutOfRangeException<JsString>("property", "unknown object pattern property type");
                         }
 
-                        processedProperties?.Add(propertyName.AsStringWithoutTypeCheck());
+                        processedProperties?.Add(propertyName.ToString());
                         jsValues[0] = argumentObject.Get(propertyName);
                         SetFunctionParameter(p.Value, jsValues, 0, initiallyEmpty);
                     }

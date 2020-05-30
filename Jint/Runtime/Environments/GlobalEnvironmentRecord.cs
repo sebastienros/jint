@@ -82,7 +82,12 @@ namespace Jint.Runtime.Environments
             }
             else
             {
-                _objectRecord.SetMutableBinding(name, value, strict);
+                // fast inlined path as we know we target global, otherwise would be
+                // _objectRecord.SetMutableBinding(name, value, strict); 
+                if (!_objectRecord._bindingObject.SetForGlobal(new BindingName(name), value) && strict)
+                {
+                    ExceptionHelper.ThrowTypeError(_engine);
+                }
             }
         }
 

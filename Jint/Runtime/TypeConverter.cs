@@ -192,7 +192,7 @@ namespace Jint.Runtime
                 InternalTypes.Null => 0,
                 InternalTypes.Object when o is IPrimitiveInstance p => ToNumber(ToPrimitive(p.PrimitiveValue, Types.Number)),
                 InternalTypes.Boolean => (((JsBoolean) o)._value ? 1 : 0),
-                InternalTypes.String => ToNumber(o.AsStringWithoutTypeCheck()),
+                InternalTypes.String => ToNumber(o.ToString()),
                 InternalTypes.Symbol =>
                 // TODO proper TypeError would require Engine instance and a lot of API changes
                 ExceptionHelper.ThrowTypeErrorNoEngine<double>("Cannot convert a Symbol value to a number"),
@@ -454,11 +454,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string ToString(JsValue o)
         {
-            if (o.IsString())
-            {
-                return o.AsStringWithoutTypeCheck();
-            }
-            return ToStringNonString(o);
+            return o.IsString() ? o.ToString() : ToStringNonString(o);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -498,7 +494,7 @@ namespace Jint.Runtime
                 InternalTypes.Boolean => engine.Boolean.Construct(((JsBoolean) value)._value),
                 InternalTypes.Number => engine.Number.Construct(((JsNumber) value)._value),
                 InternalTypes.Integer => engine.Number.Construct(((JsNumber) value)._value),
-                InternalTypes.String => engine.String.Construct(value.AsStringWithoutTypeCheck()),
+                InternalTypes.String => engine.String.Construct(value.ToString()),
                 InternalTypes.Symbol => engine.Symbol.Construct(((JsSymbol) value)),
                 _ => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine)
             };

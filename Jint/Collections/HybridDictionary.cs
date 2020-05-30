@@ -13,7 +13,7 @@ namespace Jint.Collections
 
         private readonly bool _checkExistingKeys;
         private ListDictionary<TValue> _list;
-        private StringDictionarySlim<TValue> _dictionary;
+        internal StringDictionarySlim<TValue> _dictionary;
 
         public HybridDictionary() : this(0, checkExistingKeys: true)
         {
