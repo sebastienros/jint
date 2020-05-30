@@ -78,6 +78,7 @@ namespace Jint.Runtime.Environments
         }
 
         // optimized version because we know some facts
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool TryGetBindingForGlobal(
             in BindingName name,
             out Binding binding,

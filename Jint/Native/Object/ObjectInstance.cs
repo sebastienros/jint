@@ -318,11 +318,6 @@ namespace Jint.Native.Object
 
         internal static JsValue UnwrapJsValue(PropertyDescriptor desc, JsValue thisObject)
         {
-            if (desc == PropertyDescriptor.Undefined)
-            {
-                return Undefined;
-            }
-
             var value = (desc._flags & PropertyFlag.CustomJsValue) != 0
                 ? desc.CustomValue
                 : desc._value;
@@ -334,6 +329,15 @@ namespace Jint.Native.Object
                 return value ?? Undefined;
             }
 
+            return UnwrapFromGetter(desc, thisObject);
+        }
+
+        /// <summary>
+        /// A rarer case.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static JsValue UnwrapFromGetter(PropertyDescriptor desc, JsValue thisObject)
+        {
             var getter = desc.Get ?? Undefined;
             if (getter.IsUndefined())
             {
