@@ -105,7 +105,8 @@ namespace Jint
         };
 
         // shared frozen version
-        internal readonly PropertyDescriptor _callerCalleeArgumentsThrower;
+        internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerConfigurable;
+        internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerNonConfigurable;
 
         internal readonly struct ClrPropertyDescriptorFactoriesKey : IEquatable<ClrPropertyDescriptorFactoriesKey>
         {
@@ -158,7 +159,8 @@ namespace Jint
 
             Object = ObjectConstructor.CreateObjectConstructor(this);
             Function = FunctionConstructor.CreateFunctionConstructor(this);
-            _callerCalleeArgumentsThrower = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
+            _callerCalleeArgumentsThrowerConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this,  PropertyFlag.Configurable | PropertyFlag.CustomJsValue, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
+            _callerCalleeArgumentsThrowerNonConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this, PropertyFlag.CustomJsValue, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
 
             Symbol = SymbolConstructor.CreateSymbolConstructor(this);
             Array = ArrayConstructor.CreateArrayConstructor(this);

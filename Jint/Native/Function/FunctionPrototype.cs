@@ -69,7 +69,7 @@ namespace Jint.Native.Function
                 TargetFunction = thisObj,
                 BoundThis = thisObj is ArrowFunctionInstance ? Undefined : thisArg,
                 BoundArgs = arguments.Skip(1),
-                _prototype = Engine.Function.PrototypeObject
+                _prototype = Engine.Function.PrototypeObject,
             };
 
             JsNumber l;
@@ -96,8 +96,7 @@ namespace Jint.Native.Function
 
             f._length = new PropertyDescriptor(l, PropertyFlag.Configurable);
             
-            f.DefineOwnProperty(CommonProperties.Caller, _engine._callerCalleeArgumentsThrower);
-            f.DefineOwnProperty(CommonProperties.Arguments, _engine._callerCalleeArgumentsThrower);
+            f.DefineOwnProperty(CommonProperties.Arguments, _engine._callerCalleeArgumentsThrowerConfigurable);
             
             var targetName = thisObj.Get(CommonProperties.Name);
             if (!targetName.IsString())

@@ -90,20 +90,26 @@ namespace Jint.Native.Function
             }
         }
 
+        public override bool Set(JsValue property, JsValue value, JsValue receiver)
+        {
+            if (_thisMode != FunctionThisMode.Global)
+            {
+                AssertValidPropertyName(property);
+            }
+            return base.Set(property, value, receiver);
+        }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.3.5.4
         /// </summary>
         public override JsValue Get(JsValue property, JsValue receiver)
         {
-            var v = base.Get(property, receiver);
-
-            if (property == CommonProperties.Caller
-                && v.As<FunctionInstance>()?._thisMode == FunctionThisMode.Strict)
+            if (_thisMode != FunctionThisMode.Global)
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                AssertValidPropertyName(property);
             }
 
-            return v;
+            return base.Get(property, receiver);
         }
 
         public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
@@ -263,6 +269,17 @@ namespace Jint.Native.Function
             //    Let realm be ? GetFunctionRealm(constructor).
             //    Set proto to realm's intrinsic object named intrinsicDefaultProto.
             return proto ?? intrinsicDefaultProto;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void AssertValidPropertyName(JsValue property)
+        {
+            if (property == CommonProperties.Caller
+                || property ==  CommonProperties.Callee
+                || property == CommonProperties.Arguments)
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
+            }
         }
 
         public override string ToString()

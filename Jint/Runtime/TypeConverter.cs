@@ -520,8 +520,8 @@ namespace Jint.Runtime
             MemberExpression expression,
             string referencedName)
         {
-            referencedName ??= "The value";
-            var message = $"{referencedName} is {o}";
+            referencedName ??= "unknown";
+            var message = $"Cannot read property '{referencedName}' of {o}";
             throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, expression.Location);
         }
 

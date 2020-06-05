@@ -47,8 +47,8 @@ namespace Jint.Runtime.Descriptors.Specialized
             private readonly string _message;
             private JsValue _thrower;
             
-            public ThrowerPropertyDescriptor(Engine engine, string message)
-                : base(PropertyFlag.Configurable | PropertyFlag.CustomJsValue)
+            public ThrowerPropertyDescriptor(Engine engine, PropertyFlag flags, string message)
+                : base(flags)
             {
                 _engine = engine;
                 _message = message;

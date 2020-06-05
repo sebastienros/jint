@@ -47,8 +47,7 @@ namespace Jint.Native.Function
 
             if (function.Strict || thisMode == FunctionThisMode.Strict)
             {
-                DefineOwnProperty(CommonProperties.Caller, engine._callerCalleeArgumentsThrower);
-                DefineOwnProperty(CommonProperties.Arguments, engine._callerCalleeArgumentsThrower);
+                DefineOwnProperty(CommonProperties.Arguments, engine._callerCalleeArgumentsThrowerConfigurable);
             }
         }
 

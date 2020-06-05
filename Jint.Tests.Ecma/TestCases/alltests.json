@@ -16920,8 +16920,8 @@
     source: "ch13/13.2/13.2-28-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller no longer present for functions",
     source: "ch13/13.2/13.2-29-s.js"
   },
   {
@@ -16930,38 +16930,38 @@
     source: "ch13/13.2/13.2-3-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller no longer present for functions",
     source: "ch13/13.2/13.2-30-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller no longer present for functions",
     source: "ch13/13.2/13.2-31-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller no longer present for functions",
     source: "ch13/13.2/13.2-32-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller no longer present for functions",
     source: "ch13/13.2/13.2-33-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller no longer present for functions",
     source: "ch13/13.2/13.2-34-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller no longer present for functions",
     source: "ch13/13.2/13.2-35-s.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "caller no longer present for functions",
     source: "ch13/13.2/13.2-36-s.js"
   },
   {
@@ -37905,8 +37905,8 @@
     source: "ch15/15.3/15.3.4/15.3.4.5/15.3.4.5-2-9.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "function no longer has caller present",
     source: "ch15/15.3/15.3.4/15.3.4.5/15.3.4.5-20-1.js"
   },
   {
@@ -37920,13 +37920,13 @@
     source: "ch15/15.3/15.3.4/15.3.4.5/15.3.4.5-20-3.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "function no longer has caller present",
     source: "ch15/15.3/15.3.4/15.3.4.5/15.3.4.5-20-4.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "function no longer has caller present",
     source: "ch15/15.3/15.3.4/15.3.4.5/15.3.4.5-20-5.js"
   },
   {
