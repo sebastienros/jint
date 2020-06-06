@@ -34,13 +34,14 @@ namespace Jint.Native.Function
         {
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-            var properties = new PropertyDictionary(5, checkExistingKeys: false)
+            var properties = new PropertyDictionary(6, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
                 ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2, lengthFlags), propertyFlags),
                 ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1), propertyFlags),
-                ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1, PropertyFlag.AllForbidden), propertyFlags)
+                ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1, PropertyFlag.AllForbidden), propertyFlags),
+                ["arguments"] = _engine._callerCalleeArgumentsThrowerConfigurable
             };
             SetProperties(properties);
             
