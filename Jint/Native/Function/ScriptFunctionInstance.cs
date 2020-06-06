@@ -45,7 +45,7 @@ namespace Jint.Native.Function
 
             _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
-            if (function.Strict || thisMode == FunctionThisMode.Strict)
+            if (!function.Strict)
             {
                 DefineOwnProperty(CommonProperties.Arguments, engine._callerCalleeArgumentsThrowerConfigurable);
             }
