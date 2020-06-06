@@ -71,7 +71,7 @@ namespace Jint.Native.Function
             {
                 var functionExpression = argCount == 0 
                     ? "function f(){}" 
-                    : "function f(" + p + "){" + body + "}";
+                    : "function f(\n" + p + "\n)\n{\n" + body + "\n}";
                 
                 var parser = new JavaScriptParser(functionExpression, ParserOptions);
                 function = (IFunction) parser.ParseScript().Body[0];
@@ -87,7 +87,7 @@ namespace Jint.Native.Function
                 _engine.GlobalEnvironment,
                 function.Strict);
 
-            // the function is not actually named f
+            // the function is not actually a named function
             functionObject.SetFunctionName(_functionNameAnonymous, force: true);
 
             return functionObject;
