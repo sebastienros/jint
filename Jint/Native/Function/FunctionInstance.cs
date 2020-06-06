@@ -90,28 +90,6 @@ namespace Jint.Native.Function
             }
         }
 
-        public override bool Set(JsValue property, JsValue value, JsValue receiver)
-        {
-            if (_thisMode != FunctionThisMode.Global)
-            {
-                AssertValidPropertyName(property);
-            }
-            return base.Set(property, value, receiver);
-        }
-
-        /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.3.5.4
-        /// </summary>
-        public override JsValue Get(JsValue property, JsValue receiver)
-        {
-            if (_thisMode != FunctionThisMode.Global)
-            {
-                AssertValidPropertyName(property);
-            }
-
-            return base.Get(property, receiver);
-        }
-
         public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
         {
             if (_prototypeDescriptor != null)
