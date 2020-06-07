@@ -249,17 +249,6 @@ namespace Jint.Native.Function
             return proto ?? intrinsicDefaultProto;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void AssertValidPropertyName(JsValue property)
-        {
-            if (property == CommonProperties.Caller
-                || property ==  CommonProperties.Callee
-                || property == CommonProperties.Arguments)
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
-            }
-        }
-
         public override string ToString()
         {
             // TODO no way to extract SourceText from Esprima at the moment, just returning native code

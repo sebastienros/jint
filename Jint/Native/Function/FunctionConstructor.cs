@@ -69,10 +69,37 @@ namespace Jint.Native.Function
             IFunction function;
             try
             {
-                var functionExpression = argCount == 0 
-                    ? "function f(){}" 
-                    : "function f(\n" + p + "\n)\n{\n" + body + "\n}";
-                
+                string functionExpression;
+                if (argCount == 0)
+                {
+                    functionExpression = "function f(){}";
+                }
+                else
+                {
+                    functionExpression = "function f(";
+                    if (p.IndexOf('/') != -1)
+                    {
+                        // ensure comments don't screw up things
+                        functionExpression += "\n" + p + "\n";
+                    }
+                    else
+                    {
+                        functionExpression += p;
+                    }
+
+                    functionExpression += ")";
+
+                    if (body.IndexOf('/') != -1)
+                    {
+                        // ensure comments don't screw up things
+                        functionExpression += "{\n" + body + "\n}";
+                    }
+                    else
+                    {
+                        functionExpression += "{" + body + "}";
+                    }
+                }
+
                 var parser = new JavaScriptParser(functionExpression, ParserOptions);
                 function = (IFunction) parser.ParseScript().Body[0];
             }

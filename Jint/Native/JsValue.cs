@@ -596,6 +596,8 @@ namespace Jint.Native
         {
             return this;
         }
+        
+        internal virtual bool IsCallable => this is ICallable;
 
         internal static bool SameValue(JsValue x, JsValue y)
         {
