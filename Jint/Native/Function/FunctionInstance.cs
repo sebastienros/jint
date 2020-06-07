@@ -68,7 +68,7 @@ namespace Jint.Native.Function
                 return false;
             }
 
-            var p = Get(CommonProperties.Prototype, this);
+            var p = Get(CommonProperties.Prototype);
             if (!(p is ObjectInstance prototype))
             {
                 ExceptionHelper.ThrowTypeError(_engine, $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");

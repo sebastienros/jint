@@ -53,9 +53,14 @@ namespace Jint.Native.Function
             SetSymbols(symbols);
         }
 
-        private JsValue HasInstance(JsValue thisObj, JsValue[] arguments)
+        private static JsValue HasInstance(JsValue thisObj, JsValue[] arguments)
         {
-            return HasInstance(thisObj);
+            if (!(thisObj is FunctionInstance f))
+            {
+                return false;
+            }
+            
+            return f.HasInstance(arguments.At(0));
         }
 
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)
