@@ -20,7 +20,7 @@ namespace Jint.Native.Function
         protected internal PropertyDescriptor _prototypeDescriptor;
 
         protected internal PropertyDescriptor _length;
-        private PropertyDescriptor _nameDescriptor;
+        internal PropertyDescriptor _nameDescriptor;
 
         protected internal LexicalEnvironment _environment;
         internal readonly JintFunctionDefinition _functionDefinition;
@@ -258,7 +258,7 @@ namespace Jint.Native.Function
             {
                 name = TypeConverter.ToString(nameValue);
             }
-            return $"function {name}() {{[native code]}}";
+            return "function " + name  + "() {{[native code]}}";
         }
     }
 }

@@ -33,6 +33,12 @@
   },
 
 
+  {
+    "source": "built-ins/Function/prototype/toString/method-computed-property-name.js",
+    "reason": "requires investigation how to process complex function name evaluation for property"
+  },
+
+
   // http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics
   {
     "source": "language/statements/let/block-local-closure-set-before-initialization.js",

@@ -11,7 +11,7 @@ namespace Jint.Native.Function
 {
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        internal readonly JintFunctionDefinition _function;
+        private readonly JintFunctionDefinition _function;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
