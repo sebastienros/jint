@@ -2032,7 +2032,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldNotResolvetoPrimitiveSymbol()
+        public void ShouldNotResolveToPrimitiveSymbol()
         {
             var engine = new Engine(options => 
                 options.AllowClr(typeof(FloatIndexer).GetTypeInfo().Assembly));
@@ -2077,6 +2077,65 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
             engine.SetValue("dictionaryTest", new DictionaryTest());
             engine.Execute("dictionaryTest.test2({ values: { a: 1 } });");
+        }
+
+        [Fact]
+        public void ShouldSupportSpreadForDictionary()
+        {
+            var engine = new Engine();
+            var state = new Dictionary<string, object>
+            {
+                {"invoice", new Dictionary<string, object> {["number"] = "42"}}
+            };
+            engine.SetValue("state", state);
+
+            var result = (IDictionary<string, object>) engine
+                .Execute("({ supplier: 'S1', ...state.invoice })")
+                .GetCompletionValue()
+                .ToObject();
+
+            Assert.Equal("S1", result["supplier"]);
+            Assert.Equal("42", result["number"]);            
+        }
+        
+        [Fact]
+        public void ShouldSupportSpreadForDictionary2()
+        {
+            var engine = new Engine();
+            var state = new Dictionary<string, object>
+            {
+                {"invoice", new Dictionary<string, object> {["number"] = "42"}}
+            };
+            engine.SetValue("state", state);
+
+            var result = (IDictionary<string, object>) engine
+                .Execute("function getValue() { return {supplier: 'S1', ...state.invoice}; }")
+                .Invoke("getValue")
+                .ToObject();
+            
+            Assert.Equal("S1", result["supplier"]);
+            Assert.Equal("42", result["number"]);    
+        }        
+
+        [Fact]
+        public void ShouldSupportSpreadForObject()
+        {
+            var engine = new Engine();
+            var person = new Person
+            {
+                Name = "Mike",
+                Age = 20
+            };
+            engine.SetValue("p", person);
+
+            var result = (IDictionary<string, object>) engine
+                .Execute("({ supplier: 'S1', ...p })")
+                .GetCompletionValue()
+                .ToObject();
+
+            Assert.Equal("S1", result["supplier"]);
+            Assert.Equal("Mike", result["Name"]);         
+            Assert.Equal(20d, result["Age"]);         
         }
     }
 }

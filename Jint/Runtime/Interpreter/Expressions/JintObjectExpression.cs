@@ -86,7 +86,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     _canBuildFast = false;
                     _properties[i] = null;
-                    _valueExpressions[i] = Build(_engine, spreadElement.Argument);
+                    _valueExpressions[i] = new JintSpreadExpression(_engine, spreadElement);
                 }
                 else
                 {

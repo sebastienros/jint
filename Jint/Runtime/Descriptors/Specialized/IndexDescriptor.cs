@@ -13,7 +13,8 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly PropertyInfo _indexer;
         private readonly MethodInfo _containsKey;
 
-        public IndexDescriptor(Engine engine, Type targetType, string key, object target) : base(PropertyFlag.CustomJsValue)
+        public IndexDescriptor(Engine engine, Type targetType, string key, object target)
+            : base(PropertyFlag.Enumerable | PropertyFlag.CustomJsValue)
         {
             _engine = engine;
             _target = target;
