@@ -76,7 +76,11 @@ namespace Jint.Native.Reflect
 
         private JsValue DefineProperty(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            if (!(arguments.At(0) is ObjectInstance o))
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Reflect.defineProperty called on non-object");
+            }
+
             var p = arguments.At(1);
             var name = TypeConverter.ToPropertyKey(p);
 

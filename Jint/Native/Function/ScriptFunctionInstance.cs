@@ -11,7 +11,7 @@ namespace Jint.Native.Function
 {
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        internal readonly JintFunctionDefinition _function;
+        private readonly JintFunctionDefinition _function;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
@@ -45,10 +45,10 @@ namespace Jint.Native.Function
 
             _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
-            if (thisMode == FunctionThisMode.Strict)
+            if (!function.Strict && !engine._isStrict)
             {
-                DefineOwnProperty(CommonProperties.Caller, engine._getSetThrower);
-                DefineOwnProperty(CommonProperties.Arguments, engine._getSetThrower);
+                DefineOwnProperty(CommonProperties.Arguments, engine._callerCalleeArgumentsThrowerConfigurable);
+                DefineOwnProperty(CommonProperties.Caller, new PropertyDescriptor(Undefined, PropertyFlag.Configurable));
             }
         }
 

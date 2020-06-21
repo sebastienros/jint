@@ -413,6 +413,8 @@ namespace Jint.Native
             return callable.Call(v, arguments);
         }
 
+        public virtual bool HasOwnProperty(JsValue property) => false;
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue Get(JsValue property)
         {
@@ -594,6 +596,8 @@ namespace Jint.Native
         {
             return this;
         }
+        
+        internal virtual bool IsCallable => this is ICallable;
 
         internal static bool SameValue(JsValue x, JsValue y)
         {

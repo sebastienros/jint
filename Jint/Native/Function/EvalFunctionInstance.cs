@@ -84,7 +84,7 @@ namespace Jint.Native.Function
                 {
                     Engine.EvalDeclarationInstantiation(script, varEnv, lexEnv, strictEval);
 
-                    var statement = JintStatement.Build(_engine, script);
+                    var statement = new JintScript(_engine, script);
                     var result = statement.Execute();
                     var value = result.GetValueOrDefault();
 

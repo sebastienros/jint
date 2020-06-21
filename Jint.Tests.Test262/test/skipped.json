@@ -33,6 +33,12 @@
   },
 
 
+  {
+    "source": "built-ins/Function/prototype/toString/method-computed-property-name.js",
+    "reason": "requires investigation how to process complex function name evaluation for property"
+  },
+
+
   // http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics
   {
     "source": "language/statements/let/block-local-closure-set-before-initialization.js",
@@ -688,6 +694,74 @@
 
 
   // class support
+  {
+    "source": "built-ins/Function/prototype/toString/class-declaration-complex-heritage.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/class-declaration-explicit-ctor.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/class-declaration-implicit-ctor.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/class-expression-explicit-ctor.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/class-expression-implicit-ctor.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/getter-class-expression-static.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/getter-class-expression.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/getter-class-statement-static.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/getter-class-statement.js",
+    "reason": "class not implemented"
+  }, 
+  {
+    "source": "built-ins/Function/prototype/toString/method-class-expression-static.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/method-class-expression.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/method-class-statement-static.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/method-class-statement.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/setter-class-expression-static.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/setter-class-expression.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/setter-class-statement-static.js",
+    "reason": "class not implemented"
+  },
+  {
+    "source": "built-ins/Function/prototype/toString/setter-class-statement.js",
+    "reason": "class not implemented"
+  },
   {
     "source": "language/global-code/script-decl-lex.js",
     "reason": "class not implemented"

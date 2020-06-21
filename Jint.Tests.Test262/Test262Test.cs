@@ -52,7 +52,10 @@ namespace Jint.Tests.Test262
                 "assertRelativeDateMs.js",
                 "regExpUtils.js",
                 "nans.js",
-                "compareIterator.js"
+                "compareIterator.js",
+                "nativeFunctionMatcher.js",
+                "wellKnownIntrinsicObjects.js",
+                "fnGlobalObject.js"
             };
 
             Sources = new Dictionary<string, string>(files.Length);
