@@ -1,9 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 
@@ -28,9 +30,10 @@ namespace Jint.Runtime.Interop
                     return;
                 }
                 IsArrayLike = true;
+
                 var functionInstance = new ClrFunctionInstance(engine, "length", (thisObj, arguments) => JsNumber.Create((int) lengthProperty.GetValue(obj)));
                 var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
-                AddProperty(CommonProperties.Length, descriptor);
+                SetProperty(KnownKeys.Length, descriptor);
             }
         }
 
@@ -80,18 +83,58 @@ namespace Jint.Runtime.Interop
             return true;
         }
 
-        public override PropertyDescriptor GetOwnProperty(JsValue property)
+        public override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
         {
-            if (property.IsSymbol())
+            var propertyKeys = base.GetOwnPropertyKeys(types);
+            
+            if (Target is IDictionary dictionary)
             {
-                return PropertyDescriptor.Undefined;
+                // we take values exposed as dictionary keys only 
+                foreach (var key in dictionary.Keys)
+                {
+                    if (_engine.ClrTypeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out var stringKey))
+                    {
+                        propertyKeys.Add(JsString.Create((string) stringKey));
+                    }
+                }
+            }
+            else
+            {
+                // we take public properties and fields
+                var type = Target.GetType();
+                foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+                {
+                    var indexParameters = p.GetIndexParameters();
+                    if (indexParameters.Length == 0)
+                    {
+                        propertyKeys.Add(p.Name);
+                    }
+                }
+            
+                foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+                {
+                    propertyKeys.Add(f.Name);
+                }
             }
 
+            return propertyKeys;
+        }
+
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
+        {
             if (TryGetProperty(property, out var x))
             {
                 return x;
             }
 
+            if (property.IsSymbol() && property == GlobalSymbolRegistry.Iterator)
+            {
+                var iteratorFunction = new ClrFunctionInstance(Engine, "iterator", (thisObject, arguments) => _engine.Iterator.Construct(this), 1, PropertyFlag.Configurable);
+                var iteratorProperty = new PropertyDescriptor(iteratorFunction, PropertyFlag.Configurable | PropertyFlag.Writable);
+                SetProperty(GlobalSymbolRegistry.Iterator, iteratorProperty);
+                return iteratorProperty;
+            }
+            
             var type = Target.GetType();
             var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, property.ToString());
 

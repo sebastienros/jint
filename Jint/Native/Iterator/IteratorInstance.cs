@@ -296,12 +296,12 @@ namespace Jint.Native.Iterator
             }
         }
 
-        internal class ObjectWrapper : IIterator
+        internal class ObjectIterator : IIterator
         {
             private readonly ObjectInstance _target;
             private readonly ICallable _nextMethod;
 
-            public ObjectWrapper(ObjectInstance target)
+            public ObjectIterator(ObjectInstance target)
             {
                 _target = target;
                 _nextMethod = target.Get(CommonProperties.Next, target) as ICallable

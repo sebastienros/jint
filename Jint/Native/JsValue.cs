@@ -202,7 +202,7 @@ namespace Jint.Native
             }
             else
             {
-                iterator = new IteratorInstance.ObjectWrapper(obj);
+                iterator = new IteratorInstance.ObjectIterator(obj);
             }
             return true;
         }
