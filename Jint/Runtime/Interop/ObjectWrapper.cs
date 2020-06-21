@@ -160,7 +160,7 @@ namespace Jint.Runtime.Interop
                 PropertyInfo property = null;
                 foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
-                    if (EqualsIgnoreCasing(p.Name, propertyName))
+                    if (EqualsIgnoreCasing(p.Name, propertyName, _engine.Options._IsIgnoredCasingResolveProperty))
                     {
                         property = p;
                         break;
@@ -176,7 +176,7 @@ namespace Jint.Runtime.Interop
                 FieldInfo field = null;
                 foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
-                    if (EqualsIgnoreCasing(f.Name, propertyName))
+                    if (EqualsIgnoreCasing(f.Name, propertyName, _engine.Options._IsIgnoredCasingResolveProperty))
                     {
                         field = f;
                         break;
@@ -192,7 +192,7 @@ namespace Jint.Runtime.Interop
                 List<MethodInfo> methods = null;
                 foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
-                    if (EqualsIgnoreCasing(m.Name, propertyName))
+                    if (EqualsIgnoreCasing(m.Name, propertyName, _engine.Options._IsIgnoredCasingResolveProperty))
                     {
                         methods ??= new List<MethodInfo>();
                         methods.Add(m);
@@ -218,7 +218,7 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var iprop in iface.GetProperties())
                 {
-                    if (EqualsIgnoreCasing(iprop.Name, propertyName))
+                    if (EqualsIgnoreCasing(iprop.Name, propertyName, _engine.Options._IsIgnoredCasingResolveProperty))
                     {
                         list ??= new List<PropertyInfo>();
                         list.Add(iprop);
@@ -237,7 +237,7 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var imethod in iface.GetMethods())
                 {
-                    if (EqualsIgnoreCasing(imethod.Name, propertyName))
+                    if (EqualsIgnoreCasing(imethod.Name, propertyName, _engine.Options._IsIgnoredCasingResolveProperty))
                     {
                         explicitMethods ??= new List<MethodInfo>();
                         explicitMethods.Add(imethod);
@@ -262,11 +262,14 @@ namespace Jint.Runtime.Interop
             return (engine, target) => PropertyDescriptor.Undefined;
         }
 
-        private static bool EqualsIgnoreCasing(string s1, string s2)
+        private static bool EqualsIgnoreCasing(string s1, string s2, bool ignoreCasing = true)
         {
             bool equals = false;
             if (s1.Length == s2.Length)
             {
+                if (!ignoreCasing)
+                    return (s1 == s2);
+
                 if (s1.Length > 0)
                 {
                     equals = char.ToLowerInvariant(s1[0]) == char.ToLowerInvariant(s2[0]);
