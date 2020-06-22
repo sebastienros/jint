@@ -135,44 +135,5 @@ namespace Jint.Native.Function
 
             return functionObject;
         }
-
-        public object Apply(JsValue thisObject, JsValue[] arguments)
-        {
-            if (arguments.Length != 2)
-            {
-                ExceptionHelper.ThrowArgumentException("Apply has to be called with two arguments.");
-            }
-
-            var func = thisObject.TryCast<ICallable>();
-            var thisArg = arguments[0];
-            var argArray = arguments[1];
-
-            if (func is null)
-            {
-                return ExceptionHelper.ThrowTypeError<object>(Engine);
-            }
-
-            if (argArray.IsNullOrUndefined())
-            {
-                return func.Call(thisArg, Arguments.Empty);
-            }
-
-            var argArrayObj = argArray.TryCast<ObjectInstance>();
-            if (ReferenceEquals(argArrayObj, null))
-            {
-                ExceptionHelper.ThrowTypeError(Engine);
-            }
-
-            var len = argArrayObj.Get(CommonProperties.Length, argArrayObj);
-            var n = TypeConverter.ToUint32(len);
-            var argList = new JsValue[n];
-            for (var index = 0; index < n; index++)
-            {
-                var indexName = TypeConverter.ToString(index);
-                var nextArg = argArrayObj.Get(JsString.Create(indexName), argArrayObj);
-                argList[index] = nextArg;
-            }
-            return func.Call(thisArg, argList);
-        }
     }
 }

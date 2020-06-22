@@ -420,7 +420,7 @@ namespace Jint.Runtime
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static string  ToString(double d)
+        internal static string ToString(double d)
         {
             if (d > long.MinValue && d < long.MaxValue  && Math.Abs(d % 1) <= DoubleIsIntegerTolerance)
             {
@@ -428,11 +428,9 @@ namespace Jint.Runtime
                 return ToString((long) d);
             }
 
-            using (var stringBuilder = StringBuilderPool.Rent())
-            {
-                // we can create smaller array as we know the format to be short
-                return NumberPrototype.NumberToString(d, new DtoaBuilder(17), stringBuilder.Builder);
-            }
+            using var stringBuilder = StringBuilderPool.Rent();
+            // we can create smaller array as we know the format to be short
+            return NumberPrototype.NumberToString(d, new DtoaBuilder(17), stringBuilder.Builder);
         }
 
         /// <summary>

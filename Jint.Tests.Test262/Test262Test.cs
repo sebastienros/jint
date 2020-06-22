@@ -226,6 +226,10 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "async not implemented";
                                 break;
+                            case "class-fields-private":
+                                skip = true;
+                                reason = "private class fields not implemented in esprima";
+                                break;
                             case "new.target":
                                 skip = true;
                                 reason = "MetaProperty not implemented";

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
@@ -13,7 +12,9 @@ namespace Jint
     {
         public static JsValue GetKey(this Property property, Engine engine) => GetKey(property.Key, engine, property.Computed);
 
-        public static JsValue GetKey<T>(this T expression, Engine engine, bool resolveComputed = false) where T : Expression
+        public static JsValue GetKey(this MethodDefinition property, Engine engine) => GetKey(property.Key, engine, property.Computed);
+
+        public static JsValue GetKey(this Expression expression, Engine engine, bool resolveComputed = false)
         {
             if (expression is Literal literal)
             {
@@ -40,6 +41,7 @@ namespace Jint
                 || expression.Type == Nodes.CallExpression
                 || expression.Type == Nodes.BinaryExpression
                 || expression.Type == Nodes.UpdateExpression
+                || expression.Type == Nodes.AssignmentExpression
                 || expression is StaticMemberExpression)
             {
                 propertyKey = TypeConverter.ToPropertyKey(JintExpression.Build(engine, expression).GetValue());
@@ -54,7 +56,10 @@ namespace Jint
         internal static bool IsFunctionWithName<T>(this T node) where T : Node
         {
             var type = node.Type;
-            return type == Nodes.FunctionExpression || type == Nodes.ArrowFunctionExpression || type == Nodes.ArrowParameterPlaceHolder;
+            return type == Nodes.FunctionExpression 
+                   || type == Nodes.ArrowFunctionExpression 
+                   || type == Nodes.ArrowParameterPlaceHolder 
+                   || type == Nodes.ClassExpression;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -63,15 +68,9 @@ namespace Jint
             // prevent conversion to scientific notation
             if (literal.Value is double d)
             {
-                return DoubleToString(d);
+                return TypeConverter.ToString(d);
             }
             return literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static string DoubleToString(double d)
-        {
-            return (d - (long) d) == 0 ? ((long) d).ToString() : d.ToString(CultureInfo.InvariantCulture);
         }
         
         internal static void GetBoundNames(this VariableDeclaration variableDeclaration, List<string> target)
