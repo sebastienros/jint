@@ -2137,5 +2137,41 @@ namespace Jint.Tests.Runtime
             Assert.Equal("Mike", result["Name"]);         
             Assert.Equal(20d, result["Age"]);         
         }
+
+        [Fact]
+        public void ShouldBeAbleToJsonStringifyClrObjects()
+        {
+            var engine = new Engine();
+
+            engine.Execute("var jsObj = { 'key1' :'value1', 'key2' : 'value2' }");
+
+            engine.SetValue("netObj", new Dictionary<string, object>()
+            {
+                {"key1", "value1"},
+                {"key2", "value2"},
+            });
+
+            var jsValue = engine.Execute("jsObj['key1']").GetCompletionValue().AsString();
+            var clrValue = engine.Execute("netObj['key1']").GetCompletionValue().AsString();
+            Assert.Equal(jsValue, clrValue);
+
+            jsValue = engine.Execute("JSON.stringify(jsObj)").GetCompletionValue().AsString();
+            clrValue = engine.Execute("JSON.stringify(netObj)").GetCompletionValue().AsString();
+            Assert.Equal(jsValue, clrValue);
+
+            // Write properties on screen using showProps function defined on https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Working_with_Objects
+            engine.Execute(@"function showProps(obj, objName) {
+  var result = """";
+  for (var i in obj) {
+    if (obj.hasOwnProperty(i)) {
+      result += objName + ""."" + i + "" = "" + obj[i] + ""\n"";
+    }
+    }
+  return result;
+}");
+            jsValue = engine.Execute("showProps(jsObj, 'theObject')").GetCompletionValue().AsString();
+            clrValue = engine.Execute("showProps(jsObj, 'theObject')").GetCompletionValue().AsString();
+            Assert.Equal(jsValue, clrValue);
+        }
     }
 }
