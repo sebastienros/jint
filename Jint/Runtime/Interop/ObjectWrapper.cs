@@ -85,20 +85,38 @@ namespace Jint.Runtime.Interop
 
         public override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
         {
-            var propertyKeys = base.GetOwnPropertyKeys(types);
-            
-            if (Target is IDictionary dictionary)
+            return new List<JsValue>(EnumerateOwnPropertyKeys(types));
+        }
+
+        public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
+        {
+            foreach (var key in EnumerateOwnPropertyKeys(Types.String | Types.Symbol))
+            {
+                yield return new KeyValuePair<JsValue, PropertyDescriptor>(key, GetOwnProperty(key));
+            }
+        }
+
+        private IEnumerable<JsValue> EnumerateOwnPropertyKeys(Types types)
+        {
+            var basePropertyKeys = base.GetOwnPropertyKeys(types);
+            // prefer object order, add possible other properties after
+            var processed = basePropertyKeys.Count > 0 ? new HashSet<JsValue>() : null;
+
+            var includeStrings = (types & Types.String) != 0;
+            if (Target is IDictionary dictionary && includeStrings)
             {
                 // we take values exposed as dictionary keys only 
                 foreach (var key in dictionary.Keys)
                 {
                     if (_engine.ClrTypeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out var stringKey))
                     {
-                        propertyKeys.Add(JsString.Create((string) stringKey));
+                        var jsString = JsString.Create((string) stringKey);
+                        processed?.Add(jsString);
+                        yield return jsString;
                     }
                 }
             }
-            else
+            else if (includeStrings)
             {
                 // we take public properties and fields
                 var type = Target.GetType();
@@ -107,17 +125,32 @@ namespace Jint.Runtime.Interop
                     var indexParameters = p.GetIndexParameters();
                     if (indexParameters.Length == 0)
                     {
-                        propertyKeys.Add(p.Name);
+                        var jsString = JsString.Create(p.Name);
+                        processed?.Add(jsString);
+                        yield return jsString;
                     }
                 }
-            
+
                 foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
-                    propertyKeys.Add(f.Name);
+                    var jsString = JsString.Create(f.Name);
+                    processed?.Add(jsString);
+                    yield return jsString;
                 }
             }
 
-            return propertyKeys;
+            if (processed != null)
+            {
+                // we have base keys
+                for (var i = 0; i < basePropertyKeys.Count; i++)
+                {
+                    var key = basePropertyKeys[i];
+                    if (processed.Add(key))
+                    {
+                        yield return key;
+                    }
+                }
+            }
         }
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
