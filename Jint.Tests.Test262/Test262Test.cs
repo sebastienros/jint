@@ -210,10 +210,6 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "tail-calls not implemented";
                                 break;
-                            case "class":
-                                skip = true;
-                                reason = "class keyword not implemented";
-                                break;
                             case "BigInt":
                                 skip = true;
                                 reason = "BigInt not implemented";
