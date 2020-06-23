@@ -69,6 +69,14 @@ namespace Jint
         }
 
         /// <summary>
+        /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
+        /// </summary>
+        public Options AddObjectConverter<T>() where T : IObjectConverter, new()
+        {
+            return AddObjectConverter(new T());
+        }
+
+        /// <summary>
          /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
         /// </summary>
         public Options AddObjectConverter(IObjectConverter objectConverter)

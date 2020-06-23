@@ -2834,6 +2834,19 @@ x.test = {
             _engine.Execute("equal(false, str.hasOwnProperty('foo'));");
         }
 
+        [Fact]
+        public void ShouldProvideEngineForOptionsAsOverload()
+        {
+            new Engine((e, options) =>
+                {
+                    Assert.IsType<Engine>(e);
+                    options
+                        .AddObjectConverter(new TestObjectConverter())
+                        .AddObjectConverter<TestObjectConverter>();
+                })
+                .SetValue("a", 1);
+        }
+
         private class Wrapper
         {
             public Testificate Test { get; set; }
@@ -2845,9 +2858,16 @@ x.test = {
             public Func<int, int, int> Init { get; set; }
         }
 
+        private class TestObjectConverter : Jint.Runtime.Interop.IObjectConverter
+        {
+            public bool TryConvert(Engine engine, object value, out JsValue result)
+            {
+                throw new NotImplementedException();
+            }
+        }
+
         private class TestTypeConverter : Jint.Runtime.Interop.ITypeConverter
         {
-
             public object Convert(object value, Type type, IFormatProvider formatProvider)
             {
                 throw new NotImplementedException();
