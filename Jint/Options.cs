@@ -6,6 +6,7 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Interop;
+using Jint.Runtime.References;
 
 namespace Jint
 {
@@ -25,7 +26,7 @@ namespace Jint
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
         private Predicate<Exception> _clrExceptionsHandler;
-        private IReferenceResolver _referenceResolver;
+        private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
 
         /// <summary>
         /// When called, doesn't initialize the global scope.
@@ -212,5 +213,36 @@ namespace Jint
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
 
         internal IReferenceResolver  ReferenceResolver => _referenceResolver;
+        
+        private sealed class DefaultReferenceResolver : IReferenceResolver
+        {
+            public static readonly DefaultReferenceResolver Instance = new DefaultReferenceResolver();
+            
+            private DefaultReferenceResolver()
+            {
+            }
+
+            public bool TryUnresolvableReference(Engine engine, Reference reference, out JsValue value)
+            {
+                value = JsValue.Undefined;
+                return false;
+            }
+
+            public bool TryPropertyReference(Engine engine, Reference reference, ref JsValue value)
+            {
+                return false;
+            }
+
+            public bool TryGetCallable(Engine engine, object callee, out JsValue value)
+            {
+                value = JsValue.Undefined;
+                return false;
+            }
+
+            public bool CheckCoercible(JsValue value)
+            {
+                return false;
+            }
+        }
     }
 }

@@ -129,10 +129,9 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (!func.IsObject())
             {
-                if (_engine._referenceResolver == null || !_engine._referenceResolver.TryGetCallable(_engine, callee, out func))
+                if (!_engine._referenceResolver.TryGetCallable(_engine, callee, out func))
                 {
-                    ExceptionHelper.ThrowTypeError(_engine,
-                        r == null ? "" : $"Property '{r.GetReferencedName()}' of object is not a function");
+                    ExceptionHelper.ThrowTypeError(_engine, r == null ? "" : $"Property '{r.GetReferencedName()}' of object is not a function");
                 }
             }
 

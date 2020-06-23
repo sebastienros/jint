@@ -452,8 +452,7 @@ namespace Jint
 
             if (baseValue._type == InternalTypes.Undefined)
             {
-                if (_referenceResolver != null &&
-                    _referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
+                if (_referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
                 {
                     return val;
                 }
@@ -461,8 +460,7 @@ namespace Jint
                 ExceptionHelper.ThrowReferenceError(this, reference);
             }
 
-            if (_referenceResolver != null
-                && (baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0
+            if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0
                 && _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
             {
                 return baseValue;
