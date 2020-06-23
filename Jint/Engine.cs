@@ -158,7 +158,7 @@ namespace Jint
         /// Constructs a new engine instance and allows customizing options.
         /// </summary>
         public Engine(Action<Options> options)
-            : this((engine, opts) => options(opts))
+            : this((engine, opts) => options?.Invoke(opts))
         {
         }
 

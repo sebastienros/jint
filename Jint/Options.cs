@@ -12,7 +12,6 @@ namespace Jint
     public sealed class Options
     {
         private readonly List<IConstraint> _constraints = new List<IConstraint>();
-        private bool _discardGlobal;
         private bool _strict;
         private bool _allowDebuggerStatement;
         private bool _allowClr;
@@ -26,16 +25,6 @@ namespace Jint
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver;
-
-        /// <summary>
-        /// When called, doesn't initialize the global scope.
-        /// Can be useful in lightweight scripts for performance reason.
-        /// </summary>
-        public Options DiscardGlobal(bool discard = true)
-        {
-            _discardGlobal = discard;
-            return this;
-        }
 
         /// <summary>
         /// Run the script in strict mode.
@@ -188,8 +177,6 @@ namespace Jint
             _referenceResolver = resolver;
             return this;
         }
-
-        internal bool _IsGlobalDiscarded => _discardGlobal;
 
         internal bool IsStrict => _strict;
 
