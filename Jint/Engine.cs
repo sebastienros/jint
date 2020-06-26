@@ -147,11 +147,26 @@ namespace Jint
 
         internal readonly JintCallStack CallStack = new JintCallStack();
 
-        public Engine() : this(null)
+        /// <summary>
+        /// Constructs a new engine instance.
+        /// </summary>
+        public Engine() : this((Action<Options>) null)
         {
         }
 
+        /// <summary>
+        /// Constructs a new engine instance and allows customizing options.
+        /// </summary>
         public Engine(Action<Options> options)
+            : this((engine, opts) => options?.Invoke(opts))
+        {
+        }
+
+        /// <summary>
+        /// Constructs a new engine instance and allows customizing options.
+        /// </summary>
+        /// <remarks>The provided engine instance in callback is not guaranteed to be fully configured</remarks>
+        public Engine(Action<Engine, Options> options)
         {
             _executionContexts = new ExecutionContextStack(2);
 
@@ -195,9 +210,12 @@ namespace Jint
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
             EnterExecutionContext(GlobalEnvironment, GlobalEnvironment);
 
+            Eval = new EvalFunctionInstance(this);
+            Global.SetProperty(CommonProperties.Eval, new PropertyDescriptor(Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
+
             Options = new Options();
 
-            options?.Invoke(Options);
+            options?.Invoke(this, Options);
 
             // gather some options as fields for faster checks
             _isDebugMode = Options.IsDebugMode;
@@ -208,9 +226,6 @@ namespace Jint
             _referencePool = new ReferencePool();
             _argumentsInstancePool = new ArgumentsInstancePool(this);
             _jsValueArrayPool = new JsValueArrayPool();
-
-            Eval = new EvalFunctionInstance(this);
-            Global.SetProperty(CommonProperties.Eval, new PropertyDescriptor(Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
 
             if (Options._IsClrAllowed)
             {

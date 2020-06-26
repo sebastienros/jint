@@ -13,7 +13,6 @@ namespace Jint
     public sealed class Options
     {
         private readonly List<IConstraint> _constraints = new List<IConstraint>();
-        private bool _discardGlobal;
         private bool _strict;
         private bool _allowDebuggerStatement;
         private bool _allowClr;
@@ -27,16 +26,6 @@ namespace Jint
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
-
-        /// <summary>
-        /// When called, doesn't initialize the global scope.
-        /// Can be useful in lightweight scripts for performance reason.
-        /// </summary>
-        public Options DiscardGlobal(bool discard = true)
-        {
-            _discardGlobal = discard;
-            return this;
-        }
 
         /// <summary>
         /// Run the script in strict mode.
@@ -67,6 +56,14 @@ namespace Jint
         {
             IsDebugMode = debugMode;
             return this;
+        }
+
+        /// <summary>
+        /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
+        /// </summary>
+        public Options AddObjectConverter<T>() where T : IObjectConverter, new()
+        {
+            return AddObjectConverter(new T());
         }
 
         /// <summary>
@@ -181,8 +178,6 @@ namespace Jint
             _referenceResolver = resolver;
             return this;
         }
-
-        internal bool _IsGlobalDiscarded => _discardGlobal;
 
         internal bool IsStrict => _strict;
 
