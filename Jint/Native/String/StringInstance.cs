@@ -7,11 +7,13 @@ namespace Jint.Native.String
 {
     public class StringInstance : ObjectInstance, IPrimitiveInstance
     {
-        internal PropertyDescriptor _length;
+        internal PropertyDescriptor? _length;
 
-        public StringInstance(Engine engine)
+        public StringInstance(Engine engine, JsString value)
             : base(engine, ObjectClass.String)
         {
+            PrimitiveValue = value;
+            _length = PropertyDescriptor.AllForbiddenDescriptor.ForNumber(value.Length);
         }
 
         Types IPrimitiveInstance.Type => Types.String;

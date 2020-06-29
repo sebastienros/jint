@@ -38,7 +38,7 @@ namespace Jint.Runtime.Interop
             _engine = engine;
         }
 
-        public virtual object Convert(object value, Type type, IFormatProvider formatProvider)
+        public virtual object? Convert(object value, Type type, IFormatProvider formatProvider)
         {
             if (value == null)
             {
@@ -47,7 +47,7 @@ namespace Jint.Runtime.Interop
                     return null;
                 }
 
-                ExceptionHelper.ThrowNotSupportedException($"Unable to convert null to '{type.FullName}'");
+                return ExceptionHelper.ThrowNotSupportedException<object?>($"Unable to convert null to '{type.FullName}'");
             }
 
             // don't try to convert if value is derived from type
@@ -203,11 +203,11 @@ namespace Jint.Runtime.Interop
                 var source = value as object[];
                 if (source == null)
                 {
-                    ExceptionHelper.ThrowArgumentException($"Value of object[] type is expected, but actual type is {value.GetType()}.");
+                    return ExceptionHelper.ThrowArgumentException<object?>($"Value of object[] type is expected, but actual type is {value.GetType()}.");
                 }
 
                 var targetElementType = type.GetElementType();
-                var itemsConverted = new object[source.Length];
+                var itemsConverted = new object?[source.Length];
                 for (int i = 0; i < source.Length; i++)
                 {
                     itemsConverted[i] = Convert(source[i], targetElementType, formatProvider);
@@ -274,7 +274,7 @@ namespace Jint.Runtime.Interop
             return System.Convert.ChangeType(value, type, formatProvider);
         }
 
-        public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)
+        public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object? converted)
         {
 #if NETSTANDARD
             var key = value == null ? (null, type) : (value.GetType(), type);
@@ -283,24 +283,24 @@ namespace Jint.Runtime.Interop
 #endif
 
             // string conversion is not stable, "filter" -> int is invalid, "0" -> int is valid
-            var canConvert = value is string || _knownConversions.GetOrAdd(key, _ =>
+            var canConvert = value is string || (value != null && _knownConversions.GetOrAdd(key, _ =>
             {
                 try
                 {
-                    Convert(value, type, formatProvider);
+                    Convert(value!, type, formatProvider);
                     return true;
                 }
                 catch
                 {
                     return false;
                 }
-            });
+            }));
 
             if (canConvert)
             {
                 try
                 {
-                    converted = Convert(value, type, formatProvider);
+                    converted = Convert(value!, type, formatProvider);
                     return true;
                 }
                 catch

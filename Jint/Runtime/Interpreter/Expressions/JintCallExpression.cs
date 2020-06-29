@@ -187,8 +187,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private class CachedArgumentsHolder
         {
-            internal JintExpression[] JintArguments;
-            internal JsValue[] CachedArguments;
+            internal JintExpression[]? JintArguments;
+            internal JsValue[]? CachedArguments;
         }
     }
 }

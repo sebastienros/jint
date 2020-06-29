@@ -39,7 +39,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             Engine engine,
             BindingPattern pattern,
             JsValue argument,
-            LexicalEnvironment environment,
+            LexicalEnvironment? environment,
             bool checkObjectPatternPropertyReference = true)
         {
             if (pattern is ArrayPattern ap)
@@ -67,11 +67,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             return true;
         }
         
-        private static void HandleArrayPattern(Engine engine, ArrayPattern pattern, JsValue argument, LexicalEnvironment environment)
+        private static void HandleArrayPattern(Engine engine, ArrayPattern pattern, JsValue argument, LexicalEnvironment? environment)
         {
             var obj = TypeConverter.ToObject(engine, argument);
-            ArrayOperations arrayOperations = null;
-            IIterator iterator = null;
+            ArrayOperations? arrayOperations = null;
+            IIterator? iterator = null;
             if (obj.IsArrayLike)
             {
                 arrayOperations = ArrayOperations.For(obj);
@@ -103,7 +103,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            if (!ConsumeFromIterator(iterator, out _, out done))
+                            if (!ConsumeFromIterator(iterator!, out _, out done))
                             {
                                 break;
                             }
@@ -112,7 +112,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         continue;
                     }
                 
-                    if (left is Identifier identifier)
+                    if (left is Identifier identifier && identifier.Name != null)
                     {
                         JsValue value;
                         if (arrayOperations != null)
@@ -121,7 +121,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            if (!ConsumeFromIterator(iterator, out value, out done))
+                            if (!ConsumeFromIterator(iterator!, out value, out done))
                             {
                                 break;
                             }
@@ -140,7 +140,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            ConsumeFromIterator(iterator, out value, out done);
+                            ConsumeFromIterator(iterator!, out value, out done);
                         }
 
                         AssignToReference(engine, reference, value, environment);
@@ -154,7 +154,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            iterator.TryIteratorStep(out var temp);
+                            iterator!.TryIteratorStep(out var temp);
                             value = temp;
                         }
                         ProcessPatterns(engine, bindingPattern, value, environment);
@@ -162,7 +162,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     else if (left is RestElement restElement)
                     {
                         close = true;
-                        Reference reference = null; 
+                        Reference? reference = null; 
                         if (restElement.Argument is MemberExpression memberExpression)
                         {
                             reference = GetReferenceFromMember(engine, memberExpression);
@@ -186,7 +186,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             done = true;
                             do
                             {
-                                if (!iterator.TryIteratorStep(out var item))
+                                if (!iterator!.TryIteratorStep(out var item))
                                 {
                                     done = true;
                                     break;
@@ -199,7 +199,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             array.SetLength(index);
                         }
 
-                        if (restElement.Argument is Identifier leftIdentifier)
+                        if (restElement.Argument is Identifier leftIdentifier && leftIdentifier.Name != null)
                         {
                             AssignToIdentifier(engine, leftIdentifier.Name, array, environment);
                         }
@@ -209,7 +209,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }                    
                         else
                         {
-                            AssignToReference(engine, reference,  array, environment);
+                            AssignToReference(engine, reference!,  array, environment);
                         }
                     }
                     else if (left is AssignmentPattern assignmentPattern)
@@ -221,7 +221,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            ConsumeFromIterator(iterator, out value, out done);
+                            ConsumeFromIterator(iterator!, out value, out done);
                         }
 
                         if (value.IsUndefined())
@@ -230,7 +230,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             value = jintExpression.GetValue();
                         }
 
-                        if (assignmentPattern.Left is Identifier leftIdentifier)
+                        if (assignmentPattern.Left is Identifier leftIdentifier && leftIdentifier.Name != null)
                         {
                             if (assignmentPattern.Right.IsFunctionWithName())
                             {
@@ -281,7 +281,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     JsValue sourceKey;
                     var identifier = p.Key as Identifier;
-                    if (identifier == null || p.Computed)
+                    if (identifier?.Name == null || p.Computed)
                     {
                         var keyExpression = Build(engine, p.Key);
                         sourceKey = TypeConverter.ToPropertyKey(keyExpression.GetValue());
@@ -368,7 +368,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             Engine engine,
             Reference lhs,
             JsValue v,
-            LexicalEnvironment environment)
+            LexicalEnvironment? environment)
         {
             if (environment is null)
             {
@@ -393,7 +393,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             Engine engine,
             string name,
             JsValue rval,
-            LexicalEnvironment environment,
+            LexicalEnvironment? environment,
             bool checkReference = true)
         {
             var lhs = engine.ResolveBinding(name, environment);

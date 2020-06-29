@@ -20,7 +20,7 @@ namespace Jint
                 return LiteralKeyToString(literal);
             }
 
-            if (!resolveComputed && expression is Identifier identifier)
+            if (!resolveComputed && expression is Identifier identifier && identifier.Name != null)
             {
                 return identifier.Name;
             }
@@ -92,7 +92,7 @@ namespace Jint
             }
             
             // try to get away without a loop
-            if (parameter is Identifier id)
+            if (parameter is Identifier id && id.Name != null)
             {
                 target.Add(id.Name);
                 return;
@@ -100,7 +100,7 @@ namespace Jint
 
             while (true)
             {
-                if (parameter is Identifier identifier)
+                if (parameter is Identifier identifier && identifier.Name != null)
                 {
                     target.Add(identifier.Name);
                     return;

@@ -41,7 +41,7 @@ namespace Jint.Pooling
         [DebuggerDisplay("{Value,nq}")]
         private struct Element
         {
-            internal T Value;
+            internal T? Value;
         }
  
         /// <remarks>
@@ -159,7 +159,7 @@ namespace Jint.Pooling
  
             for (int i = 0; i < items.Length; i++)
             {
-                T inst = items[i].Value;
+                T? inst = items[i].Value;
                 if (!ReferenceEquals(inst, null))
                 {
                     items[i].Value = null;
@@ -221,7 +221,7 @@ namespace Jint.Pooling
         /// return a larger array to the pool than was originally allocated.
         /// </summary>
         [Conditional("DEBUG")]
-        internal void ForgetTrackedObject(T old, T replacement = null)
+        internal void ForgetTrackedObject(T old, T? replacement = null)
         {
 #if DETECT_LEAKS
             LeakTracker tracker;

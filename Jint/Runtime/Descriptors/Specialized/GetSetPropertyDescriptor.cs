@@ -5,8 +5,8 @@ namespace Jint.Runtime.Descriptors.Specialized
 {
     public sealed class GetSetPropertyDescriptor : PropertyDescriptor
     {
-        private JsValue _get;
-        private JsValue _set;
+        private JsValue? _get;
+        private JsValue? _set;
 
         public GetSetPropertyDescriptor(JsValue get, JsValue set, bool? enumerable = null, bool? configurable = null)
         : base(null, writable: null, enumerable: enumerable, configurable: configurable)
@@ -15,7 +15,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             _set = set;
         }
 
-        internal GetSetPropertyDescriptor(JsValue get, JsValue set, PropertyFlag flags)
+        internal GetSetPropertyDescriptor(JsValue? get, JsValue? set, PropertyFlag flags)
             : base(null, flags)
         {
             _get = get;
@@ -28,8 +28,8 @@ namespace Jint.Runtime.Descriptors.Specialized
             _set = descriptor.Set;
         }
 
-        public override JsValue Get => _get;
-        public override JsValue Set => _set;
+        public override JsValue? Get => _get;
+        public override JsValue? Set => _set;
 
         internal void SetGet(JsValue getter)
         {
@@ -54,8 +54,8 @@ namespace Jint.Runtime.Descriptors.Specialized
                 _message = message;
             }
 
-            public override JsValue Get => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
-            public override JsValue Set => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
+            public override JsValue? Get => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
+            public override JsValue? Set => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
 
             protected internal override JsValue CustomValue
             {

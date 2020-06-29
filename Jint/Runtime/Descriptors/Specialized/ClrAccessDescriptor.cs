@@ -24,8 +24,8 @@ namespace Jint.Runtime.Descriptors.Specialized
             _name = new EnvironmentRecord.BindingName(name);
         }
 
-        public override JsValue Get => _get ??= new GetterFunctionInstance(_engine, DoGet);
-        public override JsValue Set => _set ??= new SetterFunctionInstance(_engine, DoSet);
+        public override JsValue? Get => _get ??= new GetterFunctionInstance(_engine, DoGet);
+        public override JsValue? Set => _set ??= new SetterFunctionInstance(_engine, DoSet);
 
         private JsValue DoGet(JsValue n)
         {

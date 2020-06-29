@@ -15,27 +15,23 @@ namespace Jint.Native.String
     {
         private static readonly JsString _functionName = new JsString("String");
 
-        public StringConstructor(Engine engine)
+        private StringConstructor(Engine engine)
             : base(engine, _functionName, FunctionThisMode.Global)
         {
+            _prototype = engine.Function.PrototypeObject;
+
+            // The value of the [[Prototype]] internal property of the String constructor is the Function prototype object
+            PrototypeObject = StringPrototype.CreatePrototypeObject(engine, this);
+
+            _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
+
+            // The initial value of String.prototype is the String prototype object
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         public static StringConstructor CreateStringConstructor(Engine engine)
         {
-            var obj = new StringConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the String constructor is the Function prototype object
-            obj.PrototypeObject = StringPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
-
-            // The initial value of String.prototype is the String prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
+            return new StringConstructor(engine);
         }
 
         protected override void Initialize()
@@ -49,12 +45,12 @@ namespace Jint.Native.String
             SetProperties(properties);
         }
 
-        private static JsValue FromCharCode(JsValue thisObj, JsValue[] arguments)
+        private static JsValue FromCharCode(JsValue? thisObj, JsValue[] arguments)
         {
             var chars = new char[arguments.Length];
-            for (var i = 0; i < chars.Length; i++ )
+            for (var i = 0; i < chars.Length; i++)
             {
-                chars[i] = (char)TypeConverter.ToUint16(arguments[i]);
+                chars[i] = (char) TypeConverter.ToUint16(arguments[i]);
             }
 
             return JsString.Create(new string(chars));
@@ -172,11 +168,9 @@ namespace Jint.Native.String
 
         public StringInstance Construct(JsString value)
         {
-            var instance = new StringInstance(Engine)
+            var instance = new StringInstance(Engine, value)
             {
-                _prototype = PrototypeObject,
-                PrimitiveValue = value,
-                _length = PropertyDescriptor.AllForbiddenDescriptor.ForNumber(value.Length)
+                _prototype = PrototypeObject
             };
 
             return instance;

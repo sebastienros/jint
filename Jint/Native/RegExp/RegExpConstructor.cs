@@ -117,7 +117,7 @@ namespace Jint.Native.RegExp
                 var scanner = new Scanner("/" + p + "/" + flags , new ParserOptions { AdaptRegexp = true });
                
                 // seems valid
-                r.Value = scanner.TestRegExp(p, f);
+                r.Value = scanner.TestRegExp(p, f)!;
 
                 var timeout = _engine.Options._RegexTimeoutInterval;
                 if (timeout.Ticks > 0)
@@ -153,9 +153,9 @@ namespace Jint.Native.RegExp
             r._prototype = PrototypeObject;
 
             var scanner = new Scanner(regExp, new ParserOptions { AdaptRegexp = true });
-            var body = (string)scanner.ScanRegExpBody().Value;
-            var flags = (string)scanner.ScanRegExpFlags().Value;
-            r.Value = scanner.TestRegExp(body, flags);
+            var body = (string) scanner.ScanRegExpBody().Value!;
+            var flags = (string) scanner.ScanRegExpFlags().Value!;
+            r.Value = scanner.TestRegExp(body, flags)!;
 
             var timeout = engine.Options._RegexTimeoutInterval;
             if (timeout.Ticks > 0)
@@ -199,6 +199,6 @@ namespace Jint.Native.RegExp
             r.SetOwnProperty(RegExpInstance.PropertyLastIndex, new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
         }
         
-        public RegExpPrototype PrototypeObject { get; private set; }
+        public RegExpPrototype? PrototypeObject { get; private set; }
     }
 }

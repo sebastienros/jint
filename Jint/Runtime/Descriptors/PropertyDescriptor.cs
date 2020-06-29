@@ -70,8 +70,8 @@ namespace Jint.Runtime.Descriptors
             WritableSet = descriptor.WritableSet;
         }
 
-        public virtual JsValue Get => null;
-        public virtual JsValue Set => null;
+        public virtual JsValue? Get => null;
+        public virtual JsValue? Set => null;
 
         public bool Enumerable
         {

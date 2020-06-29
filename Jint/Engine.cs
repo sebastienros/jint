@@ -45,7 +45,6 @@ namespace Jint
             Loc = true
         };
 
-
         private static readonly JsString _errorFunctionName = new JsString("Error");
         private static readonly JsString _evalErrorFunctionName = new JsString("EvalError");
         private static readonly JsString _rangeErrorFunctionName = new JsString("RangeError");
@@ -56,18 +55,18 @@ namespace Jint
 
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
-        internal Node _lastSyntaxNode;
+        internal Node? _lastSyntaxNode;
 
         // lazy properties
-        private ErrorConstructor _error;
-        private ErrorConstructor _evalError;
-        private ErrorConstructor _rangeError;
-        private ErrorConstructor _referenceError;
-        private ErrorConstructor _syntaxError;
-        private ErrorConstructor _typeError;
-        private ErrorConstructor _uriError;
-        private DebugHandler _debugHandler;
-        private List<BreakPoint> _breakPoints;
+        private ErrorConstructor? _error;
+        private ErrorConstructor? _evalError;
+        private ErrorConstructor? _rangeError;
+        private ErrorConstructor? _referenceError;
+        private ErrorConstructor? _syntaxError;
+        private ErrorConstructor? _typeError;
+        private ErrorConstructor? _uriError;
+        private DebugHandler? _debugHandler;
+        private List<BreakPoint>? _breakPoints;
 
         // cached access
         private readonly List<IConstraint> _constraints;
@@ -81,7 +80,7 @@ namespace Jint
         public ITypeConverter ClrTypeConverter { get; set; }
 
         // cache of types used when resolving CLR type names
-        internal readonly Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
+        internal readonly Dictionary<string, Type?> TypeCache = new Dictionary<string, Type?>();
 
         internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new Dictionary<Type, Func<Engine, object, JsValue>>
         {
@@ -150,14 +149,14 @@ namespace Jint
         /// <summary>
         /// Constructs a new engine instance.
         /// </summary>
-        public Engine() : this((Action<Options>) null)
+        public Engine() : this((Action<Options>?) null)
         {
         }
 
         /// <summary>
         /// Constructs a new engine instance and allows customizing options.
         /// </summary>
-        public Engine(Action<Options> options)
+        public Engine(Action<Options>? options)
             : this((engine, opts) => options?.Invoke(opts))
         {
         }
@@ -166,7 +165,7 @@ namespace Jint
         /// Constructs a new engine instance and allows customizing options.
         /// </summary>
         /// <remarks>The provided engine instance in callback is not guaranteed to be fully configured</remarks>
-        public Engine(Action<Engine, Options> options)
+        public Engine(Action<Engine, Options>? options)
         {
             _executionContexts = new ExecutionContextStack(2);
 
@@ -279,11 +278,10 @@ namespace Jint
 
         internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; }
 
-        #region Debugger
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
         public delegate StepMode BreakDelegate(object sender, DebugInformation e);
-        public event DebugStepDelegate Step;
-        public event BreakDelegate Break;
+        public event DebugStepDelegate? Step;
+        public event BreakDelegate? Break;
 
         internal DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this);
 
@@ -298,7 +296,6 @@ namespace Jint
         {
             return Break?.Invoke(this, info);
         }
-        #endregion
 
         public ExecutionContext EnterExecutionContext(
             LexicalEnvironment lexicalEnvironment,
@@ -455,7 +452,7 @@ namespace Jint
 
             if (!(value is Reference reference))
             {
-                return ((Completion) value).Value;
+                return ((Completion) value).Value!;
             }
 
             return GetValue(reference, returnReferenceToPool);
@@ -499,7 +496,7 @@ namespace Jint
                 {
                     // check if we are accessing a string, boxing operation can be costly to do index access
                     // we have good chance to have fast path with integer or string indexer
-                    ObjectInstance o = null;
+                    ObjectInstance? o = null;
                     if ((property._type & (InternalTypes.String | InternalTypes.Integer)) != 0
                         && baseValue is JsString s
                         && TryHandleStringValue(property, s, ref o, out var jsValue))
@@ -523,7 +520,7 @@ namespace Jint
                         return desc.Value;
                     }
 
-                    var getter = desc.Get;
+                    var getter = desc.Get!;
                     if (getter.IsUndefined())
                     {
                         return Undefined.Instance;
@@ -549,7 +546,7 @@ namespace Jint
             return bindingValue;
         }
 
-        private bool TryHandleStringValue(JsValue property, JsString s, ref ObjectInstance o, out JsValue jsValue)
+        private bool TryHandleStringValue(JsValue property, JsString s, ref ObjectInstance? o, out JsValue jsValue)
         {
             if (property == CommonProperties.Length)
             {
@@ -644,7 +641,7 @@ namespace Jint
         /// <param name="thisObj">The this value inside the function call.</param>
         /// <param name="arguments">The arguments of the function call.</param>
         /// <returns>The value returned by the function call.</returns>
-        public JsValue Invoke(string propertyName, object thisObj, object[] arguments)
+        public JsValue Invoke(string propertyName, object? thisObj, object[] arguments)
         {
             var value = GetValue(propertyName);
 
@@ -669,7 +666,7 @@ namespace Jint
         /// <param name="thisObj">The this value inside the function call.</param>
         /// <param name="arguments">The arguments of the function call.</param>
         /// <returns>The value returned by the function call.</returns>
-        public JsValue Invoke(JsValue value, object thisObj, object[] arguments)
+        public JsValue Invoke(JsValue value, object? thisObj, object[] arguments)
         {
             var callable = value as ICallable ?? ExceptionHelper.ThrowArgumentException<ICallable>("Can only invoke functions");
 
@@ -697,7 +694,7 @@ namespace Jint
         /// <summary>
         /// Gets the last evaluated <see cref="INode"/>.
         /// </summary>
-        public Node GetLastSyntaxNode()
+        public Node? GetLastSyntaxNode()
         {
             return _lastSyntaxNode;
         }
@@ -718,13 +715,13 @@ namespace Jint
         /// <summary>
         /// https://tc39.es/ecma262/#sec-resolvebinding
         /// </summary>
-        internal Reference ResolveBinding(string name, LexicalEnvironment env = null)
+        internal Reference ResolveBinding(string name, LexicalEnvironment? env = null)
         {
             env ??= ExecutionContext.LexicalEnvironment;
             return GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
         }
 
-        private Reference GetIdentifierReference(LexicalEnvironment lex, string name, in bool strict)
+        private Reference GetIdentifierReference(LexicalEnvironment? lex, string name, in bool strict)
         {
             if (lex is null)
             {
@@ -750,7 +747,7 @@ namespace Jint
             var lex = ExecutionContext.LexicalEnvironment;
             while (true)
             {
-                var envRec = lex._record;
+                var envRec = lex!._record;
                 var exists = envRec.HasThisBinding();
                 if (exists)
                 {
@@ -794,7 +791,7 @@ namespace Jint
                 for (var i = functionDeclarations.Count - 1; i >= 0; i--)
                 {
                     var d = functionDeclarations[i];
-                    var fn = d.Id.Name;
+                    var fn = d.Id!.Name!;
                     if (!declaredFunctionNames.Contains(fn))
                     {
                         var fnDefinable = envRec.CanDeclareGlobalFunction(fn);
@@ -865,7 +862,7 @@ namespace Jint
 
             foreach (var f in functionToInitialize)
             {
-                var fn = f.Id.Name;
+                var fn = f.Id!.Name!;
                 var fo = Function.CreateFunctionObject(f, env);
                 envRec.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: false);
             }
@@ -880,7 +877,7 @@ namespace Jint
         /// <summary>
         /// https://tc39.es/ecma262/#sec-functiondeclarationinstantiation
         /// </summary>
-        internal ArgumentsInstance FunctionDeclarationInstantiation(
+        internal ArgumentsInstance? FunctionDeclarationInstantiation(
             FunctionInstance functionInstance,
             JsValue[] argumentsList,
             LexicalEnvironment env)
@@ -899,7 +896,7 @@ namespace Jint
             var canInitializeParametersOnDeclaration = simpleParameterList && !configuration.HasDuplicates;
             envRec.InitializeParameters(parameterNames, hasDuplicates, canInitializeParametersOnDeclaration ? argumentsList : null);
 
-            ArgumentsInstance ao = null;
+            ArgumentsInstance? ao = null;
             if (configuration.ArgumentsObjectNeeded)
             {
                 if (strict || !simpleParameterList)
@@ -940,7 +937,7 @@ namespace Jint
             if (!hasParameterExpressions)
             {
                 // NOTE: Only a single lexical environment is needed for the parameters and top-level vars.
-                for (var i = 0; i < configuration.VarsToInitialize.Count; i++)
+                for (var i = 0; i < configuration.VarsToInitialize!.Count; i++)
                 {
                     var pair = configuration.VarsToInitialize[i];
                     envRec.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined);
@@ -958,7 +955,7 @@ namespace Jint
                 
                 UpdateVariableEnvironment(varEnv);
 
-                for (var i = 0; i < configuration.VarsToInitialize.Count; i++)
+                for (var i = 0; i < configuration.VarsToInitialize!.Count; i++)
                 {
                     var pair = configuration.VarsToInitialize[i];
                     var initialValue = pair.InitialValue ?? envRec.GetBindingValue(pair.Name, strict: false);
@@ -1007,7 +1004,7 @@ namespace Jint
         {
             foreach (var f in functionsToInitialize)
             {
-                var fn = f.Id.Name;
+                var fn = f.Id!.Name!;
                 var fo = Function.CreateFunctionObject(f, lexEnv);
                 varEnvRec.SetMutableBinding(fn, fo, strict: false);
             }
@@ -1072,7 +1069,7 @@ namespace Jint
                     {
                         var variablesDeclaration = nodes[i];
                         var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
-                        if (globalEnvironmentRecord.HasLexicalDeclaration(identifier.Name))
+                        if (globalEnvironmentRecord.HasLexicalDeclaration(identifier!.Name!))
                         {
                             ExceptionHelper.ThrowSyntaxError(this, "Identifier '" + identifier.Name + "' has already been declared");
                         }
@@ -1082,7 +1079,7 @@ namespace Jint
                 var thisLex = lexEnv;
                 while (thisLex != varEnv)
                 {
-                    var thisEnvRec = thisLex._record;
+                    var thisEnvRec = thisLex!._record;
                     if (!(thisEnvRec is ObjectEnvironmentRecord))
                     {
                         ref readonly var nodes = ref hoistingScope._variablesDeclarations;
@@ -1090,7 +1087,7 @@ namespace Jint
                         {
                             var variablesDeclaration = nodes[i];
                             var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
-                            if (thisEnvRec.HasBinding(identifier.Name))
+                            if (identifier.Name is null || thisEnvRec.HasBinding(identifier.Name))
                             {
                                 ExceptionHelper.ThrowSyntaxError(this);
                             }
@@ -1110,7 +1107,7 @@ namespace Jint
                 for (var i = functionDeclarations.Count - 1; i >= 0; i--)
                 {
                     var d = functionDeclarations[i];
-                    var fn = d.Id.Name;
+                    var fn = d.Id!.Name!;
                     if (!declaredFunctionNames.Contains(fn))
                     {
                         if (varEnvRec is GlobalEnvironmentRecord ger)
@@ -1133,7 +1130,7 @@ namespace Jint
             var variableDeclarationsCount = variableDeclarations?.Count;
             for (var i = 0; i < variableDeclarationsCount; i++)
             {
-                var variableDeclaration = variableDeclarations[i];
+                var variableDeclaration = variableDeclarations![i];
                 boundNames.Clear();
                 variableDeclaration.GetBoundNames(boundNames);
                 for (var j = 0; j < boundNames.Count; j++)
@@ -1160,7 +1157,7 @@ namespace Jint
             for (var i = 0; i < lexicalDeclarationsCount; i++)
             {
                 boundNames.Clear();
-                var d = lexicalDeclarations[i];
+                var d = lexicalDeclarations![i];
                 d.GetBoundNames(boundNames);
                 for (var j = 0; j < boundNames.Count; j++)
                 {
@@ -1178,7 +1175,7 @@ namespace Jint
 
             foreach (var f in functionsToInitialize)
             {
-                var fn = f.Id.Name;
+                var fn = f.Id!.Name!;
                 var fo = Function.CreateFunctionObject(f, lexEnv);
                 if (varEnvRec is GlobalEnvironmentRecord ger)
                 {

@@ -134,7 +134,7 @@ namespace Jint.Native.Array
                 ExceptionHelper.ThrowTypeError(_engine, "Cannot convert undefined or null to object");
             }
 
-            var operations = ArrayOperations.For(thisObj as ObjectInstance);
+            var operations = ArrayOperations.For((ObjectInstance) thisObj);
             var length = operations.GetLength();
 
             var value = arguments.At(0);
@@ -995,10 +995,10 @@ namespace Jint.Native.Array
                 var upper = len - lower - 1;
 
                 var lowerExists = o.HasProperty(lower);
-                var lowerValue = lowerExists ? o.Get(lower) : null;
+                var lowerValue = lowerExists ? o.Get(lower) : Null;
 
                 var upperExists = o.HasProperty(upper);
-                var upperValue = upperExists ? o.Get(upper) : null;
+                var upperValue = upperExists ? o.Get(upper) : Null;
                 
                 if (lowerExists && upperExists)
                 {
@@ -1255,7 +1255,7 @@ namespace Jint.Native.Array
                 return arrayInstance.Push(arguments);
             }
 
-            var o = ArrayOperations.For(thisObject as ObjectInstance);
+            var o = ArrayOperations.For((ObjectInstance) thisObject);
             var n = o.GetLongLength();
 
             if (n + (ulong) arguments.Length > ArrayOperations.MaxArrayLikeLength)

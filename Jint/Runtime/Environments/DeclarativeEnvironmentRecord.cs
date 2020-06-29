@@ -22,11 +22,10 @@ namespace Jint.Runtime.Environments
             return _dictionary.ContainsKey(name);
         }
 
-        internal sealed override bool TryGetBinding(
-            in BindingName name,
+        internal sealed override bool TryGetBinding(in BindingName name,
             bool strict,
-            out Binding binding,
-            out JsValue value)
+            out Binding? binding,
+            out JsValue? value)
         {
             binding = default;
             var success = _dictionary.TryGetValue(name.Key, out binding);

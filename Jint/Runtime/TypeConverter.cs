@@ -479,7 +479,7 @@ namespace Jint.Runtime
                 InternalTypes.Undefined => Undefined.Text,
                 InternalTypes.Null => Null.Text,
                 InternalTypes.Object when o is IPrimitiveInstance p => ToString(ToPrimitive(p.PrimitiveValue, Types.String)),
-                InternalTypes.Object when o is Interop.IObjectWrapper p => p.Target?.ToString(),
+                InternalTypes.Object when o is Interop.IObjectWrapper p => p.Target.ToString(),
                 _ => ToString(ToPrimitive(o, Types.String))
             };
         }
@@ -535,7 +535,7 @@ namespace Jint.Runtime
 
         public static IEnumerable<Tuple<MethodBase, JsValue[]>> FindBestMatch<T>(Engine engine, T[] methods, Func<T, bool, JsValue[]> argumentProvider) where T : MethodBase
         {
-            List<Tuple<T, JsValue[]>> matchingByParameterCount = null;
+            List<Tuple<T, JsValue[]>>? matchingByParameterCount = null;
             foreach (var m in methods)
             {
                 bool hasParams = false;

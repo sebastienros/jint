@@ -25,10 +25,10 @@ namespace Jint.Native.Object
         private bool _initialized;
         private readonly ObjectClass _class;
 
-        internal PropertyDictionary _properties;
-        internal SymbolDictionary _symbols;
+        internal PropertyDictionary? _properties;
+        internal SymbolDictionary? _symbols;
 
-        internal ObjectInstance _prototype;
+        internal ObjectInstance? _prototype;
         protected readonly Engine _engine;
 
         public ObjectInstance(Engine engine) : this(engine, ObjectClass.Object)
@@ -52,7 +52,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// The prototype of this object.
         /// </summary>
-        public ObjectInstance Prototype
+        public ObjectInstance? Prototype
         {
             [DebuggerStepThrough]
             get => GetPrototypeOf();
@@ -64,7 +64,7 @@ namespace Jint.Native.Object
         /// </summary>
         public virtual bool Extensible { get; private set; }
 
-        internal PropertyDictionary Properties
+        internal PropertyDictionary? Properties
         {
             [DebuggerStepThrough]            
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -84,7 +84,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-construct
         /// </summary>
-        internal ObjectInstance Construct(IConstructor f, JsValue[] argumentsList = null, IConstructor newTarget = null)
+        internal ObjectInstance Construct(IConstructor f, JsValue[]? argumentsList = null, IConstructor? newTarget = null)
         {
             newTarget ??= f;
             argumentsList ??= System.Array.Empty<JsValue>();
@@ -122,7 +122,7 @@ namespace Jint.Native.Object
         }
 
 
-        internal void SetProperties(PropertyDictionary properties)
+        internal void SetProperties(PropertyDictionary? properties)
         {
             if (properties != null)
             {
@@ -219,7 +219,7 @@ namespace Jint.Native.Object
 
             var keys = new List<JsValue>(_properties?.Count ?? 0 + _symbols?.Count ?? 0);
             var propertyKeys = new List<JsValue>();
-            List<JsValue> symbolKeys = null;
+            List<JsValue>? symbolKeys = null;
 
             if ((types & Types.String) != 0 && _properties != null)
             {
@@ -263,7 +263,7 @@ namespace Jint.Native.Object
             SetProperty(property, descriptor);
         }
 
-        protected virtual bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
+        protected virtual bool TryGetProperty(JsValue property, out PropertyDescriptor? descriptor)
         {
             descriptor = null;
 
@@ -344,7 +344,7 @@ namespace Jint.Native.Object
             }
 
             // if getter is not undefined it must be ICallable
-            var callable = getter.TryCast<ICallable>();
+            var callable = (ICallable) getter;
             return callable.Call(thisObject, Arguments.Empty);
         }
 
@@ -358,7 +358,7 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            PropertyDescriptor descriptor = null;
+            PropertyDescriptor? descriptor = null;
             var key = TypeConverter.ToPropertyKey(property);
             if (!key.IsSymbol())
             {
@@ -420,7 +420,7 @@ namespace Jint.Native.Object
                 }
 
                 // if getter is not undefined it must be ICallable
-                var callable = getter.TryCast<ICallable>();
+                var callable = (ICallable) getter;
                 value = callable.Call(this, Arguments.Empty);
                 return true;
             }
@@ -577,7 +577,7 @@ namespace Jint.Native.Object
             }
 
             var parent = GetPrototypeOf();
-            if (parent != null)
+            if (!(parent is null))
             {
                 return parent.HasProperty(property);
             }
@@ -819,7 +819,7 @@ namespace Jint.Native.Object
                     current.Configurable = desc.Configurable;
                 }
 
-                PropertyDescriptor mutable = null;
+                PropertyDescriptor? mutable = null;
                 if (!ReferenceEquals(descGet, null))
                 {
                     mutable = new GetSetPropertyDescriptor(mutable ?? current);
@@ -895,7 +895,7 @@ namespace Jint.Native.Object
                     if (this is ArrayInstance arrayInstance)
                     {
                         var len = TypeConverter.ToInt32(arrayInstance.Get(CommonProperties.Length, arrayInstance));
-                        var result = new object[len];
+                        var result = new object?[len];
                         for (var k = 0; k < len; k++)
                         {
                             var pk = TypeConverter.ToJsString(k);
@@ -1104,7 +1104,7 @@ namespace Jint.Native.Object
             return JsBoolean.True;
         }
 
-        protected virtual ObjectInstance GetPrototypeOf()
+        protected virtual ObjectInstance? GetPrototypeOf()
         {
             return _prototype;
         }
@@ -1182,12 +1182,12 @@ namespace Jint.Native.Object
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal ICallable GetMethod(JsValue property)
+        internal ICallable? GetMethod(JsValue property)
         {
             return GetMethod(_engine, this, property);
         }
 
-        internal static ICallable GetMethod(Engine engine, JsValue v, JsValue p)
+        internal static ICallable? GetMethod(Engine engine, JsValue v, JsValue p)
         {
             var jsValue = v.Get(p);
             if (jsValue.IsNullOrUndefined())

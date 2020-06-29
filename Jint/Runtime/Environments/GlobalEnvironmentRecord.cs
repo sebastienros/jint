@@ -35,8 +35,8 @@ namespace Jint.Runtime.Environments
         internal override bool TryGetBinding(
             in BindingName name,
             bool strict,
-            out Binding binding,
-            out JsValue value)
+            out Binding? binding,
+            out JsValue? value)
         {
             if (_declarativeRecord._hasBindings &&
                 _declarativeRecord.TryGetBinding(name, strict, out binding, out value))
@@ -49,7 +49,7 @@ namespace Jint.Runtime.Environments
             value = default;
 
             // normal case is to find
-            if (_global._properties._dictionary.TryGetValue(name.Key, out var property)
+            if (_global._properties!._dictionary!.TryGetValue(name.Key, out var property)
                 && property != PropertyDescriptor.Undefined)
             {
                 value = ObjectInstance.UnwrapJsValue(property, _global);
@@ -62,7 +62,7 @@ namespace Jint.Runtime.Environments
         [MethodImpl(MethodImplOptions.NoInlining)]
         private bool TryGetBindingForGlobalParent(
             in BindingName name,
-            out JsValue value,
+            out JsValue? value,
             PropertyDescriptor property)
         {
             value = default;

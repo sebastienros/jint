@@ -153,7 +153,7 @@ namespace Jint.Runtime.Interop
         /// <param name="typeName"> Name of the type. </param>
         ///
         /// <returns>   The type. </returns>
-        private static Type GetType(Assembly assembly, string typeName)
+        private static Type? GetType(Assembly assembly, string typeName)
         {
             var compared = typeName.Replace("+", ".");
             Type[] types = assembly.GetTypes();

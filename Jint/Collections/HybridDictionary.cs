@@ -12,8 +12,8 @@ namespace Jint.Collections
         private const int FixedSizeCutoverPoint = 6;
 
         private readonly bool _checkExistingKeys;
-        private ListDictionary<TValue> _list;
-        internal StringDictionarySlim<TValue> _dictionary;
+        private ListDictionary<TValue>? _list;
+        internal StringDictionarySlim<TValue>? _dictionary;
 
         public HybridDictionary() : this(0, checkExistingKeys: true)
         {

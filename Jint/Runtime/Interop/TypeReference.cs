@@ -168,7 +168,7 @@ namespace Jint.Runtime.Interop
                 return new FieldInfoDescriptor(Engine, fieldInfo, Type);
             }
 
-            List<MethodInfo> methodInfo = null;
+            List<MethodInfo>? methodInfo = null;
             foreach (var mi in ReferenceType.GetMethods(BindingFlags.Public | BindingFlags.Static))
             {
                 if (mi.Name == name)

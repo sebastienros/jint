@@ -8,24 +8,24 @@ namespace Jint.Runtime
 {
     internal static class ExceptionHelper
     {
-        public static T ThrowSyntaxError<T>(Engine engine, string message = null)
+        public static T ThrowSyntaxError<T>(Engine engine, string? message = null)
         {
             ThrowSyntaxError(engine, message);
             return default;
         }
 
-        public static void ThrowSyntaxError(Engine engine, string message = null)
+        public static void ThrowSyntaxError(Engine engine, string? message = null)
         {
             throw new JavaScriptException(engine.SyntaxError, message);
         }
 
-        public static T ThrowArgumentException<T>(string message = null)
+        public static T ThrowArgumentException<T>(string? message = null)
         {
             ThrowArgumentException(message);
             return default;
         }
 
-        public static void ThrowArgumentException(string message = null)
+        public static void ThrowArgumentException(string? message = null)
         {
             ThrowArgumentException(message, null);
         }
@@ -46,33 +46,33 @@ namespace Jint.Runtime
             throw new JavaScriptException(engine.ReferenceError, message);
         }
 
-        public static T ThrowTypeErrorNoEngine<T>(string message = null, Exception exception = null)
+        public static T ThrowTypeErrorNoEngine<T>(string? message = null, Exception? exception = null)
         {
             throw new TypeErrorException(message);
         }
 
-        public static T ThrowReferenceError<T>(Engine engine, string message = null)
+        public static T ThrowReferenceError<T>(Engine engine, string? message = null)
         {
             throw new JavaScriptException(engine.ReferenceError, message);
         }
 
-        public static T ThrowTypeError<T>(Engine engine, string message = null, Exception exception = null)
+        public static T ThrowTypeError<T>(Engine engine, string? message = null, Exception? exception = null)
         {
             ThrowTypeError(engine, message, exception);
             return default;
         }
 
-        public static void ThrowTypeError(Engine engine, string message = null, Exception exception = null)
+        public static void ThrowTypeError(Engine engine, string? message = null, Exception? exception = null)
         {
             throw new JavaScriptException(engine.TypeError, message, exception);
         }
 
-        public static T ThrowRangeError<T>(Engine engine, string message = null)
+        public static T ThrowRangeError<T>(Engine engine, string? message = null)
         {
             throw new JavaScriptException(engine.RangeError, message);
         }
 
-        public static void ThrowRangeError(Engine engine, string message = null)
+        public static void ThrowRangeError(Engine engine, string? message = null)
         {
             throw new JavaScriptException(engine.RangeError, message);
         }
@@ -82,7 +82,7 @@ namespace Jint.Runtime
             throw new JavaScriptException(engine.UriError);
         }
 
-        public static void ThrowNotImplementedException(string message = null)
+        public static void ThrowNotImplementedException(string? message = null)
         {
             throw new NotImplementedException(message);
         }
@@ -122,17 +122,17 @@ namespace Jint.Runtime
             throw new ArgumentOutOfRangeException();
         }
 
-        public static T ThrowNotSupportedException<T>(string message = null)
+        public static T ThrowNotSupportedException<T>(string? message = null)
         {
             throw new NotSupportedException(message);
         }
 
-        public static void ThrowNotSupportedException(string message = null)
+        public static void ThrowNotSupportedException(string? message = null)
         {
             throw new NotSupportedException(message);
         }
 
-        public static void ThrowInvalidOperationException(string message = null)
+        public static void ThrowInvalidOperationException(string? message = null)
         {
             throw new InvalidOperationException(message);
         }

@@ -11,16 +11,15 @@ namespace Jint.Native.Json
     public class JsonSerializer
     {
         private readonly Engine _engine;
+        private Stack<object> _stack;
+        private string _indent, _gap;
+        private List<JsValue> _propertyList;
+        private JsValue _replacerFunction = Undefined.Instance;
 
         public JsonSerializer(Engine engine)
         {
             _engine = engine;
         }
-
-        Stack<object> _stack;
-        string _indent, _gap;
-        List<JsValue> _propertyList;
-        JsValue _replacerFunction = Undefined.Instance;
 
         public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
         {

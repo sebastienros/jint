@@ -7,7 +7,7 @@ namespace Jint.Collections
 {
     internal sealed class ListDictionary<TValue> : IEnumerable<KeyValuePair<Key, TValue>>
     {
-        private DictionaryNode _head;
+        private DictionaryNode? _head;
         private int _count;
         private bool _checkExistingKeys;
 
@@ -31,8 +31,8 @@ namespace Jint.Collections
             }
             set
             {
-                DictionaryNode last = null;
-                DictionaryNode node;
+                DictionaryNode? last = null;
+                DictionaryNode? node;
                 var checkExistingKeys = _checkExistingKeys;
                 for (node = _head; node != null; node = node.Next)
                 {
@@ -52,7 +52,7 @@ namespace Jint.Collections
                     return;
                 }
 
-                AddNode(key, value, last);
+                AddNode(key, value, last!);
             }
         }
 
@@ -82,7 +82,7 @@ namespace Jint.Collections
 
         public void Add(Key key, TValue value)
         {
-            DictionaryNode last = null;
+            DictionaryNode? last = null;
             DictionaryNode node;
             var checkExistingKeys = _checkExistingKeys;
             for (node = _head; node != null; node = node.Next)
@@ -96,7 +96,7 @@ namespace Jint.Collections
                 last = node;
             }
 
-            AddNode(key, value, last);
+            AddNode(key, value, last!);
         }
 
         private void AddNode(Key key, TValue value, DictionaryNode last)
@@ -237,7 +237,7 @@ namespace Jint.Collections
         {
             public Key Key;
             public TValue Value;
-            public DictionaryNode Next;
+            public DictionaryNode? Next;
         }
     }
 }

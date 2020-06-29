@@ -8,8 +8,8 @@ namespace Jint.Native.Proxy
 {
     public class ProxyInstance : ObjectInstance, IConstructor, ICallable
     {
-        internal ObjectInstance _target;
-        internal ObjectInstance _handler;
+        internal ObjectInstance? _target;
+        internal ObjectInstance? _handler;
 
         private static readonly JsString TrapApply = new JsString("apply");
         private static readonly JsString TrapGet = new JsString("get");
@@ -73,22 +73,22 @@ namespace Jint.Native.Proxy
         public override bool IsArray()
         {
             AssertNotRevoked(KeyIsArray);
-            return _target.IsArray();
+            return _target!.IsArray();
         }
 
         internal override bool IsConstructor => 
-            _handler.TryGetValue(TrapConstruct, out var handlerFunction) && handlerFunction is IConstructor;
+            _handler != null && _handler.TryGetValue(TrapConstruct, out var handlerFunction) && handlerFunction is IConstructor;
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {
             if (property == KeyFunctionRevoke || !TryCallHandler(TrapGet, new JsValue[] {_target, property, this}, out var result))
             {
                 AssertTargetNotRevoked(property);
-                return _target.Get(property, receiver);
+                return _target!.Get(property, receiver);
             }
 
             AssertTargetNotRevoked(property);
-            var targetDesc = _target.GetOwnProperty(property);
+            var targetDesc = _target!.GetOwnProperty(property);
             if (targetDesc != PropertyDescriptor.Undefined)
             {
                 if (targetDesc.IsDataDescriptor() && !targetDesc.Configurable && !targetDesc.Writable && !ReferenceEquals(result, targetDesc._value))
@@ -106,9 +106,9 @@ namespace Jint.Native.Proxy
 
         public override List<JsValue> GetOwnPropertyKeys(Types types)
         {
-            if (!TryCallHandler(TrapOwnKeys, new JsValue[] {_target }, out var result))
+            if (!TryCallHandler(TrapOwnKeys, new JsValue[] {_target! }, out var result))
             {
-                return _target.GetOwnPropertyKeys(types);
+                return _target!.GetOwnPropertyKeys(types);
             }
 
             var trapResult = new List<JsValue>(_engine.Function.PrototypeObject.CreateListFromArrayLike(result, Types.String | Types.Symbol));
@@ -360,12 +360,12 @@ namespace Jint.Native.Proxy
         {
             if (!TryCallHandler(TrapPreventExtensions, new[] { _target }, out var result))
             {
-                return _target.PreventExtensions();
+                return _target!.PreventExtensions();
             }
 
             var success = TypeConverter.ToBoolean(result);
 
-            if (success && _target.Extensible)
+            if (success && _target!.Extensible)
             {
                 ExceptionHelper.ThrowTypeError(_engine);
             }
@@ -377,13 +377,13 @@ namespace Jint.Native.Proxy
         {
             get
             {
-                if (!TryCallHandler(TrapIsExtensible, new[] { _target }, out var result))
+                if (!TryCallHandler(TrapIsExtensible, new[] { _target! }, out var result))
                 {
-                    return _target.Extensible;
+                    return _target!.Extensible;
                 }
 
                 var booleanTrapResult = TypeConverter.ToBoolean(result);
-                var targetResult = _target.Extensible;
+                var targetResult = _target!.Extensible;
                 if (booleanTrapResult != targetResult)
                 {
                     ExceptionHelper.ThrowTypeError(_engine);
@@ -392,11 +392,11 @@ namespace Jint.Native.Proxy
             }
         }
 
-        protected override ObjectInstance GetPrototypeOf()
+        protected override ObjectInstance? GetPrototypeOf()
         {
-            if (!TryCallHandler(TrapGetProtoTypeOf, new [] { _target }, out var handlerProto ))
+            if (!TryCallHandler(TrapGetProtoTypeOf, new [] { _target! }, out var handlerProto ))
             {
-                return _target.Prototype;
+                return _target!.Prototype;
             }
 
             if (!handlerProto.IsObject() && !handlerProto.IsNull())
@@ -404,7 +404,7 @@ namespace Jint.Native.Proxy
                 ExceptionHelper.ThrowTypeError(_engine, "'getPrototypeOf' on proxy: trap returned neither object nor null");
             }
 
-            if (_target.Extensible)
+            if (_target!.Extensible)
             {
                 return (ObjectInstance) handlerProto;
             }
@@ -419,9 +419,9 @@ namespace Jint.Native.Proxy
 
         public override bool SetPrototypeOf(JsValue value)
         {
-            if (!TryCallHandler(TrapSetProtoTypeOf, new[] { _target, value }, out var result))
+            if (!TryCallHandler(TrapSetProtoTypeOf, new[] { _target!, value }, out var result))
             {
-                return _target.SetPrototypeOf(value);
+                return _target!.SetPrototypeOf(value);
             }
 
             var success = TypeConverter.ToBoolean(result);
@@ -431,7 +431,7 @@ namespace Jint.Native.Proxy
                 return false;
             }
 
-            if (_target.Extensible)
+            if (_target!.Extensible)
             {
                 return true;
             }
@@ -451,7 +451,7 @@ namespace Jint.Native.Proxy
             AssertNotRevoked(propertyName);
 
             result = Undefined;
-            var handlerFunction = _handler.Get(propertyName);
+            var handlerFunction = _handler!.Get(propertyName);
             if (!handlerFunction.IsNullOrUndefined())
             {
                 if (!(handlerFunction is ICallable callable))

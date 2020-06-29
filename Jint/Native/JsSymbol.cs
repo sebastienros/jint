@@ -36,7 +36,7 @@ namespace Jint.Native
             return Equals(obj as JsSymbol);
         }
 
-        public bool Equals(JsSymbol other)
+        public bool Equals(JsSymbol? other)
         {
             return ReferenceEquals(this, other);
         }

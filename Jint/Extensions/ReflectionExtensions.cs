@@ -1,43 +1,39 @@
 using System;
 using System.Reflection;
+using Jint.Runtime;
 
 namespace Jint.Extensions
 {
     internal static class ReflectionExtensions
     {
-        internal static void SetValue(this MemberInfo memberInfo, object forObject, object value)
+        internal static void SetValue(this MemberInfo memberInfo, object forObject, object? value)
         {
-            switch (memberInfo.MemberType)
+            if (memberInfo.MemberType == MemberTypes.Field)
             {
-                case MemberTypes.Field:
-                    var fieldInfo = (FieldInfo) memberInfo;
-                    if (value != null && fieldInfo.FieldType.IsAssignableFrom(value.GetType()))
-                    {
-                        fieldInfo.SetValue(forObject, value);
-                    }
-
-                    break;
-                case MemberTypes.Property:
-                    var propertyInfo = (PropertyInfo) memberInfo;
-                    if (value != null && propertyInfo.PropertyType.IsAssignableFrom(value.GetType()))
-                    {
-                        propertyInfo.SetValue(forObject, value);
-                    }
-                    break;
+                var fieldInfo = (FieldInfo) memberInfo;
+                if (value != null && fieldInfo.FieldType.IsInstanceOfType(value))
+                {
+                    fieldInfo.SetValue(forObject, value);
+                }
+            }
+            else if (memberInfo.MemberType == MemberTypes.Property)
+            {
+                var propertyInfo = (PropertyInfo) memberInfo;
+                if (value != null && propertyInfo.PropertyType.IsInstanceOfType(value))
+                {
+                    propertyInfo.SetValue(forObject, value);
+                }
             }
         }
 
         internal static Type GetDefinedType(this MemberInfo memberInfo)
         {
-            switch (memberInfo)
+            return memberInfo switch
             {
-                case PropertyInfo propertyInfo:
-                    return propertyInfo.PropertyType;
-                case FieldInfo fieldInfo:
-                    return fieldInfo.FieldType;
-            }
-
-            return null;
+                PropertyInfo propertyInfo => propertyInfo.PropertyType,
+                FieldInfo fieldInfo => fieldInfo.FieldType,
+                _ => ExceptionHelper.ThrowArgumentException<Type>()
+            };
         }
     }
 }

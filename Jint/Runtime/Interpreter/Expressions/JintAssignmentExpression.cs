@@ -144,10 +144,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal sealed class SimpleAssignmentExpression : JintExpression
         {
-            private JintExpression _left;
-            private JintExpression _right;
+            private JintExpression _left = null!;
+            private JintExpression _right = null!;
 
-            private JintIdentifierExpression _leftIdentifier;
+            private JintIdentifierExpression? _leftIdentifier;
             private bool _evalOrArguments;
 
             public SimpleAssignmentExpression(Engine engine, AssignmentExpression expression) : base(engine, expression)
@@ -167,7 +167,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                JsValue rval = null;
+                JsValue? rval = null;
                 if (_leftIdentifier != null)
                 {
                     rval = AssignToIdentifier(_engine, _leftIdentifier, _right, _evalOrArguments);
@@ -188,7 +188,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return rval;
             }
 
-            internal static JsValue AssignToIdentifier(
+            internal static JsValue? AssignToIdentifier(
                 Engine engine,
                 JintIdentifierExpression left,
                 JintExpression right,

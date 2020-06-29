@@ -169,7 +169,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 while (true)
                 {
-                    LexicalEnvironment iterationEnv = null;
+                    LexicalEnvironment? iterationEnv = null;
                     if (!iteratorRecord.TryIteratorStep(out var nextResult))
                     {
                         close = true;

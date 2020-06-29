@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Jint.Runtime;
 
 namespace Jint
 {
@@ -14,7 +13,7 @@ namespace Jint
     {
         private Key(string name)
         {
-            Name = name ?? ExceptionHelper.ThrowArgumentException<string>("name cannot be null");
+            Name = name;
             HashCode = name.GetHashCode();
         }
 

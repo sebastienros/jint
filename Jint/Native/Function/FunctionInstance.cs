@@ -17,10 +17,10 @@ namespace Jint.Native.Function
             Global
         }
 
-        protected internal PropertyDescriptor _prototypeDescriptor;
+        protected internal PropertyDescriptor? _prototypeDescriptor;
 
-        protected internal PropertyDescriptor _length;
-        internal PropertyDescriptor _nameDescriptor;
+        protected internal PropertyDescriptor? _length;
+        internal PropertyDescriptor? _nameDescriptor;
 
         protected internal LexicalEnvironment _environment;
         internal readonly JintFunctionDefinition _functionDefinition;
@@ -39,7 +39,7 @@ namespace Jint.Native.Function
 
         internal FunctionInstance(
             Engine engine,
-            JsString name,
+            JsString? name,
             FunctionThisMode thisMode = FunctionThisMode.Global,
             ObjectClass objectClass = ObjectClass.Function)
             : base(engine, objectClass)
@@ -206,7 +206,7 @@ namespace Jint.Native.Function
             base.RemoveOwnProperty(property);
         }
 
-        internal void SetFunctionName(JsValue name, string prefix = null, bool force = false)
+        internal void SetFunctionName(JsValue name, string? prefix = null, bool force = false)
         {
             if (!force && _nameDescriptor != null && !UnwrapJsValue(_nameDescriptor).IsUndefined())
             {

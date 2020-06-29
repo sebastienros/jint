@@ -19,26 +19,21 @@ namespace Jint.Native.Array
 
         private ArrayConstructor(Engine engine) :  base(engine, _functionName)
         {
+            _prototype = engine.Function.PrototypeObject;
+            
+            // The value of the [[Prototype]] internal property of the Array constructor is the Function prototype object
+            PrototypeObject = ArrayPrototype.CreatePrototypeObject(engine, this);
+            _length = new PropertyDescriptor(1, PropertyFlag.Configurable);
+
+            // The initial value of Array.prototype is the Array prototype object
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         public ArrayPrototype PrototypeObject { get; private set; }
 
         public static ArrayConstructor CreateArrayConstructor(Engine engine)
         {
-            var obj = new ArrayConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the Array constructor is the Function prototype object
-            obj.PrototypeObject = ArrayPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(1, PropertyFlag.Configurable);
-
-            // The initial value of Array.prototype is the Array prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
+            return new ArrayConstructor(engine);
         }
 
         protected override void Initialize()
@@ -117,7 +112,7 @@ namespace Jint.Native.Array
         private ObjectInstance ConstructArrayFromArrayLike(
             JsValue thisObj,
             ObjectInstance objectInstance, 
-            ICallable callable, 
+            ICallable? callable, 
             JsValue thisArg)
         {
             var source = ArrayOperations.For(objectInstance);
@@ -139,7 +134,7 @@ namespace Jint.Native.Array
             
             var args = !ReferenceEquals(callable, null)
                 ? _engine._jsValueArrayPool.RentArray(2)
-                : null;
+                : System.Array.Empty<JsValue>();
 
             var target = ArrayOperations.For(a);
             uint n = 0;
@@ -167,7 +162,7 @@ namespace Jint.Native.Array
 
             if (!ReferenceEquals(callable, null))
             {
-                _engine._jsValueArrayPool.ReturnArray(args);
+                _engine._jsValueArrayPool.ReturnArray(args!);
             }
 
             target.SetLength(length);
@@ -178,7 +173,7 @@ namespace Jint.Native.Array
         {
             private readonly JsValue _thisArg;
             private readonly ArrayOperations _instance;
-            private readonly ICallable _callable;
+            private readonly ICallable? _callable;
             private long _index = -1;
 
             public ArrayProtocol(
@@ -186,7 +181,7 @@ namespace Jint.Native.Array
                 JsValue thisArg,
                 ObjectInstance instance,
                 IIterator iterator,
-                ICallable callable) : base(engine, iterator, 2)
+                ICallable? callable) : base(engine, iterator, 2)
             {
                 _thisArg = thisArg;
                 _instance = ArrayOperations.For(instance);

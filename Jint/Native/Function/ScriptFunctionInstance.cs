@@ -150,7 +150,7 @@ namespace Jint.Native.Function
 
         private class ObjectInstanceWithConstructor : ObjectInstance
         {
-            private PropertyDescriptor _constructor;
+            private PropertyDescriptor? _constructor;
 
             public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine)
             {

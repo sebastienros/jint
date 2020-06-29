@@ -10,12 +10,12 @@ namespace Jint.Runtime.Interpreter.Expressions
     /// </summary>
     internal sealed class JintMemberExpression : JintExpression
     {
-        private JintExpression _objectExpression;
-        private JintIdentifierExpression _objectIdentifierExpression;
-        private JintThisExpression _objectThisExpression;
+        private JintExpression _objectExpression = null!;
+        private JintIdentifierExpression? _objectIdentifierExpression;
+        private JintThisExpression? _objectThisExpression;
 
-        private JintExpression _propertyExpression;
-        private JsValue _determinedProperty;
+        private JintExpression? _propertyExpression;
+        private JsValue? _determinedProperty;
 
         public JintMemberExpression(Engine engine, MemberExpression expression) : base(engine, expression)
         {
@@ -46,8 +46,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            string baseReferenceName = null;
-            JsValue baseValue = null;
+            string? baseReferenceName = null;
+            JsValue? baseValue = null;
             var isStrictModeCode = StrictModeScope.IsStrictModeCode;
 
             if (_objectIdentifierExpression != null)

@@ -13,10 +13,10 @@ namespace Jint.Runtime.Environments
     public sealed class LexicalEnvironment
     {
         private readonly Engine _engine;
-        internal EnvironmentRecord _record;
-        internal LexicalEnvironment _outer;
+        internal readonly EnvironmentRecord _record;
+        internal readonly LexicalEnvironment? _outer;
 
-        public LexicalEnvironment(Engine engine, EnvironmentRecord record, LexicalEnvironment outer)
+        public LexicalEnvironment(Engine engine, EnvironmentRecord record, LexicalEnvironment? outer)
         {
             _engine = engine;
             _record = record;
@@ -58,15 +58,9 @@ namespace Jint.Runtime.Environments
             return false;
         }
 
-        public static LexicalEnvironment NewDeclarativeEnvironment(Engine engine, LexicalEnvironment outer = null)
+        public static LexicalEnvironment NewDeclarativeEnvironment(Engine engine, LexicalEnvironment? outer = null)
         {
-            var environment = new LexicalEnvironment(engine, null, null)
-            {
-                _record = new DeclarativeEnvironmentRecord(engine),
-                _outer = outer
-            };
-
-            return environment;
+            return new LexicalEnvironment(engine, new DeclarativeEnvironmentRecord(engine), outer);
         }
 
         public static LexicalEnvironment NewFunctionEnvironment(Engine engine, FunctionInstance f, JsValue newTarget)

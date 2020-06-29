@@ -50,11 +50,10 @@ namespace Jint.Runtime.Environments
             return _bindingObject.HasProperty(property);
         }
 
-        internal override bool TryGetBinding(
-            in BindingName name,
+        internal override bool TryGetBinding(in BindingName name,
             bool strict,
-            out Binding binding,
-            out JsValue value)
+            out Binding? binding,
+            out JsValue? value)
         {
             // we unwrap by name
             binding = default;

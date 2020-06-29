@@ -9,7 +9,7 @@ namespace Jint.Native.Function
 
         private readonly string _message;
 
-        public ThrowTypeError(Engine engine, string message = null)
+        public ThrowTypeError(Engine engine, string? message = null)
             : base(engine, _functionName)
         {
             _message = message;
