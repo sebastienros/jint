@@ -15,18 +15,14 @@ namespace Jint.Native.Object
         private ObjectConstructor(Engine engine)
             : base(engine, _name)
         {
+            PrototypeObject = ObjectPrototype.CreatePrototypeObject(engine, this);
+            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         public static ObjectConstructor CreateObjectConstructor(Engine engine)
         {
-            var obj = new ObjectConstructor(engine);
-
-            obj.PrototypeObject = ObjectPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
+            return new ObjectConstructor(engine);
         }
 
         protected override void Initialize()

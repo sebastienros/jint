@@ -41,7 +41,7 @@ namespace Jint.Pooling
         [DebuggerDisplay("{Value,nq}")]
         private struct Element
         {
-            internal T Value;
+            internal T? Value;
         }
  
         /// <remarks>
@@ -52,7 +52,7 @@ namespace Jint.Pooling
  
         // Storage for the pool objects. The first item is stored in a dedicated field because we
         // expect to be able to satisfy most requests from it.
-        private T _firstItem;
+        private T? _firstItem;
         private readonly Element[] _items;
  
         // factory is stored for the lifetime of the pool. We will call this only when pool needs to
@@ -132,7 +132,7 @@ namespace Jint.Pooling
             // Note that the initial read is optimistically not synchronized. That is intentional. 
             // We will interlock only when we have a candidate. in a worst case we may miss some
             // recently returned objects. Not a big deal.
-            T inst = _firstItem;
+            T? inst = _firstItem;
             if (!ReferenceEquals(inst, null))
             {
                 _firstItem = null;
@@ -159,7 +159,7 @@ namespace Jint.Pooling
  
             for (int i = 0; i < items.Length; i++)
             {
-                T inst = items[i].Value;
+                T? inst = items[i].Value;
                 if (!ReferenceEquals(inst, null))
                 {
                     items[i].Value = null;
@@ -221,7 +221,7 @@ namespace Jint.Pooling
         /// return a larger array to the pool than was originally allocated.
         /// </summary>
         [Conditional("DEBUG")]
-        internal void ForgetTrackedObject(T old, T replacement = null)
+        internal void ForgetTrackedObject(T old, T? replacement = null)
         {
 #if DETECT_LEAKS
             LeakTracker tracker;

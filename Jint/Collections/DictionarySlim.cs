@@ -6,6 +6,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Jint.Collections
@@ -17,7 +18,7 @@ namespace Jint.Collections
     /// 3) It does not accept an equality comparer (assumes Object.GetHashCode() and Object.Equals() or overridden implementation are cheap and sufficient).
     /// </summary>
     [DebuggerDisplay("Count = {Count}")]
-    internal class DictionarySlim<TKey, TValue> : IReadOnlyCollection<KeyValuePair<TKey, TValue>> where TKey : IEquatable<TKey>
+    internal class DictionarySlim<TKey, TValue> : IReadOnlyCollection<KeyValuePair<TKey, TValue>> where TKey : IEquatable<TKey> where TValue : class
     {
         // We want to initialize without allocating arrays. We also want to avoid null checks.
         // Array.Empty would give divide by zero in modulo operation. So we use static one element arrays.
@@ -83,7 +84,7 @@ namespace Jint.Collections
             return false;
         }
 
-        public bool TryGetValue(TKey key, out TValue value)
+        public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue? value)
         {
             Entry[] entries = _entries;
             for (int i = _buckets[key.GetHashCode() & (_buckets.Length - 1)] - 1;

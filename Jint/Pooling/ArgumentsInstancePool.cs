@@ -32,10 +32,10 @@ namespace Jint.Pooling
         public ArgumentsInstance Rent(JsValue[] argumentsList) => Rent(null, null, argumentsList, null, false);
 
         public ArgumentsInstance Rent(
-            FunctionInstance func,
-            Key[] formals,
+            FunctionInstance? func,
+            Key[]? formals,
             JsValue[] argumentsList,
-            DeclarativeEnvironmentRecord env, 
+            DeclarativeEnvironmentRecord? env, 
             bool hasRestParameter)
         {
             var obj = _pool.Allocate();

@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using System.Diagnostics.CodeAnalysis;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -24,7 +25,7 @@ namespace Jint.Native.Set
             return base.GetOwnProperty(property);
         }
 
-        protected override bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
+        protected override bool TryGetProperty(JsValue property, [MaybeNullWhen(false)] out PropertyDescriptor descriptor)
         {
             if (property == CommonProperties.Size)
             {

@@ -7,7 +7,7 @@ namespace Jint.Constraints
     internal sealed class TimeConstraint2 : IConstraint
     {
         private readonly TimeSpan _timeout;
-        private CancellationTokenSource cts;
+        private CancellationTokenSource cts = null!;
 
         public TimeConstraint2(TimeSpan timeout)
         {

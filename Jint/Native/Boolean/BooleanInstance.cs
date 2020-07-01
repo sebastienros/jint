@@ -5,9 +5,10 @@ namespace Jint.Native.Boolean
 {
     public class BooleanInstance : ObjectInstance, IPrimitiveInstance
     {
-        public BooleanInstance(Engine engine)
+        public BooleanInstance(Engine engine, JsBoolean value)
             : base(engine, ObjectClass.Boolean)
         {
+            PrimitiveValue = value;
         }
 
         Types IPrimitiveInstance.Type => Types.Boolean;

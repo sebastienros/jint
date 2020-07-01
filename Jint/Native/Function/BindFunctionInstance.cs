@@ -39,11 +39,10 @@ namespace Jint.Native.Function
 
         public override bool HasInstance(JsValue v)
         {
-            var f = TargetFunction.TryCast<FunctionInstance>(x =>
+            if (!(TargetFunction is FunctionInstance f))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
-            });
-
+                return ExceptionHelper.ThrowTypeError<bool>(Engine);
+            }
             return f.HasInstance(v);
         }
 

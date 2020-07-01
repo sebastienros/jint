@@ -190,7 +190,7 @@ namespace Jint.Runtime.Interop
             if (!isNumber)
             {
                 // look for a property
-                PropertyInfo property = null;
+                PropertyInfo? property = null;
                 foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
                     if (EqualsIgnoreCasing(p.Name, propertyName))
@@ -206,7 +206,7 @@ namespace Jint.Runtime.Interop
                 }
 
                 // look for a field
-                FieldInfo field = null;
+                FieldInfo? field = null;
                 foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
                     if (EqualsIgnoreCasing(f.Name, propertyName))
@@ -222,7 +222,7 @@ namespace Jint.Runtime.Interop
                 }
                 
                 // if no properties were found then look for a method
-                List<MethodInfo> methods = null;
+                List<MethodInfo>? methods = null;
                 foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
                     if (EqualsIgnoreCasing(m.Name, propertyName))
@@ -246,7 +246,7 @@ namespace Jint.Runtime.Interop
             }
 
             // try to find a single explicit property implementation
-            List<PropertyInfo> list = null;
+            List<PropertyInfo>? list = null;
             foreach (Type iface in type.GetInterfaces())
             {
                 foreach (var iprop in iface.GetProperties())
@@ -265,7 +265,7 @@ namespace Jint.Runtime.Interop
             }
 
             // try to find explicit method implementations
-            List<MethodInfo> explicitMethods = null;
+            List<MethodInfo>? explicitMethods = null;
             foreach (Type iface in type.GetInterfaces())
             {
                 foreach (var imethod in iface.GetMethods())

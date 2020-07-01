@@ -9,7 +9,7 @@ namespace Jint.Native
         {
         }
 
-        public override object ToObject()
+        public override object? ToObject()
         {
             return null;
         }
@@ -19,7 +19,7 @@ namespace Jint.Native
             return "null";
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             if (ReferenceEquals(this, obj))
             {
@@ -34,7 +34,7 @@ namespace Jint.Native
             return Equals(s);
         }
 
-        public bool Equals(JsNull other)
+        public bool Equals(JsNull? other)
         {
             if (ReferenceEquals(null, other))
             {

@@ -8,13 +8,13 @@ namespace Jint.Native.Iterator
 {
     internal sealed class IteratorPrototype : IteratorInstance
     {
-        private string _name;
+        private string? _name;
 
         private IteratorPrototype(Engine engine) : base(engine)
         {
         }
 
-        public static IteratorPrototype CreatePrototypeObject(Engine engine, string name, IteratorConstructor iteratorConstructor)
+        public static IteratorPrototype CreatePrototypeObject(Engine engine, string? name, IteratorConstructor iteratorConstructor)
         {
             var obj = new IteratorPrototype(engine)
             {

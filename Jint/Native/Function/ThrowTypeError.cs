@@ -7,9 +7,9 @@ namespace Jint.Native.Function
     {
         private static readonly JsString _functionName = new JsString("throwTypeError");
 
-        private readonly string _message;
+        private readonly string? _message;
 
-        public ThrowTypeError(Engine engine, string message = null)
+        public ThrowTypeError(Engine engine, string? message = null)
             : base(engine, _functionName)
         {
             _message = message;

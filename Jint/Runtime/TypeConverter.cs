@@ -479,7 +479,7 @@ namespace Jint.Runtime
                 InternalTypes.Undefined => Undefined.Text,
                 InternalTypes.Null => Null.Text,
                 InternalTypes.Object when o is IPrimitiveInstance p => ToString(ToPrimitive(p.PrimitiveValue, Types.String)),
-                InternalTypes.Object when o is Interop.IObjectWrapper p => p.Target?.ToString(),
+                InternalTypes.Object when o is Interop.IObjectWrapper p => p.Target.ToString(),
                 _ => ToString(ToPrimitive(o, Types.String))
             };
         }
@@ -506,7 +506,7 @@ namespace Jint.Runtime
             Engine engine,
             JsValue o,
             MemberExpression expression,
-            string referenceName)
+            string? referenceName)
         {
             if (o._type < InternalTypes.Boolean && !engine.Options.ReferenceResolver.CheckCoercible(o))
             {
@@ -518,7 +518,7 @@ namespace Jint.Runtime
             Engine engine,
             JsValue o,
             MemberExpression expression,
-            string referencedName)
+            string? referencedName)
         {
             referencedName ??= "unknown";
             var message = $"Cannot read property '{referencedName}' of {o}";
@@ -535,7 +535,7 @@ namespace Jint.Runtime
 
         public static IEnumerable<Tuple<MethodBase, JsValue[]>> FindBestMatch<T>(Engine engine, T[] methods, Func<T, bool, JsValue[]> argumentProvider) where T : MethodBase
         {
-            List<Tuple<T, JsValue[]>> matchingByParameterCount = null;
+            List<Tuple<T, JsValue[]>>? matchingByParameterCount = null;
             foreach (var m in methods)
             {
                 bool hasParams = false;

@@ -9,7 +9,7 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintWhileStatement : JintStatement<WhileStatement>
     {
-        private readonly string _labelSetName;
+        private readonly string? _labelSetName;
         private readonly JintStatement _body;
         private readonly JintExpression _test;
 

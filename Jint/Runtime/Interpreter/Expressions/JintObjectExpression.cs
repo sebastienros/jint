@@ -22,17 +22,17 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private class ObjectProperty
         {
-            internal readonly string _key;
-            private JsString _keyJsString;
+            internal readonly string? _key;
+            private JsString? _keyJsString;
             internal readonly Property _value;
 
-            public ObjectProperty(string key, Property property)
+            public ObjectProperty(string? key, Property property)
             {
                 _key = key;
                 _value = property;
             }
 
-            public JsString KeyJsString => _keyJsString ??= _key != null ? JsString.Create(_key) : null;
+            public JsString? KeyJsString => _keyJsString ??= _key != null ? JsString.Create(_key) : null;
         }
 
         public JintObjectExpression(Engine engine, ObjectExpression expression) : base(engine, expression)
@@ -55,7 +55,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             for (var i = 0; i < _properties.Length; i++)
             {
-                string propName = null;
+                string? propName = null;
                 var property = expression.Properties[i];
                 if (property is Property p)
                 {

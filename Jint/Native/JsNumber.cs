@@ -67,7 +67,7 @@ namespace Jint.Native
             _value = value;
         }
 
-        public override object ToObject()
+        public override object? ToObject()
         {
             return _value;
         }
@@ -169,7 +169,7 @@ namespace Jint.Native
             return EsprimaExtensions.DoubleToString(_value);
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             if (ReferenceEquals(null, obj))
             {
@@ -184,7 +184,7 @@ namespace Jint.Native
             return Equals(number);
         }
 
-        public bool Equals(JsNumber other)
+        public bool Equals(JsNumber? other)
         {
             if (ReferenceEquals(null, other))
             {

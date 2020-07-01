@@ -89,7 +89,7 @@ namespace Jint.Runtime.Environments
         internal void InitializeParameters(
             Key[] parameterNames,
             bool hasDuplicates, 
-            JsValue[] arguments)
+            JsValue[]? arguments)
         {
             var value = hasDuplicates ? Undefined : null;
             var directSet = !hasDuplicates && _dictionary.Count == 0;

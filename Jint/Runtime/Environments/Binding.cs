@@ -5,7 +5,7 @@ namespace Jint.Runtime.Environments
     public readonly struct Binding
     {
         public Binding(
-            JsValue value,
+            JsValue? value,
             bool canBeDeleted,
             bool mutable,
             bool strict)
@@ -16,7 +16,7 @@ namespace Jint.Runtime.Environments
             Strict = strict;
         }
 
-        public readonly JsValue Value;
+        public readonly JsValue? Value;
         public readonly bool CanBeDeleted;
         public readonly bool Mutable;
         public readonly bool Strict;

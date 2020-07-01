@@ -63,8 +63,8 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
-            LexicalEnvironment oldEnv = null;
-            LexicalEnvironment loopEnv = null;
+            LexicalEnvironment? oldEnv = null;
+            LexicalEnvironment? loopEnv;
             if (_boundNames != null)
             {
                 oldEnv = _engine.ExecutionContext.LexicalEnvironment;

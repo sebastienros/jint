@@ -28,12 +28,12 @@ namespace Jint.Native.Iterator
             _enumerable = enumerable.GetEnumerator();
         }
 
-        public override object ToObject()
+        public override object? ToObject()
         {
             throw new System.NotImplementedException();
         }
 
-        public override bool Equals(JsValue other)
+        public override bool Equals(JsValue? other)
         {
             return false;
         }
@@ -64,16 +64,16 @@ namespace Jint.Native.Iterator
 
         private class KeyValueIteratorPosition : ObjectInstance
         {
-            internal static readonly ObjectInstance Done = new KeyValueIteratorPosition(null, null, null);
+            internal static readonly ObjectInstance Done = new KeyValueIteratorPosition(null!, null, null);
 
-            public KeyValueIteratorPosition(Engine engine, JsValue key, JsValue value) : base(engine)
+            public KeyValueIteratorPosition(Engine engine, JsValue? key, JsValue? value) : base(engine)
             {
-                var done = ReferenceEquals(null, key) && ReferenceEquals(null, value);
+                var done = key is null && value is null;
                 if (!done)
                 {
                     var arrayInstance = engine.Array.ConstructFast(2);
-                    arrayInstance.SetIndexValue(0, key, false);
-                    arrayInstance.SetIndexValue(1, value, false);
+                    arrayInstance.SetIndexValue(0, key!, false);
+                    arrayInstance.SetIndexValue(1, value!, false);
                     SetProperty("value", new PropertyDescriptor(arrayInstance, PropertyFlag.AllForbidden));
                 }
                 SetProperty("done", done ? PropertyDescriptor.AllForbiddenDescriptor.BooleanTrue : PropertyDescriptor.AllForbiddenDescriptor.BooleanFalse);
@@ -82,14 +82,14 @@ namespace Jint.Native.Iterator
 
         private class ValueIteratorPosition : ObjectInstance
         {
-            internal static readonly ObjectInstance Done = new KeyValueIteratorPosition(null, null, null);
+            internal static readonly ObjectInstance Done = new KeyValueIteratorPosition(null!, null, null);
 
-            public ValueIteratorPosition(Engine engine, JsValue value) : base(engine)
+            public ValueIteratorPosition(Engine engine, JsValue? value) : base(engine)
             {
-                var done = ReferenceEquals(null, value);
+                var done = value is null;
                 if (!done)
                 {
-                    SetProperty("value", new PropertyDescriptor(value, PropertyFlag.AllForbidden));
+                    SetProperty("value", new PropertyDescriptor(value!, PropertyFlag.AllForbidden));
                 }
                 SetProperty("done", new PropertyDescriptor(done, PropertyFlag.AllForbidden));
             }
@@ -134,7 +134,7 @@ namespace Jint.Native.Iterator
             {
                 if (!(target is ObjectInstance objectInstance))
                 {
-                    ExceptionHelper.ThrowTypeError(engine, "Target must be an object");
+                    _array = ExceptionHelper.ThrowTypeError<ArrayOperations>(engine, "Target must be an object");
                     return;
                 }
 

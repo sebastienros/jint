@@ -10,7 +10,7 @@ namespace Jint.Runtime.Interpreter.Statements
     internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
     {
         private readonly JintStatement _body;
-        private readonly string _labelSetName;
+        private readonly string? _labelSetName;
         private readonly JintExpression _test;
 
         public JintDoWhileStatement(Engine engine, DoWhileStatement statement) : base(engine, statement)

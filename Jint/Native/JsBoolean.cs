@@ -18,7 +18,7 @@ namespace Jint.Native
             _value = value;
         }
 
-        public override object ToObject()
+        public override object? ToObject()
         {
             return _value ? BoxedTrue : BoxedFalse;
         }
@@ -28,7 +28,7 @@ namespace Jint.Native
             return _value ? "true" : "false";
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             if (ReferenceEquals(null, obj))
             {
@@ -43,7 +43,7 @@ namespace Jint.Native
             return Equals(number);
         }
 
-        public bool Equals(JsBoolean other)
+        public bool Equals(JsBoolean? other)
         {
             if (ReferenceEquals(null, other))
             {

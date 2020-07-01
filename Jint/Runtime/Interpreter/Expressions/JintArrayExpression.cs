@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintArrayExpression : JintExpression
     {
-        private JintExpression[] _expressions;
+        private JintExpression[] _expressions = null!;
         private bool _hasSpreads;
 
         public JintArrayExpression(Engine engine, ArrayExpression expression) : base(engine, expression)

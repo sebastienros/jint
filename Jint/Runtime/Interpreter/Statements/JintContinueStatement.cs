@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintContinueStatement : JintStatement<ContinueStatement>
     {
-        private readonly string _labelName;
+        private readonly string? _labelName;
 
         public JintContinueStatement(Engine engine, ContinueStatement statement) : base(engine, statement)
         {

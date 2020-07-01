@@ -25,7 +25,7 @@ namespace Jint.Native.Json
         private int _lineNumber;
         private int _lineStart;
         private Location _location;
-        private Token _lookahead;
+        private Token? _lookahead;
         private string _source;
 
         private State _state;
@@ -497,12 +497,11 @@ namespace Jint.Native.Json
             {
                 var range = new[] {token.Range[0], token.Range[1]};
                 string value = _source.Slice(token.Range[0], token.Range[1]);
-                _extra.Tokens.Add(new Token
-                    {
-                        Type = token.Type,
-                        Value = value,
-                        Range = range,
-                    });
+                _extra.Tokens.Add(new Token(value)
+                {
+                    Type = token.Type,
+                    Range = range
+                });
             }
 
             return token;
@@ -610,7 +609,7 @@ namespace Jint.Native.Json
 
         // Throw an exception
 
-        private void ThrowError(Token token, string messageFormat, params object[] arguments)
+        private void ThrowError(Token token, string messageFormat, params object?[] arguments)
         {
             string msg = System.String.Format(messageFormat, arguments);
             int lineNumber = token.LineNumber ?? _lineNumber;
@@ -704,7 +703,7 @@ namespace Jint.Native.Json
 
             while (!Match("}"))
             {
-                Tokens type = _lookahead.Type;
+                var type = _lookahead?.Type;
                 if (type != Tokens.String)
                 {
                     ThrowUnexpected(Lex());
@@ -764,12 +763,12 @@ namespace Jint.Native.Json
                     return Null.Instance;
                 case Tokens.BooleanLiteral:
                     // implicit conversion operator goes through caching
-                    return (bool) Lex().Value ? JsBoolean.True : JsBoolean.False;
+                    return (bool) Lex().Value! ? JsBoolean.True : JsBoolean.False;
                 case Tokens.String:
                     // implicit conversion operator goes through caching
-                    return new JsString((string) Lex().Value);
+                    return new JsString((string) Lex().Value!);
                 case Tokens.Number:
-                    return (double) Lex().Value;
+                    return (double) Lex().Value!;
             }
 
             if (Match("["))
@@ -793,7 +792,7 @@ namespace Jint.Native.Json
             return Parse(code, null);
         }
 
-        public JsValue Parse(string code, ParserOptions options)
+        public JsValue Parse(string code, ParserOptions? options)
         {
             _source = code;
             _index = 0;
@@ -836,9 +835,9 @@ namespace Jint.Native.Json
 
                 Peek();
 
-                if(_lookahead.Type != Tokens.EOF)
+                if(_lookahead?.Type != Tokens.EOF)
                 {
-                    ExceptionHelper.ThrowSyntaxError(_engine, $"Unexpected {_lookahead.Type} {_lookahead.Value}");
+                    ExceptionHelper.ThrowSyntaxError(_engine, $"Unexpected {_lookahead?.Type} {_lookahead.Value}");
                 }
                 return jsv;
             }
@@ -851,9 +850,9 @@ namespace Jint.Native.Json
         private class Extra
         {
             public int? Loc;
-            public int[] Range;
+            public int[]? Range;
 
-            public List<Token> Tokens;
+            public List<Token>? Tokens;
         }
 
         private enum Tokens
@@ -866,16 +865,21 @@ namespace Jint.Native.Json
             EOF,
         };
 
-        class Token
+        private class Token
         {
+            public Token(object? value)
+            {
+                Value = value;
+            }
+
             public Tokens Type;
-            public object Value;
-            public int[] Range;
+            public object? Value;
+            public int[]? Range;
             public int? LineNumber;
             public int LineStart;
         }
 
-        static class Messages
+        private static class Messages
         {
             public const string UnexpectedToken = "Unexpected token '{0}'";
             public const string UnexpectedNumber = "Unexpected number";
@@ -883,7 +887,7 @@ namespace Jint.Native.Json
             public const string UnexpectedEOS = "Unexpected end of input";
         };
 
-        struct State
+        private struct State
         {
             public int LastCommentStart;
             public bool AllowIn;

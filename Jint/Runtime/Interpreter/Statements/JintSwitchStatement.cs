@@ -8,8 +8,8 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintSwitchStatement : JintStatement<SwitchStatement>
     {
-        private JintSwitchBlock _switchBlock;
-        private JintExpression _discriminant;
+        private JintSwitchBlock _switchBlock = null!;
+        private JintExpression _discriminant = null!;
 
         public JintSwitchStatement(Engine engine, SwitchStatement statement) : base(engine, statement)
         {

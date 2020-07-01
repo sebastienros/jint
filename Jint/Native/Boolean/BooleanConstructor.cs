@@ -12,22 +12,20 @@ namespace Jint.Native.Boolean
         private BooleanConstructor(Engine engine)
             : base(engine, _functionName)
         {
+            
+            // The value of the [[Prototype]] internal property of the Boolean constructor is the Function prototype object
+            _prototype = engine.Function.PrototypeObject;
+            PrototypeObject = BooleanPrototype.CreatePrototypeObject(engine, this);
+
+            _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
+
+            // The initial value of Boolean.prototype is the Boolean prototype object
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         public static BooleanConstructor CreateBooleanConstructor(Engine engine)
         {
-            var obj = new BooleanConstructor(engine);
-
-            // The value of the [[Prototype]] internal property of the Boolean constructor is the Function prototype object
-            obj._prototype = engine.Function.PrototypeObject;
-            obj.PrototypeObject = BooleanPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
-
-            // The initial value of Boolean.prototype is the Boolean prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
+            return new BooleanConstructor(engine);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -57,10 +55,9 @@ namespace Jint.Native.Boolean
         
         public BooleanInstance Construct(JsBoolean value)
         {
-            var instance = new BooleanInstance(Engine)
+            var instance = new BooleanInstance(Engine, value)
             {
-                _prototype = PrototypeObject,
-                PrimitiveValue = value,
+                _prototype = PrototypeObject
             };
 
             return instance;

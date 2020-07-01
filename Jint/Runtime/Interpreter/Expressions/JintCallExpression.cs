@@ -11,7 +11,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly bool _isDebugMode;
         private readonly int _maxRecursionDepth;
 
-        private CachedArgumentsHolder _cachedArguments;
+        private CachedArgumentsHolder _cachedArguments = null!;
         private bool _cached;
 
         private readonly JintExpression _calleeExpression;
@@ -187,8 +187,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private class CachedArgumentsHolder
         {
-            internal JintExpression[] JintArguments;
-            internal JsValue[] CachedArguments;
+            internal JintExpression[]? JintArguments;
+            internal JsValue[]? CachedArguments;
         }
     }
 }

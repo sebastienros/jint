@@ -14,13 +14,13 @@ namespace Jint.Runtime.Interpreter
     {
         private readonly Engine _engine;
         
-        private JintStatement _body;
+        private JintStatement? _body;
         
-        public readonly string Name;
+        public readonly string? Name;
         public readonly bool Strict;
         public readonly IFunction Function;
 
-        private State _state;
+        private State? _state;
 
         public JintFunctionDefinition(
             Engine engine,
@@ -73,22 +73,22 @@ namespace Jint.Runtime.Interpreter
         {
             public bool HasRestParameter;
             public int Length;
-            public Key[] ParameterNames;
+            public Key[] ParameterNames = null!;
             public bool HasDuplicates;
             public bool IsSimpleParameterList;
             public bool HasParameterExpressions;
             public bool ArgumentsObjectNeeded;
-            public List<Key> VarNames;
-            public LinkedList<FunctionDeclaration> FunctionsToInitialize;
+            public List<Key>? VarNames;
+            public LinkedList<FunctionDeclaration>? FunctionsToInitialize;
             public readonly HashSet<Key> FunctionNames = new HashSet<Key>();
             public LexicalVariableDeclaration[] LexicalDeclarations = Array.Empty<LexicalVariableDeclaration>();
-            public HashSet<Key> ParameterBindings;
-            public List<VariableValuePair> VarsToInitialize;
+            public HashSet<Key>? ParameterBindings;
+            public List<VariableValuePair>? VarsToInitialize;
 
             internal struct VariableValuePair
             {
                 public Key Name;
-                public JsValue InitialValue;
+                public JsValue? InitialValue;
             }
 
             internal struct LexicalVariableDeclaration
@@ -109,7 +109,7 @@ namespace Jint.Runtime.Interpreter
             var lexicalNames = hoistingScope._lexicalNames;
             state.VarNames = hoistingScope._varNames;
 
-            LinkedList<FunctionDeclaration> functionsToInitialize = null;
+            LinkedList<FunctionDeclaration>? functionsToInitialize = null;
 
             if (functionDeclarations != null)
             {
@@ -117,7 +117,7 @@ namespace Jint.Runtime.Interpreter
                 for (var i = functionDeclarations.Count - 1; i >= 0; i--)
                 {
                     var d = functionDeclarations[i];
-                    var fn = d.Id.Name;
+                    var fn = d.Id?.Name ?? "";
                     if (state.FunctionNames.Add(fn))
                     {
                         functionsToInitialize.AddFirst(d);
@@ -184,9 +184,9 @@ namespace Jint.Runtime.Interpreter
                 for (var i = 0; i < state.VarNames?.Count; i++)
                 {
                     var n = state.VarNames[i];
-                    if (instantiatedVarNames.Add(n))
+                    if (instantiatedVarNames!.Add(n))
                     {
-                        JsValue initialValue = null;
+                        JsValue? initialValue = null;
                         if (!state.ParameterBindings.Contains(n) || state.FunctionNames.Contains(n))
                         {
                             initialValue = JsValue.Undefined;
@@ -234,7 +234,7 @@ namespace Jint.Runtime.Interpreter
             ref bool _hasDuplicates,
             ref bool hasArguments)
         {
-            if (parameter is Identifier identifier)
+            if (parameter is Identifier identifier && identifier.Name != null)
             {
                 _hasDuplicates |= checkDuplicates && target.Contains(identifier.Name);
                 target.Add(identifier.Name);
@@ -321,7 +321,7 @@ namespace Jint.Runtime.Interpreter
             for (var i = 0; i < count; i++)
             {
                 var parameter = functionDeclarationParams[i];
-                if (parameter is Identifier id)
+                if (parameter is Identifier id && id.Name != null)
                 {
                     state.HasDuplicates |= parameterNames.Contains(id.Name);
                     hasArguments = id.Name == "arguments";

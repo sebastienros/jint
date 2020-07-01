@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Jint.Collections;
@@ -27,29 +28,26 @@ namespace Jint.Native.RegExp
         private static readonly JsValue DefaultSource = new JsString("(?:)");
         internal static readonly JsString PropertyFlags = new JsString("flags");
 
-        private RegExpConstructor _regExpConstructor;
+        private readonly RegExpConstructor _regExpConstructor;
         private readonly Func<JsValue, JsValue[], JsValue> _defaultExec;
 
-        private RegExpPrototype(Engine engine) : base(engine)
+        private RegExpPrototype(Engine engine, RegExpConstructor regExpConstructor) : base(engine)
         {
             _defaultExec = Exec;
+            _prototype = engine.Object.PrototypeObject;
+            _regExpConstructor = regExpConstructor;
         }
 
         public static RegExpPrototype CreatePrototypeObject(Engine engine, RegExpConstructor regExpConstructor)
         {
-            var obj = new RegExpPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject, _regExpConstructor = regExpConstructor
-            };
-
-            return obj;
+            return new RegExpPrototype(engine, regExpConstructor);
         }
 
         protected override void Initialize()
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
 
-            GetSetPropertyDescriptor CreateGetAccessorDescriptor(string name, Func<RegExpInstance, JsValue> valueExtractor, JsValue protoValue = null)
+            GetSetPropertyDescriptor CreateGetAccessorDescriptor(string name, Func<RegExpInstance, JsValue> valueExtractor, JsValue? protoValue = null)
             {
                 return new GetSetPropertyDescriptor(
                     get: new ClrFunctionInstance(Engine, name, (thisObj, arguments) =>
@@ -786,7 +784,7 @@ namespace Jint.Native.RegExp
             return RegExpBuiltinExec(ri, s);
         }
 
-        internal bool TryGetDefaultExec(ObjectInstance o, out Func<JsValue, JsValue[], JsValue> exec)
+        internal bool TryGetDefaultExec(ObjectInstance o, [MaybeNullWhen(false)] out Func<JsValue, JsValue[], JsValue> exec)
         {
             if (o.Get(PropertyExec) is ClrFunctionInstance functionInstance && functionInstance._func == _defaultExec)
             {
@@ -894,7 +892,7 @@ namespace Jint.Native.RegExp
             array.CreateDataProperty(PropertyIndex, match.Index);
             array.CreateDataProperty(PropertyInput, inputValue);
 
-            ObjectInstance groups = null;
+            ObjectInstance? groups = null;
             for (uint i = 0; i < match.Groups.Count; i++)
             {
                 var capture = i < match.Groups.Count ? match.Groups[(int) i] : null;

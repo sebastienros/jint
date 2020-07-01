@@ -13,21 +13,17 @@ namespace Jint.Native.Set
     /// </summary>
     public sealed class SetPrototype : ObjectInstance
     {
-        private SetConstructor _mapConstructor;
+        private readonly SetConstructor _mapConstructor;
 
-        private SetPrototype(Engine engine) : base(engine)
+        private SetPrototype(Engine engine, SetConstructor setConstructor) : base(engine)
         {
+            _prototype = engine.Object.PrototypeObject;
+            _mapConstructor = setConstructor;
         }
 
-        public static SetPrototype CreatePrototypeObject(Engine engine, SetConstructor mapConstructor)
+        public static SetPrototype CreatePrototypeObject(Engine engine, SetConstructor setConstructor)
         {
-            var obj = new SetPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _mapConstructor = mapConstructor
-            };
-
-            return obj;
+            return new SetPrototype(engine, setConstructor);
         }
 
         protected override void Initialize()

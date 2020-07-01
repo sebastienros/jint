@@ -9,9 +9,9 @@ namespace Jint.Runtime.Interpreter.Statements
     internal sealed class JintTryStatement : JintStatement<TryStatement>
     {
         private readonly JintStatement _block;
-        private readonly JintStatement _catch;
+        private readonly JintStatement? _catch;
         private readonly Key _catchParamName;
-        private readonly JintStatement _finalizer;
+        private readonly JintStatement? _finalizer;
 
         public JintTryStatement(Engine engine, TryStatement statement) : base(engine, statement)
         {
@@ -22,9 +22,10 @@ namespace Jint.Runtime.Interpreter.Statements
                 _catchParamName = ((Identifier) _statement.Handler.Param).Name;
             }
 
-            if (statement.Finalizer != null)
+            var finalizer = statement.Finalizer;
+            if (finalizer != null)
             {
-                _finalizer = Build(engine, _statement.Finalizer);
+                _finalizer = Build(engine, finalizer);
             }
         }
 

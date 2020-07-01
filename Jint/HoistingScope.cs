@@ -5,20 +5,20 @@ namespace Jint
 {
     internal readonly struct HoistingScope
     {
-        internal readonly List<FunctionDeclaration> _functionDeclarations;
+        internal readonly List<FunctionDeclaration>? _functionDeclarations;
         
-        internal readonly List<VariableDeclaration> _variablesDeclarations;
-        internal readonly List<Key> _varNames;
+        internal readonly List<VariableDeclaration>? _variablesDeclarations;
+        internal readonly List<Key>? _varNames;
 
-        internal readonly List<VariableDeclaration> _lexicalDeclarations;
-        internal readonly List<string> _lexicalNames;
+        internal readonly List<VariableDeclaration>? _lexicalDeclarations;
+        internal readonly List<string>? _lexicalNames;
 
         private HoistingScope(
-            List<FunctionDeclaration> functionDeclarations,
-            List<Key> varNames,
-            List<VariableDeclaration> variableDeclarations,
-            List<VariableDeclaration> lexicalDeclarations,
-            List<string> lexicalNames)
+            List<FunctionDeclaration>? functionDeclarations,
+            List<Key>? varNames,
+            List<VariableDeclaration>? variableDeclarations,
+            List<VariableDeclaration>? lexicalDeclarations,
+            List<string>? lexicalNames)
         {
             _functionDeclarations = functionDeclarations;
             _varNames = varNames;
@@ -58,9 +58,9 @@ namespace Jint
                 treeWalker._lexicalNames);
         }
 
-        public static List<VariableDeclaration> GetLexicalDeclarations(BlockStatement statement)
+        public static List<VariableDeclaration>? GetLexicalDeclarations(BlockStatement statement)
         {
-            List<VariableDeclaration> lexicalDeclarations = null ;
+            List<VariableDeclaration>? lexicalDeclarations = null;
             ref readonly var statementListItems = ref statement.Body;
             for (var i = 0; i < statementListItems.Count; i++)
             {
@@ -83,9 +83,9 @@ namespace Jint
             return lexicalDeclarations;
         }
 
-        public static List<VariableDeclaration> GetLexicalDeclarations(SwitchCase statement)
+        public static List<VariableDeclaration>? GetLexicalDeclarations(SwitchCase statement)
         {
-            List<VariableDeclaration> lexicalDeclarations = null ;
+            List<VariableDeclaration>? lexicalDeclarations = null ;
             ref readonly var statementListItems = ref statement.Consequent;
             for (var i = 0; i < statementListItems.Count; i++)
             {
@@ -110,16 +110,16 @@ namespace Jint
 
         private sealed class ScriptWalker
         {
-            internal List<FunctionDeclaration> _functions;
+            internal List<FunctionDeclaration>? _functions;
 
             private readonly bool _strict;
             private readonly bool _collectVarNames;
-            internal List<VariableDeclaration> _variableDeclarations;
-            internal List<Key> _varNames;
+            internal List<VariableDeclaration>? _variableDeclarations;
+            internal List<Key>? _varNames;
 
             private readonly bool _collectLexicalNames;
-            internal List<VariableDeclaration> _lexicalDeclarations;
-            internal List<string> _lexicalNames;
+            internal List<VariableDeclaration>? _lexicalDeclarations;
+            internal List<string>? _lexicalNames;
 
             public ScriptWalker(bool strict, bool collectVarNames, bool collectLexicalNames)
             {
@@ -128,7 +128,7 @@ namespace Jint
                 _collectLexicalNames = collectLexicalNames;
             }
 
-            public void Visit(Node node, Node parent)
+            public void Visit(Node node, Node? parent)
             {
                 foreach (var childNode in node.ChildNodes)
                 {
@@ -151,7 +151,7 @@ namespace Jint
                                 ref readonly var nodeList = ref variableDeclaration.Declarations;
                                 foreach (var declaration in nodeList)
                                 {
-                                    if (declaration.Id is Identifier identifier)
+                                    if (declaration.Id is Identifier identifier && identifier.Name != null)
                                     {
                                         _varNames.Add(identifier.Name);
                                     }
@@ -169,7 +169,7 @@ namespace Jint
                                 ref readonly var nodeList = ref variableDeclaration.Declarations;
                                 foreach (var declaration in nodeList)
                                 {
-                                    if (declaration.Id is Identifier identifier)
+                                    if (declaration.Id is Identifier identifier && identifier.Name != null)
                                     {
                                         _lexicalNames.Add(identifier.Name);
                                     }

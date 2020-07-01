@@ -19,10 +19,10 @@ namespace Jint.Native.Argument
         // cache property container for array iteration for less allocations
         private static readonly ThreadLocal<HashSet<string>> _mappedNamed = new ThreadLocal<HashSet<string>>(() => new HashSet<string>());
 
-        private FunctionInstance _func;
-        private Key[] _names;
-        private JsValue[] _args;
-        private DeclarativeEnvironmentRecord _env;
+        private FunctionInstance? _func;
+        private Key[]? _names;
+        private JsValue[]? _args;
+        private DeclarativeEnvironmentRecord? _env;
         private bool _canReturnToPool;
         private bool _hasRestParameter;
 
@@ -32,10 +32,10 @@ namespace Jint.Native.Argument
         }
 
         internal void Prepare(
-            FunctionInstance func, 
-            Key[] names, 
-            JsValue[] args, 
-            DeclarativeEnvironmentRecord env,
+            FunctionInstance? func, 
+            Key[]? names, 
+            JsValue[]? args, 
+            DeclarativeEnvironmentRecord? env,
             bool hasRestParameter)
         {
             _func = func;
@@ -51,9 +51,9 @@ namespace Jint.Native.Argument
         protected override void Initialize()
         {
             _canReturnToPool = false;
-            var args = _args;
+            var args = _args!;
 
-            DefinePropertyOrThrow(CommonProperties.Length, new PropertyDescriptor(_args.Length, PropertyFlag.NonEnumerable));
+            DefinePropertyOrThrow(CommonProperties.Length, new PropertyDescriptor(args.Length, PropertyFlag.NonEnumerable));
 
             if (_func is null)
             {
@@ -70,7 +70,7 @@ namespace Jint.Native.Argument
             }
             else
             {
-                ObjectInstance map = null;
+                ObjectInstance? map = null;
                 if (args.Length > 0)
                 {
                     var mappedNamed = _mappedNamed.Value;
@@ -81,12 +81,12 @@ namespace Jint.Native.Argument
                     for (uint i = 0; i < (uint) args.Length; i++)
                     {
                         SetOwnProperty(i, new PropertyDescriptor(args[i], PropertyFlag.ConfigurableEnumerableWritable));
-                        if (i < _names.Length)
+                        if (i < _names!.Length)
                         {
                             var name = _names[i];
                             if (mappedNamed.Add(name))
                             {
-                                map.SetOwnProperty(i, new ClrAccessDescriptor(_env, Engine, name));
+                                map.SetOwnProperty(i, new ClrAccessDescriptor(_env!, Engine, name));
                             }
                         }
                     }
@@ -102,7 +102,7 @@ namespace Jint.Native.Argument
             DefinePropertyOrThrow(GlobalSymbolRegistry.Iterator, new PropertyDescriptor(iteratorFunction, PropertyFlag.Writable | PropertyFlag.Configurable));
         }
 
-        public ObjectInstance ParameterMap { get; set; }
+        public ObjectInstance? ParameterMap { get; set; }
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
@@ -241,7 +241,7 @@ namespace Jint.Native.Argument
             EnsureInitialized();
 
             var args = _args;
-            var copiedArgs = new JsValue[args.Length];
+            var copiedArgs = new JsValue[args!.Length];
             System.Array.Copy(args, copiedArgs, args.Length);
             _args = copiedArgs;
 

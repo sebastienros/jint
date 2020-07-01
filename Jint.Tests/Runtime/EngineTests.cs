@@ -836,7 +836,7 @@ namespace Jint.Tests.Runtime
             funcRoot();
             ";
 
-            RecursionDepthOverflowException exception = null;
+            RecursionDepthOverflowException? exception = null;
 
             try
             {
@@ -2868,7 +2868,7 @@ x.test = {
 
         private class TestTypeConverter : Jint.Runtime.Interop.ITypeConverter
         {
-            public object Convert(object value, Type type, IFormatProvider formatProvider)
+            public object? Convert(object value, Type type, IFormatProvider formatProvider)
             {
                 throw new NotImplementedException();
             }

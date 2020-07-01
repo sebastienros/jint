@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintSpreadExpression : JintExpression
     {
         private readonly JintExpression _argument;
-        private readonly string _argumentName;
+        private readonly string? _argumentName;
 
         public JintSpreadExpression(Engine engine, SpreadElement expression) : base(engine, expression)
         {
@@ -35,9 +35,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             instance = _argument.GetValue();
             if (instance is null || !instance.TryGetIterator(_engine, out iterator))
             {
-                iterator = null;
                 ExceptionHelper.ThrowTypeError(_engine, _argumentName + " is not iterable");
             }
+
+            iterator = null!;
         }
     }
 }

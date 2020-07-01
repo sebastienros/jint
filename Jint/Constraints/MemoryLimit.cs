@@ -5,7 +5,7 @@ namespace Jint.Constraints
 {
     internal sealed class MemoryLimit : IConstraint
     {
-        private static readonly Func<long> GetAllocatedBytesForCurrentThread;
+        private static readonly Func<long>? GetAllocatedBytesForCurrentThread;
         private readonly long _memoryLimit;
         private long _initialMemoryUsage;
 

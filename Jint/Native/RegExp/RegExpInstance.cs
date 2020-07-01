@@ -13,7 +13,7 @@ namespace Jint.Native.RegExp
 
         private string _flags;
 
-        private PropertyDescriptor _prototypeDescriptor;
+        private PropertyDescriptor? _prototypeDescriptor;
 
         public RegExpInstance(Engine engine)
             : base(engine, ObjectClass.RegExp)

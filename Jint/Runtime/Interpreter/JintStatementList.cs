@@ -10,18 +10,24 @@ namespace Jint.Runtime.Interpreter
     {
         private class Pair
         {
-            internal JintStatement Statement;
-            internal Completion? Value;
+            internal readonly JintStatement Statement;
+            internal readonly Completion? Value;
+
+            public Pair(JintStatement statement, Completion? value)
+            {
+                Statement = statement;
+                Value = value;
+            }
         }
 
         private readonly Engine _engine;
-        private readonly Statement _statement;
+        private readonly Statement? _statement;
         private readonly NodeList<Statement> _statements;
 
         private Pair[] _jintStatements;
         private bool _initialized;
 
-        public JintStatementList(Engine engine, Statement statement, NodeList<Statement> statements)
+        public JintStatementList(Engine engine, Statement? statement, NodeList<Statement> statements)
         {
             _engine = engine;
             _statement = statement;
@@ -34,11 +40,10 @@ namespace Jint.Runtime.Interpreter
             for (var i = 0; i < jintStatements.Length; i++)
             {
                 var esprimaStatement = _statements[i];
-                jintStatements[i] = new Pair
-                {
-                    Statement = JintStatement.Build(_engine, esprimaStatement),
-                    Value = JintStatement.FastResolve(esprimaStatement)
-                };
+                jintStatements[i] = new Pair(
+                    JintStatement.Build(_engine, esprimaStatement),
+                    JintStatement.FastResolve(esprimaStatement)
+                );
             }
             _jintStatements = jintStatements;
         }
@@ -57,12 +62,12 @@ namespace Jint.Runtime.Interpreter
                 _engine.RunBeforeExecuteStatementChecks(_statement);
             }
 
-            JintStatement s = null;
+            JintStatement? s = null;
             var c = new Completion(CompletionType.Normal, null, null, _engine._lastSyntaxNode?.Location ?? default);
             Completion sl = c;
             
             // The value of a StatementList is the value of the last value-producing item in the StatementList
-            JsValue lastValue = null;
+            JsValue? lastValue = null;
             try
             {
                 foreach (var pair in _jintStatements)
@@ -83,7 +88,7 @@ namespace Jint.Runtime.Interpreter
             }
             catch (JavaScriptException v)
             {
-                var location = v.Location == default ? s.Location : v.Location;
+                var location = v.Location == default ? s!.Location : v.Location;
                 var completion = new Completion(CompletionType.Throw, v.Error, null, location);
                 return completion;
             }
@@ -93,7 +98,7 @@ namespace Jint.Runtime.Interpreter
                 {
                     e.Message
                 });
-                return new Completion(CompletionType.Throw, error, null, s.Location);
+                return new Completion(CompletionType.Throw, error, null, s!.Location);
             }
             catch (RangeErrorException e)
             {
@@ -101,7 +106,7 @@ namespace Jint.Runtime.Interpreter
                 {
                     e.Message
                 });
-                c = new Completion(CompletionType.Throw, error, null, s.Location);
+                c = new Completion(CompletionType.Throw, error, null, s!.Location);
             }
             return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Identifier, c.Location);
         }
@@ -121,7 +126,7 @@ namespace Jint.Runtime.Interpreter
                 for (var j = 0; j < nodeList.Count; j++)
                 {
                     var declaration = nodeList[j];
-                    if (declaration.Id is Identifier identifier)
+                    if (declaration.Id is Identifier identifier && identifier.Name != null)
                     {
                         if (variableDeclaration.Kind == VariableDeclarationKind.Const)
                         {

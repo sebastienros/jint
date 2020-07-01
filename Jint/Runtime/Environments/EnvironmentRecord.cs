@@ -22,11 +22,10 @@ namespace Jint.Runtime.Environments
         /// <returns><c>true</c> if it does and <c>false</c> if it does not.</returns>
         public abstract bool HasBinding(string name);
 
-        internal abstract bool TryGetBinding(
-            in BindingName name,
+        internal abstract bool TryGetBinding(in BindingName name,
             bool strict,
-            out Binding binding,
-            out JsValue value);
+            out Binding? binding,
+            out JsValue? value);
 
         /// <summary>
         /// Creates a new mutable binding in an environment record.
@@ -92,12 +91,12 @@ namespace Jint.Runtime.Environments
         /// <returns>The array of all defined bindings</returns>
         internal abstract string[] GetAllBindingNames();
 
-        public override object ToObject()
+        public override object? ToObject()
         {
             return ExceptionHelper.ThrowNotSupportedException<object>();
         }
 
-        public override bool Equals(JsValue other)
+        public override bool Equals(JsValue? other)
         {
             return ExceptionHelper.ThrowNotSupportedException<bool>();
         }

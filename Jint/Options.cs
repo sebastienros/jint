@@ -18,13 +18,13 @@ namespace Jint
         private bool _allowClr;
         private bool _allowClrWrite = true;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
-        private Func<Engine, object, ObjectInstance> _wrapObjectHandler;
+        private Func<Engine, object, ObjectInstance>? _wrapObjectHandler;
         private int _maxRecursionDepth = -1;
         private TimeSpan _regexTimeoutInterval = TimeSpan.FromSeconds(10);
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
-        private Predicate<Exception> _clrExceptionsHandler;
+        private Predicate<Exception>? _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
 
         /// <summary>
@@ -189,7 +189,7 @@ namespace Jint
 
         internal bool _IsClrWriteAllowed => _allowClrWrite;
 
-        internal Predicate<Exception> _ClrExceptionsHandler => _clrExceptionsHandler;
+        internal Predicate<Exception>? _ClrExceptionsHandler => _clrExceptionsHandler;
 
         internal List<Assembly> _LookupAssemblies => _lookupAssemblies;
 
@@ -197,7 +197,7 @@ namespace Jint
 
         internal List<IConstraint> _Constraints => _constraints;
 
-        internal Func<Engine, object, ObjectInstance> _WrapObjectHandler => _wrapObjectHandler;
+        internal Func<Engine, object, ObjectInstance>? _WrapObjectHandler => _wrapObjectHandler;
 
         internal int MaxRecursionDepth => _maxRecursionDepth;
 

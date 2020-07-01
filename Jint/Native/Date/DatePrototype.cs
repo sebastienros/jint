@@ -21,22 +21,18 @@ namespace Jint.Native.Date
         private const double MinMonth = -10000000.0;
         private const double MaxMonth = -MinMonth;
         
-        private DateConstructor _dateConstructor;
+        private readonly DateConstructor _dateConstructor;
 
-        private DatePrototype(Engine engine)
+        private DatePrototype(Engine engine, DateConstructor dateConstructor)
             : base(engine)
         {
+            _prototype = engine.Object.PrototypeObject;
+            _dateConstructor = dateConstructor;
         }
 
         public static DatePrototype CreatePrototypeObject(Engine engine, DateConstructor dateConstructor)
         {
-            var obj = new DatePrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _dateConstructor = dateConstructor
-            };
-
-            return obj;
+            return new DatePrototype(engine, dateConstructor);
         }
 
         protected override  void Initialize()
@@ -415,20 +411,22 @@ namespace Jint.Native.Date
 
         private JsValue SetMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
-            var t = LocalTime(EnsureDateInstance(thisObj).PrimitiveValue);
+            var dateInstance = EnsureDateInstance(thisObj);
+            var t = LocalTime(dateInstance.PrimitiveValue);
             if (!IsFinite(t))
             {
                 return JsNumber.DoubleNaN;
             }
             var time = MakeTime(HourFromTime(t), MinFromTime(t), SecFromTime(t), TypeConverter.ToNumber(arguments.At(0)));
             var u = TimeClip(Utc(MakeDate(Day(t), time)));
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetUTCMilliseconds(JsValue thisObj, JsValue[] arguments)
         {
-            var t = EnsureDateInstance(thisObj).PrimitiveValue;
+            var dateInstance = EnsureDateInstance(thisObj);
+            var t = dateInstance.PrimitiveValue;
             
             if (!IsFinite(t))
             {
@@ -437,13 +435,14 @@ namespace Jint.Native.Date
 
             var time = MakeTime(HourFromTime(t), MinFromTime(t), SecFromTime(t), TypeConverter.ToNumber(arguments.At(0)));
             var u = TimeClip(MakeDate(Day(t), time));
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetSeconds(JsValue thisObj, JsValue[] arguments)
         {
-            var t = LocalTime(EnsureDateInstance(thisObj).PrimitiveValue);
+            var dateInstance = EnsureDateInstance(thisObj);
+            var t = LocalTime(dateInstance.PrimitiveValue);
             if (!IsFinite(t))
             {
                 return JsNumber.DoubleNaN;
@@ -452,13 +451,14 @@ namespace Jint.Native.Date
             var milli = arguments.Length <= 1 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), MinFromTime(t), s, milli));
             var u = TimeClip(Utc(date));
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetUTCSeconds(JsValue thisObj, JsValue[] arguments)
         {
-            var t = EnsureDateInstance(thisObj).PrimitiveValue;
+            var dateInstance = EnsureDateInstance(thisObj);
+            var t = dateInstance.PrimitiveValue;
             if (!IsFinite(t))
             {
                 return JsNumber.DoubleNaN;
@@ -467,13 +467,14 @@ namespace Jint.Native.Date
             var milli = arguments.Length <= 1 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), MinFromTime(t), s, milli));
             var u = TimeClip(date);
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetMinutes(JsValue thisObj, JsValue[] arguments)
         {
-            var t = LocalTime(EnsureDateInstance(thisObj).PrimitiveValue);
+            var dateInstance = EnsureDateInstance(thisObj);
+            var t = LocalTime(dateInstance.PrimitiveValue);
             if (!IsFinite(t))
             {
                 return JsNumber.DoubleNaN;
@@ -483,13 +484,14 @@ namespace Jint.Native.Date
             var milli = arguments.Length <= 2 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), m, s, milli));
             var u = TimeClip(Utc(date));
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetUTCMinutes(JsValue thisObj, JsValue[] arguments)
         {
-            var t = EnsureDateInstance(thisObj).PrimitiveValue;
+            var dateInstance = EnsureDateInstance(thisObj);
+            var t = dateInstance.PrimitiveValue;
             if (!IsFinite(t))
             {
                 return JsNumber.DoubleNaN;
@@ -499,13 +501,14 @@ namespace Jint.Native.Date
             var milli = arguments.Length <= 2 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), m, s, milli));
             var u = TimeClip(date);
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetHours(JsValue thisObj, JsValue[] arguments)
         {
-            var t = LocalTime(EnsureDateInstance(thisObj).PrimitiveValue);
+            var dateInstance = EnsureDateInstance(thisObj);
+            var t = LocalTime(dateInstance.PrimitiveValue);
             if (!IsFinite(t))
             {
                 return JsNumber.DoubleNaN;
@@ -516,13 +519,14 @@ namespace Jint.Native.Date
             var milli = arguments.Length <= 3 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(3));
             var date = MakeDate(Day(t), MakeTime(h, m, s, milli));
             var u = TimeClip(Utc(date));
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetUTCHours(JsValue thisObj, JsValue[] arguments)
         {
-            var t = EnsureDateInstance(thisObj).PrimitiveValue;
+            var dateInstance = EnsureDateInstance(thisObj);
+            var t = dateInstance.PrimitiveValue;
             if (!IsFinite(t))
             {
                 return JsNumber.DoubleNaN;
@@ -533,13 +537,14 @@ namespace Jint.Native.Date
             var milli = arguments.Length <= 3 ? MsFromTime(t) : TypeConverter.ToNumber(arguments.At(3));
             var date = MakeDate(Day(t), MakeTime(h, m, s, milli));
             var u = TimeClip(date);
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetDate(JsValue thisObj, JsValue[] arguments)
         {
-            var t = LocalTime(EnsureDateInstance(thisObj).PrimitiveValue);
+            var dateInstance = EnsureDateInstance(thisObj);
+            var t = LocalTime(dateInstance.PrimitiveValue);
             if (!IsFinite(t))
             {
                 return JsNumber.DoubleNaN;
@@ -548,13 +553,14 @@ namespace Jint.Native.Date
             var (year, month, __) = YearMonthDayFromTime(t);
             var newDate = MakeDate(MakeDay(year, month, dt), TimeWithinDay(t));
             var u = TimeClip(Utc(newDate));
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetUTCDate(JsValue thisObj, JsValue[] arguments)
         {
-            var t = EnsureDateInstance(thisObj).PrimitiveValue;
+            var dateInstance = EnsureDateInstance(thisObj);
+            var t = dateInstance.PrimitiveValue;
             if (!IsFinite(t))
             {
                 return JsNumber.DoubleNaN;
@@ -562,13 +568,14 @@ namespace Jint.Native.Date
             var dt = TypeConverter.ToNumber(arguments.At(0));
             var newDate = MakeDate(MakeDay(YearFromTime(t), MonthFromTime(t), dt), TimeWithinDay(t));
             var u = TimeClip(newDate);
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetMonth(JsValue thisObj, JsValue[] arguments)
         {
-            var t = LocalTime(EnsureDateInstance(thisObj).PrimitiveValue);
+            var dateInstance = EnsureDateInstance(thisObj);
+            var t = LocalTime(dateInstance.PrimitiveValue);
             if (!IsFinite(t))
             {
                 return JsNumber.DoubleNaN;
@@ -577,13 +584,14 @@ namespace Jint.Native.Date
             var dt = arguments.Length <= 1 ? DateFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
             var newDate = MakeDate(MakeDay(YearFromTime(t), m, dt), TimeWithinDay(t));
             var u = TimeClip(Utc(newDate));
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetUTCMonth(JsValue thisObj, JsValue[] arguments)
         {
-            var t = EnsureDateInstance(thisObj).PrimitiveValue;
+            var dateInstance = EnsureDateInstance(thisObj);
+            var t = dateInstance.PrimitiveValue;
             if (!IsFinite(t))
             {
                 return JsNumber.DoubleNaN;
@@ -592,31 +600,33 @@ namespace Jint.Native.Date
             var dt = arguments.Length <= 1 ? DateFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
             var newDate = MakeDate(MakeDay(YearFromTime(t), m, dt), TimeWithinDay(t));
             var u = TimeClip(newDate);
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetFullYear(JsValue thisObj, JsValue[] arguments)
         {
-            var thisTime = EnsureDateInstance(thisObj).PrimitiveValue;
+            var dateInstance = EnsureDateInstance(thisObj);
+            var thisTime = dateInstance.PrimitiveValue;
             var t = double.IsNaN(thisTime) ? 0 : LocalTime(thisTime);
             var y = TypeConverter.ToNumber(arguments.At(0));
             var m = arguments.Length <= 1 ? MonthFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
             var dt = arguments.Length <= 2 ? DateFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
             var newDate = MakeDate(MakeDay(y, m, dt), TimeWithinDay(t));
             var u = TimeClip(Utc(newDate));
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 
         private JsValue SetYear(JsValue thisObj, JsValue[] arguments)
         {
-            var thisTime = EnsureDateInstance(thisObj).PrimitiveValue;
+            var dateInstance = EnsureDateInstance(thisObj);
+            var thisTime = dateInstance.PrimitiveValue;
             var t = double.IsNaN(thisTime) ? 0 : LocalTime(thisTime);
             var y = TypeConverter.ToNumber(arguments.At(0));
             if (double.IsNaN(y))
             {
-                EnsureDateInstance(thisObj).PrimitiveValue = double.NaN;
+                dateInstance.PrimitiveValue = double.NaN;
                 return JsNumber.DoubleNaN;
             }
 
@@ -628,20 +638,21 @@ namespace Jint.Native.Date
 
             var newDate = MakeDay(fy, MonthFromTime(t), DateFromTime(t));
             var u = Utc(MakeDate(newDate, TimeWithinDay(t)));
-            EnsureDateInstance(thisObj).PrimitiveValue = TimeClip(u);
+            dateInstance.PrimitiveValue = TimeClip(u);
             return u;
         }
 
         private JsValue SetUTCFullYear(JsValue thisObj, JsValue[] arguments)
         {
-            var thisTime = EnsureDateInstance(thisObj).PrimitiveValue;
+            var dateInstance = EnsureDateInstance(thisObj);
+            var thisTime = dateInstance.PrimitiveValue;
             var t = (long) (double.IsNaN(thisTime) ? 0 : thisTime);
             var y = TypeConverter.ToNumber(arguments.At(0));
             var m = arguments.Length <= 1 ? MonthFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
             var dt = arguments.Length <= 2 ? DateFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
             var newDate = MakeDate(MakeDay(y, m, dt), TimeWithinDay(t));
             var u = TimeClip(newDate);
-            thisObj.As<DateInstance>().PrimitiveValue = u;
+            dateInstance.PrimitiveValue = u;
             return u;
         }
 

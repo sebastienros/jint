@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -141,9 +142,9 @@ namespace Jint.Native
         {
             if (!IsObject())
             {
-                ExceptionHelper.ThrowArgumentException("The value is not an object");
+                return ExceptionHelper.ThrowArgumentException<ObjectInstance>("The value is not an object");
             }
-            return this as ObjectInstance;
+            return (ObjectInstance) this;
         }
 
         [Pure]
@@ -154,18 +155,18 @@ namespace Jint.Native
             {
                 ExceptionHelper.ThrowArgumentException("The value is not an object");
             }
-            return this as TInstance;
+            return (this as TInstance)!;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ArrayInstance AsArray()
         {
-            if (!IsArray())
+            if (!(this is ArrayInstance arrayInstance))
             {
-                ExceptionHelper.ThrowArgumentException("The value is not an array");
+                return ExceptionHelper.ThrowArgumentException<ArrayInstance>("The value is not an array");
             }
-            return this as ArrayInstance;
+            return arrayInstance;
         }
 
         [Pure]
@@ -182,7 +183,7 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool TryGetIterator(Engine engine, out IIterator iterator)
+        internal bool TryGetIterator(Engine engine, [MaybeNullWhen(false)] out IIterator iterator)
         {
             var objectInstance = TypeConverter.ToObject(engine, this);
 
@@ -211,34 +212,34 @@ namespace Jint.Native
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public DateInstance AsDate()
         {
-            if (!IsDate())
+            if (!(this is DateInstance dateInstance))
             {
-                ExceptionHelper.ThrowArgumentException("The value is not a date");
+                return ExceptionHelper.ThrowArgumentException<DateInstance>("The value is not a date");
             }
-            return this as DateInstance;
+            return dateInstance;
         }
 
         [Pure]
         public RegExpInstance AsRegExp()
         {
-            if (!IsRegExp())
+            if (!(this is RegExpInstance regExpInstance))
             {
-                ExceptionHelper.ThrowArgumentException("The value is not a regex");
+                return ExceptionHelper.ThrowArgumentException<RegExpInstance>("The value is not a regex");
             }
 
-            return this as RegExpInstance;
+            return regExpInstance;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T TryCast<T>() where T : class
+        public T? TryCast<T>() where T : class
         {
             return this as T;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T TryCast<T>(Action<JsValue> fail) where T : class
+        public T? TryCast<T>(Action<JsValue> fail) where T : class
         {
             if (this is T o)
             {
@@ -252,7 +253,7 @@ namespace Jint.Native
         
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T As<T>() where T : ObjectInstance
+        public T? As<T>() where T : ObjectInstance
         {
             if (IsObject())
             {
@@ -277,7 +278,7 @@ namespace Jint.Native
         /// <param name="engine"></param>
         /// <param name="value"></param>
         /// <returns></returns>
-        public static JsValue FromObject(Engine engine, object value)
+        public static JsValue FromObject(Engine engine, object? value)
         {
             if (value == null)
             {
@@ -375,7 +376,7 @@ namespace Jint.Native
         /// Converts a <see cref="JsValue"/> to its underlying CLR value.
         /// </summary>
         /// <returns>The underlying CLR value of the <see cref="JsValue"/> instance.</returns>
-        public abstract object ToObject();
+        public abstract object? ToObject();
 
         /// <summary>
         /// Invoke the current value as function.
@@ -518,7 +519,7 @@ namespace Jint.Native
             return JsString.Create(value);
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (ReferenceEquals(null, obj))
             {
@@ -533,7 +534,7 @@ namespace Jint.Native
             return obj is JsValue value && Equals(value);
         }
 
-        public abstract bool Equals(JsValue other);
+        public abstract bool Equals(JsValue? other);
 
         public override int GetHashCode()
         {

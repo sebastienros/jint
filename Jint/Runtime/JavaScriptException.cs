@@ -9,20 +9,20 @@ namespace Jint.Runtime
 {
     public class JavaScriptException : JintException
     {
-        private string _callStack;
+        private string? _callStack;
 
         public JavaScriptException(ErrorConstructor errorConstructor) : base("")
         {
             Error = errorConstructor.Construct(Arguments.Empty);
         }
 
-        public JavaScriptException(ErrorConstructor errorConstructor, string message, Exception innerException)
+        public JavaScriptException(ErrorConstructor errorConstructor, string? message, Exception? innerException)
              : base(message, innerException)
         {
             Error = errorConstructor.Construct(new JsValue[] { message });
         }
 
-        public JavaScriptException(ErrorConstructor errorConstructor, string message)
+        public JavaScriptException(ErrorConstructor errorConstructor, string? message)
             : base(message)
         {
             Error = errorConstructor.Construct(new JsValue[] { message });
@@ -80,7 +80,7 @@ namespace Jint.Runtime
         /// <summary>
         /// A version of <see cref="EsprimaExtensions.GetKey"/> that cannot get into loop as we are already building a stack.
         /// </summary>
-        private static string GetPropertyKey(Expression expression)
+        private static string? GetPropertyKey(Expression expression)
         {
             if (expression is Literal literal)
             {
@@ -121,7 +121,7 @@ namespace Jint.Runtime
             return Error.ToString();
         }
 
-        public string CallStack
+        public string? CallStack
         {
             get
             {

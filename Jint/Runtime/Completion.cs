@@ -18,7 +18,7 @@ namespace Jint.Runtime
     /// </summary>
     public readonly struct Completion
     {
-        public Completion(CompletionType type, JsValue value, string identifier, Location location)
+        public Completion(CompletionType type, JsValue? value, string? identifier, Location location)
         {
             Type = type;
             Value = value;
@@ -27,8 +27,8 @@ namespace Jint.Runtime
         }
 
         public readonly CompletionType Type;
-        public readonly JsValue Value;
-        public readonly string Identifier;
+        public readonly JsValue? Value;
+        public readonly string? Identifier;
         public readonly Location Location;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

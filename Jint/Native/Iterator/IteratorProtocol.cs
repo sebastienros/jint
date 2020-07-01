@@ -69,7 +69,7 @@ namespace Jint.Native.Iterator
 
         protected abstract void ProcessItem(JsValue[] args, JsValue currentValue);
 
-        protected static JsValue ExtractValueFromIteratorInstance(JsValue jsValue)
+        protected static JsValue? ExtractValueFromIteratorInstance(JsValue jsValue)
         {
             if (jsValue is ArrayInstance ai)
             {

@@ -9,7 +9,7 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintReturnStatement : JintStatement<ReturnStatement>
     {
-        private readonly JintExpression _argument;
+        private readonly JintExpression? _argument;
 
         public JintReturnStatement(Engine engine, ReturnStatement statement) : base(engine, statement)
         {
