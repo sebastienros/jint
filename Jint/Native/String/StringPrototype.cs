@@ -19,24 +19,19 @@ namespace Jint.Native.String
     /// </summary>
     public sealed class StringPrototype : StringInstance
     {
-        private StringConstructor _stringConstructor;
+        private readonly StringConstructor _stringConstructor;
 
-        private StringPrototype(Engine engine)
-            : base(engine)
+        private StringPrototype(Engine engine, StringConstructor stringConstructor)
+            : base(engine, JsString.Empty)
         {
+            _prototype = engine.Object.PrototypeObject;
+            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
+            _stringConstructor = stringConstructor;
         }
 
         public static StringPrototype CreatePrototypeObject(Engine engine, StringConstructor stringConstructor)
         {
-            var obj = new StringPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                PrimitiveValue = JsString.Empty,
-                _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero,
-                _stringConstructor = stringConstructor,
-            };
-
-            return obj;
+            return new StringPrototype(engine, stringConstructor);
         }
 
         protected override void Initialize()
@@ -96,10 +91,9 @@ namespace Jint.Native.String
 
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
         {
-            var s = TypeConverter.ToObject(Engine, thisObj) as StringInstance;
-            if (ReferenceEquals(s, null))
+            if (!(TypeConverter.ToObject(Engine, thisObj) is StringInstance s))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
             }
 
             return s.PrimitiveValue;

@@ -506,7 +506,7 @@ namespace Jint.Runtime
             Engine engine,
             JsValue o,
             MemberExpression expression,
-            string referenceName)
+            string? referenceName)
         {
             if (o._type < InternalTypes.Boolean && !engine.Options.ReferenceResolver.CheckCoercible(o))
             {
@@ -518,7 +518,7 @@ namespace Jint.Runtime
             Engine engine,
             JsValue o,
             MemberExpression expression,
-            string referencedName)
+            string? referencedName)
         {
             referencedName ??= "unknown";
             var message = $"Cannot read property '{referencedName}' of {o}";

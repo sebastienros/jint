@@ -13,15 +13,12 @@ namespace Jint.Native.Json
         private JsonInstance(Engine engine)
             : base(engine, objectClass: ObjectClass.JSON)
         {
+            _prototype = engine.Object.PrototypeObject;
         }
 
         public static JsonInstance CreateJsonObject(Engine engine)
         {
-            var json = new JsonInstance(engine)
-            {
-                _prototype = engine.Object.PrototypeObject
-            };
-            return json;
+            return new JsonInstance(engine);
         }
 
         protected override void Initialize()

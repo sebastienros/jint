@@ -39,7 +39,7 @@ namespace Jint.Native.Error
             return Construct(arguments, thisObject);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(JsValue?[] arguments)
         {
             return Construct(arguments, this);
         }

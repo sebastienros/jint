@@ -73,7 +73,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             return false;
         }
 
-        protected internal override JsValue CustomValue
+        protected internal override JsValue? CustomValue
         {
             get
             {

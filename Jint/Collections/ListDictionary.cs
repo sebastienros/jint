@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Runtime;
 
@@ -56,7 +57,7 @@ namespace Jint.Collections
             }
         }
 
-        public bool TryGetValue(Key key, out TValue value)
+        public bool TryGetValue(Key key, [MaybeNullWhen(false)] out TValue value)
         {
             var node = _head;
             while (node != null)
@@ -83,7 +84,7 @@ namespace Jint.Collections
         public void Add(Key key, TValue value)
         {
             DictionaryNode? last = null;
-            DictionaryNode node;
+            DictionaryNode? node;
             var checkExistingKeys = _checkExistingKeys;
             for (node = _head; node != null; node = node.Next)
             {
@@ -159,8 +160,8 @@ namespace Jint.Collections
 
         public bool Remove(Key key)
         {
-            DictionaryNode last = null;
-            DictionaryNode node;
+            DictionaryNode? last = null;
+            DictionaryNode? node;
             for (node = _head; node != null; node = node.Next)
             {
                 var oldKey = node.Key;
@@ -183,7 +184,7 @@ namespace Jint.Collections
             }
             else
             {
-                last.Next = node.Next;
+                last!.Next = node.Next;
             }
 
             _count--;
@@ -193,7 +194,7 @@ namespace Jint.Collections
         internal struct NodeEnumerator : IEnumerator<KeyValuePair<Key, TValue>>
         {
             private readonly ListDictionary<TValue> _list;
-            private DictionaryNode _current;
+            private DictionaryNode? _current;
             private bool _start;
 
             public NodeEnumerator(ListDictionary<TValue> list)
@@ -203,7 +204,7 @@ namespace Jint.Collections
                 _current = null;
             }
 
-            public KeyValuePair<Key, TValue> Current => new KeyValuePair<Key, TValue>(_current.Key, _current.Value);
+            public KeyValuePair<Key, TValue> Current => new KeyValuePair<Key, TValue>(_current!.Key, _current.Value!);
 
             public bool MoveNext()
             {
@@ -230,7 +231,7 @@ namespace Jint.Collections
             {
             }
 
-            object IEnumerator.Current => _current;
+            object? IEnumerator.Current => _current;
         }
 
         internal class DictionaryNode

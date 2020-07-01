@@ -54,7 +54,7 @@ namespace Jint
             return HashCode == other.HashCode && Name == other.Name;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is Key other && Equals(other);
         }

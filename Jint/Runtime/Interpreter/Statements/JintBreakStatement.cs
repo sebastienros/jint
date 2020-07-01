@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintBreakStatement : JintStatement<BreakStatement>
     {
-        private readonly string _label;
+        private readonly string? _label;
 
         public JintBreakStatement(Engine engine, BreakStatement statement) : base(engine, statement)
         {

@@ -6,6 +6,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
@@ -89,7 +90,7 @@ namespace Jint.Collections
             return false;
         }
 
-        public bool TryGetValue(Key key, out TValue value)
+        public bool TryGetValue(Key key, [MaybeNullWhen(false) ] out TValue value)
         {
             Entry[] entries = _entries;
             for (int i = _buckets[key.HashCode & (_buckets.Length - 1)] - 1;
@@ -301,7 +302,7 @@ namespace Jint.Collections
             }
         }
 
-        internal sealed class DictionarySlimDebugView<V>
+        internal sealed class DictionarySlimDebugView<V> where V : class
         {
             private readonly StringDictionarySlim<V> _dictionary;
 

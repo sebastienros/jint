@@ -20,7 +20,7 @@ namespace Jint.Native
             _value = value;
         }
 
-        public override object ToObject()
+        public override object? ToObject()
         {
             return _value;
         }
@@ -31,7 +31,7 @@ namespace Jint.Native
             return "Symbol(" + value + ")";
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             return Equals(obj as JsSymbol);
         }

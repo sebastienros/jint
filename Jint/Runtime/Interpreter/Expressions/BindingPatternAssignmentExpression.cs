@@ -268,7 +268,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        private static void HandleObjectPattern(Engine engine, ObjectPattern pattern, JsValue argument, LexicalEnvironment environment, bool checkReference)
+        private static void HandleObjectPattern(Engine engine, ObjectPattern pattern, JsValue argument, LexicalEnvironment? environment, bool checkReference)
         {
             var processedProperties = pattern.Properties.Count > 0 && pattern.Properties[pattern.Properties.Count - 1] is RestElement
                 ? new HashSet<JsValue>()

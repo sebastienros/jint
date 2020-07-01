@@ -20,7 +20,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             Writable = propertyInfo.CanWrite && engine.Options._IsClrWriteAllowed;
         }
 
-        protected internal override JsValue CustomValue
+        protected internal override JsValue? CustomValue
         {
             get
             {
@@ -39,7 +39,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             }
             set
             {
-                object obj;
+                object? obj;
                 if (_propertyInfo.PropertyType == typeof(JsValue))
                 {
                     obj = value;
@@ -47,7 +47,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                 else
                 {
                     // attempt to convert the JsValue to the target type
-                    obj = value.ToObject();
+                    obj = value?.ToObject();
                     if (obj != null && obj.GetType() != _propertyInfo.PropertyType)
                     {
                         obj = _engine.ClrTypeConverter.Convert(obj, _propertyInfo.PropertyType, CultureInfo.InvariantCulture);

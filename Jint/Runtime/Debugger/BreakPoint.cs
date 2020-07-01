@@ -16,6 +16,6 @@
 
         public int Line { get; }
         public int Char { get; }
-        public string Condition { get; }
+        public string? Condition { get; }
     }
 }

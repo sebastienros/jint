@@ -15,24 +15,19 @@ namespace Jint.Native.Number
     /// </summary>
     public sealed class NumberPrototype : NumberInstance
     {
-        private NumberConstructor _numberConstructor;
+        private readonly NumberConstructor _numberConstructor;
 
-        private NumberPrototype(Engine engine)
+        private NumberPrototype(Engine engine, NumberConstructor numberConstructor)
             : base(engine)
         {
+            _prototype = engine.Object.PrototypeObject;
+            NumberData = JsNumber.Create(0);
+            _numberConstructor = numberConstructor;
         }
 
         public static NumberPrototype CreatePrototypeObject(Engine engine, NumberConstructor numberConstructor)
         {
-            var obj = new NumberPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                NumberData = JsNumber.Create(0),
-                _numberConstructor = numberConstructor
-            };
-
-
-            return obj;
+            return new NumberPrototype(engine, numberConstructor);
         }
 
         protected override void Initialize()

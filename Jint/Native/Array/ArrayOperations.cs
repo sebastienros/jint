@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -58,7 +59,7 @@ namespace Jint.Native.Array
             return jsValues;
         }
 
-        public abstract bool TryGetValue(ulong index, out JsValue value);
+        public abstract bool TryGetValue(ulong index, [MaybeNullWhen(false)] out JsValue value);
 
         public bool HasProperty(ulong index) => Target.HasProperty(index);
 
@@ -185,12 +186,12 @@ namespace Jint.Native.Array
 
             public override uint GetLength()
             {
-                return (uint) ((JsNumber) _target._length._value)._value;
+                return (uint) ((JsNumber) _target!._length!._value!)._value;
             }
 
             public override ulong GetLongLength()
             {
-                return (ulong) ((JsNumber) _target._length._value)._value;
+                return (ulong) ((JsNumber) _target!._length!._value!)._value;
             }
 
             public override void SetLength(ulong length)
@@ -203,7 +204,7 @@ namespace Jint.Native.Array
                 _target.EnsureCapacity((uint) capacity);
             }
 
-            public override bool TryGetValue(ulong index, out JsValue value)
+            public override bool TryGetValue(ulong index, [MaybeNullWhen(false)] out JsValue value)
             {
                 // array max size is uint
                 return _target.TryGetValue((uint) index, out value);

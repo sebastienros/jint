@@ -63,7 +63,8 @@ namespace Jint.Native.Function
         
         public virtual bool HasInstance(JsValue v)
         {
-            if (!(v is ObjectInstance o))
+            var o = v as ObjectInstance;
+            if (o is null)
             {
                 return false;
             }

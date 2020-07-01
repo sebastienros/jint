@@ -186,7 +186,7 @@ namespace Jint.Runtime.Environments
             return System.Array.Empty<string>();
         }
 
-        public override bool Equals(JsValue other)
+        public override bool Equals(JsValue? other)
         {
             return ReferenceEquals(_bindingObject, other);
         }

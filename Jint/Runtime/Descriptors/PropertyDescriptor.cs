@@ -13,14 +13,14 @@ namespace Jint.Runtime.Descriptors
         public static readonly PropertyDescriptor Undefined = new UndefinedPropertyDescriptor();
 
         internal PropertyFlag _flags;
-        internal JsValue _value;
+        internal JsValue? _value;
 
         protected PropertyDescriptor(PropertyFlag flags)
         {
             _flags = flags;
         }
 
-        protected internal PropertyDescriptor(JsValue value, PropertyFlag flags) : this(flags)
+        protected internal PropertyDescriptor(JsValue? value, PropertyFlag flags) : this(flags)
         {
             if ((_flags & PropertyFlag.CustomJsValue) != 0)
             {
@@ -191,10 +191,10 @@ namespace Jint.Runtime.Descriptors
             {
                 if ((_flags & PropertyFlag.CustomJsValue) != 0)
                 {
-                    return CustomValue;
+                    return CustomValue!;
                 }
 
-                return _value;
+                return _value!;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
@@ -207,7 +207,7 @@ namespace Jint.Runtime.Descriptors
             }
         }
 
-        protected internal virtual JsValue CustomValue
+        protected internal virtual JsValue? CustomValue
         {
             get => null;
             set => ExceptionHelper.ThrowNotImplementedException();
@@ -216,7 +216,7 @@ namespace Jint.Runtime.Descriptors
         internal PropertyFlag Flags
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return _flags; }
+            get => _flags;
         }
 
         public static PropertyDescriptor ToPropertyDescriptor(Engine engine, JsValue o)
@@ -224,7 +224,7 @@ namespace Jint.Runtime.Descriptors
             var obj = o.TryCast<ObjectInstance>();
             if (ReferenceEquals(obj, null))
             {
-                ExceptionHelper.ThrowTypeError(engine);
+                return ExceptionHelper.ThrowTypeError<PropertyDescriptor>(engine);
             }
 
             var getProperty = obj.GetProperty(CommonProperties.Get);
@@ -395,7 +395,7 @@ namespace Jint.Runtime.Descriptors
             {
             }
 
-            protected internal override JsValue CustomValue
+            protected internal override JsValue? CustomValue
             {
                 set => ExceptionHelper.ThrowInvalidOperationException("making changes to undefined property's descriptor is not allowed");
             }

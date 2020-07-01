@@ -22,7 +22,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return new JintLiteralExpression(engine, expression);
         }
 
-        internal static JsValue ConvertToJsValue(Literal literal)
+        internal static JsValue? ConvertToJsValue(Literal literal)
         {
             if (literal.TokenType == TokenType.BooleanLiteral)
             {
@@ -45,7 +45,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (literal.TokenType == TokenType.StringLiteral)
             {
-                return JsString.Create((string) literal.Value);
+                return JsString.Create((string) literal.Value!);
             }
 
             return null;

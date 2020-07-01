@@ -10,16 +10,16 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public sealed class ClrFunctionInstance : FunctionInstance, IEquatable<ClrFunctionInstance>
     {
-        private readonly string _name;
+        private readonly string? _name;
         internal readonly Func<JsValue, JsValue[], JsValue> _func;
 
         public ClrFunctionInstance(
             Engine engine,
-            string name,
+            string? name,
             Func<JsValue, JsValue[], JsValue> func,
             int length = 0,
             PropertyFlag lengthFlags = PropertyFlag.AllForbidden)
-            : base(engine, !string.IsNullOrWhiteSpace(name) ? new JsString(name) : null)
+            : base(engine, !string.IsNullOrWhiteSpace(name) ? new JsString(name!) : null)
         {
             _name = name;
             _func = func;
@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interop
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments) => _func(thisObject, arguments);
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             if (ReferenceEquals(null, obj))
             {
@@ -48,7 +48,7 @@ namespace Jint.Runtime.Interop
             return Equals(s);
         }
 
-        public bool Equals(ClrFunctionInstance other)
+        public bool Equals(ClrFunctionInstance? other)
         {
             if (ReferenceEquals(null, other))
             {

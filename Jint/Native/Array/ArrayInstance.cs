@@ -223,7 +223,7 @@ namespace Jint.Native.Array
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal uint GetLength()
         {
-            return (uint) ((JsNumber) _length!._value)._value;
+            return (uint) ((JsNumber) _length!._value)!._value;
         }
 
         protected override void AddProperty(JsValue property, PropertyDescriptor descriptor)
@@ -237,12 +237,12 @@ namespace Jint.Native.Array
             base.AddProperty(property, descriptor);
         }
 
-        protected override bool TryGetProperty(JsValue property, out PropertyDescriptor? descriptor)
+        protected override bool TryGetProperty(JsValue property, [MaybeNullWhen(false)] out PropertyDescriptor descriptor)
         {
             if (property == CommonProperties.Length)
             {
                 descriptor = _length;
-                return _length != null;
+                return descriptor != null;
             }
 
             return base.TryGetProperty(property, out descriptor);
@@ -525,7 +525,7 @@ namespace Jint.Native.Array
             return smallest;
         }
 
-        public bool TryGetValue(uint index, out JsValue value)
+        public bool TryGetValue(uint index, [MaybeNullWhen(false)] out JsValue value)
         {
             value = Undefined;
 
@@ -584,13 +584,7 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool TryGetDescriptor(
-#if NETSTANDARD_2_1
-            uint index, [MaybeNullWhen(false)] PropertyDescriptor descriptor
-else
-            uint index, PropertyDescriptor descriptor
-#endif 
-            )
+        private bool TryGetDescriptor(uint index, [MaybeNullWhen(false)] out PropertyDescriptor descriptor)
         {
             var temp = _dense;
             if (temp != null)
@@ -621,7 +615,7 @@ else
 
             if (canUseDense)
             {
-                if (index >= (uint) _dense.Length)
+                if (index >= (uint) _dense!.Length)
                 {
                     EnsureCapacity((uint) newSize);
                 }
@@ -634,7 +628,7 @@ else
                 {
                     ConvertToSparse();
                 }
-                _sparse[index] = desc;
+                _sparse![index] = desc;
             }
         }
 
@@ -644,9 +638,10 @@ else
             // need to move data
             for (uint i = 0; i < (uint) _dense.Length; ++i)
             {
-                if (_dense[i] != null)
+                var descriptor = _dense[i];
+                if (descriptor != null)
                 {
-                    _sparse[i] = _dense[i];
+                    _sparse[i] = descriptor;
                 }
             }
 
@@ -671,7 +666,7 @@ else
             var length = GetLength();
             for (uint i = 0; i < length; i++)
             {
-                if (TryGetValue(i, out JsValue outValue))
+                if (TryGetValue(i, out var outValue))
                 {
                     yield return outValue;
                 }
@@ -829,7 +824,7 @@ else
 
         public override uint Length => GetLength();
 
-        public JsValue this[uint index]
+        public JsValue? this[uint index]
         {
             get
             {
@@ -897,7 +892,7 @@ else
         public override string ToString()
         {
             // debugger can make things hard when evaluates computed values
-            return "(" + (_length?._value.AsNumber() ?? 0) + ")[]";
+            return "(" + (_length?._value?.AsNumber() ?? 0) + ")[]";
         }
     }
 }

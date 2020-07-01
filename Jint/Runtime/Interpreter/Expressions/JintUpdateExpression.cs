@@ -7,11 +7,11 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintUpdateExpression : JintExpression
     {
-        private JintExpression _argument;
+        private JintExpression _argument = null!;
         private int _change;
         private bool _prefix;
 
-        private JintIdentifierExpression _leftIdentifier;
+        private JintIdentifierExpression? _leftIdentifier;
         private bool _evalOrArguments;
 
         public JintUpdateExpression(Engine engine, UpdateExpression expression) : base(engine, expression)
@@ -73,10 +73,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                 : (isInteger ? value : JsNumber.Create(TypeConverter.ToNumber(value)));
         }
 
-        private JsValue UpdateIdentifier()
+        private JsValue? UpdateIdentifier()
         {
             var strict = StrictModeScope.IsStrictModeCode;
-            var name = _leftIdentifier._expressionName;
+            var name = _leftIdentifier!._expressionName;
             var env = _engine.ExecutionContext.LexicalEnvironment;
             if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 env,

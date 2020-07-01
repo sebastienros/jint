@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -182,7 +183,7 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool TryGetIterator(Engine engine, out IIterator iterator)
+        internal bool TryGetIterator(Engine engine, [MaybeNullWhen(false)] out IIterator iterator)
         {
             var objectInstance = TypeConverter.ToObject(engine, this);
 
@@ -375,7 +376,7 @@ namespace Jint.Native
         /// Converts a <see cref="JsValue"/> to its underlying CLR value.
         /// </summary>
         /// <returns>The underlying CLR value of the <see cref="JsValue"/> instance.</returns>
-        public abstract object ToObject();
+        public abstract object? ToObject();
 
         /// <summary>
         /// Invoke the current value as function.
@@ -518,7 +519,7 @@ namespace Jint.Native
             return JsString.Create(value);
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (ReferenceEquals(null, obj))
             {
@@ -533,7 +534,7 @@ namespace Jint.Native
             return obj is JsValue value && Equals(value);
         }
 
-        public abstract bool Equals(JsValue other);
+        public abstract bool Equals(JsValue? other);
 
         public override int GetHashCode()
         {
@@ -599,7 +600,7 @@ namespace Jint.Native
         
         internal virtual bool IsCallable => this is ICallable;
 
-        internal static bool SameValue(JsValue x, JsValue? y)
+        internal static bool SameValue(JsValue x, JsValue y)
         {
             var typea = x.Type;
             var typeb = y.Type;

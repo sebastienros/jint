@@ -28,9 +28,9 @@ namespace Jint.Runtime.Interop
         private static readonly Type engineType = typeof(Engine);
         private static readonly Type typeType = typeof(Type);
 
-        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new [] { objectType, typeType, typeof(IFormatProvider) });
-        private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject));
-        private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject));
+        private static readonly MethodInfo? convertChangeType = typeof(Convert).GetMethod("ChangeType", new [] { objectType, typeType, typeof(IFormatProvider) });
+        private static readonly MethodInfo? jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject));
+        private static readonly MethodInfo? jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject));
 
 
         public DefaultTypeConverter(Engine engine)
@@ -38,7 +38,7 @@ namespace Jint.Runtime.Interop
             _engine = engine;
         }
 
-        public virtual object? Convert(object value, Type type, IFormatProvider formatProvider)
+        public virtual object? Convert(object? value, Type type, IFormatProvider formatProvider)
         {
             if (value == null)
             {
@@ -274,7 +274,7 @@ namespace Jint.Runtime.Interop
             return System.Convert.ChangeType(value, type, formatProvider);
         }
 
-        public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object? converted)
+        public virtual bool TryConvert(object? value, Type type, IFormatProvider formatProvider, out object? converted)
         {
 #if NETSTANDARD
             var key = value == null ? (null, type) : (value.GetType(), type);

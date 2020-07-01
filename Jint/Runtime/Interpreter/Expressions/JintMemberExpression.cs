@@ -83,7 +83,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            var property = _determinedProperty ?? _propertyExpression.GetValue();
+            var property = _determinedProperty ?? _propertyExpression!.GetValue();
             TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, _determinedProperty?.ToString() ?? baseReferenceName);
             return _engine._referencePool.Rent(baseValue,  TypeConverter.ToPropertyKey(property), isStrictModeCode);
         }

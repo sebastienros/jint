@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
@@ -59,7 +60,7 @@ namespace Jint.Collections
             }
         }
 
-        public bool TryGetValue(Key key, out TValue value)
+        public bool TryGetValue(Key key, [MaybeNullWhen(false)] out TValue value)
         {
             if (_dictionary != null)
             {

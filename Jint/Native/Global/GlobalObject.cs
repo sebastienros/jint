@@ -530,7 +530,7 @@ namespace Jint.Native.Global
             return Decode(componentString, null);
         }
 
-        private string Decode(string uriString, HashSet<char> reservedSet)
+        private string Decode(string uriString, HashSet<char>? reservedSet)
         {
             var strLen = uriString.Length;
 
@@ -745,7 +745,7 @@ namespace Jint.Native.Global
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal PropertyDescriptor GetOwnProperty(Key property)
         {
-            Properties.TryGetValue(property, out var descriptor);
+            _properties!.TryGetValue(property, out var descriptor);
             return descriptor ?? PropertyDescriptor.Undefined;
         }
         
@@ -754,7 +754,7 @@ namespace Jint.Native.Global
             // here we are called only from global environment record context
             // we can take some shortcuts to be faster
 
-            if (!_properties.TryGetValue(property, out var existingDescriptor))
+            if (!_properties!.TryGetValue(property, out var existingDescriptor))
             {
                 _properties[property] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
                 return true;

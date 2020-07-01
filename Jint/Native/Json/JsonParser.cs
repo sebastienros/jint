@@ -497,12 +497,11 @@ namespace Jint.Native.Json
             {
                 var range = new[] {token.Range[0], token.Range[1]};
                 string value = _source.Slice(token.Range[0], token.Range[1]);
-                _extra.Tokens.Add(new Token
-                    {
-                        Type = token.Type,
-                        Value = value,
-                        Range = range,
-                    });
+                _extra.Tokens.Add(new Token(value)
+                {
+                    Type = token.Type,
+                    Range = range
+                });
             }
 
             return token;

@@ -57,7 +57,7 @@ namespace Jint.Native
             _value = value;
         }
 
-        public override object ToObject()
+        public override object? ToObject()
         {
             return _value;
         }
@@ -222,7 +222,7 @@ namespace Jint.Native
             return ToString().Substring(startIndex);
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             if (ReferenceEquals(null, obj))
             {
@@ -237,7 +237,7 @@ namespace Jint.Native
             return Equals(s);
         }
 
-        public bool Equals(JsString other)
+        public bool Equals(JsString? other)
         {
             if (ReferenceEquals(null, other))
             {
@@ -252,7 +252,7 @@ namespace Jint.Native
             return _value == other.ToString();
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return ReferenceEquals(this, obj) || obj is JsString other && Equals(other);
         }
@@ -321,9 +321,9 @@ namespace Jint.Native
 
             public override int Length => _stringBuilder?.Length ?? _value?.Length ?? 0;
 
-            public override object ToObject() => ToString();
+            public override object? ToObject() => ToString();
 
-            public override bool Equals(JsValue other)
+            public override bool Equals(JsValue? other)
             {
                 if (other is ConcatenatedString cs)
                 {

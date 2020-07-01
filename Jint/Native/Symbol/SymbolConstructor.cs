@@ -15,27 +15,22 @@ namespace Jint.Native.Symbol
     {
         private static readonly JsString _functionName = new JsString("Symbol");
 
-        public SymbolConstructor(Engine engine)
+        private SymbolConstructor(Engine engine)
             : base(engine, _functionName, FunctionThisMode.Global)
         {
+            _prototype = engine.Function.PrototypeObject;
+            // The value of the [[Prototype]] internal property of the Symbol constructor is the Function prototype object
+            PrototypeObject = SymbolPrototype.CreatePrototypeObject(engine, this);
+
+            _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Configurable);
+
+            // The initial value of String.prototype is the String prototype object
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         public static SymbolConstructor CreateSymbolConstructor(Engine engine)
         {
-            var obj = new SymbolConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the Symbol constructor is the Function prototype object
-            obj.PrototypeObject = SymbolPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Configurable);
-
-            // The initial value of String.prototype is the String prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
+            return new SymbolConstructor(engine);
         }
 
         protected override void Initialize()

@@ -57,7 +57,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             public override JsValue? Get => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
             public override JsValue? Set => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
 
-            protected internal override JsValue CustomValue
+            protected internal override JsValue? CustomValue
             {
                 set => ExceptionHelper.ThrowInvalidOperationException("making changes to throw type error property's descriptor is not allowed");
             }

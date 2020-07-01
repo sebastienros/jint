@@ -91,12 +91,12 @@ namespace Jint.Runtime.Environments
         /// <returns>The array of all defined bindings</returns>
         internal abstract string[] GetAllBindingNames();
 
-        public override object ToObject()
+        public override object? ToObject()
         {
             return ExceptionHelper.ThrowNotSupportedException<object>();
         }
 
-        public override bool Equals(JsValue other)
+        public override bool Equals(JsValue? other)
         {
             return ExceptionHelper.ThrowNotSupportedException<bool>();
         }

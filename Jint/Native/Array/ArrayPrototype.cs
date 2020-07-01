@@ -18,20 +18,18 @@ namespace Jint.Native.Array
     /// </summary>
     public sealed class ArrayPrototype : ArrayInstance
     {
-        private ArrayConstructor _arrayConstructor;
+        private readonly ArrayConstructor _arrayConstructor;
 
-        private ArrayPrototype(Engine engine) : base(engine)
+        private ArrayPrototype(Engine engine, ArrayConstructor arrayConstructor) : base(engine)
         {
+            _prototype = engine.Object.PrototypeObject;
+            _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable);
+            _arrayConstructor = arrayConstructor;
         }
 
         public static ArrayPrototype CreatePrototypeObject(Engine engine, ArrayConstructor arrayConstructor)
         {
-            var obj = new ArrayPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable),
-                _arrayConstructor = arrayConstructor,
-            };
+            var obj = new ArrayPrototype(engine, arrayConstructor);
             return obj;
         }
 
@@ -184,7 +182,7 @@ namespace Jint.Native.Array
             JsValue start = arguments.At(1);
             JsValue end = arguments.At(2);
 
-            var operations = ArrayOperations.For(thisObj as ObjectInstance);
+            var operations = ArrayOperations.For((ObjectInstance) thisObj);
             var initialLength = operations.GetLength();
             var len = ConvertAndCheckForInfinity(initialLength, 0);
 
@@ -333,7 +331,7 @@ namespace Jint.Native.Array
                 {
                     if (kPresent = o.TryGetValue((uint) k, out var temp))
                     {
-                        accumulator = temp;
+                        accumulator = temp!;
                     }
 
                     k++;
@@ -786,7 +784,7 @@ namespace Jint.Native.Array
             var obj = ArrayOperations.For(thisObj.AsObject());
 
             var compareArg = arguments.At(0);
-            ICallable compareFn = null;
+            ICallable? compareFn = null;
             if (!compareArg.IsUndefined())
             {
                 if (compareArg.IsNull() || !(compareArg is ICallable))
@@ -803,7 +801,7 @@ namespace Jint.Native.Array
                 return obj.Target;
             }
 
-            int Comparer(JsValue x, JsValue y)
+            int Comparer(JsValue? x, JsValue? y)
             {
                 if (ReferenceEquals(x, null))
                 {
@@ -855,7 +853,7 @@ namespace Jint.Native.Array
                 return r;
             }
 
-            var array = new JsValue[len];
+            var array = new JsValue?[len];
             for (uint i = 0; i < (uint) array.Length; ++i)
             {
                 var value = obj.TryGetValue(i, out var temp)
@@ -876,9 +874,10 @@ namespace Jint.Native.Array
 
             for (uint i = 0; i < (uint) array.Length; ++i)
             {
-                if (!ReferenceEquals(array[i], null))
+                var value = array[i];
+                if (!ReferenceEquals(value, null))
                 {
-                    obj.Set(i, array[i], updateLength: false, throwOnError: false);
+                    obj.Set(i, value, updateLength: false, throwOnError: false);
                 }
                 else
                 {

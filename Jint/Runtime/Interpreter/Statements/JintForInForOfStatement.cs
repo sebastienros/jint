@@ -109,7 +109,7 @@ namespace Jint.Runtime.Interpreter.Statements
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofheadevaluation-tdznames-expr-iterationkind
         /// </summary>
-        private bool HeadEvaluation(out IIterator result)
+        private bool HeadEvaluation(out IIterator? result)
         {
             var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
             var tdz = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
@@ -152,7 +152,7 @@ namespace Jint.Runtime.Interpreter.Statements
         private Completion BodyEvaluation(
             JintExpression lhs,
             JintStatement stmt, 
-            IIterator iteratorRecord,
+            IIterator? iteratorRecord,
             IterationKind iterationKind,
             LhsKind lhsKind,
             IteratorKind iteratorKind = IteratorKind.Sync)
@@ -160,7 +160,7 @@ namespace Jint.Runtime.Interpreter.Statements
             var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
             var v = Undefined.Instance;
             var destructuring = _destructuring;
-            string lhsName = null;
+            string? lhsName = null;
 
             var completionType = CompletionType.Normal;
             var close = false;
@@ -184,7 +184,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     var nextValue = nextResult.Get(CommonProperties.Value);
                     close = true;
 
-                    Reference lhsRef = null;
+                    Reference? lhsRef = null;
                     if (lhsKind != LhsKind.LexicalBinding)
                     {
                         if (!destructuring)
@@ -204,7 +204,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         if (!destructuring)
                         {
                             lhsName ??= ((Identifier) ((VariableDeclaration) _leftNode).Declarations[0].Id).Name;
-                            lhsRef = _engine.ResolveBinding(lhsName);
+                            lhsRef = _engine.ResolveBinding(lhsName!);
                         }
                     }
 

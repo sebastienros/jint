@@ -13,7 +13,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             _resolver = resolver;
         }
 
-        protected internal override JsValue CustomValue
+        protected internal override JsValue? CustomValue
         {
             get => _value ??= _resolver();
             set => _value = value;

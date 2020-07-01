@@ -6,8 +6,8 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintBlockStatement : JintStatement<BlockStatement>
     {
-        private JintStatementList _statementList;
-        private List<VariableDeclaration> _lexicalDeclarations;
+        private JintStatementList _statementList = null!;
+        private List<VariableDeclaration>? _lexicalDeclarations;
 
         public JintBlockStatement(Engine engine, BlockStatement blockStatement) : base(engine, blockStatement)
         {
@@ -23,7 +23,7 @@ namespace Jint.Runtime.Interpreter.Statements
         // http://www.ecma-international.org/ecma-262/6.0/#sec-blockdeclarationinstantiation
         protected override Completion ExecuteInternal()
         {
-            LexicalEnvironment oldEnv = null;
+            LexicalEnvironment? oldEnv = null;
             if (_lexicalDeclarations != null)
             {
                 oldEnv = _engine.ExecutionContext.LexicalEnvironment;

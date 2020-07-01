@@ -5,7 +5,7 @@ namespace Jint.Runtime.Interpreter.Statements
     internal sealed class JintLabeledStatement : JintStatement<LabeledStatement>
     {
         private readonly JintStatement _body;
-        private readonly string _labelName;
+        private readonly string? _labelName;
 
         public JintLabeledStatement(Engine engine, LabeledStatement statement) : base(engine, statement)
         {

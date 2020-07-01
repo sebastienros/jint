@@ -294,7 +294,7 @@ namespace Jint.Runtime.Environments
             return _global.GetOwnProperties().Select(x => x.Key.ToString()).ToArray();
         }
 
-        public override bool Equals(JsValue other)
+        public override bool Equals(JsValue? other)
         {
             return ReferenceEquals(_objectRecord, other);
         }

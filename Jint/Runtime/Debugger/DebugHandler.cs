@@ -136,7 +136,7 @@ namespace Jint.Runtime.Debugger
 
             if (!string.IsNullOrEmpty(breakpoint.Condition))
             {
-                var completionValue = _engine.Execute(breakpoint.Condition).GetCompletionValue();
+                var completionValue = _engine.Execute(breakpoint.Condition!).GetCompletionValue();
                 return ((JsBoolean) completionValue)._value;
             }
 
@@ -175,7 +175,7 @@ namespace Jint.Runtime.Debugger
         private static Dictionary<string, JsValue> GetGlobalVariables(LexicalEnvironment lex)
         {
             Dictionary<string, JsValue> globals = new Dictionary<string, JsValue>();
-            LexicalEnvironment tempLex = lex;
+            LexicalEnvironment? tempLex = lex;
 
             while (!ReferenceEquals(tempLex?._record, null))
             {

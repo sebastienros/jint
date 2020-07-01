@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
@@ -263,7 +264,7 @@ namespace Jint.Native.Object
             SetProperty(property, descriptor);
         }
 
-        protected virtual bool TryGetProperty(JsValue property, out PropertyDescriptor? descriptor)
+        protected virtual bool TryGetProperty(JsValue property, [MaybeNullWhen(false)] out PropertyDescriptor descriptor)
         {
             descriptor = null;
 
@@ -651,7 +652,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-validateandapplypropertydescriptor
         /// </summary>
-        protected static bool ValidateAndApplyPropertyDescriptor(ObjectInstance o, JsValue property, bool extensible, PropertyDescriptor desc, PropertyDescriptor current)
+        protected static bool ValidateAndApplyPropertyDescriptor(ObjectInstance? o, JsValue property, bool extensible, PropertyDescriptor desc, PropertyDescriptor current)
         {
             var descValue = desc.Value;
             if (current == PropertyDescriptor.Undefined)
@@ -882,7 +883,7 @@ namespace Jint.Native.Object
             return TypeConverter.ToString(this);
         }
 
-        public override object ToObject()
+        public override object? ToObject()
         {
             if (this is IObjectWrapper wrapper)
             {
@@ -1283,7 +1284,7 @@ namespace Jint.Native.Object
             return ExceptionHelper.ThrowTypeError<T>(_engine, $"Method {methodName} called on incompatible receiver {value}");
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             if (ReferenceEquals(null, obj))
             {
@@ -1298,7 +1299,7 @@ namespace Jint.Native.Object
             return Equals(s);
         }
 
-        public bool Equals(ObjectInstance other)
+        public bool Equals(ObjectInstance? other)
         {
             if (ReferenceEquals(null, other))
             {

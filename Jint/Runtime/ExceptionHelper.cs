@@ -11,7 +11,7 @@ namespace Jint.Runtime
         public static T ThrowSyntaxError<T>(Engine engine, string? message = null)
         {
             ThrowSyntaxError(engine, message);
-            return default;
+            return default!;
         }
 
         public static void ThrowSyntaxError(Engine engine, string? message = null)
@@ -22,7 +22,7 @@ namespace Jint.Runtime
         public static T ThrowArgumentException<T>(string? message = null)
         {
             ThrowArgumentException(message);
-            return default;
+            return default!;
         }
 
         public static void ThrowArgumentException(string? message = null)
@@ -30,7 +30,7 @@ namespace Jint.Runtime
             ThrowArgumentException(message, null);
         }
 
-        public static void ThrowArgumentException(string message, string paramName)
+        public static void ThrowArgumentException(string? message, string? paramName)
         {
             throw new ArgumentException(message, paramName);
         }
@@ -40,7 +40,7 @@ namespace Jint.Runtime
             ThrowReferenceError(engine, reference?.GetReferencedName()?.ToString());
         }
 
-        public static void ThrowReferenceError(Engine engine, string name)
+        public static void ThrowReferenceError(Engine engine, string? name)
         {
             var message = name != null ? name + " is not defined" : null;
             throw new JavaScriptException(engine.ReferenceError, message);
@@ -59,7 +59,7 @@ namespace Jint.Runtime
         public static T ThrowTypeError<T>(Engine engine, string? message = null, Exception? exception = null)
         {
             ThrowTypeError(engine, message, exception);
-            return default;
+            return default!;
         }
 
         public static void ThrowTypeError(Engine engine, string? message = null, Exception? exception = null)

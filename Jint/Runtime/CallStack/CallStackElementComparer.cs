@@ -4,7 +4,7 @@
 
     public class CallStackElementComparer: IEqualityComparer<CallStackElement>
     {
-        public bool Equals(CallStackElement x, CallStackElement y)
+        public bool Equals(CallStackElement? x, CallStackElement? y)
         {
             return ReferenceEquals(x?.Function, y?.Function);
         }

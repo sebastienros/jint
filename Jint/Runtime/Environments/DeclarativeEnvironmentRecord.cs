@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
 
@@ -22,10 +23,11 @@ namespace Jint.Runtime.Environments
             return _dictionary.ContainsKey(name);
         }
 
-        internal sealed override bool TryGetBinding(in BindingName name,
+        internal sealed override bool TryGetBinding(
+            in BindingName name,
             bool strict,
-            out Binding? binding,
-            out JsValue? value)
+            [MaybeNullWhen(false)] out Binding? binding,
+            [MaybeNullWhen(false)] out JsValue? value)
         {
             binding = default;
             var success = _dictionary.TryGetValue(name.Key, out binding);

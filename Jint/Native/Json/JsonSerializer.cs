@@ -11,8 +11,9 @@ namespace Jint.Native.Json
     public class JsonSerializer
     {
         private readonly Engine _engine;
-        private Stack<object> _stack;
-        private string _indent, _gap;
+        private Stack<object> _stack = null!;
+        private string _indent;
+        private string _gap;
         private List<JsValue> _propertyList;
         private JsValue _replacerFunction = Undefined.Instance;
 
@@ -49,7 +50,7 @@ namespace Jint.Native.Json
                     foreach (var property in replacerObj.GetOwnProperties().Select(x => x.Value))
                     {
                         JsValue v = _engine.GetValue(property, false);
-                        string item = null;
+                        string? item = null;
                         if (v.IsString())
                         {
                             item = v.ToString();
@@ -156,7 +157,7 @@ namespace Jint.Native.Json
                         value = TypeConverter.ToPrimitive(value);
                         break;
                     case ObjectClass.Array:
-                        value = SerializeArray(value.As<ArrayInstance>());
+                        value = SerializeArray((ArrayInstance) value);
                         return value;
                     case ObjectClass.Object:
                         value = SerializeObject(value.AsObject());
@@ -196,7 +197,7 @@ namespace Jint.Native.Json
             {
                 if (value.AsObject().Class == ObjectClass.Array)
                 {
-                    return SerializeArray(value.As<ArrayInstance>());
+                    return SerializeArray((ArrayInstance) value);
                 }
 
                 return SerializeObject(value.AsObject());
@@ -295,6 +296,7 @@ namespace Jint.Native.Json
             if (value == null)
             {
                 ExceptionHelper.ThrowArgumentNullException(nameof(value));
+                return;
             }
 
             if (_stack.Contains(value))
