@@ -14,10 +14,12 @@ namespace Jint.Constraints
 
         public void Check()
         {
-            if (_maxStatements > 0 && _statementsCount++ > _maxStatements)
+            if (_maxStatements > 0 && _statementsCount >= _maxStatements)
             {
-                ExceptionHelper.ThrowStatementsCountOverflowException();
+                ExceptionHelper.ThrowStatementsCountOverflowException(_statementsCount, _maxStatements);
             }
+
+            _statementsCount++;
         }
 
         public void Reset()

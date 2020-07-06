@@ -41,7 +41,7 @@ namespace Jint.Native.String
             return obj;
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             var properties = new PropertyDictionary(3, checkExistingKeys: false)
             {

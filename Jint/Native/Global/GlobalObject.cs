@@ -18,7 +18,7 @@ namespace Jint.Native.Global
     {
         private readonly StringBuilder _stringBuilder = new StringBuilder();
 
-        private GlobalObject(Engine engine) : base(engine)
+        internal GlobalObject(Engine engine) : base(engine)
         {
         }
 
@@ -27,8 +27,14 @@ namespace Jint.Native.Global
             return new GlobalObject(engine);
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
+            if (_properties != null)
+            {
+                // already forced
+                return;
+            }
+            
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             var properties = new PropertyDictionary(40, checkExistingKeys: false)

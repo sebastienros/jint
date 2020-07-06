@@ -350,8 +350,6 @@ namespace Jint
 
         internal List<IObjectConverter> _ObjectConverters => _objectConverters;
 
-        internal List<IConstraint> _Constraints => _constraints;
-
         internal Func<Engine, object, ObjectInstance> _WrapObjectHandler => _wrapObjectHandler;
         internal MemberAccessorDelegate _MemberAccessor => _memberAccessor;
 
@@ -364,6 +362,12 @@ namespace Jint
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
 
         internal IReferenceResolver ReferenceResolver => _referenceResolver;
+
+        /// <summary>
+        /// Builds current constraint set, can be used for example when running same engine instance with different
+        /// temporary constrains using <see cref="Engine.ActivateTemporaryConstraints"/>.
+        /// </summary>
+        public IConstraint[] BuildConstraints() => _constraints.ToArray();
 
         private sealed class DefaultReferenceResolver : IReferenceResolver
         {

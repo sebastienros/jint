@@ -25,7 +25,7 @@ namespace Jint.Native.Iterator
             return obj;
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             var properties = new PropertyDictionary(2, checkExistingKeys: false)
             {

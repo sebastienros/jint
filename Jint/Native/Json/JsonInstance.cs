@@ -23,7 +23,7 @@ namespace Jint.Native.Json
             return json;
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             var properties = new PropertyDictionary(2, checkExistingKeys: false)
             {

@@ -25,7 +25,7 @@ namespace Jint.Native.Reflect
             return math;
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             var properties = new PropertyDictionary(14, checkExistingKeys: false)
             {

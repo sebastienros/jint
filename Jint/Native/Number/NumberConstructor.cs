@@ -39,7 +39,7 @@ namespace Jint.Native.Number
             return obj;
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             var properties = new PropertyDictionary(15, checkExistingKeys: false)
             {

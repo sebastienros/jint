@@ -261,7 +261,7 @@ namespace Jint.Native.Object
             SetProperty(property, descriptor);
         }
 
-        protected virtual bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
+        protected internal virtual bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
         {
             descriptor = null;
 
@@ -871,7 +871,7 @@ namespace Jint.Native.Object
             Initialize();
         }
 
-        protected virtual void Initialize()
+        protected internal virtual void Initialize()
         {
         }
 
