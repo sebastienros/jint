@@ -1,22 +1,30 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime.Environments;
 using Jint.Runtime.References;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintUpdateExpression : JintExpression
     {
-        private readonly JintExpression _argument;
-        private readonly int _change;
-        private readonly bool _prefix;
+        private JintExpression _argument;
+        private int _change;
+        private bool _prefix;
 
-        private readonly JintIdentifierExpression _leftIdentifier;
-        private readonly bool _evalOrArguments;
+        private JintIdentifierExpression _leftIdentifier;
+        private bool _evalOrArguments;
 
         public JintUpdateExpression(Engine engine, UpdateExpression expression) : base(engine, expression)
         {
+            _initialized = false;
+        }
+
+        protected override void Initialize()
+        {
+            var expression = (UpdateExpression) _expression;
             _prefix = expression.Prefix;
-            _argument = Build(engine, expression.Argument);
+            _argument = Build(_engine, expression.Argument);
             if (expression.Operator == UnaryOperator.Increment)
             {
                 _change = 1;
@@ -69,9 +77,12 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JsValue UpdateIdentifier()
         {
             var strict = StrictModeScope.IsStrictModeCode;
-            var name = _leftIdentifier.ExpressionName;
-            if (TryGetIdentifierEnvironmentWithBindingValue(
+            var name = _leftIdentifier._expressionName;
+            var env = _engine.ExecutionContext.LexicalEnvironment;
+            if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                env,
                 name,
+                strict,
                 out var environmentRecord,
                 out var value))
             {
@@ -85,7 +96,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     ? JsNumber.Create(value.AsInteger() + _change)
                     : JsNumber.Create(TypeConverter.ToNumber(value) + _change);
 
-                environmentRecord.SetMutableBinding(name, newValue, strict);
+                environmentRecord.SetMutableBinding(name.Key.Name, newValue, strict);
                 return _prefix
                     ? newValue
                     : (isInteger ? value : JsNumber.Create(TypeConverter.ToNumber(value)));
@@ -93,5 +104,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             return null;
         }
+
+        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
     }
 }

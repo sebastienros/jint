@@ -9,13 +9,18 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintSwitchStatement : JintStatement<SwitchStatement>
     {
-        private readonly JintSwitchBlock _switchBlock;
-        private readonly JintExpression _discriminant;
+        private JintSwitchBlock _switchBlock;
+        private JintExpression _discriminant;
 
         public JintSwitchStatement(Engine engine, SwitchStatement statement) : base(engine, statement)
         {
-            _switchBlock = new JintSwitchBlock(engine, _statement.Cases);
-            _discriminant = JintExpression.Build(engine, _statement.Discriminant);
+            _initialized = false;
+        }
+
+        protected override void Initialize()
+        {
+            _switchBlock = new JintSwitchBlock(_engine, _statement.Cases);
+            _discriminant = JintExpression.Build(_engine, _statement.Discriminant);
         }
 
         protected override Completion ExecuteInternal()
@@ -33,7 +38,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected async override Task<Completion> ExecuteInternalAsync()
         {
             var jsValue = await _discriminant.GetValueAsync();
-            var r = _switchBlock.Execute(jsValue);
+            var r = await _switchBlock.ExecuteAsync(jsValue);
             if (r.Type == CompletionType.Break && r.Identifier == _statement.LabelSet?.Name)
             {
                 return new Completion(CompletionType.Normal, r.Value, null, Location);

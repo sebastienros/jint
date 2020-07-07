@@ -42,12 +42,6 @@ namespace Jint
                 ThrowWrongTypeException(value, "string");
             }
 
-            return AsStringWithoutTypeCheck(value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static string AsStringWithoutTypeCheck(this JsValue value)
-        {
             return value.ToString();
         }
 

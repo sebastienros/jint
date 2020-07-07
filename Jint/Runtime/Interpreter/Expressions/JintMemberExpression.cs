@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 using System.Threading.Tasks;
 
@@ -52,11 +53,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (_objectIdentifierExpression != null)
             {
-                baseReferenceName = _objectIdentifierExpression.ExpressionName;
+                baseReferenceName = _objectIdentifierExpression._expressionName.Key.Name;
                 var strict = isStrictModeCode;
-                TryGetIdentifierEnvironmentWithBindingValue(
+                var env = _engine.ExecutionContext.LexicalEnvironment;
+                LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                    env,
+                    _objectIdentifierExpression._expressionName,
                     strict,
-                    _objectIdentifierExpression.ExpressionName,
                     out _,
                     out baseValue);
             }
@@ -82,8 +85,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             var property = _determinedProperty ?? _propertyExpression.GetValue();
-            TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression)_expression, baseReferenceName);
-            return _engine._referencePool.Rent(baseValue, TypeConverter.ToPropertyKey(property), isStrictModeCode);
+            TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, _determinedProperty?.ToString() ?? baseReferenceName);
+            return _engine._referencePool.Rent(baseValue,  TypeConverter.ToPropertyKey(property), isStrictModeCode);
         }
 
         protected async override Task<object> EvaluateInternalAsync()
@@ -94,11 +97,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (_objectIdentifierExpression != null)
             {
-                baseReferenceName = _objectIdentifierExpression.ExpressionName;
+                baseReferenceName = _objectIdentifierExpression._expressionName.Key.Name;
                 var strict = isStrictModeCode;
-                TryGetIdentifierEnvironmentWithBindingValue(
+                var env = _engine.ExecutionContext.LexicalEnvironment;
+                LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                    env,
+                    _objectIdentifierExpression._expressionName,
                     strict,
-                    _objectIdentifierExpression.ExpressionName,
                     out _,
                     out baseValue);
             }
@@ -124,8 +129,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             var property = _determinedProperty ?? await _propertyExpression.GetValueAsync();
-            TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, baseReferenceName);
-            return _engine._referencePool.Rent(baseValue,  TypeConverter.ToPropertyKey(property), isStrictModeCode);
+            TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression)_expression, _determinedProperty?.ToString() ?? baseReferenceName);
+            return _engine._referencePool.Rent(baseValue, TypeConverter.ToPropertyKey(property), isStrictModeCode);
         }
     }
 }

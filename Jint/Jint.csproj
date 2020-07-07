@@ -8,7 +8,7 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Esprima" Version="1.0.1270" />
+    <PackageReference Include="Esprima" Version="2.0.0-beta-1298" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
   </ItemGroup>
 </Project>

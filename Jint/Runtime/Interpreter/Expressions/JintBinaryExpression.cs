@@ -182,7 +182,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if ((typeX & InternalTypes.String) != 0)
             {
-                return x.AsStringWithoutTypeCheck() == y.AsStringWithoutTypeCheck();
+                return x.ToString() == y.ToString();
             }
 
             if (typeX == InternalTypes.Boolean)

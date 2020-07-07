@@ -51,8 +51,18 @@ namespace Jint.Runtime.References
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPropertyReference()
         {
-            // http://www.ecma-international.org/ecma-262/#sec-ispropertyreference
+            // https://tc39.es/ecma262/#sec-ispropertyreference
             return (_baseValue._type & (InternalTypes.Primitive | InternalTypes.Object)) != 0;
+        }
+        
+        public JsValue GetThisValue()
+        {
+            if (IsSuperReference())
+            {
+                return ExceptionHelper.ThrowNotImplementedException<JsValue>();
+            }
+
+            return GetBase();
         }
 
         internal Reference Reassign(JsValue baseValue, JsValue name, bool strict)
@@ -72,6 +82,11 @@ namespace Jint.Runtime.References
             {
                 ExceptionHelper.ThrowSyntaxError(engine);
             }
+        }
+
+        internal void InitializeReferencedBinding(JsValue value)
+        {
+            ((EnvironmentRecord) _baseValue).InitializeBinding(TypeConverter.ToString(_property), value);
         }
     }
 }

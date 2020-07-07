@@ -296,12 +296,12 @@ namespace Jint.Native.Iterator
             }
         }
 
-        internal class ObjectWrapper : IIterator
+        internal class ObjectIterator : IIterator
         {
             private readonly ObjectInstance _target;
             private readonly ICallable _nextMethod;
 
-            public ObjectWrapper(ObjectInstance target)
+            public ObjectIterator(ObjectInstance target)
             {
                 _target = target;
                 _nextMethod = target.Get(CommonProperties.Next, target) as ICallable
@@ -312,7 +312,8 @@ namespace Jint.Native.Iterator
             {
                 result = IteratorNext();
 
-                if (result.TryGetValue(CommonProperties.Done, out var done) && TypeConverter.ToBoolean(done))
+                var done = result.Get(CommonProperties.Done);
+                if (!done.IsUndefined() && TypeConverter.ToBoolean(done))
                 {
                     return false;
                 }
@@ -322,8 +323,8 @@ namespace Jint.Native.Iterator
 
             private ObjectInstance IteratorNext()
             {
-                return _nextMethod.Call(_target, Arguments.Empty) as ObjectInstance
-                       ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(_target.Engine);
+                var jsValue = _nextMethod.Call(_target, Arguments.Empty);
+                return jsValue as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(_target.Engine, "Iterator result " + jsValue + " is not an object");
             }
 
             public void Close(CompletionType completion)

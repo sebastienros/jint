@@ -11,7 +11,7 @@ namespace Jint.Extensions
             {
                 case MemberTypes.Field:
                     var fieldInfo = (FieldInfo) memberInfo;
-                    if (fieldInfo.FieldType == value?.GetType())
+                    if (value != null && fieldInfo.FieldType.IsAssignableFrom(value.GetType()))
                     {
                         fieldInfo.SetValue(forObject, value);
                     }
@@ -19,7 +19,7 @@ namespace Jint.Extensions
                     break;
                 case MemberTypes.Property:
                     var propertyInfo = (PropertyInfo) memberInfo;
-                    if (propertyInfo.PropertyType == value?.GetType())
+                    if (value != null && propertyInfo.PropertyType.IsAssignableFrom(value.GetType()))
                     {
                         propertyInfo.SetValue(forObject, value);
                     }

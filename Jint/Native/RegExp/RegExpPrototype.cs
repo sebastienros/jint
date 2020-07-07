@@ -115,7 +115,7 @@ namespace Jint.Native.RegExp
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-regexp.prototype-@@replace
+        /// https://tc39.es/ecma262/#sec-regexp.prototype-@@replace
         /// </summary>
         private JsValue Replace(JsValue thisObj, JsValue[] arguments)
         {
@@ -380,7 +380,7 @@ namespace Jint.Native.RegExp
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-regexp.prototype-@@split
+        /// https://tc39.es/ecma262/#sec-regexp.prototype-@@split
         /// </summary>
         private JsValue Split(JsValue thisObj, JsValue[] arguments)
         {

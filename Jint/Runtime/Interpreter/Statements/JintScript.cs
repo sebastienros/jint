@@ -17,8 +17,6 @@ namespace Jint.Runtime.Interpreter.Statements
             return _list.Execute();
         }
 
-        protected override Task<Completion> ExecuteInternalAsync() {
-            return _list.ExecuteAsync();
-        }
+        protected override Task<Completion> ExecuteInternalAsync() => Task.FromResult(ExecuteInternal());
     }
 }

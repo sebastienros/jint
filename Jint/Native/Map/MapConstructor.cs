@@ -7,6 +7,7 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
+using System.Threading.Tasks;
 
 namespace Jint.Native.Map
 {
@@ -15,7 +16,7 @@ namespace Jint.Native.Map
         private static readonly JsString _functionName = new JsString("Map");
 
         private MapConstructor(Engine engine)
-            : base(engine, _functionName, strict: false)
+            : base(engine, _functionName)
         {
         }
 
@@ -80,5 +81,7 @@ namespace Jint.Native.Map
 
             return map;
         }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

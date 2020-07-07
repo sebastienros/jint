@@ -1,9 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 
@@ -28,9 +30,10 @@ namespace Jint.Runtime.Interop
                     return;
                 }
                 IsArrayLike = true;
+
                 var functionInstance = new ClrFunctionInstance(engine, "length", (thisObj, arguments) => JsNumber.Create((int) lengthProperty.GetValue(obj)));
                 var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
-                AddProperty(CommonProperties.Length, descriptor);
+                SetProperty(KnownKeys.Length, descriptor);
             }
         }
 
@@ -80,18 +83,91 @@ namespace Jint.Runtime.Interop
             return true;
         }
 
-        public override PropertyDescriptor GetOwnProperty(JsValue property)
+        public override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
         {
-            if (property.IsSymbol())
+            return new List<JsValue>(EnumerateOwnPropertyKeys(types));
+        }
+
+        public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
+        {
+            foreach (var key in EnumerateOwnPropertyKeys(Types.String | Types.Symbol))
             {
-                return PropertyDescriptor.Undefined;
+                yield return new KeyValuePair<JsValue, PropertyDescriptor>(key, GetOwnProperty(key));
+            }
+        }
+
+        private IEnumerable<JsValue> EnumerateOwnPropertyKeys(Types types)
+        {
+            var basePropertyKeys = base.GetOwnPropertyKeys(types);
+            // prefer object order, add possible other properties after
+            var processed = basePropertyKeys.Count > 0 ? new HashSet<JsValue>() : null;
+
+            var includeStrings = (types & Types.String) != 0;
+            if (Target is IDictionary dictionary && includeStrings)
+            {
+                // we take values exposed as dictionary keys only 
+                foreach (var key in dictionary.Keys)
+                {
+                    if (_engine.ClrTypeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out var stringKey))
+                    {
+                        var jsString = JsString.Create((string) stringKey);
+                        processed?.Add(jsString);
+                        yield return jsString;
+                    }
+                }
+            }
+            else if (includeStrings)
+            {
+                // we take public properties and fields
+                var type = Target.GetType();
+                foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+                {
+                    var indexParameters = p.GetIndexParameters();
+                    if (indexParameters.Length == 0)
+                    {
+                        var jsString = JsString.Create(p.Name);
+                        processed?.Add(jsString);
+                        yield return jsString;
+                    }
+                }
+
+                foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+                {
+                    var jsString = JsString.Create(f.Name);
+                    processed?.Add(jsString);
+                    yield return jsString;
+                }
             }
 
+            if (processed != null)
+            {
+                // we have base keys
+                for (var i = 0; i < basePropertyKeys.Count; i++)
+                {
+                    var key = basePropertyKeys[i];
+                    if (processed.Add(key))
+                    {
+                        yield return key;
+                    }
+                }
+            }
+        }
+
+        public override PropertyDescriptor GetOwnProperty(JsValue property)
+        {
             if (TryGetProperty(property, out var x))
             {
                 return x;
             }
 
+            if (property.IsSymbol() && property == GlobalSymbolRegistry.Iterator)
+            {
+                var iteratorFunction = new ClrFunctionInstance(Engine, "iterator", (thisObject, arguments) => _engine.Iterator.Construct(this), 1, PropertyFlag.Configurable);
+                var iteratorProperty = new PropertyDescriptor(iteratorFunction, PropertyFlag.Configurable | PropertyFlag.Writable);
+                SetProperty(GlobalSymbolRegistry.Iterator, iteratorProperty);
+                return iteratorProperty;
+            }
+            
             var type = Target.GetType();
             var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, property.ToString());
 

@@ -11,8 +11,10 @@ namespace Jint.Native.Object
 {
     public sealed class ObjectConstructor : FunctionInstance, IConstructor
     {
+        private static readonly JsString _name = new JsString("delegate");
+
         private ObjectConstructor(Engine engine)
-            : base(engine, "Object", null, null, false)
+            : base(engine, _name)
         {
         }
 
@@ -284,7 +286,11 @@ namespace Jint.Native.Object
 
         private JsValue DefineProperty(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            if (!(arguments.At(0) is ObjectInstance o))
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Object.defineProperty called on non-object");
+            }
+
             var p = arguments.At(1);
             var name = TypeConverter.ToPropertyKey(p);
 
@@ -292,12 +298,16 @@ namespace Jint.Native.Object
             var desc = PropertyDescriptor.ToPropertyDescriptor(Engine, attributes);
             o.DefinePropertyOrThrow(name, desc);
 
-            return o;
+            return arguments.At(0);
         }
 
         private JsValue DefineProperties(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            if (!(arguments.At(0) is ObjectInstance o))
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Object.defineProperty called on non-object");
+            }
+
             var properties = arguments.At(1);
             var props = TypeConverter.ToObject(Engine, properties);
             var descriptors = new List<KeyValuePair<JsValue, PropertyDescriptor>>();
@@ -464,6 +474,8 @@ namespace Jint.Native.Object
             var o = TypeConverter.ToObject(_engine, arguments.At(0));
             return o.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.Value);
         }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
 
         private sealed class CreateDataPropertyOnObject : ICallable
         {

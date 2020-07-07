@@ -2,6 +2,7 @@
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using System.Threading.Tasks;
 
 namespace Jint.Native.Boolean
 {
@@ -10,7 +11,7 @@ namespace Jint.Native.Boolean
         private static readonly JsString _functionName = new JsString("Boolean");
 
         private BooleanConstructor(Engine engine)
-            : base(engine, _functionName, strict: false)
+            : base(engine, _functionName)
         {
         }
 
@@ -65,5 +66,7 @@ namespace Jint.Native.Boolean
 
             return instance;
         }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

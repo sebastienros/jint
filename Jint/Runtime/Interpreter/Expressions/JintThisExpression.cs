@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -11,7 +12,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            return _engine.ExecutionContext.ThisBinding;
+            return _engine.ResolveThisBinding();
         }
 
         public override JsValue GetValue()
@@ -19,7 +20,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             // need to notify correct node when taking shortcut
             _engine._lastSyntaxNode = _expression;
 
-            return _engine.ExecutionContext.ThisBinding;
+            return _engine.ResolveThisBinding();
         }
+
+        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
     }
 }

@@ -11,7 +11,7 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         private readonly JintStatement _block;
         private readonly JintStatement _catch;
-        private readonly string _catchParamName;
+        private readonly Key _catchParamName;
         private readonly JintStatement _finalizer;
 
         public JintTryStatement(Engine engine, TryStatement statement) : base(engine, statement)
@@ -40,7 +40,8 @@ namespace Jint.Runtime.Interpreter.Statements
                     var c = b.Value;
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                    catchEnv._record.CreateMutableBinding(_catchParamName, c);
+                    var catchEnvRecord = (DeclarativeEnvironmentRecord) catchEnv._record;
+                    catchEnvRecord.CreateMutableBindingAndInitialize(_catchParamName, canBeDeleted: false, c);
 
                     _engine.UpdateLexicalEnvironment(catchEnv);
                     b = _catch.Execute();
@@ -73,10 +74,11 @@ namespace Jint.Runtime.Interpreter.Statements
                     var c = b.Value;
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                    catchEnv._record.CreateMutableBinding(_catchParamName, c);
+                    var catchEnvRecord = (DeclarativeEnvironmentRecord)catchEnv._record;
+                    catchEnvRecord.CreateMutableBindingAndInitialize(_catchParamName, canBeDeleted: false, c);
 
                     _engine.UpdateLexicalEnvironment(catchEnv);
-                    b = _catch.Execute();
+                    b = await _catch.ExecuteAsync();
                     _engine.UpdateLexicalEnvironment(oldEnv);
                 }
             }

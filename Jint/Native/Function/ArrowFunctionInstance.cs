@@ -1,17 +1,16 @@
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using Esprima.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
+using System.Threading.Tasks;
 
 namespace Jint.Native.Function
 {
     public sealed class ArrowFunctionInstance : FunctionInstance
     {
         private readonly JintFunctionDefinition _function;
-        private readonly JsValue _thisBinding;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/#sec-arrow-function-definitions
@@ -30,47 +29,38 @@ namespace Jint.Native.Function
             JintFunctionDefinition function,
             LexicalEnvironment scope,
             bool strict)
-            : base(engine, (string) null, function._parameterNames, scope, strict)
+            : base(engine, function, scope, strict ? FunctionThisMode.Strict : FunctionThisMode.Lexical)
         {
             _function = function;
 
             PreventExtensions();
             _prototype = Engine.Function.PrototypeObject;
 
-            _length = new PropertyDescriptor(JsNumber.Create(function._length), PropertyFlag.Configurable);
-            _thisBinding = _engine.ExecutionContext.ThisBinding;
+            _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
         }
 
         // for example RavenDB wants to inspect this
-        public IFunction FunctionDeclaration => _function._function;
+        public IFunction FunctionDeclaration => _function.Function;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.1
         /// </summary>
-        /// <param name="thisArg"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
         public override JsValue Call(JsValue thisArg, JsValue[] arguments)
         {
-            var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
-
             var strict = Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
             {
-                _engine.EnterExecutionContext(
-                    localEnv,
-                    localEnv,
-                    _thisBinding);
+                var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
+                _engine.EnterExecutionContext(localEnv, localEnv);
 
                 try
                 {
-                    _engine.DeclarationBindingInstantiation(
-                        DeclarationBindingType.FunctionCode,
-                        _function._hoistingScope,
+                    _engine.FunctionDeclarationInstantiation(
                         functionInstance: this,
-                        arguments);
+                        arguments,
+                        localEnv);
 
-                    var result = _function._body.Execute();
+                    var result = _function.Body.Execute();
 
                     var value = result.GetValueOrDefault().Clone();
 
@@ -93,27 +83,22 @@ namespace Jint.Native.Function
             }
         }
 
-        public async override Task<JsValue> CallAsync(JsValue thisArg, JsValue[] arguments)
+        public async override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments)
         {
-            var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
-
             var strict = Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
             {
-                _engine.EnterExecutionContext(
-                    localEnv,
-                    localEnv,
-                    _thisBinding);
+                var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
+                _engine.EnterExecutionContext(localEnv, localEnv);
 
                 try
                 {
-                    _engine.DeclarationBindingInstantiation(
-                        DeclarationBindingType.FunctionCode,
-                        _function._hoistingScope,
+                    _engine.FunctionDeclarationInstantiation(
                         functionInstance: this,
-                        arguments);
+                        arguments,
+                        localEnv);
 
-                    var result = await _function._body.ExecuteAsync();
+                    var result = await _function.Body.ExecuteAsync();
 
                     var value = result.GetValueOrDefault().Clone();
 
@@ -133,29 +118,6 @@ namespace Jint.Native.Function
                 }
 
                 return Undefined;
-            }
-        }
-
-        public override bool Set(JsValue property, JsValue value, JsValue receiver)
-        {
-            AssertValidPropertyName(property);
-            return base.Set(property, value, receiver);
-        }
-
-        public override JsValue Get(JsValue property, JsValue receiver)
-        {
-            AssertValidPropertyName(property);
-            return base.Get(property, receiver);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void AssertValidPropertyName(JsValue property)
-        {
-            if (property == CommonProperties.Caller
-                || property ==  CommonProperties.Callee
-                || property == CommonProperties.Arguments)
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
             }
         }
     }

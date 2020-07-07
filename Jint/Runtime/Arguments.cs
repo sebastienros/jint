@@ -33,18 +33,6 @@ namespace Jint.Runtime
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T As<T>(this JsValue[] args, int index, Engine engine) where T : JsValue
-        {
-            var value = (uint) index < (uint) args.Length ? args[index] as T : null;
-            if (value is null)
-            {
-                ExceptionHelper.ThrowTypeError<JsValue>(engine);
-            }
-
-            return value;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue[] Skip(this JsValue[] args, int count)
         {
             var newLength = args.Length - count;
