@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected async override Task<Completion> ExecuteInternalAsync()
         {
             var jsValue = await _discriminant.GetValueAsync();
-            var r = _switchBlock.Execute(jsValue);
+            var r = await _switchBlock.ExecuteAsync(jsValue);
             if (r.Type == CompletionType.Break && r.Identifier == _statement.LabelSet?.Name)
             {
                 return new Completion(CompletionType.Normal, r.Value, null, Location);
