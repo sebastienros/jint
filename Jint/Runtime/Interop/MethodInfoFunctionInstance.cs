@@ -8,10 +8,11 @@ namespace Jint.Runtime.Interop
 {
     public sealed class MethodInfoFunctionInstance : FunctionInstance
     {
+        private static readonly JsString _name = new JsString("Function");
         private readonly MethodInfo[] _methods;
 
         public MethodInfoFunctionInstance(Engine engine, MethodInfo[] methods)
-            : base(engine, "Function", null, null, false)
+            : base(engine, _name)
         {
             _methods = methods;
             _prototype = engine.Function.PrototypeObject;

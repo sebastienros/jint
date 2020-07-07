@@ -12,11 +12,12 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public sealed class DelegateWrapper : FunctionInstance
     {
+        private static readonly JsString _name = new JsString("delegate");
         private readonly Delegate _d;
         private readonly bool _delegateContainsParamsArgument;
 
         public DelegateWrapper(Engine engine, Delegate d)
-            : base(engine, "delegate", null, null, false)
+            : base(engine, _name, FunctionThisMode.Global)
         {
             _d = d;
             _prototype = engine.Function.PrototypeObject;

@@ -648,13 +648,15 @@ namespace Jint.Native.Array
 
         internal void EnsureCapacity(uint capacity)
         {
-            if (capacity <= MaxDenseArrayLength && capacity > (uint) _dense.Length)
+            if (capacity > MaxDenseArrayLength || _dense is null || capacity <= (uint) _dense.Length)
             {
-                // need to grow
-                var newArray = new PropertyDescriptor[capacity];
-                System.Array.Copy(_dense, newArray, _dense.Length);
-                _dense = newArray;
+                return;
             }
+
+            // need to grow
+            var newArray = new PropertyDescriptor[capacity];
+            System.Array.Copy(_dense, newArray, _dense.Length);
+            _dense = newArray;
         }
 
         public IEnumerator<JsValue> GetEnumerator()

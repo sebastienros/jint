@@ -12,7 +12,7 @@ namespace Jint.Native.Iterator
         private static readonly JsString _functionName = new JsString("iterator");
 
         private IteratorConstructor(Engine engine)
-            : base(engine, _functionName, strict: false)
+            : base(engine, _functionName)
         {
         }
 

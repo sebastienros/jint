@@ -1,4 +1,5 @@
 ﻿using Jint.Native;
+using Jint.Native.Function;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
@@ -42,18 +43,19 @@ namespace Jint.Runtime.Descriptors.Specialized
 
         internal sealed class ThrowerPropertyDescriptor : PropertyDescriptor
         {
-            private readonly JsValue _get;
-            private readonly JsValue _set;
-
-            public ThrowerPropertyDescriptor(JsValue functionThrowTypeError)
-                : base(PropertyFlag.EnumerableSet | PropertyFlag.ConfigurableSet | PropertyFlag.CustomJsValue)
+            private readonly Engine _engine;
+            private readonly string _message;
+            private JsValue _thrower;
+            
+            public ThrowerPropertyDescriptor(Engine engine, PropertyFlag flags, string message)
+                : base(flags)
             {
-                _get = functionThrowTypeError;
-                _set = functionThrowTypeError;
+                _engine = engine;
+                _message = message;
             }
 
-            public override JsValue Get => _get;
-            public override JsValue Set => _set;
+            public override JsValue Get => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
+            public override JsValue Set => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
 
             protected internal override JsValue CustomValue
             {

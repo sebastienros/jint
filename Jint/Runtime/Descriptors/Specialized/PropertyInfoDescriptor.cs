@@ -10,7 +10,8 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly PropertyInfo _propertyInfo;
         private readonly object _item;
 
-        public PropertyInfoDescriptor(Engine engine, PropertyInfo propertyInfo, object item) : base(PropertyFlag.CustomJsValue)
+        public PropertyInfoDescriptor(Engine engine, PropertyInfo propertyInfo, object item) 
+            : base(PropertyFlag.Enumerable | PropertyFlag.CustomJsValue)
         {
             _engine = engine;
             _propertyInfo = propertyInfo;

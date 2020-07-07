@@ -1550,8 +1550,23 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        private class FailingObject2
+        {
+            public int this[int index] => throw new ArgumentException("index is bad", nameof(index));
+        }
+
         [Fact]
-        public void ShouldAutomaticallyConvertArraysToFindBestInteropResulution()
+        public void ShouldPropagateIndexerExceptions()
+        {
+            var engine = new Engine();
+            engine.Execute(@"function f2(obj) { return obj[1]; }");
+
+            var failingObject = new FailingObject2();
+            Assert.Throws<ArgumentException>(() => engine.Invoke("f2", failingObject));
+        }
+
+        [Fact]
+        public void ShouldAutomaticallyConvertArraysToFindBestInteropResolution()
         {
             _engine.SetValue("a", new ArrayConverterTestClass());
             _engine.SetValue("item1", new ArrayConverterItem(1));
@@ -2017,7 +2032,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldNotResolvetoPrimitiveSymbol()
+        public void ShouldNotResolveToPrimitiveSymbol()
         {
             var engine = new Engine(options => 
                 options.AllowClr(typeof(FloatIndexer).GetTypeInfo().Assembly));
@@ -2028,6 +2043,135 @@ namespace Jint.Tests.Runtime
 
             Assert.NotNull(c.ToString());
             Assert.Equal((uint)0, c.As<ObjectInstance>().Length);
+        }
+
+        class DictionaryWrapper
+        {
+            public IDictionary<string, object> Values { get; set; }
+        }
+
+        class DictionaryTest
+        {
+            public void Test1(IDictionary<string, object> values)
+            {
+                Assert.Equal(1, Convert.ToInt32(values["a"]));
+            }
+
+            public void Test2(DictionaryWrapper dictionaryObject)
+            {
+                Assert.Equal(1, Convert.ToInt32(dictionaryObject.Values["a"]));
+            }
+        }
+
+        [Fact]
+        public void ShouldBeAbleToPassDictionaryToMethod()
+        {
+            var engine = new Engine();
+            engine.SetValue("dictionaryTest", new DictionaryTest());
+            engine.Execute("dictionaryTest.test1({ a: 1 });");
+        }
+
+        [Fact]
+        public void ShouldBeAbleToPassDictionaryInObjectToMethod()
+        {
+            var engine = new Engine();
+            engine.SetValue("dictionaryTest", new DictionaryTest());
+            engine.Execute("dictionaryTest.test2({ values: { a: 1 } });");
+        }
+
+        [Fact]
+        public void ShouldSupportSpreadForDictionary()
+        {
+            var engine = new Engine();
+            var state = new Dictionary<string, object>
+            {
+                {"invoice", new Dictionary<string, object> {["number"] = "42"}}
+            };
+            engine.SetValue("state", state);
+
+            var result = (IDictionary<string, object>) engine
+                .Execute("({ supplier: 'S1', ...state.invoice })")
+                .GetCompletionValue()
+                .ToObject();
+
+            Assert.Equal("S1", result["supplier"]);
+            Assert.Equal("42", result["number"]);            
+        }
+        
+        [Fact]
+        public void ShouldSupportSpreadForDictionary2()
+        {
+            var engine = new Engine();
+            var state = new Dictionary<string, object>
+            {
+                {"invoice", new Dictionary<string, object> {["number"] = "42"}}
+            };
+            engine.SetValue("state", state);
+
+            var result = (IDictionary<string, object>) engine
+                .Execute("function getValue() { return {supplier: 'S1', ...state.invoice}; }")
+                .Invoke("getValue")
+                .ToObject();
+            
+            Assert.Equal("S1", result["supplier"]);
+            Assert.Equal("42", result["number"]);    
+        }        
+
+        [Fact]
+        public void ShouldSupportSpreadForObject()
+        {
+            var engine = new Engine();
+            var person = new Person
+            {
+                Name = "Mike",
+                Age = 20
+            };
+            engine.SetValue("p", person);
+
+            var result = (IDictionary<string, object>) engine
+                .Execute("({ supplier: 'S1', ...p })")
+                .GetCompletionValue()
+                .ToObject();
+
+            Assert.Equal("S1", result["supplier"]);
+            Assert.Equal("Mike", result["Name"]);         
+            Assert.Equal(20d, result["Age"]);         
+        }
+
+        [Fact]
+        public void ShouldBeAbleToJsonStringifyClrObjects()
+        {
+            var engine = new Engine();
+
+            engine.Execute("var jsObj = { 'key1' :'value1', 'key2' : 'value2' }");
+
+            engine.SetValue("netObj", new Dictionary<string, object>()
+            {
+                {"key1", "value1"},
+                {"key2", "value2"},
+            });
+
+            var jsValue = engine.Execute("jsObj['key1']").GetCompletionValue().AsString();
+            var clrValue = engine.Execute("netObj['key1']").GetCompletionValue().AsString();
+            Assert.Equal(jsValue, clrValue);
+
+            jsValue = engine.Execute("JSON.stringify(jsObj)").GetCompletionValue().AsString();
+            clrValue = engine.Execute("JSON.stringify(netObj)").GetCompletionValue().AsString();
+            Assert.Equal(jsValue, clrValue);
+
+            // Write properties on screen using showProps function defined on https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Working_with_Objects
+            engine.Execute(@"function showProps(obj, objName) {
+  var result = """";
+  for (var i in obj) {
+    if (obj.hasOwnProperty(i)) {
+      result += objName + ""."" + i + "" = "" + obj[i] + ""\n"";
+    }
+    }
+  return result;
+}");
+            jsValue = engine.Execute("showProps(jsObj, 'theObject')").GetCompletionValue().AsString();
+            clrValue = engine.Execute("showProps(jsObj, 'theObject')").GetCompletionValue().AsString();
+            Assert.Equal(jsValue, clrValue);
         }
     }
 }

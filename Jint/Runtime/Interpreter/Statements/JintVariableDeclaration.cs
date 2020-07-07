@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaration>
     {
-        private static readonly Completion VoidCompletion = new Completion(CompletionType.Normal, Undefined.Instance, null, default);
+        private static readonly Completion VoidCompletion = new Completion(CompletionType.Normal, null, null, default);
 
         private ResolvedDeclaration[] _declarations;
 
@@ -17,7 +17,7 @@ namespace Jint.Runtime.Interpreter.Statements
             internal JintExpression Left;
             internal BindingPattern LeftPattern;
             internal JintExpression Init;
-            internal JintIdentifierExpression LeftIdentifier;
+            internal JintIdentifierExpression LeftIdentifierExpression;
             internal bool EvalOrArguments;
         }
 
@@ -36,26 +36,27 @@ namespace Jint.Runtime.Interpreter.Statements
                 JintExpression left = null;
                 JintExpression init = null;
                 BindingPattern bindingPattern = null;
+
+                if (declaration.Id is BindingPattern bp)
+                {
+                    bindingPattern = bp;
+                }
+                else
+                {
+                    left = JintExpression.Build(_engine, declaration.Id);
+                }
+                
                 if (declaration.Init != null)
                 {
-                    if (declaration.Id is Expression expression)
-                    {
-                        left = JintExpression.Build(_engine, expression);
-                    }
-                    else if (declaration.Id is BindingPattern bp)
-                    {
-                        bindingPattern = bp;
-                    }
-                        
                     init = JintExpression.Build(_engine, declaration.Init);
                 }
-
+                
                 var leftIdentifier = left as JintIdentifierExpression;
                 _declarations[i] = new ResolvedDeclaration
                 {
                     Left = left,
                     LeftPattern = bindingPattern,
-                    LeftIdentifier = leftIdentifier,
+                    LeftIdentifierExpression = leftIdentifier,
                     EvalOrArguments = leftIdentifier?.HasEvalOrArguments == true,
                     Init = init
                 };
@@ -64,24 +65,51 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
+            if (!_initialized)
+            {
+                _initialized = true;
+                Initialize();
+            }
+            
             foreach (var declaration in _declarations)
             {
-                if (declaration.Init != null)
+                if (_statement.Kind != VariableDeclarationKind.Var && declaration.Left != null)
+                {
+                    var lhs = (Reference) declaration.Left.Evaluate();
+                    var value = JsValue.Undefined;
+                    if (declaration.Init != null)
+                    {
+                        value = declaration.Init.GetValue().Clone();
+                        if (declaration.Init._expression.IsFunctionWithName())
+                        {
+                            ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
+                        }
+                    }
+
+                    lhs.InitializeReferencedBinding(value);
+                    _engine._referencePool.Return(lhs);
+                }
+                else if (declaration.Init != null)
                 {
                     if (declaration.LeftPattern != null)
                     {
+                        var environment = _statement.Kind != VariableDeclarationKind.Var
+                            ? _engine.ExecutionContext.LexicalEnvironment
+                            : null;
+
                         BindingPatternAssignmentExpression.ProcessPatterns(
                             _engine,
                             declaration.LeftPattern,
                             declaration.Init.GetValue(),
-                            checkReference: false /* we are variable assignment*/);
+                            environment,
+                            checkObjectPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
                     }
-                    else if (declaration.LeftIdentifier == null
-                        || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
-                            _engine,
-                            declaration.LeftIdentifier,
-                            declaration.Init,
-                            declaration.EvalOrArguments) is null)
+                    else if (declaration.LeftIdentifierExpression == null
+                             || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
+                                 _engine,
+                                 declaration.LeftIdentifierExpression,
+                                 declaration.Init,
+                                 declaration.EvalOrArguments) is null)
                     {
                         // slow path
                         var lhs = (Reference) declaration.Left.Evaluate();

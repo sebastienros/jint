@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal abstract class JintStatement<T> : JintStatement where T : Statement
     {
-        protected readonly T _statement;
+        internal readonly T _statement;
 
         protected JintStatement(Engine engine, T statement) : base(engine, statement)
         {
@@ -32,8 +32,11 @@ namespace Jint.Runtime.Interpreter.Statements
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion Execute()
         {
-            _engine._lastSyntaxNode = _statement;
-            _engine.RunBeforeExecuteStatementChecks(_statement);
+            if (_statement.Type != Nodes.BlockStatement)
+            {
+                _engine._lastSyntaxNode = _statement;
+                _engine.RunBeforeExecuteStatementChecks(_statement);
+            }
 
             if (!_initialized)
             {
@@ -57,78 +60,34 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected internal static JintStatement Build(Engine engine, Statement statement)
         {
-            switch (statement.Type)
+            return statement.Type switch
             {
-                case Nodes.BlockStatement:
-                    var statementListItems = ((BlockStatement) statement).Body;
-                    return new JintBlockStatement(engine, new JintStatementList(engine, statement, statementListItems));
-
-                case Nodes.ReturnStatement:
-                    return new JintReturnStatement(engine, (ReturnStatement) statement);
-
-                case Nodes.VariableDeclaration:
-                    return new JintVariableDeclaration(engine, (VariableDeclaration) statement);
-
-                case Nodes.BreakStatement:
-                    return new JintBreakStatement(engine, (BreakStatement) statement);
-
-                case Nodes.ContinueStatement:
-                    return new JintContinueStatement(engine, (ContinueStatement) statement);
-
-                case Nodes.DoWhileStatement:
-                    return new JintDoWhileStatement(engine, (DoWhileStatement) statement);
-
-                case Nodes.EmptyStatement:
-                    return new JintEmptyStatement(engine, (EmptyStatement) statement);
-
-                case Nodes.ExpressionStatement:
-                    return new JintExpressionStatement(engine, (ExpressionStatement) statement);
-
-                case Nodes.ForStatement:
-                    return new JintForStatement(engine, (ForStatement) statement);
-
-                case Nodes.ForInStatement:
-                    return new JintForInStatement(engine, (ForInStatement) statement);
-
-                case Nodes.ForOfStatement:
-                    return new JintForOfStatement(engine, (ForOfStatement) statement);
-
-                case Nodes.IfStatement:
-                    return new JintIfStatement(engine, (IfStatement) statement);
-
-                case Nodes.LabeledStatement:
-                    return new JintLabeledStatement(engine, (LabeledStatement) statement);
-
-                case Nodes.SwitchStatement:
-                    return new JintSwitchStatement(engine, (SwitchStatement) statement);
-
-                case Nodes.FunctionDeclaration:
-                    return new JintFunctionDeclarationStatement(engine, (FunctionDeclaration) statement);
-
-                case Nodes.ThrowStatement:
-                    return new JintThrowStatement(engine, (ThrowStatement) statement);
-
-                case Nodes.TryStatement:
-                    return new JintTryStatement(engine, (TryStatement) statement);
-
-                case Nodes.WhileStatement:
-                    return new JintWhileStatement(engine, (WhileStatement) statement);
-
-                case Nodes.WithStatement:
-                    return new JintWithStatement(engine, (WithStatement) statement);
-
-                case Nodes.DebuggerStatement:
-                    return new JintDebuggerStatement(engine, (DebuggerStatement) statement);
-
-                case Nodes.Program:
-                    return new JintScript(engine, statement as Script ?? ExceptionHelper.ThrowArgumentException<Script>("modules not supported"));
-
-                default:
-                    return ExceptionHelper.ThrowArgumentOutOfRangeException<JintStatement>();
-            }
+                Nodes.BlockStatement => new JintBlockStatement(engine, (BlockStatement) statement),
+                Nodes.ReturnStatement => new JintReturnStatement(engine, (ReturnStatement) statement),
+                Nodes.VariableDeclaration => new JintVariableDeclaration(engine, (VariableDeclaration) statement),
+                Nodes.BreakStatement => new JintBreakStatement(engine, (BreakStatement) statement),
+                Nodes.ContinueStatement => new JintContinueStatement(engine, (ContinueStatement) statement),
+                Nodes.DoWhileStatement => new JintDoWhileStatement(engine, (DoWhileStatement) statement),
+                Nodes.EmptyStatement => new JintEmptyStatement(engine, (EmptyStatement) statement),
+                Nodes.ExpressionStatement => new JintExpressionStatement(engine, (ExpressionStatement) statement),
+                Nodes.ForStatement => new JintForStatement(engine, (ForStatement) statement),
+                Nodes.ForInStatement => new JintForInForOfStatement(engine, (ForInStatement) statement),
+                Nodes.ForOfStatement => new JintForInForOfStatement(engine, (ForOfStatement) statement),
+                Nodes.IfStatement => new JintIfStatement(engine, (IfStatement) statement),
+                Nodes.LabeledStatement => new JintLabeledStatement(engine, (LabeledStatement) statement),
+                Nodes.SwitchStatement => new JintSwitchStatement(engine, (SwitchStatement) statement),
+                Nodes.FunctionDeclaration => new JintFunctionDeclarationStatement(engine, (FunctionDeclaration) statement),
+                Nodes.ThrowStatement => new JintThrowStatement(engine, (ThrowStatement) statement),
+                Nodes.TryStatement => new JintTryStatement(engine, (TryStatement) statement),
+                Nodes.WhileStatement => new JintWhileStatement(engine, (WhileStatement) statement),
+                Nodes.WithStatement => new JintWithStatement(engine, (WithStatement) statement),
+                Nodes.DebuggerStatement => new JintDebuggerStatement(engine, (DebuggerStatement) statement),
+                Nodes.Program => new JintScript(engine, statement as Script ?? ExceptionHelper.ThrowArgumentException<Script>("modules not supported")),
+                _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintStatement>(nameof(statement.Type), $"unsupported statement type '{statement.Type}'")
+            };
         }
 
-        internal static Completion? FastResolve(IStatementListItem statement)
+        internal static Completion? FastResolve(StatementListItem statement)
         {
             if (statement is ReturnStatement rs && rs.Argument is Literal l)
             {
