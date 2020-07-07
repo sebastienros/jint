@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Jint.Native.Function;
 using Jint.Native.Map;
 using Jint.Native.Object;
@@ -145,5 +146,7 @@ namespace Jint.Native.Iterator
 
             return instance;
         }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

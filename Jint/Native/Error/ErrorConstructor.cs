@@ -2,6 +2,7 @@
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using System.Threading.Tasks;
 
 namespace Jint.Native.Error
 {
@@ -65,5 +66,7 @@ namespace Jint.Native.Error
         {
             return _name._value != "Error" ? _engine.Error : _prototype;
         }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

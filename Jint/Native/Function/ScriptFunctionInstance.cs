@@ -133,46 +133,59 @@ namespace Jint.Native.Function
             }
         }
 
-        public async override Task<JsValue> CallAsync(JsValue thisArg, JsValue[] arguments)
+        public async override Task<JsValue> CallAsync(JsValue thisArgument, JsValue[] arguments)
         {
-            var strict = _strict || _engine._isStrict;
-            using (new StrictModeScope(strict, true))
+            // ** PrepareForOrdinaryCall **
+            // var callerContext = _engine.ExecutionContext;
+            // Let calleeRealm be F.[[Realm]].
+            // Set the Realm of calleeContext to calleeRealm.
+            // Set the ScriptOrModule of calleeContext to F.[[ScriptOrModule]].
+            var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
+            // If callerContext is not already suspended, suspend callerContext.
+            // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
+            // NOTE: Any exception objects produced after this point are associated with calleeRealm.
+            // Return calleeContext.
+
+            _engine.EnterExecutionContext(localEnv, localEnv);
+
+            // ** OrdinaryCallBindThis **
+
+            JsValue thisValue;
+            if (_thisMode == FunctionThisMode.Strict)
             {
-                // setup new execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.3
-                JsValue thisBinding;
-                if (StrictModeScope.IsStrictModeCode)
+                thisValue = thisArgument;
+            }
+            else
+            {
+                if (thisArgument.IsNullOrUndefined())
                 {
-                    thisBinding = thisArg;
-                }
-                else if (thisArg.IsNullOrUndefined())
-                {
-                    thisBinding = _engine.Global;
-                }
-                else if (!thisArg.IsObject())
-                {
-                    thisBinding = TypeConverter.ToObject(_engine, thisArg);
+                    var globalEnv = _engine.GlobalEnvironment;
+                    var globalEnvRec = (GlobalEnvironmentRecord)globalEnv._record;
+                    thisValue = globalEnvRec.GlobalThisValue;
                 }
                 else
                 {
-                    thisBinding = thisArg;
+                    thisValue = TypeConverter.ToObject(_engine, thisArgument);
                 }
+            }
 
-                var localEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _scope);
+            var envRec = (FunctionEnvironmentRecord)localEnv._record;
+            envRec.BindThisValue(thisValue);
 
-                _engine.EnterExecutionContext(localEnv, localEnv, thisBinding);
+            // actual call
 
+            var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
+            using (new StrictModeScope(strict, true))
+            {
                 try
                 {
-                    var argumentsInstance = _engine.DeclarationBindingInstantiation(
-                        DeclarationBindingType.FunctionCode,
-                        _function._hoistingScope,
+                    var argumentsInstance = _engine.FunctionDeclarationInstantiation(
                         functionInstance: this,
-                        arguments);
+                        arguments,
+                        localEnv);
 
-                    var result = await _function._body.ExecuteAsync();
-
+                    var result = await _function.Body.ExecuteAsync();
                     var value = result.GetValueOrDefault().Clone();
-
                     argumentsInstance?.FunctionWasCalled();
 
                     if (result.Type == CompletionType.Throw)

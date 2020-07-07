@@ -134,6 +134,16 @@ namespace Jint.Runtime.Interpreter.Statements
             for (var i = 0; i < (uint)_jintSwitchBlock.Length; i++)
             {
                 var clause = _jintSwitchBlock[i];
+
+                LexicalEnvironment oldEnv = null;
+                if (clause.LexicalDeclarations != null)
+                {
+                    oldEnv = _engine.ExecutionContext.LexicalEnvironment;
+                    var blockEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                    JintStatementList.BlockDeclarationInstantiation(blockEnv, clause.LexicalDeclarations);
+                    _engine.UpdateLexicalEnvironment(blockEnv);
+                }
+
                 if (clause.Test == null)
                 {
                     defaultCase = clause;
@@ -150,6 +160,12 @@ namespace Jint.Runtime.Interpreter.Statements
                 if (hit && clause.Consequent != null)
                 {
                     var r = await clause.Consequent.ExecuteAsync();
+
+                    if (oldEnv != null)
+                    {
+                        _engine.UpdateLexicalEnvironment(oldEnv);
+                    }
+
                     if (r.Type != CompletionType.Normal)
                     {
                         return r;
@@ -163,7 +179,21 @@ namespace Jint.Runtime.Interpreter.Statements
             // do we need to execute the default case ?
             if (hit == false && defaultCase != null)
             {
+                LexicalEnvironment oldEnv = null;
+                if (defaultCase.LexicalDeclarations != null)
+                {
+                    oldEnv = _engine.ExecutionContext.LexicalEnvironment;
+                    var blockEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                    JintStatementList.BlockDeclarationInstantiation(blockEnv, defaultCase.LexicalDeclarations);
+                    _engine.UpdateLexicalEnvironment(blockEnv);
+                }
+
                 var r = await defaultCase.Consequent.ExecuteAsync();
+
+                if (oldEnv != null)
+                {
+                    _engine.UpdateLexicalEnvironment(oldEnv);
+                }
                 if (r.Type != CompletionType.Normal)
                 {
                     return r;

@@ -70,8 +70,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected abstract object EvaluateInternal();
 
-        protected virtual Task<object> EvaluateInternalAsync()
-            => Task.FromResult(EvaluateInternal());
+        protected abstract Task<object> EvaluateInternalAsync();
 
         protected internal static JintExpression Build(Engine engine, Expression expression)
         {

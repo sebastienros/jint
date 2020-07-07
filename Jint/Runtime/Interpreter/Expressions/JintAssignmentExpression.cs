@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
+using System;
 using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -291,14 +292,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     rval = await AssignToIdentifierAsync(_engine, _leftIdentifier, _right, _evalOrArguments);
                 }
-                else if (_arrayPattern != null)
-                {
-                    foreach (var element in _arrayPattern.Elements)
-                    {
-                        await AssignToIdentifierAsync(_engine, _leftIdentifier, _right, false);
-                    }
-                }
-
                 return rval ?? SetValue();
             }
 
@@ -321,7 +314,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var strict = StrictModeScope.IsStrictModeCode;
                 if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                     env,
-                    left.ExpressionName,
+                    left._expressionName,
                     strict,
                     out var environmentRecord,
                     out _))
@@ -335,21 +328,17 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (right._expression.IsFunctionWithName())
                     {
-                        ((FunctionInstance)rval).SetFunctionName(left.ExpressionName);
+                        ((FunctionInstance)rval).SetFunctionName(left._expressionName.StringValue);
                     }
 
-                    environmentRecord.SetMutableBinding(left.ExpressionName, rval, strict);
+                    environmentRecord.SetMutableBinding(left._expressionName, rval, strict);
                     return rval;
                 }
 
                 return null;
             }
 
-            internal async static Task<JsValue> AssignToIdentifierAsync(
-                Engine engine,
-                JintIdentifierExpression left,
-                JintExpression right,
-                bool hasEvalOrArguments)
+            internal async static Task<JsValue> AssignToIdentifierAsync(Engine engine, JintIdentifierExpression left, JintExpression right, bool hasEvalOrArguments)
             {
                 var env = engine.ExecutionContext.LexicalEnvironment;
                 var strict = StrictModeScope.IsStrictModeCode;
@@ -369,7 +358,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (right._expression.IsFunctionWithName())
                     {
-                        ((FunctionInstance) rval).SetFunctionName(left._expressionName.StringValue);
+                        ((FunctionInstance)rval).SetFunctionName(left._expressionName.StringValue);
                     }
 
                     environmentRecord.SetMutableBinding(left._expressionName, rval, strict);

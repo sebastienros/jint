@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -21,5 +22,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             return _engine.ResolveThisBinding();
         }
+
+        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
     }
 }

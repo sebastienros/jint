@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Esprima;
 using Jint.Collections;
 using Jint.Native.Function;
@@ -198,7 +199,9 @@ namespace Jint.Native.RegExp
         {
             r.SetOwnProperty(RegExpInstance.PropertyLastIndex, new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
         }
-        
+
         public RegExpPrototype PrototypeObject { get; private set; }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

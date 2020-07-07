@@ -413,7 +413,9 @@ namespace Jint
         }
 
         public Task<Engine> ExecuteAsync(string source)
-            => ExecuteAsync(source, DefaultParserOptions);
+        {
+            return ExecuteAsync(source, DefaultParserOptions);
+        }
 
         public Task<Engine> ExecuteAsync(string source, ParserOptions parserOptions)
         {
@@ -429,13 +431,12 @@ namespace Jint
 
             using (new StrictModeScope(_isStrict || program.Strict))
             {
-                DeclarationBindingInstantiation(
-                    DeclarationBindingType.GlobalCode,
-                    program.HoistingScope,
-                    functionInstance: null,
-                    arguments: null);
+                GlobalDeclarationInstantiation(
+                    program,
+                    GlobalEnvironment);
 
                 var list = new JintStatementList(this, null, program.Body);
+
                 var result = await list.ExecuteAsync();
                 if (result.Type == CompletionType.Throw)
                 {

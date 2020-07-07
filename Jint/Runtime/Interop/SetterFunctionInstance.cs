@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Jint.Native;
 using Jint.Native.Function;
 
@@ -24,5 +25,7 @@ namespace Jint.Runtime.Interop
 
             return Null;
         }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

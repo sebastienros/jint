@@ -475,6 +475,8 @@ namespace Jint.Native.Object
             return o.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.Value);
         }
 
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
+
         private sealed class CreateDataPropertyOnObject : ICallable
         {
             internal static readonly CreateDataPropertyOnObject Instance = new CreateDataPropertyOnObject();

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -58,6 +59,7 @@ namespace Jint.Native.Function
         /// <param name="arguments"></param>
         /// <returns></returns>
         public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
+        public abstract Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments);
 
         public bool Strict => _thisMode == FunctionThisMode.Strict;
         

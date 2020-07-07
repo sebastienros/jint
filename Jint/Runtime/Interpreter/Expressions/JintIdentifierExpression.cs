@@ -1,6 +1,7 @@
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -53,5 +54,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? value ?? ExceptionHelper.ThrowReferenceError<JsValue>(_engine, _expressionName.Key.Name + " has not been initialized")
                 : _engine.GetValue(_engine._referencePool.Rent(JsValue.Undefined, _expressionName.StringValue, strict), true);
         }
+
+        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
     }
 }

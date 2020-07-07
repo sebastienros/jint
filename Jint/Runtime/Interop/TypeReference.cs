@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
+using System.Threading.Tasks;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -187,5 +188,7 @@ namespace Jint.Runtime.Interop
         }
 
         public object Target => ReferenceType;
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

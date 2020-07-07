@@ -65,8 +65,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected abstract Completion ExecuteInternal();
 
-        protected virtual Task<Completion> ExecuteInternalAsync()
-            => Task.FromResult(ExecuteInternal());
+        protected abstract Task<Completion> ExecuteInternalAsync();
 
         public Location Location => _statement.Location;
 

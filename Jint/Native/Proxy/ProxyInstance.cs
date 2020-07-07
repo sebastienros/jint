@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-
+using System.Threading.Tasks;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -483,5 +483,7 @@ namespace Jint.Native.Proxy
         }
         
         public override string ToString() => "function () { [native code] }";
+
+        public Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

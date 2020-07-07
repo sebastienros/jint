@@ -1,5 +1,6 @@
 ﻿using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using System.Threading.Tasks;
 
 namespace Jint.Native.Function
 {
@@ -22,5 +23,7 @@ namespace Jint.Native.Function
         {
             return ExceptionHelper.ThrowTypeError<JsValue>(_engine, _message);
         }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

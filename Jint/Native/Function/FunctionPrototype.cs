@@ -5,6 +5,7 @@ using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using System.Threading.Tasks;
 
 namespace Jint.Native.Function
 {
@@ -172,5 +173,7 @@ namespace Jint.Native.Function
         {
             return Undefined;
         }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

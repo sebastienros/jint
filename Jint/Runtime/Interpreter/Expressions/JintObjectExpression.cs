@@ -5,6 +5,7 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -190,5 +191,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             return obj;
         }
+
+        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
     }
 }

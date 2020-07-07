@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.Threading.Tasks;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -254,5 +255,7 @@ namespace Jint.Native.Date
 
             return System.Math.Floor(result);
         }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

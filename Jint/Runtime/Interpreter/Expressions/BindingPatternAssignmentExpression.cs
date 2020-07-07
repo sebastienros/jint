@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
@@ -410,5 +411,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 engine.PutValue(lhs, rval);
             }
         }
+
+        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
     }
 }
