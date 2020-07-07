@@ -14,7 +14,7 @@ namespace Jint.Native.Proxy
         private static readonly JsString PropertyRevoke = new JsString("revoke");
 
         private ProxyConstructor(Engine engine)
-            : base(engine, _name, strict: false)
+            : base(engine, _name)
         {
         }
 

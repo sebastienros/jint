@@ -1,7 +1,8 @@
-﻿using Esprima.Ast;
+﻿using System.Collections.Generic;
+using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Statements;
-using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter
 {
@@ -15,12 +16,12 @@ namespace Jint.Runtime.Interpreter
 
         private readonly Engine _engine;
         private readonly Statement _statement;
-        private readonly NodeList<IStatementListItem> _statements;
+        private readonly NodeList<Statement> _statements;
 
         private Pair[] _jintStatements;
         private bool _initialized;
 
-        public JintStatementList(Engine engine, Statement statement, NodeList<IStatementListItem> statements)
+        public JintStatementList(Engine engine, Statement statement, NodeList<Statement> statements)
         {
             _engine = engine;
             _statement = statement;
@@ -32,7 +33,7 @@ namespace Jint.Runtime.Interpreter
             var jintStatements = new Pair[_statements.Count];
             for (var i = 0; i < jintStatements.Length; i++)
             {
-                var esprimaStatement = (Statement) _statements[i];
+                var esprimaStatement = _statements[i];
                 jintStatements[i] = new Pair
                 {
                     Statement = JintStatement.Build(_engine, esprimaStatement),
@@ -59,6 +60,9 @@ namespace Jint.Runtime.Interpreter
             JintStatement s = null;
             var c = new Completion(CompletionType.Normal, null, null, _engine._lastSyntaxNode?.Location ?? default);
             Completion sl = c;
+            
+            // The value of a StatementList is the value of the last value-producing item in the StatementList
+            JsValue lastValue = null;
             try
             {
                 foreach (var pair in _jintStatements)
@@ -73,8 +77,8 @@ namespace Jint.Runtime.Interpreter
                             c.Identifier,
                             c.Location);
                     }
-
                     sl = c;
+                    lastValue = c.Value ?? lastValue;
                 }
             }
             catch (JavaScriptException v)
@@ -99,67 +103,43 @@ namespace Jint.Runtime.Interpreter
                 });
                 c = new Completion(CompletionType.Throw, error, null, s.Location);
             }
-            return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier, c.Location);
+            return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Identifier, c.Location);
         }
 
-        public async Task<Completion> ExecuteAsync()
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-blockdeclarationinstantiation
+        /// </summary>
+        internal static void BlockDeclarationInstantiation(
+            LexicalEnvironment env,
+            List<VariableDeclaration> lexicalDeclarations)
         {
-            if (!_initialized)
+            var envRec = env._record;
+            for (var i = 0; i < lexicalDeclarations.Count; i++)
             {
-                Initialize();
-                _initialized = true;
-            }
-
-            if (_statement != null)
-            {
-                _engine._lastSyntaxNode = _statement;
-                _engine.RunBeforeExecuteStatementChecks(_statement);
-            }
-
-            JintStatement s = null;
-            var c = new Completion(CompletionType.Normal, null, null, _engine._lastSyntaxNode?.Location ?? default);
-            Completion sl = c;
-            try
-            {
-                foreach (var pair in _jintStatements)
+                var variableDeclaration = lexicalDeclarations[i];
+                ref readonly var nodeList = ref variableDeclaration.Declarations;
+                for (var j = 0; j < nodeList.Count; j++)
                 {
-                    s = pair.Statement;
-                    c = pair.Value ?? await s.ExecuteAsync();
-                    if (c.Type != CompletionType.Normal)
+                    var declaration = nodeList[j];
+                    if (declaration.Id is Identifier identifier)
                     {
-                        return new Completion(
-                            c.Type,
-                            c.Value ?? sl.Value,
-                            c.Identifier,
-                            c.Location);
+                        if (variableDeclaration.Kind == VariableDeclarationKind.Const)
+                        {
+                            envRec.CreateImmutableBinding(identifier.Name, strict: true);
+                        }
+                        else
+                        {
+                            envRec.CreateMutableBinding(identifier.Name, canBeDeleted: false);
+                        }
                     }
-
-                    sl = c;
+                    // else if 
+                    /*  If d is a FunctionDeclaration, a GeneratorDeclaration, an AsyncFunctionDeclaration, or an AsyncGeneratorDeclaration, then
+                     * Let fn be the sole element of the BoundNames of d.
+                     * Let fo be the result of performing InstantiateFunctionObject for d with argument env.
+                     * Perform envRec.InitializeBinding(fn, fo).
+                     */
                 }
             }
-            catch (JavaScriptException v)
-            {
-                var location = v.Location == default ? s.Location : v.Location;
-                var completion = new Completion(CompletionType.Throw, v.Error, null, location);
-                return completion;
-            }
-            catch (TypeErrorException e)
-            {
-                var error = _engine.TypeError.Construct(new JsValue[]
-                {
-                    e.Message
-                });
-                return new Completion(CompletionType.Throw, error, null, s.Location);
-            }
-            catch (RangeErrorException e)
-            {
-                var error = _engine.RangeError.Construct(new JsValue[]
-                {
-                    e.Message
-                });
-                c = new Completion(CompletionType.Throw, error, null, s.Location);
-            }
-            return new Completion(c.Type, c.GetValueOrDefault(), c.Identifier, c.Location);
         }
     }
 }

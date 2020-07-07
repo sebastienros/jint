@@ -101,8 +101,8 @@ namespace Jint.Runtime.Debugger
             }
             else if (old == StepMode.Into && _stepMode == StepMode.Over)
             {
-                var expressionStatement = statement as ExpressionStatement;
-                if (expressionStatement != null && expressionStatement.Expression is CallExpression)
+                if (statement is ExpressionStatement expressionStatement 
+                    && expressionStatement.Expression is CallExpression)
                 {
                     _callBackStepOverDepth = _debugCallStack.Count;
                 }
@@ -152,9 +152,9 @@ namespace Jint.Runtime.Debugger
                 CurrentMemoryUsage = _engine.CurrentMemoryUsage
             };
 
-            if (_engine.ExecutionContext.LexicalEnvironment != null)
+            if (_engine.ExecutionContext.VariableEnvironment != null)
             {
-                var lexicalEnvironment = _engine.ExecutionContext.LexicalEnvironment;
+                var lexicalEnvironment = _engine.ExecutionContext.VariableEnvironment;
                 info.Locals = GetLocalVariables(lexicalEnvironment);
                 info.Globals = GetGlobalVariables(lexicalEnvironment);
             }

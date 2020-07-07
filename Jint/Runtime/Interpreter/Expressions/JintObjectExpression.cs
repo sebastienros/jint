@@ -9,7 +9,7 @@ using Jint.Runtime.Descriptors.Specialized;
 namespace Jint.Runtime.Interpreter.Expressions
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-11.1.5
+    /// http://www.ecma-international.org/ecma-262/#sec-object-initializer
     /// </summary>
     internal sealed class JintObjectExpression : JintExpression
     {
@@ -73,7 +73,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (p.Kind == PropertyKind.Init || p.Kind == PropertyKind.Data)
                     {
-                        var propertyValue = (Expression) p.Value;
+                        var propertyValue = p.Value;
                         _valueExpressions[i] = Build(_engine, propertyValue);
                         _canBuildFast &= !propertyValue.IsFunctionWithName();
                     }
@@ -130,7 +130,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private object BuildObjectNormal()
         {
             var obj = _engine.Object.Construct(_properties.Length);
-            bool isStrictModeCode = StrictModeScope.IsStrictModeCode;
+            bool isStrictModeCode = _engine._isStrict || StrictModeScope.IsStrictModeCode;
 
             for (var i = 0; i < _properties.Length; i++)
             {

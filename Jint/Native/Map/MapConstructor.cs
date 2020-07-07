@@ -15,7 +15,7 @@ namespace Jint.Native.Map
         private static readonly JsString _functionName = new JsString("Map");
 
         private MapConstructor(Engine engine)
-            : base(engine, _functionName, strict: false)
+            : base(engine, _functionName)
         {
         }
 

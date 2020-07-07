@@ -17,17 +17,21 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected override object EvaluateInternal()
         {
             var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
-            var envRec = (DeclarativeEnvironmentRecord) funcEnv._record;
+
+            var functionThisMode = _function.Strict || _engine._isStrict
+                ? FunctionInstance.FunctionThisMode.Strict 
+                : FunctionInstance.FunctionThisMode.Global;
 
             var closure = new ScriptFunctionInstance(
                 _engine,
                 _function,
                 funcEnv,
-                _function._strict);
+                functionThisMode);
 
-            if (_function._name != null)
+            if (_function.Name != null)
             {
-                envRec.CreateMutableBinding(_function._name, closure);
+                var envRec = (DeclarativeEnvironmentRecord) funcEnv._record;
+                envRec.CreateMutableBindingAndInitialize(_function.Name, canBeDeleted: false, closure);
             }
 
             return closure;

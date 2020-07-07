@@ -1,57 +1,54 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Function
 {
     public abstract class FunctionInstance : ObjectInstance, ICallable
     {
+        internal enum FunctionThisMode
+        {
+            Lexical,
+            Strict,
+            Global
+        }
+
         protected internal PropertyDescriptor _prototypeDescriptor;
 
-        protected PropertyDescriptor _length;
+        protected internal PropertyDescriptor _length;
+        internal PropertyDescriptor _nameDescriptor;
 
-        private JsValue _name;
-        private PropertyDescriptor _nameDescriptor;
+        protected internal LexicalEnvironment _environment;
+        internal readonly JintFunctionDefinition _functionDefinition;
+        internal readonly FunctionThisMode _thisMode;
 
-        protected readonly LexicalEnvironment _scope;
-        protected internal readonly string[] _formalParameters;
-        protected readonly bool _strict;
-
-        protected FunctionInstance(
+        internal FunctionInstance(
             Engine engine,
-            string name,
-            string[] parameters,
+            JintFunctionDefinition function,
             LexicalEnvironment scope,
-            bool strict)
-            : this(engine, !string.IsNullOrWhiteSpace(name) ? new JsString(name) : null, parameters, scope, strict)
+            FunctionThisMode thisMode)
+            : this(engine, !string.IsNullOrWhiteSpace(function.Name) ? new JsString(function.Name) : null,  thisMode)
         {
+            _functionDefinition = function;
+            _environment = scope;
         }
 
         internal FunctionInstance(
             Engine engine,
             JsString name,
-            string[] parameters,
-            LexicalEnvironment scope,
-            bool strict)
-            : this(engine, name, strict)
-        {
-            _formalParameters = parameters;
-            _scope = scope;
-        }
-
-        internal FunctionInstance(
-            Engine engine,
-            JsString name,
-            bool strict,
+            FunctionThisMode thisMode = FunctionThisMode.Global,
             ObjectClass objectClass = ObjectClass.Function)
             : base(engine, objectClass)
         {
-            _name = name;
-            _strict = strict;
+            if (!(name is null))
+            {
+                _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
+            }
+            _thisMode = thisMode;
         }
 
         /// <summary>
@@ -62,15 +59,8 @@ namespace Jint.Native.Function
         /// <returns></returns>
         public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
 
-        public virtual Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments)
-            => Task.FromResult(Call(thisObject, arguments));
-
-        internal LexicalEnvironment Scope => _scope;
-
-        internal string[] FormalParameters => _formalParameters;
-
-        public bool Strict => _strict;
-
+        public bool Strict => _thisMode == FunctionThisMode.Strict;
+        
         public virtual bool HasInstance(JsValue v)
         {
             if (!(v is ObjectInstance o))
@@ -78,7 +68,7 @@ namespace Jint.Native.Function
                 return false;
             }
 
-            var p = Get(CommonProperties.Prototype, this);
+            var p = Get(CommonProperties.Prototype);
             if (!(p is ObjectInstance prototype))
             {
                 ExceptionHelper.ThrowTypeError(_engine, $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
@@ -100,22 +90,6 @@ namespace Jint.Native.Function
             }
         }
 
-        /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.3.5.4
-        /// </summary>
-        public override JsValue Get(JsValue property, JsValue receiver)
-        {
-            var v = base.Get(property, receiver);
-
-            if (property == CommonProperties.Caller
-                && ((v.As<FunctionInstance>()?._strict).GetValueOrDefault()))
-            {
-                ExceptionHelper.ThrowTypeError(_engine);
-            }
-
-            return v;
-        }
-
         public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
         {
             if (_prototypeDescriptor != null)
@@ -126,7 +100,7 @@ namespace Jint.Native.Function
             {
                 yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, _length);
             }
-            if (!(_name is null))
+            if (_nameDescriptor != null)
             {
                 yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Name, GetOwnProperty(CommonProperties.Name));
             }
@@ -148,7 +122,7 @@ namespace Jint.Native.Function
             {
                 keys.Add(CommonProperties.Length);
             }
-            if (!(_name is null))
+            if (_nameDescriptor != null)
             {
                 keys.Add(CommonProperties.Name);
             }
@@ -170,9 +144,7 @@ namespace Jint.Native.Function
             }
             if (property == CommonProperties.Name)
             {
-                return !(_name is null)
-                    ? _nameDescriptor ??= new PropertyDescriptor(_name, PropertyFlag.Configurable)
-                    :  PropertyDescriptor.Undefined;
+                return _nameDescriptor ?? PropertyDescriptor.Undefined;
             }
 
             return base.GetOwnProperty(property);
@@ -190,7 +162,6 @@ namespace Jint.Native.Function
             }
             else if (property == CommonProperties.Name)
             {
-                _name = desc._value;
                 _nameDescriptor = desc;
             }
             else
@@ -211,7 +182,7 @@ namespace Jint.Native.Function
             }
             if (property == CommonProperties.Name)
             {
-                return !(_name is null);
+                return _nameDescriptor != null;
             }
 
             return base.HasOwnProperty(property);
@@ -229,34 +200,31 @@ namespace Jint.Native.Function
             }
             if (property == CommonProperties.Name)
             {
-                _name = null;
                 _nameDescriptor = null;
             }
 
             base.RemoveOwnProperty(property);
         }
 
-        internal void SetFunctionName(JsValue name, bool throwIfExists = false)
+        internal void SetFunctionName(JsValue name, string prefix = null, bool force = false)
         {
-            if (_name is null)
+            if (!force && _nameDescriptor != null && !UnwrapJsValue(_nameDescriptor).IsUndefined())
             {
-                JsString value;
-                if (name is JsSymbol symbol)
-                {
-                    value = new JsString(symbol._value.IsUndefined()
-                        ? ""
-                        : "[" + symbol._value + "]");
-                }
-                else
-                {
-                    value = name as JsString ?? new JsString(name.ToString());
-                }
-                _name = value;
+                return;
             }
-            else if (throwIfExists)
+            
+            if (name is JsSymbol symbol)
             {
-                ExceptionHelper.ThrowError(_engine, "cannot set name");
+                name = symbol._value.IsUndefined()
+                    ? JsString.Empty
+                    : new JsString("[" + symbol._value + "]");
             }
+            if (!string.IsNullOrWhiteSpace(prefix))
+            {
+                name = prefix + " " + name;
+            }
+
+            _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -279,6 +247,18 @@ namespace Jint.Native.Function
             //    Let realm be ? GetFunctionRealm(constructor).
             //    Set proto to realm's intrinsic object named intrinsicDefaultProto.
             return proto ?? intrinsicDefaultProto;
+        }
+
+        public override string ToString()
+        {
+            // TODO no way to extract SourceText from Esprima at the moment, just returning native code
+            var nameValue = _nameDescriptor != null ? UnwrapJsValue(_nameDescriptor) : JsString.Empty;
+            var name = "";
+            if (!nameValue.IsUndefined())
+            {
+                name = TypeConverter.ToString(nameValue);
+            }
+            return "function " + name  + "() {{[native code]}}";
         }
     }
 }

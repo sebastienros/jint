@@ -1,6 +1,5 @@
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Proxy;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
@@ -138,12 +137,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         case Types.Symbol: return JsString.SymbolString;
                     }
 
-                    if (v is ProxyInstance)
-                    {
-                        return JsString.ObjectString;
-                    }
-
-                    if (v is ICallable)
+                    if (v.IsCallable)
                     {
                         return JsString.FunctionString;
                     }

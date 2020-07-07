@@ -9,10 +9,11 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public sealed class SetterFunctionInstance : FunctionInstance
     {
+        private static readonly JsString _name = new JsString("set");
         private readonly Action<JsValue, JsValue> _setter;
 
         public SetterFunctionInstance(Engine engine, Action<JsValue, JsValue> setter)
-            : base(engine, "set", null, null, false)
+            : base(engine, _name)
         {
             _setter = setter;
         }

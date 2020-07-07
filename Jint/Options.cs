@@ -6,13 +6,13 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Interop;
+using Jint.Runtime.References;
 
 namespace Jint
 {
     public sealed class Options
     {
         private readonly List<IConstraint> _constraints = new List<IConstraint>();
-        private bool _discardGlobal;
         private bool _strict;
         private bool _allowDebuggerStatement;
         private bool _allowClr;
@@ -25,17 +25,7 @@ namespace Jint
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
         private Predicate<Exception> _clrExceptionsHandler;
-        private IReferenceResolver _referenceResolver;
-
-        /// <summary>
-        /// When called, doesn't initialize the global scope.
-        /// Can be useful in lightweight scripts for performance reason.
-        /// </summary>
-        public Options DiscardGlobal(bool discard = true)
-        {
-            _discardGlobal = discard;
-            return this;
-        }
+        private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
 
         /// <summary>
         /// Run the script in strict mode.
@@ -66,6 +56,14 @@ namespace Jint
         {
             IsDebugMode = debugMode;
             return this;
+        }
+
+        /// <summary>
+        /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
+        /// </summary>
+        public Options AddObjectConverter<T>() where T : IObjectConverter, new()
+        {
+            return AddObjectConverter(new T());
         }
 
         /// <summary>
@@ -181,8 +179,6 @@ namespace Jint
             return this;
         }
 
-        internal bool _IsGlobalDiscarded => _discardGlobal;
-
         internal bool IsStrict => _strict;
 
         internal bool _IsDebuggerStatementAllowed => _allowDebuggerStatement;
@@ -212,5 +208,36 @@ namespace Jint
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
 
         internal IReferenceResolver  ReferenceResolver => _referenceResolver;
+        
+        private sealed class DefaultReferenceResolver : IReferenceResolver
+        {
+            public static readonly DefaultReferenceResolver Instance = new DefaultReferenceResolver();
+            
+            private DefaultReferenceResolver()
+            {
+            }
+
+            public bool TryUnresolvableReference(Engine engine, Reference reference, out JsValue value)
+            {
+                value = JsValue.Undefined;
+                return false;
+            }
+
+            public bool TryPropertyReference(Engine engine, Reference reference, ref JsValue value)
+            {
+                return false;
+            }
+
+            public bool TryGetCallable(Engine engine, object callee, out JsValue value)
+            {
+                value = JsValue.Undefined;
+                return false;
+            }
+
+            public bool CheckCoercible(JsValue value)
+            {
+                return false;
+            }
+        }
     }
 }

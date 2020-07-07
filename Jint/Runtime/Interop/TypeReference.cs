@@ -15,7 +15,7 @@ namespace Jint.Runtime.Interop
         private static readonly JsString _name = new JsString("typereference");
 
         private TypeReference(Engine engine)
-            : base(engine, _name, strict: false, ObjectClass.TypeReference)
+            : base(engine, _name, FunctionThisMode.Global, ObjectClass.TypeReference)
         {
         }
 

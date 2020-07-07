@@ -25,7 +25,7 @@ namespace Jint.Native.Object
         private bool _initialized;
         private readonly ObjectClass _class;
 
-        private PropertyDictionary _properties;
+        internal PropertyDictionary _properties;
         internal SymbolDictionary _symbols;
 
         internal ObjectInstance _prototype;
@@ -153,11 +153,11 @@ namespace Jint.Native.Object
         internal void SetProperty(string property, PropertyDescriptor value)
         {
             Key key = property;
-            SetProperty(in key, value);
+            SetProperty(key, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void SetProperty(in Key property, PropertyDescriptor value)
+        internal void SetProperty(Key property, PropertyDescriptor value)
         {
             _properties ??= new PropertyDictionary();
             _properties[property] = value;
@@ -276,7 +276,7 @@ namespace Jint.Native.Object
             return _symbols?.TryGetValue((JsSymbol) key, out descriptor) == true;
         }
 
-        public virtual bool HasOwnProperty(JsValue property)
+        public override bool HasOwnProperty(JsValue property)
         {
             EnsureInitialized();
 
@@ -317,11 +317,6 @@ namespace Jint.Native.Object
 
         internal static JsValue UnwrapJsValue(PropertyDescriptor desc, JsValue thisObject)
         {
-            if (desc == PropertyDescriptor.Undefined)
-            {
-                return Undefined;
-            }
-
             var value = (desc._flags & PropertyFlag.CustomJsValue) != 0
                 ? desc.CustomValue
                 : desc._value;
@@ -333,6 +328,15 @@ namespace Jint.Native.Object
                 return value ?? Undefined;
             }
 
+            return UnwrapFromGetter(desc, thisObject);
+        }
+
+        /// <summary>
+        /// A rarer case.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static JsValue UnwrapFromGetter(PropertyDescriptor desc, JsValue thisObject)
+        {
             var getter = desc.Get ?? Undefined;
             if (getter.IsUndefined())
             {
@@ -457,10 +461,7 @@ namespace Jint.Native.Object
                 {
                     return parent.Set(property, value, receiver);
                 }
-                else
-                {
-                    ownDesc = new PropertyDescriptor(Undefined, PropertyFlag.ConfigurableEnumerableWritable);
-                }
+                ownDesc = new PropertyDescriptor(Undefined, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
             if (ownDesc.IsDataDescriptor())
@@ -506,7 +507,7 @@ namespace Jint.Native.Object
 
             return true;
         }
-
+        
         /// <summary>
         /// Returns a Boolean value indicating whether a
         /// [[Put]] operation with PropertyName can be
@@ -565,7 +566,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-ordinary-object-internal-methods-and-internal-slots-hasproperty-p
+        /// https://tc39.es/ecma262/#sec-ordinary-object-internal-methods-and-internal-slots-hasproperty-p
         /// </summary>
         public virtual bool HasProperty(JsValue property)
         {
@@ -585,7 +586,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-deletepropertyorthrow
+        /// https://tc39.es/ecma262/#sec-deletepropertyorthrow
         /// </summary>
         public bool DeletePropertyOrThrow(JsValue property)
         {
@@ -648,7 +649,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-validateandapplypropertydescriptor
+        /// https://tc39.es/ecma262/#sec-validateandapplypropertydescriptor
         /// </summary>
         protected static bool ValidateAndApplyPropertyDescriptor(ObjectInstance o, JsValue property, bool extensible, PropertyDescriptor desc, PropertyDescriptor current)
         {
@@ -681,6 +682,7 @@ namespace Jint.Native.Object
                             };
                         }
 
+                        propertyDescriptor._flags |= desc._flags & PropertyFlag.MutableBinding; 
                         o.SetOwnProperty(property, propertyDescriptor);
                     }
                     else
@@ -697,7 +699,7 @@ namespace Jint.Native.Object
             var currentSet = current.Set;
             var currentValue = current.Value;
 
-            if ((current._flags & PropertyFlag.ConfigurableSet | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet) == 0 &&
+            if ((current._flags & (PropertyFlag.ConfigurableSet | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet)) == 0 &&
                 ReferenceEquals(currentGet, null) &&
                 ReferenceEquals(currentSet, null) &&
                 ReferenceEquals(currentValue, null))
@@ -797,7 +799,6 @@ namespace Jint.Native.Object
 
             if (o is object)
             {
-                
                 if (!ReferenceEquals(descValue, null))
                 {
                     current.Value = descValue;
@@ -817,7 +818,7 @@ namespace Jint.Native.Object
                 {
                     current.Configurable = desc.Configurable;
                 }
-                
+
                 PropertyDescriptor mutable = null;
                 if (!ReferenceEquals(descGet, null))
                 {
@@ -1159,7 +1160,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-createdatapropertyorthrow
+        /// https://tc39.es/ecma262/#sec-createdatapropertyorthrow
         /// </summary>
         internal bool CreateDataProperty(JsValue p, JsValue v)
         {
@@ -1168,7 +1169,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/#sec-createdataproperty
+        /// https://tc39.es/ecma262/#sec-createdataproperty
         /// </summary>
         internal bool CreateDataPropertyOrThrow(JsValue p, JsValue v)
         {

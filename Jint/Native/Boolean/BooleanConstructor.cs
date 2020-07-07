@@ -10,7 +10,7 @@ namespace Jint.Native.Boolean
         private static readonly JsString _functionName = new JsString("Boolean");
 
         private BooleanConstructor(Engine engine)
-            : base(engine, _functionName, strict: false)
+            : base(engine, _functionName)
         {
         }
 

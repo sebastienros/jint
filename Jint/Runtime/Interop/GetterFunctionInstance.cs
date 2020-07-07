@@ -9,10 +9,11 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public sealed class GetterFunctionInstance: FunctionInstance
     {
+        private static readonly JsString _name = new JsString("get");
         private readonly Func<JsValue, JsValue> _getter;
 
         public GetterFunctionInstance(Engine engine, Func<JsValue, JsValue> getter)
-            : base(engine, "get", null, null, false)
+            : base(engine, _name, FunctionThisMode.Global)
         {
             _getter = getter;
         }
