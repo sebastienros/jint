@@ -55,7 +55,7 @@ namespace Jint.Native.String
                 return PropertyDescriptor.Undefined;
             }
 
-            var str = PrimitiveValue.AsStringWithoutTypeCheck();
+            var str = PrimitiveValue.ToString();
             var number = TypeConverter.ToNumber(property);
             if (!IsInt32(number, out var index) || index < 0 || index >= str.Length)
             {

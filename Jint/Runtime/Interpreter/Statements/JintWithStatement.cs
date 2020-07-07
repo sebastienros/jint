@@ -1,6 +1,7 @@
 using Esprima.Ast;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -23,13 +24,38 @@ namespace Jint.Runtime.Interpreter.Statements
             var jsValue = _object.GetValue();
             var obj = TypeConverter.ToObject(_engine, jsValue);
             var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-            var newEnv = LexicalEnvironment.NewObjectEnvironment(_engine, obj, oldEnv, true);
+            var newEnv = LexicalEnvironment.NewObjectEnvironment(_engine, obj, oldEnv, provideThis: true, withEnvironment: true);
             _engine.UpdateLexicalEnvironment(newEnv);
 
             Completion c;
             try
             {
                 c = _body.Execute();
+            }
+            catch (JavaScriptException e)
+            {
+                c = new Completion(CompletionType.Throw, e.Error, null, _statement.Location);
+            }
+            finally
+            {
+                _engine.UpdateLexicalEnvironment(oldEnv);
+            }
+
+            return c;
+        }
+
+        protected async override Task<Completion> ExecuteInternalAsync()
+        {
+            var jsValue = await _object.GetValueAsync();
+            var obj = TypeConverter.ToObject(_engine, jsValue);
+            var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
+            var newEnv = LexicalEnvironment.NewObjectEnvironment(_engine, obj, oldEnv, true);
+            _engine.UpdateLexicalEnvironment(newEnv);
+
+            Completion c;
+            try
+            {
+                c = await _body.ExecuteAsync();
             }
             catch (JavaScriptException e)
             {

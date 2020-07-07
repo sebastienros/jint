@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
@@ -10,6 +11,7 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public sealed class ClrFunctionInstance : FunctionInstance, IEquatable<ClrFunctionInstance>
     {
+        private readonly string _name;
         internal readonly Func<JsValue, JsValue[], JsValue> _func;
 
         public ClrFunctionInstance(
@@ -18,8 +20,9 @@ namespace Jint.Runtime.Interop
             Func<JsValue, JsValue[], JsValue> func,
             int length = 0,
             PropertyFlag lengthFlags = PropertyFlag.AllForbidden)
-            : base(engine, !string.IsNullOrWhiteSpace(name) ? new JsString(name) : null, strict: false)
+            : base(engine, !string.IsNullOrWhiteSpace(name) ? new JsString(name) : null)
         {
+            _name = name;
             _func = func;
 
             _prototype = engine.Function.PrototypeObject;
@@ -30,6 +33,8 @@ namespace Jint.Runtime.Interop
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments) => _func(thisObject, arguments);
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
 
         public override bool Equals(JsValue obj)
         {
@@ -64,6 +69,11 @@ namespace Jint.Runtime.Interop
             }
             
             return false;
+        }
+
+        public override string ToString()
+        {
+            return $"function {_name}() {{ [native code] }}";
         }
     }
 }

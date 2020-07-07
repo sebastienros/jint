@@ -88,5 +88,10 @@ namespace Jint.Runtime
         {
             _array[_size - 1] = _array[_size - 1].UpdateLexicalEnvironment(newEnv);
         }
+
+        public void ReplaceTopVariableEnvironment(LexicalEnvironment newEnv)
+        {
+            _array[_size - 1] = _array[_size - 1].UpdateVariableEnvironment(newEnv);
+        }
     }
 }

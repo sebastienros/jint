@@ -17,16 +17,14 @@ namespace Jint.Tests.Runtime
     public class EngineTests : IDisposable
     {
         private readonly Engine _engine;
+        private readonly Engine _asyncEngine;
         private int countBreak = 0;
         private StepMode stepMode;
 
         public EngineTests(ITestOutputHelper output)
         {
-            _engine = new Engine()
-                .SetValue("log", new Action<object>( o => output.WriteLine(o.ToString())))
-                .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
-                ;
+            _engine = CreateEngine(output);
+            _asyncEngine = CreateEngine(output);
         }
 
         void IDisposable.Dispose()
@@ -34,10 +32,18 @@ namespace Jint.Tests.Runtime
         }
 
 
+        private Engine CreateEngine(ITestOutputHelper output)
+        {
+            return new Engine()
+                .SetValue("log", new Action<object>(o => output.WriteLine(o.ToString())))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal));
+        }
+
         private async void RunTest(string source)
         {
             _engine.Execute(source);
-            //await _engine.ExecuteAsync(source);
+            await _asyncEngine.ExecuteAsync(source);
         }
 
         private string GetEmbeddedFile(string filename)
@@ -2835,6 +2841,19 @@ x.test = {
             _engine.Execute("equal(false, str.hasOwnProperty('foo'));");
         }
 
+        [Fact]
+        public void ShouldProvideEngineForOptionsAsOverload()
+        {
+            new Engine((e, options) =>
+                {
+                    Assert.IsType<Engine>(e);
+                    options
+                        .AddObjectConverter(new TestObjectConverter())
+                        .AddObjectConverter<TestObjectConverter>();
+                })
+                .SetValue("a", 1);
+        }
+
         private class Wrapper
         {
             public Testificate Test { get; set; }
@@ -2846,9 +2865,16 @@ x.test = {
             public Func<int, int, int> Init { get; set; }
         }
 
+        private class TestObjectConverter : Jint.Runtime.Interop.IObjectConverter
+        {
+            public bool TryConvert(Engine engine, object value, out JsValue result)
+            {
+                throw new NotImplementedException();
+            }
+        }
+
         private class TestTypeConverter : Jint.Runtime.Interop.ITypeConverter
         {
-
             public object Convert(object value, Type type, IFormatProvider formatProvider)
             {
                 throw new NotImplementedException();

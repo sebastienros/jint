@@ -6,22 +6,22 @@ namespace Jint.Runtime.Descriptors.Specialized
 {
     internal sealed class ClrAccessDescriptor : PropertyDescriptor
     {
-        private readonly EnvironmentRecord _env;
+        private readonly DeclarativeEnvironmentRecord _env;
         private readonly Engine _engine;
-        private readonly Key _name;
+        private readonly EnvironmentRecord.BindingName _name;
 
         private GetterFunctionInstance _get;
         private SetterFunctionInstance _set;
 
         public ClrAccessDescriptor(
-            EnvironmentRecord env,
+            DeclarativeEnvironmentRecord env,
             Engine engine,
             string name)
             : base(value: null, PropertyFlag.Configurable)
         {
             _env = env;
             _engine = engine;
-            _name = name;
+            _name = new EnvironmentRecord.BindingName(name);
         }
 
         public override JsValue Get => _get ??= new GetterFunctionInstance(_engine, DoGet);
@@ -36,7 +36,7 @@ namespace Jint.Runtime.Descriptors.Specialized
 
         private void DoSet(JsValue n, JsValue o)
         {
-            _env.SetMutableBinding(_name, o, true);
+            _env.SetMutableBinding(_name.Key.Name, o, true);
         }
     }
 }

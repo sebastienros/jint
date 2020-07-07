@@ -4,6 +4,7 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using System.Threading.Tasks;
 
 namespace Jint.Native.Symbol
 {
@@ -16,7 +17,7 @@ namespace Jint.Native.Symbol
         private static readonly JsString _functionName = new JsString("Symbol");
 
         public SymbolConstructor(Engine engine)
-            : base(engine, _functionName, strict: false)
+            : base(engine, _functionName, FunctionThisMode.Global)
         {
         }
 
@@ -124,5 +125,7 @@ namespace Jint.Native.Symbol
         }
 
         public SymbolPrototype PrototypeObject { get; private set; }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

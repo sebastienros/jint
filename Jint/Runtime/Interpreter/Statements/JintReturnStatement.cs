@@ -27,7 +27,9 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected async override Task<Completion> ExecuteInternalAsync()
         {
-            var jsValue = await _argument?.GetValueAsync() ?? Undefined.Instance;
+            var jsValue = _argument != null
+                    ? await _argument?.GetValueAsync() ?? Undefined.Instance
+                    : null;
             return new Completion(CompletionType.Return, jsValue, null, Location);
         }
     }

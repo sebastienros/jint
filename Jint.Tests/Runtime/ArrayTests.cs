@@ -52,5 +52,17 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(8, result);
         }
+
+        [Fact]
+        public void LargeArraySize()
+        {
+            const string code = @"
+            let arr = [];
+            for (let i = 0; i < 10000; i++) arr.push(i);
+            for (let i=0;i<10000;i++) arr.splice(0, 1);
+            ";
+            var engine = new Engine();
+            engine.Execute(code);
+        }
     }
 }

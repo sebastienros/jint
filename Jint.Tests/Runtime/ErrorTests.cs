@@ -19,7 +19,7 @@ var b = a.user.name;
 
             var engine = new Engine();
             var e = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
-            Assert.Equal("user is undefined", e.Message);
+            Assert.Equal("Cannot read property 'name' of undefined", e.Message);
             Assert.Equal(4, e.Location.Start.Line);
             Assert.Equal(8, e.Location.Start.Column);
         }
@@ -40,7 +40,7 @@ var c = a(b().Length);
                 return null;
             }));
             var e = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
-            Assert.Equal("The value is null", e.Message);
+            Assert.Equal("Cannot read property 'Length' of null", e.Message);
             Assert.Equal(2, e.Location.Start.Line);
             Assert.Equal(10, e.Location.Start.Column);
         }
@@ -73,7 +73,7 @@ var b = function(v) {
 }", new ParserOptions("custom.js") { Loc = true });
 
             var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", new ParserOptions("main.js") { Loc = true } ));
-            Assert.Equal("xxx is undefined", e.Message);
+            Assert.Equal("Cannot read property 'yyy' of undefined", e.Message);
             Assert.Equal(2, e.Location.Start.Line);
             Assert.Equal(8, e.Location.Start.Column);
             Assert.Equal("custom.js", e.Location.Source);
@@ -127,7 +127,7 @@ var b = function(v) {
                 Test.recursive(folder);"
             ));
 
-            Assert.Equal("folderInstance is null", javaScriptException.Message);
+            Assert.Equal("Cannot read property 'Name' of null", javaScriptException.Message);
             Assert.Equal(@" at recursive(folderInstance.parent) @  31:8
  at recursive(folderInstance.parent) @  31:8
  at recursive(folderInstance.parent) @  31:8

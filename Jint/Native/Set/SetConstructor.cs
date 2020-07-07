@@ -6,6 +6,7 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
+using System.Threading.Tasks;
 
 namespace Jint.Native.Set
 {
@@ -14,7 +15,7 @@ namespace Jint.Native.Set
         private static readonly JsString _functionName = new JsString("Set");
 
         private SetConstructor(Engine engine)
-            : base(engine, _functionName, false)
+            : base(engine, _functionName, FunctionThisMode.Global)
         {
         }
 
@@ -103,5 +104,7 @@ namespace Jint.Native.Set
 
             return set;
         }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

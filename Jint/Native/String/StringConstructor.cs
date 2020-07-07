@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Function;
@@ -16,7 +17,7 @@ namespace Jint.Native.String
         private static readonly JsString _functionName = new JsString("String");
 
         public StringConstructor(Engine engine)
-            : base(engine, _functionName, strict: false)
+            : base(engine, _functionName, FunctionThisMode.Global)
         {
         }
 
@@ -60,7 +61,7 @@ namespace Jint.Native.String
             return JsString.Create(new string(chars));
         }
 
-        private static JsValue FromCodePoint(JsValue thisObj, JsValue[] arguments)
+        private JsValue FromCodePoint(JsValue thisObj, JsValue[] arguments)
         {
             var codeUnits = new List<JsValue>();
             string result = "";
@@ -73,7 +74,7 @@ namespace Jint.Native.String
                     || double.IsNaN(codePoint)
                     || TypeConverter.ToInt32(codePoint) != codePoint)
                 {
-                    return ExceptionHelper.ThrowRangeErrorNoEngine<JsValue>("Invalid code point " + codePoint);
+                    return ExceptionHelper.ThrowRangeError<JsValue>(_engine, "Invalid code point " + codePoint);
                 }
 
                 var point = (uint) codePoint;
@@ -181,5 +182,7 @@ namespace Jint.Native.String
 
             return instance;
         }
+
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }
