@@ -239,6 +239,12 @@ namespace Jint
             ClrTypeConverter = new DefaultTypeConverter(this);
         }
 
+        public void SetMemberAccessor(Type type, string name, Func<Engine, object, PropertyDescriptor> accessor)
+        {
+            var key = new ClrPropertyDescriptorFactoriesKey(type, name);
+            ClrPropertyDescriptorFactories[key] = accessor;
+        }        
+
         internal LexicalEnvironment GlobalEnvironment { get; }
         public GlobalObject Global { get; }
         public ObjectConstructor Object { get; }

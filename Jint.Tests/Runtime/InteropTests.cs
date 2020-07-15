@@ -8,6 +8,7 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
@@ -2172,6 +2173,31 @@ namespace Jint.Tests.Runtime
             jsValue = engine.Execute("showProps(jsObj, 'theObject')").GetCompletionValue().AsString();
             clrValue = engine.Execute("showProps(jsObj, 'theObject')").GetCompletionValue().AsString();
             Assert.Equal(jsValue, clrValue);
+        }
+
+        [Fact]
+        public void ShouldHideSpecificMembers()
+        {
+            var engine = new Engine();
+            engine.SetValue("m", new HiddenMembers());
+            engine.SetMemberAccessor(typeof(HiddenMembers), nameof(HiddenMembers.Member2), (e, o) => PropertyDescriptor.Undefined);
+            engine.SetMemberAccessor(typeof(HiddenMembers), nameof(HiddenMembers.Method2), (e, o) => PropertyDescriptor.Undefined);
+
+            Assert.Equal("Member1", engine.Execute("m.Member1").GetCompletionValue().ToString());
+            Assert.Equal("undefined", engine.Execute("m.Member2").GetCompletionValue().ToString());
+            Assert.Equal("Method1", engine.Execute("m.Method1()").GetCompletionValue().ToString());
+            // check the method itself, not its invokation as it would mean invoking "undefined"
+            Assert.Equal("undefined", engine.Execute("m.Method2").GetCompletionValue().ToString());
+        }
+
+        [Fact]
+        public void ShouldOverrideMembers()
+        {
+            var engine = new Engine();
+            engine.SetValue("m", new HiddenMembers());
+            engine.SetMemberAccessor(typeof(HiddenMembers), nameof(HiddenMembers.Member1), (e, o) => new PropertyDescriptor(new JsString("Orange"), false, false, false));
+
+            Assert.Equal("Orange", engine.Execute("m.Member1").GetCompletionValue().ToString());
         }
     }
 }
