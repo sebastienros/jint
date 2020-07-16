@@ -2178,10 +2178,20 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldHideSpecificMembers()
         {
-            var engine = new Engine();
+            var engine = new Engine(options => options.SetMemberAccessor((e, target, member) =>
+            {
+                if (target is HiddenMembers)
+                {
+                    if (member == nameof(HiddenMembers.Member2) || member == nameof(HiddenMembers.Method2))
+                    {
+                        return JsValue.Undefined;
+                    }
+                }
+
+                return null;
+            }));
+
             engine.SetValue("m", new HiddenMembers());
-            engine.SetMemberAccessor(typeof(HiddenMembers), nameof(HiddenMembers.Member2), (e, o) => PropertyDescriptor.Undefined);
-            engine.SetMemberAccessor(typeof(HiddenMembers), nameof(HiddenMembers.Method2), (e, o) => PropertyDescriptor.Undefined);
 
             Assert.Equal("Member1", engine.Execute("m.Member1").GetCompletionValue().ToString());
             Assert.Equal("undefined", engine.Execute("m.Member2").GetCompletionValue().ToString());
@@ -2193,9 +2203,17 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldOverrideMembers()
         {
-            var engine = new Engine();
+            var engine = new Engine(options => options.SetMemberAccessor((e, target, member) =>
+            {
+                if (target is HiddenMembers && member == nameof(HiddenMembers.Member1))
+                {
+                    return "Orange";
+                }
+
+                return null;
+            }));
+            
             engine.SetValue("m", new HiddenMembers());
-            engine.SetMemberAccessor(typeof(HiddenMembers), nameof(HiddenMembers.Member1), (e, o) => new PropertyDescriptor(new JsString("Orange"), false, false, false));
 
             Assert.Equal("Orange", engine.Execute("m.Member1").GetCompletionValue().ToString());
         }

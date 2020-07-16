@@ -167,9 +167,21 @@ namespace Jint.Runtime.Interop
                 SetProperty(GlobalSymbolRegistry.Iterator, iteratorProperty);
                 return iteratorProperty;
             }
-            
+
+            var memberAccessor = Engine.Options._MemberAccessor;
+
+            if (memberAccessor != null)
+            {
+                var result = memberAccessor.Invoke(Engine, Target, property.ToString());
+
+                if (result != null)
+                {
+                    return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
+                }
+            }
+
             var type = Target.GetType();
-            var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, property.ToString());
+            var key = new ClrPropertyDescriptorFactoriesKey(type, property.ToString());
 
             if (!_engine.ClrPropertyDescriptorFactories.TryGetValue(key, out var factory))
             {
