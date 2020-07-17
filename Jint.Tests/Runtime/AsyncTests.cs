@@ -209,6 +209,31 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public async void ClrMethodAssignToThisIsAwaited()
+        {
+            var engine = new Engine();
+
+            var testMethods = new TestMethods();
+            engine.SetValue("testMethods", testMethods);
+
+            var methodNames = TestMethods.ExpectedMethodResults.Keys;
+
+            foreach (var methodName in methodNames)
+            {
+                var script = $@"
+                    this.result = testMethods.{methodName}();
+                    return this.result;
+                ";
+                var result = (await engine.ExecuteAsync(script))
+                    .GetCompletionValue().ToObject();
+
+                var expected = TestMethods.ExpectedMethodResults[methodName];
+                Assert.Equal(expected, result);
+                Assert.Equal(methodName, testMethods.MethodInvoked);
+            }
+        }
+
+        [Fact]
         public async void ClrMethodAsFunctionArgumentIsAwaited()
         {
             var engine = new Engine();
