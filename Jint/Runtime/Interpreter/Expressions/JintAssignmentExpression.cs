@@ -292,7 +292,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     rval = await AssignToIdentifierAsync(_engine, _leftIdentifier, _right, _evalOrArguments);
                 }
-                return rval ?? SetValue();
+                return rval ?? (await SetValueAsync());
             }
 
             private JsValue SetValue()
@@ -302,6 +302,19 @@ namespace Jint.Runtime.Interpreter.Expressions
                 lref.AssertValid(_engine);
 
                 var rval = _right.GetValue();
+
+                _engine.PutValue(lref, rval);
+                _engine._referencePool.Return(lref);
+                return rval;
+            }
+
+            private async Task<JsValue> SetValueAsync()
+            {
+                // slower version
+                var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
+                lref.AssertValid(_engine);
+
+                var rval = await _right.GetValueAsync();
 
                 _engine.PutValue(lref, rval);
                 _engine._referencePool.Return(lref);
