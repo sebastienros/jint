@@ -311,7 +311,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             private async Task<JsValue> SetValueAsync()
             {
                 // slower version
-                var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
+                var lref = await _left.EvaluateAsync() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
                 lref.AssertValid(_engine);
 
                 var rval = await _right.GetValueAsync();
