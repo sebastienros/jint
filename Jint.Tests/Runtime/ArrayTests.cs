@@ -1,4 +1,5 @@
 using System;
+using Jint.Native.Array;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -63,6 +64,15 @@ namespace Jint.Tests.Runtime
             ";
             var engine = new Engine();
             engine.Execute(code);
+        }
+
+        [Fact]
+        public void ArrayLengthFromInitialState()
+        {
+            var engine = new Engine();
+            var array = new ArrayInstance(engine, 0);
+            var length = (int) array.Length;
+            Assert.Equal(0, length);
         }
     }
 }
