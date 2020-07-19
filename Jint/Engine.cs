@@ -131,7 +131,7 @@ namespace Jint
         /// <summary>
         /// Constructs a new engine with a custom <see cref="Options"/> instance.
         /// </summary>
-        public Engine(Options options) : this((e, o) => e.Options = o)
+        public Engine(Options options) : this((e, o) => e.Options = options)
         {
         }
 
