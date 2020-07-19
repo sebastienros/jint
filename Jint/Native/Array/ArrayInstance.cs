@@ -222,6 +222,11 @@ namespace Jint.Native.Array
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal uint GetLength()
         {
+            if (_length is null)
+            {
+                return 0;
+            }
+            
             return (uint) ((JsNumber) _length._value)._value;
         }
 
