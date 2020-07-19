@@ -29,6 +29,7 @@ namespace Jint
         private List<Assembly> _lookupAssemblies = new List<Assembly>();
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
+        private readonly List<Action<Engine>> _configurations = new List<Action<Engine>>();
 
         /// <summary>
         /// Run the script in strict mode.
@@ -196,6 +197,29 @@ namespace Jint
         {
             _referenceResolver = resolver;
             return this;
+        }
+
+        /// <summary>
+        /// Registers some custom logic to apply on an <see cref="Engine"/> instance when the options
+        /// are loaded.
+        /// </summary>
+        /// <param name="configuration">The action to register.</param>
+        public Options Configure(Action<Engine> configuration)
+        {
+            _configurations.Add(configuration);
+            return this;
+        }
+
+        /// <summary>
+        /// Called by the <see cref="Engine"/> instance that loads this <see cref="Options" />
+        /// once it is loaded.
+        /// </summary>
+        internal void Apply(Engine engine)
+        {
+            foreach (var configuration in _configurations)
+            {
+                configuration?.Invoke(engine);
+            }
         }
 
         internal bool IsStrict => _strict;

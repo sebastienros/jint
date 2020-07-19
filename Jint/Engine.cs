@@ -203,6 +203,8 @@ namespace Jint
             }
 
             ClrTypeConverter = new DefaultTypeConverter(this);
+
+            Options.Apply(this);
         }
     
 
