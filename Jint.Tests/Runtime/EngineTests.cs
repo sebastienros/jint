@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -735,6 +736,40 @@ namespace Jint.Tests.Runtime
         {
             Assert.Throws<TimeoutException>(
                 () => new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0, 0, 0, 0, 500))).Execute("while(true);")
+            );
+        }
+
+        [Fact]
+        public void ShouldThrowExecutionCanceled()
+        {
+            Assert.Throws<ExecutionCanceledException>(
+                () =>
+                {
+                    using (var tcs = new CancellationTokenSource())
+                    using (var waitHandle = new ManualResetEvent(false))
+                    {
+                        var engine = new Engine(cfg => cfg.CancellationToken(tcs.Token));
+
+                        ThreadPool.QueueUserWorkItem(state =>
+                        {
+                            waitHandle.WaitOne();
+                            tcs.Cancel();
+                        });
+
+                        engine.SetValue("waitHandle", waitHandle);
+                        engine.Execute(@"
+                            function sleep(millisecondsTimeout) {
+                                var totalMilliseconds = new Date().getTime() + millisecondsTimeout;
+
+                                while (new Date() < totalMilliseconds) { }
+                            }
+
+                            sleep(100);
+                            waitHandle.Set();
+                            sleep(5000);
+                        ");
+                    }
+                }
             );
         }
 

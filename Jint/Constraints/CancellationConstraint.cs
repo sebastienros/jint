@@ -16,7 +16,7 @@ namespace Jint.Constraints
         {
             if (_cancellationToken.IsCancellationRequested)
             {
-                ExceptionHelper.ThrowStatementsCountOverflowException();
+                ExceptionHelper.ThrowExecutionCanceledException();
             }
         }
 
