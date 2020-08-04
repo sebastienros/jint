@@ -2145,7 +2145,7 @@ namespace Jint.Tests.Runtime
 
             engine.Execute("var jsObj = { 'key1' :'value1', 'key2' : 'value2' }");
 
-            engine.SetValue("netObj", new Dictionary<string, object>()
+            engine.SetValue("netObj", new Dictionary<string, object>
             {
                 {"key1", "value1"},
                 {"key2", "value2"},
