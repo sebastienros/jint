@@ -19,17 +19,14 @@ namespace Jint.Tests.Runtime
         public void ConstInsideIife()
         {
             _engine.Execute(@"
-(function(){
-        
-const testVariable = 'test';
-
-function render() {
-    log(testVariable);
-}
-render();
-
-})();
-");
+                (function(){
+                    const testVariable = 'test';
+                    function render() {
+                        log(testVariable);
+                    }
+                    render();
+                })();
+            ");
         }
     }
 }
