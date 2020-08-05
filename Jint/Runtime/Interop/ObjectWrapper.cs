@@ -201,11 +201,13 @@ namespace Jint.Runtime.Interop
             // properties and fields cannot be numbers
             if (!isNumber)
             {
-                // look for a property
+                // look for a property, bit be wary of indexers, we don't want indexers which have name "Item" to take precedence
                 PropertyInfo property = null;
                 foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
-                    if (EqualsIgnoreCasing(p.Name, propertyName))
+                    // only if it's not an indexer, we can do case-ignoring matches
+                    var isStandardIndexer = p.GetIndexParameters().Length == 1 && p.Name == "Item";
+                    if (!isStandardIndexer && EqualsIgnoreCasing(p.Name, propertyName))
                     {
                         property = p;
                         break;
