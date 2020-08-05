@@ -28,5 +28,16 @@ namespace Jint.Tests.Runtime
                 })();
             ");
         }
+
+        [Fact]
+        public void ConstDestructuring()
+        {
+            _engine.Execute(@"
+                let obj = {};
+                for (var i = 0; i < 1; i++) {
+                    const { subElement } = obj;
+                }
+            ");
+        }
     }
 }
