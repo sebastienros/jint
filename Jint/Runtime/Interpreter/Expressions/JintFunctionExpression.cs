@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native.Function;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -33,6 +34,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (_function.Name != null)
             {
                 funcEnv.CreateMutableBindingAndInitialize(_function.Name, canBeDeleted: false, closure);
+            }
+            else
+            {
+                // needs to have empty name descriptor always
+                closure._nameDescriptor = new PropertyDescriptor("", PropertyFlag.Configurable);
             }
 
             return closure;
