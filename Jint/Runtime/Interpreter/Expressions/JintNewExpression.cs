@@ -36,6 +36,9 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
+            // todo: optimize by defining a common abstract class or interface
+            var jsValue = _calleeExpression.GetValue();
+
             JsValue[] arguments;
             if (_jintArguments.Length == 0)
             {
@@ -51,8 +54,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                 BuildArguments(_jintArguments, arguments);
             }
 
-            // todo: optimize by defining a common abstract class or interface
-            var jsValue = _calleeExpression.GetValue();
             if (!jsValue.IsConstructor)
             {
                 ExceptionHelper.ThrowTypeError(_engine,  _calleeExpression.SourceText + " is not a constructor");
