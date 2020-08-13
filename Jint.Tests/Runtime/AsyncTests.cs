@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -34,7 +33,7 @@ namespace Jint.Tests.Runtime
                 { nameof(GetAsyncEcho), "Echo..." }
             };
 
-            private const int _delay = 50;
+            private const int _delay = 5;
 
             public string MethodInvoked { get; private set; }
 
@@ -64,6 +63,18 @@ namespace Jint.Tests.Runtime
                 await Task.Delay(_delay).ConfigureAwait(true);
                 MethodInvoked = nameof(GetAsyncObject);
                 return (object)ExpectedMethodResults[MethodInvoked];
+            }
+
+            public async Task<int> GetAsyncSameInt(int value)
+            {
+                await Task.Delay(_delay).ConfigureAwait(true);
+                return value;
+            }
+
+            public async Task<string> GetAsyncSameString(string value)
+            {
+                await Task.Delay(_delay).ConfigureAwait(true);
+                return value;
             }
 
             public async Task<TestClass> GetAsyncTestClass()
@@ -98,56 +109,6 @@ namespace Jint.Tests.Runtime
                 Task.Delay(_delay).Wait();
                 MethodInvoked = nameof(GetSynchronousVoid);
             }
-
-            public async Task<int> GetAsyncSameInt(int value)
-            {
-                await Task.Delay(_delay).ConfigureAwait(true);                
-                return value;
-            }
-
-            public async Task<string> GetAsyncSameString(string value)
-            {
-                await Task.Delay(_delay).ConfigureAwait(true);
-                return value;
-            }
-        }
-
-        [Fact]
-        public async void ClrMethodHandlesImmediateExceptions()
-        {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            engine.SetValue("badMethod", new Func<Task>(() => throw new Exception("MyException")));
-
-            var script = "badMethod();";
-
-            await Assert.ThrowsAsync<Exception>(async () =>
-            {
-                var result = (await engine.ExecuteAsync(script))
-                   .GetCompletionValue().ToObject();
-            });
-        }
-
-        [Fact]
-        public async void ClrMethodHandlesLateExceptions()
-        {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            engine.SetValue("badMethod", new Func<Task>(async () =>
-            {
-                await Task.Delay(200);
-                throw new Exception("MyException");
-            }));
-
-            var script = "badMethod();";
-
-            await Assert.ThrowsAsync<Exception>(async () =>
-            {
-                var result = (await engine.ExecuteAsync(script))
-                   .GetCompletionValue().ToObject();
-            });
         }
 
         [Fact]
@@ -163,6 +124,34 @@ namespace Jint.Tests.Runtime
             foreach (var methodName in methodNames)
             {
                 var script = $"testMethods.{methodName}();";
+                var result = (await engine.ExecuteAsync(script))
+                    .GetCompletionValue().ToObject();
+
+                var expected = TestMethods.ExpectedMethodResults[methodName];
+                Assert.Equal(expected, result);
+                Assert.Equal(methodName, testMethods.MethodInvoked);
+            }
+        }
+
+        [Fact]
+        public async void ClrMethodAsFunctionArgumentIsAwaited()
+        {
+            var engine = new Engine();
+
+            var testMethods = new TestMethods();
+            engine.SetValue("testMethods", testMethods);
+
+            var methodNames = TestMethods.ExpectedMethodResults.Keys;
+
+            foreach (var methodName in methodNames)
+            {
+                var script = $@"
+                    function echo(arg) {{
+                        return arg;
+                    }}
+                    var result = echo(testMethods.{methodName}());
+                    return result;
+                ";
                 var result = (await engine.ExecuteAsync(script))
                     .GetCompletionValue().ToObject();
 
@@ -246,48 +235,49 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public async void ClrMethodAsFunctionArgumentIsAwaited()
+        public async void ClrMethodHandlesImmediateExceptions()
         {
             var engine = new Engine();
 
             var testMethods = new TestMethods();
-            engine.SetValue("testMethods", testMethods);
+            engine.SetValue("badMethod", new Func<Task>(() => throw new Exception("MyException")));
 
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
+            var script = "badMethod();";
 
-            foreach (var methodName in methodNames)
+            await Assert.ThrowsAsync<Exception>(async () =>
             {
-                var script = $@"
-                    function echo(arg) {{
-                        return arg;
-                    }}
-                    var result = echo(testMethods.{methodName}());
-                    return result;
-                ";
                 var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+                   .GetCompletionValue().ToObject();
+            });
         }
 
+        [Fact]
+        public async void ClrMethodHandlesLateExceptions()
+        {
+            var engine = new Engine();
+
+            var testMethods = new TestMethods();
+            engine.SetValue("badMethod", new Func<Task>(async () =>
+            {
+                await Task.Delay(200);
+                throw new Exception("MyException");
+            }));
+
+            var script = "badMethod();";
+
+            await Assert.ThrowsAsync<Exception>(async () =>
+            {
+                var result = (await engine.ExecuteAsync(script))
+                   .GetCompletionValue().ToObject();
+            });
+        }
         [Fact]
         public async void DelegatesAreAwaited()
         {
             var engine = new Engine();
 
             var testMethods = new TestMethods();
-            engine.SetValue(nameof(TestMethods.GetAsyncDouble), new Func<Task<double>>(async () => await testMethods.GetAsyncDouble()))
-                .SetValue(nameof(TestMethods.GetAsyncObject), new Func<Task<object>>(async () => await testMethods.GetAsyncObject()))
-                .SetValue(nameof(TestMethods.GetAsyncVoid), new Func<Task>(async () => await testMethods.GetAsyncVoid()))
-                .SetValue(nameof(TestMethods.GetSynchronousObject), new Func<object>(() => testMethods.GetSynchronousObject()))
-                .SetValue(nameof(TestMethods.GetSynchronousVoid), new Action(() => testMethods.GetSynchronousVoid()))
-                .SetValue(nameof(TestMethods.GetAsyncTestClass), new Func<Task<TestMethods.TestClass>>(async () => await testMethods.GetAsyncTestClass()))
-                .SetValue(nameof(TestMethods.GetAsyncTestStruct), new Func<Task<TestMethods.TestStruct>>(async () => await testMethods.GetAsyncTestStruct()))
-                .SetValue(nameof(TestMethods.GetAsyncDate), new Func<Task<DateTime>>(async () => await testMethods.GetAsyncDate()))
-                .SetValue(nameof(TestMethods.GetAsyncEcho), new Func<string, Task<string>>(async s => await testMethods.GetAsyncEcho(s)));
+            SetupClrDelegates(engine, testMethods);
 
             var methodNames = TestMethods.ExpectedMethodResults.Keys;
 
@@ -304,20 +294,56 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public async void DelegatesAreAwaitedInsideDoWhile()
+        {
+            var engine = new Engine();
+
+            var testMethods = new TestMethods();
+            SetupClrDelegates(engine, testMethods);
+
+            var methodNames = TestMethods.ExpectedMethodResults.Keys;
+
+            foreach (var methodName in methodNames)
+            {
+                var script = $"var result = null; do {{ result = {methodName}(); }} while (false); result;";
+                var result = (await engine.ExecuteAsync(script))
+                    .GetCompletionValue().ToObject();
+
+                var expected = TestMethods.ExpectedMethodResults[methodName];
+                Assert.Equal(expected, result);
+                Assert.Equal(methodName, testMethods.MethodInvoked);
+            }
+        }
+
+        [Fact]
+        public async void DelegatesAreAwaitedInsideFor()
+        {
+            var engine = new Engine();
+
+            var testMethods = new TestMethods();
+            SetupClrDelegates(engine, testMethods);
+
+            var methodNames = TestMethods.ExpectedMethodResults.Keys;
+
+            foreach (var methodName in methodNames)
+            {
+                var script = $"for (var i = 0; i < 1; i++) {{ var result = {methodName}() }}; result;";
+                var result = (await engine.ExecuteAsync(script))
+                    .GetCompletionValue().ToObject();
+
+                var expected = TestMethods.ExpectedMethodResults[methodName];
+                Assert.Equal(expected, result);
+                Assert.Equal(methodName, testMethods.MethodInvoked);
+            }
+        }
+
+        [Fact]
         public async void DelegatesAreAwaitedInsideFunction()
         {
             var engine = new Engine();
 
             var testMethods = new TestMethods();
-            engine.SetValue(nameof(TestMethods.GetAsyncDouble), new Func<Task<double>>(async () => await testMethods.GetAsyncDouble()))
-                .SetValue(nameof(TestMethods.GetAsyncObject), new Func<Task<object>>(async () => await testMethods.GetAsyncObject()))
-                .SetValue(nameof(TestMethods.GetAsyncVoid), new Func<Task>(async () => await testMethods.GetAsyncVoid()))
-                .SetValue(nameof(TestMethods.GetSynchronousObject), new Func<object>(() => testMethods.GetSynchronousObject()))
-                .SetValue(nameof(TestMethods.GetSynchronousVoid), new Action(() => testMethods.GetSynchronousVoid()))
-                .SetValue(nameof(TestMethods.GetAsyncTestClass), new Func<Task<TestMethods.TestClass>>(async () => await testMethods.GetAsyncTestClass()))
-                .SetValue(nameof(TestMethods.GetAsyncTestStruct), new Func<Task<TestMethods.TestStruct>>(async () => await testMethods.GetAsyncTestStruct()))
-                .SetValue(nameof(TestMethods.GetAsyncDate), new Func<Task<DateTime>>(async () => await testMethods.GetAsyncDate()))
-                .SetValue(nameof(TestMethods.GetAsyncEcho), new Func<string, Task<string>>(async s => await testMethods.GetAsyncEcho(s)));
+            SetupClrDelegates(engine, testMethods);
 
             var methodNames = TestMethods.ExpectedMethodResults.Keys;
 
@@ -339,15 +365,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
 
             var testMethods = new TestMethods();
-            engine.SetValue(nameof(TestMethods.GetAsyncDouble), new Func<Task<double>>(async () => await testMethods.GetAsyncDouble()))
-                .SetValue(nameof(TestMethods.GetAsyncObject), new Func<Task<object>>(async () => await testMethods.GetAsyncObject()))
-                .SetValue(nameof(TestMethods.GetAsyncVoid), new Func<Task>(async () => await testMethods.GetAsyncVoid()))
-                .SetValue(nameof(TestMethods.GetSynchronousObject), new Func<object>(() => testMethods.GetSynchronousObject()))
-                .SetValue(nameof(TestMethods.GetSynchronousVoid), new Action(() => testMethods.GetSynchronousVoid()))
-                .SetValue(nameof(TestMethods.GetAsyncTestClass), new Func<Task<TestMethods.TestClass>>(async () => await testMethods.GetAsyncTestClass()))
-                .SetValue(nameof(TestMethods.GetAsyncTestStruct), new Func<Task<TestMethods.TestStruct>>(async () => await testMethods.GetAsyncTestStruct()))
-                .SetValue(nameof(TestMethods.GetAsyncDate), new Func<Task<DateTime>>(async () => await testMethods.GetAsyncDate()))
-                .SetValue(nameof(TestMethods.GetAsyncEcho), new Func<string, Task<string>>(async s => await testMethods.GetAsyncEcho(s)));
+            SetupClrDelegates(engine, testMethods);
 
             var methodNames = TestMethods.ExpectedMethodResults.Keys;
 
@@ -369,15 +387,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
 
             var testMethods = new TestMethods();
-            engine.SetValue(nameof(TestMethods.GetAsyncDouble), new Func<Task<double>>(async () => await testMethods.GetAsyncDouble()))
-                .SetValue(nameof(TestMethods.GetAsyncObject), new Func<Task<object>>(async () => await testMethods.GetAsyncObject()))
-                .SetValue(nameof(TestMethods.GetAsyncVoid), new Func<Task>(async () => await testMethods.GetAsyncVoid()))
-                .SetValue(nameof(TestMethods.GetSynchronousObject), new Func<object>(() => testMethods.GetSynchronousObject()))
-                .SetValue(nameof(TestMethods.GetSynchronousVoid), new Action(() => testMethods.GetSynchronousVoid()))
-                .SetValue(nameof(TestMethods.GetAsyncTestClass), new Func<Task<TestMethods.TestClass>>(async () => await testMethods.GetAsyncTestClass()))
-                .SetValue(nameof(TestMethods.GetAsyncTestStruct), new Func<Task<TestMethods.TestStruct>>(async () => await testMethods.GetAsyncTestStruct()))
-                .SetValue(nameof(TestMethods.GetAsyncDate), new Func<Task<DateTime>>(async () => await testMethods.GetAsyncDate()))
-                .SetValue(nameof(TestMethods.GetAsyncEcho), new Func<string, Task<string>>(async s => await testMethods.GetAsyncEcho(s)));
+            SetupClrDelegates(engine, testMethods);
 
             var methodNames = TestMethods.ExpectedMethodResults.Keys;
 
@@ -394,50 +404,12 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public async void DelegatesAreAwaitedInsideFor()
-        {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            engine.SetValue(nameof(TestMethods.GetAsyncDouble), new Func<Task<double>>(async () => await testMethods.GetAsyncDouble()))
-                .SetValue(nameof(TestMethods.GetAsyncObject), new Func<Task<object>>(async () => await testMethods.GetAsyncObject()))
-                .SetValue(nameof(TestMethods.GetAsyncVoid), new Func<Task>(async () => await testMethods.GetAsyncVoid()))
-                .SetValue(nameof(TestMethods.GetSynchronousObject), new Func<object>(() => testMethods.GetSynchronousObject()))
-                .SetValue(nameof(TestMethods.GetSynchronousVoid), new Action(() => testMethods.GetSynchronousVoid()))
-                .SetValue(nameof(TestMethods.GetAsyncTestClass), new Func<Task<TestMethods.TestClass>>(async () => await testMethods.GetAsyncTestClass()))
-                .SetValue(nameof(TestMethods.GetAsyncTestStruct), new Func<Task<TestMethods.TestStruct>>(async () => await testMethods.GetAsyncTestStruct()))
-                .SetValue(nameof(TestMethods.GetAsyncDate), new Func<Task<DateTime>>(async () => await testMethods.GetAsyncDate()))
-                .SetValue(nameof(TestMethods.GetAsyncEcho), new Func<string, Task<string>>(async s => await testMethods.GetAsyncEcho(s)));
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"for (var i = 0; i < 1; i++) {{ var result = {methodName}() }}; result;";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
-        }
-
-        [Fact]
         public async void DelegatesAreAwaitedInsideWhile()
         {
             var engine = new Engine();
 
             var testMethods = new TestMethods();
-            engine.SetValue(nameof(TestMethods.GetAsyncDouble), new Func<Task<double>>(async () => await testMethods.GetAsyncDouble()))
-                .SetValue(nameof(TestMethods.GetAsyncObject), new Func<Task<object>>(async () => await testMethods.GetAsyncObject()))
-                .SetValue(nameof(TestMethods.GetAsyncVoid), new Func<Task>(async () => await testMethods.GetAsyncVoid()))
-                .SetValue(nameof(TestMethods.GetSynchronousObject), new Func<object>(() => testMethods.GetSynchronousObject()))
-                .SetValue(nameof(TestMethods.GetSynchronousVoid), new Action(() => testMethods.GetSynchronousVoid()))
-                .SetValue(nameof(TestMethods.GetAsyncTestClass), new Func<Task<TestMethods.TestClass>>(async () => await testMethods.GetAsyncTestClass()))
-                .SetValue(nameof(TestMethods.GetAsyncTestStruct), new Func<Task<TestMethods.TestStruct>>(async () => await testMethods.GetAsyncTestStruct()))
-                .SetValue(nameof(TestMethods.GetAsyncDate), new Func<Task<DateTime>>(async () => await testMethods.GetAsyncDate()))
-                .SetValue(nameof(TestMethods.GetAsyncEcho), new Func<string, Task<string>>(async s => await testMethods.GetAsyncEcho(s)));
+            SetupClrDelegates(engine, testMethods);
 
             var methodNames = TestMethods.ExpectedMethodResults.Keys;
 
@@ -454,52 +426,14 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public async void DelegatesAreAwaitedInsideDoWhile()
-        {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            engine.SetValue(nameof(TestMethods.GetAsyncDouble), new Func<Task<double>>(async () => await testMethods.GetAsyncDouble()))
-                .SetValue(nameof(TestMethods.GetAsyncObject), new Func<Task<object>>(async () => await testMethods.GetAsyncObject()))
-                .SetValue(nameof(TestMethods.GetAsyncVoid), new Func<Task>(async () => await testMethods.GetAsyncVoid()))
-                .SetValue(nameof(TestMethods.GetSynchronousObject), new Func<object>(() => testMethods.GetSynchronousObject()))
-                .SetValue(nameof(TestMethods.GetSynchronousVoid), new Action(() => testMethods.GetSynchronousVoid()))
-                .SetValue(nameof(TestMethods.GetAsyncTestClass), new Func<Task<TestMethods.TestClass>>(async () => await testMethods.GetAsyncTestClass()))
-                .SetValue(nameof(TestMethods.GetAsyncTestStruct), new Func<Task<TestMethods.TestStruct>>(async () => await testMethods.GetAsyncTestStruct()))
-                .SetValue(nameof(TestMethods.GetAsyncDate), new Func<Task<DateTime>>(async () => await testMethods.GetAsyncDate()))
-                .SetValue(nameof(TestMethods.GetAsyncEcho), new Func<string, Task<string>>(async s => await testMethods.GetAsyncEcho(s)));
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"var result = null; do {{ result = {methodName}(); }} while (false); result;";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
-        }
-
-        [Fact]
         public async void DeligateAsArrayIndexIsAwaited()
         {
             var engine = new Engine();
 
             var testMethods = new TestMethods();
-            engine.SetValue(nameof(TestMethods.GetAsyncDouble), new Func<Task<double>>(async () => await testMethods.GetAsyncDouble()))
-                .SetValue(nameof(TestMethods.GetAsyncObject), new Func<Task<object>>(async () => await testMethods.GetAsyncObject()))
-                .SetValue(nameof(TestMethods.GetAsyncVoid), new Func<Task>(async () => await testMethods.GetAsyncVoid()))
-                .SetValue(nameof(TestMethods.GetSynchronousObject), new Func<object>(() => testMethods.GetSynchronousObject()))
-                .SetValue(nameof(TestMethods.GetSynchronousVoid), new Action(() => testMethods.GetSynchronousVoid()))
-                .SetValue(nameof(TestMethods.GetAsyncTestClass), new Func<Task<TestMethods.TestClass>>(async () => await testMethods.GetAsyncTestClass()))
-                .SetValue(nameof(TestMethods.GetAsyncTestStruct), new Func<Task<TestMethods.TestStruct>>(async () => await testMethods.GetAsyncTestStruct()))
-                .SetValue(nameof(TestMethods.GetAsyncDate), new Func<Task<DateTime>>(async () => await testMethods.GetAsyncDate()))
-                .SetValue(nameof(TestMethods.GetAsyncEcho), new Func<string, Task<string>>(async s => await testMethods.GetAsyncEcho(s)))
-                // Deligate calculates an array index
-                .SetValue(nameof(TestMethods.GetAsyncSameInt), new Func<int, Task<int>>(async s => await testMethods.GetAsyncSameInt(s)));
+            SetupClrDelegates(engine, testMethods);
+            // Deligate calculates an array index
+            engine.SetValue(nameof(TestMethods.GetAsyncSameInt), new Func<int, Task<int>>(async s => await testMethods.GetAsyncSameInt(s)));
 
             var methodNames = TestMethods.ExpectedMethodResults.Keys;
 
@@ -507,7 +441,7 @@ namespace Jint.Tests.Runtime
             {
                 var script = $"var index = 10; var arr = []; arr[GetAsyncSameInt(index)] = {methodName}(); arr[index]";
                 //var script = $"var index = 10; var arr = []; index2 = GetAsyncSameInt(index); arr[index2] = {methodName}(); arr[index]";
-                
+
                 var result = (await engine.ExecuteAsync(script))
                     .GetCompletionValue().ToObject();
 
@@ -523,17 +457,9 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
 
             var testMethods = new TestMethods();
-            engine.SetValue(nameof(TestMethods.GetAsyncDouble), new Func<Task<double>>(async () => await testMethods.GetAsyncDouble()))
-                .SetValue(nameof(TestMethods.GetAsyncObject), new Func<Task<object>>(async () => await testMethods.GetAsyncObject()))
-                .SetValue(nameof(TestMethods.GetAsyncVoid), new Func<Task>(async () => await testMethods.GetAsyncVoid()))
-                .SetValue(nameof(TestMethods.GetSynchronousObject), new Func<object>(() => testMethods.GetSynchronousObject()))
-                .SetValue(nameof(TestMethods.GetSynchronousVoid), new Action(() => testMethods.GetSynchronousVoid()))
-                .SetValue(nameof(TestMethods.GetAsyncTestClass), new Func<Task<TestMethods.TestClass>>(async () => await testMethods.GetAsyncTestClass()))
-                .SetValue(nameof(TestMethods.GetAsyncTestStruct), new Func<Task<TestMethods.TestStruct>>(async () => await testMethods.GetAsyncTestStruct()))
-                .SetValue(nameof(TestMethods.GetAsyncDate), new Func<Task<DateTime>>(async () => await testMethods.GetAsyncDate()))
-                .SetValue(nameof(TestMethods.GetAsyncEcho), new Func<string, Task<string>>(async s => await testMethods.GetAsyncEcho(s)))
-                // Deligate calculates an object property name
-                .SetValue(nameof(TestMethods.GetAsyncSameString), new Func<string, Task<string>>(async s => await testMethods.GetAsyncSameString(s)));
+            SetupClrDelegates(engine, testMethods);
+            // Deligate calculates an object property name
+            engine.SetValue(nameof(TestMethods.GetAsyncSameString), new Func<string, Task<string>>(async s => await testMethods.GetAsyncSameString(s)));
 
             var methodNames = TestMethods.ExpectedMethodResults.Keys;
 
@@ -551,6 +477,18 @@ namespace Jint.Tests.Runtime
             }
         }
 
-
+        private static void SetupClrDelegates(Engine engine, TestMethods testMethods)
+        {
+            engine
+                .SetValue(nameof(TestMethods.GetAsyncDouble), new Func<Task<double>>(async () => await testMethods.GetAsyncDouble()))
+                .SetValue(nameof(TestMethods.GetAsyncObject), new Func<Task<object>>(async () => await testMethods.GetAsyncObject()))
+                .SetValue(nameof(TestMethods.GetAsyncVoid), new Func<Task>(async () => await testMethods.GetAsyncVoid()))
+                .SetValue(nameof(TestMethods.GetSynchronousObject), new Func<object>(() => testMethods.GetSynchronousObject()))
+                .SetValue(nameof(TestMethods.GetSynchronousVoid), new Action(() => testMethods.GetSynchronousVoid()))
+                .SetValue(nameof(TestMethods.GetAsyncTestClass), new Func<Task<TestMethods.TestClass>>(async () => await testMethods.GetAsyncTestClass()))
+                .SetValue(nameof(TestMethods.GetAsyncTestStruct), new Func<Task<TestMethods.TestStruct>>(async () => await testMethods.GetAsyncTestStruct()))
+                .SetValue(nameof(TestMethods.GetAsyncDate), new Func<Task<DateTime>>(async () => await testMethods.GetAsyncDate()))
+                .SetValue(nameof(TestMethods.GetAsyncEcho), new Func<string, Task<string>>(async s => await testMethods.GetAsyncEcho(s)));
+        }
     }
 }
