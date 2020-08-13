@@ -32,7 +32,7 @@ namespace Jint.Native.Function
             JintFunctionDefinition function,
             LexicalEnvironment scope,
             FunctionThisMode thisMode)
-            : this(engine, !string.IsNullOrWhiteSpace(function.Name) ? new JsString(function.Name) : null,  thisMode)
+            : this(engine, !string.IsNullOrWhiteSpace(function.Name) ? new JsString(function.Name) : null, thisMode)
         {
             _functionDefinition = function;
             _environment = scope;
@@ -52,6 +52,13 @@ namespace Jint.Native.Function
             _thisMode = thisMode;
         }
 
+        protected FunctionInstance(
+            Engine engine,
+            JsString name)
+            : this(engine, name, FunctionThisMode.Global, ObjectClass.Function)
+        {
+        }
+
         /// <summary>
         /// Executed when a function object is used as a function
         /// </summary>
@@ -62,7 +69,7 @@ namespace Jint.Native.Function
         public abstract Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments);
 
         public bool Strict => _thisMode == FunctionThisMode.Strict;
-        
+
         public virtual bool HasInstance(JsValue v)
         {
             if (!(v is ObjectInstance o))
@@ -214,7 +221,7 @@ namespace Jint.Native.Function
             {
                 return;
             }
-            
+
             if (name is JsSymbol symbol)
             {
                 name = symbol._value.IsUndefined()
@@ -260,7 +267,7 @@ namespace Jint.Native.Function
             {
                 name = TypeConverter.ToString(nameValue);
             }
-            return "function " + name  + "() {{[native code]}}";
+            return "function " + name + "() {{[native code]}}";
         }
     }
 }

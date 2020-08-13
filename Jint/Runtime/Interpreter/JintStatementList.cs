@@ -179,31 +179,30 @@ namespace Jint.Runtime.Interpreter
             List<VariableDeclaration> lexicalDeclarations)
         {
             var envRec = env._record;
+            var boundNames = new List<string>();
             for (var i = 0; i < lexicalDeclarations.Count; i++)
             {
                 var variableDeclaration = lexicalDeclarations[i];
-                ref readonly var nodeList = ref variableDeclaration.Declarations;
-                for (var j = 0; j < nodeList.Count; j++)
+                boundNames.Clear();
+                variableDeclaration.GetBoundNames(boundNames);
+                for (var j = 0; j < boundNames.Count; j++)
                 {
-                    var declaration = nodeList[j];
-                    if (declaration.Id is Identifier identifier)
+                    var dn = boundNames[j];
+                    if (variableDeclaration.Kind == VariableDeclarationKind.Const)
                     {
-                        if (variableDeclaration.Kind == VariableDeclarationKind.Const)
-                        {
-                            envRec.CreateImmutableBinding(identifier.Name, strict: true);
-                        }
-                        else
-                        {
-                            envRec.CreateMutableBinding(identifier.Name, canBeDeleted: false);
-                        }
+                        envRec.CreateImmutableBinding(dn, strict: true);
                     }
-                    // else if 
-                    /*  If d is a FunctionDeclaration, a GeneratorDeclaration, an AsyncFunctionDeclaration, or an AsyncGeneratorDeclaration, then
-                     * Let fn be the sole element of the BoundNames of d.
-                     * Let fo be the result of performing InstantiateFunctionObject for d with argument env.
-                     * Perform envRec.InitializeBinding(fn, fo).
-                     */
+                    else
+                    {
+                        envRec.CreateMutableBinding(dn, canBeDeleted: false);
+                    }
                 }
+
+                /*  If d is a FunctionDeclaration, a GeneratorDeclaration, an AsyncFunctionDeclaration, or an AsyncGeneratorDeclaration, then
+                 * Let fn be the sole element of the BoundNames of d.
+                 * Let fo be the result of performing InstantiateFunctionObject for d with argument env.
+                 * Perform envRec.InitializeBinding(fn, fo).
+                 */
             }
         }
     }

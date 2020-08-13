@@ -10,6 +10,8 @@ using Jint.Runtime.References;
 
 namespace Jint
 {
+    public delegate JsValue MemberAccessorDelegate(Engine engine, object target, string member);
+
     public sealed class Options
     {
         private readonly List<IConstraint> _constraints = new List<IConstraint>();
@@ -19,6 +21,7 @@ namespace Jint
         private bool _allowClrWrite = true;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
         private Func<Engine, object, ObjectInstance> _wrapObjectHandler;
+        private MemberAccessorDelegate _memberAccessor;
         private int _maxRecursionDepth = -1;
         private TimeSpan _regexTimeoutInterval = TimeSpan.FromSeconds(10);
         private CultureInfo _culture = CultureInfo.CurrentCulture;
@@ -83,6 +86,22 @@ namespace Jint
         public Options SetWrapObjectHandler(Func<Engine, object, ObjectInstance> wrapObjectHandler)
         {
             _wrapObjectHandler = wrapObjectHandler;
+            return this;
+        }
+
+
+        /// <summary>
+        /// Registers a delegate that is called when CLR members are invoked. This allows
+        /// to change what values are returned for specific CLR objects, or if any value 
+        /// is returned at all.
+        /// </summary>
+        /// <param name="accessor">
+        /// The delegate to invoke for each CLR member. If the delegate 
+        /// returns <c>null</c>, the standard evaluation is performed.
+        /// </param>
+        public Options SetMemberAccessor(MemberAccessorDelegate accessor)
+        {
+            _memberAccessor = accessor;
             return this;
         }
 
@@ -198,6 +217,7 @@ namespace Jint
         internal List<IConstraint> _Constraints => _constraints;
 
         internal Func<Engine, object, ObjectInstance> _WrapObjectHandler => _wrapObjectHandler;
+        internal MemberAccessorDelegate _MemberAccessor => _memberAccessor;
 
         internal int MaxRecursionDepth => _maxRecursionDepth;
 

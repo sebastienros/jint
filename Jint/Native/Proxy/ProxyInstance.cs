@@ -181,7 +181,7 @@ namespace Jint.Native.Proxy
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            if (!TryCallHandler(TrapGetOwnPropertyDescriptor, new[] {_target, property, this}, out var result))
+            if (!TryCallHandler(TrapGetOwnPropertyDescriptor, new[] { _target, property }, out var result))
             {
                 return _target.GetOwnProperty(property);
             }
