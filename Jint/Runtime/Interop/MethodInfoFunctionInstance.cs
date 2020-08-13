@@ -164,8 +164,17 @@ namespace Jint.Runtime.Interop
                 // todo: cache method info
                 try
                 {
-                    var result = await method.Invoke(thisObject.ToObject(), parameters).AwaitWhenAsyncResult();
-                    return FromObject(Engine, result);
+                    // Store and leave the current execution context while performing an async operation
+                    var saveLexEnv = _engine.ExecutionContext.LexicalEnvironment;
+                    var saveVarEnv = _engine.ExecutionContext.VariableEnvironment;
+                    _engine.LeaveExecutionContext();
+                    try {
+                        var result = await method.Invoke(thisObject.ToObject(), parameters).AwaitWhenAsyncResult();
+                        return FromObject(Engine, result);
+                    } finally {
+                        // Return to the original context when continuing
+                        _engine.EnterExecutionContext(saveLexEnv, saveVarEnv);
+                    }
                 }
                 catch (TargetInvocationException exception)
                 {
