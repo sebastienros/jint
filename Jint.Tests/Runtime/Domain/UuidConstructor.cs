@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -56,6 +57,7 @@ namespace Jint.Tests.Runtime.Domain
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments) => Construct(arguments, null);
+        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult<JsValue>(Construct(arguments, null));
 
         public void Configure()
         {

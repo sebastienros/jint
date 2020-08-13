@@ -98,7 +98,7 @@ namespace Jint.Native.Function
                         arguments,
                         localEnv);
 
-                    var result = await _function.Body.ExecuteAsync();
+                    var result = await _function.ExecuteAsync();
 
                     var value = result.GetValueOrDefault().Clone();
 
