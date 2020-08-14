@@ -23,14 +23,20 @@ namespace Jint.Tests.Runtime
 
         public InteropTests()
         {
-            _engine = new Engine(cfg => cfg.AllowClr(
+            _engine = AddMethods(new Engine(cfg => ParseOptions(cfg)));
+        }
+        private Options ParseOptions(Options cfg)
+        {
+            return cfg.AllowClr(
                 typeof(Shape).GetTypeInfo().Assembly,
                 typeof(Console).GetTypeInfo().Assembly,
-                typeof(System.IO.File).GetTypeInfo().Assembly))
-                .SetValue("log", new Action<object>(Console.WriteLine))
+                typeof(System.IO.File).GetTypeInfo().Assembly);
+        }
+        private Engine AddMethods(Engine e)
+        {
+            return e.SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
-                ;
+                .SetValue("equal", new Action<object, object>(Assert.Equal));
         }
 
         void IDisposable.Dispose()
@@ -212,6 +218,31 @@ namespace Jint.Tests.Runtime
 
             RunTest(@"
                 assert(p.Name === 'Mickey Mouse');
+                assert(p.name === 'Mickey Mouse');
+                assert(p.NAme === undefined);
+            ");
+        }
+
+        [Fact]
+        public void CanGetObjectPropertiesAndFollowCasingOptions()
+        {
+            var engine1 = AddMethods(new Engine(o => o.CamelCasedProperties(new Jint.Runtime.Interop.CamelCasedProperties()
+            {
+                PropertiesStringComparer = EqualityComparer<string>.Default,
+                FieldsStringComparer = EqualityComparer<string>.Default,
+                MethodsStringComparer = EqualityComparer<string>.Default
+            })));
+
+            var p = new Person
+            {
+                Name = "Mickey Mouse"
+            };
+
+            engine1.SetValue("p", p);
+            engine1.Execute(@"
+                assert(p.Name === 'Mickey Mouse');
+                assert(p.name === undefined);
+                assert(p.NAme === undefined);
             ");
         }
 
@@ -566,6 +597,25 @@ namespace Jint.Tests.Runtime
 
             RunTest(@"
                 assert(a.Call1() === 0);
+                assert(a.call1() === 0);
+            ");
+        }
+
+        [Fact]
+        public void ShouldCallInstanceMethodWithoutArgumentAndFollowCasing()
+        {
+            var engine1 = AddMethods( new Engine(o => o.CamelCasedProperties(new Jint.Runtime.Interop.CamelCasedProperties()
+            {
+                MethodsStringComparer = EqualityComparer<string>.Default,
+                FieldsStringComparer = EqualityComparer<string>.Default,
+                PropertiesStringComparer = EqualityComparer<string>.Default
+            })));
+            engine1.SetValue("a", new A());
+
+            engine1.Execute(@"
+                assert(a.Call1() === 0);
+                assert(a.Call1 != undefined);
+                assert(a.call1 === undefined);
             ");
         }
 
@@ -1088,7 +1138,31 @@ namespace Jint.Tests.Runtime
             _engine.SetValue("o", o);
 
             RunTest(@"
+                assert(o.field === 'Mickey Mouse');
                 assert(o.Field === 'Mickey Mouse');
+                assert(o.FIeld === undefined);
+            ");
+        }
+        [Fact]
+        public void CanGetFieldAndFollowCasingOptions()
+        {
+            var engine1 = AddMethods( new Engine(a => a.CamelCasedProperties(
+                new Jint.Runtime.Interop.CamelCasedProperties() {
+                    FieldsStringComparer = EqualityComparer<string>.Default,
+                    MethodsStringComparer = EqualityComparer<string>.Default,
+                    PropertiesStringComparer = EqualityComparer<string>.Default
+                })));
+            var o = new ClassWithField
+            {
+                Field = "Mickey Mouse"
+            };
+
+            engine1.SetValue("o", o);
+
+            engine1.Execute(@"
+                assert(o.field === undefined);
+                assert(o.Field === 'Mickey Mouse');
+                assert(o.FIeld === undefined);
             ");
         }
 
@@ -1125,6 +1199,27 @@ namespace Jint.Tests.Runtime
                 var statics = domain.ClassWithStaticFields;
                 statics.Set = 'hello';
                 assert(statics.Set == 'hello');
+            ");
+
+            Assert.Equal(ClassWithStaticFields.Set, "hello");
+        }
+
+        [Fact]
+        public void CanSetStaticFieldAndFollowCasingOptions()
+        {
+            var engine1 = AddMethods(new Engine(a => ParseOptions(a.StaticMemberCamelCasedProperties(
+                new Jint.Runtime.Interop.CamelCasedProperties()
+                {
+                    FieldsStringComparer = Jint.Runtime.Interop.IgnoreCasingStringComparer.Current,
+                    MethodsStringComparer = EqualityComparer<string>.Default,
+                    PropertiesStringComparer = EqualityComparer<string>.Default
+                })))
+            );
+            engine1.Execute(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                var statics = domain.ClassWithStaticFields;
+                statics.set = 'hello';
+                assert(statics.set == 'hello');
             ");
 
             Assert.Equal(ClassWithStaticFields.Set, "hello");
@@ -1255,6 +1350,61 @@ namespace Jint.Tests.Runtime
                 assert(o.b === colors.Blue);
                 assertFalse(o.b2 === colors.Blue);
             ");
+        }
+
+        [Fact]
+        public void EnumComparesByNameAndFollowCasingOptions()
+        {
+            var engine1 = AddMethods( new Engine(a => ParseOptions(a.EnumNameStringComparer(Jint.Runtime.Interop.IgnoreCasingStringComparer.Current))));
+            var o = new
+            {
+                r = Colors.Red,
+                b = Colors.Blue,
+                g = Colors.Green,
+                b2 = Colors.Red
+            };
+
+            engine1.SetValue("o", o);
+            engine1.SetValue("assertFalse", new Action<bool>(Assert.False));
+
+            engine1.Execute(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                var colors = domain.Colors;
+                assert(o.r === colors.red);
+                assert(o.g === colors.green);
+                assert(o.b === colors.Blue);
+                assertFalse(o.b2 === colors.Blue);
+                assertFalse(o.b2 === colors.blue);
+            ");
+        }
+
+        [Fact]
+        public void ShouldSetEnumPropertyAndFollowCasingOptions()
+        {
+            var engine1 = AddMethods( new Engine(a => ParseOptions(a.EnumNameStringComparer(Jint.Runtime.Interop.IgnoreCasingStringComparer.Current))));
+            var s = new Circle
+            {
+                Color = Colors.Red,
+            };
+
+            engine1.SetValue("s", s);
+
+            engine1.Execute(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                var colors = domain.Colors;
+
+                s.Color = colors.blue;
+                assert(s.Color === colors.Blue);
+            ");
+
+            engine1.SetValue("s", s);
+
+            engine1.Execute(@"
+                s.Color = colors.Blue | colors.green;
+                assert(s.Color === colors.Blue | colors.Green);
+            ");
+
+            Assert.Equal(Colors.Blue | Colors.Green, s.Color);
         }
 
         [Fact]
@@ -1520,6 +1670,29 @@ namespace Jint.Tests.Runtime
                 assert(p.Name != null);
                 p.Name = null;
                 assert(p.Name == null);
+            ");
+
+            Assert.True(p.Name == null);
+        }
+
+        [Fact]
+        public void ShouldSetPropertyToNullAndFollowCasingOptions()
+        {
+            var engine1 = AddMethods(new Engine(a => a.StaticMemberCamelCasedProperties(
+                new Jint.Runtime.Interop.CamelCasedProperties()
+                {
+                    FieldsStringComparer = Jint.Runtime.Interop.IgnoreCasingStringComparer.Current,
+                    MethodsStringComparer = EqualityComparer<string>.Default,
+                    PropertiesStringComparer = EqualityComparer<string>.Default
+                }))
+            );
+            var p = new Person { Name = "Mickey" };
+            engine1.SetValue("p", p);
+
+            engine1.Execute(@"
+                assert(p.name != null);
+                p.name = null;
+                assert(p.name == null);
             ");
 
             Assert.True(p.Name == null);
