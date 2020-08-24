@@ -129,6 +129,13 @@ namespace Jint
         }
 
         /// <summary>
+        /// Constructs a new engine with a custom <see cref="Options"/> instance.
+        /// </summary>
+        public Engine(Options options) : this((e, o) => e.Options = options)
+        {
+        }
+
+        /// <summary>
         /// Constructs a new engine instance and allows customizing options.
         /// </summary>
         /// <remarks>The provided engine instance in callback is not guaranteed to be fully configured</remarks>
@@ -203,6 +210,8 @@ namespace Jint
             }
 
             ClrTypeConverter = new DefaultTypeConverter(this);
+
+            Options.Apply(this);
         }
     
 
@@ -244,7 +253,7 @@ namespace Jint
 
         internal long CurrentMemoryUsage { get; private set; }
 
-        internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; }
+        internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; private set; }
 
         #region Debugger
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);

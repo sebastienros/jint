@@ -2847,6 +2847,18 @@ x.test = {
                 .SetValue("a", 1);
         }
 
+        [Fact]
+        public void ShouldReuseOptions()
+        {
+            var options = new Options().Configure(e => e.SetValue("x", 1));
+
+            var engine1 = new Engine(options);
+            var engine2 = new Engine(options);
+
+            Assert.Equal(1, Convert.ToInt32(engine1.GetValue("x").ToObject()));
+            Assert.Equal(1, Convert.ToInt32(engine2.GetValue("x").ToObject()));
+        }
+
         private class Wrapper
         {
             public Testificate Test { get; set; }
