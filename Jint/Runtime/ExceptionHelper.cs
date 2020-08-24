@@ -182,5 +182,10 @@ namespace Jint.Runtime
         {
             throw new MemoryLimitExceededException(message);
         }
+
+        public static void ThrowExecutionCanceledException()
+        {
+            throw new ExecutionCanceledException();
+        }
     }
 }
