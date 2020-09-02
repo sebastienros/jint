@@ -17,7 +17,7 @@ namespace Jint.Runtime.Interpreter
         private JintExpression _bodyExpression;
         private JintStatementList _bodyStatementList;
 
-        public readonly string Name;
+        public string Name;
         public readonly bool Strict;
         public readonly IFunction Function;
 

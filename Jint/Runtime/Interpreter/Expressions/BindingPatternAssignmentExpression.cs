@@ -237,7 +237,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             if (assignmentPattern.Right.IsFunctionWithName())
                             {
-                                ((FunctionInstance) value).SetFunctionName(new JsString(leftIdentifier.Name));
+                                ((FunctionInstance) value).SetFunctionName(new JsString(leftIdentifier.Name), force: true);
                             }
 
                             AssignToIdentifier(engine, leftIdentifier.Name, value, environment);
@@ -312,7 +312,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         var target = assignmentPattern.Left as Identifier ?? identifier;
 
-                        if (assignmentPattern.Right.IsFunctionWithName())
+                        if (assignmentPattern.Right.IsAnonymousFunctionDefinition())
                         {
                             ((FunctionInstance) value).SetFunctionName(target.Name);
                         }
