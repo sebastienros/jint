@@ -19,6 +19,7 @@ namespace Jint.Native.Object
         RegExp,
         String,
         Symbol,
-        TypeReference
+        TypeReference,
+        Window
     }
 }

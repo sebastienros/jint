@@ -36,6 +36,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 // execute catch
                 if (_catch != null)
                 {
+                    System.Console.WriteLine("Error:"+b.Value);
                     var c = b.Value;
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);

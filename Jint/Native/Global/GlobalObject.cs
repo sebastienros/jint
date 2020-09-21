@@ -46,6 +46,7 @@ namespace Jint.Native.Global
                 ["Date"] = new PropertyDescriptor(Engine.Date, propertyFlags),
                 ["Math"] = new PropertyDescriptor(Engine.Math, propertyFlags),
                 ["JSON"] = new PropertyDescriptor(Engine.Json, propertyFlags),
+                ["window"] = new PropertyDescriptor(Engine.Window, propertyFlags),
                 ["Error"] = new LazyPropertyDescriptor(() => Engine.Error, propertyFlags),
                 ["EvalError"] = new LazyPropertyDescriptor(() => Engine.EvalError, propertyFlags),
                 ["Proxy"] = new LazyPropertyDescriptor(() => Engine.Proxy, propertyFlags),
@@ -69,14 +70,28 @@ namespace Jint.Native.Global
                 ["escape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "escape", Escape, 1), propertyFlags),
                 ["unescape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unescape", Unescape, 1), propertyFlags),
                 ["globalThis"] = new PropertyDescriptor(this, propertyFlags),
-
+                ["setTimeout"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setTimeout", SetTimeout, 1), propertyFlags),
                 // toString is not mentioned or actually required in spec, but some tests rely on it
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 1), propertyFlags)
             };
 
             SetProperties(properties);
         }
-
+        private JsValue SetTimeout(JsValue thisObj, JsValue[] arguments)
+        {
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                if (arguments.Length == 2 || arguments[1].IsInteger())
+                {
+                    System.Threading.Thread.Sleep(arguments[1].AsInteger());
+                }
+                if (arguments[0] is ICallable callable)
+                {
+                    callable.Call(thisObj, Arguments.Empty);
+                }
+            });
+            return Undefined;
+        }
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
         {
             return _engine.Object.PrototypeObject.ToObjectString(thisObj, Arguments.Empty);
@@ -382,7 +397,7 @@ namespace Jint.Native.Global
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsValidHexaChar(char c) => Uri.IsHexDigit(c);
-        
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.3.2
         /// </summary>
@@ -651,11 +666,11 @@ namespace Jint.Native.Global
                 }
                 else if (c < 256)
                 {
-                    _stringBuilder.Append($"%{((int) c):X2}");
+                    _stringBuilder.Append($"%{((int)c):X2}");
                 }
                 else
                 {
-                    _stringBuilder.Append($"%u{((int) c):X4}");
+                    _stringBuilder.Append($"%u{((int)c):X4}");
                 }
             }
 
@@ -704,7 +719,7 @@ namespace Jint.Native.Global
 
             return _stringBuilder.ToString();
         }
-        
+
         // optimized versions with string parameter and without virtual dispatch for global environment usage
 
         internal bool HasProperty(Key property)
@@ -731,7 +746,7 @@ namespace Jint.Native.Global
             {
                 return true;
             }
-            
+
             // check fast path
             if ((current._flags & PropertyFlag.MutableBinding) != 0)
             {
@@ -748,7 +763,7 @@ namespace Jint.Native.Global
             Properties.TryGetValue(property, out var descriptor);
             return descriptor ?? PropertyDescriptor.Undefined;
         }
-        
+
         internal bool Set(Key property, JsValue value)
         {
             // here we are called only from global environment record context
@@ -783,11 +798,11 @@ namespace Jint.Native.Global
                 return false;
             }
 
-            setter.Call(this, new[] {value});
+            setter.Call(this, new[] { value });
 
             return true;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void SetOwnProperty(Key property, PropertyDescriptor desc)
         {

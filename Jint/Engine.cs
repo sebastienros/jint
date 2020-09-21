@@ -23,6 +23,7 @@ using Jint.Native.RegExp;
 using Jint.Native.Set;
 using Jint.Native.String;
 using Jint.Native.Symbol;
+using Jint.Native.Window;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.CallStack;
@@ -161,6 +162,7 @@ namespace Jint
             Boolean = BooleanConstructor.CreateBooleanConstructor(this);
             Date = DateConstructor.CreateDateConstructor(this);
             Math = MathInstance.CreateMathObject(this);
+            Window = WindowInstance.CreateWindowObject(this);
             Json = JsonInstance.CreateJsonObject(this);
             Proxy = ProxyConstructor.CreateProxyConstructor(this);
             Reflect = ReflectInstance.CreateReflectObject(this);
@@ -230,6 +232,7 @@ namespace Jint
         public DateConstructor Date { get; }
         public MathInstance Math { get; }
         public JsonInstance Json { get; }
+        public WindowInstance Window { get; }
         public ProxyConstructor Proxy { get; }
         public ReflectInstance Reflect { get; }
         public SymbolConstructor Symbol { get; }

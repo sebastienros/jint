@@ -9,12 +9,18 @@ namespace Jint.Repl
 {
     class Program
     {
+        class Test
+        {
+
+        }
         static void Main(string[] args)
         {
 
             var engine = new Engine(cfg => cfg.AllowClr());
-
+            engine.Execute(File.ReadAllText("Init.js"));
             engine
+                //.SetValue("window",engine.Global)
+                .SetValue("test",new Test())
                 .SetValue("print", new Action<object>(Console.WriteLine))
                 .SetValue("load", new Func<string, object>(
                     path => engine.Execute(File.ReadAllText(path))
