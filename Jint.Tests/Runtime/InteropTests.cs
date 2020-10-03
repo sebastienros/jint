@@ -8,7 +8,6 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
@@ -55,6 +54,39 @@ namespace Jint.Tests.Runtime
                 assert(y === true);
                 assert(z === 'foo');
             ");
+        }
+
+        [Fact]
+        public void CanAccessMemberNamedItem()
+        {
+            _engine.Execute(@"
+                    function item2(arg) {
+                        return arg.item2
+                    }
+                    function item1(arg) {
+                        return arg.item
+                    }
+                    function item3(arg) {
+                        return arg.Item
+                    }
+            ");
+
+            var argument = new Dictionary<string, object>
+            {
+                {"item2", "item2 value"},
+                {"item", "item value"},
+                {"Item", "Item value"}
+            };
+
+            Assert.Equal("item2 value", _engine.Invoke("item2", argument));
+            Assert.Equal("item value", _engine.Invoke("item1", argument));
+            Assert.Equal("Item value", _engine.Invoke("item3", argument));
+
+            var company = new Company("Acme Ltd");
+            _engine.SetValue("c", company);
+            Assert.Equal("item thingie", _engine.Execute("c.Item").GetCompletionValue());
+            Assert.Equal("item thingie", _engine.Execute("c.item").GetCompletionValue());
+            Assert.Equal("value", _engine.Execute("c['key']").GetCompletionValue());
         }
 
         [Fact]
