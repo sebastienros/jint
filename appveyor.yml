@@ -27,7 +27,7 @@ test_script:
   - dotnet test .\Jint.Tests.Ecma\Jint.Tests.Ecma.csproj -c Release
   - dotnet test .\Jint.Tests.Test262\Jint.Tests.Test262.csproj -c Release
 artifacts:
-  - path: 'Jint\**\*.nupkg'
+  - path: 'Jint\**\*.*nupkg'
 deploy:  
   - provider: NuGet
     on:
@@ -51,5 +51,4 @@ deploy:
     server: https://www.nuget.org/api/v2/package
     api_key:
       secure: yZBBCLlJTphpHCezRUxyDny1mBbDw7xFG/2Rwt21A8khKp6KJCxFEYx4k9IihOjO
-    skip_symbols: true
-    artifact: /.*\.nupkg/
+    artifact: /.*\.*nupkg/

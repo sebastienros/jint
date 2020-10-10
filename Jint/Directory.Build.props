@@ -10,12 +10,12 @@
     <PackageId>Jint</PackageId>
     <PackageTags>javascript, interpreter</PackageTags>
     <PackageProjectUrl>https://github.com/sebastienros/jint</PackageProjectUrl>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/sebastienros/jint/master/LICENSE.txt</PackageLicenseUrl>
+    <PackageLicenseExpression>BSD-2-Clause</PackageLicenseExpression>
 
-    <!-- SourceLink support -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
   </PropertyGroup>
 
