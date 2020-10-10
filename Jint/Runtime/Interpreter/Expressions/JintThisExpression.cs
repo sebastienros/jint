@@ -1,5 +1,4 @@
 using Esprima.Ast;
-using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -9,17 +8,17 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            return context.Engine.ResolveThisBinding();
+            return NormalCompletion(context.Engine.ResolveThisBinding());
         }
 
-        public override JsValue GetValue(EvaluationContext context)
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
             context.LastSyntaxNode = _expression;
 
-            return context.Engine.ResolveThisBinding();
+            return Completion.Normal(context.Engine.ResolveThisBinding(), _expression.Location);
         }
     }
 }

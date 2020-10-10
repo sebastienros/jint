@@ -40,7 +40,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
             JsValue actualThis = null;
             string baseReferenceName = null;
@@ -63,7 +63,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else if (_objectExpression is JintThisExpression thisExpression)
             {
-                baseValue = thisExpression.GetValue(context);
+                baseValue = thisExpression.GetValue(context).Value;
             }
             else if (_objectExpression is JintSuperExpression)
             {
@@ -75,10 +75,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (baseValue is null)
             {
                 // fast checks failed
-                var baseReference = _objectExpression.Evaluate(context);
+                var baseReference = _objectExpression.Evaluate(context).Value;
                 if (ReferenceEquals(Undefined.Instance, baseReference))
                 {
-                    return Undefined.Instance;
+                    return NormalCompletion(Undefined.Instance);
                 }
                 if (baseReference is Reference reference)
                 {
@@ -94,10 +94,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (baseValue.IsNullOrUndefined() && (_memberExpression.Optional || _objectExpression._expression.IsOptional()))
             {
-                return Undefined.Instance;
+                return NormalCompletion(Undefined.Instance);
             }
 
-            var property = _determinedProperty ?? _propertyExpression.GetValue(context);
+            var property = _determinedProperty ?? _propertyExpression.GetValue(context).Value;
             if (baseValue.IsNullOrUndefined())
             {
                 // we can use base data types securely, object evaluation can mess things up
@@ -113,7 +113,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? property
                 : TypeConverter.ToPropertyKey(property);
 
-            return engine._referencePool.Rent(baseValue, propertyKey, isStrictModeCode, thisValue: actualThis);
+            var rent = context.Engine._referencePool.Rent(baseValue, propertyKey, isStrictModeCode, thisValue: actualThis);
+            return new ExpressionResult(
+                ExpressionCompletionType.Reference,
+                rent,
+                _expression.Location);
         }
     }
 }

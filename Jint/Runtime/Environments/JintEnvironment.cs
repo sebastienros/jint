@@ -86,14 +86,14 @@ namespace Jint.Runtime.Environments
             {
                 _outerEnv = outer
             };
-        } 
+        }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-newprivateenvironment
         /// </summary>
-        internal static PrivateEnvironmentRecord NewPrivateEnvironment(Engine engine, PrivateEnvironmentRecord outerPriv)
+        internal static PrivateEnvironmentRecord NewPrivateEnvironment(Engine engine, PrivateEnvironmentRecord? outerPriv)
         {
             return new PrivateEnvironmentRecord(outerPriv);
-        } 
+        }
     }
 }

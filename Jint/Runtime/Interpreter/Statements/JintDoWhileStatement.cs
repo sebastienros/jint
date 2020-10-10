@@ -50,10 +50,10 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                 }
 
-                iterating = TypeConverter.ToBoolean(_test.GetValue(context));
+                iterating = TypeConverter.ToBoolean(_test.GetValue(context).Value);
             } while (iterating);
 
-            return new Completion(CompletionType.Normal, v, null, Location);
+            return NormalCompletion(v);
         }
     }
 }

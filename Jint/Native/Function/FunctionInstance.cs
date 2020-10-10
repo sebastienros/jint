@@ -345,8 +345,7 @@ namespace Jint.Native.Function
         {
             var argumentsInstance = _engine.FunctionDeclarationInstantiation(
                 functionInstance: this,
-                arguments,
-                calleeContext.LexicalEnvironment);
+                arguments);
 
             var result = _functionDefinition.Execute(context);
             argumentsInstance?.FunctionWasCalled();

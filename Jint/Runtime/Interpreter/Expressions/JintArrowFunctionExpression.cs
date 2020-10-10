@@ -7,13 +7,13 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly JintFunctionDefinition _function;
 
-        public JintArrowFunctionExpression(Engine engine, IFunction function)
+        public JintArrowFunctionExpression(Engine engine, ArrowFunctionExpression function)
             : base(ArrowParameterPlaceHolder.Empty)
         {
             _function = new JintFunctionDefinition(engine, function);
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
             var engine = context.Engine;
             var scope = engine.ExecutionContext.LexicalEnvironment;
@@ -25,7 +25,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 FunctionThisMode.Lexical,
                 proto: engine.Realm.Intrinsics.Function.PrototypeObject);
 
-            return closure;
+            return NormalCompletion(closure);
         }
     }
 }

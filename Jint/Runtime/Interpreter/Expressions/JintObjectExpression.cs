@@ -117,7 +117,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
             return _canBuildFast
                 ? BuildObjectFast(context)
@@ -127,12 +127,12 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// Version that can safely build plain object with only normal init/data fields fast.
         /// </summary>
-        private object BuildObjectFast(EvaluationContext context)
+        private ExpressionResult BuildObjectFast(EvaluationContext context)
         {
             var obj = context.Engine.Realm.Intrinsics.Object.Construct(0);
             if (_properties.Length == 0)
             {
-                return obj;
+                return NormalCompletion(obj);
             }
 
             var properties = new PropertyDictionary(_properties.Length, checkExistingKeys: true);
@@ -140,17 +140,18 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var objectProperty = _properties[i];
                 var valueExpression = _valueExpressions[i];
-                var propValue = valueExpression.GetValue(context).Clone();
+                var propValue = valueExpression.GetValue(context).Value!.Clone();
                 properties[objectProperty!._key] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
             }
+
             obj.SetProperties(properties);
-            return obj;
+            return NormalCompletion(obj);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-object-initializer-runtime-semantics-propertydefinitionevaluation
         /// </summary>
-        private object BuildObjectNormal(EvaluationContext context)
+        private ExpressionResult BuildObjectNormal(EvaluationContext context)
         {
             var engine = context.Engine;
             var obj = engine.Realm.Intrinsics.Object.Construct(_properties.Length);
@@ -162,10 +163,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (objectProperty is null)
                 {
                     // spread
-                    if (_valueExpressions[i].GetValue(context) is ObjectInstance source)
+                    if (_valueExpressions[i].GetValue(context).Value is ObjectInstance source)
                     {
                         source.CopyDataProperties(obj, null);
                     }
+
                     continue;
                 }
 
@@ -180,11 +182,22 @@ namespace Jint.Runtime.Interpreter.Expressions
                     continue;
                 }
 
-                var propName = objectProperty.KeyJsString ?? property.GetKey(engine);
+                JsValue? propName = objectProperty.KeyJsString;
+                if (propName is null)
+                {
+                    propName = TypeConverter.ToPropertyKey(property.GetKey(engine));
+                }
+
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
                 {
                     var expr = _valueExpressions[i];
-                    JsValue propValue = expr.GetValue(context).Clone();
+                    var completion = expr.GetValue(context);
+                    if (completion.IsAbrupt())
+                    {
+                        return completion;
+                    }
+
+                    var propValue = completion.Value!.Clone();
                     if (expr._expression.IsFunctionDefinition())
                     {
                         var closure = (FunctionInstance) propValue;
@@ -215,7 +228,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            return obj;
+            return NormalCompletion(obj);
         }
     }
 }

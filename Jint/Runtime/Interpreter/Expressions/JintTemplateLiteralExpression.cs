@@ -42,16 +42,17 @@ namespace Jint.Runtime.Interpreter.Expressions
                 sb.Builder.Append(quasi.Value.Cooked);
                 if (i < _expressions.Length)
                 {
-                    sb.Builder.Append(_expressions[i].GetValue(context));
+                    var completion = _expressions[i].GetValue(context);
+                    sb.Builder.Append(completion.Value);
                 }
             }
 
             return JsString.Create(sb.ToString());
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            return BuildString(context);
+            return NormalCompletion(BuildString(context));
         }
     }
 }

@@ -6,7 +6,7 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         private readonly JintStatementList _list;
 
-        public JintScript(Engine engine, Script script) : base(script)
+        public JintScript(Script script) : base(script)
         {
             _list = new JintStatementList(script);
         }

@@ -34,7 +34,7 @@ namespace Jint.Runtime.Environments
         {
             _functionObject = functionObject;
             NewTarget = newTarget;
-            if (functionObject._functionDefinition.Function is ArrowFunctionExpression)
+            if (functionObject._functionDefinition?.Function is ArrowFunctionExpression)
             {
                 _thisBindingStatus = ThisBindingStatus.Lexical;
             }
@@ -209,7 +209,7 @@ namespace Jint.Runtime.Environments
                         else if (p.Key is CallExpression callExpression)
                         {
                             var jintCallExpression = new JintCallExpression(callExpression);
-                            var jsValue = jintCallExpression.GetValue(context);
+                            var jsValue = jintCallExpression.GetValue(context).Value;
                             propertyName = TypeConverter.ToJsString(jsValue);
                         }
                         else
@@ -260,7 +260,13 @@ namespace Jint.Runtime.Environments
             else if (argument.IsObject() && argument.TryGetIterator(_functionObject._realm, out var iterator))
             {
                 array = _engine.Realm.Intrinsics.Array.ConstructFast(0);
-                var protocol = new ArrayPatternProtocol(_engine, array, iterator, arrayPattern.Elements.Count);
+                var max = arrayPattern.Elements.Count;
+                if (max > 0 && arrayPattern.Elements[max - 1]?.Type == Nodes.RestElement)
+                {
+                    // need to consume all
+                    max = int.MaxValue;
+                }
+                var protocol = new ArrayPatternProtocol(_engine, array, iterator, max);
                 protocol.Execute();
             }
 
@@ -342,7 +348,7 @@ namespace Jint.Runtime.Environments
                 _engine.EnterExecutionContext(new ExecutionContext(paramVarEnv, paramVarEnv, null, _engine.Realm, null));
                 try
                 {
-                    argument = jintExpression.GetValue(context);
+                    argument = jintExpression.GetValue(context).Value;
                 }
                 finally
                 {
@@ -397,7 +403,7 @@ namespace Jint.Runtime.Environments
         {
             private readonly ArrayInstance _instance;
             private readonly int _max;
-            private long _index = -1;
+            private long _index = 0;
 
             public ArrayPatternProtocol(
                 Engine engine,
@@ -419,7 +425,7 @@ namespace Jint.Runtime.Environments
 
             protected override void IterationEnd()
             {
-                if (_index >= 0)
+                if (_index > 0)
                 {
                     _instance.SetLength((uint) _index);
                     IteratorClose(CompletionType.Normal);

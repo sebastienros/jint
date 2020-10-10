@@ -61,7 +61,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
                 else
                 {
-                    var clauseSelector = clause.Test.GetValue(context);
+                    var clauseSelector = clause.Test.GetValue(context).Value;
                     if (JintBinaryExpression.StrictlyEqual(clauseSelector, input))
                     {
                         hit = true;

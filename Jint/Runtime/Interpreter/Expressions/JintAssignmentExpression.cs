@@ -34,16 +34,16 @@ namespace Jint.Runtime.Interpreter.Expressions
             return new JintAssignmentExpression(engine, expression);
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            var lref = _left.Evaluate(context) as Reference;
-            var engine = context.Engine;
+            var lref = _left.Evaluate(context).Value as Reference;
             if (lref is null)
             {
-                ExceptionHelper.ThrowReferenceError(engine.Realm, "not a valid reference");
+                ExceptionHelper.ThrowReferenceError(context.Engine.Realm, "not a valid reference");
             }
 
-            var lval = engine.GetValue(lref, false);
+            var engine = context.Engine;
+            var lval = context.Engine.GetValue(lref, false);
             var handledByOverload = false;
 
             if (context.OperatorOverloadingAllowed)
@@ -92,10 +92,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (operatorClrName != null)
                 {
-                    var rval = _right.GetValue(context);
+                    var rval = _right.GetValue(context).Value;
                     if (JintBinaryExpression.TryOperatorOverloading(context, lval, rval, operatorClrName, out var result))
                     {
-                        lval = JsValue.FromObject(engine, result);
+                        lval = JsValue.FromObject(context.Engine, result);
                         handledByOverload = true;
                     }
                 }
@@ -107,7 +107,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     case AssignmentOperator.PlusAssign:
                     {
-                        var rval = _right.GetValue(context);
+                        var rval = _right.GetValue(context).Value;
                         if (AreIntegerOperands(lval, rval))
                         {
                             lval = (long) lval.AsInteger() + rval.AsInteger();
@@ -137,7 +137,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     case AssignmentOperator.MinusAssign:
                     {
-                        var rval = _right.GetValue(context);
+                        var rval = _right.GetValue(context).Value;
                         lval = AreIntegerOperands(lval, rval)
                             ? JsNumber.Create(lval.AsInteger() - rval.AsInteger())
                             : JsNumber.Create(TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval));
@@ -146,7 +146,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     case AssignmentOperator.TimesAssign:
                     {
-                        var rval = _right.GetValue(context);
+                        var rval = _right.GetValue(context).Value;
                         if (AreIntegerOperands(lval, rval))
                         {
                             lval = (long) lval.AsInteger() * rval.AsInteger();
@@ -165,14 +165,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     case AssignmentOperator.DivideAssign:
                     {
-                        var rval = _right.GetValue(context);
+                        var rval = _right.GetValue(context).Value;
                         lval = Divide(lval, rval);
                         break;
                     }
 
                     case AssignmentOperator.ModuloAssign:
                     {
-                        var rval = _right.GetValue(context);
+                        var rval = _right.GetValue(context).Value;
                         if (lval.IsUndefined() || rval.IsUndefined())
                         {
                             lval = Undefined.Instance;
@@ -187,42 +187,42 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     case AssignmentOperator.BitwiseAndAssign:
                     {
-                        var rval = _right.GetValue(context);
+                        var rval = _right.GetValue(context).Value;
                         lval = TypeConverter.ToInt32(lval) & TypeConverter.ToInt32(rval);
                         break;
                     }
 
                     case AssignmentOperator.BitwiseOrAssign:
                     {
-                        var rval = _right.GetValue(context);
+                        var rval = _right.GetValue(context).Value;
                         lval = TypeConverter.ToInt32(lval) | TypeConverter.ToInt32(rval);
                         break;
                     }
 
                     case AssignmentOperator.BitwiseXOrAssign:
                     {
-                        var rval = _right.GetValue(context);
+                        var rval = _right.GetValue(context).Value;
                         lval = TypeConverter.ToInt32(lval) ^ TypeConverter.ToInt32(rval);
                         break;
                     }
 
                     case AssignmentOperator.LeftShiftAssign:
                     {
-                        var rval = _right.GetValue(context);
+                        var rval = _right.GetValue(context).Value;
                         lval = TypeConverter.ToInt32(lval) << (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
                     }
 
                     case AssignmentOperator.RightShiftAssign:
                     {
-                        var rval = _right.GetValue(context);
+                        var rval = _right.GetValue(context).Value;
                         lval = TypeConverter.ToInt32(lval) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
                     }
 
                     case AssignmentOperator.UnsignedRightShiftAssign:
                     {
-                        var rval = _right.GetValue(context);
+                        var rval = _right.GetValue(context).Value;
                         lval = (uint) TypeConverter.ToInt32(lval) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
                     }
@@ -231,7 +231,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         if (!lval.IsNullOrUndefined())
                         {
-                            return lval;
+                            return NormalCompletion(lval);
                         }
 
                         var rval = NamedEvaluation(context, _right);
@@ -243,7 +243,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         if (!TypeConverter.ToBoolean(lval))
                         {
-                            return lval;
+                            return NormalCompletion(lval);
                         }
 
                         var rval = NamedEvaluation(context, _right);
@@ -255,7 +255,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         if (TypeConverter.ToBoolean(lval))
                         {
-                            return lval;
+                            return NormalCompletion(lval);
                         }
 
                         var rval = NamedEvaluation(context, _right);
@@ -265,19 +265,19 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     default:
                         ExceptionHelper.ThrowNotImplementedException();
-                        return null;
+                        return default;
                 }
             }
 
             engine.PutValue(lref, lval);
 
             engine._referencePool.Return(lref);
-            return lval;
+            return NormalCompletion(lval);
         }
 
         private JsValue NamedEvaluation(EvaluationContext context, JintExpression expression)
         {
-            var rval = expression.GetValue(context);
+            var rval = expression.GetValue(context).Value;
             if (expression._expression.IsAnonymousFunctionDefinition() && _left._expression.Type == Nodes.Identifier)
             {
                 ((FunctionInstance) rval).SetFunctionName(((Identifier) _left._expression).Name);
@@ -309,35 +309,36 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _right = Build(context.Engine, assignmentExpression.Right);
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                JsValue rval = null;
+                ExpressionResult? completion = null;
                 if (_leftIdentifier != null)
                 {
-                    rval = AssignToIdentifier(context, _leftIdentifier, _right, _evalOrArguments);
+                    completion = AssignToIdentifier(context, _leftIdentifier, _right, _evalOrArguments);
                 }
-                return rval ?? SetValue(context);
+                return completion ?? SetValue(context);
             }
 
-            private JsValue SetValue(EvaluationContext context)
+            private ExpressionResult SetValue(EvaluationContext context)
             {
                 // slower version
-                var lref = _left.Evaluate(context) as Reference;
                 var engine = context.Engine;
+                var lref = _left.Evaluate(context).Value as Reference;
                 if (lref is null)
                 {
                     ExceptionHelper.ThrowReferenceError(engine.Realm, "not a valid reference");
                 }
+
                 lref.AssertValid(engine.Realm);
 
-                var rval = _right.GetValue(context);
+                var rval = _right.GetValue(context).GetValueOrDefault();
 
                 engine.PutValue(lref, rval);
                 engine._referencePool.Return(lref);
-                return rval;
+                return NormalCompletion(rval);
             }
 
-            internal static JsValue AssignToIdentifier(
+            internal static ExpressionResult? AssignToIdentifier(
                 EvaluationContext context,
                 JintIdentifierExpression left,
                 JintExpression right,
@@ -359,7 +360,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                         ExceptionHelper.ThrowSyntaxError(engine.Realm);
                     }
 
-                    var rval = right.GetValue(context).Clone();
+                    var completion = right.GetValue(context);
+                    if (completion.IsAbrupt())
+                    {
+                        return completion;
+                    }
+
+                    var rval = completion.Value.Clone();
 
                     if (right._expression.IsFunctionDefinition())
                     {
@@ -367,7 +374,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     environmentRecord.SetMutableBinding(left._expressionName, rval, strict);
-                    return rval;
+                    return new Completion(CompletionType.Normal, rval, default);
                 }
 
                 return null;

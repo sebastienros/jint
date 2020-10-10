@@ -119,7 +119,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
 
             engine.UpdateLexicalEnvironment(tdz);
-            var exprValue = _right.GetValue(context);
+            var exprValue = _right.GetValue(context).Value;
             engine.UpdateLexicalEnvironment(oldEnv);
 
             if (_iterationKind == IterationKind.Enumerate)
@@ -182,12 +182,12 @@ namespace Jint.Runtime.Interpreter.Statements
                     var nextValue = nextResult.Get(CommonProperties.Value);
                     close = true;
 
-                    Reference lhsRef = null;
+                    var lhsRef = new ExpressionResult();
                     if (lhsKind != LhsKind.LexicalBinding)
                     {
                         if (!destructuring)
                         {
-                            lhsRef = (Reference) lhs.Evaluate(context);
+                            lhsRef = lhs.Evaluate(context);
                         }
                     }
                     else
@@ -201,28 +201,32 @@ namespace Jint.Runtime.Interpreter.Statements
 
                         if (!destructuring)
                         {
-                            lhsName ??= ((Identifier) ((VariableDeclaration) _leftNode).Declarations[0].Id).Name;
-                            lhsRef = engine.ResolveBinding(lhsName);
+                            var identifier = (Identifier) ((VariableDeclaration) _leftNode).Declarations[0].Id;
+                            lhsName ??= identifier.Name;
+                            lhsRef = new ExpressionResult(ExpressionCompletionType.Normal, engine.ResolveBinding(lhsName), identifier.Location);
                         }
                     }
 
+                    var status = new Completion();
                     if (!destructuring)
                     {
-                        // If lhsRef is an abrupt completion, then
-                        // Let status be lhsRef.
-
-                        if (lhsKind == LhsKind.LexicalBinding)
+                        if (lhsRef.IsAbrupt())
                         {
-                            lhsRef.InitializeReferencedBinding(nextValue);
+                            close = true;
+                            status = new Completion(lhsRef);
+                        }
+                        else if (lhsKind == LhsKind.LexicalBinding)
+                        {
+                            ((Reference) lhsRef.Value).InitializeReferencedBinding(nextValue);
                         }
                         else
                         {
-                            engine.PutValue(lhsRef, nextValue);
+                            engine.PutValue((Reference) lhsRef.Value, nextValue);
                         }
                     }
                     else
                     {
-                        BindingPatternAssignmentExpression.ProcessPatterns(
+                        status = BindingPatternAssignmentExpression.ProcessPatterns(
                             context,
                             _assignmentPattern,
                             nextValue,
@@ -243,6 +247,24 @@ namespace Jint.Runtime.Interpreter.Statements
                         }
                     }
 
+                    if (status.IsAbrupt())
+                    {
+                        engine.UpdateLexicalEnvironment(oldEnv);
+                        if (_iterationKind == IterationKind.AsyncIterate)
+                        {
+                            iteratorRecord.Close(status.Type);
+                            return status;
+                        }
+
+                        if (iterationKind == IterationKind.Enumerate)
+                        {
+                            return status;
+                        }
+
+                        iteratorRecord.Close(status.Type);
+                        return status;
+                    }
+
                     var result = stmt.Execute(context);
                     engine.UpdateLexicalEnvironment(oldEnv);
 
@@ -260,8 +282,9 @@ namespace Jint.Runtime.Interpreter.Statements
                     if (result.Type != CompletionType.Continue || (result.Target != null && result.Target != _statement?.LabelSet?.Name))
                     {
                         completionType = result.Type;
-                        if (result.Type != CompletionType.Normal)
+                        if (result.IsAbrupt())
                         {
+                            close = true;
                             return result;
                         }
                     }

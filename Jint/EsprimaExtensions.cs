@@ -51,7 +51,7 @@ namespace Jint
                 or Nodes.MemberExpression)
             {
                 var context = engine._activeEvaluationContext;
-                propertyKey = TypeConverter.ToPropertyKey(JintExpression.Build(engine, expression).GetValue(context));
+                propertyKey = TypeConverter.ToPropertyKey(JintExpression.Build(engine, expression).GetValue(context).Value);
                 return true;
             }
 
@@ -202,14 +202,6 @@ namespace Jint
                 else if (parameter is AssignmentPattern assignmentPattern)
                 {
                     parameter = assignmentPattern.Left;
-                    if (assignmentPattern.Right is ClassExpression classExpression)
-                    {
-                        // TODO check if there's more generic rule
-                        if (classExpression.Id is not null)
-                        {
-                            target.Add(classExpression.Id.Name!);
-                        }
-                    }
                     continue;
                 }
                 break;

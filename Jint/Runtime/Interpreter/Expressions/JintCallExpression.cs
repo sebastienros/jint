@@ -68,14 +68,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             _cachedArguments = cachedArgumentsHolder;
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            return _calleeExpression is JintSuperExpression
+            return NormalCompletion(_calleeExpression is JintSuperExpression
                 ? SuperCall(context)
-                : Call(context);
+                : Call(context)
+            );
         }
 
-        private object SuperCall(EvaluationContext context)
+        private JsValue SuperCall(EvaluationContext context)
         {
             var engine = context.Engine;
             var thisEnvironment = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();
@@ -106,9 +107,9 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// https://tc39.es/ecma262/#sec-function-calls
         /// </summary>
-        private object Call(EvaluationContext context)
+        private JsValue Call(EvaluationContext context)
         {
-            var reference = _calleeExpression.Evaluate(context);
+            var reference = _calleeExpression.Evaluate(context).Value;
 
             if (ReferenceEquals(reference, Undefined.Instance))
             {
@@ -147,7 +148,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// https://tc39.es/ecma262/#sec-evaluatecall
         /// </summary>
-        private object EvaluateCall(EvaluationContext context, JsValue func, object reference, in NodeList<Expression> arguments, bool tailPosition)
+        private JsValue EvaluateCall(EvaluationContext context, JsValue func, object reference, in NodeList<Expression> arguments, bool tailPosition)
         {
             JsValue thisValue;
             var referenceRecord = reference as Reference;

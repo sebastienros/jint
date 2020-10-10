@@ -40,7 +40,7 @@ namespace Jint.Runtime.Interpreter
             if (Function.Expression)
             {
                 _bodyExpression ??= JintExpression.Build(_engine, (Expression) Function.Body);
-                var jsValue = _bodyExpression?.GetValue(context) ?? Undefined.Instance;
+                var jsValue = _bodyExpression?.GetValue(context).Value ?? Undefined.Instance;
                 return new Completion(CompletionType.Return, jsValue, Function.Body.Location);
             }
 

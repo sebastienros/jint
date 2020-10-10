@@ -29,7 +29,7 @@ namespace Jint.Runtime.Interpreter.Statements
             var v = Undefined.Instance;
             while (true)
             {
-                var jsValue = _test.GetValue(context);
+                var jsValue = _test.GetValue(context).Value;
                 if (!TypeConverter.ToBoolean(jsValue))
                 {
                     return new Completion(CompletionType.Normal, v, null, Location);

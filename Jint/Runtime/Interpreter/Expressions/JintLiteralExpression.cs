@@ -5,16 +5,16 @@ using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal class JintLiteralExpression : JintExpression
+    internal sealed class JintLiteralExpression : JintExpression
     {
         private JintLiteralExpression(Literal expression) : base(expression)
         {
         }
 
-        internal static JintExpression Build(Engine engine, Literal expression)
+        internal static JintExpression Build(Literal expression)
         {
             var constantValue = ConvertToJsValue(expression);
-            if (!(constantValue is null))
+            if (constantValue is not null)
             {
                 return new JintConstantExpression(expression, constantValue);
             }
@@ -51,15 +51,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             return null;
         }
 
-        public override JsValue GetValue(EvaluationContext context)
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
             context.LastSyntaxNode = _expression;
 
-            return ResolveValue(context);
+            return Completion.Normal(ResolveValue(context), _expression.Location);
         }
 
-        protected override object EvaluateInternal(EvaluationContext context) => ResolveValue(context);
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context) => NormalCompletion(ResolveValue(context));
 
         private JsValue ResolveValue(EvaluationContext context)
         {

@@ -11,15 +11,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             _newTarget = expression.Meta.Name == "new" && expression.Property.Name == "target";
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
             if (_newTarget)
             {
-                return context.Engine.GetNewTarget();
+                return NormalCompletion(context.Engine.GetNewTarget());
             }
 
             ExceptionHelper.ThrowNotImplementedException();
-            return null;
+            return default;
         }
     }
 }

@@ -12,7 +12,7 @@ namespace Jint.Runtime.CallStack
     {
         public CallStackElement(
             FunctionInstance function,
-            JintExpression expression,
+            JintExpression? expression,
             ExecutionContext callingExecutionContext)
         {
             Function = function;
@@ -52,7 +52,7 @@ namespace Jint.Runtime.CallStack
                     name = JintExpression.ToString(Expression._expression);
                 }
             }
-            
+
             return name ?? "(anonymous)";
         }
     }

@@ -60,6 +60,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return true;
                 }
             }
+
             result = null;
             return false;
         }
@@ -141,20 +142,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (lval is not null && rval is not null)
                 {
                     // we have fixed result
-                    return new JintConstantExpression(expression, result.GetValue(new EvaluationContext(engine)));
+                    var context = new EvaluationContext(engine);
+                    return new JintConstantExpression(expression, result.GetValue(context).Value);
                 }
             }
 
             return result;
-        }
-
-        public override JsValue GetValue(EvaluationContext context)
-        {
-            // need to notify correct node when taking shortcut
-            context.LastSyntaxNode = _expression;
-
-            // we always create a JsValue
-            return (JsValue) EvaluateInternal(context);
         }
 
         public static bool SameValueZero(JsValue x, JsValue y)
@@ -229,12 +222,12 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
                 var equal = StrictlyEqual(left, right);
-                return equal ? JsBoolean.True : JsBoolean.False;
+                return NormalCompletion(equal ? JsBoolean.True : JsBoolean.False);
             }
         }
 
@@ -244,13 +237,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
-                return StrictlyEqual(left, right)
-                    ? JsBoolean.False
-                    : JsBoolean.True;
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
+                return NormalCompletion(StrictlyEqual(left, right) ? JsBoolean.False : JsBoolean.True);
             }
         }
 
@@ -260,21 +251,20 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_LessThan", out var opResult))
                 {
-                    return opResult;
+                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
+
                 var value = Compare(left, right);
 
-                return value._type == InternalTypes.Undefined
-                    ? JsBoolean.False
-                    : value;
+                return NormalCompletion(value._type == InternalTypes.Undefined ? JsBoolean.False : value);
             }
         }
 
@@ -284,22 +274,20 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_GreaterThan", out var opResult))
                 {
-                    return opResult;
+                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
                 var value = Compare(right, left, false);
 
-                return value._type == InternalTypes.Undefined
-                    ? JsBoolean.False
-                    : value;
+                return NormalCompletion(value._type == InternalTypes.Undefined ? JsBoolean.False : value);
             }
         }
 
@@ -309,49 +297,54 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_Addition", out var opResult))
                 {
-                    return opResult;
+                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
                 if (AreIntegerOperands(left, right))
                 {
-                    return JsNumber.Create(left.AsInteger() + right.AsInteger());
+                    return NormalCompletion(JsNumber.Create(left.AsInteger() + right.AsInteger()));
                 }
 
                 var lprim = TypeConverter.ToPrimitive(left);
                 var rprim = TypeConverter.ToPrimitive(right);
-                return lprim.IsString() || rprim.IsString()
+                JsValue result = lprim.IsString() || rprim.IsString()
                     ? JsString.Create(TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim))
                     : JsNumber.Create(TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim));
+
+                return NormalCompletion(result);
             }
         }
+
         private sealed class MinusBinaryExpression : JintBinaryExpression
         {
             public MinusBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_Subtraction", out var opResult))
                 {
-                    return opResult;
+                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
-                return AreIntegerOperands(left, right)
+                var number = AreIntegerOperands(left, right)
                     ? JsNumber.Create(left.AsInteger() - right.AsInteger())
                     : JsNumber.Create(TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right));
+
+                return NormalCompletion(number);
             }
         }
 
@@ -361,28 +354,28 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_Multiply", out var opResult))
                 {
-                    return opResult;
+                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
                 if (AreIntegerOperands(left, right))
                 {
-                    return JsNumber.Create((long) left.AsInteger() * right.AsInteger());
+                    return NormalCompletion(JsNumber.Create((long) left.AsInteger() * right.AsInteger()));
                 }
 
                 if (left.IsUndefined() || right.IsUndefined())
                 {
-                    return Undefined.Instance;
+                    return NormalCompletion(Undefined.Instance);
                 }
 
-                return JsNumber.Create(TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right));
+                return NormalCompletion(JsNumber.Create(TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right)));
             }
         }
 
@@ -392,18 +385,18 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_Division", out var opResult))
                 {
-                    return opResult;
+                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
-                return Divide(left, right);
+                return NormalCompletion(Divide(left, right));
             }
         }
 
@@ -416,20 +409,18 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _invert = invert;
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, _invert ? "op_Inequality" : "op_Equality", out var opResult))
                 {
-                    return opResult;
+                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
-                return Equal(left, right) == !_invert
-                    ? JsBoolean.True
-                    : JsBoolean.False;
+                return NormalCompletion(Equal(left, right) == !_invert ? JsBoolean.True : JsBoolean.False);
             }
         }
 
@@ -442,24 +433,22 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _leftFirst = leftFirst;
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var leftValue = _left.GetValue(context);
-                var rightValue = _right.GetValue(context);
+                var leftValue = _left.GetValue(context).Value;
+                var rightValue = _right.GetValue(context).Value;
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, leftValue, rightValue, _leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual", out var opResult))
                 {
-                    return opResult;
+                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
                 var left = _leftFirst ? leftValue : rightValue;
                 var right = _leftFirst ? rightValue : leftValue;
 
                 var value = Compare(left, right, _leftFirst);
-                return value.IsUndefined() || ((JsBoolean) value)._value
-                    ? JsBoolean.False
-                    : JsBoolean.True;
+                return NormalCompletion(value.IsUndefined() || ((JsBoolean) value)._value ? JsBoolean.False : JsBoolean.True);
             }
         }
 
@@ -469,12 +458,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var value = _left.GetValue(context);
-                return value.InstanceofOperator(_right.GetValue(context))
-                    ? JsBoolean.True
-                    : JsBoolean.False;
+                var leftValue = _left.GetValue(context).Value;
+                var rightValue = _right.GetValue(context).Value;
+                return NormalCompletion(leftValue.InstanceofOperator(rightValue) ? JsBoolean.True : JsBoolean.False);
             }
         }
 
@@ -484,24 +472,25 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
 
-                return JsNumber.Create(Math.Pow(TypeConverter.ToNumber(left), TypeConverter.ToNumber(right)));
+                return NormalCompletion(JsNumber.Create(Math.Pow(TypeConverter.ToNumber(left), TypeConverter.ToNumber(right))));
             }
         }
+
         private sealed class InBinaryExpression : JintBinaryExpression
         {
             public InBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
 
                 var oi = right as ObjectInstance;
                 if (oi is null)
@@ -509,7 +498,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     ExceptionHelper.ThrowTypeError(context.Engine.Realm, "in can only be used with an object");
                 }
 
-                return oi.HasProperty(left) ? JsBoolean.True : JsBoolean.False;
+                return NormalCompletion(oi.HasProperty(left) ? JsBoolean.True : JsBoolean.False);
             }
         }
 
@@ -519,15 +508,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_Modulus", out var opResult))
                 {
-                    return opResult;
+                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
                 if (AreIntegerOperands(left, right))
@@ -536,16 +525,16 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var rightInteger = right.AsInteger();
                     if (leftInteger > 0 && rightInteger != 0)
                     {
-                        return JsNumber.Create(leftInteger % rightInteger);
+                        return NormalCompletion(JsNumber.Create(leftInteger % rightInteger));
                     }
                 }
 
                 if (left.IsUndefined() || right.IsUndefined())
                 {
-                    return Undefined.Instance;
+                    return NormalCompletion(Undefined.Instance);
                 }
 
-                return JsNumber.Create(TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right));
+                return NormalCompletion(JsNumber.Create(TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right)));
             }
         }
 
@@ -555,23 +544,16 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 get
                 {
-                    switch (_operator)
+                    return _operator switch
                     {
-                        case BinaryOperator.BitwiseAnd:
-                            return "op_BitwiseAnd";
-                        case BinaryOperator.BitwiseOr:
-                            return "op_BitwiseOr";
-                        case BinaryOperator.BitwiseXOr:
-                            return "op_ExclusiveOr";
-                        case BinaryOperator.LeftShift:
-                            return "op_LeftShift";
-                        case BinaryOperator.RightShift:
-                            return "op_RightShift";
-                        case BinaryOperator.UnsignedRightShift:
-                            return "op_UnsignedRightShift";
-                        default:
-                            return null;
-                    }
+                        BinaryOperator.BitwiseAnd => "op_BitwiseAnd",
+                        BinaryOperator.BitwiseOr => "op_BitwiseOr",
+                        BinaryOperator.BitwiseXOr => "op_ExclusiveOr",
+                        BinaryOperator.LeftShift => "op_LeftShift",
+                        BinaryOperator.RightShift => "op_RightShift",
+                        BinaryOperator.UnsignedRightShift => "op_UnsignedRightShift",
+                        _ => null
+                    };
                 }
             }
 
@@ -582,15 +564,15 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _operator = expression.Operator;
             }
 
-            protected override object EvaluateInternal(EvaluationContext context)
+            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context);
-                var right = _right.GetValue(context);
+                var left = _left.GetValue(context).Value;
+                var right = _right.GetValue(context).Value;
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, OperatorClrName, out var opResult))
                 {
-                    return opResult;
+                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
                 if (AreIntegerOperands(left, right))
@@ -598,38 +580,40 @@ namespace Jint.Runtime.Interpreter.Expressions
                     int leftValue = left.AsInteger();
                     int rightValue = right.AsInteger();
 
+                    JsValue result;
                     switch (_operator)
                     {
                         case BinaryOperator.BitwiseAnd:
-                            return JsNumber.Create(leftValue & rightValue);
-
+                            result = JsNumber.Create(leftValue & rightValue);
+                            break;
                         case BinaryOperator.BitwiseOr:
-                            return
-                                JsNumber.Create(leftValue | rightValue);
-
+                            result = JsNumber.Create(leftValue | rightValue);
+                            break;
                         case BinaryOperator.BitwiseXOr:
-                            return
-                                JsNumber.Create(leftValue ^ rightValue);
-
+                            result = JsNumber.Create(leftValue ^ rightValue);
+                            break;
                         case BinaryOperator.LeftShift:
-                            return JsNumber.Create(leftValue << (int) ((uint) rightValue & 0x1F));
-
+                            result = JsNumber.Create(leftValue << (int) ((uint) rightValue & 0x1F));
+                            break;
                         case BinaryOperator.RightShift:
-                            return JsNumber.Create(leftValue >> (int) ((uint) rightValue & 0x1F));
-
+                            result = JsNumber.Create(leftValue >> (int) ((uint) rightValue & 0x1F));
+                            break;
                         case BinaryOperator.UnsignedRightShift:
-                            return JsNumber.Create((uint) leftValue >> (int) ((uint) rightValue & 0x1F));
+                            result = JsNumber.Create((uint) leftValue >> (int) ((uint) rightValue & 0x1F));
+                            break;
                         default:
                             ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(_operator), "unknown shift operator");
-                            return null;
+                            result = null;
+                            break;
                     }
 
+                    return NormalCompletion(result);
                 }
 
-                return EvaluateNonInteger(left, right);
+                return NormalCompletion(EvaluateNonInteger(left, right));
             }
 
-            private object EvaluateNonInteger(JsValue left, JsValue right)
+            private JsNumber EvaluateNonInteger(JsValue left, JsValue right)
             {
                 switch (_operator)
                 {
@@ -637,30 +621,24 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return JsNumber.Create(TypeConverter.ToInt32(left) & TypeConverter.ToInt32(right));
 
                     case BinaryOperator.BitwiseOr:
-                        return
-                            JsNumber.Create(TypeConverter.ToInt32(left) | TypeConverter.ToInt32(right));
+                        return JsNumber.Create(TypeConverter.ToInt32(left) | TypeConverter.ToInt32(right));
 
                     case BinaryOperator.BitwiseXOr:
-                        return
-                            JsNumber.Create(TypeConverter.ToInt32(left) ^ TypeConverter.ToInt32(right));
+                        return JsNumber.Create(TypeConverter.ToInt32(left) ^ TypeConverter.ToInt32(right));
 
                     case BinaryOperator.LeftShift:
-                        return JsNumber.Create(TypeConverter.ToInt32(left) <<
-                                               (int) (TypeConverter.ToUint32(right) & 0x1F));
+                        return JsNumber.Create(TypeConverter.ToInt32(left) << (int) (TypeConverter.ToUint32(right) & 0x1F));
 
                     case BinaryOperator.RightShift:
-                        return JsNumber.Create(TypeConverter.ToInt32(left) >>
-                                               (int) (TypeConverter.ToUint32(right) & 0x1F));
+                        return JsNumber.Create(TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
 
                     case BinaryOperator.UnsignedRightShift:
-                        return JsNumber.Create((uint) TypeConverter.ToInt32(left) >>
-                                               (int) (TypeConverter.ToUint32(right) & 0x1F));
+                        return JsNumber.Create((uint) TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
                     default:
                         ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(_operator), "unknown shift operator");
                         return null;
                 }
             }
         }
-
     }
 }

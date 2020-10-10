@@ -1,14 +1,49 @@
 #nullable enable
 
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
+using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
+    /// <summary>
+    /// Adapter to get different types of results, including Reference which is not a JsValue.
+    /// </summary>
+    internal readonly struct ExpressionResult
+    {
+        public readonly ExpressionCompletionType Type;
+        public readonly Location Location;
+        public readonly object Value;
+
+        public ExpressionResult(ExpressionCompletionType type, object value, in Location location)
+        {
+            Type = type;
+            Value = value;
+            Location = location;
+        }
+
+        public bool IsAbrupt() => Type != ExpressionCompletionType.Normal && Type != ExpressionCompletionType.Reference;
+
+        public static implicit operator ExpressionResult(in Completion result)
+        {
+            return new ExpressionResult((ExpressionCompletionType) result.Type, result.Value!, result.Location);
+        }
+    }
+
+    internal enum ExpressionCompletionType : byte
+    {
+        Normal = 0,
+        Return = 1,
+        Throw = 2,
+        Reference
+    }
+
     internal abstract class JintExpression
     {
         // require sub-classes to set to false explicitly to skip virtual call
@@ -27,13 +62,20 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// </summary>
         /// <param name="context"></param>
         /// <seealso cref="JintLiteralExpression"/>
-        public virtual JsValue GetValue(EvaluationContext context)
+        public virtual Completion GetValue(EvaluationContext context)
         {
-            return context.Engine.GetValue(Evaluate(context), true);
+            var result = Evaluate(context);
+            if (result.Type != ExpressionCompletionType.Reference)
+            {
+                return new Completion((CompletionType) result.Type, (JsValue) result.Value, result.Location);
+            }
+
+            var jsValue = context.Engine.GetValue((Reference) result.Value, true);
+            return new Completion(CompletionType.Normal, jsValue, null, _expression.Location);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public object Evaluate(EvaluationContext context)
+        public ExpressionResult Evaluate(EvaluationContext context)
         {
             context.LastSyntaxNode = _expression;
             if (!_initialized)
@@ -52,7 +94,38 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
         }
 
-        protected abstract object EvaluateInternal(EvaluationContext context);
+        protected abstract ExpressionResult EvaluateInternal(EvaluationContext context);
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-normalcompletion
+        /// </summary>
+        /// <remarks>
+        /// We use custom type that is translated to Completion later on.
+        /// </remarks>
+        [DebuggerStepThrough]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected ExpressionResult NormalCompletion(JsValue value)
+        {
+            return new ExpressionResult(ExpressionCompletionType.Normal, value, _expression.Location);
+        }
+
+        protected ExpressionResult NormalCompletion(Reference value)
+        {
+            return new ExpressionResult(ExpressionCompletionType.Reference, value, _expression.Location);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-throwcompletion
+        /// </summary>
+        /// <remarks>
+        /// We use custom type that is translated to Completion later on.
+        /// </remarks>
+        [DebuggerStepThrough]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected ExpressionResult ThrowCompletion(JsValue value)
+        {
+            return new ExpressionResult(ExpressionCompletionType.Throw, value, _expression.Location);
+        }
 
         /// <summary>
         /// If we'd get Esprima source, we would just refer to it, but this makes error messages easier to decipher.
@@ -94,13 +167,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 Nodes.AssignmentExpression => JintAssignmentExpression.Build(engine, (AssignmentExpression) expression),
                 Nodes.ArrayExpression => new JintArrayExpression((ArrayExpression) expression),
-                Nodes.ArrowFunctionExpression => new JintArrowFunctionExpression(engine, (IFunction) expression),
+                Nodes.ArrowFunctionExpression => new JintArrowFunctionExpression(engine, (ArrowFunctionExpression) expression),
                 Nodes.BinaryExpression => JintBinaryExpression.Build(engine, (BinaryExpression) expression),
                 Nodes.CallExpression => new JintCallExpression((CallExpression) expression),
                 Nodes.ConditionalExpression => new JintConditionalExpression(engine, (ConditionalExpression) expression),
-                Nodes.FunctionExpression => new JintFunctionExpression(engine, (IFunction) expression),
+                Nodes.FunctionExpression => new JintFunctionExpression(engine, (FunctionExpression) expression),
                 Nodes.Identifier => new JintIdentifierExpression((Identifier) expression),
-                Nodes.Literal => JintLiteralExpression.Build(engine, (Literal) expression),
+                Nodes.Literal => JintLiteralExpression.Build((Literal) expression),
                 Nodes.LogicalExpression => ((BinaryExpression) expression).Operator switch
                 {
                     BinaryOperator.LogicalAnd => new JintLogicalAndExpression((BinaryExpression) expression),
@@ -357,7 +430,8 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             for (var i = 0; i < jintExpressions.Length; i++)
             {
-                targetArray[i] = jintExpressions[i].GetValue(context).Clone();
+                var completion = jintExpressions[i].GetValue(context);
+                targetArray[i] = completion.Value!.Clone();
             }
         }
 
@@ -390,7 +464,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else
                 {
-                    args.Add(jintExpression.GetValue(context).Clone());
+                    var completion = jintExpression.GetValue(context);
+                    args.Add(completion.Value!.Clone());
                 }
             }
 

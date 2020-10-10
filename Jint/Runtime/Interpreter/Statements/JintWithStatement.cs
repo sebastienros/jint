@@ -24,7 +24,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            var jsValue = _object.GetValue(context);
+            var jsValue = _object.GetValue(context).Value;
             var engine = context.Engine;
             var obj = TypeConverter.ToObject(engine.Realm, jsValue);
             var oldEnv = engine.ExecutionContext.LexicalEnvironment;

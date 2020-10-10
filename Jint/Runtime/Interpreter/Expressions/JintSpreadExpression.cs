@@ -15,24 +15,24 @@ namespace Jint.Runtime.Interpreter.Expressions
             _argumentName = (expression.Argument as Identifier)?.Name;
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
             GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
-            return objectInstance;
+            return NormalCompletion(objectInstance);
         }
 
-        public override JsValue GetValue(EvaluationContext context)
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
             context.LastSyntaxNode = _expression;
 
             GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
-            return objectInstance;
+            return Completion.Normal(objectInstance, _expression.Location);
         }
 
         internal void GetValueAndCheckIterator(EvaluationContext context, out JsValue instance, out IIterator iterator)
         {
-            instance = _argument.GetValue(context);
+            instance = _argument.GetValue(context).Value;
             if (instance is null || !instance.TryGetIterator(context.Engine.Realm, out iterator))
             {
                 iterator = null;

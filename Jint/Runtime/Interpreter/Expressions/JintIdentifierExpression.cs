@@ -22,7 +22,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         public bool HasEvalOrArguments
             => _expressionName.Key == KnownKeys.Eval || _expressionName.Key == KnownKeys.Arguments;
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
             var engine = context.Engine;
             var env = engine.ExecutionContext.LexicalEnvironment;
@@ -31,31 +31,30 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? temp
                 : JsValue.Undefined;
 
-            return engine._referencePool.Rent(identifierEnvironment, _expressionName.StringValue, strict, thisValue: null);
+            return NormalCompletion(engine._referencePool.Rent(identifierEnvironment, _expressionName.StringValue, strict, thisValue: null));
         }
 
-        public override JsValue GetValue(EvaluationContext context)
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
             context.LastSyntaxNode = _expression;
 
             if (_calculatedValue is not null)
             {
-                return _calculatedValue;
+                return Completion.Normal(_calculatedValue, _expression.Location);
             }
 
             var strict = StrictModeScope.IsStrictModeCode;
             var engine = context.Engine;
             var env = engine.ExecutionContext.LexicalEnvironment;
 
-            JsValue value;
             if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 engine,
                 env,
                 _expressionName,
                 strict,
                 out _,
-                out value))
+                out var value))
             {
                 if (value is null)
                 {
@@ -74,7 +73,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 argumentsInstance.Materialize();
             }
 
-            return value;
+            return Completion.Normal(value, _expression.Location);
         }
     }
 }

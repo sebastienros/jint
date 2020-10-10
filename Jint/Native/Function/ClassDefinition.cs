@@ -73,7 +73,7 @@ namespace Jint.Native.Function
             else
             {
                 engine.UpdateLexicalEnvironment(classScope);
-                var superclass = JintExpression.Build(engine, _superClass).GetValue(context);
+                var superclass = JintExpression.Build(engine, _superClass).GetValue(context).Value;
                 engine.UpdateLexicalEnvironment(env);
 
                 if (superclass.IsNull())

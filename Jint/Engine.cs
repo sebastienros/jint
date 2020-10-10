@@ -408,7 +408,7 @@ namespace Jint
                 return jsValue;
             }
 
-            if (!(value is Reference reference))
+            if (value is not Reference reference)
             {
                 return ((Completion) value).Value;
             }
@@ -868,7 +868,7 @@ namespace Jint
 
             foreach (var f in functionToInitialize)
             {
-                var fn = f.Function.Id!.Name;
+                var fn = f.Name;
 
                 if (env.HasLexicalDeclaration(fn))
                 {
@@ -891,12 +891,12 @@ namespace Jint
         /// </summary>
         internal ArgumentsInstance FunctionDeclarationInstantiation(
             FunctionInstance functionInstance,
-            JsValue[] argumentsList,
-            EnvironmentRecord env)
+            JsValue[] argumentsList)
         {
+            var calleeContext = ExecutionContext;
             var func = functionInstance._functionDefinition;
 
-            var envRec = (FunctionEnvironmentRecord) env;
+            var env = (FunctionEnvironmentRecord) ExecutionContext.LexicalEnvironment;
             var strict = StrictModeScope.IsStrictModeCode;
 
             var configuration = func.Initialize(functionInstance);
@@ -906,7 +906,7 @@ namespace Jint
             var hasParameterExpressions = configuration.HasParameterExpressions;
 
             var canInitializeParametersOnDeclaration = simpleParameterList && !configuration.HasDuplicates;
-            envRec.InitializeParameters(parameterNames, hasDuplicates,
+            env.InitializeParameters(parameterNames, hasDuplicates,
                 canInitializeParametersOnDeclaration ? argumentsList : null);
 
             ArgumentsInstance ao = null;
@@ -920,23 +920,23 @@ namespace Jint
                 {
                     // NOTE: mapped argument object is only provided for non-strict functions that don't have a rest parameter,
                     // any parameter default value initializers, or any destructured parameters.
-                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, envRec, configuration.HasRestParameter);
+                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, env, configuration.HasRestParameter);
                 }
 
                 if (strict)
                 {
-                    envRec.CreateImmutableBindingAndInitialize(KnownKeys.Arguments, strict: false, ao);
+                    env.CreateImmutableBindingAndInitialize(KnownKeys.Arguments, strict: false, ao);
                 }
                 else
                 {
-                    envRec.CreateMutableBindingAndInitialize(KnownKeys.Arguments, canBeDeleted: false, ao);
+                    env.CreateMutableBindingAndInitialize(KnownKeys.Arguments, canBeDeleted: false, ao);
                 }
             }
 
             if (!canInitializeParametersOnDeclaration)
             {
                 // slower set
-                envRec.AddFunctionParameters(_activeEvaluationContext, func.Function, argumentsList);
+                env.AddFunctionParameters(_activeEvaluationContext, func.Function, argumentsList);
             }
 
             // Let iteratorRecord be CreateListIteratorRecord(argumentsList).
@@ -946,32 +946,30 @@ namespace Jint
             //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
 
             EnvironmentRecord varEnv;
-            DeclarativeEnvironmentRecord varEnvRec;
             if (!hasParameterExpressions)
             {
                 // NOTE: Only a single lexical environment is needed for the parameters and top-level vars.
                 for (var i = 0; i < configuration.VarsToInitialize.Count; i++)
                 {
                     var pair = configuration.VarsToInitialize[i];
-                    envRec.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined);
+                    env.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined);
                 }
 
                 varEnv = env;
-                varEnvRec = envRec;
             }
             else
             {
                 // NOTE: A separate Environment Record is needed to ensure that closures created by expressions
                 // in the formal parameter list do not have visibility of declarations in the function body.
-                varEnv = JintEnvironment.NewDeclarativeEnvironment(this, env);
-                varEnvRec = (DeclarativeEnvironmentRecord) varEnv;
+                var varEnvRec = JintEnvironment.NewDeclarativeEnvironment(this, env);
+                varEnv = varEnvRec;
 
                 UpdateVariableEnvironment(varEnv);
 
                 for (var i = 0; i < configuration.VarsToInitialize.Count; i++)
                 {
                     var pair = configuration.VarsToInitialize[i];
-                    var initialValue = pair.InitialValue ?? envRec.GetBindingValue(pair.Name, strict: false);
+                    var initialValue = pair.InitialValue ?? env.GetBindingValue(pair.Name, strict: false);
                     varEnvRec.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, initialValue);
                 }
             }
@@ -993,56 +991,40 @@ namespace Jint
                 lexEnv = varEnv;
             }
 
-            var lexEnvRec = lexEnv;
-
             UpdateLexicalEnvironment(lexEnv);
 
             if (configuration.LexicalDeclarations.Length > 0)
             {
-                InitializeLexicalDeclarations(configuration.LexicalDeclarations, lexEnvRec);
+                foreach (var d in configuration.LexicalDeclarations)
+                {
+                    for (var j = 0; j < d.BoundNames.Count; j++)
+                    {
+                        var dn = d.BoundNames[j];
+                        if (d.Kind == VariableDeclarationKind.Const)
+                        {
+                            lexEnv.CreateImmutableBinding(dn, strict: true);
+                        }
+                        else
+                        {
+                            lexEnv.CreateMutableBinding(dn, canBeDeleted: false);
+                        }
+                    }
+                }
             }
 
             if (configuration.FunctionsToInitialize != null)
             {
-                InitializeFunctions(configuration.FunctionsToInitialize, lexEnv, varEnvRec);
+                var privateEnv = calleeContext.PrivateEnvironment;
+                var realm = Realm;
+                foreach (var f in configuration.FunctionsToInitialize)
+                {
+                    var fn = f.Name;
+                    var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
+                    varEnv.SetMutableBinding(fn, fo, strict: false);
+                }
             }
 
             return ao;
-        }
-
-        private void InitializeFunctions(
-            LinkedList<JintFunctionDefinition> functionsToInitialize,
-            EnvironmentRecord lexEnv,
-            DeclarativeEnvironmentRecord varEnvRec)
-        {
-            var realm = Realm;
-            foreach (var f in functionsToInitialize)
-            {
-                var fn = f.Function.Id.Name;
-                var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
-                varEnvRec.SetMutableBinding(fn, fo, strict: false);
-            }
-        }
-
-        private static void InitializeLexicalDeclarations(
-            JintFunctionDefinition.State.LexicalVariableDeclaration[] lexicalDeclarations,
-            EnvironmentRecord lexEnvRec)
-        {
-            foreach (var d in lexicalDeclarations)
-            {
-                for (var j = 0; j < d.BoundNames.Count; j++)
-                {
-                    var dn = d.BoundNames[j];
-                    if (d.Kind == VariableDeclarationKind.Const)
-                    {
-                        lexEnvRec.CreateImmutableBinding(dn, strict: true);
-                    }
-                    else
-                    {
-                        lexEnvRec.CreateMutableBinding(dn, canBeDeleted: false);
-                    }
-                }
-            }
         }
 
         private ArgumentsInstance CreateMappedArgumentsObject(
@@ -1193,7 +1175,7 @@ namespace Jint
 
             foreach (var f in functionsToInitialize)
             {
-                var fn = f.Function.Id.Name;
+                var fn = f.Name;
                 var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
                 if (varEnvRec is GlobalEnvironmentRecord ger)
                 {

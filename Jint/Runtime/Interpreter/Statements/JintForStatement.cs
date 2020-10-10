@@ -126,7 +126,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 if (_test != null)
                 {
-                    if (!TypeConverter.ToBoolean(_test.GetValue(context)))
+                    if (!TypeConverter.ToBoolean(_test.GetValue(context).Value))
                     {
                         return NormalCompletion(v);
                     }
@@ -172,13 +172,12 @@ namespace Jint.Runtime.Interpreter.Statements
             var lastIterationEnvRec = lastIterationEnv;
             var outer = lastIterationEnv._outerEnv;
             var thisIterationEnv = JintEnvironment.NewDeclarativeEnvironment(engine, outer);
-            var thisIterationEnvRec = (DeclarativeEnvironmentRecord) thisIterationEnv;
 
             for (var j = 0; j < _boundNames.Count; j++)
             {
                 var bn = _boundNames[j];
                 var lastValue = lastIterationEnvRec.GetBindingValue(bn, true);
-                thisIterationEnvRec.CreateMutableBindingAndInitialize(bn, false, lastValue);
+                thisIterationEnv.CreateMutableBindingAndInitialize(bn, false, lastValue);
             }
 
             engine.UpdateLexicalEnvironment(thisIterationEnv);

@@ -20,18 +20,18 @@ namespace Jint.Runtime.Interpreter.Expressions
             _right = Build(context.Engine, expression.Right);
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            var left = _left.GetValue(context);
+            var left = _left.GetValue(context).Value;
 
             if (left is JsBoolean b && !b._value)
             {
-                return b;
+                return NormalCompletion(b);
             }
 
             if (!TypeConverter.ToBoolean(left))
             {
-                return left;
+                return NormalCompletion(left);
             }
 
             return _right.GetValue(context);

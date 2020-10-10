@@ -25,26 +25,26 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        public override JsValue GetValue(EvaluationContext context)
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
             context.LastSyntaxNode = _expression;
-            return EvaluateConstantOrExpression(context);
+            return Completion.Normal(EvaluateConstantOrExpression(context), _expression.Location);
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            return EvaluateConstantOrExpression(context);
+            return NormalCompletion(EvaluateConstantOrExpression(context));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private JsValue EvaluateConstantOrExpression(EvaluationContext context)
         {
-            var left = _left.GetValue(context);
+            var left = _left.GetValue(context).Value;
 
             return !left.IsNullOrUndefined()
                 ? left
-                : _constant ?? _right.GetValue(context);
+                : _constant ?? _right.GetValue(context).Value;
         }
     }
 }

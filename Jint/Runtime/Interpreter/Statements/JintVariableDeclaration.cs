@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaration>
     {
-        private static readonly Completion VoidCompletion = new Completion(CompletionType.Normal, null, null, default);
+        private static readonly Completion VoidCompletion = new(CompletionType.Normal, null!, default);
 
         private ResolvedDeclaration[] _declarations;
 
@@ -70,11 +70,12 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 if (_statement.Kind != VariableDeclarationKind.Var && declaration.Left != null)
                 {
-                    var lhs = (Reference) declaration.Left.Evaluate(context);
+                    var lhs = (Reference) declaration.Left.Evaluate(context).Value;
                     var value = JsValue.Undefined;
                     if (declaration.Init != null)
                     {
-                        value = declaration.Init.GetValue(context).Clone();
+                        var completion = declaration.Init.GetValue(context);
+                        value = completion.Value.Clone();
                         if (declaration.Init._expression.IsFunctionDefinition())
                         {
                             ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
@@ -92,12 +93,12 @@ namespace Jint.Runtime.Interpreter.Statements
                             ? engine.ExecutionContext.LexicalEnvironment
                             : null;
 
-                        var value = declaration.Init.GetValue(context);
+                        var completion = declaration.Init.GetValue(context);
 
                         BindingPatternAssignmentExpression.ProcessPatterns(
                             context,
                             declaration.LeftPattern,
-                            value,
+                            completion.Value,
                             environment,
                             checkObjectPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
                     }
@@ -109,10 +110,11 @@ namespace Jint.Runtime.Interpreter.Statements
                                  declaration.EvalOrArguments) is null)
                     {
                         // slow path
-                        var lhs = (Reference) declaration.Left.Evaluate(context);
+                        var lhs = (Reference) declaration.Left.Evaluate(context).Value;
                         lhs.AssertValid(engine.Realm);
 
-                        var value = declaration.Init.GetValue(context).Clone();
+                        var completion = declaration.Init.GetValue(context);
+                        var value = completion.Value.Clone();
 
                         if (declaration.Init._expression.IsFunctionDefinition())
                         {

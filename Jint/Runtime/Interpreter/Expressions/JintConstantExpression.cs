@@ -15,20 +15,14 @@ namespace Jint.Runtime.Interpreter.Expressions
             _value = value;
         }
 
-        /// <summary>
-        /// Resolves the underlying value for this expression.
-        /// By default uses the Engine for resolving.
-        /// </summary>
-        /// <param name="context"></param>
-        /// <seealso cref="JintLiteralExpression"/>
-        public override JsValue GetValue(EvaluationContext context)
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
             context.LastSyntaxNode = _expression;
 
-            return _value;
+            return Completion.Normal(_value, _expression.Location);
         }
 
-        protected override object EvaluateInternal(EvaluationContext context) => _value;
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context) => NormalCompletion(_value);
     }
 }

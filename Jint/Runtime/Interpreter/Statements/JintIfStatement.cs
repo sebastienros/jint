@@ -23,7 +23,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
             Completion result;
-            if (TypeConverter.ToBoolean(_test.GetValue(context)))
+            if (TypeConverter.ToBoolean(_test.GetValue(context).Value))
             {
                 result = _statementConsequent.Execute(context);
             }
@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             else
             {
-                return new Completion(CompletionType.Normal, null, null, Location);
+                return new Completion(CompletionType.Normal, null, Location);
             }
 
             return result;

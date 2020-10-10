@@ -43,22 +43,27 @@ namespace Jint.Runtime.Interpreter.Expressions
             return new JintUnaryExpression(engine, expression);
         }
 
-        public override JsValue GetValue(EvaluationContext context)
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
             context.LastSyntaxNode = _expression;
 
-            return (JsValue) EvaluateInternal(context);
+            return Completion.Normal(EvaluateJsValue(context), _expression.Location);
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        {
+            return NormalCompletion(EvaluateJsValue(context));
+        }
+
+        private JsValue EvaluateJsValue(EvaluationContext context)
         {
             var engine = context.Engine;
             switch (_operator)
             {
                 case UnaryOperator.Plus:
                 {
-                    var v = _argument.GetValue(context);
+                    var v = _argument.GetValue(context).Value;
                     if (context.OperatorOverloadingAllowed &&
                         TryOperatorOverloading(context, v, "op_UnaryPlus", out var result))
                     {
@@ -71,7 +76,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 case UnaryOperator.Minus:
                 {
-                    var v = _argument.GetValue(context);
+                    var v = _argument.GetValue(context).Value;
                     if (context.OperatorOverloadingAllowed &&
                         TryOperatorOverloading(context, v, "op_UnaryNegation", out var result))
                     {
@@ -82,7 +87,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 case UnaryOperator.BitwiseNot:
                 {
-                    var v = _argument.GetValue(context);
+                    var v = _argument.GetValue(context).Value;
                     if (context.OperatorOverloadingAllowed &&
                         TryOperatorOverloading(context, v, "op_OnesComplement", out var result))
                     {
@@ -93,7 +98,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 case UnaryOperator.LogicalNot:
                 {
-                    var v = _argument.GetValue(context);
+                    var v = _argument.GetValue(context).Value;
                     if (context.OperatorOverloadingAllowed &&
                         TryOperatorOverloading(context, v, "op_LogicalNot", out var result))
                     {
@@ -104,7 +109,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
 
                 case UnaryOperator.Delete:
-                    var r = _argument.Evaluate(context) as Reference;
+                    var r = _argument.Evaluate(context).Value as Reference;
                     if (r == null)
                     {
                         return JsBoolean.True;
@@ -156,7 +161,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 case UnaryOperator.TypeOf:
                 {
-                    var value = _argument.Evaluate(context);
+                    var value = _argument.Evaluate(context).Value;
                     r = value as Reference;
                     if (r != null)
                     {
@@ -168,7 +173,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     // TODO: double evaluation problem
-                    var v = _argument.GetValue(context);
+                    var v = _argument.GetValue(context).Value;
                     if (v.IsUndefined())
                     {
                         return JsString.UndefinedString;

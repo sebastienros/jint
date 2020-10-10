@@ -24,7 +24,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            var value = _discriminant.GetValue(context);
+            var value = _discriminant.GetValue(context).Value;
             var r = _switchBlock.Execute(context, value);
             if (r.Type == CompletionType.Break && r.Target == _statement.LabelSet?.Name)
             {

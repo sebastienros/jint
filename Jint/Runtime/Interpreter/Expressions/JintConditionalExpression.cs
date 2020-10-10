@@ -15,9 +15,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             _alternate = Build(engine, expression.Alternate);
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            return TypeConverter.ToBoolean(_test.GetValue(context))
+            return TypeConverter.ToBoolean(_test.GetValue(context).Value)
                 ? _consequent.GetValue(context)
                 : _alternate.GetValue(context);
         }
