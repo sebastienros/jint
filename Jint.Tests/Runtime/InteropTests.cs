@@ -2249,5 +2249,21 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal("Orange", engine.Execute("m.Member1").GetCompletionValue().ToString());
         }
+
+        [Fact]
+        public void SettingValueViaIntegerIndexer()
+        {			
+            var engine = new Engine(cfg => cfg.AllowClr(typeof(FloatIndexer).GetTypeInfo().Assembly));
+            engine.SetValue("log", new Action<object>(Console.WriteLine));
+            engine.Execute(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                var fia = new domain.IntegerIndexer();
+                log(fia[0]);
+            ");
+            
+            Assert.Equal(123, engine.Execute("fia[0]").GetCompletionValue().AsNumber());
+            engine.Execute("fia[0] = 678;");
+            Assert.Equal(678, engine.Execute("fia[0]").GetCompletionValue().AsNumber());
+        }
     }
 }
