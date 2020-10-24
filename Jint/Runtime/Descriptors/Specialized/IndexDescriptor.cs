@@ -121,7 +121,15 @@ namespace Jint.Runtime.Descriptors.Specialized
                     ExceptionHelper.ThrowInvalidOperationException("Indexer has no public setter.");
                 }
 
-                object[] parameters = { _key,  value?.ToObject() };
+                var obj = value?.ToObject();
+                
+                // attempt to convert to expected type
+                if (obj != null && obj.GetType() != _indexer.PropertyType)
+                {
+                    obj = _engine.ClrTypeConverter.Convert(obj, _indexer.PropertyType, CultureInfo.InvariantCulture);
+                }
+                
+                object[] parameters = { _key,  obj };
                 try
                 {
                     setter!.Invoke(_target, parameters);
