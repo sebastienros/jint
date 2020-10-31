@@ -395,7 +395,7 @@ namespace Jint.Native
         /// <returns>The value returned by the function call.</returns>
         internal JsValue Invoke(JsValue thisObj, JsValue[] arguments)
         {
-            var callable = this as ICallable ?? ExceptionHelper.ThrowArgumentException<ICallable>("Can only invoke functions");
+            var callable = this as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
             return callable.Call(thisObj, arguments);
         }
         

@@ -647,7 +647,7 @@ namespace Jint
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(JsValue value, object thisObj, object[] arguments)
         {
-            var callable = value as ICallable ?? ExceptionHelper.ThrowArgumentException<ICallable>("Can only invoke functions");
+            var callable = value as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(this, "Can only invoke functions");
 
             var items = _jsValueArrayPool.RentArray(arguments.Length);
             for (int i = 0; i < arguments.Length; ++i)
