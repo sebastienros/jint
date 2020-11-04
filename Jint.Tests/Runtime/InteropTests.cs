@@ -11,6 +11,7 @@ using Jint.Native.Object;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
+using Newtonsoft.Json.Linq;
 using Shapes;
 using Xunit;
 
@@ -2252,7 +2253,7 @@ namespace Jint.Tests.Runtime
 
         [Fact]
         public void SettingValueViaIntegerIndexer()
-        {			
+        {
             var engine = new Engine(cfg => cfg.AllowClr(typeof(FloatIndexer).GetTypeInfo().Assembly));
             engine.SetValue("log", new Action<object>(Console.WriteLine));
             engine.Execute(@"
@@ -2260,10 +2261,21 @@ namespace Jint.Tests.Runtime
                 var fia = new domain.IntegerIndexer();
                 log(fia[0]);
             ");
-            
+
             Assert.Equal(123, engine.Execute("fia[0]").GetCompletionValue().AsNumber());
             engine.Execute("fia[0] = 678;");
             Assert.Equal(678, engine.Execute("fia[0]").GetCompletionValue().AsNumber());
+        }
+
+        [Fact]
+        public void AccessingJObjectShouldWork()
+        {
+            var o = new JObject
+            {
+                new JProperty("name", "test-name")
+            };
+            _engine.SetValue("o", o);
+            Assert.True(_engine.Execute("return o.name == 'test-name'").GetCompletionValue().AsBoolean());
         }
     }
 }
