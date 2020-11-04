@@ -1025,7 +1025,7 @@ namespace Jint.Tests.Runtime
 
             var x = _engine.GetValue("x");
 
-            Assert.Throws<ArgumentException>(() => x.Invoke(1, 2));
+            Assert.Throws<TypeErrorException>(() => x.Invoke(1, 2));
         }
 
         [Fact]
@@ -1051,7 +1051,7 @@ namespace Jint.Tests.Runtime
             var obj = _engine.GetValue("obj").AsObject();
             var foo = obj.Get("foo", obj);
 
-            Assert.Throws<ArgumentException>(() => _engine.Invoke(foo, obj, new object[] { }));
+            Assert.Throws<JavaScriptException>(() => _engine.Invoke(foo, obj, new object[] { }));
         }
 
         [Fact]

@@ -8,6 +8,7 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
@@ -1107,7 +1108,7 @@ namespace Jint.Tests.Runtime
                 var x= 10;
             ");
 
-            Assert.Throws<ArgumentException>(() => _engine.Invoke("x", 1, 2));
+            Assert.Throws<JavaScriptException>(() => _engine.Invoke("x", 1, 2));
         }
 
         [Fact]
