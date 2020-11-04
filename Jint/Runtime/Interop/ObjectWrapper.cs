@@ -83,6 +83,17 @@ namespace Jint.Runtime.Interop
             return true;
         }
 
+        public override JsValue Get(JsValue property, JsValue receiver)
+        {
+            if (property.IsSymbol())
+            {
+                // wrapped objects cannot have symbol properties
+                return Undefined;
+            }
+
+            return base.Get(property, receiver);
+        }
+
         public override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
         {
             return new List<JsValue>(EnumerateOwnPropertyKeys(types));
