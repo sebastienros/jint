@@ -1,0 +1,8 @@
+{
+  "name": "jint.tests.test262",
+  "version": "1.0.0",
+  "author": "",
+  "dependencies": {
+    "test262": "https://github.com/tc39/test262#0ec9dbe3b3a1562110b05fe92a4dc2142c7f0c4c"
+  }
+}

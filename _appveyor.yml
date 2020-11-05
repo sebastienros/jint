@@ -17,7 +17,11 @@ install:
   - ps: $env:NUGET_XMLDOC_MODE = "skip"
   - ps: $env:DOTNET_CLI_TELEMETRY_OPTOUT = 1
   - ps: $IsReleaseBranch = ($env:APPVEYOR_REPO_BRANCH -eq "master" -Or $env:APPVEYOR_REPO_BRANCH -eq "rel/3.0-beta")
-  - git submodule update --init --recursive
+  - cd .\Jint.Tests.Test262\
+  - npm ci
+  
+cache:
+  - .\Jint.Tests.Test262\node_modules -> appveyor.yml, .\Jint.Tests.Test262\package.json
 
 build_script:
   # Ensure we are not using the myget feed for dependencies

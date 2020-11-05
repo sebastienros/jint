@@ -11,6 +11,7 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Newtonsoft.Json.Linq;
+using Xunit;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
@@ -45,7 +46,9 @@ namespace Jint.Tests.Test262
             var assemblyPath = new Uri(typeof(Test262Test).GetTypeInfo().Assembly.Location).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
 
-            BasePath = assemblyDirectory.Parent.Parent.Parent.FullName;
+            BasePath = Path.Combine(assemblyDirectory.Parent.Parent.Parent.FullName, "node_modules/test262");
+
+            Assert.True(Directory.Exists(BasePath), "Could not find " + BasePath + ". Did you remember to run: 'npm install' ?");
 
             string[] files =
             {
@@ -75,7 +78,7 @@ namespace Jint.Tests.Test262
                 Sources[files[i]] = new JavaScriptParser(source, new ParserOptions(files[i])).ParseScript();
             }
 
-            var content = File.ReadAllText(Path.Combine(BasePath, "test/skipped.json"));
+            var content = File.ReadAllText(Path.Combine(BasePath, "../../skipped.json"));
             var doc = JArray.Parse(content);
             foreach (var entry in doc.Values<JObject>())
             {
@@ -242,10 +245,15 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "async not implemented";
                                 break;
+                            case "class-methods-private":
                             case "class-fields-private":
                             case "class-fields-public":
                                 skip = true;
-                                reason = "private/public class fields not implemented in esprima";
+                                reason = "private/public class fields/methods not implemented in esprima";
+                                break;
+                            case "hashbang":
+                                skip = true;
+                                reason = "hashbang not implemented";
                                 break;
                             case "super":
                                 skip = true;
