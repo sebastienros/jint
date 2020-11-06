@@ -1,6 +1,5 @@
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Object;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 

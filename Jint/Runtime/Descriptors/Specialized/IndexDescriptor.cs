@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using Jint.Native;
@@ -42,7 +43,12 @@ namespace Jint.Runtime.Descriptors.Specialized
                     var indexerProperty = candidate;
                     // get contains key method to avoid index exception being thrown in dictionaries
                     paramTypeArray[0] = paramType;
-                    var containsKeyMethod = targetType.GetMethod("ContainsKey", paramTypeArray);
+                    var containsKeyMethod = targetType.GetMethod(nameof(IDictionary<string,string>.ContainsKey), paramTypeArray);
+                    if (containsKeyMethod is null)
+                    {
+                        paramTypeArray[0] = typeof(object);
+                        containsKeyMethod = targetType.GetMethod(nameof(IDictionary.Contains), paramTypeArray);
+                    }
                     return (target) => new IndexDescriptor(engine, target, indexerProperty, containsKeyMethod, key);
                 }
 
