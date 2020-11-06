@@ -2278,5 +2278,14 @@ namespace Jint.Tests.Runtime
             _engine.SetValue("o", o);
             Assert.True(_engine.Execute("return o.name == 'test-name'").GetCompletionValue().AsBoolean());
         }
+
+        [Fact]
+        public void AccessingJArrayViaIntegerIndexShouldWork()
+        {
+            var o = new JArray("item1", "item2");
+            _engine.SetValue("o", o);
+            Assert.True(_engine.Execute("return o[0] == 'item1'").GetCompletionValue().AsBoolean());
+            Assert.True(_engine.Execute("return o[1] == 'item2'").GetCompletionValue().AsBoolean());
+        }
     }
 }

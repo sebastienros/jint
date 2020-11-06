@@ -4,7 +4,7 @@ using Jint.Native;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class FieldInfoDescriptor : PropertyDescriptor
+    internal sealed class FieldInfoDescriptor : PropertyDescriptor
     {
         private readonly Engine _engine;
         private readonly FieldInfo _fieldInfo;

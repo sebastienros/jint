@@ -3,7 +3,7 @@ using Jint.Native.Function;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class GetSetPropertyDescriptor : PropertyDescriptor
+    internal sealed class GetSetPropertyDescriptor : PropertyDescriptor
     {
         private JsValue _get;
         private JsValue _set;

@@ -128,6 +128,8 @@ namespace Jint.Native
             return _type == InternalTypes.Null;
         }
 
+        internal virtual bool IsIntegerIndexedArray => false;
+
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsSymbol()

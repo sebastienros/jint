@@ -78,7 +78,7 @@ namespace Jint
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
 
-        public ITypeConverter ClrTypeConverter { get; set; }
+        public ITypeConverter ClrTypeConverter { get; internal set; }
 
         // cache of types used when resolving CLR type names
         internal readonly Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
@@ -209,11 +209,10 @@ namespace Jint
                     (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
             }
 
-            ClrTypeConverter = new DefaultTypeConverter(this);
-
             Options.Apply(this);
+
+            ClrTypeConverter ??= new DefaultTypeConverter(this);
         }
-    
 
         internal LexicalEnvironment GlobalEnvironment { get; }
         public GlobalObject Global { get; }
