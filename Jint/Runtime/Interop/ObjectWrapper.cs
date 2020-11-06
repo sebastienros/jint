@@ -30,6 +30,7 @@ namespace Jint.Runtime.Interop
                     return;
                 }
                 IsArrayLike = true;
+                IsIntegerIndexedArray = typeof(IList).IsAssignableFrom(type);
 
                 var functionInstance = new ClrFunctionInstance(engine, "length", (thisObj, arguments) => JsNumber.Create((int) lengthProperty.GetValue(obj)));
                 var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
@@ -65,6 +66,8 @@ namespace Jint.Runtime.Interop
 
         public override bool IsArrayLike { get; }
 
+        internal override bool IsIntegerIndexedArray { get; }
+
         public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
             if (!CanPut(property))
@@ -89,6 +92,12 @@ namespace Jint.Runtime.Interop
             {
                 // wrapped objects cannot have symbol properties
                 return Undefined;
+            }
+
+            if (property.IsInteger() && Target is IList list)
+            {
+                var index = (int) ((JsNumber) property)._value;
+                return (uint) index < list.Count ? FromObject(_engine, list[index]) : Undefined;
             }
 
             return base.Get(property, receiver);
