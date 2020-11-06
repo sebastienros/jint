@@ -11,9 +11,7 @@ namespace Jint.Native.Function
     {
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
         private static readonly JsString _functionName = new JsString("Function");
-
-        private FunctionInstance _throwTypeError;
-        private static readonly char[] ArgumentNameSeparator = new[] { ',' };
+        private static readonly JsString _functionNameAnonymous = new JsString("anonymous");
 
         private FunctionConstructor(Engine engine)
             : base(engine, _functionName)
@@ -71,7 +69,37 @@ namespace Jint.Native.Function
             IFunction function;
             try
             {
-                var functionExpression = "function f(" + p + ") { " + body + "}";
+                string functionExpression;
+                if (argCount == 0)
+                {
+                    functionExpression = "function f(){}";
+                }
+                else
+                {
+                    functionExpression = "function f(";
+                    if (p.IndexOf('/') != -1)
+                    {
+                        // ensure comments don't screw up things
+                        functionExpression += "\n" + p + "\n";
+                    }
+                    else
+                    {
+                        functionExpression += p;
+                    }
+
+                    functionExpression += ")";
+
+                    if (body.IndexOf('/') != -1)
+                    {
+                        // ensure comments don't screw up things
+                        functionExpression += "{\n" + body + "\n}";
+                    }
+                    else
+                    {
+                        functionExpression += "{" + body + "}";
+                    }
+                }
+
                 var parser = new JavaScriptParser(functionExpression, ParserOptions);
                 function = (IFunction) parser.ParseScript().Body[0];
             }
@@ -85,6 +113,9 @@ namespace Jint.Native.Function
                 function,
                 _engine.GlobalEnvironment,
                 function.Strict);
+
+            // the function is not actually a named function
+            functionObject.SetFunctionName(_functionNameAnonymous, force: true);
 
             return functionObject;
         }
@@ -103,20 +134,6 @@ namespace Jint.Native.Function
                 functionDeclaration.Strict || _engine._isStrict);
 
             return functionObject;
-        }
-
-        public FunctionInstance ThrowTypeError
-        {
-            get
-            {
-                if (!ReferenceEquals(_throwTypeError, null))
-                {
-                    return _throwTypeError;
-                }
-
-                _throwTypeError = new ThrowTypeError(Engine);
-                return _throwTypeError;
-            }
         }
 
         public object Apply(JsValue thisObject, JsValue[] arguments)

@@ -57,5 +57,11 @@ namespace Jint.Tests.Runtime
             Assert.Equal("Invalid Date", value);
         }
 
+        [Fact]
+        public void ToJsonFromNaNObject()
+        {
+            var result = _engine.Execute("JSON.stringify({ date: new Date(NaN) });").GetCompletionValue();
+            Assert.Equal("{\"date\":null}", result.ToString());
+        }
     }
 }

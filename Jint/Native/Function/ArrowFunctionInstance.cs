@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -60,7 +59,7 @@ namespace Jint.Native.Function
                         arguments,
                         localEnv);
 
-                    var result = _function.Body.Execute();
+                    var result = _function.Execute();
 
                     var value = result.GetValueOrDefault().Clone();
 
@@ -80,29 +79,6 @@ namespace Jint.Native.Function
                 }
 
                 return Undefined;
-            }
-        }
-
-        public override bool Set(JsValue property, JsValue value, JsValue receiver)
-        {
-            AssertValidPropertyName(property);
-            return base.Set(property, value, receiver);
-        }
-
-        public override JsValue Get(JsValue property, JsValue receiver)
-        {
-            AssertValidPropertyName(property);
-            return base.Get(property, receiver);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void AssertValidPropertyName(JsValue property)
-        {
-            if (property == CommonProperties.Caller
-                || property ==  CommonProperties.Callee
-                || property == CommonProperties.Arguments)
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
             }
         }
     }

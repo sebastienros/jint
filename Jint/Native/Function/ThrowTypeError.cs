@@ -7,9 +7,12 @@ namespace Jint.Native.Function
     {
         private static readonly JsString _functionName = new JsString("throwTypeError");
 
-        public ThrowTypeError(Engine engine)
+        private readonly string _message;
+
+        public ThrowTypeError(Engine engine, string message = null)
             : base(engine, _functionName)
         {
+            _message = message;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
             _environment = engine.GlobalEnvironment;
             PreventExtensions();
@@ -17,7 +20,7 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
+            return ExceptionHelper.ThrowTypeError<JsValue>(_engine, _message);
         }
     }
 }

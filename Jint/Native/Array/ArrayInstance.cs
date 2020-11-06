@@ -222,6 +222,11 @@ namespace Jint.Native.Array
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal uint GetLength()
         {
+            if (_length is null)
+            {
+                return 0;
+            }
+            
             return (uint) ((JsNumber) _length._value)._value;
         }
 
@@ -648,13 +653,15 @@ namespace Jint.Native.Array
 
         internal void EnsureCapacity(uint capacity)
         {
-            if (capacity <= MaxDenseArrayLength && capacity > (uint) _dense.Length)
+            if (capacity > MaxDenseArrayLength || _dense is null || capacity <= (uint) _dense.Length)
             {
-                // need to grow
-                var newArray = new PropertyDescriptor[capacity];
-                System.Array.Copy(_dense, newArray, _dense.Length);
-                _dense = newArray;
+                return;
             }
+
+            // need to grow
+            var newArray = new PropertyDescriptor[capacity];
+            System.Array.Copy(_dense, newArray, _dense.Length);
+            _dense = newArray;
         }
 
         public IEnumerator<JsValue> GetEnumerator()
@@ -819,6 +826,8 @@ namespace Jint.Native.Array
         }
 
         public override uint Length => GetLength();
+
+        internal override bool IsIntegerIndexedArray => true;
 
         public JsValue this[uint index]
         {

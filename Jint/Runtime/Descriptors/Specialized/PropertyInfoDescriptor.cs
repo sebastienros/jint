@@ -4,13 +4,14 @@ using Jint.Native;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class PropertyInfoDescriptor : PropertyDescriptor
+    internal sealed class PropertyInfoDescriptor : PropertyDescriptor
     {
         private readonly Engine _engine;
         private readonly PropertyInfo _propertyInfo;
         private readonly object _item;
 
-        public PropertyInfoDescriptor(Engine engine, PropertyInfo propertyInfo, object item) : base(PropertyFlag.CustomJsValue)
+        public PropertyInfoDescriptor(Engine engine, PropertyInfo propertyInfo, object item) 
+            : base(PropertyFlag.Enumerable | PropertyFlag.CustomJsValue)
         {
             _engine = engine;
             _propertyInfo = propertyInfo;

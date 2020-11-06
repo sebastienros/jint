@@ -9,7 +9,7 @@ using Jint.Runtime.Descriptors.Specialized;
 namespace Jint.Runtime.Interpreter.Expressions
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-11.1.5
+    /// http://www.ecma-international.org/ecma-262/#sec-object-initializer
     /// </summary>
     internal sealed class JintObjectExpression : JintExpression
     {

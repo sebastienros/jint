@@ -285,7 +285,11 @@ namespace Jint.Native.Object
 
         private JsValue DefineProperty(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            if (!(arguments.At(0) is ObjectInstance o))
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Object.defineProperty called on non-object");
+            }
+
             var p = arguments.At(1);
             var name = TypeConverter.ToPropertyKey(p);
 
@@ -293,12 +297,16 @@ namespace Jint.Native.Object
             var desc = PropertyDescriptor.ToPropertyDescriptor(Engine, attributes);
             o.DefinePropertyOrThrow(name, desc);
 
-            return o;
+            return arguments.At(0);
         }
 
         private JsValue DefineProperties(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.As<ObjectInstance>(0, _engine);
+            if (!(arguments.At(0) is ObjectInstance o))
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Object.defineProperty called on non-object");
+            }
+
             var properties = arguments.At(1);
             var props = TypeConverter.ToObject(Engine, properties);
             var descriptors = new List<KeyValuePair<JsValue, PropertyDescriptor>>();

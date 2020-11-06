@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -738,6 +739,40 @@ namespace Jint.Tests.Runtime
             );
         }
 
+        [Fact]
+        public void ShouldThrowExecutionCanceled()
+        {
+            Assert.Throws<ExecutionCanceledException>(
+                () =>
+                {
+                    using (var tcs = new CancellationTokenSource())
+                    using (var waitHandle = new ManualResetEvent(false))
+                    {
+                        var engine = new Engine(cfg => cfg.CancellationToken(tcs.Token));
+
+                        ThreadPool.QueueUserWorkItem(state =>
+                        {
+                            waitHandle.WaitOne();
+                            tcs.Cancel();
+                        });
+
+                        engine.SetValue("waitHandle", waitHandle);
+                        engine.Execute(@"
+                            function sleep(millisecondsTimeout) {
+                                var totalMilliseconds = new Date().getTime() + millisecondsTimeout;
+
+                                while (new Date() < totalMilliseconds) { }
+                            }
+
+                            sleep(100);
+                            waitHandle.Set();
+                            sleep(5000);
+                        ");
+                    }
+                }
+            );
+        }
+
 
         [Fact]
         public void CanDiscardRecursion()
@@ -990,7 +1025,7 @@ namespace Jint.Tests.Runtime
 
             var x = _engine.GetValue("x");
 
-            Assert.Throws<ArgumentException>(() => x.Invoke(1, 2));
+            Assert.Throws<TypeErrorException>(() => x.Invoke(1, 2));
         }
 
         [Fact]
@@ -1016,7 +1051,7 @@ namespace Jint.Tests.Runtime
             var obj = _engine.GetValue("obj").AsObject();
             var foo = obj.Get("foo", obj);
 
-            Assert.Throws<ArgumentException>(() => _engine.Invoke(foo, obj, new object[] { }));
+            Assert.Throws<JavaScriptException>(() => _engine.Invoke(foo, obj, new object[] { }));
         }
 
         [Fact]
@@ -2810,10 +2845,9 @@ x.test = {
         [Fact]
         public void ShouldOverrideDefaultTypeConverter()
         {
-            var engine = new Engine
-            {
-                ClrTypeConverter = new TestTypeConverter()
-            };
+            var engine = new Engine(options => options
+                .SetTypeConverter(e => new TestTypeConverter())
+            );
             Assert.IsType<TestTypeConverter>(engine.ClrTypeConverter);
             engine.SetValue("x", new Testificate());
             Assert.Throws<JavaScriptException>(() => engine.Execute("c.Name"));
@@ -2834,6 +2868,31 @@ x.test = {
             _engine.Execute("equal(false, str.hasOwnProperty('foo'));");
         }
 
+        [Fact]
+        public void ShouldProvideEngineForOptionsAsOverload()
+        {
+            new Engine((e, options) =>
+                {
+                    Assert.IsType<Engine>(e);
+                    options
+                        .AddObjectConverter(new TestObjectConverter())
+                        .AddObjectConverter<TestObjectConverter>();
+                })
+                .SetValue("a", 1);
+        }
+
+        [Fact]
+        public void ShouldReuseOptions()
+        {
+            var options = new Options().Configure(e => e.SetValue("x", 1));
+
+            var engine1 = new Engine(options);
+            var engine2 = new Engine(options);
+
+            Assert.Equal(1, Convert.ToInt32(engine1.GetValue("x").ToObject()));
+            Assert.Equal(1, Convert.ToInt32(engine2.GetValue("x").ToObject()));
+        }
+
         private class Wrapper
         {
             public Testificate Test { get; set; }
@@ -2845,9 +2904,16 @@ x.test = {
             public Func<int, int, int> Init { get; set; }
         }
 
+        private class TestObjectConverter : Jint.Runtime.Interop.IObjectConverter
+        {
+            public bool TryConvert(Engine engine, object value, out JsValue result)
+            {
+                throw new NotImplementedException();
+            }
+        }
+
         private class TestTypeConverter : Jint.Runtime.Interop.ITypeConverter
         {
-
             public object Convert(object value, Type type, IFormatProvider formatProvider)
             {
                 throw new NotImplementedException();

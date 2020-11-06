@@ -78,7 +78,7 @@ namespace Jint
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
 
-        public ITypeConverter ClrTypeConverter { get; set; }
+        public ITypeConverter ClrTypeConverter { get; internal set; }
 
         // cache of types used when resolving CLR type names
         internal readonly Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
@@ -105,52 +105,41 @@ namespace Jint
         };
 
         // shared frozen version
-        internal readonly PropertyDescriptor _getSetThrower;
-
-        internal readonly struct ClrPropertyDescriptorFactoriesKey : IEquatable<ClrPropertyDescriptorFactoriesKey>
-        {
-            public ClrPropertyDescriptorFactoriesKey(Type type, Key propertyName)
-            {
-                Type = type;
-                PropertyName = propertyName;
-            }
-
-            private readonly Type Type;
-            private readonly Key PropertyName;
-
-            public bool Equals(ClrPropertyDescriptorFactoriesKey other)
-            {
-                return Type == other.Type && PropertyName == other.PropertyName;
-            }
-
-            public override bool Equals(object obj)
-            {
-                if (ReferenceEquals(null, obj))
-                {
-                    return false;
-                }
-                return obj is ClrPropertyDescriptorFactoriesKey other && Equals(other);
-            }
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    return (Type.GetHashCode() * 397) ^ PropertyName.GetHashCode();
-                }
-            }
-        }
+        internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerConfigurable;
+        internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerNonConfigurable;
 
         internal readonly Dictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>> ClrPropertyDescriptorFactories =
             new Dictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>>();
 
         internal readonly JintCallStack CallStack = new JintCallStack();
 
-        public Engine() : this(null)
+        /// <summary>
+        /// Constructs a new engine instance.
+        /// </summary>
+        public Engine() : this((Action<Options>) null)
         {
         }
 
+        /// <summary>
+        /// Constructs a new engine instance and allows customizing options.
+        /// </summary>
         public Engine(Action<Options> options)
+            : this((engine, opts) => options?.Invoke(opts))
+        {
+        }
+
+        /// <summary>
+        /// Constructs a new engine with a custom <see cref="Options"/> instance.
+        /// </summary>
+        public Engine(Options options) : this((e, o) => e.Options = options)
+        {
+        }
+
+        /// <summary>
+        /// Constructs a new engine instance and allows customizing options.
+        /// </summary>
+        /// <remarks>The provided engine instance in callback is not guaranteed to be fully configured</remarks>
+        public Engine(Action<Engine, Options> options)
         {
             _executionContexts = new ExecutionContextStack(2);
 
@@ -158,7 +147,8 @@ namespace Jint
 
             Object = ObjectConstructor.CreateObjectConstructor(this);
             Function = FunctionConstructor.CreateFunctionConstructor(this);
-            _getSetThrower = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(Function.ThrowTypeError);
+            _callerCalleeArgumentsThrowerConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this,  PropertyFlag.Configurable | PropertyFlag.CustomJsValue, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
+            _callerCalleeArgumentsThrowerNonConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this, PropertyFlag.CustomJsValue, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
 
             Symbol = SymbolConstructor.CreateSymbolConstructor(this);
             Array = ArrayConstructor.CreateArrayConstructor(this);
@@ -193,9 +183,12 @@ namespace Jint
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
             EnterExecutionContext(GlobalEnvironment, GlobalEnvironment);
 
+            Eval = new EvalFunctionInstance(this);
+            Global.SetProperty(CommonProperties.Eval, new PropertyDescriptor(Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
+
             Options = new Options();
 
-            options?.Invoke(Options);
+            options?.Invoke(this, Options);
 
             // gather some options as fields for faster checks
             _isDebugMode = Options.IsDebugMode;
@@ -207,9 +200,6 @@ namespace Jint
             _argumentsInstancePool = new ArgumentsInstancePool(this);
             _jsValueArrayPool = new JsValueArrayPool();
 
-            Eval = new EvalFunctionInstance(this);
-            Global.SetProperty(CommonProperties.Eval, new PropertyDescriptor(Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
-
             if (Options._IsClrAllowed)
             {
                 Global.SetProperty("System", new PropertyDescriptor(new NamespaceReference(this, "System"), PropertyFlag.AllForbidden));
@@ -219,7 +209,9 @@ namespace Jint
                     (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
             }
 
-            ClrTypeConverter = new DefaultTypeConverter(this);
+            Options.Apply(this);
+
+            ClrTypeConverter ??= new DefaultTypeConverter(this);
         }
 
         internal LexicalEnvironment GlobalEnvironment { get; }
@@ -260,7 +252,7 @@ namespace Jint
 
         internal long CurrentMemoryUsage { get; private set; }
 
-        internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; }
+        internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; private set; }
 
         #region Debugger
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
@@ -450,8 +442,7 @@ namespace Jint
 
             if (baseValue._type == InternalTypes.Undefined)
             {
-                if (_referenceResolver != null &&
-                    _referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
+                if (_referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
                 {
                     return val;
                 }
@@ -459,8 +450,7 @@ namespace Jint
                 ExceptionHelper.ThrowReferenceError(this, reference);
             }
 
-            if (_referenceResolver != null
-                && (baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0
+            if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0
                 && _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
             {
                 return baseValue;
@@ -656,7 +646,7 @@ namespace Jint
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(JsValue value, object thisObj, object[] arguments)
         {
-            var callable = value as ICallable ?? ExceptionHelper.ThrowArgumentException<ICallable>("Can only invoke functions");
+            var callable = value as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(this, "Can only invoke functions");
 
             var items = _jsValueArrayPool.RentArray(arguments.Length);
             for (int i = 0; i < arguments.Length; ++i)

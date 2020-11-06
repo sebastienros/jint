@@ -276,7 +276,7 @@ namespace Jint.Native.Object
             return _symbols?.TryGetValue((JsSymbol) key, out descriptor) == true;
         }
 
-        public virtual bool HasOwnProperty(JsValue property)
+        public override bool HasOwnProperty(JsValue property)
         {
             EnsureInitialized();
 
@@ -1095,6 +1095,7 @@ namespace Jint.Native.Object
                                            && lengthValue.IsNumber()
                                            && ((JsNumber) lengthValue)._value >= 0;
 
+        internal override bool IsIntegerIndexedArray => false;
 
         public virtual uint Length => (uint) TypeConverter.ToLength(Get(CommonProperties.Length));
 

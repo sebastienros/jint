@@ -495,8 +495,10 @@ namespace Jint.Runtime
                 InternalTypes.Number => engine.Number.Construct(((JsNumber) value)._value),
                 InternalTypes.Integer => engine.Number.Construct(((JsNumber) value)._value),
                 InternalTypes.String => engine.String.Construct(value.ToString()),
-                InternalTypes.Symbol => engine.Symbol.Construct(((JsSymbol) value)),
-                _ => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine)
+                InternalTypes.Symbol => engine.Symbol.Construct((JsSymbol) value),
+                InternalTypes.Null => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Cannot convert undefined or null to object"),
+                InternalTypes.Undefined => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Cannot convert undefined or null to object"),
+                _ => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Cannot convert given item to object")
             };
         }
         
@@ -506,7 +508,7 @@ namespace Jint.Runtime
             MemberExpression expression,
             string referenceName)
         {
-            if (o._type < InternalTypes.Boolean && (engine.Options.ReferenceResolver?.CheckCoercible(o)).GetValueOrDefault() != true)
+            if (o._type < InternalTypes.Boolean && !engine.Options.ReferenceResolver.CheckCoercible(o))
             {
                 ThrowTypeError(engine, o, expression, referenceName);
             }
@@ -518,8 +520,8 @@ namespace Jint.Runtime
             MemberExpression expression,
             string referencedName)
         {
-            referencedName ??= "The value";
-            var message = $"{referencedName} is {o}";
+            referencedName ??= "unknown";
+            var message = $"Cannot read property '{referencedName}' of {o}";
             throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, expression.Location);
         }
 
