@@ -2845,10 +2845,9 @@ x.test = {
         [Fact]
         public void ShouldOverrideDefaultTypeConverter()
         {
-            var engine = new Engine
-            {
-                ClrTypeConverter = new TestTypeConverter()
-            };
+            var engine = new Engine(options => options
+                .SetTypeConverter(e => new TestTypeConverter())
+            );
             Assert.IsType<TestTypeConverter>(engine.ClrTypeConverter);
             engine.SetValue("x", new Testificate());
             Assert.Throws<JavaScriptException>(() => engine.Execute("c.Name"));

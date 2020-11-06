@@ -1,11 +1,12 @@
 ﻿using System;
+using System.Collections;
 using System.Globalization;
 using System.Reflection;
 using Jint.Native;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class IndexDescriptor : PropertyDescriptor
+    internal sealed class IndexDescriptor : PropertyDescriptor
     {
         private readonly Engine _engine;
         private readonly object _key;
@@ -13,35 +14,51 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly PropertyInfo _indexer;
         private readonly MethodInfo _containsKey;
 
-        public IndexDescriptor(Engine engine, Type targetType, string key, object target)
+        private static readonly PropertyInfo _iListIndexer = typeof(IList).GetProperty("Item");
+
+        internal IndexDescriptor(Engine engine, object target, PropertyInfo indexer, MethodInfo containsKey, object key)
             : base(PropertyFlag.Enumerable | PropertyFlag.CustomJsValue)
         {
             _engine = engine;
             _target = target;
-
-            if (!TryFindIndexer(engine, targetType, key, out _indexer, out _containsKey, out _key))
-            {
-                ExceptionHelper.ThrowArgumentException("invalid indexing configuration, target indexer not found");
-            }
-
+            _indexer = indexer;
+            _containsKey = containsKey;
+            _key = key;
             Writable = engine.Options._IsClrWriteAllowed;
-        }
-
-        public IndexDescriptor(Engine engine, string key, object item)
-            : this(engine, item.GetType(), key, item)
-        {
         }
 
         internal static bool TryFindIndexer(
             Engine engine,
             Type targetType,
             string propertyName,
-            out PropertyInfo indexerProperty,
-            out MethodInfo containsKeyMethod,
-            out object indexerKey)
+            out Func<object, IndexDescriptor> factory)
         {
-            // get all instance indexers with exactly 1 argument
             var paramTypeArray = new Type[1];
+            Func<object, IndexDescriptor> ComposeIndexerFactory(PropertyInfo candidate, Type paramType)
+            {
+                if (engine.ClrTypeConverter.TryConvert(propertyName, paramType, CultureInfo.InvariantCulture, out var key))
+                {
+                    // the key can be converted for this indexer
+                    var indexerProperty = candidate;
+                    // get contains key method to avoid index exception being thrown in dictionaries
+                    paramTypeArray[0] = paramType;
+                    var containsKeyMethod = targetType.GetMethod("ContainsKey", paramTypeArray);
+                    return (target) => new IndexDescriptor(engine, target, indexerProperty, containsKeyMethod, key);
+                }
+
+                // the key type doesn't work for this indexer
+                return null;
+            }
+
+            // default indexer wins
+            if (typeof(IList).IsAssignableFrom(targetType))
+            {
+                factory = ComposeIndexerFactory(_iListIndexer, typeof(int));
+                if (factory != null)
+                {
+                    return true;
+                }
+            }
 
             // try to find first indexer having either public getter or setter with matching argument type
             foreach (var candidate in targetType.GetProperties())
@@ -55,21 +72,15 @@ namespace Jint.Runtime.Descriptors.Specialized
                 if (candidate.GetGetMethod() != null || candidate.GetSetMethod() != null)
                 {
                     var paramType = indexParameters[0].ParameterType;
-
-                    if (engine.ClrTypeConverter.TryConvert(propertyName, paramType, CultureInfo.InvariantCulture, out indexerKey))
+                    factory = ComposeIndexerFactory(candidate, paramType);
+                    if (factory != null)
                     {
-                        indexerProperty = candidate;
-                        // get contains key method to avoid index exception being thrown in dictionaries
-                        paramTypeArray[0] = paramType;
-                        containsKeyMethod = targetType.GetMethod("ContainsKey", paramTypeArray);
                         return true;
                     }
                 }
             }
 
-            indexerProperty = default;
-            containsKeyMethod = default;
-            indexerKey = default;
+            factory = default;
             return false;
         }
 

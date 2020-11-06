@@ -4,7 +4,7 @@ using Jint.Native;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    public sealed class PropertyInfoDescriptor : PropertyDescriptor
+    internal sealed class PropertyInfoDescriptor : PropertyDescriptor
     {
         private readonly Engine _engine;
         private readonly PropertyInfo _propertyInfo;

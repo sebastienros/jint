@@ -259,15 +259,16 @@ namespace Jint.Runtime.Interop
 
                 if (methods?.Count > 0)
                 {
-                    return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, methods.ToArray()), PropertyFlag.OnlyEnumerable);
+                    var array = methods.ToArray();
+                    return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, array), PropertyFlag.OnlyEnumerable);
                 }
 
             }
 
             // if no methods are found check if target implemented indexing
-            if (IndexDescriptor.TryFindIndexer(_engine, type, propertyName, out _, out _, out _))
+            if (IndexDescriptor.TryFindIndexer(_engine, type, propertyName, out var indexerFactory))
             {
-                return (engine, target) => new IndexDescriptor(engine, propertyName, target);
+                return (engine, target) => indexerFactory(target);
             }
 
             // try to find a single explicit property implementation
@@ -305,15 +306,16 @@ namespace Jint.Runtime.Interop
 
             if (explicitMethods?.Count > 0)
             {
-                return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, explicitMethods.ToArray()), PropertyFlag.OnlyEnumerable);
+                var array = explicitMethods.ToArray();
+                return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, array), PropertyFlag.OnlyEnumerable);
             }
 
             // try to find explicit indexer implementations
-            foreach (Type interfaceType in type.GetInterfaces())
+            foreach (var interfaceType in type.GetInterfaces())
             {
-                if (IndexDescriptor.TryFindIndexer(_engine, interfaceType, propertyName, out _, out _, out _))
+                if (IndexDescriptor.TryFindIndexer(_engine, interfaceType, propertyName, out var interfaceIndexerFactory))
                 {
-                    return (engine, target) => new IndexDescriptor(engine, interfaceType, propertyName, target);
+                    return (engine, target) => interfaceIndexerFactory(target);
                 }
             }
 

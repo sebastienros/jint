@@ -90,6 +90,14 @@ namespace Jint
             return this;
         }
 
+        /// <summary>
+        /// Sets the type converter to use.
+        /// </summary>
+        public Options SetTypeConverter(Func<Engine, ITypeConverter> typeConverterFactory)
+        {
+            _configurations.Add(engine => engine.ClrTypeConverter = typeConverterFactory(engine));
+            return this;
+        }
 
         /// <summary>
         /// Registers a delegate that is called when CLR members are invoked. This allows
