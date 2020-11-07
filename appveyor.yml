@@ -43,12 +43,13 @@ deploy:
     server: https://www.nuget.org/api/v2/package
     api_key:
       secure: yZBBCLlJTphpHCezRUxyDny1mBbDw7xFG/2Rwt21A8khKp6KJCxFEYx4k9IihOjO
-    skip_symbols: true
-    artifact: /.*\.nupkg/  
+    artifact: /.*\.*nupkg/
   - provider: NuGet
     on:
       branch: master
     server: https://www.nuget.org/api/v2/package
     api_key:
       secure: yZBBCLlJTphpHCezRUxyDny1mBbDw7xFG/2Rwt21A8khKp6KJCxFEYx4k9IihOjO
-    artifact: /.*\.*nupkg/
+    skip_symbols: true
+    artifact: /.*\.nupkg/
+
