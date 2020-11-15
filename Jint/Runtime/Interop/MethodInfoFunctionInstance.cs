@@ -6,39 +6,38 @@ using Jint.Native.Function;
 
 namespace Jint.Runtime.Interop
 {
-    public sealed class MethodInfoFunctionInstance : FunctionInstance
+    internal sealed class MethodInfoFunctionInstance : FunctionInstance
     {
         private static readonly JsString _name = new JsString("Function");
-        private readonly MethodInfo[] _methods;
+        private readonly MethodDescriptor[] _methods;
 
-        public MethodInfoFunctionInstance(Engine engine, MethodInfo[] methods)
+        public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods)
             : base(engine, _name)
         {
             _methods = methods;
             _prototype = engine.Function.PrototypeObject;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
         {
-            return Invoke(_methods, thisObject, arguments);
-        }
-
-        public JsValue Invoke(MethodInfo[] methodInfos, JsValue thisObject, JsValue[] jsArguments)
-        {
-            JsValue[] ArgumentProvider(MethodInfo method, bool hasParams) =>
-                hasParams
+            JsValue[] ArgumentProvider(MethodDescriptor method) =>
+                method.HasParams
                     ? ProcessParamsArrays(jsArguments, method)
                     : jsArguments;
 
             var converter = Engine.ClrTypeConverter;
 
-            foreach (var tuple in TypeConverter.FindBestMatch(_engine, methodInfos, ArgumentProvider))
+            object[] parameters = null;
+            foreach (var tuple in TypeConverter.FindBestMatch(_engine, _methods, ArgumentProvider))
             {
                 var method = tuple.Item1;
                 var arguments = tuple.Item2;
 
-                var parameters = new object[arguments.Length];
-                var methodParameters = method.GetParameters();
+                if (parameters == null || parameters.Length != arguments.Length)
+                {
+                    parameters = new object[arguments.Length];
+                }
+                var methodParameters = method.Parameters;
                 var argumentsMatch = true;
 
                 for (var i = 0; i < arguments.Length; i++)
@@ -85,7 +84,7 @@ namespace Jint.Runtime.Interop
                 // todo: cache method info
                 try
                 {
-                    return FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters));
+                    return FromObject(Engine, method.Method.Invoke(thisObject.ToObject(), parameters));
                 }
                 catch (TargetInvocationException exception)
                 {
@@ -99,18 +98,22 @@ namespace Jint.Runtime.Interop
         /// <summary>
         /// Reduces a flat list of parameters to a params array, if needed
         /// </summary>
-        private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, MethodInfo methodInfo)
+        private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, MethodDescriptor methodInfo)
         {
-            var parameters = methodInfo.GetParameters();
+            var parameters = methodInfo.Parameters;
 
             var nonParamsArgumentsCount = parameters.Length - 1;
             if (jsArguments.Length < nonParamsArgumentsCount)
+            {
                 return jsArguments;
+            }
 
             var argsToTransform = jsArguments.Skip(nonParamsArgumentsCount);
 
             if (argsToTransform.Length == 1 && argsToTransform[0].IsArray())
+            {
                 return jsArguments;
+            }
 
             var jsArray = Engine.Array.Construct(Arguments.Empty);
             Engine.Array.PrototypeObject.Push(jsArray, argsToTransform);

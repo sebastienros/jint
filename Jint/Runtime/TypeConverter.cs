@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
@@ -11,6 +10,7 @@ using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Native.Symbol;
 using Jint.Pooling;
+using Jint.Runtime.Interop;
 
 namespace Jint.Runtime
 {
@@ -533,33 +533,26 @@ namespace Jint.Runtime
             }
         }
 
-        public static IEnumerable<Tuple<MethodBase, JsValue[]>> FindBestMatch<T>(Engine engine, T[] methods, Func<T, bool, JsValue[]> argumentProvider) where T : MethodBase
+        internal static IEnumerable<Tuple<MethodDescriptor, JsValue[]>> FindBestMatch(
+            Engine engine,
+            MethodDescriptor[] methods,
+            Func<MethodDescriptor, JsValue[]> argumentProvider)
         {
-            List<Tuple<T, JsValue[]>> matchingByParameterCount = null;
+            List<Tuple<MethodDescriptor, JsValue[]>> matchingByParameterCount = null;
             foreach (var m in methods)
             {
-                bool hasParams = false;
-                var parameterInfos = m.GetParameters();
-                foreach (var parameter in parameterInfos)
-                {
-                    if (Attribute.IsDefined(parameter, typeof(ParamArrayAttribute)))
-                    {
-                        hasParams = true;
-                        break;
-                    }
-                }
-
-                var arguments = argumentProvider(m, hasParams);
+                var parameterInfos = m.Parameters;
+                var arguments = argumentProvider(m);
                 if (parameterInfos.Length == arguments.Length)
                 {
                     if (methods.Length == 0 && arguments.Length == 0)
                     {
-                        yield return new Tuple<MethodBase, JsValue[]>(m, arguments);
+                        yield return new Tuple<MethodDescriptor, JsValue[]>(m, arguments);
                         yield break;
                     }
 
-                    matchingByParameterCount ??= new List<Tuple<T, JsValue[]>>();
-                    matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, arguments));
+                    matchingByParameterCount ??= new List<Tuple<MethodDescriptor, JsValue[]>>();
+                    matchingByParameterCount.Add(new Tuple<MethodDescriptor, JsValue[]>(m, arguments));
                 }
                 else if (parameterInfos.Length > arguments.Length)
                 {
@@ -582,8 +575,8 @@ namespace Jint.Runtime
                             argsWithDefaults.Add(value);
                         }
 
-                        matchingByParameterCount = matchingByParameterCount ?? new List<Tuple<T, JsValue[]>>();
-                        matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, argsWithDefaults.ToArray()));
+                        matchingByParameterCount ??= new List<Tuple<MethodDescriptor, JsValue[]>>();
+                        matchingByParameterCount.Add(new Tuple<MethodDescriptor, JsValue[]>(m, argsWithDefaults.ToArray()));
                     }
                 }
             }
@@ -596,7 +589,7 @@ namespace Jint.Runtime
             foreach (var tuple in matchingByParameterCount)
             {
                 var perfectMatch = true;
-                var parameters = tuple.Item1.GetParameters();
+                var parameters = tuple.Item1.Method.GetParameters();
                 var arguments = tuple.Item2;
                 for (var i = 0; i < arguments.Length; i++)
                 {
@@ -619,7 +612,7 @@ namespace Jint.Runtime
 
                 if (perfectMatch)
                 {
-                    yield return new Tuple<MethodBase, JsValue[]>(tuple.Item1, arguments);
+                    yield return new Tuple<MethodDescriptor, JsValue[]>(tuple.Item1, arguments);
                     yield break;
                 }
             }
@@ -627,11 +620,11 @@ namespace Jint.Runtime
             for (var i = 0; i < matchingByParameterCount.Count; i++)
             {
                 var tuple = matchingByParameterCount[i];
-                yield return new Tuple<MethodBase, JsValue[]>(tuple.Item1, tuple.Item2);
+                yield return new Tuple<MethodDescriptor, JsValue[]>(tuple.Item1, tuple.Item2);
             }
         }
 
-        public static bool TypeIsNullable(Type type)
+        internal static bool TypeIsNullable(Type type)
         {
             return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
         }

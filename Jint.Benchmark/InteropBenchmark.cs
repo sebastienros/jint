@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using BenchmarkDotNet.Attributes;
 using Jint.Native;
@@ -248,6 +249,18 @@ namespace Jint.Benchmark
             {
                 _engine.Execute("'foo@bar.com'.split('@');");
             }
+        }
+        
+        [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
+        public void ResolvingConsoleWriteLine()
+        {
+            var originalOut = Console.Out;
+            Console.SetOut(TextWriter.Null);
+            for (int i = 0; i < OperationsPerInvoke; ++i)
+            {
+                _engine.Execute("System.Console.WriteLine('value to write');");
+            }
+            Console.SetOut(originalOut);
         }
 
         [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]

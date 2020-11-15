@@ -268,10 +268,9 @@ namespace Jint.Runtime.Interop
 
                 if (methods?.Count > 0)
                 {
-                    var array = methods.ToArray();
+                    var array = MethodDescriptor.Build(methods);
                     return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, array), PropertyFlag.OnlyEnumerable);
                 }
-
             }
 
             // if no methods are found check if target implemented indexing
@@ -315,8 +314,8 @@ namespace Jint.Runtime.Interop
 
             if (explicitMethods?.Count > 0)
             {
-                var array = explicitMethods.ToArray();
-                return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, array), PropertyFlag.OnlyEnumerable);
+                var array = MethodDescriptor.Build(explicitMethods);
+                return (engine, _) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, array), PropertyFlag.OnlyEnumerable);
             }
 
             // try to find explicit indexer implementations
@@ -324,11 +323,11 @@ namespace Jint.Runtime.Interop
             {
                 if (IndexDescriptor.TryFindIndexer(_engine, interfaceType, propertyName, out var interfaceIndexerFactory))
                 {
-                    return (engine, target) => interfaceIndexerFactory(target);
+                    return (_, target) => interfaceIndexerFactory(target);
                 }
             }
 
-            return (engine, target) => PropertyDescriptor.Undefined;
+            return (_, _) => PropertyDescriptor.Undefined;
         }
 
         private static bool EqualsIgnoreCasing(string s1, string s2)
@@ -342,7 +341,11 @@ namespace Jint.Runtime.Interop
                 }
                 if (equals && s1.Length > 1)
                 {
+#if NETSTANDARD2_1
+                    equals = s1.AsSpan(1).SequenceEqual(s2.AsSpan(1));
+#else
                     equals = s1.Substring(1) == s2.Substring(1);
+#endif
                 }
             }
             return equals;

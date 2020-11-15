@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
+using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -13,6 +15,8 @@ namespace Jint.Runtime.Interop
     public sealed class TypeReference : FunctionInstance, IConstructor, IObjectWrapper
     {
         private static readonly JsString _name = new JsString("typereference");
+        private static readonly ConcurrentDictionary<Type, MethodDescriptor[]> _constructorCache = new();
+        private static readonly ConcurrentDictionary<Tuple<Type, string>, Func<Engine, PropertyDescriptor>> _propertyDescriptorFactories = new();
 
         private TypeReference(Engine engine)
             : base(engine, _name, FunctionThisMode.Global, ObjectClass.TypeReference)
@@ -53,14 +57,16 @@ namespace Jint.Runtime.Interop
                 return result;
             }
 
-            var constructors = ReferenceType.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
+            var constructors = _constructorCache.GetOrAdd(
+                ReferenceType,
+                t => MethodDescriptor.Build(t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)));
 
-            foreach (var tuple in TypeConverter.FindBestMatch(_engine, constructors, (info, b) => arguments))
+            foreach (var tuple in TypeConverter.FindBestMatch(_engine, constructors, _ => arguments))
             {
                 var method = tuple.Item1;
 
                 var parameters = new object[arguments.Length];
-                var methodParameters = method.GetParameters();
+                var methodParameters = method.Parameters;
                 try
                 {
                     for (var i = 0; i < arguments.Length; i++)
@@ -80,7 +86,7 @@ namespace Jint.Runtime.Interop
                         }
                     }
 
-                    var constructor = (ConstructorInfo) method;
+                    var constructor = (ConstructorInfo) method.Method;
                     var instance = constructor.Invoke(parameters);
                     var result = TypeConverter.ToObject(Engine, FromObject(Engine, instance));
 
@@ -139,51 +145,84 @@ namespace Jint.Runtime.Interop
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            // todo: cache members locally
-            var name = property.ToString();
-            if (ReferenceType.IsEnum)
+            if (property is not JsString jsString)
             {
-                Array enumValues = Enum.GetValues(ReferenceType);
-                Array enumNames = Enum.GetNames(ReferenceType);
+                return PropertyDescriptor.Undefined;
+            }
+            
+            var key = jsString._value;
+            var descriptor = PropertyDescriptor.Undefined;
+
+            if (_properties?.TryGetValue(key, out descriptor) != true)
+            {
+                descriptor = CreatePropertyDescriptor(key);
+                _properties ??= new PropertyDictionary();
+                _properties[key] = descriptor;
+            }
+
+            return descriptor;
+        }
+
+        private PropertyDescriptor CreatePropertyDescriptor(string name)
+        {
+            var factory = _propertyDescriptorFactories.GetOrAdd(
+                new Tuple<Type, string>(ReferenceType, name),
+                key => ResolvePropertyFactory(key.Item1, key.Item2)
+            );
+            return factory(_engine);
+        }
+
+        private static Func<Engine, PropertyDescriptor> ResolvePropertyFactory(Type type, string name)
+        {
+            static PropertyDescriptor UndefinedFactory(Engine e) => PropertyDescriptor.Undefined;
+            
+            if (type.IsEnum)
+            {
+                var enumValues = Enum.GetValues(type);
+                var enumNames = Enum.GetNames(type);
 
                 for (int i = 0; i < enumValues.Length; i++)
                 {
                     if (enumNames.GetValue(i) as string == name)
                     {
-                        return new PropertyDescriptor((int) enumValues.GetValue(i), PropertyFlag.AllForbidden);
+                        return _ => new PropertyDescriptor((int) enumValues.GetValue(i), PropertyFlag.AllForbidden);
                     }
                 }
-                return PropertyDescriptor.Undefined;
+
+                return UndefinedFactory;
             }
 
-            var propertyInfo = ReferenceType.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
+            var propertyInfo = type.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
             if (propertyInfo != null)
             {
-                return new PropertyInfoDescriptor(Engine, propertyInfo, Type);
+                return engine => new PropertyInfoDescriptor(engine, propertyInfo, type);
             }
 
-            var fieldInfo = ReferenceType.GetField(name, BindingFlags.Public | BindingFlags.Static);
+            var fieldInfo = type.GetField(name, BindingFlags.Public | BindingFlags.Static);
             if (fieldInfo != null)
             {
-                return new FieldInfoDescriptor(Engine, fieldInfo, Type);
+                return engine => new FieldInfoDescriptor(engine, fieldInfo, type);
             }
 
             List<MethodInfo> methodInfo = null;
-            foreach (var mi in ReferenceType.GetMethods(BindingFlags.Public | BindingFlags.Static))
+            foreach (var mi in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
             {
-                if (mi.Name == name)
+                if (mi.Name != name)
                 {
-                    methodInfo = methodInfo ?? new List<MethodInfo>();
-                    methodInfo.Add(mi);
+                    continue;
                 }
+
+                methodInfo ??= new List<MethodInfo>();
+                methodInfo.Add(mi);
             }
 
             if (methodInfo == null || methodInfo.Count == 0)
             {
-                return PropertyDescriptor.Undefined;
+                return UndefinedFactory;
             }
 
-            return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, methodInfo.ToArray()), PropertyFlag.AllForbidden);
+            var methodDescriptors = MethodDescriptor.Build(methodInfo);
+            return engine => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, methodDescriptors), PropertyFlag.AllForbidden);
         }
 
         public object Target => ReferenceType;
