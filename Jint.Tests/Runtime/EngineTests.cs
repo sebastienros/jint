@@ -2027,12 +2027,9 @@ var prep = function (fn) { fn(); };
             engine.Execute("var d = new Number(-1.23);");
             engine.Execute("equal('-1.23', d.toString());");
             
-#if NET5_0
-            // Globalization APIs use ICU libraries on Windows
-            engine.Execute("equal('-1,230', d.toLocaleString());");
-#else
-            engine.Execute("equal('-1,23', d.toLocaleString());");
-#endif
+            // NET 5 globalization APIs use ICU libraries on newer Windows 10 giving different result
+            // build server is older Windows...
+            engine.Execute("assert('-1,230' === d.toLocaleString() || '-1,23' === d.toLocaleString());");
         }
 
         [Fact]
