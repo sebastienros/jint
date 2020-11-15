@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 
 namespace Jint.Native.Function
@@ -24,7 +23,11 @@ namespace Jint.Native.Function
                 return ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
             }
 
-            return f.Call(BoundThis, CreateArguments(arguments));
+            var args = CreateArguments(arguments);
+            var value = f.Call(BoundThis, args);
+            _engine._jsValueArrayPool.ReturnArray(args);
+
+            return value;
         }
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
@@ -34,7 +37,11 @@ namespace Jint.Native.Function
                 return ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
             }
 
-            return target.Construct(CreateArguments(arguments), newTarget);
+            var args = CreateArguments(arguments);
+            var value = target.Construct(args, newTarget);
+            _engine._jsValueArrayPool.ReturnArray(args);
+
+            return value;
         }
 
         public override bool HasInstance(JsValue v)
@@ -49,7 +56,10 @@ namespace Jint.Native.Function
 
         private JsValue[] CreateArguments(JsValue[] arguments)
         {
-            return Enumerable.Union(BoundArgs, arguments).ToArray();
+            var combined = _engine._jsValueArrayPool.RentArray(BoundArgs.Length + arguments.Length);
+            System.Array.Copy(BoundArgs, combined, BoundArgs.Length);
+            System.Array.Copy(arguments, 0, combined, BoundArgs.Length, arguments.Length);
+            return combined;
         }
 
         internal override bool IsConstructor => TargetFunction is IConstructor;
