@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Collections.Generic;
+using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Native;
@@ -20,10 +21,18 @@ namespace Jint.Runtime.Interop
 
         public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
         {
-            JsValue[] ArgumentProvider(MethodDescriptor method) =>
-                method.HasParams
+            JsValue[] ArgumentProvider(MethodDescriptor method)
+            {
+                if (method.IsExtensionMethod)
+                {
+                    var jsArgumentsTemp = new List<JsValue>() { thisObject };
+                    jsArgumentsTemp.AddRange(jsArguments);
+                    jsArguments = jsArgumentsTemp.ToArray();
+                }
+                return method.HasParams
                     ? ProcessParamsArrays(jsArguments, method)
                     : jsArguments;
+            }
 
             var converter = Engine.ClrTypeConverter;
 

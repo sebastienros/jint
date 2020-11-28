@@ -31,6 +31,7 @@ namespace Jint
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
         private readonly List<Action<Engine>> _configurations = new List<Action<Engine>>();
+        private List<Type> _extensionMethodClassTypes = new List<Type>();
 
         /// <summary>
         /// Run the script in strict mode.
@@ -77,6 +78,12 @@ namespace Jint
         public Options AddObjectConverter(IObjectConverter objectConverter)
         {
             _objectConverters.Add(objectConverter);
+            return this;
+        }
+
+        public Options AddExtensionMethod(Type type)
+        {
+            _extensionMethodClassTypes.Add(type);
             return this;
         }
 
@@ -261,6 +268,8 @@ namespace Jint
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
 
         internal IReferenceResolver  ReferenceResolver => _referenceResolver;
+
+        internal List<Type> ExtensionMethodClassTypes => _extensionMethodClassTypes;
         
         private sealed class DefaultReferenceResolver : IReferenceResolver
         {

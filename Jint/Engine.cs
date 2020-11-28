@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
@@ -77,6 +78,7 @@ namespace Jint
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
+        internal readonly Dictionary<Type, MethodInfo[]> _extensionMethodsTypeCache = new Dictionary<Type, MethodInfo[]>();
 
         public ITypeConverter ClrTypeConverter { get; internal set; }
 
@@ -103,7 +105,7 @@ namespace Jint
             { typeof(UInt64), (engine, v) => JsNumber.Create((UInt64)v) },
             { typeof(System.Text.RegularExpressions.Regex), (engine, v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "", engine) }
         };
-
+        
         // shared frozen version
         internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerConfigurable;
         internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerNonConfigurable;
@@ -207,6 +209,9 @@ namespace Jint
                     "importNamespace",
                     (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
             }
+
+            _extensionMethodsTypeCache =
+                ExtensionMethodsCache.RegisterExtensionMethods(Options.ExtensionMethodClassTypes);
 
             Options.Apply(this);
 
