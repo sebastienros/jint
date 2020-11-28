@@ -1,6 +1,8 @@
-﻿using System.Globalization;
+﻿using System.Collections.Generic;
+using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
+using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
 
@@ -25,10 +27,18 @@ namespace Jint.Runtime.Interop
 
         public JsValue Invoke(MethodInfo[] methodInfos, JsValue thisObject, JsValue[] jsArguments)
         {
-            JsValue[] ArgumentProvider(MethodInfo method, bool hasParams) =>
-                hasParams
+            JsValue[] ArgumentProvider(MethodInfo method, bool hasParams)
+            {
+                if (method.IsExtensionMethod())
+                {
+                    var jsArgumentsTemp = new List<JsValue>() { thisObject };
+                    jsArgumentsTemp.AddRange(jsArguments);
+                    jsArguments = jsArgumentsTemp.ToArray();
+                }
+                return hasParams
                     ? ProcessParamsArrays(jsArguments, method)
                     : jsArguments;
+            }
 
             var converter = Engine.ClrTypeConverter;
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Dynamic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Array;
@@ -391,7 +392,29 @@ namespace Jint.Native.Object
                 return prop;
             }
 
+            prop = GetExtensionMethod(property);
+
+            if (prop != PropertyDescriptor.Undefined)
+            {
+                return prop;
+            }
+
             return Prototype?.GetProperty(property) ?? PropertyDescriptor.Undefined;
+        }
+
+        private PropertyDescriptor GetExtensionMethod(JsValue property)
+        {
+            var currentObjectType = ToObject()?.GetType();
+            if(currentObjectType == null)
+                return PropertyDescriptor.Undefined;
+
+            if (Engine._extensionMethodsTypeCache.TryGetValue(currentObjectType, out var methodInfos))
+            {
+                var possibleMethods = methodInfos.Where(m => m.Name == property.ToString()).ToArray();
+                return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, possibleMethods), PropertyFlag.None);
+            }
+            
+            return PropertyDescriptor.Undefined;
         }
 
         public bool TryGetValue(JsValue property, out JsValue value)

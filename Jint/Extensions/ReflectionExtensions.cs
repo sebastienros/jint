@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Jint.Extensions
 {
@@ -38,6 +40,17 @@ namespace Jint.Extensions
             }
 
             return null;
+        }
+
+        internal static MethodInfo[] GetExtensionMethods(this Type type)
+        {
+            return type.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .Where(m => m.IsExtensionMethod()).ToArray();
+        }
+
+        internal static bool IsExtensionMethod(this MethodBase methodInfo)
+        {
+            return methodInfo.IsDefined(typeof(ExtensionAttribute), true);
         }
     }
 }
