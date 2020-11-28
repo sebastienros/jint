@@ -404,7 +404,10 @@ namespace Jint.Native.Object
 
         private PropertyDescriptor GetExtensionMethod(JsValue property)
         {
-            var currentObjectType = ToObject()?.GetType();
+            if(Engine == null)
+                return PropertyDescriptor.Undefined;
+
+            var currentObjectType = GetObjectType();
             if(currentObjectType == null)
                 return PropertyDescriptor.Undefined;
 
@@ -415,6 +418,35 @@ namespace Jint.Native.Object
             }
             
             return PropertyDescriptor.Undefined;
+        }
+
+        private Type GetObjectType()
+        {
+            if (this is IObjectWrapper wrapper)
+            {
+                return wrapper.Target.GetType();
+            }
+
+            switch (Class)
+            {
+                case ObjectClass.Array:
+                    return typeof(System.Array);
+                case ObjectClass.String:
+                    return typeof(string);
+                case ObjectClass.Date:
+                    return typeof(DateTime);
+                case ObjectClass.Boolean:
+                    return typeof(bool);
+                case ObjectClass.Number:
+                    return typeof(double);
+                case ObjectClass.RegExp:
+                    return typeof(System.Text.RegularExpressions.Regex);
+                case ObjectClass.Arguments:
+                case ObjectClass.Object:
+                    return typeof(ExpandoObject);
+            }
+
+            return null;
         }
 
         public bool TryGetValue(JsValue property, out JsValue value)
