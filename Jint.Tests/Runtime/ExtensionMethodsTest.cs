@@ -58,7 +58,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldInvokeIntegerExtensionMethod()
+        public void ShouldInvokeNumberExtensionMethod()
         {
             var options = new Options();
             options.AddExtensionMethod(typeof(DoubleExtensions));
