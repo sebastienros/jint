@@ -7,48 +7,51 @@ using Jint.Native;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    internal sealed class IndexDescriptor : PropertyDescriptor
+    internal sealed class IndexDescriptor : ReflectionPropertyDescriptor
     {
-        private readonly Engine _engine;
         private readonly object _key;
-        private readonly object _target;
-        private readonly PropertyInfo _indexer;
+
+        private readonly MethodInfo _getter;
+        private readonly MethodInfo _setter;
         private readonly MethodInfo _containsKey;
 
         private static readonly PropertyInfo _iListIndexer = typeof(IList).GetProperty("Item");
 
-        internal IndexDescriptor(Engine engine, object target, PropertyInfo indexer, MethodInfo containsKey, object key)
-            : base(PropertyFlag.Enumerable | PropertyFlag.CustomJsValue)
+        private IndexDescriptor(Engine engine, object target, PropertyInfo indexer, MethodInfo containsKey, object key)
+            : base(engine, indexer.PropertyType, target, indexer.CanWrite, indexerToTry: null)
         {
-            _engine = engine;
-            _target = target;
-            _indexer = indexer;
             _containsKey = containsKey;
             _key = key;
-            Writable = engine.Options._IsClrWriteAllowed;
+
+            _getter = indexer.GetGetMethod();
+            _setter = indexer.GetSetMethod();
         }
 
         internal static bool TryFindIndexer(
             Engine engine,
             Type targetType,
             string propertyName,
-            out Func<object, IndexDescriptor> factory)
+            out Func<object, IndexDescriptor> factory,
+            out PropertyInfo indexer)
         {
             var paramTypeArray = new Type[1];
+
             Func<object, IndexDescriptor> ComposeIndexerFactory(PropertyInfo candidate, Type paramType)
             {
-                if (engine.ClrTypeConverter.TryConvert(propertyName, paramType, CultureInfo.InvariantCulture, out var key))
+                if (engine.ClrTypeConverter.TryConvert(propertyName, paramType, CultureInfo.InvariantCulture,
+                    out var key))
                 {
                     // the key can be converted for this indexer
                     var indexerProperty = candidate;
                     // get contains key method to avoid index exception being thrown in dictionaries
                     paramTypeArray[0] = paramType;
-                    var containsKeyMethod = targetType.GetMethod(nameof(IDictionary<string,string>.ContainsKey), paramTypeArray);
+                    var containsKeyMethod = targetType.GetMethod(nameof(IDictionary<string, string>.ContainsKey), paramTypeArray);
                     if (containsKeyMethod is null)
                     {
                         paramTypeArray[0] = typeof(object);
                         containsKeyMethod = targetType.GetMethod(nameof(IDictionary.Contains), paramTypeArray);
                     }
+
                     return (target) => new IndexDescriptor(engine, target, indexerProperty, containsKeyMethod, key);
                 }
 
@@ -62,6 +65,7 @@ namespace Jint.Runtime.Descriptors.Specialized
                 factory = ComposeIndexerFactory(_iListIndexer, typeof(int));
                 if (factory != null)
                 {
+                    indexer = _iListIndexer;
                     return true;
                 }
             }
@@ -81,85 +85,47 @@ namespace Jint.Runtime.Descriptors.Specialized
                     factory = ComposeIndexerFactory(candidate, paramType);
                     if (factory != null)
                     {
+                        indexer = candidate;
                         return true;
                     }
                 }
             }
 
             factory = default;
+            indexer = default;
             return false;
         }
 
-        protected internal override JsValue CustomValue
+        protected override object DoGetValue(object target)
         {
-            get
+            if (_getter is null)
             {
-                var getter = _indexer.GetGetMethod();
+                ExceptionHelper.ThrowInvalidOperationException("Indexer has no public getter.");
+                return null;
+            }
 
-                if (getter == null)
-                {
-                    ExceptionHelper.ThrowInvalidOperationException("Indexer has no public getter.");
-                }
+            object[] parameters = {_key};
 
-                object[] parameters = { _key };
-
-                if (_containsKey != null)
+            if (_containsKey != null)
+            {
+                if (_containsKey.Invoke(target, parameters) as bool? != true)
                 {
-                    if ((_containsKey.Invoke(_target, parameters) as bool?) != true)
-                    {
-                        return JsValue.Undefined;
-                    }
-                }
-
-                try
-                {
-                    return JsValue.FromObject(_engine, getter.Invoke(_target, parameters));
-                }
-                catch (TargetInvocationException tie)
-                {
-                    switch (tie.InnerException)
-                    {
-                        case null:
-                            throw;
-                        case ArgumentOutOfRangeException _:
-                        case IndexOutOfRangeException _:
-                        case InvalidOperationException _:
-                            return JsValue.Undefined;
-                        default:
-                            throw tie.InnerException;
-                    }
+                    return JsValue.Undefined;
                 }
             }
-            set
-            {
-                var setter = _indexer.GetSetMethod();
-                if (setter == null)
-                {
-                    ExceptionHelper.ThrowInvalidOperationException("Indexer has no public setter.");
-                }
 
-                var obj = value?.ToObject();
-                
-                // attempt to convert to expected type
-                if (obj != null && obj.GetType() != _indexer.PropertyType)
-                {
-                    obj = _engine.ClrTypeConverter.Convert(obj, _indexer.PropertyType, CultureInfo.InvariantCulture);
-                }
-                
-                object[] parameters = { _key,  obj };
-                try
-                {
-                    setter!.Invoke(_target, parameters);
-                }
-                catch (TargetInvocationException tie)
-                {
-                    if (tie.InnerException != null)
-                    {
-                        throw tie.InnerException;
-                    }
-                    throw;
-                }
+            return _getter.Invoke(target, parameters);
+        }
+
+        protected override void DoSetValue(object target, object value)
+        {
+            if (_setter is null)
+            {
+                ExceptionHelper.ThrowInvalidOperationException("Indexer has no public setter.");
             }
+
+            object[] parameters = {_key, value};
+            _setter!.Invoke(target, parameters);
         }
     }
 }

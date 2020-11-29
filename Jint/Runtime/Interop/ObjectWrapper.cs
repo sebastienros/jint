@@ -16,57 +16,33 @@ namespace Jint.Runtime.Interop
 	/// </summary>
 	public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper
     {
+        private readonly TypeDescriptor _typeDescriptor;
+
         public ObjectWrapper(Engine engine, object obj)
             : base(engine)
         {
             Target = obj;
-            var type = obj.GetType();
-            if (ObjectIsArrayLikeClrCollection(type))
+            _typeDescriptor = TypeDescriptor.Get(obj.GetType());
+            if (_typeDescriptor.IsArrayLike)
             {
                 // create a forwarder to produce length from Count or Length if one of them is present
-                var lengthProperty = type.GetProperty("Count") ?? type.GetProperty("Length");
+                var lengthProperty = obj.GetType().GetProperty("Count") ?? obj.GetType().GetProperty("Length");
                 if (lengthProperty is null)
                 {
                     return;
                 }
-                IsArrayLike = true;
-                IsIntegerIndexedArray = typeof(IList).IsAssignableFrom(type);
-
-                var functionInstance = new ClrFunctionInstance(engine, "length", (thisObj, arguments) => JsNumber.Create((int) lengthProperty.GetValue(obj)));
+                var functionInstance = new ClrFunctionInstance(engine, "length", (_, _) => JsNumber.Create((int) lengthProperty.GetValue(obj)));
                 var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
                 SetProperty(KnownKeys.Length, descriptor);
             }
         }
 
-        private static bool ObjectIsArrayLikeClrCollection(Type type)
-        {
-            if (typeof(ICollection).IsAssignableFrom(type))
-            {
-                return true;
-            }
-            
-            foreach (var interfaceType in type.GetInterfaces())
-            {
-                if (!interfaceType.IsGenericType)
-                {
-                    continue;
-                }
-                
-                if (interfaceType.GetGenericTypeDefinition() == typeof(IReadOnlyCollection<>)
-                    || interfaceType.GetGenericTypeDefinition() == typeof(ICollection<>))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
 
         public object Target { get; }
 
-        public override bool IsArrayLike { get; }
+        public override bool IsArrayLike => _typeDescriptor.IsArrayLike;
 
-        internal override bool IsIntegerIndexedArray { get; }
+        internal override bool IsIntegerIndexedArray => _typeDescriptor.IsIntegerIndexedArray;
 
         public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
@@ -88,7 +64,7 @@ namespace Jint.Runtime.Interop
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {
-            if (property.IsSymbol())
+            if (property.IsSymbol() && property != GlobalSymbolRegistry.Iterator)
             {
                 // wrapped objects cannot have symbol properties
                 return Undefined;
@@ -218,63 +194,17 @@ namespace Jint.Runtime.Interop
         {
             var isNumber = uint.TryParse(propertyName, out _);
 
+            // we can always check indexer if there's one, and then fall back to properties if indexer returns null
+            IndexDescriptor.TryFindIndexer(_engine, type, propertyName, out var indexerFactory, out var indexer);
+            
             // properties and fields cannot be numbers
-            if (!isNumber)
+            if (!isNumber && TryFindStringProperty(type, propertyName, indexer, out var func))
             {
-                // look for a property, bit be wary of indexers, we don't want indexers which have name "Item" to take precedence
-                PropertyInfo property = null;
-                foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
-                {
-                    // only if it's not an indexer, we can do case-ignoring matches
-                    var isStandardIndexer = p.GetIndexParameters().Length == 1 && p.Name == "Item";
-                    if (!isStandardIndexer && EqualsIgnoreCasing(p.Name, propertyName))
-                    {
-                        property = p;
-                        break;
-                    }
-                }
-
-                if (property != null)
-                {
-                    return (engine, target) => new PropertyInfoDescriptor(engine, property, target);
-                }
-
-                // look for a field
-                FieldInfo field = null;
-                foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
-                {
-                    if (EqualsIgnoreCasing(f.Name, propertyName))
-                    {
-                        field = f;
-                        break;
-                    }
-                }
-
-                if (field != null)
-                {
-                    return (engine, target) => new FieldInfoDescriptor(engine, field, target);
-                }
-                
-                // if no properties were found then look for a method
-                List<MethodInfo> methods = null;
-                foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
-                {
-                    if (EqualsIgnoreCasing(m.Name, propertyName))
-                    {
-                        methods ??= new List<MethodInfo>();
-                        methods.Add(m);
-                    }
-                }
-
-                if (methods?.Count > 0)
-                {
-                    var array = MethodDescriptor.Build(methods);
-                    return (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, array), PropertyFlag.OnlyEnumerable);
-                }
+                return func;
             }
 
             // if no methods are found check if target implemented indexing
-            if (IndexDescriptor.TryFindIndexer(_engine, type, propertyName, out var indexerFactory))
+            if (indexerFactory != null)
             {
                 return (engine, target) => indexerFactory(target);
             }
@@ -321,7 +251,7 @@ namespace Jint.Runtime.Interop
             // try to find explicit indexer implementations
             foreach (var interfaceType in type.GetInterfaces())
             {
-                if (IndexDescriptor.TryFindIndexer(_engine, interfaceType, propertyName, out var interfaceIndexerFactory))
+                if (IndexDescriptor.TryFindIndexer(_engine, interfaceType, propertyName, out var interfaceIndexerFactory, out _))
                 {
                     return (_, target) => interfaceIndexerFactory(target);
                 }
@@ -330,23 +260,90 @@ namespace Jint.Runtime.Interop
             return (_, _) => PropertyDescriptor.Undefined;
         }
 
+        private static bool TryFindStringProperty(
+            Type type,
+            string propertyName,
+            PropertyInfo indexerToTry,
+            out Func<Engine, object, PropertyDescriptor> func)
+        {
+            // look for a property, bit be wary of indexers, we don't want indexers which have name "Item" to take precedence
+            PropertyInfo property = null;
+            foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+            {
+                // only if it's not an indexer, we can do case-ignoring matches
+                var isStandardIndexer = p.GetIndexParameters().Length == 1 && p.Name == "Item";
+                if (!isStandardIndexer && EqualsIgnoreCasing(p.Name, propertyName))
+                {
+                    property = p;
+                    break;
+                }
+            }
+
+            if (property != null)
+            {
+                func = (engine, target) => new PropertyInfoDescriptor(engine, property, target, indexerToTry, propertyName);
+                return true;
+            }
+
+            // look for a field
+            FieldInfo field = null;
+            foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (EqualsIgnoreCasing(f.Name, propertyName))
+                {
+                    field = f;
+                    break;
+                }
+            }
+
+            if (field != null)
+            {
+                func = (engine, target) => new FieldInfoDescriptor(engine, field, target, indexerToTry, propertyName);
+                return true;
+            }
+
+            // if no properties were found then look for a method
+            List<MethodInfo> methods = null;
+            foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (EqualsIgnoreCasing(m.Name, propertyName))
+                {
+                    methods ??= new List<MethodInfo>();
+                    methods.Add(m);
+                }
+            }
+
+            if (methods?.Count > 0)
+            {
+                var array = MethodDescriptor.Build(methods);
+                func = (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, array), PropertyFlag.OnlyEnumerable);
+                return true;
+            }
+
+            func = default;
+            return false;
+        }
+
         private static bool EqualsIgnoreCasing(string s1, string s2)
         {
-            bool equals = false;
-            if (s1.Length == s2.Length)
+            if (s1.Length != s2.Length)
             {
-                if (s1.Length > 0)
-                {
-                    equals = char.ToLowerInvariant(s1[0]) == char.ToLowerInvariant(s2[0]);
-                }
-                if (equals && s1.Length > 1)
-                {
+                return false;
+            }
+
+            var equals = false;
+            if (s1.Length > 0)
+            {
+                equals = char.ToLowerInvariant(s1[0]) == char.ToLowerInvariant(s2[0]);
+            }
+
+            if (@equals && s1.Length > 1)
+            {
 #if NETSTANDARD2_1
-                    equals = s1.AsSpan(1).SequenceEqual(s2.AsSpan(1));
+                equals = s1.AsSpan(1).SequenceEqual(s2.AsSpan(1));
 #else
-                    equals = s1.Substring(1) == s2.Substring(1);
+                equals = s1.Substring(1) == s2.Substring(1);
 #endif
-                }
             }
             return equals;
         }

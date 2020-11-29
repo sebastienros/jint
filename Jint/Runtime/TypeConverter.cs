@@ -111,37 +111,45 @@ namespace Jint.Runtime
             return OrdinaryToPrimitive(oi, preferredType == Types.None ? Types.Number :  preferredType);
         }
 
-        private static readonly JsString[] StringHintCallOrder = { (JsString) "toString", (JsString) "valueOf"};
-        private static readonly JsString[] NumberHintCallOrder = { (JsString) "valueOf", (JsString) "toString"};
-        
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ordinarytoprimitive
         /// </summary>
         internal static JsValue OrdinaryToPrimitive(ObjectInstance input, Types hint = Types.None)
         {
-            var callOrder = Array.Empty<JsString>();
+            JsString property1;
+            JsString property2;
+            
             if (hint == Types.String)
             {
-                callOrder = StringHintCallOrder;
+                property1 = (JsString) "toString";
+                property2 = (JsString) "valueOf";
+            }
+            else if (hint == Types.Number)
+            {
+                property1 = (JsString) "valueOf";
+                property2 = (JsString) "toString";
+            }
+            else
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(input.Engine);
             }
 
-            if (hint == Types.Number)
+            if (input.Get(property1) is ICallable method1)
             {
-                callOrder = NumberHintCallOrder;
-            }
-
-            foreach (var property in callOrder)
-            {
-                var method = input.Get(property) as ICallable;
-                if (method is object)
+                var val = method1.Call(input, Arguments.Empty);
+                if (val.IsPrimitive())
                 {
-                    var val = method.Call(input, Arguments.Empty);
-                    if (val.IsPrimitive())
-                    {
-                        return val;
-                    }
+                    return val;
                 }
- 
+            }
+
+            if (input.Get(property2) is ICallable method2)
+            {
+                var val = method2.Call(input, Arguments.Empty);
+                if (val.IsPrimitive())
+                {
+                    return val;
+                }
             }
 
             return ExceptionHelper.ThrowTypeError<JsValue>(input.Engine);
@@ -479,7 +487,7 @@ namespace Jint.Runtime
                 InternalTypes.Undefined => Undefined.Text,
                 InternalTypes.Null => Null.Text,
                 InternalTypes.Object when o is IPrimitiveInstance p => ToString(ToPrimitive(p.PrimitiveValue, Types.String)),
-                InternalTypes.Object when o is Interop.IObjectWrapper p => p.Target?.ToString(),
+                InternalTypes.Object when o is IObjectWrapper p => p.Target?.ToString(),
                 _ => ToString(ToPrimitive(o, Types.String))
             };
         }

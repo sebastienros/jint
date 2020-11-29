@@ -1,68 +1,25 @@
-﻿using System.Globalization;
-using System.Reflection;
-using Jint.Native;
+﻿using System.Reflection;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    internal sealed class PropertyInfoDescriptor : PropertyDescriptor
+    internal sealed class PropertyInfoDescriptor : ReflectionPropertyDescriptor
     {
-        private readonly Engine _engine;
         private readonly PropertyInfo _propertyInfo;
-        private readonly object _item;
 
-        public PropertyInfoDescriptor(Engine engine, PropertyInfo propertyInfo, object item) 
-            : base(PropertyFlag.Enumerable | PropertyFlag.CustomJsValue)
+        public PropertyInfoDescriptor(Engine engine, PropertyInfo propertyInfo, object target, PropertyInfo indexerToTry = null, string indexerKey = null) 
+            : base(engine, propertyInfo.PropertyType, target, propertyInfo.CanWrite, indexerToTry, indexerKey)
         {
-            _engine = engine;
             _propertyInfo = propertyInfo;
-            _item = item;
-
-            Writable = propertyInfo.CanWrite && engine.Options._IsClrWriteAllowed;
         }
 
-        protected internal override JsValue CustomValue
+        protected override object DoGetValue(object target)
         {
-            get
-            {
-                object v;
-                try
-                {
-                    v = _propertyInfo.GetValue(_item, null);
-                }
-                catch (TargetInvocationException exception)
-                {
-                    ExceptionHelper.ThrowMeaningfulException(_engine, exception);
-                    throw;
-                }
+            return _propertyInfo.GetValue(target, index: null);
+        }
 
-                return JsValue.FromObject(_engine, v);
-            }
-            set
-            {
-                object obj;
-                if (_propertyInfo.PropertyType == typeof(JsValue))
-                {
-                    obj = value;
-                }
-                else
-                {
-                    // attempt to convert the JsValue to the target type
-                    obj = value.ToObject();
-                    if (obj != null && obj.GetType() != _propertyInfo.PropertyType)
-                    {
-                        obj = _engine.ClrTypeConverter.Convert(obj, _propertyInfo.PropertyType, CultureInfo.InvariantCulture);
-                    }
-                }
-
-                try
-                {
-                    _propertyInfo.SetValue(_item, obj, null);
-                }
-                catch (TargetInvocationException exception)
-                {
-                    ExceptionHelper.ThrowMeaningfulException(_engine, exception);
-                }
-            }
+        protected override void DoSetValue(object target, object value)
+        {
+            _propertyInfo.SetValue(target, value, index: null);
         }
     }
 }

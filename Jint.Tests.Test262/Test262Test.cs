@@ -34,7 +34,7 @@ namespace Jint.Tests.Test262
             //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
             _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
 
-            var assemblyPath = new Uri(typeof(Test262Test).GetTypeInfo().Assembly.CodeBase).LocalPath;
+            var assemblyPath = new Uri(typeof(Test262Test).GetTypeInfo().Assembly.Location).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
 
             BasePath = assemblyDirectory.Parent.Parent.Parent.FullName;

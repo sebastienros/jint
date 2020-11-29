@@ -1,47 +1,25 @@
-﻿using System.Globalization;
-using System.Reflection;
-using Jint.Native;
+﻿using System.Reflection;
 
 namespace Jint.Runtime.Descriptors.Specialized
 {
-    internal sealed class FieldInfoDescriptor : PropertyDescriptor
+    internal sealed class FieldInfoDescriptor : ReflectionPropertyDescriptor
     {
-        private readonly Engine _engine;
         private readonly FieldInfo _fieldInfo;
-        private readonly object _item;
 
-        public FieldInfoDescriptor(Engine engine, FieldInfo fieldInfo, object item) : base(PropertyFlag.CustomJsValue)
+        public FieldInfoDescriptor(Engine engine, FieldInfo fieldInfo, object target, PropertyInfo indexerToTry = null, string indexerKey = null)
+            : base(engine, fieldInfo.FieldType, target, !fieldInfo.Attributes.HasFlag(FieldAttributes.InitOnly), indexerToTry, indexerKey)
         {
-            _engine = engine;
             _fieldInfo = fieldInfo;
-            _item = item;
-
-            Writable = !fieldInfo.Attributes.HasFlag(FieldAttributes.InitOnly) && engine.Options._IsClrWriteAllowed; // don't write to fields marked as readonly
         }
 
-        protected internal override JsValue CustomValue
+        protected override object DoGetValue(object target)
         {
-            get => JsValue.FromObject(_engine, _fieldInfo.GetValue(_item));
-            set
-            {
-                var currentValue = value;
-                object obj;
-                if (_fieldInfo.FieldType == typeof (JsValue))
-                {
-                    obj = currentValue;
-                }
-                else
-                {
-                    // attempt to convert the JsValue to the target type
-                    obj = currentValue.ToObject();
-                    if (obj.GetType() != _fieldInfo.FieldType)
-                    {
-                        obj = _engine.ClrTypeConverter.Convert(obj, _fieldInfo.FieldType, CultureInfo.InvariantCulture);
-                    }
-                }
+            return _fieldInfo.GetValue(target);
+        }
 
-                _fieldInfo.SetValue(_item, obj);
-            }
+        protected override void DoSetValue(object target, object value)
+        {
+            _fieldInfo.SetValue(target, value);
         }
     }
 }

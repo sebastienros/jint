@@ -12,6 +12,7 @@ using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
+using MongoDB.Bson;
 using Newtonsoft.Json.Linq;
 using Shapes;
 using Xunit;
@@ -2286,6 +2287,36 @@ namespace Jint.Tests.Runtime
             _engine.SetValue("o", o);
             Assert.True(_engine.Execute("return o[0] == 'item1'").GetCompletionValue().AsBoolean());
             Assert.True(_engine.Execute("return o[1] == 'item2'").GetCompletionValue().AsBoolean());
+        }
+        
+        [Fact]
+        public void DictionaryLikeShouldCheckIndexerAndFallBackToProperty()
+        {
+            const string json = @"{ ""Type"": ""Cat"" }";
+            var jObjectWithTypeProperty = JObject.Parse(json);
+        
+            _engine.SetValue("o", jObjectWithTypeProperty);
+        
+            var typeResult = _engine.Execute("o.Type").GetCompletionValue();
+            
+            // JToken requires conversion
+            Assert.Equal("Cat", TypeConverter.ToString(typeResult));
+
+            // weak equality does conversions from native types
+            Assert.True(_engine.Execute("o.Type == 'Cat'").GetCompletionValue().AsBoolean());
+        }        
+
+        [Fact]
+        public void IndexingBsonProperties()
+        {
+            const string jsonAnimals = @" { ""Animals"": [ { ""Id"": 1, ""Type"": ""Cat"" } ] }";
+            var bsonAnimals = BsonDocument.Parse(jsonAnimals);
+            
+            _engine.SetValue("animals", bsonAnimals["Animals"]);
+
+            // weak equality does conversions from native types
+            Assert.True(_engine.Execute("animals[0].Type == 'Cat'").GetCompletionValue().AsBoolean());
+            Assert.True(_engine.Execute("animals[0].Id == 1").GetCompletionValue().AsBoolean());
         }
     }
 }
