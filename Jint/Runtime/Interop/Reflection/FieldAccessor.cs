@@ -1,16 +1,18 @@
 ﻿using System.Reflection;
 
-namespace Jint.Runtime.Descriptors.Specialized
+namespace Jint.Runtime.Interop.Reflection
 {
-    internal sealed class FieldInfoDescriptor : ReflectionPropertyDescriptor
+    internal sealed class FieldAccessor : ReflectionAccessor
     {
         private readonly FieldInfo _fieldInfo;
 
-        public FieldInfoDescriptor(Engine engine, FieldInfo fieldInfo, object target, PropertyInfo indexerToTry = null, string indexerKey = null)
-            : base(engine, fieldInfo.FieldType, target, !fieldInfo.Attributes.HasFlag(FieldAttributes.InitOnly), indexerToTry, indexerKey)
+        public FieldAccessor(FieldInfo fieldInfo, string memberName = null, PropertyInfo indexer = null)
+            : base(fieldInfo.FieldType, memberName, indexer)
         {
             _fieldInfo = fieldInfo;
         }
+
+        public override bool Writable => !_fieldInfo.Attributes.HasFlag(FieldAttributes.InitOnly);
 
         protected override object DoGetValue(object target)
         {

@@ -8,7 +8,7 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Interop.Reflection;
 
 namespace Jint.Runtime.Interop
 {
@@ -65,16 +65,37 @@ namespace Jint.Runtime.Interop
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {
+            if (property.IsInteger() && Target is IList list)
+            {
+                var index = (int) ((JsNumber) property)._value;
+                return (uint) index < list.Count ? FromObject(_engine, list[index]) : Undefined;
+            }
+            
             if (property.IsSymbol() && property != GlobalSymbolRegistry.Iterator)
             {
                 // wrapped objects cannot have symbol properties
                 return Undefined;
             }
 
-            if (property.IsInteger() && Target is IList list)
+            if (property is JsString stringKey)
             {
-                var index = (int) ((JsNumber) property)._value;
-                return (uint) index < list.Count ? FromObject(_engine, list[index]) : Undefined;
+                var member = stringKey.ToString();
+                var result = Engine.Options._MemberAccessor?.Invoke(Engine, Target, member);
+                if (result is not null)
+                {
+                    return result;
+                }
+                
+                if (_properties is null || !_properties.ContainsKey(member))
+                {
+                    // can try utilize fast path
+                    var accessor = GetAccessor(_engine, Target.GetType(), member);
+                    var value = accessor.GetValue(_engine, Target);
+                    if (value is not null)
+                    {
+                        return FromObject(_engine, value);
+                    }
+                }
             }
 
             return base.Get(property, receiver);
@@ -172,29 +193,26 @@ namespace Jint.Runtime.Interop
                 return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
             }
 
-            var type = Target.GetType();
-            var key = new ClrPropertyDescriptorFactoriesKey(type, member);
-            var factories = Engine.ClrPropertyDescriptorFactories;
-            if (!factories.TryGetValue(key, out var factory))
-            {
-                factory = GetFactory(_engine, type, member);
-            }
-            
-            var descriptor = factory(_engine, Target);
-            AddProperty(property, descriptor);
+            var accessor = GetAccessor(_engine, Target.GetType(), member);
+            var descriptor = accessor.CreatePropertyDescriptor(_engine, Target);
+            SetProperty(member, descriptor);
             return descriptor;
         }
 
-        private static Func<Engine, object, PropertyDescriptor> GetFactory(Engine engine, Type type, string member)
+        private static ReflectionAccessor GetAccessor(Engine engine, Type type, string member)
         {
-            var factories = Engine.ClrPropertyDescriptorFactories;
-
             var key = new ClrPropertyDescriptorFactoriesKey(type, member);
-            var factory = ResolvePropertyDescriptorFactory(engine, type, member);
 
+            var factories = Engine.ReflectionAccessors;
+            if (factories.TryGetValue(key, out var accessor))
+            {
+                return accessor;
+            }
+
+            var factory = ResolvePropertyDescriptorFactory(engine, type, member);
             // racy, we don't care, worst case we'll catch up later
-            Interlocked.CompareExchange(ref Engine.ClrPropertyDescriptorFactories,
-                new Dictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>>(factories)
+            Interlocked.CompareExchange(ref Engine.ReflectionAccessors,
+                new Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor>(factories)
                 {
                     [key] = factory
                 }, factories);
@@ -202,23 +220,23 @@ namespace Jint.Runtime.Interop
             return factory;
         }
 
-        private static Func<Engine, object, PropertyDescriptor> ResolvePropertyDescriptorFactory(Engine engine, Type type, string propertyName)
+        private static ReflectionAccessor ResolvePropertyDescriptorFactory(Engine engine, Type type, string memberName)
         {
-            var isNumber = uint.TryParse(propertyName, out _);
+            var isNumber = uint.TryParse(memberName, out _);
 
             // we can always check indexer if there's one, and then fall back to properties if indexer returns null
-            IndexDescriptor.TryFindIndexer(engine, type, propertyName, out var indexerFactory, out var indexer);
+            IndexerAccessor.TryFindIndexer(engine, type, memberName, out var indexerAccessor, out var indexer);
             
             // properties and fields cannot be numbers
-            if (!isNumber && TryFindStringProperty(type, propertyName, indexer, out var func))
+            if (!isNumber && TryFindStringPropertyAccessor(type, memberName, indexer, out var temp))
             {
-                return func;
+                return temp;
             }
 
             // if no methods are found check if target implemented indexing
-            if (indexerFactory != null)
+            if (indexerAccessor != null)
             {
-                return (_, target) => indexerFactory(target);
+                return indexerAccessor;
             }
 
             // try to find a single explicit property implementation
@@ -227,7 +245,7 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var iprop in iface.GetProperties())
                 {
-                    if (EqualsIgnoreCasing(iprop.Name, propertyName))
+                    if (EqualsIgnoreCasing(iprop.Name, memberName))
                     {
                         list ??= new List<PropertyInfo>();
                         list.Add(iprop);
@@ -237,7 +255,7 @@ namespace Jint.Runtime.Interop
 
             if (list?.Count == 1)
             {
-                return (e, target) => new PropertyInfoDescriptor(e, list[0], target);
+                return new PropertyAccessor(memberName, list[0]);
             }
 
             // try to find explicit method implementations
@@ -246,7 +264,7 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var imethod in iface.GetMethods())
                 {
-                    if (EqualsIgnoreCasing(imethod.Name, propertyName))
+                    if (EqualsIgnoreCasing(imethod.Name, memberName))
                     {
                         explicitMethods ??= new List<MethodInfo>();
                         explicitMethods.Add(imethod);
@@ -256,27 +274,26 @@ namespace Jint.Runtime.Interop
 
             if (explicitMethods?.Count > 0)
             {
-                var array = MethodDescriptor.Build(explicitMethods);
-                return (e, _) => new PropertyDescriptor(new MethodInfoFunctionInstance(e, array), PropertyFlag.OnlyEnumerable);
+                return new MethodAccessor(MethodDescriptor.Build(explicitMethods));
             }
 
             // try to find explicit indexer implementations
             foreach (var interfaceType in type.GetInterfaces())
             {
-                if (IndexDescriptor.TryFindIndexer(engine, interfaceType, propertyName, out var interfaceIndexerFactory, out _))
+                if (IndexerAccessor.TryFindIndexer(engine, interfaceType, memberName, out var accessor, out _))
                 {
-                    return (_, target) => interfaceIndexerFactory(target);
+                    return accessor;
                 }
             }
 
-            return (_, _) => PropertyDescriptor.Undefined;
+            return ConstantValueAccessor.NullAccessor;
         }
 
-        private static bool TryFindStringProperty(
+        private static bool TryFindStringPropertyAccessor(
             Type type,
-            string propertyName,
+            string memberName,
             PropertyInfo indexerToTry,
-            out Func<Engine, object, PropertyDescriptor> func)
+            out ReflectionAccessor wrapper)
         {
             // look for a property, bit be wary of indexers, we don't want indexers which have name "Item" to take precedence
             PropertyInfo property = null;
@@ -284,7 +301,7 @@ namespace Jint.Runtime.Interop
             {
                 // only if it's not an indexer, we can do case-ignoring matches
                 var isStandardIndexer = p.GetIndexParameters().Length == 1 && p.Name == "Item";
-                if (!isStandardIndexer && EqualsIgnoreCasing(p.Name, propertyName))
+                if (!isStandardIndexer && EqualsIgnoreCasing(p.Name, memberName))
                 {
                     property = p;
                     break;
@@ -293,7 +310,7 @@ namespace Jint.Runtime.Interop
 
             if (property != null)
             {
-                func = (engine, target) => new PropertyInfoDescriptor(engine, property, target, indexerToTry, propertyName);
+                wrapper = new PropertyAccessor(memberName, property, indexerToTry);
                 return true;
             }
 
@@ -301,7 +318,7 @@ namespace Jint.Runtime.Interop
             FieldInfo field = null;
             foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
             {
-                if (EqualsIgnoreCasing(f.Name, propertyName))
+                if (EqualsIgnoreCasing(f.Name, memberName))
                 {
                     field = f;
                     break;
@@ -310,7 +327,7 @@ namespace Jint.Runtime.Interop
 
             if (field != null)
             {
-                func = (engine, target) => new FieldInfoDescriptor(engine, field, target, indexerToTry, propertyName);
+                wrapper = new FieldAccessor(field, memberName, indexerToTry);
                 return true;
             }
 
@@ -318,7 +335,7 @@ namespace Jint.Runtime.Interop
             List<MethodInfo> methods = null;
             foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
             {
-                if (EqualsIgnoreCasing(m.Name, propertyName))
+                if (EqualsIgnoreCasing(m.Name, memberName))
                 {
                     methods ??= new List<MethodInfo>();
                     methods.Add(m);
@@ -327,12 +344,11 @@ namespace Jint.Runtime.Interop
 
             if (methods?.Count > 0)
             {
-                var array = MethodDescriptor.Build(methods);
-                func = (engine, target) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, array), PropertyFlag.OnlyEnumerable);
+                wrapper = new MethodAccessor(MethodDescriptor.Build(methods));
                 return true;
             }
 
-            func = default;
+            wrapper = default;
             return false;
         }
 

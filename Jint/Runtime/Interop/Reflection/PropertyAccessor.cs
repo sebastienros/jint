@@ -1,16 +1,21 @@
 ﻿using System.Reflection;
 
-namespace Jint.Runtime.Descriptors.Specialized
+namespace Jint.Runtime.Interop.Reflection
 {
-    internal sealed class PropertyInfoDescriptor : ReflectionPropertyDescriptor
+    internal sealed class PropertyAccessor : ReflectionAccessor
     {
         private readonly PropertyInfo _propertyInfo;
 
-        public PropertyInfoDescriptor(Engine engine, PropertyInfo propertyInfo, object target, PropertyInfo indexerToTry = null, string indexerKey = null) 
-            : base(engine, propertyInfo.PropertyType, target, propertyInfo.CanWrite, indexerToTry, indexerKey)
+        public PropertyAccessor(
+            string memberName,
+            PropertyInfo propertyInfo,
+            PropertyInfo indexerToTry = null) 
+            : base(propertyInfo.PropertyType, memberName, indexerToTry)
         {
             _propertyInfo = propertyInfo;
         }
+
+        public override bool Writable => _propertyInfo.CanWrite;
 
         protected override object DoGetValue(object target)
         {

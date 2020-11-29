@@ -8,7 +8,7 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
+using Jint.Runtime.Interop.Reflection;
 
 namespace Jint.Runtime.Interop
 {
@@ -16,7 +16,7 @@ namespace Jint.Runtime.Interop
     {
         private static readonly JsString _name = new JsString("typereference");
         private static readonly ConcurrentDictionary<Type, MethodDescriptor[]> _constructorCache = new();
-        private static readonly ConcurrentDictionary<Tuple<Type, string>, Func<Engine, PropertyDescriptor>> _propertyDescriptorFactories = new();
+        private static readonly ConcurrentDictionary<Tuple<Type, string>, ReflectionAccessor> _memberAccessors = new();
 
         private TypeReference(Engine engine)
             : base(engine, _name, FunctionThisMode.Global, ObjectClass.TypeReference)
@@ -165,46 +165,44 @@ namespace Jint.Runtime.Interop
 
         private PropertyDescriptor CreatePropertyDescriptor(string name)
         {
-            var factory = _propertyDescriptorFactories.GetOrAdd(
+            var accessor = _memberAccessors.GetOrAdd(
                 new Tuple<Type, string>(ReferenceType, name),
-                key => ResolvePropertyFactory(key.Item1, key.Item2)
+                key => ResolveMemberAccessor(key.Item1, key.Item2)
             );
-            return factory(_engine);
+            return accessor.CreatePropertyDescriptor(_engine, ReferenceType);
         }
 
-        private static Func<Engine, PropertyDescriptor> ResolvePropertyFactory(Type type, string name)
+        private static ReflectionAccessor ResolveMemberAccessor(Type type, string name)
         {
-            static PropertyDescriptor UndefinedFactory(Engine e) => PropertyDescriptor.Undefined;
-            
             if (type.IsEnum)
             {
                 var enumValues = Enum.GetValues(type);
                 var enumNames = Enum.GetNames(type);
 
-                for (int i = 0; i < enumValues.Length; i++)
+                for (var i = 0; i < enumValues.Length; i++)
                 {
                     if (enumNames.GetValue(i) as string == name)
                     {
-                        return _ => new PropertyDescriptor((int) enumValues.GetValue(i), PropertyFlag.AllForbidden);
+                        return new ConstantValueAccessor((int) enumValues.GetValue(i));
                     }
                 }
 
-                return UndefinedFactory;
+                return ConstantValueAccessor.NullAccessor;
             }
 
             var propertyInfo = type.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
             if (propertyInfo != null)
             {
-                return engine => new PropertyInfoDescriptor(engine, propertyInfo, type);
+                return new PropertyAccessor(name, propertyInfo);
             }
 
             var fieldInfo = type.GetField(name, BindingFlags.Public | BindingFlags.Static);
             if (fieldInfo != null)
             {
-                return engine => new FieldInfoDescriptor(engine, fieldInfo, type);
+                return new FieldAccessor(fieldInfo, name);
             }
 
-            List<MethodInfo> methodInfo = null;
+            List<MethodInfo> methods = null;
             foreach (var mi in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
             {
                 if (mi.Name != name)
@@ -212,17 +210,16 @@ namespace Jint.Runtime.Interop
                     continue;
                 }
 
-                methodInfo ??= new List<MethodInfo>();
-                methodInfo.Add(mi);
+                methods ??= new List<MethodInfo>();
+                methods.Add(mi);
             }
 
-            if (methodInfo == null || methodInfo.Count == 0)
+            if (methods == null || methods.Count == 0)
             {
-                return UndefinedFactory;
+                return ConstantValueAccessor.NullAccessor;
             }
 
-            var methodDescriptors = MethodDescriptor.Build(methodInfo);
-            return engine => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, methodDescriptors), PropertyFlag.AllForbidden);
+            return new MethodAccessor(MethodDescriptor.Build(methods));
         }
 
         public object Target => ReferenceType;
