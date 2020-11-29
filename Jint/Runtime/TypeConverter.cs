@@ -565,26 +565,20 @@ namespace Jint.Runtime
                 else if (parameterInfos.Length > arguments.Length)
                 {
                     // check if we got enough default values to provide all parameters (or more in case some default values are provided/overwritten)
-                    var defaultValuesCount = 0;
-                    foreach (var param in parameterInfos)
-                    {
-                        if (param.HasDefaultValue) defaultValuesCount++;
-                    }
-
-                    if (parameterInfos.Length <= arguments.Length + defaultValuesCount)
+                    if (parameterInfos.Length <= arguments.Length + m.ParameterDefaultValuesCount)
                     {
                         // create missing arguments from default values
-
-                        var argsWithDefaults = new List<JsValue>(arguments);
+                        var argsWithDefaults = new JsValue[parameterInfos.Length];
+                        Array.Copy(arguments, argsWithDefaults, arguments.Length);
                         for (var i = arguments.Length; i < parameterInfos.Length; i++)
                         {
                             var param = parameterInfos[i];
                             var value = JsValue.FromObject(engine, param.DefaultValue);
-                            argsWithDefaults.Add(value);
+                            argsWithDefaults[i] = value;
                         }
 
                         matchingByParameterCount ??= new List<Tuple<MethodDescriptor, JsValue[]>>();
-                        matchingByParameterCount.Add(new Tuple<MethodDescriptor, JsValue[]>(m, argsWithDefaults.ToArray()));
+                        matchingByParameterCount.Add(new Tuple<MethodDescriptor, JsValue[]>(m, argsWithDefaults));
                     }
                 }
             }
@@ -597,7 +591,7 @@ namespace Jint.Runtime
             foreach (var tuple in matchingByParameterCount)
             {
                 var perfectMatch = true;
-                var parameters = tuple.Item1.Method.GetParameters();
+                var parameters = tuple.Item1.Parameters;
                 var arguments = tuple.Item2;
                 for (var i = 0; i < arguments.Length; i++)
                 {

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
+using System.Threading;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -164,38 +165,49 @@ namespace Jint.Runtime.Interop
                 return iteratorProperty;
             }
 
-            var memberAccessor = Engine.Options._MemberAccessor;
-
-            if (memberAccessor != null)
+            var member = property.ToString();
+            var result = Engine.Options._MemberAccessor?.Invoke(Engine, Target, member);
+            if (result is not null)
             {
-                var result = memberAccessor.Invoke(Engine, Target, property.ToString());
-
-                if (result != null)
-                {
-                    return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
-                }
+                return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
             }
 
             var type = Target.GetType();
-            var key = new ClrPropertyDescriptorFactoriesKey(type, property.ToString());
-
-            if (!_engine.ClrPropertyDescriptorFactories.TryGetValue(key, out var factory))
+            var key = new ClrPropertyDescriptorFactoriesKey(type, member);
+            var factories = Engine.ClrPropertyDescriptorFactories;
+            if (!factories.TryGetValue(key, out var factory))
             {
-                factory = ResolveProperty(type, property.ToString());
-                _engine.ClrPropertyDescriptorFactories[key] = factory;
+                factory = GetFactory(_engine, type, member);
             }
-
+            
             var descriptor = factory(_engine, Target);
             AddProperty(property, descriptor);
             return descriptor;
         }
-        
-        private Func<Engine, object, PropertyDescriptor> ResolveProperty(Type type, string propertyName)
+
+        private static Func<Engine, object, PropertyDescriptor> GetFactory(Engine engine, Type type, string member)
+        {
+            var factories = Engine.ClrPropertyDescriptorFactories;
+
+            var key = new ClrPropertyDescriptorFactoriesKey(type, member);
+            var factory = ResolvePropertyDescriptorFactory(engine, type, member);
+
+            // racy, we don't care, worst case we'll catch up later
+            Interlocked.CompareExchange(ref Engine.ClrPropertyDescriptorFactories,
+                new Dictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>>(factories)
+                {
+                    [key] = factory
+                }, factories);
+
+            return factory;
+        }
+
+        private static Func<Engine, object, PropertyDescriptor> ResolvePropertyDescriptorFactory(Engine engine, Type type, string propertyName)
         {
             var isNumber = uint.TryParse(propertyName, out _);
 
             // we can always check indexer if there's one, and then fall back to properties if indexer returns null
-            IndexDescriptor.TryFindIndexer(_engine, type, propertyName, out var indexerFactory, out var indexer);
+            IndexDescriptor.TryFindIndexer(engine, type, propertyName, out var indexerFactory, out var indexer);
             
             // properties and fields cannot be numbers
             if (!isNumber && TryFindStringProperty(type, propertyName, indexer, out var func))
@@ -206,7 +218,7 @@ namespace Jint.Runtime.Interop
             // if no methods are found check if target implemented indexing
             if (indexerFactory != null)
             {
-                return (engine, target) => indexerFactory(target);
+                return (_, target) => indexerFactory(target);
             }
 
             // try to find a single explicit property implementation
@@ -225,7 +237,7 @@ namespace Jint.Runtime.Interop
 
             if (list?.Count == 1)
             {
-                return (engine, target) => new PropertyInfoDescriptor(engine, list[0], target);
+                return (e, target) => new PropertyInfoDescriptor(e, list[0], target);
             }
 
             // try to find explicit method implementations
@@ -245,13 +257,13 @@ namespace Jint.Runtime.Interop
             if (explicitMethods?.Count > 0)
             {
                 var array = MethodDescriptor.Build(explicitMethods);
-                return (engine, _) => new PropertyDescriptor(new MethodInfoFunctionInstance(engine, array), PropertyFlag.OnlyEnumerable);
+                return (e, _) => new PropertyDescriptor(new MethodInfoFunctionInstance(e, array), PropertyFlag.OnlyEnumerable);
             }
 
             // try to find explicit indexer implementations
             foreach (var interfaceType in type.GetInterfaces())
             {
-                if (IndexDescriptor.TryFindIndexer(_engine, interfaceType, propertyName, out var interfaceIndexerFactory, out _))
+                if (IndexDescriptor.TryFindIndexer(engine, interfaceType, propertyName, out var interfaceIndexerFactory, out _))
                 {
                     return (_, target) => interfaceIndexerFactory(target);
                 }

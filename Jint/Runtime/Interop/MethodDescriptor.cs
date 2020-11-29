@@ -6,7 +6,7 @@ namespace Jint.Runtime.Interop
 {
     internal class MethodDescriptor
     {
-        public MethodDescriptor(MethodBase method)
+        private MethodDescriptor(MethodBase method)
         {
             Method = method;
             Parameters = method.GetParameters();
@@ -17,12 +17,18 @@ namespace Jint.Runtime.Interop
                     HasParams = true;
                     break;
                 }
+
+                if (parameter.HasDefaultValue)
+                {
+                    ParameterDefaultValuesCount++;
+                }
             }
         }
 
         public MethodBase Method { get; }
         public ParameterInfo[] Parameters { get; }
         public bool HasParams { get; }
+        public int ParameterDefaultValuesCount { get; }
 
         public static MethodDescriptor[] Build<T>(List<T> source) where T : MethodBase
         {
