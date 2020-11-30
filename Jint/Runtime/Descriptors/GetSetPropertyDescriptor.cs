@@ -1,9 +1,9 @@
 ﻿using Jint.Native;
 using Jint.Native.Function;
 
-namespace Jint.Runtime.Descriptors.Specialized
+namespace Jint.Runtime.Descriptors
 {
-    internal sealed class GetSetPropertyDescriptor : PropertyDescriptor
+    public sealed class GetSetPropertyDescriptor : PropertyDescriptor
     {
         private JsValue _get;
         private JsValue _set;

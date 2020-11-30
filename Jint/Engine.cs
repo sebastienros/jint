@@ -28,9 +28,9 @@ using Jint.Runtime;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.References;
 
@@ -81,9 +81,9 @@ namespace Jint
         public ITypeConverter ClrTypeConverter { get; internal set; }
 
         // cache of types used when resolving CLR type names
-        internal readonly Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
+        internal readonly Dictionary<string, Type> TypeCache = new();
 
-        internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new Dictionary<Type, Func<Engine, object, JsValue>>
+        internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new()
         {
             { typeof(bool), (engine, v) => (bool) v ? JsBoolean.True : JsBoolean.False },
             { typeof(byte), (engine, v) => JsNumber.Create((byte)v) },
@@ -108,8 +108,7 @@ namespace Jint
         internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerConfigurable;
         internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerNonConfigurable;
 
-        internal readonly Dictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>> ClrPropertyDescriptorFactories =
-            new Dictionary<ClrPropertyDescriptorFactoriesKey, Func<Engine, object, PropertyDescriptor>>();
+        internal static Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> ReflectionAccessors = new();
 
         internal readonly JintCallStack CallStack = new JintCallStack();
 
