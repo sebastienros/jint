@@ -8,82 +8,81 @@ namespace Jint.Tests.Runtime.Debugger
     public class ScopeTests
     {
         /// <summary>
-        /// Initializes engine in debugmode and executes script through a given number of steps, before calling stepHandler for assertions.
+        /// Initializes engine in debugmode and executes script until debugger statement,
+        /// before calling stepHandler for assertions. Also asserts that a break was triggered.
         /// </summary>
         /// <param name="script">Script that is basis for testing</param>
-        /// <param name="stepHandler">Handler for assertions</param>
-        /// <param name="steps">Number of steps to execute before calling handler</param>
-        private void TestStep(string script, Action<DebugInformation> stepHandler, int steps = 0)
+        /// <param name="breakHandler">Handler for assertions</param>
+        private void TestDebugInformation(string script, Action<DebugInformation> breakHandler)
         {
-            var engine = new Engine(options => options.DebugMode(true));
-            int stepsRaised = 0;
-            engine.Step += (sender, info) =>
+            var engine = new Engine(options => options
+                .DebugMode()
+                .DebuggerStatementHandling(DebuggerStatementHandling.Jint)
+            );
+            
+            bool didBreak = false;
+            engine.Break += (sender, info) =>
             {
-                stepsRaised++;
-                if (stepsRaised > steps)
-                {
-                    stepHandler(info);
-                    return StepMode.None;
-                }
-                return StepMode.Into;
+                didBreak = true;
+                breakHandler(info);
+                return StepMode.None;
             };
+
             engine.Execute(script);
-            Assert.Equal(steps + 1, stepsRaised);
+            
+            Assert.True(didBreak);
         }
 
         [Fact]
         public void GlobalsAndLocalsIncludeGlobalConst()
         {
-            TestStep(
-                "const globalConstant = 'test';",
-                info =>
-                {
-                    var variable = Assert.Single(info.Globals, g => g.Key == "globalConstant");
-                    // consts are undefined before initialization
-                    Assert.Equal(JsUndefined.Undefined, variable.Value);
+            string script = @"
+                const globalConstant = 'test';
+                debugger;
+            ";
 
-                    variable = Assert.Single(info.Locals, g => g.Key == "globalConstant");
-                    Assert.Equal(JsUndefined.Undefined, variable.Value);
-                }
-            );
+            TestDebugInformation(script, info =>
+            {
+                var variable = Assert.Single(info.Globals, g => g.Key == "globalConstant");
+                Assert.Equal("test", variable.Value.AsString());
+
+                variable = Assert.Single(info.Locals, g => g.Key == "globalConstant");
+                Assert.Equal("test", variable.Value.AsString());
+            });
         }
 
         [Fact]
         public void GlobalsAndLocalsIncludeGlobalLet()
         {
-            // lets don't exist before initialization, so we need to step past the declaration
-            TestStep(
-                @"
-                    let globalLet = 'test';
-                    'dummy'; // Dummy statement to avoid stepping out of script
-                ",
-                info =>
-                {
-                    var variable = Assert.Single(info.Globals, g => g.Key == "globalLet");
-                    Assert.Equal("test", variable.Value.AsString());
+            string script = @"
+                let globalLet = 'test';
+                debugger;";
 
-                    variable = Assert.Single(info.Locals, g => g.Key == "globalLet");
-                    Assert.Equal("test", variable.Value.AsString());
-                },
-                steps: 1
-            );
+            TestDebugInformation(script, info =>
+            {
+                var variable = Assert.Single(info.Globals, g => g.Key == "globalLet");
+                Assert.Equal("test", variable.Value.AsString());
+
+                variable = Assert.Single(info.Locals, g => g.Key == "globalLet");
+                Assert.Equal("test", variable.Value.AsString());
+            });
         }
 
         [Fact]
         public void GlobalsAndLocalsIncludeGlobalVar()
         {
-            TestStep(
-                "var globalVar = 'test';",
-                info =>
-                {
-                    var variable = Assert.Single(info.Globals, g => g.Key == "globalVar");
-                    // vars are undefined before initialization
-                    Assert.Equal(JsUndefined.Undefined, variable.Value);
-                    
-                    variable = Assert.Single(info.Locals, g => g.Key == "globalVar");
-                    Assert.Equal(JsUndefined.Undefined, variable.Value);
-                }
-            );
+            string script = @"
+                var globalVar = 'test';
+                debugger;";
+
+            TestDebugInformation(script, info =>
+            {
+                var variable = Assert.Single(info.Globals, g => g.Key == "globalVar");
+                Assert.Equal("test", variable.Value.AsString());
+
+                variable = Assert.Single(info.Locals, g => g.Key == "globalVar");
+                Assert.Equal("test", variable.Value.AsString());
+            });
         }
 
         [Fact]
@@ -93,20 +92,16 @@ namespace Jint.Tests.Runtime.Debugger
                 function test()
                 {
                     const localConst = 'test';
-                    'dummy'; // Dummy statement to avoid stepping out of script  
+                    debugger;
                 }
                 test();";
 
-            TestStep(
-                script,
-                info =>
-                {
-                    var variable = Assert.Single(info.Locals, g => g.Key == "localConst");
-                    Assert.Equal("test", variable.Value.AsString());
-                    Assert.DoesNotContain(info.Globals, g => g.Key == "localConst");
-                },
-                steps: 4
-            );
+            TestDebugInformation(script, info =>
+            {
+                var variable = Assert.Single(info.Locals, g => g.Key == "localConst");
+                Assert.Equal("test", variable.Value.AsString());
+                Assert.DoesNotContain(info.Globals, g => g.Key == "localConst");
+            });
         }
 
         [Fact]
@@ -116,20 +111,16 @@ namespace Jint.Tests.Runtime.Debugger
                 function test()
                 {
                     let localLet = 'test';
-                    'dummy'; // Dummy statement to avoid stepping out of script  
+                    debugger;
                 }
                 test();";
 
-            TestStep(
-                script,
-                info =>
-                {
-                    var variable = Assert.Single(info.Locals, g => g.Key == "localLet");
-                    Assert.Equal("test", variable.Value.AsString());
-                    Assert.DoesNotContain(info.Globals, g => g.Key == "localLet");
-                },
-                steps: 4
-            );
+            TestDebugInformation(script, info =>
+            {
+                var variable = Assert.Single(info.Locals, g => g.Key == "localLet");
+                Assert.Equal("test", variable.Value.AsString());
+                Assert.DoesNotContain(info.Globals, g => g.Key == "localLet");
+            });
         }
 
         [Fact]
@@ -139,54 +130,65 @@ namespace Jint.Tests.Runtime.Debugger
                 function test()
                 {
                     var localVar = 'test';
-                    'dummy'; // Dummy statement to avoid stepping out of script  
+                    debugger;
                 }
                 test();";
 
-            TestStep(
-                script,
-                info =>
-                {
-                    var variable = Assert.Single(info.Locals, g => g.Key == "localVar");
-                    Assert.Equal("test", variable.Value.AsString());
-                    Assert.DoesNotContain(info.Globals, g => g.Key == "localVar");
-                },
-                steps: 4
-            );
+            TestDebugInformation(script, info =>
+            {
+                var variable = Assert.Single(info.Locals, g => g.Key == "localVar");
+                Assert.Equal("test", variable.Value.AsString());
+                Assert.DoesNotContain(info.Globals, g => g.Key == "localVar");
+            });
         }
 
         [Fact]
-        public void BlockScopedVariablesAreOnlyVisibleInsideBlock()
+        public void BlockScopedVariablesAreInvisibleOutsideBlock()
         {
             string script = @"
-            'dummy';
-            'dummy';
+            debugger;
             {
                 let blockLet = 'block';
                 const blockConst = 'block';
-                'dummy';
-            }
-";
+            }";
 
-            TestStep(
-                script,
-                info =>
-                {
-                    Assert.DoesNotContain(info.Locals, g => g.Key == "blockLet");
-                    Assert.DoesNotContain(info.Locals, g => g.Key == "blockConst");
-                },
-                steps: 1
-            );
+            TestDebugInformation(script, info =>
+            {
+                Assert.DoesNotContain(info.Locals, g => g.Key == "blockLet");
+                Assert.DoesNotContain(info.Locals, g => g.Key == "blockConst");
+            });
+        }
 
-            TestStep(
-                script,
-                info =>
-                {
-                    Assert.Single(info.Locals, v => v.Key == "blockLet" && v.Value.AsString() == "block");
-                    Assert.Single(info.Locals, c => c.Key == "blockConst" && c.Value.AsString() == "block");
-                },
-                steps: 5
-            );
+        [Fact]
+        public void BlockScopedConstIsVisibleInsideBlock()
+        {
+            string script = @"
+            'dummy statement';
+            {
+                debugger; // const is initialized (as undefined) at beginning of block
+                const blockConst = 'block';
+            }";
+
+            TestDebugInformation(script, info =>
+            {
+                Assert.Single(info.Locals, c => c.Key == "blockConst" && c.Value == JsUndefined.Undefined);
+            });
+        }
+
+        [Fact]
+        public void BlockScopedLetIsVisibleInsideBlock()
+        {
+            string script = @"
+            'dummy statement';
+            {
+                let blockLet = 'block';
+                debugger; // let isn't initialized until declaration
+            }";
+
+            TestDebugInformation(script, info =>
+            {
+                Assert.Single(info.Locals, v => v.Key == "blockLet" && v.Value.AsString() == "block");
+            });
         }
     }
 }

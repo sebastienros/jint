@@ -34,8 +34,9 @@ namespace Jint.Tests.Runtime.Debugger
                     x++; y *= 2;
                 }";
 
+            var engine = new Engine(options => options.DebugMode());
+
             bool didBreak = false;
-            var engine = new Engine(options => options.DebugMode(true));
             engine.Break += (sender, info) =>
             {
                 Assert.Equal(4, info.CurrentStatement.Location.Start.Line);
@@ -69,12 +70,11 @@ namespace Jint.Tests.Runtime.Debugger
                 const z = 3;
                 test(z);";
 
-            bool didBreak = false;
-
-            var engine = new Engine(options => { options.DebugMode(true); });
+            var engine = new Engine(options => { options.DebugMode(); });
             
             engine.BreakPoints.Add(new BreakPoint("script2", 3, 0));
 
+            bool didBreak = false;
             engine.Break += (sender, info) =>
             {
                 Assert.Equal("script2", info.CurrentStatement.Location.Source);

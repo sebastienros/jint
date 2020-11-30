@@ -13,47 +13,45 @@ namespace Jint.Tests.Runtime.Debugger
         [Fact]
         public void NamesRegularFunction()
         {
-            var engine = new Engine(options => options.DebugMode(true));
+            var engine = new Engine(options => options
+                .DebugMode()
+                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
 
-            int steps = 0;
-            engine.Step += (sender, info) =>
+            bool didBreak = false;
+            engine.Break += (sender, info) =>
             {
-                if (steps == 2)
-                {
-                    Assert.Equal("regularFunction", info.CallStack.Peek());
-                }
-                steps++;
-                return StepMode.Into;
+                didBreak = true;
+                Assert.Equal("regularFunction", info.CallStack.Peek());
+                return StepMode.None;
             };
 
             engine.Execute(
-                @"function regularFunction() { return 'test'; }
+                @"function regularFunction() { debugger; }
                 regularFunction()");
 
-            Assert.Equal(3, steps);
+            Assert.True(didBreak);
         }
 
         [Fact]
         public void NamesFunctionExpression()
         {
-            var engine = new Engine(options => options.DebugMode(true));
+            var engine = new Engine(options => options
+                .DebugMode()
+                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
 
-            int steps = 0;
-            engine.Step += (sender, info) =>
+            bool didBreak = false;
+            engine.Break += (sender, info) =>
             {
-                if (steps == 2)
-                {
-                    Assert.Equal("functionExpression", info.CallStack.Peek());
-                }
-                steps++;
-                return StepMode.Into;
+                didBreak = true;
+                Assert.Equal("functionExpression", info.CallStack.Peek());
+                return StepMode.None;
             };
 
             engine.Execute(
-                @"const functionExpression = function() { return 'test'; }
+                @"const functionExpression = function() { debugger; }
                 functionExpression()");
 
-            Assert.Equal(3, steps);
+            Assert.True(didBreak);
         }
     }
 }

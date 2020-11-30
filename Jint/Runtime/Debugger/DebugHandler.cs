@@ -81,13 +81,7 @@ namespace Jint.Runtime.Debugger
 
             if (breakpoint != null)
             {
-                DebugInformation info = CreateDebugInformation(statement);
-                var result = _engine.InvokeBreakEvent(info);
-                if (result.HasValue)
-                {
-                    _stepMode = result.Value;
-                    breakpointFound = true;
-                }
+                breakpointFound = Break(statement);
             }
 
             if (breakpointFound == false && _stepMode == StepMode.Into)
@@ -116,6 +110,18 @@ namespace Jint.Runtime.Debugger
                     _stepMode = StepMode.Into;
                 }
             }
+        }
+
+        internal bool Break(Statement statement)
+        {
+            DebugInformation info = CreateDebugInformation(statement);
+            var result = _engine.InvokeBreakEvent(info);
+            if (result.HasValue)
+            {
+                _stepMode = result.Value;
+                return true;
+            }
+            return false;
         }
 
         private bool BpTest(Statement statement, BreakPoint breakpoint)
