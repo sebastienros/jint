@@ -16,6 +16,7 @@ namespace Jint.Benchmark
         public class Person
         {
             public string Name { get; set; }
+            public int Age { get; set; }
         }
 
         private Engine _engine;
@@ -261,6 +262,17 @@ namespace Jint.Benchmark
                 _engine.Execute("System.Console.WriteLine('value to write');");
             }
             Console.SetOut(originalOut);
+        }
+        
+        [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]
+        public void Setter()
+        {
+            var p = new Person();
+            _engine.SetValue("p", p);
+            for (int i = 0; i < OperationsPerInvoke; ++i)
+            {
+                _engine.Execute("p.Age = 42;");
+            }
         }
 
         [Benchmark(OperationsPerInvoke = OperationsPerInvoke)]

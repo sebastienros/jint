@@ -47,6 +47,31 @@ namespace Jint.Runtime.Interop
 
         public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
+            // check if we can take shortcuts for empty object, no need to generate properties
+            if (property is JsString stringKey)
+            {
+                var member = stringKey.ToString();
+                if (_properties is null || !_properties.ContainsKey(member))
+                {
+                    // can try utilize fast path
+                    var accessor = GetAccessor(_engine, Target.GetType(), member);
+                    
+                    // CanPut logic
+                    if (!accessor.Writable || !_engine.Options._IsClrWriteAllowed)
+                    {
+                        return false;
+                    }
+                    
+                    accessor.SetValue(_engine, Target, value);
+                    return true;
+                }
+            }
+
+            return SetSlow(property, value);
+        }
+
+        private bool SetSlow(JsValue property, JsValue value)
+        {
             if (!CanPut(property))
             {
                 return false;
