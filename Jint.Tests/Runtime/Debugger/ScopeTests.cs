@@ -12,11 +12,6 @@ namespace Jint.Tests.Runtime.Debugger
 {
     public class ScopeTests
     {
-        public ScopeTests()
-        {
-
-        }
-
         /// <summary>
         /// Initializes engine in debugmode and executes script through a given number of steps, before calling stepHandler for assertions.
         /// </summary>
@@ -70,10 +65,10 @@ namespace Jint.Tests.Runtime.Debugger
                 info =>
                 {
                     var variable = Assert.Single(info.Globals, g => g.Key == "globalLet");
-                    Assert.Equal("test", variable.Value);
+                    Assert.Equal("test", variable.Value.AsString());
 
                     variable = Assert.Single(info.Locals, g => g.Key == "globalLet");
-                    Assert.Equal("test", variable.Value);
+                    Assert.Equal("test", variable.Value.AsString());
                 },
                 steps: 1
             );
@@ -112,7 +107,7 @@ namespace Jint.Tests.Runtime.Debugger
                 info =>
                 {
                     var variable = Assert.Single(info.Locals, g => g.Key == "localConst");
-                    Assert.Equal("test", variable.Value);
+                    Assert.Equal("test", variable.Value.AsString());
                     Assert.DoesNotContain(info.Globals, g => g.Key == "localConst");
                 },
                 steps: 4
@@ -135,7 +130,7 @@ namespace Jint.Tests.Runtime.Debugger
                 info =>
                 {
                     var variable = Assert.Single(info.Locals, g => g.Key == "localLet");
-                    Assert.Equal("test", variable.Value);
+                    Assert.Equal("test", variable.Value.AsString());
                     Assert.DoesNotContain(info.Globals, g => g.Key == "localLet");
                 },
                 steps: 4
@@ -158,10 +153,44 @@ namespace Jint.Tests.Runtime.Debugger
                 info =>
                 {
                     var variable = Assert.Single(info.Locals, g => g.Key == "localVar");
-                    Assert.Equal("test", variable.Value);
+                    Assert.Equal("test", variable.Value.AsString());
                     Assert.DoesNotContain(info.Globals, g => g.Key == "localVar");
                 },
                 steps: 4
+            );
+        }
+
+        [Fact]
+        public void BlockScopedVariablesAreOnlyVisibleInsideBlock()
+        {
+            string script = @"
+            'dummy';
+            'dummy';
+            {
+                let blockLet = 'block';
+                const blockConst = 'block';
+                'dummy';
+            }
+";
+
+            TestStep(
+                script,
+                info =>
+                {
+                    Assert.DoesNotContain(info.Locals, g => g.Key == "blockLet");
+                    Assert.DoesNotContain(info.Locals, g => g.Key == "blockConst");
+                },
+                steps: 1
+            );
+
+            TestStep(
+                script,
+                info =>
+                {
+                    Assert.Single(info.Locals, v => v.Key == "blockLet" && v.Value.AsString() == "block");
+                    Assert.Single(info.Locals, c => c.Key == "blockConst" && c.Value.AsString() == "block");
+                },
+                steps: 5
             );
         }
     }
