@@ -160,30 +160,38 @@ namespace Jint.Runtime.Debugger
                 CurrentMemoryUsage = _engine.CurrentMemoryUsage
             };
 
-            if (_engine.ExecutionContext.VariableEnvironment != null)
-            {
-                var lexicalEnvironment = _engine.ExecutionContext.VariableEnvironment;
-                info.Locals = GetLocalVariables(lexicalEnvironment);
-                info.Globals = GetGlobalVariables(lexicalEnvironment);
-            }
+            info.Locals = GetLocalVariables(_engine.ExecutionContext);
+            info.Globals = GetGlobalVariables(_engine.ExecutionContext);
 
             return info;
         }
 
-        private static Dictionary<string, JsValue> GetLocalVariables(LexicalEnvironment lex)
+        private static Dictionary<string, JsValue> GetLocalVariables(ExecutionContext context)
         {
             Dictionary<string, JsValue> locals = new Dictionary<string, JsValue>();
-            if (!ReferenceEquals(lex?._record, null))
+
+            // Local variables are the union of function scope (VariableEnvironment) and any current block scope (LexicalEnvironment)
+            if (!ReferenceEquals(context.VariableEnvironment?._record, null))
             {
-                AddRecordsFromEnvironment(lex, locals);
+                AddRecordsFromEnvironment(context.VariableEnvironment, locals);
+            }
+            if (!ReferenceEquals(context.LexicalEnvironment?._record, null))
+            {
+                AddRecordsFromEnvironment(context.LexicalEnvironment, locals);
             }
             return locals;
         }
 
-        private static Dictionary<string, JsValue> GetGlobalVariables(LexicalEnvironment lex)
+        private static Dictionary<string, JsValue> GetGlobalVariables(ExecutionContext context)
         {
             Dictionary<string, JsValue> globals = new Dictionary<string, JsValue>();
-            LexicalEnvironment tempLex = lex;
+            
+            // Unless we're in the global scope (_outer is null), don't include function local variables.
+            // The function local variables are in the variable environment (function scope)
+            // and any current lexical environment (block scope), which will be a "child" of VariableEnvironment.
+            // Hence, we should only use the VariableEnvironment's outer environment.
+            // For global scope, this means that block scoped variables will never be included - they'll be listed as local variables
+            LexicalEnvironment tempLex = context.VariableEnvironment._outer ?? context.VariableEnvironment;
 
             while (!ReferenceEquals(tempLex?._record, null))
             {
@@ -201,9 +209,19 @@ namespace Jint.Runtime.Debugger
                 if (locals.ContainsKey(binding) == false)
                 {
                     var jsValue = lex._record.GetBindingValue(binding, false);
-                    if (jsValue.TryCast<ICallable>() == null)
+
+                    switch (jsValue)
                     {
-                        locals.Add(binding, jsValue);
+                        case ICallable _:
+                            // TODO: Callables aren't added - but maybe they should be.
+                            break;
+                        case null:
+                            // Uninitialized consts in scope are shown as "undefined" in e.g. Chromium debugger. Uninitialized lets aren't displayed.
+                            // TODO: Check if null result from GetBindingValue is only true for uninitialized const/let (NOTE: "uninitialized" != "undefined")
+                            break;
+                        default:
+                            locals.Add(binding, jsValue);
+                            break;
                     }
                 }
             }

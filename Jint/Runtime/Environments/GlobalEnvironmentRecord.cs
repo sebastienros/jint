@@ -291,7 +291,11 @@ namespace Jint.Runtime.Environments
 
         internal override string[] GetAllBindingNames()
         {
-            return _global.GetOwnProperties().Select(x => x.Key.ToString()).ToArray();
+            // JT: Rather than introduce a new method for the debugger, I'm reusing this one,
+            // which - in spite of the very general name - is actually only used by the debugger
+            // at this point.
+            return _global.GetOwnProperties().Select(x => x.Key.ToString())
+                .Concat(_declarativeRecord.GetAllBindingNames()).ToArray();
         }
 
         public override bool Equals(JsValue other)
