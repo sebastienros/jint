@@ -2020,15 +2020,17 @@ var prep = function (fn) { fn(); };
             var PDT = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
             var FR = new CultureInfo("fr-FR");
 
-            new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+            var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
-                .Execute(@"
-                    var d = new Number(-1.23);
-                    equal('-1.23', d.toString());
-                    equal('-1,23', d.toLocaleString());
-            ");
+                .SetValue("equal", new Action<object, object>(Assert.Equal));
+
+            engine.Execute("var d = new Number(-1.23);");
+            engine.Execute("equal('-1.23', d.toString());");
+            
+            // NET 5 globalization APIs use ICU libraries on newer Windows 10 giving different result
+            // build server is older Windows...
+            engine.Execute("assert('-1,230' === d.toLocaleString() || '-1,23' === d.toLocaleString());");
         }
 
         [Fact]

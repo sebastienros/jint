@@ -14,7 +14,6 @@ using Jint.Native.String;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter.Expressions;
 

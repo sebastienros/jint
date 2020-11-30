@@ -4,7 +4,6 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
