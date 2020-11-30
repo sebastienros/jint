@@ -56,7 +56,7 @@ namespace Jint.Runtime.Debugger
                         name = TypeConverter.ToString(nameValue);
                     }
 
-                    return name ?? "(anonymous function)";
+                    return name ?? "(anonymous)";
                 default:
                     return "(unknown)";
             }
