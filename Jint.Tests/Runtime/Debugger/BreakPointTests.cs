@@ -73,6 +73,8 @@ namespace Jint.Tests.Runtime.Debugger
 
             var engine = new Engine(options => { options.DebugMode(true); });
             
+            engine.BreakPoints.Add(new BreakPoint("script2", 3, 0));
+
             engine.Break += (sender, info) =>
             {
                 Assert.Equal("script2", info.CurrentStatement.Location.Source);
@@ -82,8 +84,6 @@ namespace Jint.Tests.Runtime.Debugger
                 return StepMode.None;
             };
 
-            engine.BreakPoints.Add(new BreakPoint("script2", 3, 0));
-            
             // We need to specify the source to the parser.
             // And we need locations too (Jint specifies that in its default options)
             engine.Execute(TrimLines(script1), new ParserOptions("script1") { Loc = true });

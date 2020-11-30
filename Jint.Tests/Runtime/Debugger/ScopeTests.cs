@@ -1,12 +1,7 @@
 ﻿using Jint.Native;
 using Jint.Runtime.Debugger;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Xunit;
-using static Jint.Engine;
 
 namespace Jint.Tests.Runtime.Debugger
 {
