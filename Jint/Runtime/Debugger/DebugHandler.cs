@@ -115,6 +115,14 @@ namespace Jint.Runtime.Debugger
 
         private bool BpTest(Statement statement, BreakPoint breakpoint)
         {
+            if (breakpoint.Source != null)
+            {
+                if (breakpoint.Source != statement.Location.Source)
+                {
+                    return false;
+                }
+            }
+
             bool afterStart, beforeEnd;
 
             afterStart = (breakpoint.Line == statement.Location.Start.Line &&
