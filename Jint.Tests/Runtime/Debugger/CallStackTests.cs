@@ -166,5 +166,63 @@ namespace Jint.Tests.Runtime.Debugger
 
             Assert.True(didBreak);
         }
+
+        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        public void NamesGetAccessor()
+        {
+            var engine = new Engine(options => options
+                .DebugMode()
+                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+
+            bool didBreak = false;
+            engine.Break += (sender, info) =>
+            {
+                didBreak = true;
+                Assert.Equal("get accessor", info.CallStack.Peek());
+                return StepMode.None;
+            };
+
+            engine.Execute(
+                @"
+                const obj = {
+                    get accessor()
+                    {
+                        debugger;
+                        return 'test';
+                    }
+                };
+                const x = obj.accessor;");
+
+            Assert.True(didBreak);
+        }
+
+        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        public void NamesSetAccessor()
+        {
+            var engine = new Engine(options => options
+                .DebugMode()
+                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+
+            bool didBreak = false;
+            engine.Break += (sender, info) =>
+            {
+                didBreak = true;
+                Assert.Equal("set accessor", info.CallStack.Peek());
+                return StepMode.None;
+            };
+
+            engine.Execute(
+                @"
+                const obj = {
+                    set accessor(value)
+                    {
+                        debugger;
+                        this.value = value;
+                    }
+                };
+                obj.accessor = 42;");
+
+            Assert.True(didBreak);
+        }
     }
 }

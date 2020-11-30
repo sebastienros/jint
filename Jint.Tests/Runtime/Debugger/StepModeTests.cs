@@ -63,6 +63,8 @@ namespace Jint.Tests.Runtime.Debugger
             };
 
             engine.Execute(script);
+            
+            // Make sure we actually reached the target
             Assert.True(targetReached);
 
             return steps;
@@ -205,6 +207,110 @@ namespace Jint.Tests.Runtime.Debugger
                     return 42;
                 }
                 const x = test();
+                'target';";
+
+            Assert.Equal(1, StepsFromSourceToTarget(script, StepMode.Out));
+        }
+
+        [Fact]
+        public void StepsIntoGetAccessor()
+        {
+            var script = @"
+                const obj = {
+                    get test()
+                    {
+                        'target';
+                        return 144;
+                    }
+                };
+                'source';
+                const x = obj.test;";
+
+            Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Into));
+        }
+
+        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        public void StepsOverGetAccessor()
+        {
+            var script = @"
+                const obj = {
+                    get test()
+                    {
+                        return 144;
+                    }
+                };
+                'source';
+                const x = obj.test;
+                'target';";
+
+            Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Over));
+        }
+
+        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        public void StepsOutOfGetAccessor()
+        {
+            var script = @"
+                const obj = {
+                    get test()
+                    {
+                        'source';
+                        'dummy';
+                        return 144;
+                    }
+                };
+                const x = obj.test;
+                'target';";
+
+            Assert.Equal(1, StepsFromSourceToTarget(script, StepMode.Out));
+        }
+
+        [Fact]
+        public void StepsIntoSetAccessor()
+        {
+            var script = @"
+                const obj = {
+                    set test(value)
+                    {
+                        'target';
+                        this.value = value;
+                    }
+                };
+                'source';
+                obj.test = 37;";
+
+            Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Into));
+        }
+
+        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        public void StepsOverSetAccessor()
+        {
+            var script = @"
+                const obj = {
+                    set test(value)
+                    {
+                        this.value = value;
+                    }
+                };
+                'source';
+                obj.test = 37;
+                'target';";
+
+            Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Over));
+        }
+
+        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        public void StepsOutOfSetAccessor()
+        {
+            var script = @"
+                const obj = {
+                    set test(value)
+                    {
+                        'source';
+                        'dummy';
+                        this.value = value;
+                    }
+                };
+                obj.test = 37;
                 'target';";
 
             Assert.Equal(1, StepsFromSourceToTarget(script, StepMode.Out));

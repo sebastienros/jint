@@ -23,6 +23,12 @@ namespace Jint.Runtime.Debugger
             _stepMode = StepMode.Into;
         }
 
+        internal void AddToDebugCallStack(JsValue function, CallExpression callExpression)
+        {
+            string name = GetCalleeName(function, callExpression.Callee);
+            _debugCallStack.Push(name);
+        }
+
         internal void PopDebugCallStack()
         {
             if (_debugCallStack.Count > 0)
@@ -50,41 +56,30 @@ namespace Jint.Runtime.Debugger
                 case FunctionInstance instance:
                     PropertyDescriptor nameDescriptor = instance.GetOwnProperty(CommonProperties.Name);
                     JsValue nameValue = nameDescriptor != null ? instance.UnwrapJsValue(nameDescriptor) : JsString.Empty;
-                    string name = null;
-                    if (!nameValue.IsUndefined())
-                    {
-                        name = TypeConverter.ToString(nameValue);
-                    }
-
-                    return name ?? "(anonymous)";
+                    return !nameValue.IsUndefined() ? TypeConverter.ToString(nameValue) : "(anonymous)";
                 default:
                     return "(unknown)";
             }
         }
 
-        internal void AddToDebugCallStack(JsValue function, CallExpression callExpression)
-        {
-            string name = GetCalleeName(function, callExpression.Callee);
-            _debugCallStack.Push(name);
-        }
-
         internal void OnStep(Statement statement)
         {
-            var old = _stepMode;
             if (statement == null)
             {
                 return;
             }
 
-            BreakPoint breakpoint = _engine.BreakPoints.FirstOrDefault(breakPoint => BpTest(statement, breakPoint));
-            bool breakpointFound = false;
+            var old = _stepMode;
 
+            BreakPoint breakpoint = _engine.BreakPoints.FirstOrDefault(breakPoint => BpTest(statement, breakPoint));
+            
+            bool breakpointFound = false;
             if (breakpoint != null)
             {
                 breakpointFound = Break(statement);
             }
 
-            if (breakpointFound == false && _stepMode == StepMode.Into)
+            if (!breakpointFound && _stepMode == StepMode.Into)
             {
                 DebugInformation info = CreateDebugInformation(statement);
                 var result = _engine.InvokeStepEvent(info);
@@ -94,20 +89,25 @@ namespace Jint.Runtime.Debugger
                 }
             }
 
-            if (old == StepMode.Into && _stepMode == StepMode.Out)
+            if (old == StepMode.Into)
             {
-                _callBackStepOverDepth = _debugCallStack.Count;
-            }
-            else if (old == StepMode.Into && _stepMode == StepMode.Over)
-            {
-                if (statement is ExpressionStatement expressionStatement 
-                    && expressionStatement.Expression is CallExpression)
+                switch (_stepMode)
                 {
-                    _callBackStepOverDepth = _debugCallStack.Count;
-                }
-                else
-                {
-                    _stepMode = StepMode.Into;
+                    case StepMode.Out:
+                        _callBackStepOverDepth = _debugCallStack.Count;
+                        break;
+                    case StepMode.Over:
+                        // Step over any statement that includes a CallExpression.
+                        // TODO: This can certainly be improved - maybe make use of AddToDebugCallStack
+                        if (statement.DescendantNodesAndSelf().Any(n => n is CallExpression))
+                        {
+                            _callBackStepOverDepth = _debugCallStack.Count;
+                        }
+                        else
+                        {
+                            _stepMode = StepMode.Into;
+                        }
+                        break;
                 }
             }
         }
@@ -218,7 +218,7 @@ namespace Jint.Runtime.Debugger
             var bindings = lex._record.GetAllBindingNames();
             foreach (var binding in bindings)
             {
-                if (locals.ContainsKey(binding) == false)
+                if (!locals.ContainsKey(binding))
                 {
                     var jsValue = lex._record.GetBindingValue(binding, false);
 
