@@ -2,7 +2,10 @@
 using System.Linq;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Function;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Debugger
 {
@@ -38,29 +41,31 @@ namespace Jint.Runtime.Debugger
             }
         }
 
-        internal void AddToDebugCallStack(CallExpression callExpression)
+        private string GetCalleeName(JsValue function, Expression calleeExpression)
         {
-            if (callExpression.Callee is Identifier identifier)
+            switch (function)
             {
-                var stack = identifier.Name + "(";
-                var paramStrings = new List<string>();
-
-                foreach (var argument in callExpression.Arguments)
-                {
-                    if (argument != null)
+                case DelegateWrapper _:
+                    return "(native code)";
+                case FunctionInstance instance:
+                    PropertyDescriptor nameDescriptor = instance.GetOwnProperty(CommonProperties.Name);
+                    JsValue nameValue = nameDescriptor != null ? instance.UnwrapJsValue(nameDescriptor) : JsString.Empty;
+                    string name = null;
+                    if (!nameValue.IsUndefined())
                     {
-                        paramStrings.Add(argument is Identifier argIdentifier ? argIdentifier.Name : "null");
+                        name = TypeConverter.ToString(nameValue);
                     }
-                    else
-                    {
-                        paramStrings.Add("null");
-                    }
-                }
 
-                stack += string.Join(", ", paramStrings);
-                stack += ")";
-                _debugCallStack.Push(stack);
+                    return name ?? "(anonymous function)";
+                default:
+                    return "(unknown)";
             }
+        }
+
+        internal void AddToDebugCallStack(JsValue function, CallExpression callExpression)
+        {
+            string name = GetCalleeName(function, callExpression.Callee);
+            _debugCallStack.Push(name);
         }
 
         internal void OnStep(Statement statement)
@@ -170,7 +175,8 @@ namespace Jint.Runtime.Debugger
         {
             Dictionary<string, JsValue> locals = new Dictionary<string, JsValue>();
 
-            // Local variables are the union of function scope (VariableEnvironment) and any current block scope (LexicalEnvironment)
+            // Local variables are the union of function scope (VariableEnvironment)
+            // and any current block scope (LexicalEnvironment)
             if (!ReferenceEquals(context.VariableEnvironment?._record, null))
             {
                 AddRecordsFromEnvironment(context.VariableEnvironment, locals);
@@ -187,10 +193,10 @@ namespace Jint.Runtime.Debugger
             Dictionary<string, JsValue> globals = new Dictionary<string, JsValue>();
             
             // Unless we're in the global scope (_outer is null), don't include function local variables.
-            // The function local variables are in the variable environment (function scope)
-            // and any current lexical environment (block scope), which will be a "child" of VariableEnvironment.
-            // Hence, we should only use the VariableEnvironment's outer environment.
-            // For global scope, this means that block scoped variables will never be included - they'll be listed as local variables
+            // The function local variables are in the variable environment (function scope) and any current
+            // lexical environment (block scope), which will be a "child" of that VariableEnvironment.
+            // Hence, we should only use the VariableEnvironment's outer environment for global scope. This
+            // also means that block scoped variables will never be included - they'll be listed as local variables.
             LexicalEnvironment tempLex = context.VariableEnvironment._outer ?? context.VariableEnvironment;
 
             while (!ReferenceEquals(tempLex?._record, null))
@@ -216,8 +222,9 @@ namespace Jint.Runtime.Debugger
                             // TODO: Callables aren't added - but maybe they should be.
                             break;
                         case null:
-                            // Uninitialized consts in scope are shown as "undefined" in e.g. Chromium debugger. Uninitialized lets aren't displayed.
-                            // TODO: Check if null result from GetBindingValue is only true for uninitialized const/let (NOTE: "uninitialized" != "undefined")
+                            // Uninitialized consts in scope are shown as "undefined" in e.g. Chromium debugger.
+                            // Uninitialized lets aren't displayed.
+                            // TODO: Check if null result from GetBindingValue is only true for uninitialized const/let.
                             break;
                         default:
                             locals.Add(binding, jsValue);
