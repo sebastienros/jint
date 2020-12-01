@@ -13,8 +13,8 @@ namespace Jint.Runtime.Debugger
     {
         private readonly Stack<string> _debugCallStack;
         private StepMode _stepMode;
-        private int resumeStepDepth;
-        private bool stepOverCall;
+        private int resumeSteppingDepth;
+        private bool stepOverNextStatement;
         private readonly Engine _engine;
 
         public DebugHandler(Engine engine)
@@ -28,10 +28,10 @@ namespace Jint.Runtime.Debugger
         {
             string name = GetCalleeName(function, callExpression.Callee);
 
-            if (stepOverCall)
+            if (stepOverNextStatement)
             {
-                resumeStepDepth = _debugCallStack.Count;
-                stepOverCall = false;
+                resumeSteppingDepth = _debugCallStack.Count;
+                stepOverNextStatement = false;
             }
 
             _debugCallStack.Push(name);
@@ -43,14 +43,14 @@ namespace Jint.Runtime.Debugger
             {
                 _debugCallStack.Pop();
             }
-            if (_stepMode == StepMode.Out && _debugCallStack.Count < resumeStepDepth)
+            if (_stepMode == StepMode.Out && _debugCallStack.Count <= resumeSteppingDepth)
             {
-                resumeStepDepth = _debugCallStack.Count;
+                resumeSteppingDepth = _debugCallStack.Count;
                 _stepMode = StepMode.Into;
             }
-            else if (_stepMode == StepMode.Over && _debugCallStack.Count == resumeStepDepth)
+            else if (_stepMode == StepMode.Over && _debugCallStack.Count <= resumeSteppingDepth)
             {
-                resumeStepDepth = _debugCallStack.Count;
+                resumeSteppingDepth = _debugCallStack.Count;
                 _stepMode = StepMode.Into;
             }
         }
@@ -72,81 +72,60 @@ namespace Jint.Runtime.Debugger
 
         internal void OnStep(Statement statement)
         {
-            if (statement == null)
-            {
-                return;
-            }
-
             BreakPoint breakpoint = _engine.BreakPoints.FirstOrDefault(breakPoint => BpTest(statement, breakPoint));
 
-            if (stepOverCall)
+            if (stepOverNextStatement)
             {
-                // We didn't take advantage of our StepOver opportunity (in other words, didn't have a call),
-                // so revert to standard stepping
+                // We didn't take advantage of our StepOver opportunity in the last step
+                // (in other words, we didn't have a push to the call stack), so revert to standard stepping now.
                 _stepMode = StepMode.Into;
             }
 
-            var old = _stepMode;
-
-            bool stepModeChanged = false;
-
             if (breakpoint != null)
             {
-                stepModeChanged = Break(statement);
+                Break(statement);
             }
-
-            if (!stepModeChanged && _stepMode == StepMode.Into)
+            else if (_stepMode == StepMode.Into)
             {
-                stepModeChanged = Step(statement);
+                Step(statement);
             }
+        }
 
-            if (old == StepMode.Into)
+        private void Step(Statement statement)
+        {
+            DebugInformation info = CreateDebugInformation(statement);
+            StepMode? result = _engine.InvokeStepEvent(info);
+            HandleNewStepMode(result);
+        }
+
+        internal void Break(Statement statement)
+        {
+            DebugInformation info = CreateDebugInformation(statement);
+            StepMode? result = _engine.InvokeBreakEvent(info);
+            HandleNewStepMode(result);
+        }
+
+        private void HandleNewStepMode(StepMode? newStepMode)
+        {
+            stepOverNextStatement = false;
+
+            if (_stepMode == StepMode.Into)
             {
-                stepOverCall = _stepMode == StepMode.Over;
-
-                switch (_stepMode)
+                switch (newStepMode)
                 {
-                    case StepMode.Out:
-                        resumeStepDepth = _debugCallStack.Count;
+                    case StepMode.Over:
+                        stepOverNextStatement = true;
                         break;
-                    /*case StepMode.Over:
-                        // Step over any statement that includes a CallExpression.
-                        // TODO: This can certainly be improved - maybe make use of AddToDebugCallStack
-                        if (statement.DescendantNodesAndSelf().Any(n => n is CallExpression))
-                        {
-                            _callBackStepOverDepth = _debugCallStack.Count;
-                        }
-                        else
-                        {
-                            _stepMode = StepMode.Into;
-                        }
-                        break;*/
+                    case StepMode.Out:
+                        resumeSteppingDepth = _debugCallStack.Count - 1;
+                        break;
                 }
             }
-        }
 
-        private bool Step(Statement statement)
-        {
-            DebugInformation info = CreateDebugInformation(statement);
-            var result = _engine.InvokeStepEvent(info);
-            if (result.HasValue)
+            if (newStepMode != null)
             {
-                _stepMode = result.Value;
-                return true;
+                _stepMode = newStepMode.Value;
             }
-            return false;
-        }
-
-        internal bool Break(Statement statement)
-        {
-            DebugInformation info = CreateDebugInformation(statement);
-            var result = _engine.InvokeBreakEvent(info);
-            if (result.HasValue)
-            {
-                _stepMode = result.Value;
-                return true;
-            }
-            return false;
         }
 
         private bool BpTest(Statement statement, BreakPoint breakpoint)

@@ -12,27 +12,14 @@ namespace Jint.Tests.Runtime.Debugger
 {
     public class BreakPointTests
     {
-        private Regex NewLines = new Regex("\r?\n");
-
-        // To avoid issues with whitespace, and yet allow readable formatting of test scripts,
-        // we trim the script (to remove leading/trailing empty lines), then trim each line to
-        // remove indent.
-        private string TrimLines(string script)
-        {
-            script = script.Trim();
-            var lines = NewLines.Split(script);
-            return String.Join("\n", lines.Select(line => line.Trim()));
-        }
-
        [Fact]
         public void BreakPointBreaksAtPosition()
         {
-            string script = @"
-                let x = 1, y = 2;
-                if (x === 1)
-                {
-                    x++; y *= 2;
-                }";
+            string script = @"let x = 1, y = 2;
+if (x === 1)
+{
+x++; y *= 2;
+}";
 
             var engine = new Engine(options => options.DebugMode());
 
@@ -46,29 +33,26 @@ namespace Jint.Tests.Runtime.Debugger
             };
 
             engine.BreakPoints.Add(new BreakPoint(4, 5));
-            engine.Execute(TrimLines(script));
+            engine.Execute(script);
             Assert.True(didBreak);
         }
 
         [Fact]
         public void BreakPointBreaksInCorrectSource()
         {
-            string script1 = @"
-                let x = 1, y = 2;
-                if (x === 1)
-                {
-                    x++; y *= 2;
-                }";
+            string script1 = @"let x = 1, y = 2;
+if (x === 1)
+{
+x++; y *= 2;
+}";
 
-            string script2 = @"
-                function test(x)
-                {
-                    return x + 2;
-                }";
+            string script2 = @"function test(x)
+{
+return x + 2;
+}";
 
-            string script3 = @"
-                const z = 3;
-                test(z);";
+            string script3 = @"const z = 3;
+test(z);";
 
             var engine = new Engine(options => { options.DebugMode(); });
             
@@ -86,15 +70,15 @@ namespace Jint.Tests.Runtime.Debugger
 
             // We need to specify the source to the parser.
             // And we need locations too (Jint specifies that in its default options)
-            engine.Execute(TrimLines(script1), new ParserOptions("script1") { Loc = true });
+            engine.Execute(script1, new ParserOptions("script1") { Loc = true });
             Assert.False(didBreak);
 
-            engine.Execute(TrimLines(script2), new ParserOptions("script2") { Loc = true });
-            Assert.False(didBreak);
+            engine.Execute(script2, new ParserOptions("script2") { Loc = true });
+            Assert.False(didBreak); 
 
             // Note that it's actually script3 that executes the function in script2
             // and triggers the breakpoint
-            engine.Execute(TrimLines(script3), new ParserOptions("script3") { Loc = true });
+            engine.Execute(script3, new ParserOptions("script3") { Loc = true });
             Assert.True(didBreak);
         }
     }

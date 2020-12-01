@@ -41,8 +41,12 @@ namespace Jint
         }
 
         /// <summary>
-        /// Handler for script <code>debugger</code> statements.
+        /// Handling for script <code>debugger</code> statements.
         /// </summary>
+        /// <remarks>
+        /// The <code>debugger</code> statement can either be ignored, trigger debugging at CLR level (e.g. Visual Studio), or trigger
+        /// Jint's DebugHandler.
+        /// </remarks>
         public Options DebuggerStatementHandling(DebuggerStatementHandling debuggerStatementHandling = Jint.DebuggerStatementHandling.Ignore)
         {
             _debuggerStatementHandling = debuggerStatementHandling;
