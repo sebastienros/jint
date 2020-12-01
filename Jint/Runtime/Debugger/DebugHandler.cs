@@ -44,13 +44,10 @@ namespace Jint.Runtime.Debugger
             {
                 _debugCallStack.Pop();
             }
-            if (_stepMode == StepMode.Out && _debugCallStack.Count <= resumeSteppingDepth)
+
+            if (_debugCallStack.Count <= resumeSteppingDepth && (_stepMode == StepMode.Over || _stepMode == StepMode.Out))
             {
-                resumeSteppingDepth = _debugCallStack.Count;
-                _stepMode = StepMode.Into;
-            }
-            else if (_stepMode == StepMode.Over && _debugCallStack.Count <= resumeSteppingDepth)
-            {
+                // Stop skipping over/out
                 resumeSteppingDepth = _debugCallStack.Count;
                 _stepMode = StepMode.Into;
             }
@@ -77,8 +74,8 @@ namespace Jint.Runtime.Debugger
 
             if (stepOverNextStatement)
             {
-                // We didn't take advantage of our StepOver opportunity in the last step
-                // (in other words, we didn't have a push to the call stack), so revert to standard stepping now.
+                // The step-over flag had no effect in the last step (in other words, we didn't have a push to the call stack),
+                // so revert to standard stepping now.
                 _stepMode = StepMode.Into;
             }
 
@@ -111,21 +108,23 @@ namespace Jint.Runtime.Debugger
         {
             stepOverNextStatement = false;
 
-            if (_stepMode == StepMode.Into)
+            if (newStepMode != null && newStepMode != _stepMode)
             {
+                // Some step modes require special action after switching to them.
+                // Note that a breakpoint can switch from StepMode.Over, Out or None,
+                // so it's not enough to check if old mode was Into (old code did that).
                 switch (newStepMode)
                 {
                     case StepMode.Over:
+                        // Flag to step over the next statement if that statement pushes onto the call stack
                         stepOverNextStatement = true;
                         break;
                     case StepMode.Out:
+                        // Skip steps until the call stack is popped
                         resumeSteppingDepth = _debugCallStack.Count - 1;
                         break;
                 }
-            }
 
-            if (newStepMode != null)
-            {
                 _stepMode = newStepMode.Value;
             }
         }

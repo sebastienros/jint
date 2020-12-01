@@ -21,18 +21,6 @@ namespace Jint.Tests.Runtime.Debugger
         /// <returns>Number of steps from source to target</returns>
         private int StepsFromSourceToTarget(string script, StepMode stepMode)
         {
-            bool ReachedLiteral(DebugInformation info, string requiredValue)
-            {
-                switch (info.CurrentStatement)
-                {
-                    case Directive directive:
-                        return directive.Directiv == requiredValue;
-                    case ExpressionStatement expr:
-                        return expr.Expression is Literal literal && literal.StringValue == requiredValue;
-                }
-
-                return false;
-            }
 
             var engine = new Engine(options => options
                 .DebugMode()
@@ -46,7 +34,7 @@ namespace Jint.Tests.Runtime.Debugger
                 if (sourceReached)
                 {
                     steps++;
-                    if (ReachedLiteral(info, "target"))
+                    if (info.ReachedLiteral("target"))
                     {
                         // Stop stepping
                         targetReached = true;
@@ -54,7 +42,7 @@ namespace Jint.Tests.Runtime.Debugger
                     }
                     return stepMode;
                 }
-                else if (ReachedLiteral(info, "source"))
+                else if (info.ReachedLiteral("source"))
                 {
                     sourceReached = true;
                     return stepMode;
@@ -314,6 +302,86 @@ namespace Jint.Tests.Runtime.Debugger
                 'target';";
 
             Assert.Equal(1, StepsFromSourceToTarget(script, StepMode.Out));
+        }
+
+        [Fact]
+        public void StepOutOnlyStepsOutOfOneStackItem()
+        {
+            var script = @"
+                function test()
+                {
+                    'dummy';
+                    test2();
+                    'target';
+                }
+
+                function test2()
+                {
+                    'source';
+                    'dummy';
+                    'dummy';
+                }
+
+                test();";
+
+            var engine = new Engine(options => options.DebugMode());
+            int step = 0;
+            engine.Step += (sender, info) =>
+            {
+                switch (step)
+                {
+                    case 0:
+                        if (info.ReachedLiteral("source"))
+                        {
+                            step++;
+                            return StepMode.Out;
+                        }
+                        break;
+                    case 1:
+                        Assert.True(info.ReachedLiteral("target"));
+                        step++;
+                        break;
+                }
+                return StepMode.Into;
+            };
+
+            engine.Execute(script);
+        }
+
+        [Fact]
+        public void StepOverSinglestepsAfterBreakpoint()
+        {
+            string script = @"
+                test();
+
+                function test()
+                {
+                    'dummy';
+                    debugger;
+                    'target';
+                }";
+
+            var engine = new Engine(options => options
+                .DebugMode()
+                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+
+            bool stepping = false;
+
+            engine.Break += (sender, info) =>
+            {
+                stepping = true;
+                return StepMode.Over;
+            };
+            engine.Step += (sender, info) =>
+            {
+                if (stepping)
+                {
+                    Assert.True(info.ReachedLiteral("target"));
+                }
+                return StepMode.None;
+            };
+
+            engine.Execute(script);
         }
     }
 }
