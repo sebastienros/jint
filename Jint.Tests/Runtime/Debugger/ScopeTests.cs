@@ -7,32 +7,6 @@ namespace Jint.Tests.Runtime.Debugger
 {
     public class ScopeTests
     {
-        /// <summary>
-        /// Initializes engine in debugmode and executes script until debugger statement,
-        /// before calling stepHandler for assertions. Also asserts that a break was triggered.
-        /// </summary>
-        /// <param name="script">Script that is basis for testing</param>
-        /// <param name="breakHandler">Handler for assertions</param>
-        private void TestDebugInformation(string script, Action<DebugInformation> breakHandler)
-        {
-            var engine = new Engine(options => options
-                .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint)
-            );
-            
-            bool didBreak = false;
-            engine.Break += (sender, info) =>
-            {
-                didBreak = true;
-                breakHandler(info);
-                return StepMode.None;
-            };
-
-            engine.Execute(script);
-            
-            Assert.True(didBreak);
-        }
-
         [Fact]
         public void GlobalsAndLocalsIncludeGlobalConst()
         {
@@ -41,7 +15,7 @@ namespace Jint.Tests.Runtime.Debugger
                 debugger;
             ";
 
-            TestDebugInformation(script, info =>
+            TestHelpers.TestAtBreak(script, info =>
             {
                 var variable = Assert.Single(info.Globals, g => g.Key == "globalConstant");
                 Assert.Equal("test", variable.Value.AsString());
@@ -58,7 +32,7 @@ namespace Jint.Tests.Runtime.Debugger
                 let globalLet = 'test';
                 debugger;";
 
-            TestDebugInformation(script, info =>
+            TestHelpers.TestAtBreak(script, info =>
             {
                 var variable = Assert.Single(info.Globals, g => g.Key == "globalLet");
                 Assert.Equal("test", variable.Value.AsString());
@@ -75,7 +49,7 @@ namespace Jint.Tests.Runtime.Debugger
                 var globalVar = 'test';
                 debugger;";
 
-            TestDebugInformation(script, info =>
+            TestHelpers.TestAtBreak(script, info =>
             {
                 var variable = Assert.Single(info.Globals, g => g.Key == "globalVar");
                 Assert.Equal("test", variable.Value.AsString());
@@ -96,7 +70,7 @@ namespace Jint.Tests.Runtime.Debugger
                 }
                 test();";
 
-            TestDebugInformation(script, info =>
+            TestHelpers.TestAtBreak(script, info =>
             {
                 var variable = Assert.Single(info.Locals, g => g.Key == "localConst");
                 Assert.Equal("test", variable.Value.AsString());
@@ -115,7 +89,7 @@ namespace Jint.Tests.Runtime.Debugger
                 }
                 test();";
 
-            TestDebugInformation(script, info =>
+            TestHelpers.TestAtBreak(script, info =>
             {
                 var variable = Assert.Single(info.Locals, g => g.Key == "localLet");
                 Assert.Equal("test", variable.Value.AsString());
@@ -134,7 +108,7 @@ namespace Jint.Tests.Runtime.Debugger
                 }
                 test();";
 
-            TestDebugInformation(script, info =>
+            TestHelpers.TestAtBreak(script, info =>
             {
                 var variable = Assert.Single(info.Locals, g => g.Key == "localVar");
                 Assert.Equal("test", variable.Value.AsString());
@@ -152,7 +126,7 @@ namespace Jint.Tests.Runtime.Debugger
                 const blockConst = 'block';
             }";
 
-            TestDebugInformation(script, info =>
+            TestHelpers.TestAtBreak(script, info =>
             {
                 Assert.DoesNotContain(info.Locals, g => g.Key == "blockLet");
                 Assert.DoesNotContain(info.Locals, g => g.Key == "blockConst");
@@ -169,7 +143,7 @@ namespace Jint.Tests.Runtime.Debugger
                 const blockConst = 'block';
             }";
 
-            TestDebugInformation(script, info =>
+            TestHelpers.TestAtBreak(script, info =>
             {
                 Assert.Single(info.Locals, c => c.Key == "blockConst" && c.Value == JsUndefined.Undefined);
             });
@@ -185,7 +159,7 @@ namespace Jint.Tests.Runtime.Debugger
                 debugger; // let isn't initialized until declaration
             }";
 
-            TestDebugInformation(script, info =>
+            TestHelpers.TestAtBreak(script, info =>
             {
                 Assert.Single(info.Locals, v => v.Key == "blockLet" && v.Value.AsString() == "block");
             });

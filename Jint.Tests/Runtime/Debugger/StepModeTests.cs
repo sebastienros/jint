@@ -21,7 +21,6 @@ namespace Jint.Tests.Runtime.Debugger
         /// <returns>Number of steps from source to target</returns>
         private int StepsFromSourceToTarget(string script, StepMode stepMode)
         {
-
             var engine = new Engine(options => options
                 .DebugMode()
                 .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
