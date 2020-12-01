@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Esprima.Ast;
 using Jint.Native;
@@ -13,27 +13,19 @@ namespace Jint.Runtime.Debugger
     internal class DebugHandler
     {
         private readonly Stack<string> _debugCallStack;
-        private StepMode _stepMode;
-        private int resumeSteppingDepth;
-        private bool stepOverNextStatement;
+        private int _steppingDepth;
         private readonly Engine _engine;
 
         public DebugHandler(Engine engine)
         {
             _engine = engine;
             _debugCallStack = new Stack<string>();
-            _stepMode = StepMode.Into;
+            _steppingDepth = int.MaxValue;
         }
 
         internal void AddToDebugCallStack(JsValue function, CallExpression callExpression)
         {
             string name = GetCalleeName(function, callExpression.Callee);
-
-            if (stepOverNextStatement)
-            {
-                resumeSteppingDepth = _debugCallStack.Count;
-                stepOverNextStatement = false;
-            }
 
             _debugCallStack.Push(name);
         }
@@ -43,13 +35,6 @@ namespace Jint.Runtime.Debugger
             if (_debugCallStack.Count > 0)
             {
                 _debugCallStack.Pop();
-            }
-
-            if (_debugCallStack.Count <= resumeSteppingDepth && (_stepMode == StepMode.Over || _stepMode == StepMode.Out))
-            {
-                // Stop skipping over/out
-                resumeSteppingDepth = _debugCallStack.Count;
-                _stepMode = StepMode.Into;
             }
         }
 
@@ -72,19 +57,12 @@ namespace Jint.Runtime.Debugger
         {
             BreakPoint breakpoint = _engine.BreakPoints.FirstOrDefault(breakPoint => BpTest(statement, breakPoint));
 
-            if (stepOverNextStatement)
-            {
-                // The step-over flag had no effect in the last step (in other words, we didn't have a push to the call stack),
-                // so revert to standard stepping now.
-                _stepMode = StepMode.Into;
-            }
-
             if (breakpoint != null ||
                 (statement is DebuggerStatement && _engine.Options._DebuggerStatementHandling == DebuggerStatementHandling.Jint))
             {
                 Break(statement);
             }
-            else if (_stepMode == StepMode.Into)
+            else if (_debugCallStack.Count <= _steppingDepth)
             {
                 Step(statement);
             }
@@ -106,26 +84,27 @@ namespace Jint.Runtime.Debugger
 
         private void HandleNewStepMode(StepMode? newStepMode)
         {
-            stepOverNextStatement = false;
-
-            if (newStepMode != null && newStepMode != _stepMode)
+            if (newStepMode != null)
             {
-                // Some step modes require special action after switching to them.
-                // Note that a breakpoint can switch from StepMode.Over, Out or None,
-                // so it's not enough to check if old mode was Into (old code did that).
                 switch (newStepMode)
                 {
                     case StepMode.Over:
-                        // Flag to step over the next statement if that statement pushes onto the call stack
-                        stepOverNextStatement = true;
+                        // Resume stepping when we're back at this level of the call stack
+                        _steppingDepth = _debugCallStack.Count;
                         break;
                     case StepMode.Out:
-                        // Skip steps until the call stack is popped
-                        resumeSteppingDepth = _debugCallStack.Count - 1;
+                        // Resume stepping when we've popped the call stack
+                        _steppingDepth = _debugCallStack.Count - 1;
+                        break;
+                    case StepMode.None:
+                        // Never step
+                        _steppingDepth = int.MinValue;
+                        break;
+                    default:
+                        // Always step
+                        _steppingDepth = int.MaxValue;
                         break;
                 }
-
-                _stepMode = newStepMode.Value;
             }
         }
 
