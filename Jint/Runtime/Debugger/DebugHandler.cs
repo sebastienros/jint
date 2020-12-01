@@ -44,10 +44,12 @@ namespace Jint.Runtime.Debugger
             {
                 case DelegateWrapper _:
                     return "(native code)";
+
                 case FunctionInstance instance:
                     PropertyDescriptor nameDescriptor = instance.GetOwnProperty(CommonProperties.Name);
                     JsValue nameValue = nameDescriptor != null ? instance.UnwrapJsValue(nameDescriptor) : JsString.Empty;
                     return !nameValue.IsUndefined() ? TypeConverter.ToString(nameValue) : "(anonymous)";
+
                 default:
                     return "(unknown)";
             }
@@ -57,8 +59,7 @@ namespace Jint.Runtime.Debugger
         {
             BreakPoint breakpoint = _engine.BreakPoints.FirstOrDefault(breakPoint => BpTest(statement, breakPoint));
 
-            if (breakpoint != null ||
-                (statement is DebuggerStatement && _engine.Options._DebuggerStatementHandling == DebuggerStatementHandling.Jint))
+            if (breakpoint != null)
             {
                 Break(statement);
             }

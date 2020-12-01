@@ -305,7 +305,7 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
-        public void StepOutOnlyStepsOutOfOneStackItem()
+        public void StepOutOnlyStepsOutOneStackLevel()
         {
             var script = @"
                 function test()
@@ -349,7 +349,7 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
-        public void StepOverSinglestepsAfterBreakpoint()
+        public void StepOverDoesSinglestepAfterBreakpoint()
         {
             string script = @"
                 test();

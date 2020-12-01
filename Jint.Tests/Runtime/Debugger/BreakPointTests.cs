@@ -105,7 +105,7 @@ debugger;
             Assert.True(didBreak);
         }
 
-        [Fact]
+        [Fact(Skip = "Non-source breakpoint is triggered before Statement, while debugger statement is now triggered by ExecuteInternal")]
         public void DebuggerStatementAndBreakpointTriggerSingleBreak()
         {
             string script = @"'dummy';
@@ -128,6 +128,43 @@ debugger;
             engine.Execute(script);
 
             Assert.Equal(1, breakTriggered);
+        }
+
+        [Fact]
+        public void BreakpointOverridesStepOut()
+        {
+            string script = @"function test()
+{
+'dummy';
+'source';
+'dummy';
+'target';
+}
+test();";
+
+            var engine = new Engine(options => options.DebugMode());
+
+            engine.BreakPoints.Add(new BreakPoint(4, 0));
+            engine.BreakPoints.Add(new BreakPoint(6, 0));
+
+            int step = 0;
+            engine.Break += (sender, info) =>
+            {
+                step++;
+                switch (step)
+                {
+                    case 1:
+                        return StepMode.Out;
+                    case 2:
+                        Assert.True(info.ReachedLiteral("target"));
+                        break;
+                }
+                return StepMode.None;
+            };
+
+            engine.Execute(script);
+
+            Assert.Equal(2, step);
         }
     }
 }
