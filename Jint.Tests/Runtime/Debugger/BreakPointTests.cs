@@ -81,5 +81,53 @@ test(z);";
             engine.Execute(script3, new ParserOptions("script3") { Loc = true });
             Assert.True(didBreak);
         }
+
+        [Fact]
+        public void DebuggerStatementTriggersBreak()
+        {
+            string script = @"'dummy';
+debugger;
+'dummy';";
+
+            var engine = new Engine(options => options
+                .DebugMode()
+                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+
+            bool didBreak = false;
+            engine.Break += (sender, info) =>
+            {
+                didBreak = true;
+                return StepMode.None;
+            };
+
+            engine.Execute(script);
+
+            Assert.True(didBreak);
+        }
+
+        [Fact]
+        public void DebuggerStatementAndBreakpointTriggerSingleBreak()
+        {
+            string script = @"'dummy';
+debugger;
+'dummy';";
+
+            var engine = new Engine(options => options
+                .DebugMode()
+                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+
+            engine.BreakPoints.Add(new BreakPoint(2, 0));
+
+            int breakTriggered = 0;
+            engine.Break += (sender, info) =>
+            {
+                breakTriggered++;
+                return StepMode.None;
+            };
+
+            engine.Execute(script);
+
+            Assert.Equal(1, breakTriggered);
+        }
     }
 }

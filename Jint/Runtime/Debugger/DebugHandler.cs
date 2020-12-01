@@ -6,6 +6,7 @@ using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Debugger
 {
@@ -81,7 +82,8 @@ namespace Jint.Runtime.Debugger
                 _stepMode = StepMode.Into;
             }
 
-            if (breakpoint != null)
+            if (breakpoint != null ||
+                (statement is DebuggerStatement && _engine.Options._DebuggerStatementHandling == DebuggerStatementHandling.Jint))
             {
                 Break(statement);
             }
