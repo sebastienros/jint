@@ -6,6 +6,7 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Debugger;
 using Jint.Runtime.References;
 
 namespace Jint
@@ -41,11 +42,11 @@ namespace Jint
         }
 
         /// <summary>
-        /// Handling for script <code>debugger</code> statements.
+        /// Selects the handling for script <code>debugger</code> statements.
         /// </summary>
         /// <remarks>
-        /// The <code>debugger</code> statement can either be ignored (default), trigger debugging at CLR level (e.g. Visual Studio),
-        /// or trigger Jint's DebugHandler.
+        /// The <c>debugger</c> statement can either be ignored (default) trigger debugging at CLR level (e.g. Visual Studio),
+        /// or trigger a break in Jint's DebugHandler.
         /// </remarks>
         public Options DebuggerStatementHandling(DebuggerStatementHandling debuggerStatementHandling)
         {

@@ -91,7 +91,7 @@ debugger;
 
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool didBreak = false;
             engine.Break += (sender, info) =>
@@ -114,7 +114,7 @@ debugger;
 
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             engine.BreakPoints.Add(new BreakPoint(2, 0));
 

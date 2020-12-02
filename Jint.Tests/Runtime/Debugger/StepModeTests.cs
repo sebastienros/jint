@@ -23,7 +23,7 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             int steps = 0;
             bool sourceReached = false;
@@ -362,7 +362,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool stepping = false;
 

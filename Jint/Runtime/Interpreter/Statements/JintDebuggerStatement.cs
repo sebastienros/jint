@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Runtime.Debugger;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -20,7 +21,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                     System.Diagnostics.Debugger.Break();
                     break;
-                case DebuggerStatementHandling.Jint:
+                case DebuggerStatementHandling.Script:
                     _engine.DebugHandler?.Break(_statement);
                     break;
                 case DebuggerStatementHandling.Ignore:

@@ -15,7 +15,7 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool didBreak = false;
             engine.Break += (sender, info) =>
@@ -37,7 +37,7 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool didBreak = false;
             engine.Break += (sender, info) =>
@@ -59,7 +59,7 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool didBreak = false;
             engine.Break += (sender, info) =>
@@ -81,7 +81,7 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool didBreak = false;
             engine.Break += (sender, info) =>
@@ -103,7 +103,7 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool didBreak = false;
             engine.Break += (sender, info) =>
@@ -126,7 +126,7 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool didBreak = false;
             engine.Break += (sender, info) =>
@@ -148,7 +148,7 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool didBreak = false;
             engine.Break += (sender, info) =>
@@ -172,7 +172,7 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool didBreak = false;
             engine.Break += (sender, info) =>
@@ -201,7 +201,7 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options
                 .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Jint));
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool didBreak = false;
             engine.Break += (sender, info) =>
