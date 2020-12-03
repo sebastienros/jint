@@ -403,14 +403,9 @@ namespace Jint.Native.Object
 
         private PropertyDescriptor GetExtensionMethod(JsValue property)
         {
-            if(Engine == null)
-                return PropertyDescriptor.Undefined;
-
             var currentObjectType = GetObjectType();
-            if(currentObjectType == null)
-                return PropertyDescriptor.Undefined;
-
-            if (Engine._extensionMethodsTypeCache.TryGetValue(currentObjectType, out var methodInfos))
+            if (currentObjectType is not null
+                && Engine._extensionMethodsTypeCache.TryGetValue(currentObjectType, out var methodInfos))
             {
                 var possibleMethods = methodInfos
                     .Where(m => m.Name == property.ToString())
@@ -429,26 +424,18 @@ namespace Jint.Native.Object
                 return wrapper.Target.GetType();
             }
 
-            switch (Class)
+            return Class switch
             {
-                case ObjectClass.Array:
-                    return typeof(System.Array);
-                case ObjectClass.String:
-                    return typeof(string);
-                case ObjectClass.Date:
-                    return typeof(DateTime);
-                case ObjectClass.Boolean:
-                    return typeof(bool);
-                case ObjectClass.Number:
-                    return typeof(double);
-                case ObjectClass.RegExp:
-                    return typeof(System.Text.RegularExpressions.Regex);
-                case ObjectClass.Arguments:
-                case ObjectClass.Object:
-                    return typeof(ExpandoObject);
-            }
-
-            return null;
+                ObjectClass.Array => typeof(System.Array),
+                ObjectClass.String => typeof(string),
+                ObjectClass.Date => typeof(DateTime),
+                ObjectClass.Boolean => typeof(bool),
+                ObjectClass.Number => typeof(double),
+                ObjectClass.RegExp => typeof(System.Text.RegularExpressions.Regex),
+                ObjectClass.Arguments => typeof(ExpandoObject),
+                ObjectClass.Object => typeof(ExpandoObject),
+                _ => null
+            };
         }
 
         public bool TryGetValue(JsValue property, out JsValue value)

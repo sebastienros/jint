@@ -31,7 +31,7 @@ namespace Jint.Tests.Runtime
             person.Age = 35;
 
             var options = new Options();
-            options.AddExtensionMethod(typeof(PersonExtensions));
+            options.AddExtensionMethods(typeof(PersonExtensions));
 
             var engine = new Engine(options);
             engine.SetValue("person", person);
@@ -44,7 +44,7 @@ namespace Jint.Tests.Runtime
         public void ShouldInvokeStringExtensionMethod()
         {
             var options = new Options();
-            options.AddExtensionMethod(typeof(CustomStringExtensions));
+            options.AddExtensionMethods(typeof(CustomStringExtensions));
 
             var engine = new Engine(options);
             var result = engine.Execute("\"Hello World!\".Backwards()").GetCompletionValue().AsString();
@@ -56,7 +56,7 @@ namespace Jint.Tests.Runtime
         public void ShouldInvokeNumberExtensionMethod()
         {
             var options = new Options();
-            options.AddExtensionMethod(typeof(DoubleExtensions));
+            options.AddExtensionMethods(typeof(DoubleExtensions));
 
             var engine = new Engine(options);
             var result = engine.Execute("let numb = 27; numb.Add(13)").GetCompletionValue().AsInteger();

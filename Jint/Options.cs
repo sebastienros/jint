@@ -31,7 +31,7 @@ namespace Jint
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
         private readonly List<Action<Engine>> _configurations = new List<Action<Engine>>();
-        private List<Type> _extensionMethodClassTypes = new List<Type>();
+        private readonly List<Type> _extensionMethodClassTypes = new List<Type>();
 
         /// <summary>
         /// Run the script in strict mode.
@@ -81,9 +81,9 @@ namespace Jint
             return this;
         }
 
-        public Options AddExtensionMethod(Type type)
+        public Options AddExtensionMethods(params Type[] types)
         {
-            _extensionMethodClassTypes.Add(type);
+            _extensionMethodClassTypes.AddRange(types);
             return this;
         }
 

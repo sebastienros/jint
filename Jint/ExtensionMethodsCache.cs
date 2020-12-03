@@ -9,8 +9,8 @@ namespace Jint
 {
     internal static class ExtensionMethodsCache
     {
-        private static readonly ConcurrentDictionary<Type, ConcurrentDictionary<Type, List<MethodInfo>>> CachedExtensionMethodsTypes = new ConcurrentDictionary<Type, ConcurrentDictionary<Type, List<MethodInfo>>>();
-
+        private static readonly ConcurrentDictionary<Type, ConcurrentDictionary<Type, List<MethodInfo>>>
+            CachedExtensionMethodsTypes = new();
 
         internal static Dictionary<Type, MethodInfo[]> RegisterExtensionMethods(IEnumerable<Type> extensionMethodsTypes)
         {
@@ -41,7 +41,6 @@ namespace Jint
             return CachedExtensionMethodsTypes.GetOrAdd(classType, BuildDictionaryForType);
         }
 
-
         private static ConcurrentDictionary<Type, List<MethodInfo>> BuildDictionaryForType(Type type)
         {
             var extensionMethodsDictionary = new ConcurrentDictionary<Type, List<MethodInfo>>();
@@ -50,13 +49,12 @@ namespace Jint
                 var firstParameterType = methodInfo.GetParameters()[0].ParameterType;
                 extensionMethodsDictionary.AddOrUpdate(
                     firstParameterType,
-                    type1 => new List<MethodInfo> { methodInfo },
-                    (type1, list) => new List<MethodInfo>(list) { methodInfo }
+                    type1 => new List<MethodInfo> {methodInfo},
+                    (type1, list) => new List<MethodInfo>(list) {methodInfo}
                 );
             }
 
             return extensionMethodsDictionary;
         }
-        
     }
 }

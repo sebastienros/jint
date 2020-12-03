@@ -210,8 +210,7 @@ namespace Jint
                     (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
             }
 
-            _extensionMethodsTypeCache =
-                ExtensionMethodsCache.RegisterExtensionMethods(Options.ExtensionMethodClassTypes);
+            _extensionMethodsTypeCache = ExtensionMethodsCache.RegisterExtensionMethods(Options.ExtensionMethodClassTypes);
 
             Options.Apply(this);
 
