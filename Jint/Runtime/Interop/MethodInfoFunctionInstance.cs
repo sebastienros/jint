@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -25,9 +26,10 @@ namespace Jint.Runtime.Interop
             {
                 if (method.IsExtensionMethod)
                 {
-                    var jsArgumentsTemp = new List<JsValue>() { thisObject };
-                    jsArgumentsTemp.AddRange(jsArguments);
-                    jsArguments = jsArgumentsTemp.ToArray();
+                    var jsArgumentsTemp = new JsValue[1 + jsArguments.Length];
+                    jsArgumentsTemp[0] = thisObject;
+                    Array.Copy(jsArguments, 0, jsArgumentsTemp, 1, jsArguments.Length);
+                    jsArguments = jsArgumentsTemp;
                 }
                 return method.HasParams
                     ? ProcessParamsArrays(jsArguments, method)

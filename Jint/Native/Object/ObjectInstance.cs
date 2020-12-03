@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Dynamic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Array;
@@ -405,13 +406,19 @@ namespace Jint.Native.Object
         {
             var currentObjectType = GetObjectType();
             if (currentObjectType is not null
-                && Engine._extensionMethodsTypeCache.TryGetValue(currentObjectType, out var methodInfos))
+                && _engine is not null
+                && _engine._extensionMethodsTypeCache.TryGetValue(currentObjectType, out var methods))
             {
-                var possibleMethods = methodInfos
-                    .Where(m => m.Name == property.ToString())
-                    .ToArray();
-
-                return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, MethodDescriptor.Build(possibleMethods)), PropertyFlag.None);
+                var member = property.ToString();
+                var list = new List<MethodInfo>();
+                foreach (var method in methods)
+                {
+                    if (method.Name == member)
+                    {
+                        list.Add(method);
+                    }
+                }
+                return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, MethodDescriptor.Build(list)), PropertyFlag.None);
             }
             
             return PropertyDescriptor.Undefined;
