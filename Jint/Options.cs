@@ -6,6 +6,7 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Debugger;
 using Jint.Runtime.References;
 
 namespace Jint
@@ -16,7 +17,7 @@ namespace Jint
     {
         private readonly List<IConstraint> _constraints = new List<IConstraint>();
         private bool _strict;
-        private bool _allowDebuggerStatement;
+        private DebuggerStatementHandling _debuggerStatementHandling;
         private bool _allowClr;
         private bool _allowClrWrite = true;
         private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
@@ -41,15 +42,15 @@ namespace Jint
         }
 
         /// <summary>
-        /// Allow the <code>debugger</code> statement to be called in a script.
+        /// Selects the handling for script <code>debugger</code> statements.
         /// </summary>
         /// <remarks>
-        /// Because the <code>debugger</code> statement can start the
-        /// Visual Studio debugger, is it disabled by default
+        /// The <c>debugger</c> statement can either be ignored (default) trigger debugging at CLR level (e.g. Visual Studio),
+        /// or trigger a break in Jint's DebugHandler.
         /// </remarks>
-        public Options AllowDebuggerStatement(bool allowDebuggerStatement = true)
+        public Options DebuggerStatementHandling(DebuggerStatementHandling debuggerStatementHandling)
         {
-            _allowDebuggerStatement = allowDebuggerStatement;
+            _debuggerStatementHandling = debuggerStatementHandling;
             return this;
         }
 
@@ -232,7 +233,7 @@ namespace Jint
 
         internal bool IsStrict => _strict;
 
-        internal bool _IsDebuggerStatementAllowed => _allowDebuggerStatement;
+        internal DebuggerStatementHandling _DebuggerStatementHandling => _debuggerStatementHandling;
 
         internal bool IsDebugMode { get; private set; }
 

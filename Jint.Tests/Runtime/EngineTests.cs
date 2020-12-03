@@ -1720,9 +1720,10 @@ var prep = function (fn) { fn(); };
             Assert.NotNull(debugInfo.Locals);
 
             Assert.Single(debugInfo.CallStack);
-            Assert.Equal("func1()", debugInfo.CallStack.Peek());
+            Assert.Equal("func1", debugInfo.CallStack.Peek());
             Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal) && kvp.Value.AsBoolean() == true);
-            Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
+            // Globals no longer contain local variables
+            //Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
             Assert.Contains(debugInfo.Locals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
             Assert.DoesNotContain(debugInfo.Locals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal));
 

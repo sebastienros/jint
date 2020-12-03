@@ -76,11 +76,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             var callee = _calleeExpression.Evaluate();
             var expression = (CallExpression) _expression;
 
-            if (_isDebugMode)
-            {
-                _engine.DebugHandler.AddToDebugCallStack(expression);
-            }
-
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
 
             var cachedArguments = _cachedArguments;
@@ -162,6 +157,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                     _engine._referencePool.Return(r);
                     return value;
                 }
+            }
+
+            if (_isDebugMode)
+            {
+                _engine.DebugHandler.AddToDebugCallStack(func, expression);
             }
 
             var result = callable.Call(thisObject, arguments);
