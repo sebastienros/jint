@@ -1,9 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Jint.Runtime.Debugger;
 using Jint.Tests.Runtime.Domain;
 using Jint.Tests.Runtime.ExtensionMethods;
 using Xunit;

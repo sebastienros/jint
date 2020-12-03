@@ -1,10 +1,6 @@
 ﻿using Esprima.Ast;
 using Jint.Runtime.Debugger;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace Jint.Tests.Runtime.Debugger
