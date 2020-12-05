@@ -286,7 +286,7 @@ namespace Jint
                     func: (thisObj, arguments) => new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
             }
 
-            if (_extensionMethods.HasMethods == true)
+            if (_extensionMethods.HasMethods)
             {
                 AttachExtensionMethodsToPrototypes(engine);
             }
