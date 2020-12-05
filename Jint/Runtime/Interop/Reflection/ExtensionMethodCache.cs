@@ -9,11 +9,9 @@ namespace Jint.Runtime.Interop.Reflection
 {
     internal static class ExtensionMethodCache
     {
-        private static readonly ConcurrentDictionary<Type, ConcurrentDictionary<Type, List<MethodInfo>>>
-            CachedExtensionMethodsTypes = new();
+        private static readonly ConcurrentDictionary<Type, ConcurrentDictionary<Type, List<MethodInfo>>> CachedExtensionMethodsTypes = new();
 
-        private static readonly ConcurrentDictionary<string, EngineExtensionMethodCache> CachedEngineExtensionMethods =
-            new();
+        private static readonly ConcurrentDictionary<string, EngineExtensionMethodCache> CachedEngineExtensionMethods = new();
 
         internal static EngineExtensionMethodCache GetEngineExtensionMethods(List<Type> extensionMethodsTypes)
         {
@@ -50,8 +48,8 @@ namespace Jint.Runtime.Interop.Reflection
                 var firstParameterType = methodInfo.GetParameters()[0].ParameterType;
                 extensionMethodsDictionary.AddOrUpdate(
                     firstParameterType,
-                    type1 => new List<MethodInfo> {methodInfo},
-                    (type1, list) => new List<MethodInfo>(list) {methodInfo}
+                    _ => new List<MethodInfo> {methodInfo},
+                    (_, list) => new List<MethodInfo>(list) {methodInfo}
                 );
             }
 

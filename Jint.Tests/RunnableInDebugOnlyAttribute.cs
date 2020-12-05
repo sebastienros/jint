@@ -12,4 +12,5 @@ namespace Jint.Tests
                 Skip = "Only running in interactive mode.";
             }
         }
-    }}
+    }
+}
