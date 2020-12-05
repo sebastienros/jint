@@ -10,6 +10,7 @@ using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.References;
 
 namespace Jint
@@ -34,9 +35,9 @@ namespace Jint
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
         private readonly List<Action<Engine>> _configurations = new List<Action<Engine>>();
-        private readonly List<Type> _extensionMethodClassTypes = new List<Type>();
 
-        private Dictionary<Type, MethodInfo[]> _extensionMethodsTypeCache = new();
+        private readonly List<Type> _extensionMethodClassTypes = new List<Type>();
+        internal EngineExtensionMethodCache _extensionMethods = EngineExtensionMethodCache.Empty;
 
         /// <summary>
         /// Run the script in strict mode.
@@ -89,7 +90,7 @@ namespace Jint
         public Options AddExtensionMethods(params Type[] types)
         {
             _extensionMethodClassTypes.AddRange(types);
-            _extensionMethodsTypeCache = ExtensionMethodsCache.RegisterExtensionMethods(_extensionMethodClassTypes);
+            _extensionMethods = ExtensionMethodCache.GetEngineExtensionMethods(_extensionMethodClassTypes);
             return this;
         }
 
@@ -106,7 +107,7 @@ namespace Jint
 
         private void AttachExtensionMethodsToPrototype(Engine engine, ObjectInstance prototype, Type objectType)
         {
-            if (!TryGetExtensionMethods(objectType, out var methods))
+            if (!_extensionMethods.TryGetExtensionMethods(objectType, out var methods))
             {
                 return;
             }
@@ -124,9 +125,6 @@ namespace Jint
                 }
             }
         }
-
-        internal bool TryGetExtensionMethods(Type objectType, out MethodInfo[] methods) 
-            => _extensionMethodsTypeCache.TryGetValue(objectType, out methods);
 
         /// <summary>
         /// If no known type could be guessed, objects are normally wrapped as an
@@ -288,7 +286,7 @@ namespace Jint
                     func: (thisObj, arguments) => new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
             }
 
-            if (_extensionMethodsTypeCache.Count > 0)
+            if (_extensionMethods.HasMethods == true)
             {
                 AttachExtensionMethodsToPrototypes(engine);
             }

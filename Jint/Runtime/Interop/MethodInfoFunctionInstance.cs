@@ -42,27 +42,34 @@ namespace Jint.Runtime.Interop
             {
                 var method = tuple.Item1;
                 var arguments = tuple.Item2;
-
-                if (parameters == null || parameters.Length != arguments.Length)
-                {
-                    parameters = new object[arguments.Length];
-                }
                 var methodParameters = method.Parameters;
+
+                if (parameters == null || parameters.Length != methodParameters.Length)
+                {
+                    parameters = new object[methodParameters.Length];
+                }
                 var argumentsMatch = true;
 
-                for (var i = 0; i < arguments.Length; i++)
+                for (var i = 0; i < parameters.Length; i++)
                 {
-                    var parameterType = methodParameters[i].ParameterType;
+                    var methodParameter = methodParameters[i];
+                    var parameterType = methodParameter.ParameterType;
+                    var argument = arguments.Length > i ? arguments[i] : null;
 
                     if (typeof(JsValue).IsAssignableFrom(parameterType))
                     {
-                        parameters[i] = arguments[i];
+                        parameters[i] = argument;
                     }
-                    else if (parameterType == typeof(JsValue[]) && arguments[i].IsArray())
+                    else if (argument is null)
+                    {
+                        // optional
+                        parameters[i] = System.Type.Missing;
+                    }
+                    else if (parameterType == typeof(JsValue[]) && argument.IsArray())
                     {
                         // Handle specific case of F(params JsValue[])
 
-                        var arrayInstance = arguments[i].AsArray();
+                        var arrayInstance = argument.AsArray();
                         var len = TypeConverter.ToInt32(arrayInstance.Get(CommonProperties.Length, this));
                         var result = new JsValue[len];
                         for (uint k = 0; k < len; k++)
@@ -73,7 +80,7 @@ namespace Jint.Runtime.Interop
                     }
                     else
                     {
-                        if (!converter.TryConvert(arguments[i].ToObject(), parameterType, CultureInfo.InvariantCulture, out parameters[i]))
+                        if (!converter.TryConvert(argument.ToObject(), parameterType, CultureInfo.InvariantCulture, out parameters[i]))
                         {
                             argumentsMatch = false;
                             break;

@@ -1,8 +1,7 @@
 ﻿using Jint.Tests.Runtime.Domain;
-using Jint.Tests.Runtime.ExtensionMethods;
 using Xunit;
 
-namespace Jint.Tests.Runtime
+namespace Jint.Tests.Runtime.ExtensionMethods
 {
     public class ExtensionMethodsTest
     {

@@ -14,6 +14,7 @@
     <Reference Include="Microsoft.CSharp" Condition=" '$(TargetFramework)' == 'net461' " />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Flurl.Http.Signed" Version="3.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.8.0" />
     <PackageReference Include="MongoDB.Bson.signed" Version="2.11.2" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
