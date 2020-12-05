@@ -93,18 +93,18 @@ namespace Jint
             return this;
         }
 
-        private void RegisterExtensionMethods(Engine engine)
+        private void AttachExtensionMethodsToPrototypes(Engine engine)
         {
-            RegisterExtensionMethodsToPrototype(engine, engine.Array.PrototypeObject, typeof(Array));
-            RegisterExtensionMethodsToPrototype(engine, engine.Boolean.PrototypeObject, typeof(bool));
-            RegisterExtensionMethodsToPrototype(engine, engine.Date.PrototypeObject, typeof(DateTime));
-            RegisterExtensionMethodsToPrototype(engine, engine.Number.PrototypeObject, typeof(double));
-            RegisterExtensionMethodsToPrototype(engine, engine.Object.PrototypeObject, typeof(ExpandoObject));
-            RegisterExtensionMethodsToPrototype(engine, engine.RegExp.PrototypeObject, typeof(System.Text.RegularExpressions.Regex));
-            RegisterExtensionMethodsToPrototype(engine, engine.String.PrototypeObject, typeof(string));
+            AttachExtensionMethodsToPrototype(engine, engine.Array.PrototypeObject, typeof(Array));
+            AttachExtensionMethodsToPrototype(engine, engine.Boolean.PrototypeObject, typeof(bool));
+            AttachExtensionMethodsToPrototype(engine, engine.Date.PrototypeObject, typeof(DateTime));
+            AttachExtensionMethodsToPrototype(engine, engine.Number.PrototypeObject, typeof(double));
+            AttachExtensionMethodsToPrototype(engine, engine.Object.PrototypeObject, typeof(ExpandoObject));
+            AttachExtensionMethodsToPrototype(engine, engine.RegExp.PrototypeObject, typeof(System.Text.RegularExpressions.Regex));
+            AttachExtensionMethodsToPrototype(engine, engine.String.PrototypeObject, typeof(string));
         }
 
-        private void RegisterExtensionMethodsToPrototype(Engine engine, ObjectInstance prototype, Type objectType)
+        private void AttachExtensionMethodsToPrototype(Engine engine, ObjectInstance prototype, Type objectType)
         {
             if (!TryGetExtensionMethods(objectType, out var methods))
             {
@@ -279,21 +279,18 @@ namespace Jint
             }
             
             // add missing bits if needed
-            
-            if (_IsClrAllowed)
+            if (_allowClr)
             {
                 engine.Global.SetProperty("System", new PropertyDescriptor(new NamespaceReference(engine, "System"), PropertyFlag.AllForbidden));
                 engine.Global.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunctionInstance(
                     engine, 
                     "importNamespace",
-                    (thisObj, arguments) => new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
+                    func: (thisObj, arguments) => new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
             }
 
             if (_extensionMethodsTypeCache.Count > 0)
             {
-                RegisterExtensionMethods(engine);
-                
-                
+                AttachExtensionMethodsToPrototypes(engine);
             }
             
             // ensure defaults
@@ -305,8 +302,6 @@ namespace Jint
         internal DebuggerStatementHandling _DebuggerStatementHandling => _debuggerStatementHandling;
 
         internal bool IsDebugMode { get; private set; }
-
-        internal bool _IsClrAllowed => _allowClr;
 
         internal bool _IsClrWriteAllowed => _allowClrWrite;
 

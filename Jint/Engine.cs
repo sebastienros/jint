@@ -103,7 +103,7 @@ namespace Jint
             { typeof(UInt64), (engine, v) => JsNumber.Create((UInt64)v) },
             { typeof(System.Text.RegularExpressions.Regex), (engine, v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "", engine) }
         };
-        
+
         // shared frozen version
         internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerConfigurable;
         internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerNonConfigurable;
