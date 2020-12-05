@@ -1,11 +1,10 @@
 using Flurl.Http;
-using Xunit;
 
 namespace Jint.Tests.Runtime.ExtensionMethods
 {
     public class FlurlExtensionTest
     {
-        [Fact]
+        [RunnableInDebugOnlyAttribute]
         public void CanUseFlurlExtensionMethods()
         {
             var engine = new Engine(options =>
