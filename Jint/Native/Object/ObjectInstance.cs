@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Dynamic;
-using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Array;
@@ -258,7 +256,6 @@ namespace Jint.Native.Object
             return keys;
         }
 
-
         protected virtual void AddProperty(JsValue property, PropertyDescriptor descriptor)
         {
             SetProperty(property, descriptor);
@@ -392,57 +389,7 @@ namespace Jint.Native.Object
                 return prop;
             }
 
-            prop = GetExtensionMethod(property);
-
-            if (prop != PropertyDescriptor.Undefined)
-            {
-                return prop;
-            }
-
             return Prototype?.GetProperty(property) ?? PropertyDescriptor.Undefined;
-        }
-
-        private PropertyDescriptor GetExtensionMethod(JsValue property)
-        {
-            var currentObjectType = GetObjectType();
-            if (currentObjectType is not null
-                && _engine is not null
-                && _engine._extensionMethodsTypeCache.TryGetValue(currentObjectType, out var methods))
-            {
-                var member = property.ToString();
-                var list = new List<MethodInfo>();
-                foreach (var method in methods)
-                {
-                    if (method.Name == member)
-                    {
-                        list.Add(method);
-                    }
-                }
-                return new PropertyDescriptor(new MethodInfoFunctionInstance(Engine, MethodDescriptor.Build(list)), PropertyFlag.None);
-            }
-            
-            return PropertyDescriptor.Undefined;
-        }
-
-        private Type GetObjectType()
-        {
-            if (this is IObjectWrapper wrapper)
-            {
-                return wrapper.Target.GetType();
-            }
-
-            return Class switch
-            {
-                ObjectClass.Array => typeof(System.Array),
-                ObjectClass.String => typeof(string),
-                ObjectClass.Date => typeof(DateTime),
-                ObjectClass.Boolean => typeof(bool),
-                ObjectClass.Number => typeof(double),
-                ObjectClass.RegExp => typeof(System.Text.RegularExpressions.Regex),
-                ObjectClass.Arguments => typeof(ExpandoObject),
-                ObjectClass.Object => typeof(ExpandoObject),
-                _ => null
-            };
         }
 
         public bool TryGetValue(JsValue property, out JsValue value)
@@ -912,7 +859,7 @@ namespace Jint.Native.Object
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected void EnsureInitialized()
+        protected internal void EnsureInitialized()
         {
             if (_initialized)
             {

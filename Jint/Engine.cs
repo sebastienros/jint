@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
@@ -78,7 +77,6 @@ namespace Jint
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
-        internal readonly Dictionary<Type, MethodInfo[]> _extensionMethodsTypeCache = new Dictionary<Type, MethodInfo[]>();
 
         public ITypeConverter ClrTypeConverter { get; internal set; }
 
@@ -172,7 +170,7 @@ namespace Jint
             // their configuration is delayed to a later step
 
             // trigger initialization
-            Global.GetProperty(JsString.Empty);
+            Global.EnsureInitialized();
 
             // this is implementation dependent, and only to pass some unit tests
             Global._prototype = Object.PrototypeObject;
@@ -201,20 +199,7 @@ namespace Jint
             _argumentsInstancePool = new ArgumentsInstancePool(this);
             _jsValueArrayPool = new JsValueArrayPool();
 
-            if (Options._IsClrAllowed)
-            {
-                Global.SetProperty("System", new PropertyDescriptor(new NamespaceReference(this, "System"), PropertyFlag.AllForbidden));
-                Global.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunctionInstance(
-                    this,
-                    "importNamespace",
-                    (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
-            }
-
-            _extensionMethodsTypeCache = ExtensionMethodsCache.RegisterExtensionMethods(Options.ExtensionMethodClassTypes);
-
             Options.Apply(this);
-
-            ClrTypeConverter ??= new DefaultTypeConverter(this);
         }
 
         internal LexicalEnvironment GlobalEnvironment { get; }

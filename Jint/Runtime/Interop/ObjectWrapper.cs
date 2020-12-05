@@ -311,6 +311,19 @@ namespace Jint.Runtime.Interop
                 }
             }
 
+            if (engine.Options.TryGetExtensionMethods(type, out var extensionMethods))
+            {
+                var matches = new List<MethodInfo>();
+                foreach (var method in extensionMethods)
+                {
+                    if (EqualsIgnoreCasing(method.Name, memberName))
+                    {
+                        matches.Add(method);
+                    }
+                }
+                return new MethodAccessor(MethodDescriptor.Build(matches));
+            }
+
             return ConstantValueAccessor.NullAccessor;
         }
 

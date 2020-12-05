@@ -1,28 +1,11 @@
-﻿using System;
-using Jint.Tests.Runtime.Domain;
+﻿using Jint.Tests.Runtime.Domain;
 using Jint.Tests.Runtime.ExtensionMethods;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Jint.Tests.Runtime
 {
-    public class ExtensionMethodsTest : IDisposable
+    public class ExtensionMethodsTest
     {
-        private readonly Engine _engine;
-
-        public ExtensionMethodsTest(ITestOutputHelper output)
-        {
-            _engine = new Engine()
-                    .SetValue("log", new Action<object>(o => output.WriteLine(o.ToString())))
-                    .SetValue("assert", new Action<bool>(Assert.True))
-                    .SetValue("equal", new Action<object, object>(Assert.Equal))
-                ;
-        }
-
-        void IDisposable.Dispose()
-        {
-        }
-
         [Fact]
         public void ShouldInvokeObjectExtensionMethod()
         {
