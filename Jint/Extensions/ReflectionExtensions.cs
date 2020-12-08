@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -37,11 +38,10 @@ namespace Jint.Extensions
             };
         }
 
-        internal static MethodInfo[] GetExtensionMethods(this Type type)
+        internal static IEnumerable<MethodInfo> GetExtensionMethods(this Type type)
         {
             return type.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(m => m.IsExtensionMethod())
-                .ToArray();
+                .Where(m => m.IsExtensionMethod());
         }
 
         private static bool IsExtensionMethod(this MethodBase methodInfo)

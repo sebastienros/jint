@@ -19,25 +19,25 @@ namespace Jint
 
     public sealed class Options
     {
-        private readonly List<IConstraint> _constraints = new List<IConstraint>();
+        private readonly List<IConstraint> _constraints = new();
         private bool _strict;
         private DebuggerStatementHandling _debuggerStatementHandling;
         private bool _allowClr;
         private bool _allowClrWrite = true;
-        private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
+        private readonly List<IObjectConverter> _objectConverters = new();
         private Func<Engine, object, ObjectInstance> _wrapObjectHandler;
         private MemberAccessorDelegate _memberAccessor;
         private int _maxRecursionDepth = -1;
         private TimeSpan _regexTimeoutInterval = TimeSpan.FromSeconds(10);
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
-        private List<Assembly> _lookupAssemblies = new List<Assembly>();
+        private List<Assembly> _lookupAssemblies = new();
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
-        private readonly List<Action<Engine>> _configurations = new List<Action<Engine>>();
+        private readonly List<Action<Engine>> _configurations = new();
 
-        private readonly List<Type> _extensionMethodClassTypes = new List<Type>();
-        internal EngineExtensionMethodCache _extensionMethods = EngineExtensionMethodCache.Empty;
+        private readonly List<Type> _extensionMethodClassTypes = new();
+        internal ExtensionMethodCache _extensionMethods = ExtensionMethodCache.Empty;
 
         /// <summary>
         /// Run the script in strict mode.
@@ -90,7 +90,7 @@ namespace Jint
         public Options AddExtensionMethods(params Type[] types)
         {
             _extensionMethodClassTypes.AddRange(types);
-            _extensionMethods = ExtensionMethodCache.GetEngineExtensionMethods(_extensionMethodClassTypes);
+            _extensionMethods = ExtensionMethodCache.Build(_extensionMethodClassTypes);
             return this;
         }
 
@@ -286,7 +286,7 @@ namespace Jint
                     func: (thisObj, arguments) => new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
             }
 
-            if (_extensionMethods.HasMethods)
+            if (_extensionMethodClassTypes.Count > 0)
             {
                 AttachExtensionMethodsToPrototypes(engine);
             }
