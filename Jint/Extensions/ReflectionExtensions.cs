@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Jint.Extensions
 {
@@ -7,37 +10,43 @@ namespace Jint.Extensions
     {
         internal static void SetValue(this MemberInfo memberInfo, object forObject, object value)
         {
-            switch (memberInfo.MemberType)
+            if (memberInfo.MemberType == MemberTypes.Field)
             {
-                case MemberTypes.Field:
-                    var fieldInfo = (FieldInfo) memberInfo;
-                    if (value != null && fieldInfo.FieldType.IsAssignableFrom(value.GetType()))
-                    {
-                        fieldInfo.SetValue(forObject, value);
-                    }
-
-                    break;
-                case MemberTypes.Property:
-                    var propertyInfo = (PropertyInfo) memberInfo;
-                    if (value != null && propertyInfo.PropertyType.IsAssignableFrom(value.GetType()))
-                    {
-                        propertyInfo.SetValue(forObject, value);
-                    }
-                    break;
+                var fieldInfo = (FieldInfo) memberInfo;
+                if (value != null && fieldInfo.FieldType.IsInstanceOfType(value))
+                {
+                    fieldInfo.SetValue(forObject, value);
+                }
+            }
+            else if (memberInfo.MemberType == MemberTypes.Property)
+            {
+                var propertyInfo = (PropertyInfo) memberInfo;
+                if (value != null && propertyInfo.PropertyType.IsInstanceOfType(value))
+                {
+                    propertyInfo.SetValue(forObject, value);
+                }
             }
         }
 
         internal static Type GetDefinedType(this MemberInfo memberInfo)
         {
-            switch (memberInfo)
+            return memberInfo switch
             {
-                case PropertyInfo propertyInfo:
-                    return propertyInfo.PropertyType;
-                case FieldInfo fieldInfo:
-                    return fieldInfo.FieldType;
-            }
+                PropertyInfo propertyInfo => propertyInfo.PropertyType,
+                FieldInfo fieldInfo => fieldInfo.FieldType,
+                _ => null
+            };
+        }
 
-            return null;
+        internal static IEnumerable<MethodInfo> GetExtensionMethods(this Type type)
+        {
+            return type.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .Where(m => m.IsExtensionMethod());
+        }
+
+        private static bool IsExtensionMethod(this MethodBase methodInfo)
+        {
+            return methodInfo.IsDefined(typeof(ExtensionAttribute), true);
         }
     }
 }

@@ -170,7 +170,7 @@ namespace Jint
             // their configuration is delayed to a later step
 
             // trigger initialization
-            Global.GetProperty(JsString.Empty);
+            Global.EnsureInitialized();
 
             // this is implementation dependent, and only to pass some unit tests
             Global._prototype = Object.PrototypeObject;
@@ -199,18 +199,7 @@ namespace Jint
             _argumentsInstancePool = new ArgumentsInstancePool(this);
             _jsValueArrayPool = new JsValueArrayPool();
 
-            if (Options._IsClrAllowed)
-            {
-                Global.SetProperty("System", new PropertyDescriptor(new NamespaceReference(this, "System"), PropertyFlag.AllForbidden));
-                Global.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunctionInstance(
-                    this,
-                    "importNamespace",
-                    (thisObj, arguments) => new NamespaceReference(this, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
-            }
-
             Options.Apply(this);
-
-            ClrTypeConverter ??= new DefaultTypeConverter(this);
         }
 
         internal LexicalEnvironment GlobalEnvironment { get; }

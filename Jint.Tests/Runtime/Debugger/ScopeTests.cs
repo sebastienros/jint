@@ -1,6 +1,4 @@
 ﻿using Jint.Native;
-using Jint.Runtime.Debugger;
-using System;
 using Xunit;
 
 namespace Jint.Tests.Runtime.Debugger

@@ -1,12 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Debugger;
+using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.References;
 
 namespace Jint
@@ -15,22 +19,25 @@ namespace Jint
 
     public sealed class Options
     {
-        private readonly List<IConstraint> _constraints = new List<IConstraint>();
+        private readonly List<IConstraint> _constraints = new();
         private bool _strict;
         private DebuggerStatementHandling _debuggerStatementHandling;
         private bool _allowClr;
         private bool _allowClrWrite = true;
-        private readonly List<IObjectConverter> _objectConverters = new List<IObjectConverter>();
+        private readonly List<IObjectConverter> _objectConverters = new();
         private Func<Engine, object, ObjectInstance> _wrapObjectHandler;
         private MemberAccessorDelegate _memberAccessor;
         private int _maxRecursionDepth = -1;
         private TimeSpan _regexTimeoutInterval = TimeSpan.FromSeconds(10);
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
-        private List<Assembly> _lookupAssemblies = new List<Assembly>();
+        private List<Assembly> _lookupAssemblies = new();
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
-        private readonly List<Action<Engine>> _configurations = new List<Action<Engine>>();
+        private readonly List<Action<Engine>> _configurations = new();
+
+        private readonly List<Type> _extensionMethodClassTypes = new();
+        internal ExtensionMethodCache _extensionMethods = ExtensionMethodCache.Empty;
 
         /// <summary>
         /// Run the script in strict mode.
@@ -78,6 +85,45 @@ namespace Jint
         {
             _objectConverters.Add(objectConverter);
             return this;
+        }
+
+        public Options AddExtensionMethods(params Type[] types)
+        {
+            _extensionMethodClassTypes.AddRange(types);
+            _extensionMethods = ExtensionMethodCache.Build(_extensionMethodClassTypes);
+            return this;
+        }
+
+        private void AttachExtensionMethodsToPrototypes(Engine engine)
+        {
+            AttachExtensionMethodsToPrototype(engine, engine.Array.PrototypeObject, typeof(Array));
+            AttachExtensionMethodsToPrototype(engine, engine.Boolean.PrototypeObject, typeof(bool));
+            AttachExtensionMethodsToPrototype(engine, engine.Date.PrototypeObject, typeof(DateTime));
+            AttachExtensionMethodsToPrototype(engine, engine.Number.PrototypeObject, typeof(double));
+            AttachExtensionMethodsToPrototype(engine, engine.Object.PrototypeObject, typeof(ExpandoObject));
+            AttachExtensionMethodsToPrototype(engine, engine.RegExp.PrototypeObject, typeof(System.Text.RegularExpressions.Regex));
+            AttachExtensionMethodsToPrototype(engine, engine.String.PrototypeObject, typeof(string));
+        }
+
+        private void AttachExtensionMethodsToPrototype(Engine engine, ObjectInstance prototype, Type objectType)
+        {
+            if (!_extensionMethods.TryGetExtensionMethods(objectType, out var methods))
+            {
+                return;
+            }
+
+            foreach (var overloads in methods.GroupBy(x => x.Name))
+            {
+                var functionInstance = new MethodInfoFunctionInstance(engine, MethodDescriptor.Build(overloads.ToList()));
+                var descriptor = new PropertyDescriptor(functionInstance, PropertyFlag.None);
+
+                // make sure we register both lower case and upper case
+                prototype.SetOwnProperty(overloads.Key, descriptor);
+                if (char.IsUpper(overloads.Key[0]))
+                {
+                    prototype.SetOwnProperty(char.ToLower(overloads.Key[0]) + overloads.Key.Substring(1), descriptor);
+                }
+            }
         }
 
         /// <summary>
@@ -229,6 +275,24 @@ namespace Jint
             {
                 configuration?.Invoke(engine);
             }
+            
+            // add missing bits if needed
+            if (_allowClr)
+            {
+                engine.Global.SetProperty("System", new PropertyDescriptor(new NamespaceReference(engine, "System"), PropertyFlag.AllForbidden));
+                engine.Global.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunctionInstance(
+                    engine, 
+                    "importNamespace",
+                    func: (thisObj, arguments) => new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
+            }
+
+            if (_extensionMethodClassTypes.Count > 0)
+            {
+                AttachExtensionMethodsToPrototypes(engine);
+            }
+            
+            // ensure defaults
+            engine.ClrTypeConverter ??= new DefaultTypeConverter(engine);
         }
 
         internal bool IsStrict => _strict;
@@ -236,8 +300,6 @@ namespace Jint
         internal DebuggerStatementHandling _DebuggerStatementHandling => _debuggerStatementHandling;
 
         internal bool IsDebugMode { get; private set; }
-
-        internal bool _IsClrAllowed => _allowClr;
 
         internal bool _IsClrWriteAllowed => _allowClrWrite;
 
@@ -261,7 +323,7 @@ namespace Jint
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
 
         internal IReferenceResolver  ReferenceResolver => _referenceResolver;
-        
+
         private sealed class DefaultReferenceResolver : IReferenceResolver
         {
             public static readonly DefaultReferenceResolver Instance = new DefaultReferenceResolver();

@@ -256,7 +256,6 @@ namespace Jint.Native.Object
             return keys;
         }
 
-
         protected virtual void AddProperty(JsValue property, PropertyDescriptor descriptor)
         {
             SetProperty(property, descriptor);
@@ -860,7 +859,7 @@ namespace Jint.Native.Object
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected void EnsureInitialized()
+        protected internal void EnsureInitialized()
         {
             if (_initialized)
             {

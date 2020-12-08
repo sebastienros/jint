@@ -551,7 +551,8 @@ namespace Jint.Runtime
             {
                 var parameterInfos = m.Parameters;
                 var arguments = argumentProvider(m);
-                if (parameterInfos.Length == arguments.Length)
+                if (arguments.Length <= parameterInfos.Length 
+                    && arguments.Length >= parameterInfos.Length - m.ParameterDefaultValuesCount)
                 {
                     if (methods.Length == 0 && arguments.Length == 0)
                     {
@@ -561,25 +562,6 @@ namespace Jint.Runtime
 
                     matchingByParameterCount ??= new List<Tuple<MethodDescriptor, JsValue[]>>();
                     matchingByParameterCount.Add(new Tuple<MethodDescriptor, JsValue[]>(m, arguments));
-                }
-                else if (parameterInfos.Length > arguments.Length)
-                {
-                    // check if we got enough default values to provide all parameters (or more in case some default values are provided/overwritten)
-                    if (parameterInfos.Length <= arguments.Length + m.ParameterDefaultValuesCount)
-                    {
-                        // create missing arguments from default values
-                        var argsWithDefaults = new JsValue[parameterInfos.Length];
-                        Array.Copy(arguments, argsWithDefaults, arguments.Length);
-                        for (var i = arguments.Length; i < parameterInfos.Length; i++)
-                        {
-                            var param = parameterInfos[i];
-                            var value = JsValue.FromObject(engine, param.DefaultValue);
-                            argsWithDefaults[i] = value;
-                        }
-
-                        matchingByParameterCount ??= new List<Tuple<MethodDescriptor, JsValue[]>>();
-                        matchingByParameterCount.Add(new Tuple<MethodDescriptor, JsValue[]>(m, argsWithDefaults));
-                    }
                 }
             }
 

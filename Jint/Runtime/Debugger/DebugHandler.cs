@@ -6,7 +6,6 @@ using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
-using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Debugger
 {

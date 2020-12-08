@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Jint.Runtime.Interop
 {
@@ -10,6 +11,8 @@ namespace Jint.Runtime.Interop
         {
             Method = method;
             Parameters = method.GetParameters();
+            IsExtensionMethod = method.IsDefined(typeof(ExtensionAttribute), true);
+
             foreach (var parameter in Parameters)
             {
                 if (Attribute.IsDefined(parameter, typeof(ParamArrayAttribute)))
@@ -29,6 +32,7 @@ namespace Jint.Runtime.Interop
         public ParameterInfo[] Parameters { get; }
         public bool HasParams { get; }
         public int ParameterDefaultValuesCount { get; }
+        public bool IsExtensionMethod { get; }
 
         public static MethodDescriptor[] Build<T>(List<T> source) where T : MethodBase
         {
