@@ -70,24 +70,20 @@ namespace Jint.Native.Array
 
         public abstract void DeletePropertyOrThrow(ulong index);
 
-        public IEnumerator<JsValue> GetEnumerator()
-        {
-            return new ArrayOperationsIterator(this);
-        }
+        internal ArrayLikeIterator GetEnumerator() => new ArrayLikeIterator(this);
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
+        IEnumerator<JsValue> IEnumerable<JsValue>.GetEnumerator() => new ArrayLikeIterator(this);
 
-        private sealed class ArrayOperationsIterator : IEnumerator<JsValue>
+        IEnumerator IEnumerable.GetEnumerator() => new ArrayLikeIterator(this);
+
+        internal sealed class ArrayLikeIterator : IEnumerator<JsValue>
         {
             private readonly ArrayOperations _obj;
             private ulong _current;
             private bool _first;
             private readonly uint _length;
 
-            public ArrayOperationsIterator(ArrayOperations obj)
+            public ArrayLikeIterator(ArrayOperations obj)
             {
                 _obj = obj;
                 _length = obj.GetLength();

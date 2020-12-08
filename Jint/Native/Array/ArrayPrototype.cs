@@ -802,32 +802,28 @@ namespace Jint.Native.Array
             if (len <= 1)
             {
                 return obj.Target;
-            }
-
-            
-
-            JsValue[] array;
+            }            
 
             // don't eat inner exceptions
             try
             {
-                array = obj.OrderBy(x => x, new ArrayComparer(compareFn)).ToArray();
+                var array = obj.OrderBy(x => x, ArrayComparer.WithFunction(compareFn)).ToArray();
+
+                for (uint i = 0; i < (uint) array.Length; ++i)
+                {
+                    if (!ReferenceEquals(array[i], null))
+                    {
+                        obj.Set(i, array[i], updateLength: false, throwOnError: false);
+                    }
+                    else
+                    {
+                        obj.DeletePropertyOrThrow(i);
+                    }
+            }
             }
             catch (InvalidOperationException e)
             {
                 throw e.InnerException;
-            }
-
-            for (uint i = 0; i < (uint) array.Length; ++i)
-            {
-                if (!ReferenceEquals(array[i], null))
-                {
-                    obj.Set(i, array[i], updateLength: false, throwOnError: false);
-                }
-                else
-                {
-                    obj.DeletePropertyOrThrow(i);
-                }
             }
 
             return obj.Target;
@@ -1237,8 +1233,24 @@ namespace Jint.Native.Array
 
         private sealed class ArrayComparer : IComparer<JsValue>
         {
+            /// <summary>
+            /// Default instance without any compare function.
+            /// </summary>
+            public static ArrayComparer Default = new ArrayComparer(null);
+            public static ArrayComparer WithFunction(ICallable compare)
+            {
+                if (compare == null)
+                {
+                    return Default;
+                }
+
+                return new ArrayComparer(compare);
+            }
+
             private readonly ICallable _compare;
-            public ArrayComparer(ICallable compare)
+            private readonly JsValue[] _comparableArray = new JsValue[2];
+
+            private ArrayComparer(ICallable compare)
             {
                 _compare = compare;
             }
@@ -1274,7 +1286,10 @@ namespace Jint.Native.Array
 
                 if (_compare != null)
                 {
-                    var s = TypeConverter.ToNumber(_compare.Call(Undefined, new[] {x, y}));
+                    _comparableArray[0] = x;
+                    _comparableArray[1] = y;
+
+                    var s = TypeConverter.ToNumber(_compare.Call(Undefined, _comparableArray));
                     if (s < 0)
                     {
                         return -1;
