@@ -1,5 +1,4 @@
-﻿using System.Dynamic;
-using Jint.Tests.Runtime.Domain;
+﻿using Jint.Tests.Runtime.Domain;
 using Xunit;
 
 namespace Jint.Tests.Runtime.ExtensionMethods
