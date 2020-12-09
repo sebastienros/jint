@@ -1,4 +1,5 @@
-﻿using Jint.Tests.Runtime.Domain;
+﻿using System.Dynamic;
+using Jint.Tests.Runtime.Domain;
 using Xunit;
 
 namespace Jint.Tests.Runtime.ExtensionMethods
@@ -44,6 +45,18 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             var result = engine.Execute("let numb = 27; numb.Add(13)").GetCompletionValue().AsInteger();
 
             Assert.Equal(40, result);
+        }
+
+        [Fact]
+        public void ShouldPrioritizingNonGenericMethod()
+        {
+            var options = new Options();
+            options.AddExtensionMethods(typeof(CustomStringExtensions));
+
+            var engine = new Engine(options);
+            var result = engine.Execute("\"{'name':'Mickey'}\".DeserializeObject()").GetCompletionValue().ToObject() as dynamic;
+
+            Assert.Equal("Mickey", result.name);
         }
     }
 }
