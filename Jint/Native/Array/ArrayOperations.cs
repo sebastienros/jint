@@ -80,7 +80,7 @@ namespace Jint.Native.Array
         {
             private readonly ArrayOperations _obj;
             private ulong _current;
-            private bool _first;
+            private bool _initialized;
             private readonly uint _length;
 
             public ArrayLikeIterator(ArrayOperations obj)
@@ -91,7 +91,20 @@ namespace Jint.Native.Array
                 Reset();
             }
 
-            public JsValue Current => _obj.TryGetValue(_current, out var temp) ? temp : null;
+            public JsValue Current 
+            {
+                get 
+                {
+                    if (!_initialized)
+                    {
+                        return null;
+                    }
+                    else
+                    {
+                        return _obj.TryGetValue(_current, out var temp) ? temp : null;
+                    }
+                }
+            }
 
             object IEnumerator.Current => Current;
 
@@ -101,9 +114,9 @@ namespace Jint.Native.Array
 
             public bool MoveNext()
             {
-                if (_first)
+                if (!_initialized)
                 {
-                    _first = false;
+                    _initialized = true;
                 }
                 else
                 {
@@ -115,7 +128,7 @@ namespace Jint.Native.Array
 
             public void Reset()
             {
-                _first = true;
+                _initialized = false;
                 _current = 0;
             }
         }
