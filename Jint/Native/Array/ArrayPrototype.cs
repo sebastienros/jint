@@ -1257,6 +1257,11 @@ namespace Jint.Native.Array
 
             public int Compare(JsValue x, JsValue y)
             {
+                if (ReferenceEquals(x, y))
+                {
+                    return 0;
+                }
+
                 if (ReferenceEquals(x, null))
                 {
                     return 1;
