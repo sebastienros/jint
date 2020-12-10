@@ -1257,19 +1257,24 @@ namespace Jint.Native.Array
 
             public int Compare(JsValue x, JsValue y)
             {
-                if (ReferenceEquals(x, y))
-                {
-                    return 0;
-                }
+                var xIsNull = ReferenceEquals(x, null);
+                var yIsNull = ReferenceEquals(y, null);
 
-                if (ReferenceEquals(x, null))
+                if (xIsNull)
                 {
+                    if (yIsNull)
+                    {
+                        return 0;
+                    }
+                    
                     return 1;
                 }
-
-                if (ReferenceEquals(y, null))
+                else
                 {
-                    return -1;
+                    if (yIsNull)
+                    {
+                        return -1;
+                    }
                 }
 
                 var xUndefined = x.IsUndefined();
