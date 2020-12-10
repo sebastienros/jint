@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -801,89 +802,28 @@ namespace Jint.Native.Array
             if (len <= 1)
             {
                 return obj.Target;
-            }
-
-            int Comparer(JsValue x, JsValue y)
-            {
-                if (ReferenceEquals(x, null))
-                {
-                    return 1;
-                }
-
-                if (ReferenceEquals(y, null))
-                {
-                    return -1;
-                }
-
-                var xUndefined = x.IsUndefined();
-                var yUndefined = y.IsUndefined();
-                if (xUndefined && yUndefined)
-                {
-                    return 0;
-                }
-
-                if (xUndefined)
-                {
-                    return 1;
-                }
-
-                if (yUndefined)
-                {
-                    return -1;
-                }
-
-                if (compareFn != null)
-                {
-                    var s = TypeConverter.ToNumber(compareFn.Call(Undefined, new[] {x, y}));
-                    if (s < 0)
-                    {
-                        return -1;
-                    }
-
-                    if (s > 0)
-                    {
-                        return 1;
-                    }
-
-                    return 0;
-                }
-
-                var xString = TypeConverter.ToString(x);
-                var yString = TypeConverter.ToString(y);
-
-                var r = CompareOrdinal(xString, yString);
-                return r;
-            }
-
-            var array = new JsValue[len];
-            for (uint i = 0; i < (uint) array.Length; ++i)
-            {
-                var value = obj.TryGetValue(i, out var temp)
-                    ? temp
-                    : null;
-                array[i] = value;
-            }
+            }            
 
             // don't eat inner exceptions
             try
             {
-                System.Array.Sort(array, Comparer);
+                var array = obj.OrderBy(x => x, ArrayComparer.WithFunction(compareFn)).ToArray();
+
+                for (uint i = 0; i < (uint) array.Length; ++i)
+                {
+                    if (!ReferenceEquals(array[i], null))
+                    {
+                        obj.Set(i, array[i], updateLength: false, throwOnError: false);
+                    }
+                    else
+                    {
+                        obj.DeletePropertyOrThrow(i);
+                    }
+            }
             }
             catch (InvalidOperationException e)
             {
                 throw e.InnerException;
-            }
-
-            for (uint i = 0; i < (uint) array.Length; ++i)
-            {
-                if (!ReferenceEquals(array[i], null))
-                {
-                    obj.Set(i, array[i], updateLength: false, throwOnError: false);
-                }
-                else
-                {
-                    obj.DeletePropertyOrThrow(i);
-                }
             }
 
             return obj.Target;
@@ -1290,5 +1230,96 @@ namespace Jint.Native.Array
             o.SetLength(len);
             return element;
         }
+
+        private sealed class ArrayComparer : IComparer<JsValue>
+        {
+            /// <summary>
+            /// Default instance without any compare function.
+            /// </summary>
+            public static ArrayComparer Default = new ArrayComparer(null);
+            public static ArrayComparer WithFunction(ICallable compare)
+            {
+                if (compare == null)
+                {
+                    return Default;
+                }
+
+                return new ArrayComparer(compare);
+            }
+
+            private readonly ICallable _compare;
+            private readonly JsValue[] _comparableArray = new JsValue[2];
+
+            private ArrayComparer(ICallable compare)
+            {
+                _compare = compare;
+            }
+
+            public int Compare(JsValue x, JsValue y)
+            {
+                var xIsNull = ReferenceEquals(x, null);
+                var yIsNull = ReferenceEquals(y, null);
+
+                if (xIsNull)
+                {
+                    if (yIsNull)
+                    {
+                        return 0;
+                    }
+                    
+                    return 1;
+                }
+                else
+                {
+                    if (yIsNull)
+                    {
+                        return -1;
+                    }
+                }
+
+                var xUndefined = x.IsUndefined();
+                var yUndefined = y.IsUndefined();
+                if (xUndefined && yUndefined)
+                {
+                    return 0;
+                }
+
+                if (xUndefined)
+                {
+                    return 1;
+                }
+
+                if (yUndefined)
+                {
+                    return -1;
+                }
+
+                if (_compare != null)
+                {
+                    _comparableArray[0] = x;
+                    _comparableArray[1] = y;
+
+                    var s = TypeConverter.ToNumber(_compare.Call(Undefined, _comparableArray));
+                    if (s < 0)
+                    {
+                        return -1;
+                    }
+
+                    if (s > 0)
+                    {
+                        return 1;
+                    }
+
+                    return 0;
+                }
+
+                var xString = TypeConverter.ToString(x);
+                var yString = TypeConverter.ToString(y);
+
+                var r = CompareOrdinal(xString, yString);
+                return r;
+            }
+        }
     }
+
 }
