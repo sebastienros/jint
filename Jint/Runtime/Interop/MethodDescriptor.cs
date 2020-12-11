@@ -61,12 +61,12 @@ namespace Jint.Runtime.Interop
             static int CreateComparison(MethodDescriptor d1, MethodDescriptor d2)
             {
                 // if its a generic method, put it on the end
-                if (d1.Method.IsGenericMethod)
+                if (d1.Method.IsGenericMethod && !d2.Method.IsGenericMethod)
                 {
                     return 1;
                 }
 
-                if (d2.Method.IsGenericMethod)
+                if (d2.Method.IsGenericMethod && !d1.Method.IsGenericMethod)
                 {
                     return -1;
                 }
