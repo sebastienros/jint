@@ -72,12 +72,12 @@ namespace Jint.Runtime.Interop
                 }
 
                 // put params versions to end, they can be tricky to match and can cause trouble / extra overhead
-                if (d1.HasParams)
+                if (d1.HasParams && !d2.HasParams)
                 {
                     return 1;
                 }
 
-                if (d2.HasParams)
+                if (d2.HasParams && !d1.HasParams)
                 {
                     return -1;
                 }
