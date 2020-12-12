@@ -227,8 +227,9 @@ namespace Jint.Tests.Test262
                                 reason = "async not implemented";
                                 break;
                             case "class-fields-private":
+                            case "class-fields-public":
                                 skip = true;
-                                reason = "private class fields not implemented in esprima";
+                                reason = "private/public class fields not implemented in esprima";
                                 break;
                             case "new.target":
                                 skip = true;
@@ -290,6 +291,48 @@ namespace Jint.Tests.Test262
                     reason = "Unicode support and its special cases need more work";
                 }
 
+                if (name.StartsWith("language/statements/class/subclass/builtin-objects/Promise"))
+                {
+                    skip = true;
+                    reason = "Promise not implemented";
+                }
+                
+                if (name.StartsWith("language/statements/class/subclass/builtin-objects/TypedArray"))
+                {
+                    skip = true;
+                    reason = "TypedArray not implemented";
+                }
+                
+                if (name.StartsWith("language/statements/class/subclass/builtin-objects/WeakMap"))
+                {
+                    skip = true;
+                    reason = "WeakMap not implemented";
+                }
+                
+                if (name.StartsWith("language/statements/class/subclass/builtin-objects/WeakSet"))
+                {
+                    skip = true;
+                    reason = "WeakSet not implemented";
+                }
+                
+                if (name.StartsWith("language/statements/class/subclass/builtin-objects/ArrayBuffer/"))
+                {
+                    skip = true;
+                    reason = "ArrayBuffer not implemented";
+                }
+                
+                if (name.StartsWith("language/statements/class/subclass/builtin-objects/DataView"))
+                {
+                    skip = true;
+                    reason = "DataView not implemented";
+                }
+                                
+                if (name.StartsWith("language/statements/class/subclass/builtins.js"))
+                {
+                    skip = true;
+                    reason = "Uint8Array not implemented";
+                }
+                
                 if (name.StartsWith("built-ins/RegExp/CharacterClassEscapes/"))
                 {
                     skip = true;
