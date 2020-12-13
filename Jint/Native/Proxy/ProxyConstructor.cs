@@ -54,7 +54,7 @@ namespace Jint.Native.Proxy
             SetProperties(properties);
         }
 
-        protected override ObjectInstance GetPrototypeOf()
+        protected internal override ObjectInstance GetPrototypeOf()
         {
             return _engine.Function.Prototype;
         }

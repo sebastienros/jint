@@ -61,7 +61,7 @@ namespace Jint.Native.Error
 
         public ErrorPrototype PrototypeObject { get; private set; }
 
-        protected override ObjectInstance GetPrototypeOf()
+        protected internal override ObjectInstance GetPrototypeOf()
         {
             return _name._value != "Error" ? _engine.Error : _prototype;
         }

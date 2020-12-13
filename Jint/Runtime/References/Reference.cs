@@ -14,11 +14,13 @@ namespace Jint.Runtime.References
         private JsValue _baseValue;
         private JsValue _property;
         internal bool _strict;
+        private JsValue _thisValue;
 
-        public Reference(JsValue baseValue, JsValue property, bool strict)
+        public Reference(JsValue baseValue, JsValue property, bool strict, JsValue thisValue = null)
         {
             _baseValue = baseValue;
             _property = property;
+            _thisValue = thisValue;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -44,8 +46,7 @@ namespace Jint.Runtime.References
 
         public bool IsSuperReference()
         {
-            // TODO super not implemented
-            return false;
+            return _thisValue is not null;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -59,17 +60,18 @@ namespace Jint.Runtime.References
         {
             if (IsSuperReference())
             {
-                return ExceptionHelper.ThrowNotImplementedException<JsValue>();
+                return _thisValue;
             }
 
             return GetBase();
         }
 
-        internal Reference Reassign(JsValue baseValue, JsValue name, bool strict)
+        internal Reference Reassign(JsValue baseValue, JsValue name, bool strict, JsValue thisValue)
         {
             _baseValue = baseValue;
             _property = name;
             _strict = strict;
+            _thisValue = thisValue;
 
             return this;
         }

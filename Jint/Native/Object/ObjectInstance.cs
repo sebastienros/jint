@@ -1103,7 +1103,7 @@ namespace Jint.Native.Object
             return JsBoolean.True;
         }
 
-        protected virtual ObjectInstance GetPrototypeOf()
+        protected internal virtual ObjectInstance GetPrototypeOf()
         {
             return _prototype;
         }

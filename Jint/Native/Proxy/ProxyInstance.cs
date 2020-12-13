@@ -392,7 +392,7 @@ namespace Jint.Native.Proxy
             }
         }
 
-        protected override ObjectInstance GetPrototypeOf()
+        protected internal override ObjectInstance GetPrototypeOf()
         {
             if (!TryCallHandler(TrapGetProtoTypeOf, new [] { _target }, out var handlerProto ))
             {

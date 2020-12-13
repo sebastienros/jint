@@ -1,28 +1,22 @@
 #nullable enable
 
 using Esprima.Ast;
-using Jint.Native;
 using Jint.Native.Function;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
-    /// <summary>
-    /// https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation
-    /// </summary>
     internal sealed class JintClassDeclarationStatement : JintStatement<ClassDeclaration>
     {
+        private readonly ClassDefinition _classDefinition;
+
         public JintClassDeclarationStatement(Engine engine, ClassDeclaration classDeclaration) : base(engine, classDeclaration)
         {
+            _classDefinition = new ClassDefinition(className: null, classDeclaration.SuperClass, classDeclaration.Body);
         }
 
         protected override Completion ExecuteInternal()
         {
-
-            var F = new ClassConstructorInstance(
-                _engine, 
-                _statement.SuperClass,
-                _statement.Body,
-                _engine.ExecutionContext.LexicalEnvironment);
+            var F = _classDefinition.BuildConstructor(_engine, _engine.ExecutionContext.LexicalEnvironment);
 
             if (_statement.Id != null)
             {
@@ -30,7 +24,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 _engine.ExecutionContext.LexicalEnvironment._record.InitializeBinding(_statement.Id.Name, F);
             }
 
-            return new Completion(CompletionType.Return, JsValue.Undefined, null, Location);
+            return new Completion(CompletionType.Normal, null, null, Location);
         }
     }
 }

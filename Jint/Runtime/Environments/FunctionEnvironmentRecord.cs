@@ -24,7 +24,7 @@ namespace Jint.Runtime.Environments
 
         private JsValue _thisValue;
         private ThisBindingStatus _thisBindingStatus;
-        private readonly FunctionInstance _functionObject;
+        internal readonly FunctionInstance _functionObject;
         private readonly JsValue _homeObject = Undefined;
         private readonly JsValue _newTarget;
 

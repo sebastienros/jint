@@ -96,7 +96,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? property
                 : TypeConverter.ToPropertyKey(property);
 
-            return _engine._referencePool.Rent(baseValue, propertyKey, isStrictModeCode);
+            return _engine._referencePool.Rent(baseValue, propertyKey, isStrictModeCode, thisValue: null);
         }
     }
 }

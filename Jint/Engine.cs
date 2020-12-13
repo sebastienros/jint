@@ -463,7 +463,7 @@ namespace Jint
                 if (baseValue.IsObject())
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
-                    var v = o.Get(property);
+                    var v = o.Get(property, reference.GetThisValue());
                     return v;
                 }
                 else
@@ -680,7 +680,7 @@ namespace Jint
         /// <param name="property">The name of the property to return.</param>
         public JsValue GetValue(JsValue scope, JsValue property)
         {
-            var reference = _referencePool.Rent(scope, property, _isStrict);
+            var reference = _referencePool.Rent(scope, property, _isStrict, thisValue: null);
             var jsValue = GetValue(reference, false);
             _referencePool.Return(reference);
             return jsValue;
@@ -695,20 +695,20 @@ namespace Jint
             return GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
         }
 
-        private Reference GetIdentifierReference(LexicalEnvironment lex, string name, bool strict)
+        private Reference GetIdentifierReference(LexicalEnvironment env, string name, bool strict)
         {
-            if (lex is null)
+            if (env is null)
             {
                 return new Reference(JsValue.Undefined, name, strict);
             }
 
-            var envRec = lex._record;
+            var envRec = env._record;
             if (envRec.HasBinding(name))
             {
                 return new Reference(envRec, name, strict);
             }
 
-            return GetIdentifierReference(lex._outer, name, strict);
+            return GetIdentifierReference(env._outer, name, strict);
         }
 
         /// <summary>

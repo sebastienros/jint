@@ -6,28 +6,24 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintClassExpression : JintExpression
     {
+        private readonly ClassDefinition _classDefinition;
+
         public JintClassExpression(Engine engine, ClassExpression expression) : base(engine, expression)
         {
+            var name = expression.Id?.Name;
+            _classDefinition = new ClassDefinition(name, expression.SuperClass, expression.Body);
         }
 
         protected override object EvaluateInternal()
         {
             var env = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
-
-            var classExpression = (ClassExpression) _expression;
-            var name = classExpression.Id?.Name;
+            var closure = _classDefinition.BuildConstructor(_engine, env);
             
-            var closure = new ClassConstructorInstance(
-                _engine,
-                classExpression.SuperClass,
-                classExpression.Body,
-                env,
-                name);
-            
-            if (name is not null)
+            // TODO is this needed?
+            if (_classDefinition._className is not null)
             {
                 var envRec = (DeclarativeEnvironmentRecord) env._record;
-                envRec.CreateMutableBindingAndInitialize(name, canBeDeleted: false, closure);
+                envRec.CreateMutableBindingAndInitialize(_classDefinition._className, canBeDeleted: false, closure);
             }
 
             return closure;
