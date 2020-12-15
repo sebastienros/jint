@@ -69,6 +69,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     BinaryOperator.LogicalAnd => new JintLogicalAndExpression(engine, (BinaryExpression) expression),
                     BinaryOperator.LogicalOr => new JintLogicalOrExpression(engine, (BinaryExpression) expression),
+                    BinaryOperator.NullishCoalescing => new NullishCoalescingExpression(engine, (BinaryExpression) expression),
                     _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>()
                 },
                 Nodes.MemberExpression => new JintMemberExpression(engine, (MemberExpression) expression),
