@@ -23,30 +23,30 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisValue, JsValue[] arguments)
         {
+            ExceptionHelper.ThrowTypeError(_engine, $"Class constructor {_constructorFunction.Name} cannot be invoked without 'new'");
+            return Undefined;
+        }
+
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        {
+            var obj = OrdinaryCreateFromConstructor(TypeConverter.ToObject(_engine, newTarget), _prototype);
+
             var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
             _engine.EnterExecutionContext(localEnv, localEnv);
             var envRec = (FunctionEnvironmentRecord) localEnv._record;
-            envRec.BindThisValue(thisValue);
+            envRec.BindThisValue(obj);
 
-            // actual call
             using (new StrictModeScope(true, true))
             {
                 try
                 {
                     _constructorFunction.Execute();
-                    return Undefined;
                 }
                 finally
                 {
                     _engine.LeaveExecutionContext();
                 }
             }
-        }
-
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
-        {
-            var obj = OrdinaryCreateFromConstructor(TypeConverter.ToObject(_engine, newTarget), _prototype);
-            Call(obj, arguments);
             return obj;
         }
 

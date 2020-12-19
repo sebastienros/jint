@@ -11,17 +11,17 @@ namespace Jint.Runtime.Interpreter.Statements
 
         public JintClassDeclarationStatement(Engine engine, ClassDeclaration classDeclaration) : base(engine, classDeclaration)
         {
-            _classDefinition = new ClassDefinition(className: null, classDeclaration.SuperClass, classDeclaration.Body);
+            _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name, classDeclaration.SuperClass, classDeclaration.Body);
         }
 
         protected override Completion ExecuteInternal()
         {
             var F = _classDefinition.BuildConstructor(_engine, _engine.ExecutionContext.LexicalEnvironment);
 
-            if (_statement.Id != null)
+            if (_classDefinition._className != null)
             {
-                _engine.ExecutionContext.LexicalEnvironment._record.CreateMutableBinding(_statement.Id.Name);
-                _engine.ExecutionContext.LexicalEnvironment._record.InitializeBinding(_statement.Id.Name, F);
+                _engine.ExecutionContext.LexicalEnvironment._record.CreateMutableBinding(_classDefinition._className);
+                _engine.ExecutionContext.LexicalEnvironment._record.InitializeBinding(_classDefinition._className, F);
             }
 
             return new Completion(CompletionType.Normal, null, null, Location);
