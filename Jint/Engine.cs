@@ -110,7 +110,7 @@ namespace Jint
 
         internal static Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> ReflectionAccessors = new();
 
-        internal readonly JintCallStack CallStack = new JintCallStack();
+        internal readonly JintCallStack CallStack;
 
         /// <summary>
         /// Constructs a new engine instance.
@@ -194,6 +194,7 @@ namespace Jint
             _isStrict = Options.IsStrict;
             _constraints = Options._Constraints;
             _referenceResolver = Options.ReferenceResolver;
+            CallStack = new JintCallStack(Options.MaxRecursionDepth >= 0);
 
             _referencePool = new ReferencePool();
             _argumentsInstancePool = new ArgumentsInstancePool(this);
@@ -347,19 +348,27 @@ namespace Jint
             return Execute(parser.ParseScript());
         }
 
-        public Engine Execute(Script program)
+        public Engine Execute(Script script)
         {
-            ResetConstraints();
-            ResetLastStatement();
-            ResetCallStack();
+            return Execute(script, true);
+        }
 
-            using (new StrictModeScope(_isStrict || program.Strict))
+        internal Engine Execute(Script script, bool resetState)
+        {
+            if (resetState)
+            {
+                ResetConstraints();
+                ResetLastStatement();
+                ResetCallStack();
+            }
+
+            using (new StrictModeScope(_isStrict || script.Strict))
             {
                 GlobalDeclarationInstantiation(
-                    program,
+                    script,
                     GlobalEnvironment);
 
-                var list = new JintStatementList(this, null, program.Body);
+                var list = new JintStatementList(this, null, script.Body);
                 
                 var result = list.Execute();
                 if (result.Type == CompletionType.Throw)
@@ -687,7 +696,7 @@ namespace Jint
             return GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
         }
 
-        private Reference GetIdentifierReference(LexicalEnvironment lex, string name, in bool strict)
+        private Reference GetIdentifierReference(LexicalEnvironment lex, string name, bool strict)
         {
             if (lex is null)
             {

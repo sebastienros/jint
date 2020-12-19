@@ -137,7 +137,7 @@ namespace Jint.Runtime
             throw new InvalidOperationException(message);
         }
 
-        public static void ThrowJavaScriptException(Engine engine, JsValue value, Completion result)
+        public static void ThrowJavaScriptException(Engine engine, JsValue value, in Completion result)
         {
             throw new JavaScriptException(value).SetCallstack(engine, result.Location);
         }

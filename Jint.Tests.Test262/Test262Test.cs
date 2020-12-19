@@ -10,8 +10,8 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Newtonsoft.Json.Linq;
-using Xunit;
 using Xunit.Abstractions;
+using Xunit.Sdk;
 
 namespace Jint.Tests.Test262
 {
@@ -82,6 +82,9 @@ namespace Jint.Tests.Test262
             var engine = new Engine(cfg => cfg
                 .LocalTimeZone(_pacificTimeZone)
                 .Strict(strict)
+#if DEBUG
+                .CollectStackTrace()
+#endif
             );
 
             engine.Execute(Sources["sta.js"]);
@@ -100,7 +103,7 @@ namespace Jint.Tests.Test262
                 var parser = new JavaScriptParser(args.At(0).AsString(), options);
                 var script = parser.ParseScript(strict);
 
-                var value = engine.Execute(script).GetCompletionValue();
+                var value = engine.Execute(script, false).GetCompletionValue();
                 
                 return value;
             }), true, true, true));
@@ -130,20 +133,16 @@ namespace Jint.Tests.Test262
             }
             catch (JavaScriptException j)
             {
-                lastError = TypeConverter.ToString(j.Error);
+                lastError = j.ToString();
             }
             catch (Exception e)
             {
                 lastError = e.ToString();
             }
 
-            if (negative)
+            if (!negative && !string.IsNullOrWhiteSpace(lastError))
             {
-                Assert.NotNull(lastError);
-            }
-            else
-            {
-                Assert.Null(lastError);
+                throw new XunitException(lastError);
             }
         }
 

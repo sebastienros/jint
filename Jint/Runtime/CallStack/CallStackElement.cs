@@ -1,9 +1,9 @@
 ﻿using Esprima.Ast;
 using Jint.Native;
 
-namespace Jint.Runtime
+namespace Jint.Runtime.CallStack
 {
-    public class CallStackElement
+    internal readonly struct CallStackElement
     {
         private readonly string _shortDescription;
 

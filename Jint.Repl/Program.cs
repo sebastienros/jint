@@ -12,7 +12,10 @@ namespace Jint.Repl
         static void Main(string[] args)
         {
 
-            var engine = new Engine(cfg => cfg.AllowClr());
+            var engine = new Engine(cfg => cfg
+                .AllowClr()
+                .CollectStackTrace()
+            );
 
             engine
                 .SetValue("print", new Action<object>(Console.WriteLine))

@@ -1,6 +1,7 @@
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Runtime.CallStack;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
@@ -100,20 +101,19 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-
             var func = _engine.GetValue(callee, false);
             var r = callee as Reference;
 
-            if (_maxRecursionDepth >= 0)
+            if (_engine.Options._collectStackTrace)
             {
-                var stackItem = new CallStackElement(expression, func, r?.GetReferencedName()?.ToString() ?? "anonymous function");
-
-                var recursionDepth = _engine.CallStack.Push(stackItem);
+                var description = r?.GetReferencedName()?.ToString() ?? "anonymous function";
+                var recursionDepth = _engine.CallStack.Push(new CallStackElement(expression, func, description));
 
                 if (recursionDepth > _maxRecursionDepth)
                 {
+                    // pop the current element as it was never reached
                     _engine.CallStack.Pop();
-                    ExceptionHelper.ThrowRecursionDepthOverflowException(_engine.CallStack, stackItem.ToString());
+                    ExceptionHelper.ThrowRecursionDepthOverflowException(_engine.CallStack, new CallStackElement(expression, func, description).ToString());
                 }
             }
 
@@ -171,7 +171,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _engine.DebugHandler.PopDebugCallStack();
             }
 
-            if (_maxRecursionDepth >= 0)
+            if (_engine.Options._collectStackTrace)
             {
                 _engine.CallStack.Pop();
             }

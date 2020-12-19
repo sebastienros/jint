@@ -53,14 +53,7 @@ namespace Jint.Runtime
                             sb.Builder.Append(", ");
                         }
                         var arg = cse.CallExpression.Arguments[index];
-                        if (arg is Expression pke)
-                        {
-                            sb.Builder.Append(GetPropertyKey(pke));
-                        }
-                        else
-                        {
-                            sb.Builder.Append(arg);
-                        }
+                        sb.Builder.Append(GetPropertyKey(arg));
                     }
 
                     sb.Builder.Append(") @ ")
@@ -118,7 +111,13 @@ namespace Jint.Runtime
 
         public override string ToString()
         {
-            return Error.ToString();
+            var str = TypeConverter.ToString(Error);
+            var callStack = CallStack;
+            if (!string.IsNullOrWhiteSpace(callStack))
+            {
+                str += Environment.NewLine + callStack;
+            }
+            return str;
         }
 
         public string CallStack
