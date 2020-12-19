@@ -791,6 +791,12 @@ namespace Jint
                     for (var j = 0; j < boundNames.Count; j++)
                     {
                         var vn = boundNames[j];
+
+                        if (envRec.HasLexicalDeclaration(vn))
+                        {
+                            ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{vn}' has already been declared");
+                        }
+                        
                         if (!declaredFunctionNames.Contains(vn))
                         {
                             var vnDefinable = envRec.CanDeclareGlobalVar(vn);
@@ -836,7 +842,13 @@ namespace Jint
 
             foreach (var f in functionToInitialize)
             {
-                var fn = f.Id.Name;
+                var fn = f.Id!.Name;
+                
+                if (envRec.HasLexicalDeclaration(fn))
+                {
+                    ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{fn}' has already been declared");
+                }
+                
                 var fo = Function.CreateFunctionObject(f, env);
                 envRec.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: false);
             }
