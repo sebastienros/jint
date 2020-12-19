@@ -3,12 +3,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Jint.Collections;
 
 namespace Jint.Runtime.CallStack
 {
     internal class JintCallStack : IEnumerable<CallStackElement>
     {
-        private readonly Stack<CallStackElement> _stack = new();
+        private readonly RefStack<CallStackElement> _stack = new();
         private readonly Dictionary<CallStackElement, int>? _statistics;
 
         public JintCallStack(bool trackRecursionDepth)
@@ -39,7 +40,7 @@ namespace Jint.Runtime.CallStack
 
         public CallStackElement Pop()
         {
-            var item = _stack.Pop();
+            ref readonly var item = ref _stack.Pop();
             if (_statistics is not null)
             {
                 if (_statistics[item] == 0)
