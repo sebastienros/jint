@@ -1199,13 +1199,13 @@ namespace Jint.Native.Object
 
         internal void CopyDataProperties(
             ObjectInstance target,
-            HashSet<JsValue> processedProperties)
+            HashSet<JsValue> excludedItems)
         {
             var keys = GetOwnPropertyKeys();
             for (var i = 0; i < keys.Count; i++)
             {
                 var key = keys[i];
-                if (processedProperties == null || !processedProperties.Contains(key))
+                if (excludedItems == null || !excludedItems.Contains(key))
                 {
                     var desc = GetOwnProperty(key);
                     if (desc.Enumerable)

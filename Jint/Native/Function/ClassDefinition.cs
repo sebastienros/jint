@@ -118,8 +118,9 @@ namespace Jint.Native.Function
             var constructorFunction = new JintFunctionDefinition(engine, (IFunction) constructor.Value);
             var F = new ClassConstructorInstance(engine, constructorFunction, env, _className)
             {
-                _prototype = proto,
-                //var temp = constructorParent as ObjectInstance ?? _engine.Function.PrototypeObject;
+                // TODO fix logic
+                _prototype = constructorParent as ObjectInstance ?? engine.Function.PrototypeObject,
+                //var temp = ;
                 _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.AllForbidden)
             };
 
@@ -181,7 +182,6 @@ namespace Jint.Native.Function
                 );
                 closure.SetFunctionName(propName);
                 closure.MakeMethod(obj);
-                closure._prototypeDescriptor = null;
 
                 propDesc = new GetSetPropertyDescriptor(
                     get: property.Kind == PropertyKind.Get ? closure : null,

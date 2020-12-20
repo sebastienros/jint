@@ -10,7 +10,7 @@ using Jint.Runtime.Descriptors;
 namespace Jint.Runtime.Interpreter.Expressions
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/#sec-object-initializer
+    /// https://tc39.es/ecma262/#sec-object-initializer
     /// </summary>
     internal sealed class JintObjectExpression : JintExpression
     {
@@ -150,61 +150,53 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var property = objectProperty._value;
                 var propName = objectProperty.KeyJsString ?? property.GetKey(_engine);
 
-                PropertyDefinitionEvaluation(obj, property, propName, _valueExpressions[i], isStrictModeCode);
+                PropertyDescriptor? propDesc = null;
+                if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
+                {
+                    var expr = _valueExpressions[i];
+                    var propValue = expr.GetValue().Clone();
+                    if (expr._expression.IsFunctionWithName())
+                    {
+                        var closure = (FunctionInstance) propValue;
+                        closure.SetFunctionName(propName);
+                        if (property.Method)
+                        {
+                            closure.MakeMethod(obj);
+                        }
+                    }
+
+                    propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+                }
+                else if (property.Kind == PropertyKind.Get || property.Kind == PropertyKind.Set)
+                {
+                    var function = property.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(_engine);
+
+                    var closure = new ScriptFunctionInstance(
+                        _engine,
+                        function,
+                        _engine.ExecutionContext.LexicalEnvironment,
+                        isStrictModeCode
+                    );
+                    closure.SetFunctionName((property.Kind == PropertyKind.Get ? "get " : "set ") + propName);
+                    if (property.Method)
+                    {
+                        closure.MakeMethod(obj);
+                    }
+
+                    propDesc = new GetSetPropertyDescriptor(
+                        get: property.Kind == PropertyKind.Get ? closure : null,
+                        set: property.Kind == PropertyKind.Set ? closure : null,
+                        PropertyFlag.Enumerable | PropertyFlag.Configurable);
+                }
+                else
+                {
+                    ExceptionHelper.ThrowArgumentOutOfRangeException();
+                }
+
+                obj.DefinePropertyOrThrow(propName, propDesc);
             }
 
             return obj;
-        }
-
-        private void PropertyDefinitionEvaluation(
-            ObjectInstance obj,
-            Property property,
-            JsValue propName,
-            JintExpression valueExpression,
-            bool isStrictModeCode)
-        {
-            PropertyDescriptor? propDesc = null;
-            if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
-            {
-                var expr = valueExpression;
-                var propValue = expr.GetValue().Clone();
-                if (expr._expression.IsFunctionWithName())
-                {
-                    var method = (FunctionInstance) propValue;
-                    method.SetFunctionName(propName);
-                    if (expr._expression.Type == Nodes.ArrowParameterPlaceHolder)
-                    {
-                        method.MakeMethod(obj);
-                    }
-                }
-
-                propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
-            }
-            else if (property.Kind == PropertyKind.Get || property.Kind == PropertyKind.Set)
-            {
-                var function = property.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(_engine);
-
-                var closure = new ScriptFunctionInstance(
-                    _engine,
-                    function,
-                    _engine.ExecutionContext.LexicalEnvironment,
-                    isStrictModeCode
-                );
-                closure.SetFunctionName(propName);
-                closure.MakeMethod(obj);
-                closure._prototypeDescriptor = null;
-
-                propDesc = new GetSetPropertyDescriptor(
-                    get: property.Kind == PropertyKind.Get ? closure : null,
-                    set: property.Kind == PropertyKind.Set ? closure : null,
-                    PropertyFlag.Enumerable | PropertyFlag.Configurable);
-            }
-            else
-            {
-                ExceptionHelper.ThrowArgumentOutOfRangeException();
-            }
-
-            obj.DefinePropertyOrThrow(propName, propDesc);
         }
     }
 }

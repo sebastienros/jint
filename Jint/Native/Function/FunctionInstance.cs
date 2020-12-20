@@ -263,6 +263,10 @@ namespace Jint.Native.Function
         internal void MakeMethod(ObjectInstance homeObject)
         {
             _homeObject = homeObject;
+            // Functions declared as methods do not define a `prototype` property.
+            _prototypeDescriptor = null;
+            // The prototype of functions declared as methods is the Function prototype.
+            _prototype = _engine.Function.Prototype;
         }
 
         public override string ToString()
