@@ -138,6 +138,14 @@ namespace Jint
                 else if (parameter is AssignmentPattern assignmentPattern)
                 {
                     parameter = assignmentPattern.Left;
+                    if (assignmentPattern.Right is ClassExpression classExpression)
+                    {
+                        // TODO check if there's more generic rule
+                        if (classExpression.Id is not null)
+                        {
+                            target.Add(classExpression.Id.Name);
+                        }
+                    }
                     continue;
                 }
                 break;

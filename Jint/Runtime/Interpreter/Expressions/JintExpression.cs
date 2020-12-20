@@ -52,6 +52,40 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected abstract object EvaluateInternal();
 
+        /// <summary>
+        /// If we'd get Esprima source, we would just refer to it, but this makes error messages easier to decipher.
+        /// </summary>
+        internal string SourceText => ToString(_expression);
+        
+        private static string ToString(Expression expression)
+        {
+            while (true)
+            {
+                if (expression is Literal literal)
+                {
+                    return EsprimaExtensions.LiteralKeyToString(literal);
+                }
+
+                if (expression is Identifier identifier)
+                {
+                    return identifier.Name;
+                }
+
+                if (expression is MemberExpression memberExpression)
+                {
+                    return ToString(memberExpression.Object) + "." + ToString(memberExpression.Property);
+                }
+
+                if (expression is CallExpression callExpression)
+                {
+                    expression = callExpression.Callee;
+                    continue;
+                }
+
+                return "*unknown*";
+            }
+        }
+
         protected internal static JintExpression Build(Engine engine, Expression expression)
         {
             return expression.Type switch

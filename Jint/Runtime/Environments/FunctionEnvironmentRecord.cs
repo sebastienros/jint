@@ -25,7 +25,6 @@ namespace Jint.Runtime.Environments
         private JsValue _thisValue;
         private ThisBindingStatus _thisBindingStatus;
         internal readonly FunctionInstance _functionObject;
-        private readonly JsValue _homeObject = Undefined;
         private readonly JsValue _newTarget;
 
         public FunctionEnvironmentRecord(
@@ -49,7 +48,7 @@ namespace Jint.Runtime.Environments
         public override bool HasThisBinding() => _thisBindingStatus != ThisBindingStatus.Lexical;
 
         public override bool HasSuperBinding() => 
-            _thisBindingStatus != ThisBindingStatus.Lexical && !_homeObject.IsUndefined();
+            _thisBindingStatus != ThisBindingStatus.Lexical && !_functionObject._homeObject.IsUndefined();
 
         public override JsValue WithBaseObject()
         {
@@ -78,9 +77,10 @@ namespace Jint.Runtime.Environments
 
         public JsValue GetSuperBase()
         {
-            return _homeObject.IsUndefined() 
+            var home = _functionObject._homeObject;
+            return home.IsUndefined() 
                 ? Undefined
-                : ((ObjectInstance) _homeObject).Prototype;
+                : ((ObjectInstance) home).GetPrototypeOf();
         }
 
 

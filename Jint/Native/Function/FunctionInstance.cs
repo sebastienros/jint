@@ -25,6 +25,7 @@ namespace Jint.Native.Function
         protected internal LexicalEnvironment _environment;
         internal readonly JintFunctionDefinition _functionDefinition;
         internal readonly FunctionThisMode _thisMode;
+        internal JsValue _homeObject = Undefined;
 
         internal FunctionInstance(
             Engine engine,
@@ -67,6 +68,9 @@ namespace Jint.Native.Function
         public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
 
         public bool Strict => _thisMode == FunctionThisMode.Strict;
+
+        // object methods cannot be constructors
+        internal override bool IsConstructor => _homeObject.IsUndefined() && this is IConstructor;
 
         public virtual bool HasInstance(JsValue v)
         {
@@ -254,6 +258,11 @@ namespace Jint.Native.Function
             //    Let realm be ? GetFunctionRealm(constructor).
             //    Set proto to realm's intrinsic object named intrinsicDefaultProto.
             return proto ?? intrinsicDefaultProto;
+        }
+        
+        internal void MakeMethod(ObjectInstance homeObject)
+        {
+            _homeObject = homeObject;
         }
 
         public override string ToString()

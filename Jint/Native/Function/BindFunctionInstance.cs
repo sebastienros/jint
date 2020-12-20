@@ -62,7 +62,7 @@ namespace Jint.Native.Function
             return combined;
         }
 
-        internal override bool IsConstructor => TargetFunction is IConstructor;
+        internal override bool IsConstructor => TargetFunction.IsConstructor;
 
         public override string ToString() => "function () { [native code] }";
     }

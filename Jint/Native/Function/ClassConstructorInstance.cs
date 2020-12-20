@@ -21,6 +21,8 @@ namespace Jint.Native.Function
             _environment = scope;
         }
 
+        internal override bool IsConstructor => true;
+
         public override JsValue Call(JsValue thisValue, JsValue[] arguments)
         {
             ExceptionHelper.ThrowTypeError(_engine, $"Class constructor {_constructorFunction.Name} cannot be invoked without 'new'");

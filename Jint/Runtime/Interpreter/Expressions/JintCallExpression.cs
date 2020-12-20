@@ -134,7 +134,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 // is it a direct call to eval ? http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.1.1
                 if (r.GetReferencedName() == CommonProperties.Eval && callable is EvalFunctionInstance instance)
                 {
-                    var value = instance.Call(thisObject, arguments, true);
+                    var value = instance.PerformEval(arguments, true);
                     _engine._referencePool.Return(r);
                     return value;
                 }

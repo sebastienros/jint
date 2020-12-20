@@ -53,13 +53,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             // todo: optimize by defining a common abstract class or interface
             var jsValue = _calleeExpression.GetValue();
-            if (!(jsValue is IConstructor callee))
+            if (!jsValue.IsConstructor)
             {
-                return ExceptionHelper.ThrowTypeError<object>(_engine, "The object can't be used as constructor.");
+                return ExceptionHelper.ThrowTypeError<object>(_engine,  _calleeExpression.SourceText + " is not a constructor");
             }
 
             // construct the new instance using the Function's constructor method
-            var instance = callee.Construct(arguments, jsValue);
+            var instance = ((IConstructor) jsValue).Construct(arguments, jsValue);
 
             _engine._jsValueArrayPool.ReturnArray(arguments);
 

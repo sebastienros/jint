@@ -77,7 +77,9 @@ namespace Jint.Native.Proxy
         }
 
         internal override bool IsConstructor => 
-            _handler.TryGetValue(TrapConstruct, out var handlerFunction) && handlerFunction is IConstructor;
+            _handler != null
+            && _handler.TryGetValue(TrapConstruct, out var handlerFunction) 
+            && handlerFunction is IConstructor;
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {

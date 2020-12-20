@@ -173,18 +173,19 @@ namespace Jint.Native.Function
             {
                 var function = property.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(obj.Engine);
 
-                var functionInstance = new ScriptFunctionInstance(
+                var closure = new ScriptFunctionInstance(
                     obj.Engine,
                     function,
                     obj.Engine.ExecutionContext.LexicalEnvironment,
                     isStrictModeCode
                 );
-                functionInstance.SetFunctionName(propName);
-                functionInstance._prototypeDescriptor = null;
+                closure.SetFunctionName(propName);
+                closure.MakeMethod(obj);
+                closure._prototypeDescriptor = null;
 
                 propDesc = new GetSetPropertyDescriptor(
-                    get: property.Kind == PropertyKind.Get ? functionInstance : null,
-                    set: property.Kind == PropertyKind.Set ? functionInstance : null,
+                    get: property.Kind == PropertyKind.Get ? closure : null,
+                    set: property.Kind == PropertyKind.Set ? closure : null,
                     PropertyFlag.Enumerable | PropertyFlag.Configurable);
             }
             else

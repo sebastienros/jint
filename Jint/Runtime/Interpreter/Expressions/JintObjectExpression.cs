@@ -170,8 +170,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var propValue = expr.GetValue().Clone();
                 if (expr._expression.IsFunctionWithName())
                 {
-                    var functionInstance = (FunctionInstance) propValue;
-                    functionInstance.SetFunctionName(propName);
+                    var method = (FunctionInstance) propValue;
+                    method.SetFunctionName(propName);
+                    if (expr._expression.Type == Nodes.ArrowParameterPlaceHolder)
+                    {
+                        method.MakeMethod(obj);
+                    }
                 }
 
                 propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
@@ -180,18 +184,19 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var function = property.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(_engine);
 
-                var functionInstance = new ScriptFunctionInstance(
+                var closure = new ScriptFunctionInstance(
                     _engine,
                     function,
                     _engine.ExecutionContext.LexicalEnvironment,
                     isStrictModeCode
                 );
-                functionInstance.SetFunctionName(propName);
-                functionInstance._prototypeDescriptor = null;
+                closure.SetFunctionName(propName);
+                closure.MakeMethod(obj);
+                closure._prototypeDescriptor = null;
 
                 propDesc = new GetSetPropertyDescriptor(
-                    get: property.Kind == PropertyKind.Get ? functionInstance : null,
-                    set: property.Kind == PropertyKind.Set ? functionInstance : null,
+                    get: property.Kind == PropertyKind.Get ? closure : null,
+                    set: property.Kind == PropertyKind.Set ? closure : null,
                     PropertyFlag.Enumerable | PropertyFlag.Configurable);
             }
             else
