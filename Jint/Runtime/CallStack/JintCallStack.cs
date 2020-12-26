@@ -1,13 +1,16 @@
-﻿#nullable  enable
+﻿#nullable enable
 
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using Esprima;
+using Esprima.Ast;
 using Jint.Collections;
+using Jint.Pooling;
 
 namespace Jint.Runtime.CallStack
 {
-    internal class JintCallStack : IEnumerable<CallStackElement>
+    internal class JintCallStack
     {
         private readonly RefStack<CallStackElement> _stack = new();
         private readonly Dictionary<CallStackElement, int>? _statistics;
@@ -35,6 +38,7 @@ namespace Jint.Runtime.CallStack
                     return 0;
                 }
             }
+
             return -1;
         }
 
@@ -62,19 +66,103 @@ namespace Jint.Runtime.CallStack
             _statistics?.Clear();
         }
 
-        public IEnumerator<CallStackElement> GetEnumerator()
-        {
-            return _stack.GetEnumerator();
-        }
-
         public override string ToString()
         {
             return string.Join("->", _stack.Select(cse => cse.ToString()).Reverse());
         }
 
-        IEnumerator IEnumerable.GetEnumerator()
+        internal string BuildCallStackString(Location location, bool root = false)
         {
-            return GetEnumerator();
+            static void AppendLocation(
+                StringBuilder sb,
+                string shortDescription,
+                Location loc,
+                in NodeList<Expression> arguments)
+            {
+                sb.Append("    at ")
+                    .Append(shortDescription);
+
+                if (arguments.Count > 0)
+                {
+                    sb.Append(" (");
+                }
+
+                for (var index = 0; index < arguments.Count; index++)
+                {
+                    if (index != 0)
+                    {
+                        sb.Append(", ");
+                    }
+
+                    var arg = arguments[index];
+                    sb.Append(GetPropertyKey(arg));
+                }
+
+                if (arguments.Count > 0)
+                {
+                    sb.Append(") ");
+                }
+
+                sb
+                    .Append(loc.Source)
+                    .Append(":")
+                    .Append(loc.Start.Line)
+                    .Append(":")
+                    .Append(loc.Start.Column + 1) // report column number instead of index
+                    .AppendLine();
+            }
+
+            using var sb = StringBuilderPool.Rent();
+
+            // stack is one frame behind when we start to process it from expression level
+            // the actual place it happened first
+            var index = _stack._size - 1;
+            var element = index >= 0 ? _stack[index] : (CallStackElement?) null;
+            var shortDescription = element?.ToString() ?? "";
+            var arguments = element?.CallExpression.Arguments ?? new NodeList<Expression>();
+
+            AppendLocation(sb.Builder, shortDescription, location, arguments);
+
+            location = element?.CallExpression.Location ?? default;
+            index--;
+
+            while (index >= -1)
+            {
+                element = index >= 0 ? _stack[index] : null;
+                shortDescription = element?.ToString() ?? "";
+                arguments = element?.CallExpression.Arguments ?? new NodeList<Expression>();
+
+                AppendLocation(sb.Builder, shortDescription, location, arguments);
+
+                location = element?.CallExpression.Location ?? default;
+                index--;
+            }
+
+            return sb.ToString().TrimEnd();
+        }
+
+        /// <summary>
+        /// A version of <see cref="EsprimaExtensions.GetKey"/> that cannot get into loop as we are already building a stack.
+        /// </summary>
+        private static string GetPropertyKey(Expression expression)
+        {
+            if (expression is Literal literal)
+            {
+                return EsprimaExtensions.LiteralKeyToString(literal);
+            }
+
+            if (expression is Identifier identifier)
+            {
+                return identifier.Name ?? "";
+            }
+
+            if (expression is StaticMemberExpression staticMemberExpression)
+            {
+                return GetPropertyKey(staticMemberExpression.Object) + "." +
+                       GetPropertyKey(staticMemberExpression.Property);
+            }
+
+            return "?";
         }
     }
 }

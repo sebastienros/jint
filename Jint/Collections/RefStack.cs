@@ -3,6 +3,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Runtime;
 
@@ -33,6 +34,21 @@ namespace Jint.Collections
             }
 
             return ref _array[_size - 1];
+        }
+
+        public T this[int index] => _array[index];
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryPeek([NotNullWhen(true)] out T item)
+        {
+            if (_size > 0)
+            {
+                item = _array[_size - 1];
+                return true;
+            }
+
+            item = default;
+            return false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

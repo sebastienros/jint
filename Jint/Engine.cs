@@ -38,13 +38,12 @@ namespace Jint
 {
     public class Engine
     {
-        private static readonly ParserOptions DefaultParserOptions = new ParserOptions
+        private static readonly ParserOptions DefaultParserOptions = new("<anonymous>")
         {
             AdaptRegexp = true,
             Tolerant = true,
             Loc = true
         };
-
 
         private static readonly JsString _errorFunctionName = new JsString("Error");
         private static readonly JsString _evalErrorFunctionName = new JsString("EvalError");
@@ -373,7 +372,7 @@ namespace Jint
                 var result = list.Execute();
                 if (result.Type == CompletionType.Throw)
                 {
-                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location, true);
                     throw ex;
                 }
 

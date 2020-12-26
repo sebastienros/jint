@@ -23,5 +23,6 @@ namespace Jint.Runtime
         internal static readonly JsString Writable = new JsString("writable");
         internal static readonly JsString Enumerable = new JsString("enumerable");
         internal static readonly JsString Configurable = new JsString("configurable");
+        internal static readonly JsString Stack = new JsString("stack");
     }
 }

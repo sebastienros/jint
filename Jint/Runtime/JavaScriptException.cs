@@ -1,15 +1,16 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Error;
-using Jint.Pooling;
+using Jint.Native.Object;
 
 namespace Jint.Runtime
 {
     public class JavaScriptException : JintException
     {
-        private string _callStack;
+        private string? _callStack;
 
         public JavaScriptException(ErrorConstructor errorConstructor) : base("")
         {
@@ -34,75 +35,20 @@ namespace Jint.Runtime
             Error = error;
         }
 
-        public JavaScriptException SetCallstack(Engine engine, Location? location = null)
+        internal JavaScriptException SetCallstack(Engine engine, Location location, bool root = false)
         {
-            Location = location ?? default;
-
-            using (var sb = StringBuilderPool.Rent())
-            {
-                foreach (var cse in engine.CallStack)
-                {
-                    sb.Builder.Append(" at ")
-                        .Append(cse)
-                        .Append("(");
-
-                    for (var index = 0; index < cse.CallExpression.Arguments.Count; index++)
-                    {
-                        if (index != 0)
-                        {
-                            sb.Builder.Append(", ");
-                        }
-                        var arg = cse.CallExpression.Arguments[index];
-                        sb.Builder.Append(GetPropertyKey(arg));
-                    }
-
-                    sb.Builder.Append(") @ ")
-                        .Append(cse.CallExpression.Location.Source)
-                        .Append(" ")
-                        .Append(cse.CallExpression.Location.Start.Column)
-                        .Append(":")
-                        .Append(cse.CallExpression.Location.Start.Line)
-                        .AppendLine();
-                }
-                CallStack = sb.ToString();
-            }
+            Location = location;
+            CallStack = engine.CallStack.BuildCallStackString(location);
 
             return this;
         }
 
-        /// <summary>
-        /// A version of <see cref="EsprimaExtensions.GetKey"/> that cannot get into loop as we are already building a stack.
-        /// </summary>
-        private static string GetPropertyKey(Expression expression)
-        {
-            if (expression is Literal literal)
-            {
-                return EsprimaExtensions.LiteralKeyToString(literal);
-            }
-
-            if (expression is Identifier identifier)
-            {
-                return identifier.Name;
-            }
-
-            if (expression is StaticMemberExpression staticMemberExpression)
-            {
-                return GetPropertyKey(staticMemberExpression.Object) + "." + GetPropertyKey(staticMemberExpression.Property);
-            }
-
-            return "?";
-        }
-
         private static string GetErrorMessage(JsValue error)
         {
-            if (error.IsObject())
+            if (error is ObjectInstance oi)
             {
-                var oi = error.AsObject();
-                var message = oi.Get("message", oi).ToString();
-                return message;
+                return oi.Get("message", oi).ToString();
             }
-            if (error.IsString())
-                return error.ToString();
 
             return error.ToString();
         }
@@ -120,20 +66,29 @@ namespace Jint.Runtime
             return str;
         }
 
-        public string CallStack
+        /// <summary>
+        /// Returns the call stack of the exception. Requires that engine was built using
+        /// <see cref="Options.CollectStackTrace"/>.
+        /// </summary>
+        public string? CallStack
         {
             get
             {
-                if (_callStack != null)
+                if (_callStack is not null)
+                {
                     return _callStack;
-                if (ReferenceEquals(Error, null))
+                }
+
+                if (Error is not ObjectInstance oi)
+                {
                     return null;
-                if (Error.IsObject() == false)
-                    return null;
-                var callstack = Error.AsObject().Get("callstack", Error);
-                if (callstack.IsUndefined())
-                    return null;
-                return callstack.AsString();
+                }
+
+                var callstack = oi.Get(CommonProperties.Stack, Error);
+
+                return callstack.IsUndefined()
+                    ? null 
+                    : callstack.AsString();
             }
             set
             {
@@ -141,12 +96,12 @@ namespace Jint.Runtime
                 if (value != null && Error.IsObject())
                 {
                     Error.AsObject()
-                        .FastAddProperty("callstack", new JsString(value), false, false, false);
+                        .FastAddProperty(CommonProperties.Stack, new JsString(value), false, false, false);
                 }
             }
         }
 
-        public Location Location { get; set; }
+        public Location Location { get; private set; }
 
         public int LineNumber => Location.Start.Line;
 

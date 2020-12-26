@@ -10,6 +10,8 @@ namespace Jint.Runtime.Interpreter.Expressions
     /// </summary>
     internal sealed class JintMemberExpression : JintExpression
     {
+        private MemberExpression _memberExpression;
+
         private JintExpression _objectExpression;
         private JintIdentifierExpression _objectIdentifierExpression;
         private JintThisExpression _objectThisExpression;
@@ -24,23 +26,23 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize()
         {
-            var expression = (MemberExpression) _expression;
-            _objectExpression = Build(_engine, expression.Object);
+            _memberExpression = (MemberExpression) _expression;
+            _objectExpression = Build(_engine, _memberExpression.Object);
             _objectIdentifierExpression = _objectExpression as JintIdentifierExpression;
             _objectThisExpression = _objectExpression as JintThisExpression;
 
-            if (!expression.Computed)
+            if (!_memberExpression.Computed)
             {
-                _determinedProperty = ((Identifier) expression.Property).Name;
+                _determinedProperty = ((Identifier) _memberExpression.Property).Name;
             }
-            else if (expression.Property.Type == Nodes.Literal)
+            else if (_memberExpression.Property.Type == Nodes.Literal)
             {
-                _determinedProperty = JintLiteralExpression.ConvertToJsValue((Literal) expression.Property);
+                _determinedProperty = JintLiteralExpression.ConvertToJsValue((Literal) _memberExpression.Property);
             }
 
             if (_determinedProperty is null)
             {
-                _propertyExpression = Build(_engine, expression.Property);
+                _propertyExpression = Build(_engine, _memberExpression.Property);
             }
         }
 
@@ -84,7 +86,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             var property = _determinedProperty ?? _propertyExpression.GetValue();
-            TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression) _expression, _determinedProperty?.ToString() ?? baseReferenceName);
+            TypeConverter.CheckObjectCoercible(_engine, baseValue, _memberExpression.Property, _determinedProperty?.ToString() ?? baseReferenceName);
 
             // only convert if necessary
             var propertyKey = property.IsInteger() && baseValue.IsIntegerIndexedArray
