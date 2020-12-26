@@ -19,8 +19,8 @@ namespace Jint.Repl
             engine
                 .SetValue("print", new Action<object>(Console.WriteLine))
                 .SetValue("load", new Func<string, object>(
-                    path => engine.Execute(File.ReadAllText(path))
-                        .GetCompletionValue()));
+                    path => engine.Execute(File.ReadAllText(path)).GetCompletionValue())
+                );
 
             var filename = args.Length > 0 ? args[0] : "";
             if (!string.IsNullOrEmpty(filename))
@@ -63,8 +63,7 @@ namespace Jint.Repl
                     var result = engine.GetValue(engine.Execute(input, parserOptions).GetCompletionValue());
                     if (result.Type != Types.None && result.Type != Types.Null && result.Type != Types.Undefined)
                     {
-                        var str = TypeConverter.ToString(engine.Json.Stringify(engine.Json,
-                            Arguments.From(result, Undefined.Instance, "  ")));
+                        var str = TypeConverter.ToString(engine.Json.Stringify(engine.Json, Arguments.From(result, Undefined.Instance, "  ")));
                         Console.WriteLine("=> {0}", str);
                     }
                 }
