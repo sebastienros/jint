@@ -72,7 +72,7 @@ var b = function(v) {
             Assert.Equal(17, e.Location.Start.Column);
             Assert.Equal("custom.js", e.Location.Source);
 
-            var stack = e.CallStack;
+            var stack = e.StackTrace;
             EqualIgnoringNewLineDifferences(@"    at a (v) custom.js:2:18
     at b (7) custom.js:6:9
     at main.js:1:9", stack);
@@ -126,7 +126,7 @@ var b = function(v) {
     at recursive (folderInstance.parent) <anonymous>:8:32
     at recursive (folderInstance.parent) <anonymous>:8:32
     at recursive (folder) <anonymous>:8:32
-    at <anonymous>:12:17", javaScriptException.CallStack);
+    at <anonymous>:12:17", javaScriptException.StackTrace);
 
             var expected = new List<string>
             {
@@ -151,7 +151,7 @@ var x = b(7);";
 
             var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
 
-            const string expected = @"TypeError: Cannot read property 'yyy' of undefined
+            const string expected = @"Jint.Runtime.JavaScriptException: Cannot read property 'yyy' of undefined
     at a (v) <anonymous>:2:18
     at b (7) <anonymous>:6:12
     at <anonymous>:9:9";
@@ -161,7 +161,9 @@ var x = b(7);";
 
         private static void EqualIgnoringNewLineDifferences(string expected, string actual)
         {
-            Assert.Equal(expected.Replace("\r\n", "\n"), actual.Replace("\r\n", "\n"));
+            expected = expected.Replace("\r\n", "\n");
+            actual = actual.Replace("\r\n", "\n");
+            Assert.Equal(expected, actual);
         }
     }
 }

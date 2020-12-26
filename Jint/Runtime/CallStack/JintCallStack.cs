@@ -71,7 +71,7 @@ namespace Jint.Runtime.CallStack
             return string.Join("->", _stack.Select(cse => cse.ToString()).Reverse());
         }
 
-        internal string BuildCallStackString(Location location, bool root = false)
+        internal string BuildCallStackString(Location location)
         {
             static void AppendLocation(
                 StringBuilder sb,
@@ -79,7 +79,8 @@ namespace Jint.Runtime.CallStack
                 Location loc,
                 in NodeList<Expression> arguments)
             {
-                sb.Append("    at ")
+                sb
+                    .Append("    at ")
                     .Append(shortDescription);
 
                 if (arguments.Count > 0)
@@ -114,8 +115,7 @@ namespace Jint.Runtime.CallStack
 
             using var sb = StringBuilderPool.Rent();
 
-            // stack is one frame behind when we start to process it from expression level
-            // the actual place it happened first
+            // stack is one frame behind function-wise when we start to process it from expression level
             var index = _stack._size - 1;
             var element = index >= 0 ? _stack[index] : (CallStackElement?) null;
             var shortDescription = element?.ToString() ?? "";

@@ -372,7 +372,7 @@ namespace Jint
                 var result = list.Execute();
                 if (result.Type == CompletionType.Throw)
                 {
-                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location, true);
+                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
                     throw ex;
                 }
 
