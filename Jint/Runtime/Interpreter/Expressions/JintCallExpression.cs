@@ -104,17 +104,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             var func = _engine.GetValue(callee, false);
             var r = callee as Reference;
 
-            if (_engine.Options._collectStackTrace)
-            {
-                var description = r?.GetReferencedName()?.ToString() ?? "anonymous function";
-                var recursionDepth = _engine.CallStack.Push(new CallStackElement(expression, func, description));
+            var description = r?.GetReferencedName()?.ToString() ?? "anonymous function";
+            var recursionDepth = _engine.CallStack.Push(new CallStackElement(expression, func, description));
 
-                if (recursionDepth > _maxRecursionDepth)
-                {
-                    // pop the current element as it was never reached
-                    _engine.CallStack.Pop();
-                    ExceptionHelper.ThrowRecursionDepthOverflowException(_engine.CallStack, new CallStackElement(expression, func, description).ToString());
-                }
+            if (recursionDepth > _maxRecursionDepth)
+            {
+                // pop the current element as it was never reached
+                _engine.CallStack.Pop();
+                ExceptionHelper.ThrowRecursionDepthOverflowException(_engine.CallStack,
+                    new CallStackElement(expression, func, description).ToString());
             }
 
             if (func._type == InternalTypes.Undefined)
@@ -171,10 +169,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _engine.DebugHandler.PopDebugCallStack();
             }
 
-            if (_engine.Options._collectStackTrace)
-            {
-                _engine.CallStack.Pop();
-            }
+            _engine.CallStack.Pop();
 
             if (!_cached && arguments.Length > 0)
             {

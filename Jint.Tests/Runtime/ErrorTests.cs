@@ -56,7 +56,7 @@ var c = a(b().Length);
         [Fact]
         public void CanProduceCorrectStackTrace()
         {
-            var engine = new Engine(options => options.CollectStackTrace());
+            var engine = new Engine();
 
             engine.Execute(@"var a = function(v) {
     return v.xxx.yyy;
@@ -138,7 +138,7 @@ var b = function(v) {
         [Fact]
         public void StackTraceCollectedOnThreeLevels()
         {
-            var engine = new Engine(options => options.CollectStackTrace());
+            var engine = new Engine();
             const string script = @"var a = function(v) {
     return v.xxx.yyy;
 }

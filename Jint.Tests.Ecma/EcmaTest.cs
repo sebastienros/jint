@@ -199,9 +199,6 @@ namespace Jint.Tests.Ecma
             var pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
             var engine = new Engine(cfg => cfg
                 .LocalTimeZone(pacificTimeZone)
-#if DEBUG
-                .CollectStackTrace()
-#endif
             );
 
             // loading driver

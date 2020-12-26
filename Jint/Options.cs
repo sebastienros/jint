@@ -28,7 +28,6 @@ namespace Jint
         private Func<Engine, object, ObjectInstance> _wrapObjectHandler;
         private MemberAccessorDelegate _memberAccessor;
         private int _maxRecursionDepth = -1;
-        internal bool _collectStackTrace;
         private TimeSpan _regexTimeoutInterval = TimeSpan.FromSeconds(10);
         private CultureInfo _culture = CultureInfo.CurrentCulture;
         private TimeZoneInfo _localTimeZone = TimeZoneInfo.Local;
@@ -234,21 +233,10 @@ namespace Jint
         public Options LimitRecursion(int maxRecursionDepth = 0)
         {
             _maxRecursionDepth = maxRecursionDepth;
-            _collectStackTrace = true;
             return this;
         }
 
-        /// <summary>
-        /// Records stack traces of calls for better exception reporting but with some performance cost.
-        /// </summary>
-        public Options CollectStackTrace(bool collect = true)
-        {
-            _collectStackTrace = true;
-            return this;
-        }
-        
         public Options Culture(CultureInfo cultureInfo)
-        
         {
             _culture = cultureInfo;
             return this;

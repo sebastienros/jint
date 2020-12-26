@@ -14,7 +14,6 @@ namespace Jint.Repl
         {
             var engine = new Engine(cfg => cfg
                 .AllowClr()
-                .CollectStackTrace()
             );
 
             engine

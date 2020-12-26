@@ -82,9 +82,6 @@ namespace Jint.Tests.Test262
             var engine = new Engine(cfg => cfg
                 .LocalTimeZone(_pacificTimeZone)
                 .Strict(strict)
-#if DEBUG
-                .CollectStackTrace()
-#endif
             );
 
             engine.Execute(Sources["sta.js"]);
