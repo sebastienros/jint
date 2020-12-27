@@ -119,22 +119,22 @@ namespace Jint.Runtime.CallStack
             var index = _stack._size - 1;
             var element = index >= 0 ? _stack[index] : (CallStackElement?) null;
             var shortDescription = element?.ToString() ?? "";
-            var arguments = element?.CallExpression.Arguments ?? new NodeList<Expression>();
+            var arguments = element?.Function._functionDefinition?.Function.Params ?? new NodeList<Expression>();
 
             AppendLocation(sb.Builder, shortDescription, location, arguments);
 
-            location = element?.CallExpression.Location ?? default;
+            location = element?.Location ?? default;
             index--;
 
             while (index >= -1)
             {
                 element = index >= 0 ? _stack[index] : null;
                 shortDescription = element?.ToString() ?? "";
-                arguments = element?.CallExpression.Arguments ?? new NodeList<Expression>();
+                arguments = element?.Function._functionDefinition?.Function.Params ?? new NodeList<Expression>();
 
                 AppendLocation(sb.Builder, shortDescription, location, arguments);
 
-                location = element?.CallExpression.Location ?? default;
+                location = element?.Location ?? default;
                 index--;
             }
 

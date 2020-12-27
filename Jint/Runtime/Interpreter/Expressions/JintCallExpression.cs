@@ -1,7 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
-using Jint.Runtime.CallStack;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
@@ -10,7 +9,6 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintCallExpression : JintExpression
     {
         private readonly bool _isDebugMode;
-        private readonly int _maxRecursionDepth;
 
         private CachedArgumentsHolder _cachedArguments;
         private bool _cached;
@@ -22,7 +20,6 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             _initialized = false;
             _isDebugMode = engine.Options.IsDebugMode;
-            _maxRecursionDepth = engine.Options.MaxRecursionDepth;
             _calleeExpression = Build(engine, expression.Callee);
         }
 
@@ -104,17 +101,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             var func = _engine.GetValue(callee, false);
             var r = callee as Reference;
 
-            var description = r?.GetReferencedName()?.ToString() ?? "anonymous function";
-            var recursionDepth = _engine.CallStack.Push(new CallStackElement(expression, func, description));
-
-            if (recursionDepth > _maxRecursionDepth)
-            {
-                // pop the current element as it was never reached
-                _engine.CallStack.Pop();
-                ExceptionHelper.ThrowRecursionDepthOverflowException(_engine.CallStack,
-                    new CallStackElement(expression, func, description).ToString());
-            }
-
             if (func._type == InternalTypes.Undefined)
             {
                 ExceptionHelper.ThrowTypeError(_engine, r == null ? "" : $"Object has no method '{r.GetReferencedName()}'");
@@ -157,6 +143,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
+            var callStackCreated = _engine.EnterFunctionCall(callable, _expression.Location);
+            
             if (_isDebugMode)
             {
                 _engine.DebugHandler.AddToDebugCallStack(func, expression);
@@ -169,7 +157,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _engine.DebugHandler.PopDebugCallStack();
             }
 
-            _engine.CallStack.Pop();
+            if (callStackCreated)
+            {
+                _engine.LeaveFunctionCall();
+            }
 
             if (!_cached && arguments.Length > 0)
             {

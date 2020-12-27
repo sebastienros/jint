@@ -666,9 +666,9 @@ namespace Jint
         }
 
         /// <summary>
-        /// Gets the last evaluated <see cref="INode"/>.
+        /// Gets the last evaluated <see cref="Node"/>.
         /// </summary>
-        public Node GetLastSyntaxNode()
+        internal Node GetLastSyntaxNode()
         {
             return _lastSyntaxNode;
         }
@@ -1200,5 +1200,27 @@ namespace Jint
         {
             _executionContexts.ReplaceTopVariableEnvironment(newEnv);
         }
+
+        internal bool EnterFunctionCall(ICallable callable, Location? location)
+        {
+            if (callable is FunctionInstance functionInstance)
+            {
+                var callStackElement = new CallStackElement(functionInstance, location);
+                var recursionDepth = CallStack.Push(callStackElement);
+
+                if (recursionDepth > Options.MaxRecursionDepth)
+                {
+                    // pop the current element as it was never reached
+                    CallStack.Pop();
+                    ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        internal void LeaveFunctionCall() => CallStack.Pop();
     }
 }

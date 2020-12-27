@@ -938,6 +938,37 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldLimitRecursionWithAllFunctionInstances()
+        {
+            var engine = new Engine(cfg =>
+            {
+                // Limit recursion to 5 invocations
+                cfg.LimitRecursion(5);
+                cfg.Strict();
+            });
+
+            var ex = Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute(@"
+var myarr = new Array(5000);
+for (var i = 0; i < myarr.length; i++) {
+    myarr[i] = function(i) {
+        myarr[i + 1](i + 1);
+    }
+}
+
+myarr[0](0);
+"));
+        }
+
+        [Fact]
+        public void ShouldLimitRecursionWithGetters()
+        {
+            const string code = @"var obj = { get test() { return this.test + '2';  } }; obj.test;";
+            var engine = new Engine(cfg => cfg.LimitRecursion(10));
+            
+            Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute(code).GetCompletionValue());
+        }
+
+        [Fact]
         public void ShouldConvertDoubleToStringWithoutLosingPrecision()
         {
             RunTest(@"

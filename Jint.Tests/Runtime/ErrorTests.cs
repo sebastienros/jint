@@ -74,7 +74,7 @@ var b = function(v) {
 
             var stack = e.StackTrace;
             EqualIgnoringNewLineDifferences(@"    at a (v) custom.js:2:18
-    at b (7) custom.js:6:9
+    at b (v) custom.js:6:9
     at main.js:1:9", stack);
         }
 
@@ -122,10 +122,10 @@ var b = function(v) {
             ));
 
             Assert.Equal("Cannot read property 'Name' of null", javaScriptException.Message);
-            EqualIgnoringNewLineDifferences(@"    at recursive (folderInstance.parent) <anonymous>:6:44
-    at recursive (folderInstance.parent) <anonymous>:8:32
-    at recursive (folderInstance.parent) <anonymous>:8:32
-    at recursive (folder) <anonymous>:8:32
+            EqualIgnoringNewLineDifferences(@"    at recursive (folderInstance) <anonymous>:6:44
+    at recursive (folderInstance) <anonymous>:8:32
+    at recursive (folderInstance) <anonymous>:8:32
+    at recursive (folderInstance) <anonymous>:8:32
     at <anonymous>:12:17", javaScriptException.StackTrace);
 
             var expected = new List<string>
@@ -153,7 +153,7 @@ var x = b(7);";
 
             const string expected = @"Jint.Runtime.JavaScriptException: Cannot read property 'yyy' of undefined
     at a (v) <anonymous>:2:18
-    at b (7) <anonymous>:6:12
+    at b (v) <anonymous>:6:12
     at <anonymous>:9:9";
             
             EqualIgnoringNewLineDifferences(expected, ex.ToString());

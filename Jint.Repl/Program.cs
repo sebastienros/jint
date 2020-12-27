@@ -46,7 +46,13 @@ namespace Jint.Repl
             Console.WriteLine();
 
             var defaultColor = Console.ForegroundColor;
-            var parserOptions = new ParserOptions("repl");
+            var parserOptions = new ParserOptions("repl")
+            {
+                Loc = true,
+                Range = true,
+                Tolerant = true,
+                AdaptRegexp = true
+            };
 
             while (true)
             {
