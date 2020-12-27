@@ -86,7 +86,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             var property = _determinedProperty ?? _propertyExpression.GetValue();
-            TypeConverter.CheckObjectCoercible(_engine, baseValue, _memberExpression.Property, _determinedProperty?.ToString() ?? baseReferenceName);
+            if (baseValue.IsNullOrUndefined())
+            {
+                TypeConverter.CheckObjectCoercible(_engine, baseValue, _memberExpression.Property, _determinedProperty?.ToString() ?? baseReferenceName);
+            }
 
             // only convert if necessary
             var propertyKey = property.IsInteger() && baseValue.IsIntegerIndexedArray

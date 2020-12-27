@@ -511,18 +511,20 @@ namespace Jint.Runtime
             };
         }
         
+        [MethodImpl(MethodImplOptions.NoInlining)]
         internal static void CheckObjectCoercible(
             Engine engine,
             JsValue o,
             Node sourceNode,
             string referenceName)
         {
-            if (o.IsNullOrUndefined() && !engine.Options.ReferenceResolver.CheckCoercible(o))
+            if (!engine.Options.ReferenceResolver.CheckCoercible(o))
             {
                 ThrowMemberNullOrUndefinedError(engine, o, sourceNode.Location, referenceName);
             }
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private static void ThrowMemberNullOrUndefinedError(
             Engine engine,
             JsValue o,
