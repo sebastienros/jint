@@ -1201,26 +1201,49 @@ namespace Jint
             _executionContexts.ReplaceTopVariableEnvironment(newEnv);
         }
 
-        internal bool EnterFunctionCall(ICallable callable, Location? location)
+        internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, Location? location)
         {
             if (callable is FunctionInstance functionInstance)
             {
-                var callStackElement = new CallStackElement(functionInstance, location);
-                var recursionDepth = CallStack.Push(callStackElement);
-
-                if (recursionDepth > Options.MaxRecursionDepth)
-                {
-                    // pop the current element as it was never reached
-                    CallStack.Pop();
-                    ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
-                }
-
-                return true;
+                return Call(functionInstance, thisObject, arguments, location);
             }
-
-            return false;
+            
+            return callable.Call(thisObject, arguments);
         }
 
-        internal void LeaveFunctionCall() => CallStack.Pop();
+        internal JsValue Call(
+            FunctionInstance functionInstance,
+            JsValue thisObject,
+            JsValue[] arguments,
+            Location? location)
+        {
+            location ??= ((Node) functionInstance._functionDefinition?.Function)?.Location;
+
+            var callStackElement = new CallStackElement(functionInstance, location);
+            var recursionDepth = CallStack.Push(callStackElement);
+
+            if (recursionDepth > Options.MaxRecursionDepth)
+            {
+                // pop the current element as it was never reached
+                CallStack.Pop();
+                ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
+            }
+
+            if (_isDebugMode)
+            {
+                DebugHandler.AddToDebugCallStack(functionInstance);
+            }
+
+            var result = functionInstance.Call(thisObject, arguments);
+
+            if (_isDebugMode)
+            {
+                DebugHandler.PopDebugCallStack();
+            }
+
+            CallStack.Pop();
+
+            return result;
+        }
     }
 }

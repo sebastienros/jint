@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
-using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
@@ -342,14 +341,8 @@ namespace Jint.Native.Object
                 return Undefined;
             }
 
-            // if getter is not undefined it must be ICallable
-            var callable = (ICallable) getter;
-            var functionInstance = ((FunctionInstance) getter);
-            var engine = functionInstance._engine;
-            engine.EnterFunctionCall(callable, ((Node) functionInstance._functionDefinition?.Function)?.Location);
-            var result = callable.Call(thisObject, Arguments.Empty);
-            engine.LeaveFunctionCall();
-            return result;
+            var functionInstance = (FunctionInstance) getter;
+            return functionInstance._engine.Call(functionInstance, thisObject, Arguments.Empty, location: null);
         }
 
         /// <summary>
@@ -508,9 +501,7 @@ namespace Jint.Native.Object
             }
 
             var functionInstance = (FunctionInstance) setter;
-            _engine.EnterFunctionCall(setter, ((Node) functionInstance._functionDefinition?.Function)?.Location);
-            setter.Call(receiver, new[] { value });
-            _engine.LeaveFunctionCall();
+            _engine.Call(functionInstance, receiver, new[] { value }, location: null);
 
             return true;
         }

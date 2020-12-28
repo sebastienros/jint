@@ -8,8 +8,6 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintCallExpression : JintExpression
     {
-        private readonly bool _isDebugMode;
-
         private CachedArgumentsHolder _cachedArguments;
         private bool _cached;
 
@@ -19,7 +17,6 @@ namespace Jint.Runtime.Interpreter.Expressions
         public JintCallExpression(Engine engine, CallExpression expression) : base(engine, expression)
         {
             _initialized = false;
-            _isDebugMode = engine.Options.IsDebugMode;
             _calleeExpression = Build(engine, expression.Callee);
         }
 
@@ -143,24 +140,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            var callStackCreated = _engine.EnterFunctionCall(callable, _expression.Location);
-            
-            if (_isDebugMode)
-            {
-                _engine.DebugHandler.AddToDebugCallStack(func, expression);
-            }
-
-            var result = callable.Call(thisObject, arguments);
-
-            if (_isDebugMode)
-            {
-                _engine.DebugHandler.PopDebugCallStack();
-            }
-
-            if (callStackCreated)
-            {
-                _engine.LeaveFunctionCall();
-            }
+            var result = _engine.Call(callable, thisObject, arguments, expression.Location);
 
             if (!_cached && arguments.Length > 0)
             {

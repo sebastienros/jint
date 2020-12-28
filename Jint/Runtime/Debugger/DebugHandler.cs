@@ -22,9 +22,9 @@ namespace Jint.Runtime.Debugger
             _steppingDepth = int.MaxValue;
         }
 
-        internal void AddToDebugCallStack(JsValue function, CallExpression callExpression)
+        internal void AddToDebugCallStack(JsValue function)
         {
-            string name = GetCalleeName(function, callExpression.Callee);
+            string name = GetCalleeName(function);
 
             _debugCallStack.Push(name);
         }
@@ -37,7 +37,7 @@ namespace Jint.Runtime.Debugger
             }
         }
 
-        private string GetCalleeName(JsValue function, Expression calleeExpression)
+        private string GetCalleeName(JsValue function)
         {
             switch (function)
             {
