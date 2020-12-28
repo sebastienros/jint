@@ -8,9 +8,6 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintCallExpression : JintExpression
     {
-        private readonly bool _isDebugMode;
-        private readonly int _maxRecursionDepth;
-
         private CachedArgumentsHolder _cachedArguments;
         private bool _cached;
 
@@ -20,8 +17,6 @@ namespace Jint.Runtime.Interpreter.Expressions
         public JintCallExpression(Engine engine, CallExpression expression) : base(engine, expression)
         {
             _initialized = false;
-            _isDebugMode = engine.Options.IsDebugMode;
-            _maxRecursionDepth = engine.Options.MaxRecursionDepth;
             _calleeExpression = Build(engine, expression.Callee);
         }
 
@@ -100,22 +95,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-
             var func = _engine.GetValue(callee, false);
             var r = callee as Reference;
-
-            if (_maxRecursionDepth >= 0)
-            {
-                var stackItem = new CallStackElement(expression, func, r?.GetReferencedName()?.ToString() ?? "anonymous function");
-
-                var recursionDepth = _engine.CallStack.Push(stackItem);
-
-                if (recursionDepth > _maxRecursionDepth)
-                {
-                    _engine.CallStack.Pop();
-                    ExceptionHelper.ThrowRecursionDepthOverflowException(_engine.CallStack, stackItem.ToString());
-                }
-            }
 
             if (func._type == InternalTypes.Undefined)
             {
@@ -159,22 +140,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            if (_isDebugMode)
-            {
-                _engine.DebugHandler.AddToDebugCallStack(func, expression);
-            }
-
-            var result = callable.Call(thisObject, arguments);
-
-            if (_isDebugMode)
-            {
-                _engine.DebugHandler.PopDebugCallStack();
-            }
-
-            if (_maxRecursionDepth >= 0)
-            {
-                _engine.CallStack.Pop();
-            }
+            var result = _engine.Call(callable, thisObject, arguments, expression.Location);
 
             if (!_cached && arguments.Length > 0)
             {

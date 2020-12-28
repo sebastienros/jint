@@ -38,13 +38,12 @@ namespace Jint
 {
     public class Engine
     {
-        private static readonly ParserOptions DefaultParserOptions = new ParserOptions
+        private static readonly ParserOptions DefaultParserOptions = new("<anonymous>")
         {
             AdaptRegexp = true,
             Tolerant = true,
             Loc = true
         };
-
 
         private static readonly JsString _errorFunctionName = new JsString("Error");
         private static readonly JsString _evalErrorFunctionName = new JsString("EvalError");
@@ -110,7 +109,7 @@ namespace Jint
 
         internal static Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> ReflectionAccessors = new();
 
-        internal readonly JintCallStack CallStack = new JintCallStack();
+        internal readonly JintCallStack CallStack;
 
         /// <summary>
         /// Constructs a new engine instance.
@@ -194,6 +193,7 @@ namespace Jint
             _isStrict = Options.IsStrict;
             _constraints = Options._Constraints;
             _referenceResolver = Options.ReferenceResolver;
+            CallStack = new JintCallStack(Options.MaxRecursionDepth >= 0);
 
             _referencePool = new ReferencePool();
             _argumentsInstancePool = new ArgumentsInstancePool(this);
@@ -347,19 +347,27 @@ namespace Jint
             return Execute(parser.ParseScript());
         }
 
-        public Engine Execute(Script program)
+        public Engine Execute(Script script)
         {
-            ResetConstraints();
-            ResetLastStatement();
-            ResetCallStack();
+            return Execute(script, true);
+        }
 
-            using (new StrictModeScope(_isStrict || program.Strict))
+        internal Engine Execute(Script script, bool resetState)
+        {
+            if (resetState)
+            {
+                ResetConstraints();
+                ResetLastStatement();
+                ResetCallStack();
+            }
+
+            using (new StrictModeScope(_isStrict || script.Strict))
             {
                 GlobalDeclarationInstantiation(
-                    program,
+                    script,
                     GlobalEnvironment);
 
-                var list = new JintStatementList(this, null, program.Body);
+                var list = new JintStatementList(this, null, script.Body);
                 
                 var result = list.Execute();
                 if (result.Type == CompletionType.Throw)
@@ -658,9 +666,9 @@ namespace Jint
         }
 
         /// <summary>
-        /// Gets the last evaluated <see cref="INode"/>.
+        /// Gets the last evaluated <see cref="Node"/>.
         /// </summary>
-        public Node GetLastSyntaxNode()
+        internal Node GetLastSyntaxNode()
         {
             return _lastSyntaxNode;
         }
@@ -687,7 +695,7 @@ namespace Jint
             return GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
         }
 
-        private Reference GetIdentifierReference(LexicalEnvironment lex, string name, in bool strict)
+        private Reference GetIdentifierReference(LexicalEnvironment lex, string name, bool strict)
         {
             if (lex is null)
             {
@@ -1191,6 +1199,51 @@ namespace Jint
         internal void UpdateVariableEnvironment(LexicalEnvironment newEnv)
         {
             _executionContexts.ReplaceTopVariableEnvironment(newEnv);
+        }
+
+        internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, Location? location)
+        {
+            if (callable is FunctionInstance functionInstance)
+            {
+                return Call(functionInstance, thisObject, arguments, location);
+            }
+            
+            return callable.Call(thisObject, arguments);
+        }
+
+        internal JsValue Call(
+            FunctionInstance functionInstance,
+            JsValue thisObject,
+            JsValue[] arguments,
+            Location? location)
+        {
+            location ??= ((Node) functionInstance._functionDefinition?.Function)?.Location;
+
+            var callStackElement = new CallStackElement(functionInstance, location);
+            var recursionDepth = CallStack.Push(callStackElement);
+
+            if (recursionDepth > Options.MaxRecursionDepth)
+            {
+                // pop the current element as it was never reached
+                CallStack.Pop();
+                ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
+            }
+
+            if (_isDebugMode)
+            {
+                DebugHandler.AddToDebugCallStack(functionInstance);
+            }
+
+            var result = functionInstance.Call(thisObject, arguments);
+
+            if (_isDebugMode)
+            {
+                DebugHandler.PopDebugCallStack();
+            }
+
+            CallStack.Pop();
+
+            return result;
         }
     }
 }

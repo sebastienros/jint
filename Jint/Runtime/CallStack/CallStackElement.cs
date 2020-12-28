@@ -1,26 +1,24 @@
-﻿using Esprima.Ast;
-using Jint.Native;
+﻿using Esprima;
+using Jint.Native.Function;
 
-namespace Jint.Runtime
+namespace Jint.Runtime.CallStack
 {
-    public class CallStackElement
+    internal readonly struct CallStackElement
     {
-        private readonly string _shortDescription;
-
-        public CallStackElement(CallExpression callExpression, JsValue function, string shortDescription)
+        public CallStackElement(
+            FunctionInstance function,
+            Location? location)
         {
-            _shortDescription = shortDescription;
-            CallExpression = callExpression;
             Function = function;
+            Location = location;
         }
 
-        public CallExpression CallExpression { get; }
-
-        public JsValue Function { get; }
+        public readonly FunctionInstance Function;
+        public readonly Location? Location;
 
         public override string ToString()
         {
-            return _shortDescription;
+            return TypeConverter.ToString(Function?.Get(CommonProperties.Name));
         }
     }
 }

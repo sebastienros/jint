@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Number;
@@ -510,27 +511,29 @@ namespace Jint.Runtime
             };
         }
         
+        [MethodImpl(MethodImplOptions.NoInlining)]
         internal static void CheckObjectCoercible(
             Engine engine,
             JsValue o,
-            MemberExpression expression,
+            Node sourceNode,
             string referenceName)
         {
-            if (o._type < InternalTypes.Boolean && !engine.Options.ReferenceResolver.CheckCoercible(o))
+            if (!engine.Options.ReferenceResolver.CheckCoercible(o))
             {
-                ThrowTypeError(engine, o, expression, referenceName);
+                ThrowMemberNullOrUndefinedError(engine, o, sourceNode.Location, referenceName);
             }
         }
 
-        private static void ThrowTypeError(
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowMemberNullOrUndefinedError(
             Engine engine,
             JsValue o,
-            MemberExpression expression,
+            in Location location,
             string referencedName)
         {
             referencedName ??= "unknown";
             var message = $"Cannot read property '{referencedName}' of {o}";
-            throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, expression.Location);
+            throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, location);
         }
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)

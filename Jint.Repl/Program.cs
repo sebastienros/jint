@@ -2,26 +2,28 @@
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using Esprima;
 using Jint.Native;
 using Jint.Runtime;
 
 namespace Jint.Repl
 {
-    class Program
+    internal static class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
-
-            var engine = new Engine(cfg => cfg.AllowClr());
+            var engine = new Engine(cfg => cfg
+                .AllowClr()
+            );
 
             engine
                 .SetValue("print", new Action<object>(Console.WriteLine))
                 .SetValue("load", new Func<string, object>(
-                    path => engine.Execute(File.ReadAllText(path))
-                                  .GetCompletionValue()));
+                    path => engine.Execute(File.ReadAllText(path)).GetCompletionValue())
+                );
 
             var filename = args.Length > 0 ? args[0] : "";
-            if (!String.IsNullOrEmpty(filename))
+            if (!string.IsNullOrEmpty(filename))
             {
                 if (!File.Exists(filename))
                 {
@@ -33,9 +35,9 @@ namespace Jint.Repl
                 return;
             }
 
-            Assembly assembly = Assembly.GetExecutingAssembly();
-            FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
-            string version = fvi.FileVersion;
+            var assembly = Assembly.GetExecutingAssembly();
+            var fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
+            var version = fvi.FileVersion;
 
             Console.WriteLine("Welcome to Jint ({0})", version);
             Console.WriteLine("Type 'exit' to leave, " +
@@ -44,6 +46,14 @@ namespace Jint.Repl
             Console.WriteLine();
 
             var defaultColor = Console.ForegroundColor;
+            var parserOptions = new ParserOptions("repl")
+            {
+                Loc = true,
+                Range = true,
+                Tolerant = true,
+                AdaptRegexp = true
+            };
+
             while (true)
             {
                 Console.ForegroundColor = defaultColor;
@@ -56,7 +66,7 @@ namespace Jint.Repl
 
                 try
                 {
-                    var result = engine.GetValue(engine.Execute(input).GetCompletionValue());
+                    var result = engine.GetValue(engine.Execute(input, parserOptions).GetCompletionValue());
                     if (result.Type != Types.None && result.Type != Types.Null && result.Type != Types.Undefined)
                     {
                         var str = TypeConverter.ToString(engine.Json.Stringify(engine.Json, Arguments.From(result, Undefined.Instance, "  ")));
@@ -73,7 +83,6 @@ namespace Jint.Repl
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine(e.Message);
                 }
-
             }
         }
     }

@@ -9,7 +9,7 @@ namespace Jint.Pooling
     /// <summary>
     /// Pooling of StringBuilder instances.
     /// </summary>
-    internal sealed class StringBuilderPool
+    internal static class StringBuilderPool
     {
         private static readonly ConcurrentObjectPool<StringBuilder> _pool;
 

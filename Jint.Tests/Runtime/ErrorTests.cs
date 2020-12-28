@@ -11,7 +11,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void CanReturnCorrectErrorMessageAndLocation1()
         {
-            var script = @"
+            const string script = @"
 var a = {};
 
 var b = a.user.name;
@@ -21,34 +21,28 @@ var b = a.user.name;
             var e = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
             Assert.Equal("Cannot read property 'name' of undefined", e.Message);
             Assert.Equal(4, e.Location.Start.Line);
-            Assert.Equal(8, e.Location.Start.Column);
+            Assert.Equal(15, e.Location.Start.Column);
         }
         [Fact]
         public void CanReturnCorrectErrorMessageAndLocation1WithoutReferencedName()
         {
-            var script = @"
+            const string script = @"
 var c = a(b().Length);
 ";
 
             var engine = new Engine();
-            engine.SetValue("a", new Action<string>((a) =>
-            {
-
-            }));
-            engine.SetValue("b", new Func<string>(() =>
-            {
-                return null;
-            }));
+            engine.SetValue("a", new Action<string>((_) => { }));
+            engine.SetValue("b", new Func<string>(() => null));
             var e = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
             Assert.Equal("Cannot read property 'Length' of null", e.Message);
             Assert.Equal(2, e.Location.Start.Line);
-            Assert.Equal(10, e.Location.Start.Column);
+            Assert.Equal(14, e.Location.Start.Column);
         }
 
         [Fact]
         public void CanReturnCorrectErrorMessageAndLocation2()
         {
-            var script = @"
+            const string script = @"
  test();
 ";
 
@@ -62,10 +56,10 @@ var c = a(b().Length);
         [Fact]
         public void CanProduceCorrectStackTrace()
         {
-            var engine = new Engine(options => options.LimitRecursion(1000));
+            var engine = new Engine();
 
             engine.Execute(@"var a = function(v) {
-	return v.xxx.yyy;
+    return v.xxx.yyy;
 }
 
 var b = function(v) {
@@ -75,13 +69,13 @@ var b = function(v) {
             var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", new ParserOptions("main.js") { Loc = true } ));
             Assert.Equal("Cannot read property 'yyy' of undefined", e.Message);
             Assert.Equal(2, e.Location.Start.Line);
-            Assert.Equal(8, e.Location.Start.Column);
+            Assert.Equal(17, e.Location.Start.Column);
             Assert.Equal("custom.js", e.Location.Source);
 
-            var stack = e.CallStack;
-            Assert.Equal(@" at a(v) @ custom.js 8:6
- at b(7) @ main.js 8:1
-".Replace("\r\n", "\n"), stack.Replace("\r\n", "\n"));
+            var stack = e.StackTrace;
+            EqualIgnoringNewLineDifferences(@"    at a (v) custom.js:2:18
+    at b (v) custom.js:6:9
+    at main.js:1:9", stack);
         }
 
         private class Folder
@@ -128,17 +122,48 @@ var b = function(v) {
             ));
 
             Assert.Equal("Cannot read property 'Name' of null", javaScriptException.Message);
-            Assert.Equal(@" at recursive(folderInstance.parent) @  31:8
- at recursive(folderInstance.parent) @  31:8
- at recursive(folderInstance.parent) @  31:8
- at recursive(folder) @  16:12
-", javaScriptException.CallStack);
+            EqualIgnoringNewLineDifferences(@"    at recursive (folderInstance) <anonymous>:6:44
+    at recursive (folderInstance) <anonymous>:8:32
+    at recursive (folderInstance) <anonymous>:8:32
+    at recursive (folderInstance) <anonymous>:8:32
+    at <anonymous>:12:17", javaScriptException.StackTrace);
 
             var expected = new List<string>
             {
                 "SubFolder2", "SubFolder1", "Root"
             };
             Assert.Equal(expected, recordedFolderTraversalOrder);
+        }
+
+        [Fact]
+        public void StackTraceCollectedOnThreeLevels()
+        {
+            var engine = new Engine();
+            const string script = @"var a = function(v) {
+    return v.xxx.yyy;
+}
+
+var b = function(v) {
+    return a(v);
+}
+
+var x = b(7);";
+
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
+
+            const string expected = @"Jint.Runtime.JavaScriptException: Cannot read property 'yyy' of undefined
+    at a (v) <anonymous>:2:18
+    at b (v) <anonymous>:6:12
+    at <anonymous>:9:9";
+            
+            EqualIgnoringNewLineDifferences(expected, ex.ToString());
+        }
+
+        private static void EqualIgnoringNewLineDifferences(string expected, string actual)
+        {
+            expected = expected.Replace("\r\n", "\n");
+            actual = actual.Replace("\r\n", "\n");
+            Assert.Equal(expected, actual);
         }
     }
 }

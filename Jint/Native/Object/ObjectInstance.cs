@@ -341,9 +341,8 @@ namespace Jint.Native.Object
                 return Undefined;
             }
 
-            // if getter is not undefined it must be ICallable
-            var callable = getter.TryCast<ICallable>();
-            return callable.Call(thisObject, Arguments.Empty);
+            var functionInstance = (FunctionInstance) getter;
+            return functionInstance._engine.Call(functionInstance, thisObject, Arguments.Empty, location: null);
         }
 
         /// <summary>
@@ -501,7 +500,8 @@ namespace Jint.Native.Object
                 return false;
             }
 
-            setter.Call(receiver, new[] {value});
+            var functionInstance = (FunctionInstance) setter;
+            _engine.Call(functionInstance, receiver, new[] { value }, location: null);
 
             return true;
         }
