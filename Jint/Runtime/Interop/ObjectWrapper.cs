@@ -224,7 +224,24 @@ namespace Jint.Runtime.Interop
             return descriptor;
         }
 
-        private static ReflectionAccessor GetAccessor(Engine engine, Type type, string member)
+        // need to be public for advanced cases like RavenDB yielding properties from CLR objects
+        public static PropertyDescriptor GetPropertyDescriptor(Engine engine, object target, MemberInfo member)
+        {
+            // fast path which uses slow search if not found for some reason
+            ReflectionAccessor Factory()
+            {
+                return member switch
+                {
+                    PropertyInfo pi => new PropertyAccessor(pi.Name, pi),
+                    MethodBase mb => new MethodAccessor(MethodDescriptor.Build(new[] {mb})),
+                    FieldInfo fi => new FieldAccessor(fi),
+                    _ => null
+                };
+            }
+            return GetAccessor(engine, target.GetType(), member.Name, Factory).CreatePropertyDescriptor(engine, target);
+        }
+
+        private static ReflectionAccessor GetAccessor(Engine engine, Type type, string member, Func<ReflectionAccessor> accessorFactory = null)
         {
             var key = new ClrPropertyDescriptorFactoriesKey(type, member);
 
@@ -234,15 +251,16 @@ namespace Jint.Runtime.Interop
                 return accessor;
             }
 
-            var factory = ResolvePropertyDescriptorFactory(engine, type, member);
+            accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member);
+            
             // racy, we don't care, worst case we'll catch up later
             Interlocked.CompareExchange(ref Engine.ReflectionAccessors,
                 new Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor>(factories)
                 {
-                    [key] = factory
+                    [key] = accessor
                 }, factories);
 
-            return factory;
+            return accessor;
         }
 
         private static ReflectionAccessor ResolvePropertyDescriptorFactory(Engine engine, Type type, string memberName)
