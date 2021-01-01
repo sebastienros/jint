@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -58,6 +59,9 @@ namespace Jint.Native.Function
             : this(engine, name, FunctionThisMode.Global, ObjectClass.Function)
         {
         }
+        
+        // for example RavenDB wants to inspect this
+        public IFunction FunctionDeclaration => _functionDefinition.Function;
 
         /// <summary>
         /// Executed when a function object is used as a function

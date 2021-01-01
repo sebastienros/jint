@@ -43,15 +43,12 @@ namespace Jint.Native.Function
 
             _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
-            if (!function.Strict && !engine._isStrict)
+            if (!function.Strict && !engine._isStrict && function.Function is not ArrowFunctionExpression)
             {
                 DefineOwnProperty(CommonProperties.Arguments, engine._callerCalleeArgumentsThrowerConfigurable);
                 DefineOwnProperty(CommonProperties.Caller, new PropertyDescriptor(Undefined, PropertyFlag.Configurable));
             }
         }
-
-        // for example RavenDB wants to inspect this
-        public IFunction FunctionDeclaration => _functionDefinition.Function;
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist

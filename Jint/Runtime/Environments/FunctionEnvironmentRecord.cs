@@ -33,7 +33,7 @@ namespace Jint.Runtime.Environments
         {
             _functionObject = functionObject;
             NewTarget = newTarget;
-            if (functionObject is ArrowFunctionInstance)
+            if (functionObject._functionDefinition.Function is ArrowFunctionExpression)
             {
                 _thisBindingStatus = ThisBindingStatus.Lexical;
             }

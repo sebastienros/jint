@@ -7,7 +7,7 @@ using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Function
 {
-    internal sealed class ClassConstructorInstance : ScriptFunctionInstance
+    internal sealed class ClassConstructorInstance : ScriptFunctionInstance, IConstructor
     {
         public ClassConstructorInstance(
             Engine engine,

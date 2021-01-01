@@ -74,7 +74,7 @@ namespace Jint.Native.Function
             var f = new BindFunctionInstance(Engine)
             {
                 TargetFunction = thisObj,
-                BoundThis = thisObj is ArrowFunctionInstance ? Undefined : thisArg,
+                BoundThis = thisArg,
                 BoundArgs = arguments.Skip(1),
                 _prototype = Engine.Function.PrototypeObject,
             };

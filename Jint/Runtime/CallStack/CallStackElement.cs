@@ -32,18 +32,13 @@ namespace Jint.Runtime.CallStack
 
             if (string.IsNullOrWhiteSpace(name))
             {
-                if (Function is ArrowFunctionInstance)
-                {
-                    return "(anonymous)";
-                }
-
                 if (Expression is not null)
                 {
-                    return JintExpression.ToString(Expression._expression) ?? "*unknown*";
+                    name = JintExpression.ToString(Expression._expression);
                 }
             }
             
-            return name;
+            return name ?? "(anonymous)";
         }
     }
 }
