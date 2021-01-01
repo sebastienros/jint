@@ -80,8 +80,14 @@ namespace Jint.Runtime.CallStack
                 in NodeList<Expression>? arguments)
             {
                 sb
-                    .Append("   at ")
-                    .Append(shortDescription);
+                    .Append("   at");
+
+                if (!string.IsNullOrWhiteSpace(shortDescription))
+                {
+                    sb
+                        .Append(" ")
+                        .Append(shortDescription);
+                }
 
                 if (arguments is not null)
                 {
@@ -97,10 +103,11 @@ namespace Jint.Runtime.CallStack
                         var arg = arguments.Value[index];
                         sb.Append(GetPropertyKey(arg));
                     }
-                    sb.Append(") ");
+                    sb.Append(")");
                 }
 
                 sb
+                    .Append(" ")
                     .Append(loc.Source)
                     .Append(":")
                     .Append(loc.Start.Line)

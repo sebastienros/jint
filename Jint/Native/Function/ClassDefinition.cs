@@ -124,7 +124,7 @@ namespace Jint.Native.Function
                 //var temp = ;
                 _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.AllForbidden),
                 _length = PropertyDescriptor.AllForbiddenDescriptor.ForNumber(functionExpression.Params.Count),
-                _constructorKind = _superClass is null ? ClassConstructorInstance.ConstructorKind.Base : ClassConstructorInstance.ConstructorKind.Derived
+                _constructorKind = _superClass is null ? ConstructorKind.Base : ConstructorKind.Derived
             };
 
             engine.UpdateLexicalEnvironment(classScope);

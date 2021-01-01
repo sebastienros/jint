@@ -622,7 +622,7 @@ namespace Jint.Native.Object
         {
             if (!DefineOwnProperty(property, desc))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine, "Cannot redefine property: " + property);
             }
 
             return true;

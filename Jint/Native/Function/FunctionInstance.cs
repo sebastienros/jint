@@ -317,9 +317,11 @@ namespace Jint.Native.Function
                 calleeContext.LexicalEnvironment);
 
             var result = _functionDefinition.Execute();
+            var value = result.GetValueOrDefault().Clone();
+
             argumentsInstance?.FunctionWasCalled();
 
-            return new Completion(result.Type, result.GetValueOrDefault().Clone(), result.Identifier, result.Location);
+            return new Completion(result.Type, value, result.Identifier, result.Location);
         }
 
         /// <summary>

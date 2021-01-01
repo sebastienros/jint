@@ -9,8 +9,10 @@ using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Function
 {
-    public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
+    public class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
+        internal ConstructorKind _constructorKind = ConstructorKind.Base;
+        
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
         /// </summary>
@@ -93,15 +95,62 @@ namespace Jint.Native.Function
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var thisArgument = OrdinaryCreateFromConstructor(TypeConverter.ToObject(_engine, newTarget), _engine.Object.PrototypeObject);
+            var kind = _constructorKind;
 
-            var result = Call(thisArgument, arguments).TryCast<ObjectInstance>();
-            if (!ReferenceEquals(result, null))
+            var thisArgument = Undefined;
+            
+            if (kind == ConstructorKind.Base)
             {
-                return result;
+                thisArgument = OrdinaryCreateFromConstructor(TypeConverter.ToObject(_engine, newTarget), _prototype);
+            }
+            
+            // Let calleeContext be PrepareForOrdinaryCall(F, newTarget).
+            var env = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
+            var calleeContext = _engine.EnterExecutionContext(env, env);
+
+            if (kind == ConstructorKind.Base)
+            {
+                OrdinaryCallBindThis(calleeContext, thisArgument);
             }
 
-            return thisArgument;
+            var constructorEnv = (FunctionEnvironmentRecord) env._record;
+            
+            var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
+            using (new StrictModeScope(strict, force: true))
+            {
+                try
+                {
+                    var result = OrdinaryCallEvaluateBody(arguments, calleeContext);
+
+                    if (result.Type == CompletionType.Return)
+                    {
+                        if (result.Value is ObjectInstance oi)
+                        {
+                            return oi;
+                        }
+
+                        if (kind == ConstructorKind.Base)
+                        {
+                            return (ObjectInstance) thisArgument!;
+                        }
+
+                        if (result.Value.IsUndefined())
+                        {
+                            ExceptionHelper.ThrowTypeError(_engine);
+                        }
+                    }
+                    else if (result.Type == CompletionType.Throw)
+                    {
+                        ExceptionHelper.ThrowJavaScriptException(_engine, result.Value, result);
+                    }
+                }
+                finally
+                {
+                    _engine.LeaveExecutionContext();
+                }
+            }
+
+            return (ObjectInstance) constructorEnv.GetThisBinding();
         }
 
         private class ObjectInstanceWithConstructor : ObjectInstance
