@@ -32,6 +32,7 @@ using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
+using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
 
 namespace Jint
@@ -1213,25 +1214,33 @@ namespace Jint
             _executionContexts.ReplaceTopVariableEnvironment(newEnv);
         }
 
-        internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, Location? location)
+        internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, JintExpression expression)
         {
             if (callable is FunctionInstance functionInstance)
             {
-                return Call(functionInstance, thisObject, arguments, location);
+                return Call(functionInstance, thisObject, arguments, expression);
             }
             
             return callable.Call(thisObject, arguments);
+        }
+
+        internal JsValue Construct(IConstructor constructor, JsValue[] arguments, JsValue newTarget, JintExpression expression)
+        {
+            if (constructor is FunctionInstance functionInstance)
+            {
+                return Construct(functionInstance, arguments, newTarget, expression);
+            }
+            
+            return constructor.Construct(arguments, newTarget);
         }
 
         internal JsValue Call(
             FunctionInstance functionInstance,
             JsValue thisObject,
             JsValue[] arguments,
-            Location? location)
+            JintExpression expression)
         {
-            location ??= ((Node) functionInstance._functionDefinition?.Function)?.Location;
-
-            var callStackElement = new CallStackElement(functionInstance, location);
+            var callStackElement = new CallStackElement(functionInstance, expression);
             var recursionDepth = CallStack.Push(callStackElement);
 
             if (recursionDepth > Options.MaxRecursionDepth)
@@ -1247,6 +1256,39 @@ namespace Jint
             }
 
             var result = functionInstance.Call(thisObject, arguments);
+
+            if (_isDebugMode)
+            {
+                DebugHandler.PopDebugCallStack();
+            }
+
+            CallStack.Pop();
+
+            return result;
+        }
+
+        internal JsValue Construct(
+            FunctionInstance functionInstance,
+            JsValue[] arguments,
+            JsValue newTarget,
+            JintExpression expression)
+        {
+            var callStackElement = new CallStackElement(functionInstance, expression);
+            var recursionDepth = CallStack.Push(callStackElement);
+
+            if (recursionDepth > Options.MaxRecursionDepth)
+            {
+                // pop the current element as it was never reached
+                CallStack.Pop();
+                ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
+            }
+
+            if (_isDebugMode)
+            {
+                DebugHandler.AddToDebugCallStack(functionInstance);
+            }
+
+            var result = ((IConstructor) functionInstance).Construct(arguments, newTarget);
 
             if (_isDebugMode)
             {

@@ -1,3 +1,5 @@
+#nullable enable
+
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
@@ -55,9 +57,9 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// If we'd get Esprima source, we would just refer to it, but this makes error messages easier to decipher.
         /// </summary>
-        internal string SourceText => ToString(_expression);
-        
-        private static string ToString(Expression expression)
+        internal string SourceText => ToString(_expression) ?? "*unknown*";
+
+        internal static string? ToString(Expression expression)
         {
             while (true)
             {
@@ -82,7 +84,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     continue;
                 }
 
-                return "*unknown*";
+                return null;
             }
         }
 

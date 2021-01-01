@@ -114,21 +114,24 @@ namespace Jint.Native.Function
 
             var proto = engine.Object.Construct(Arguments.Empty);
             proto._prototype = protoParent;
-            
-            var constructorFunction = new JintFunctionDefinition(engine, (IFunction) constructor.Value);
+
+            var functionExpression = (FunctionExpression) constructor.Value;
+            var constructorFunction = new JintFunctionDefinition(engine, functionExpression);
             var F = new ClassConstructorInstance(engine, constructorFunction, env, _className)
             {
                 // TODO fix logic
                 _prototype = constructorParent as ObjectInstance ?? engine.Function.PrototypeObject,
                 //var temp = ;
-                _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.AllForbidden)
+                _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.AllForbidden),
+                _length = PropertyDescriptor.AllForbiddenDescriptor.ForNumber(functionExpression.Params.Count),
+                _constructorKind = _superClass is null ? ClassConstructorInstance.ConstructorKind.Base : ClassConstructorInstance.ConstructorKind.Derived
             };
 
             engine.UpdateLexicalEnvironment(classScope);
 
             try
             {
-                var newDesc = new PropertyDescriptor(F, writable: true, enumerable: false, configurable: true);
+                var newDesc = new PropertyDescriptor(F, PropertyFlag.NonEnumerable);
                 proto.DefineOwnProperty(CommonProperties.Constructor, newDesc);
                 
                 foreach (var classProperty in _body.Body)
@@ -186,7 +189,7 @@ namespace Jint.Native.Function
                 propDesc = new GetSetPropertyDescriptor(
                     get: property.Kind == PropertyKind.Get ? closure : null,
                     set: property.Kind == PropertyKind.Set ? closure : null,
-                    PropertyFlag.Enumerable | PropertyFlag.Configurable);
+                    flags: PropertyFlag.Configurable);
             }
             else
             {
@@ -203,7 +206,5 @@ namespace Jint.Native.Function
 
             obj.DefinePropertyOrThrow(propName, propDesc);
         }
-
-
     }
 }

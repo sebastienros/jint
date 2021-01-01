@@ -95,6 +95,10 @@
     "reason": "Promise not implemented"
   },
   {
+    "source": "language/statements/class/definition/class-method-returns-promise.js",
+    "reason": "Promise not implemented"
+  },
+  {
     "source": "built-ins/Symbol/species/subclassing.js",
     "reason": "subclassing not implemented"
   },

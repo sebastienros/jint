@@ -55,11 +55,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             var jsValue = _calleeExpression.GetValue();
             if (!jsValue.IsConstructor)
             {
-                return ExceptionHelper.ThrowTypeError<object>(_engine,  _calleeExpression.SourceText + " is not a constructor");
+                ExceptionHelper.ThrowTypeError(_engine,  _calleeExpression.SourceText + " is not a constructor");
             }
 
             // construct the new instance using the Function's constructor method
-            var instance = ((IConstructor) jsValue).Construct(arguments, jsValue);
+            var instance = _engine.Construct((IConstructor) jsValue, arguments, jsValue, _calleeExpression);
 
             _engine._jsValueArrayPool.ReturnArray(arguments);
 

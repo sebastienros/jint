@@ -45,7 +45,7 @@ namespace Jint.Native.Function
             ObjectClass objectClass = ObjectClass.Function)
             : base(engine, objectClass)
         {
-            if (!(name is null))
+            if (name is not null)
             {
                 _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
             }
@@ -267,6 +267,78 @@ namespace Jint.Native.Function
             _prototypeDescriptor = null;
             // The prototype of functions declared as methods is the Function prototype.
             _prototype = _engine.Function.Prototype;
+        }
+        
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-ordinarycallbindthis
+        /// </summary>
+        protected void OrdinaryCallBindThis(ExecutionContext calleeContext, JsValue thisArgument)
+        {
+            var thisMode = _thisMode;
+            if (thisMode == FunctionThisMode.Lexical)
+            {
+                return;
+            }
+
+            // Let calleeRealm be F.[[Realm]].
+
+            var localEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment._record;
+            
+            JsValue thisValue;
+            if (_thisMode == FunctionThisMode.Strict)
+            {
+                thisValue = thisArgument;
+            }
+            else
+            {
+                if (thisArgument.IsNullOrUndefined())
+                {
+                    // Let globalEnv be calleeRealm.[[GlobalEnv]].
+                    var globalEnv = _engine.GlobalEnvironment;
+                    var globalEnvRec = (GlobalEnvironmentRecord) globalEnv._record;
+                    thisValue = globalEnvRec.GlobalThisValue;
+                }
+                else
+                {
+                    thisValue = TypeConverter.ToObject(_engine, thisArgument);
+                }
+            }
+
+            localEnv.BindThisValue(thisValue);
+        }
+
+        protected Completion OrdinaryCallEvaluateBody(
+            JsValue[] arguments,
+            ExecutionContext calleeContext)
+        {
+            var argumentsInstance = _engine.FunctionDeclarationInstantiation(
+                functionInstance: this,
+                arguments,
+                calleeContext.LexicalEnvironment);
+
+            var result = _functionDefinition.Execute();
+            argumentsInstance?.FunctionWasCalled();
+
+            return new Completion(result.Type, result.GetValueOrDefault().Clone(), result.Identifier, result.Location);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-prepareforordinarycall
+        /// </summary>
+        protected ExecutionContext PrepareForOrdinaryCall()
+        {
+            // ** PrepareForOrdinaryCall **
+            // var callerContext = _engine.ExecutionContext;
+            // Let calleeRealm be F.[[Realm]].
+            // Set the Realm of calleeContext to calleeRealm.
+            // Set the ScriptOrModule of calleeContext to F.[[ScriptOrModule]].
+            var calleeContext = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
+            // If callerContext is not already suspended, suspend callerContext.
+            // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
+            // NOTE: Any exception objects produced after this point are associated with calleeRealm.
+            // Return calleeContext.
+
+            return _engine.EnterExecutionContext(calleeContext, calleeContext);
         }
 
         public override string ToString()

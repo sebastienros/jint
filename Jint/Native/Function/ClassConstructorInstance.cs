@@ -2,6 +2,7 @@
 
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 
@@ -9,15 +10,24 @@ namespace Jint.Native.Function
 {
     internal sealed class ClassConstructorInstance : FunctionInstance, IConstructor
     {
-        private readonly JintFunctionDefinition _constructorFunction;
+        internal enum ConstructorKind
+        {
+            Base,
+            Derived
+        }
+
+        public ConstructorKind _constructorKind;
 
         public ClassConstructorInstance(
             Engine engine,
             JintFunctionDefinition constructorFunction,
             LexicalEnvironment scope,
-            string? name = null) : base(engine, name != null ? new JsString(name) : null, FunctionThisMode.Strict)
+            string? name = null) : base(engine, constructorFunction,  scope, FunctionThisMode.Strict)
         {
-            _constructorFunction = constructorFunction;
+            if (name is not null)
+            {
+                _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
+            }
             _environment = scope;
         }
 
@@ -25,31 +35,79 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisValue, JsValue[] arguments)
         {
-            ExceptionHelper.ThrowTypeError(_engine, $"Class constructor {_constructorFunction.Name} cannot be invoked without 'new'");
-            return Undefined;
+            if (thisValue.IsUndefined())
+            {
+                ExceptionHelper.ThrowTypeError(_engine, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
+            }
+            
+            return Construct(arguments, this);
         }
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var obj = OrdinaryCreateFromConstructor(TypeConverter.ToObject(_engine, newTarget), _prototype);
+            var kind = _constructorKind;
 
-            var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
-            _engine.EnterExecutionContext(localEnv, localEnv);
-            var envRec = (FunctionEnvironmentRecord) localEnv._record;
-            envRec.BindThisValue(obj);
+            JsValue thisArgument = Null;
+            
+            if (kind == ConstructorKind.Base)
+            {
+                thisArgument = OrdinaryCreateFromConstructor(TypeConverter.ToObject(_engine, newTarget), _prototype);
+            }
+            
+            // Let calleeContext be PrepareForOrdinaryCall(F, newTarget).
+            var env = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
+            var calleeContext = _engine.EnterExecutionContext(env, env);
 
-            using (new StrictModeScope(true, true))
+            if (kind == ConstructorKind.Base)
+            {
+                OrdinaryCallBindThis(calleeContext, thisArgument);
+            }
+
+            var constructorEnv = (FunctionEnvironmentRecord) env._record;
+            
+            using (new StrictModeScope(true, force: true))
             {
                 try
                 {
-                    _constructorFunction.Execute();
+                    var argumentsInstance = _engine.FunctionDeclarationInstantiation(
+                        functionInstance: this,
+                        arguments,
+                        env);
+                    
+                    var result = _functionDefinition.Execute();
+
+                    var value = result.GetValueOrDefault().Clone();
+                    argumentsInstance?.FunctionWasCalled();
+
+                    if (result.Type == CompletionType.Return)
+                    {
+                        if (value is ObjectInstance oi)
+                        {
+                            return oi;
+                        }
+
+                        if (kind == ConstructorKind.Base)
+                        {
+                            return (ObjectInstance) thisArgument!;
+                        }
+
+                        if (value.IsUndefined())
+                        {
+                            ExceptionHelper.ThrowTypeError(_engine);
+                        }
+                    }
+                    else if (result.Type == CompletionType.Throw)
+                    {
+                        ExceptionHelper.ThrowJavaScriptException(_engine, value, result);
+                    }
                 }
                 finally
                 {
                     _engine.LeaveExecutionContext();
                 }
             }
-            return obj;
+
+            return (ObjectInstance) constructorEnv.GetThisBinding();
         }
 
         public override string ToString()

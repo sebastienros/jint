@@ -25,7 +25,6 @@ namespace Jint.Runtime.Environments
         private JsValue _thisValue;
         private ThisBindingStatus _thisBindingStatus;
         internal readonly FunctionInstance _functionObject;
-        private readonly JsValue _newTarget;
 
         public FunctionEnvironmentRecord(
             Engine engine, 
@@ -33,7 +32,7 @@ namespace Jint.Runtime.Environments
             JsValue newTarget) : base(engine)
         {
             _functionObject = functionObject;
-            _newTarget = newTarget;
+            NewTarget = newTarget;
             if (functionObject is ArrowFunctionInstance)
             {
                 _thisBindingStatus = ThisBindingStatus.Lexical;

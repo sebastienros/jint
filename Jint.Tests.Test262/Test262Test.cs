@@ -84,8 +84,8 @@ namespace Jint.Tests.Test262
                 .Strict(strict)
             );
 
-            engine.Execute(Sources["sta.js"]);
-            engine.Execute(Sources["assert.js"]);
+            engine.Execute(Sources["sta.js"], CreateParserOptions("sta.js"));
+            engine.Execute(Sources["assert.js"], CreateParserOptions("assert.js"));
             engine.SetValue("print", new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
 
             var o = engine.Object.Construct(Arguments.Empty);
@@ -112,13 +112,13 @@ namespace Jint.Tests.Test262
                 var files = includes.Groups[1].Captures[0].Value.Split(',');
                 foreach (var file in files)
                 {
-                    engine.Execute(Sources[file.Trim()]);
+                    engine.Execute(Sources[file.Trim()], CreateParserOptions(file.Trim()));
                 }
             }
 
             if (code.IndexOf("propertyHelper.js", StringComparison.OrdinalIgnoreCase) != -1)
             {
-                engine.Execute(Sources["propertyHelper.js"]);
+                engine.Execute(Sources["propertyHelper.js"], CreateParserOptions("propertyHelper.js"));
             }
             
             string lastError = null;
@@ -365,8 +365,16 @@ namespace Jint.Tests.Test262
 
             return results;
         }
+        
+        private static ParserOptions CreateParserOptions(string fileName) => 
+            new ParserOptions(fileName)
+            {
+                AdaptRegexp = true,
+                Tolerant = true,
+                Loc = true
+            };
     }
-
+    
     public class SourceFile : IXunitSerializable
     {
         public SourceFile()

@@ -342,7 +342,7 @@ namespace Jint.Native.Object
             }
 
             var functionInstance = (FunctionInstance) getter;
-            return functionInstance._engine.Call(functionInstance, thisObject, Arguments.Empty, location: null);
+            return functionInstance._engine.Call(functionInstance, thisObject, Arguments.Empty, expression: null);
         }
 
         /// <summary>
@@ -501,7 +501,7 @@ namespace Jint.Native.Object
             }
 
             var functionInstance = (FunctionInstance) setter;
-            _engine.Call(functionInstance, receiver, new[] { value }, location: null);
+            _engine.Call(functionInstance, receiver, new[] { value }, expression: null);
 
             return true;
         }

@@ -11,8 +11,6 @@ namespace Jint.Native.Function
 {
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        private readonly JintFunctionDefinition _function;
-
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
         /// </summary>
@@ -32,8 +30,6 @@ namespace Jint.Native.Function
             FunctionThisMode thisMode)
             : base(engine, function, scope, thisMode)
         {
-            _function = function;
-
             _prototype = _engine.Function.PrototypeObject;
 
             _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
@@ -53,50 +49,17 @@ namespace Jint.Native.Function
         }
 
         // for example RavenDB wants to inspect this
-        public IFunction FunctionDeclaration => _function.Function;
+        public IFunction FunctionDeclaration => _functionDefinition.Function;
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
         /// </summary>
         public override JsValue Call(JsValue thisArgument, JsValue[] arguments)
         {
-            // ** PrepareForOrdinaryCall **
-            // var callerContext = _engine.ExecutionContext;
-            // Let calleeRealm be F.[[Realm]].
-            // Set the Realm of calleeContext to calleeRealm.
-            // Set the ScriptOrModule of calleeContext to F.[[ScriptOrModule]].
-            var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
-            // If callerContext is not already suspended, suspend callerContext.
-            // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
-            // NOTE: Any exception objects produced after this point are associated with calleeRealm.
-            // Return calleeContext.
+            var calleeContext = PrepareForOrdinaryCall();
 
-            _engine.EnterExecutionContext(localEnv, localEnv);
+            OrdinaryCallBindThis(calleeContext, thisArgument);
 
-            // ** OrdinaryCallBindThis **
-            
-            JsValue thisValue;
-            if (_thisMode == FunctionThisMode.Strict)
-            {
-                thisValue = thisArgument;
-            }
-            else
-            {
-                if (thisArgument.IsNullOrUndefined())
-                {
-                    var globalEnv = _engine.GlobalEnvironment;
-                    var globalEnvRec = (GlobalEnvironmentRecord) globalEnv._record;
-                    thisValue = globalEnvRec.GlobalThisValue;
-                }
-                else
-                {
-                    thisValue = TypeConverter.ToObject(_engine, thisArgument);
-                }
-            }
-
-            var envRec = (FunctionEnvironmentRecord) localEnv._record;
-            envRec.BindThisValue(thisValue);
-            
             // actual call
 
             var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
@@ -104,23 +67,16 @@ namespace Jint.Native.Function
             {
                 try
                 {
-                    var argumentsInstance = _engine.FunctionDeclarationInstantiation(
-                        functionInstance: this,
-                        arguments,
-                        localEnv);
-
-                    var result = _function.Execute();
-                    var value = result.GetValueOrDefault().Clone();
-                    argumentsInstance?.FunctionWasCalled();
+                    var result = OrdinaryCallEvaluateBody(arguments, calleeContext);
 
                     if (result.Type == CompletionType.Throw)
                     {
-                        ExceptionHelper.ThrowJavaScriptException(_engine, value, result);
+                        ExceptionHelper.ThrowJavaScriptException(_engine, result.Value, result);
                     }
 
                     if (result.Type == CompletionType.Return)
                     {
-                        return value;
+                        return result.Value;
                     }
                 }
                 finally
