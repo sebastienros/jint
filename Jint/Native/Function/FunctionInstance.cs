@@ -11,10 +11,10 @@ namespace Jint.Native.Function
 {
     public abstract class FunctionInstance : ObjectInstance, ICallable
     {
-        protected internal PropertyDescriptor _prototypeDescriptor;
+        protected PropertyDescriptor _prototypeDescriptor;
 
         protected internal PropertyDescriptor _length;
-        internal PropertyDescriptor _nameDescriptor;
+        private PropertyDescriptor _nameDescriptor;
 
         protected internal LexicalEnvironment _environment;
         internal readonly JintFunctionDefinition _functionDefinition;
@@ -66,11 +66,8 @@ namespace Jint.Native.Function
 
         public bool Strict => _thisMode == FunctionThisMode.Strict;
 
-        // object methods cannot be constructors
         internal override bool IsConstructor =>
-            _homeObject.IsUndefined() 
-            && this is IConstructor 
-            && _functionDefinition?.Function is not ArrowFunctionExpression;
+            this is IConstructor && _functionDefinition?.Function is not ArrowFunctionExpression;
 
         public virtual bool HasInstance(JsValue v)
         {
@@ -263,10 +260,6 @@ namespace Jint.Native.Function
         internal void MakeMethod(ObjectInstance homeObject)
         {
             _homeObject = homeObject;
-            // Functions declared as methods do not define a `prototype` property.
-            _prototypeDescriptor = null;
-            // The prototype of functions declared as methods is the Function prototype.
-            _prototype = _engine.Function.Prototype;
         }
         
         /// <summary>

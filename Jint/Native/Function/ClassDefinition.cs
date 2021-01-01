@@ -123,9 +123,14 @@ namespace Jint.Native.Function
             {
                 var constructorInfo = DefineMethod(engine, constructor, proto, constructorParent);
                 F = constructorInfo.Closure;
+                if (_className is not null)
+                {
+                    F.SetFunctionName(_className);
+                }
+                F.MakeConstructor(false, proto);
                 F._constructorKind = _superClass is null ? ConstructorKind.Base : ConstructorKind.Derived;
-                F.SetFunctionName(_className);
-                F.CreateMethodProperty(CommonProperties.Constructor, proto);
+                F.MakeClassConstructor();
+                proto.CreateMethodProperty(CommonProperties.Constructor, F);
 
                 foreach (var classProperty in _body.Body)
                 {
@@ -195,7 +200,7 @@ namespace Jint.Native.Function
         {
             var property = TypeConverter.ToPropertyKey(method.GetKey(engine));
             var prototype = functionPrototype ?? engine.Function.PrototypeObject;
-            var function = method.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(obj.Engine);
+            var function = method.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(engine);
 
             var closure = new ScriptFunctionInstance(
                 engine,

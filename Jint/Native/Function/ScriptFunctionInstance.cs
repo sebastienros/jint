@@ -9,10 +9,11 @@ using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Function
 {
-    public class ScriptFunctionInstance : FunctionInstance, IConstructor
+    public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
         internal ConstructorKind _constructorKind = ConstructorKind.Base;
-        
+        private bool _isClassConstructor;
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
         /// </summary>
@@ -34,15 +35,15 @@ namespace Jint.Native.Function
             ObjectInstance proto = null)
             : base(engine, function, scope, thisMode)
         {
-            _prototype = _engine.Function.PrototypeObject;
+            _prototype = proto ?? _engine.Function.PrototypeObject;
 
             _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
 
-            proto ??= new ObjectInstanceWithConstructor(engine, this)
+            var prototype = new ObjectInstanceWithConstructor(engine, this)
             {
                 _prototype = _engine.Object.PrototypeObject
             };
-            _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
+            _prototypeDescriptor = new PropertyDescriptor(prototype, PropertyFlag.OnlyWritable);
 
             if (!function.Strict && !engine._isStrict && function.Function is not ArrowFunctionExpression)
             {
@@ -56,6 +57,11 @@ namespace Jint.Native.Function
         /// </summary>
         public override JsValue Call(JsValue thisArgument, JsValue[] arguments)
         {
+            if (_isClassConstructor)
+            {
+                ExceptionHelper.ThrowTypeError(_engine, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
+            }
+
             var calleeContext = PrepareForOrdinaryCall(Undefined);
 
             OrdinaryCallBindThis(calleeContext, thisArgument);
@@ -130,7 +136,7 @@ namespace Jint.Native.Function
                             return (ObjectInstance) thisArgument!;
                         }
 
-                        if (result.Value.IsUndefined())
+                        if (!result.Value.IsUndefined())
                         {
                             ExceptionHelper.ThrowTypeError(_engine);
                         }
@@ -148,7 +154,26 @@ namespace Jint.Native.Function
 
             return (ObjectInstance) constructorEnv.GetThisBinding();
         }
+        
+        internal void MakeConstructor(bool writableProperty = true, ObjectInstance prototype = null)
+        {
+            _constructorKind = ConstructorKind.Base;
+            if (prototype is null)
+            {
+                prototype = new ObjectInstance(_engine)
+                {
+                    _prototype = _engine.Object.PrototypeObject
+                };
+                prototype.DefinePropertyOrThrow(CommonProperties.Constructor, new PropertyDescriptor(this, writableProperty, enumerable: false, configurable: false));
+            }
+            DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false));
+        }        
 
+        internal void MakeClassConstructor()
+        {
+            _isClassConstructor = true;
+        }
+        
         private class ObjectInstanceWithConstructor : ObjectInstance
         {
             private PropertyDescriptor _constructor;
