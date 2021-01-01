@@ -11,11 +11,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintMemberExpression : JintExpression
     {
         private MemberExpression _memberExpression;
-
         private JintExpression _objectExpression;
-        private JintIdentifierExpression _objectIdentifierExpression;
-        private JintThisExpression _objectThisExpression;
-
         private JintExpression _propertyExpression;
         private JsValue _determinedProperty;
 
@@ -28,8 +24,6 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             _memberExpression = (MemberExpression) _expression;
             _objectExpression = Build(_engine, _memberExpression.Object);
-            _objectIdentifierExpression = _objectExpression as JintIdentifierExpression;
-            _objectThisExpression = _objectExpression as JintThisExpression;
 
             if (!_memberExpression.Computed)
             {
@@ -52,21 +46,21 @@ namespace Jint.Runtime.Interpreter.Expressions
             JsValue baseValue = null;
             var isStrictModeCode = StrictModeScope.IsStrictModeCode;
 
-            if (_objectIdentifierExpression != null)
+            if (_objectExpression is JintIdentifierExpression identifierExpression)
             {
-                baseReferenceName = _objectIdentifierExpression._expressionName.Key.Name;
+                baseReferenceName = identifierExpression._expressionName.Key.Name;
                 var strict = isStrictModeCode;
                 var env = _engine.ExecutionContext.LexicalEnvironment;
                 LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                     env,
-                    _objectIdentifierExpression._expressionName,
+                    identifierExpression._expressionName,
                     strict,
                     out _,
                     out baseValue);
             }
-            else if (_objectThisExpression != null)
+            else if (_objectExpression is JintThisExpression thisExpression)
             {
-                baseValue = _objectThisExpression.GetValue();
+                baseValue = thisExpression.GetValue();
             }
 
             if (baseValue is null)

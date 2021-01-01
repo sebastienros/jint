@@ -6,7 +6,6 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
-using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.Function
@@ -30,7 +29,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation
         /// </summary>
-        public ClassConstructorInstance BuildConstructor(
+        public ScriptFunctionInstance BuildConstructor(
             Engine engine,
             LexicalEnvironment env)
         {
@@ -42,7 +41,7 @@ namespace Jint.Native.Function
             }
 
             ObjectInstance? protoParent = null;
-            JsValue? constructorParent = null;
+            ObjectInstance? constructorParent = null;
             if (_superClass is null)
             {
                 protoParent = engine.Object.PrototypeObject;
@@ -80,9 +79,14 @@ namespace Jint.Native.Function
                         return null!;
                     }
 
-                    constructorParent = superclass;
+                    constructorParent = (ObjectInstance) superclass;
                 }
             }
+            
+            var proto = new ObjectInstance(engine)
+            {
+                _prototype = protoParent,
+            };
 
             MethodDefinition? constructor = null;
             var classBody = _body.Body;
@@ -112,44 +116,26 @@ namespace Jint.Native.Function
                 constructor = (MethodDefinition) script.Body[0].ChildNodes[2].ChildNodes[0];
             }
 
-            var proto = engine.Object.Construct(Arguments.Empty);
-            proto._prototype = protoParent;
-
-            var functionExpression = (FunctionExpression) constructor.Value;
-            var constructorFunction = new JintFunctionDefinition(engine, functionExpression);
-            var F = new ClassConstructorInstance(engine, constructorFunction, env, _className)
-            {
-                // TODO fix logic
-                _prototype = constructorParent as ObjectInstance ?? engine.Function.PrototypeObject,
-                //var temp = ;
-                _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.AllForbidden),
-                _length = PropertyDescriptor.AllForbiddenDescriptor.ForNumber(functionExpression.Params.Count),
-                _constructorKind = _superClass is null ? ConstructorKind.Base : ConstructorKind.Derived
-            };
-
             engine.UpdateLexicalEnvironment(classScope);
 
+            ScriptFunctionInstance F;
             try
             {
-                var newDesc = new PropertyDescriptor(F, PropertyFlag.NonEnumerable);
-                proto.DefineOwnProperty(CommonProperties.Constructor, newDesc);
-                
+                var constructorInfo = DefineMethod(engine, constructor, proto, constructorParent);
+                F = constructorInfo.Closure;
+                F._constructorKind = _superClass is null ? ConstructorKind.Base : ConstructorKind.Derived;
+                F.SetFunctionName(_className);
+                F.CreateMethodProperty(CommonProperties.Constructor, proto);
+
                 foreach (var classProperty in _body.Body)
                 {
-                    if (classProperty is not MethodDefinition m)
+                    if (classProperty is not MethodDefinition m || m.Kind == PropertyKind.Constructor)
                     {
                         continue;
                     }
 
                     var target = !m.Static ? proto : F;
-                    var property = TypeConverter.ToPropertyKey(m.GetKey(engine));
-                    var valueExpression = JintExpression.Build(engine, m.Value);
-                    PropertyDefinitionEvaluation(
-                        target,
-                        m, 
-                        property, 
-                        valueExpression, 
-                        isStrictModeCode: true);
+                    PropertyDefinitionEvaluation(engine, target, m);
                 }
             }
             finally
@@ -166,45 +152,73 @@ namespace Jint.Native.Function
         }
         
         private static void PropertyDefinitionEvaluation(
+            Engine engine,
             ObjectInstance obj,
-            MethodDefinition property,
-            JsValue propName,
-            JintExpression valueExpression,
-            bool isStrictModeCode)
+            MethodDefinition method)
         {
-            PropertyDescriptor? propDesc;
-            if (property.Kind == PropertyKind.Get || property.Kind == PropertyKind.Set)
+            if (method.Kind == PropertyKind.Get || method.Kind == PropertyKind.Set)
             {
-                var function = property.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(obj.Engine);
+                var propKey = TypeConverter.ToPropertyKey(method.GetKey(engine));
+                var function = method.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(obj.Engine);
 
                 var closure = new ScriptFunctionInstance(
                     obj.Engine,
                     function,
                     obj.Engine.ExecutionContext.LexicalEnvironment,
-                    isStrictModeCode
+                    strict: true
                 );
-                closure.SetFunctionName(propName);
+                closure.SetFunctionName(propKey, prefix: method.Kind == PropertyKind.Get ? "get" : "set");
                 closure.MakeMethod(obj);
 
-                propDesc = new GetSetPropertyDescriptor(
-                    get: property.Kind == PropertyKind.Get ? closure : null,
-                    set: property.Kind == PropertyKind.Set ? closure : null,
+                var propDesc = new GetSetPropertyDescriptor(
+                    get: method.Kind == PropertyKind.Get ? closure : null,
+                    set: method.Kind == PropertyKind.Set ? closure : null,
                     flags: PropertyFlag.Configurable);
+
+                obj.DefinePropertyOrThrow(propKey, propDesc);
             }
             else
             {
-                var expr = valueExpression;
-                var propValue = expr.GetValue().Clone();
-                if (expr._expression.IsFunctionWithName())
-                {
-                    var functionInstance = (FunctionInstance) propValue;
-                    functionInstance.SetFunctionName(propName);
-                }
-
-                propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+                var methodDef = DefineMethod(engine, method, obj);
+                methodDef.Closure.SetFunctionName(methodDef.Key);
+                var desc = new PropertyDescriptor(methodDef.Closure, PropertyFlag.NonEnumerable);
+                obj.DefinePropertyOrThrow(methodDef.Key, desc);
             }
 
-            obj.DefinePropertyOrThrow(propName, propDesc);
+        }
+
+        private static Record DefineMethod(
+            Engine engine,
+            MethodDefinition method,
+            ObjectInstance obj,
+            ObjectInstance? functionPrototype = null)
+        {
+            var property = TypeConverter.ToPropertyKey(method.GetKey(engine));
+            var prototype = functionPrototype ?? engine.Function.PrototypeObject;
+            var function = method.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(obj.Engine);
+
+            var closure = new ScriptFunctionInstance(
+                engine,
+                function,
+                engine.ExecutionContext.LexicalEnvironment,
+                strict: true,
+                proto: prototype);
+
+            closure.MakeMethod(obj);
+
+            return new Record(property, closure);
+        }
+
+        private readonly struct Record
+        {
+            public Record(JsValue key, ScriptFunctionInstance closure)
+            {
+                Key = key;
+                Closure = closure;
+            }
+
+            public readonly JsValue Key;
+            public readonly ScriptFunctionInstance Closure;
         }
     }
 }

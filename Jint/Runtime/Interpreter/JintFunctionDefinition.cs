@@ -128,7 +128,7 @@ namespace Jint.Runtime.Interpreter
             const string ParameterNameArguments = "arguments";
 
             state.ArgumentsObjectNeeded = true;
-            if (functionInstance._thisMode == FunctionInstance.FunctionThisMode.Lexical)
+            if (functionInstance._thisMode == FunctionThisMode.Lexical)
             {
                 state.ArgumentsObjectNeeded = false;
             }

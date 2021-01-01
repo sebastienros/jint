@@ -21,11 +21,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _engine,
                 _function,
                 scope,
-                FunctionInstance.FunctionThisMode.Lexical);
+                FunctionThisMode.Lexical,
+                proto: _engine.Function.PrototypeObject);
             
             closure.PreventExtensions();
-            closure._prototype = _engine.Function.PrototypeObject;
-
             return closure;
         }
     }

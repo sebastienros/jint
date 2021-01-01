@@ -20,8 +20,9 @@ namespace Jint.Native.Function
             Engine engine,
             IFunction functionDeclaration,
             LexicalEnvironment scope,
-            bool strict)
-            : this(engine, new JintFunctionDefinition(engine, functionDeclaration), scope, strict ? FunctionThisMode.Strict : FunctionThisMode.Global)
+            bool strict,
+            ObjectInstance proto = null)
+            : this(engine, new JintFunctionDefinition(engine, functionDeclaration), scope, strict ? FunctionThisMode.Strict : FunctionThisMode.Global, proto)
         {
         }
 
@@ -29,18 +30,18 @@ namespace Jint.Native.Function
             Engine engine,
             JintFunctionDefinition function,
             LexicalEnvironment scope,
-            FunctionThisMode thisMode)
+            FunctionThisMode thisMode,
+            ObjectInstance proto = null)
             : base(engine, function, scope, thisMode)
         {
             _prototype = _engine.Function.PrototypeObject;
 
             _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
 
-            var proto = new ObjectInstanceWithConstructor(engine, this)
+            proto ??= new ObjectInstanceWithConstructor(engine, this)
             {
                 _prototype = _engine.Object.PrototypeObject
             };
-
             _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
             if (!function.Strict && !engine._isStrict && function.Function is not ArrowFunctionExpression)
