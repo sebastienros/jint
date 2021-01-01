@@ -11,7 +11,7 @@ namespace Jint.Native.Function
 {
     public abstract class FunctionInstance : ObjectInstance, ICallable
     {
-        protected PropertyDescriptor _prototypeDescriptor;
+        protected internal PropertyDescriptor _prototypeDescriptor;
 
         protected internal PropertyDescriptor _length;
         private PropertyDescriptor _nameDescriptor;
@@ -67,7 +67,8 @@ namespace Jint.Native.Function
         public bool Strict => _thisMode == FunctionThisMode.Strict;
 
         internal override bool IsConstructor =>
-            this is IConstructor && _functionDefinition?.Function is not ArrowFunctionExpression;
+            this is IConstructor 
+            && _functionDefinition?.Function is not ArrowFunctionExpression;
 
         public virtual bool HasInstance(JsValue v)
         {

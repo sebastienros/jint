@@ -177,7 +177,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         _engine.ExecutionContext.LexicalEnvironment,
                         isStrictModeCode
                     );
-                    closure.SetFunctionName((property.Kind == PropertyKind.Get ? "get " : "set ") + propName);
+                    closure.SetFunctionName(propName, property.Kind == PropertyKind.Get ? "get" : "set");
                     if (property.Method)
                     {
                         closure.MakeMethod(obj);

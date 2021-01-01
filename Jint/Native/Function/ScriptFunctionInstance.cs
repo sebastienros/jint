@@ -39,11 +39,14 @@ namespace Jint.Native.Function
 
             _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
 
-            var prototype = new ObjectInstanceWithConstructor(engine, this)
+            if (proto is null)
             {
-                _prototype = _engine.Object.PrototypeObject
-            };
-            _prototypeDescriptor = new PropertyDescriptor(prototype, PropertyFlag.OnlyWritable);
+                var prototype = new ObjectInstanceWithConstructor(engine, this)
+                {
+                    _prototype = _engine.Object.PrototypeObject
+                };
+                _prototypeDescriptor = new PropertyDescriptor(prototype, PropertyFlag.OnlyWritable);
+            }
 
             if (!function.Strict && !engine._isStrict && function.Function is not ArrowFunctionExpression)
             {
@@ -166,7 +169,7 @@ namespace Jint.Native.Function
                 };
                 prototype.DefinePropertyOrThrow(CommonProperties.Constructor, new PropertyDescriptor(this, writableProperty, enumerable: false, configurable: false));
             }
-            DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false));
+            _prototypeDescriptor = new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false);
         }        
 
         internal void MakeClassConstructor()

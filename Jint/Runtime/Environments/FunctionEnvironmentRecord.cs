@@ -82,7 +82,6 @@ namespace Jint.Runtime.Environments
                 : ((ObjectInstance) home).GetPrototypeOf();
         }
 
-
         // optimization to have logic near record internal structures.
 
         internal void InitializeParameters(

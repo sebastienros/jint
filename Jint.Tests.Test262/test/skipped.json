@@ -384,7 +384,6 @@
 
 
   {
-    "source": "language/expressions/object/fn-name-arrow.js",
     "source": "language/expressions/arrow-function/scope-paramsbody-var-open.js",
     "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
   },
@@ -403,6 +402,14 @@
 
   {
     "source": "built-ins/Object/prototype/toString/proxy-function.js",
+    "reason": "generators not implemented"
+  },
+  {
+    "source": "language/statements/class/subclass/builtin-objects/GeneratorFunction/instance-prototype.js",
+    "reason": "generators not implemented"
+  },
+  {
+    "source": "language/statements/class/subclass/builtin-objects/GeneratorFunction/regular-subclassing.js",
     "reason": "generators not implemented"
   },
 
