@@ -331,14 +331,14 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-prepareforordinarycall
         /// </summary>
-        protected ExecutionContext PrepareForOrdinaryCall()
+        protected ExecutionContext PrepareForOrdinaryCall(JsValue newTarget)
         {
             // ** PrepareForOrdinaryCall **
             // var callerContext = _engine.ExecutionContext;
             // Let calleeRealm be F.[[Realm]].
             // Set the Realm of calleeContext to calleeRealm.
             // Set the ScriptOrModule of calleeContext to F.[[ScriptOrModule]].
-            var calleeContext = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
+            var calleeContext = LexicalEnvironment.NewFunctionEnvironment(_engine, this, newTarget);
             // If callerContext is not already suspended, suspend callerContext.
             // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
             // NOTE: Any exception objects produced after this point are associated with calleeRealm.

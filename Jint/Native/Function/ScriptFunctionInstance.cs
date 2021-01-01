@@ -55,7 +55,7 @@ namespace Jint.Native.Function
         /// </summary>
         public override JsValue Call(JsValue thisArgument, JsValue[] arguments)
         {
-            var calleeContext = PrepareForOrdinaryCall();
+            var calleeContext = PrepareForOrdinaryCall(Undefined);
 
             OrdinaryCallBindThis(calleeContext, thisArgument);
 
@@ -100,17 +100,15 @@ namespace Jint.Native.Function
             {
                 thisArgument = OrdinaryCreateFromConstructor(TypeConverter.ToObject(_engine, newTarget), _prototype);
             }
-            
-            // Let calleeContext be PrepareForOrdinaryCall(F, newTarget).
-            var env = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
-            var calleeContext = _engine.EnterExecutionContext(env, env);
+
+            var calleeContext = PrepareForOrdinaryCall(newTarget);
 
             if (kind == ConstructorKind.Base)
             {
                 OrdinaryCallBindThis(calleeContext, thisArgument);
             }
 
-            var constructorEnv = (FunctionEnvironmentRecord) env._record;
+            var constructorEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment._record;
             
             var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
             using (new StrictModeScope(strict, force: true))
