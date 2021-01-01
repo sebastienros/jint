@@ -13,5 +13,16 @@ namespace Jint.Tests.Runtime
             Assert.Equal("a, 1, a, {\"0\":\"a\",\"1\":1,\"2\":\"a\"}", e.Execute("testFunc('a', 1, 'a');").GetCompletionValue().AsString());
             Assert.Equal("a, 1, a, {\"0\":\"a\",\"1\":1,\"2\":\"a\"}", e.Execute("testFunc.bind('anything')('a', 1, 'a');").GetCompletionValue().AsString());
         }
+
+        [Fact]
+        public void ProxyCanBeRevokedWithoutContext()
+        {
+            new Engine()
+                .Execute(@"
+                    var revocable = Proxy.revocable({}, {});
+                    var revoke = revocable.revoke;
+                    revoke.call(null);
+                ");
+        }
     }
 }
