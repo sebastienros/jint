@@ -18,14 +18,6 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             var env = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
             var closure = _classDefinition.BuildConstructor(_engine, env);
-            
-            // TODO is this needed?
-            if (_classDefinition._className is not null)
-            {
-                var envRec = (DeclarativeEnvironmentRecord) env._record;
-                envRec.CreateMutableBindingAndInitialize(_classDefinition._className, canBeDeleted: false, closure);
-            }
-
             return closure;
         }
     }

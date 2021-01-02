@@ -16,12 +16,14 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
-            var F = _classDefinition.BuildConstructor(_engine, _engine.ExecutionContext.LexicalEnvironment);
+            var env = _engine.ExecutionContext.LexicalEnvironment;
+            var F = _classDefinition.BuildConstructor(_engine, env);
 
-            if (_classDefinition._className != null)
+            var classBinding = _classDefinition._className;
+            if (classBinding != null)
             {
-                _engine.ExecutionContext.LexicalEnvironment._record.CreateMutableBinding(_classDefinition._className);
-                _engine.ExecutionContext.LexicalEnvironment._record.InitializeBinding(_classDefinition._className, F);
+                env._record.CreateMutableBinding(classBinding);
+                env._record.InitializeBinding(classBinding, F);
             }
 
             return new Completion(CompletionType.Normal, null, null, Location);
