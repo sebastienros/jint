@@ -97,7 +97,7 @@ namespace Jint.Native.RegExp
                 f = flags;
             }
 
-            var r = RegExpAlloc();
+            var r = RegExpAlloc(newTarget);
             return RegExpInitialize(r, p, f);
         }
 
@@ -137,40 +137,13 @@ namespace Jint.Native.RegExp
             return r;
         }
 
-        private RegExpInstance RegExpAlloc()
+        private RegExpInstance RegExpAlloc(JsValue newTarget)
         {
-            var r = new RegExpInstance(Engine)
-            {
-                _prototype = PrototypeObject
-            };
+            var r = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static(engine, value) => new RegExpInstance(engine));
             return r;
         }
 
-        public RegExpInstance Construct(string regExp, Engine engine)
-        {
-            var r = new RegExpInstance(Engine);
-            r._prototype = PrototypeObject;
-
-            var scanner = new Scanner(regExp, new ParserOptions { AdaptRegexp = true });
-            var body = (string)scanner.ScanRegExpBody().Value;
-            var flags = (string)scanner.ScanRegExpFlags().Value;
-            r.Value = scanner.TestRegExp(body, flags);
-
-            var timeout = engine.Options._RegexTimeoutInterval;
-            if (timeout.Ticks > 0)
-            {
-                r.Value = new Regex(r.Value.ToString(), r.Value.Options);
-            }
-
-            r.Flags = flags;
-            r.Source = string.IsNullOrEmpty(body) ? "(?:)" : body;
-
-            RegExpInitialize(r);
-            
-            return r;
-        }
-
-        public RegExpInstance Construct(Regex regExp, string flags, Engine engine)
+        public RegExpInstance Construct(Regex regExp, string flags)
         {
             var r = new RegExpInstance(Engine);
             r._prototype = PrototypeObject;

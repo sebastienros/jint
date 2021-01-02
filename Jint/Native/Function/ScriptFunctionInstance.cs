@@ -11,7 +11,6 @@ namespace Jint.Native.Function
 {
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        internal ConstructorKind _constructorKind = ConstructorKind.Base;
         private bool _isClassConstructor;
 
         /// <summary>
@@ -41,12 +40,12 @@ namespace Jint.Native.Function
 
             if (proto is null)
             {
-                var prototype = new ObjectInstanceWithConstructor(engine, this)
+                proto = new ObjectInstanceWithConstructor(engine, this)
                 {
                     _prototype = _engine.Object.PrototypeObject
                 };
-                _prototypeDescriptor = new PropertyDescriptor(prototype, PropertyFlag.OnlyWritable);
             }
+            _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
             if (!function.Strict && !engine._isStrict && function.Function is not ArrowFunctionExpression)
             {
@@ -98,7 +97,7 @@ namespace Jint.Native.Function
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.2
+        /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-construct-argumentslist-newtarget
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
@@ -108,7 +107,7 @@ namespace Jint.Native.Function
             
             if (kind == ConstructorKind.Base)
             {
-                thisArgument = OrdinaryCreateFromConstructor(TypeConverter.ToObject(_engine, newTarget), _prototype);
+                thisArgument = OrdinaryCreateFromConstructor(newTarget, _engine.Object.PrototypeObject, static (engine, _) => new ObjectInstance(engine));
             }
 
             var calleeContext = PrepareForOrdinaryCall(newTarget);
@@ -169,6 +168,7 @@ namespace Jint.Native.Function
                 };
                 prototype.DefinePropertyOrThrow(CommonProperties.Constructor, new PropertyDescriptor(this, writableProperty, enumerable: false, configurable: false));
             }
+
             _prototypeDescriptor = new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false);
         }        
 

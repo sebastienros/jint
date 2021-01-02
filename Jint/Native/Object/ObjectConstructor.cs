@@ -153,6 +153,11 @@ namespace Jint.Native.Object
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
+            if (!ReferenceEquals(this, newTarget) && !newTarget.IsUndefined())
+            {
+                return OrdinaryCreateFromConstructor(newTarget, _engine.Object.PrototypeObject, (engine, state) => new ObjectInstance(engine));
+            }
+            
             if (arguments.Length > 0)
             {
                 var value = arguments[0];

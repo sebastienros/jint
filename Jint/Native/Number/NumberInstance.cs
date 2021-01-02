@@ -14,6 +14,12 @@ namespace Jint.Native.Number
         {
         }
 
+        public NumberInstance(Engine engine, JsNumber value)
+            : base(engine, ObjectClass.Number)
+        {
+            NumberData = value;
+        }
+
         Types IPrimitiveInstance.Type => Types.Number;
 
         JsValue IPrimitiveInstance.PrimitiveValue => NumberData;

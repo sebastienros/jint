@@ -47,13 +47,11 @@ namespace Jint.Native.Function
                     inFunction = true;
                     inMethod = thisEnvRec.HasSuperBinding();
                     
-                    // TODO
-                    // if (F.ConstructorKind == derived)
+                    if (F._constructorKind == ConstructorKind.Derived)
                     {
                         inDerivedConstructor = true;
                     }
                 }
-
             }
 
             var parser = new JavaScriptParser(x.ToString(), ParserOptions);

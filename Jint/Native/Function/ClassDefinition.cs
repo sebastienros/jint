@@ -50,6 +50,9 @@ namespace Jint.Native.Function
             Engine engine,
             LexicalEnvironment env)
         {
+            // A class definition is always strict mode code.
+            using var _ = (new StrictModeScope(true, true));
+            
             var classScope = LexicalEnvironment.NewDeclarativeEnvironment(engine, env);
 
             if (_className is not null)
@@ -125,7 +128,7 @@ namespace Jint.Native.Function
             ScriptFunctionInstance F;
             try
             {
-                var constructorInfo = DefineMethod(engine, constructor, proto, constructorParent);
+                var constructorInfo = constructor.DefineMethod(proto, constructorParent);
                 F = constructorInfo.Closure;
                 if (_className is not null)
                 {
@@ -161,12 +164,22 @@ namespace Jint.Native.Function
             return F;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-method-definitions-runtime-semantics-propertydefinitionevaluation
+        /// </summary>
         private static void PropertyDefinitionEvaluation(
             Engine engine,
             ObjectInstance obj,
             MethodDefinition method)
         {
-            if (method.Kind == PropertyKind.Get || method.Kind == PropertyKind.Set)
+            if (method.Kind != PropertyKind.Get && method.Kind != PropertyKind.Set)
+            {
+                var methodDef = method.DefineMethod(obj);
+                methodDef.Closure.SetFunctionName(methodDef.Key);
+                var desc = new PropertyDescriptor(methodDef.Closure, PropertyFlag.NonEnumerable);
+                obj.DefinePropertyOrThrow(methodDef.Key, desc);
+            }
+            else
             {
                 var propKey = TypeConverter.ToPropertyKey(method.GetKey(engine));
                 var function = method.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(obj.Engine);
@@ -175,8 +188,7 @@ namespace Jint.Native.Function
                     obj.Engine,
                     function,
                     obj.Engine.ExecutionContext.LexicalEnvironment,
-                    true
-                )
+                    true)
                 {
                     _prototypeDescriptor = null
                 };
@@ -190,50 +202,6 @@ namespace Jint.Native.Function
 
                 obj.DefinePropertyOrThrow(propKey, propDesc);
             }
-            else
-            {
-                var methodDef = DefineMethod(engine, method, obj);
-                methodDef.Closure.SetFunctionName(methodDef.Key);
-                var desc = new PropertyDescriptor(methodDef.Closure, PropertyFlag.NonEnumerable);
-                obj.DefinePropertyOrThrow(methodDef.Key, desc);
-            }
-        }
-
-        private static Record DefineMethod(
-            Engine engine,
-            MethodDefinition method,
-            ObjectInstance obj,
-            ObjectInstance? functionPrototype = null)
-        {
-            var property = TypeConverter.ToPropertyKey(method.GetKey(engine));
-            var prototype = functionPrototype ?? engine.Function.PrototypeObject;
-            var function = method.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(engine);
-
-            var closure = new ScriptFunctionInstance(
-                engine,
-                function,
-                engine.ExecutionContext.LexicalEnvironment,
-                true,
-                prototype)
-            {
-                _prototypeDescriptor = null
-            };
-
-            closure.MakeMethod(obj);
-
-            return new Record(property, closure);
-        }
-
-        private readonly struct Record
-        {
-            public Record(JsValue key, ScriptFunctionInstance closure)
-            {
-                Key = key;
-                Closure = closure;
-            }
-
-            public readonly JsValue Key;
-            public readonly ScriptFunctionInstance Closure;
         }
     }
 }

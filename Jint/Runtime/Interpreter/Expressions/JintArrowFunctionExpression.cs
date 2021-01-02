@@ -27,7 +27,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _prototypeDescriptor = null
             };
             
-            closure.PreventExtensions();
             return closure;
         }
     }

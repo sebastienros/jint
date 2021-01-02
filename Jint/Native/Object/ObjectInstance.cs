@@ -1161,7 +1161,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-createmethodproperty
         /// </summary>
-        internal bool CreateMethodProperty(JsValue p, JsValue v)
+        internal virtual bool CreateMethodProperty(JsValue p, JsValue v)
         {
             var newDesc = new PropertyDescriptor(v, PropertyFlag.NonEnumerable);
             return DefineOwnProperty(p, newDesc);

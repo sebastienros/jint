@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native.Object;
@@ -20,6 +21,7 @@ namespace Jint.Native.Function
         internal readonly JintFunctionDefinition _functionDefinition;
         internal readonly FunctionThisMode _thisMode;
         internal JsValue _homeObject = Undefined;
+        internal ConstructorKind _constructorKind = ConstructorKind.Base;
 
         internal FunctionInstance(
             Engine engine,
@@ -236,15 +238,23 @@ namespace Jint.Native.Function
             _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-ordinarycreatefromconstructor
+        /// </summary>
+        /// <remarks>
+        /// Uses separate builder to get correct type with state support to prevent allocations.
+        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal ObjectInstance OrdinaryCreateFromConstructor(JsValue constructor, ObjectInstance intrinsicDefaultProto)
+        internal T OrdinaryCreateFromConstructor<T>(
+            JsValue constructor,
+            ObjectInstance intrinsicDefaultProto,
+            Func<Engine, JsValue, T> objectCreator,
+            JsValue state = null) where T : ObjectInstance
         {
             var proto = GetPrototypeFromConstructor(constructor, intrinsicDefaultProto);
 
-            var obj = new ObjectInstance(_engine)
-            {
-                _prototype = proto
-            };
+            var obj = objectCreator(_engine, state);
+            obj._prototype = proto;
             return obj;
         }
 

@@ -1,8 +1,12 @@
+#nullable enable
+
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Function;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interpreter.Expressions;
 
@@ -83,7 +87,7 @@ namespace Jint
             }
         }
 
-        internal static void GetBoundNames(this Node parameter, List<string> target)
+        internal static void GetBoundNames(this Node? parameter, List<string> target)
         {
             if (parameter is null || parameter.Type == Nodes.Literal)
             {
@@ -93,7 +97,7 @@ namespace Jint
             // try to get away without a loop
             if (parameter is Identifier id)
             {
-                target.Add(id.Name);
+                target.Add(id.Name!);
                 return;
             }
 
@@ -101,7 +105,7 @@ namespace Jint
             {
                 if (parameter is Identifier identifier)
                 {
-                    target.Add(identifier.Name);
+                    target.Add(identifier.Name!);
                     return;
                 }
                 
@@ -143,13 +147,50 @@ namespace Jint
                         // TODO check if there's more generic rule
                         if (classExpression.Id is not null)
                         {
-                            target.Add(classExpression.Id.Name);
+                            target.Add(classExpression.Id.Name!);
                         }
                     }
                     continue;
                 }
                 break;
             }
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-runtime-semantics-definemethod
+        /// </summary>
+        internal static Record DefineMethod(this MethodDefinition m, ObjectInstance obj, ObjectInstance? functionPrototype = null)
+        {
+            var engine = obj.Engine;
+            var property = TypeConverter.ToPropertyKey(m.GetKey(engine));
+            var prototype = functionPrototype ?? engine.Function.PrototypeObject;
+            var function = m.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(engine);
+
+            var closure = new ScriptFunctionInstance(
+                engine,
+                function,
+                engine.ExecutionContext.LexicalEnvironment,
+                strict: StrictModeScope.IsStrictModeCode || engine._isStrict,
+                prototype)
+            {
+                _prototypeDescriptor = null
+            };
+
+            closure.MakeMethod(obj);
+
+            return new Record(property, closure);
+        }
+
+        internal readonly struct Record
+        {
+            public Record(JsValue key, ScriptFunctionInstance closure)
+            {
+                Key = key;
+                Closure = closure;
+            }
+
+            public readonly JsValue Key;
+            public readonly ScriptFunctionInstance Closure;
         }
     }
 }
