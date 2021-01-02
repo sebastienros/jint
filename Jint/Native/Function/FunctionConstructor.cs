@@ -113,6 +113,8 @@ namespace Jint.Native.Function
                 function,
                 _engine.GlobalEnvironment,
                 function.Strict);
+            
+            functionObject.MakeConstructor();
 
             // the function is not actually a named function
             functionObject.SetFunctionName(_functionNameAnonymous, force: true);
@@ -132,6 +134,8 @@ namespace Jint.Native.Function
                 functionDeclaration,
                 env, 
                 functionDeclaration.Strict || _engine._isStrict);
+            
+            functionObject.MakeConstructor();
 
             return functionObject;
         }

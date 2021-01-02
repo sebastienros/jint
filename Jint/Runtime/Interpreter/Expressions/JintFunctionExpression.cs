@@ -28,6 +28,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 funcEnv,
                 functionThisMode);
 
+            closure.MakeConstructor();
+
             if (_function.Name != null)
             {
                 var envRec = (DeclarativeEnvironmentRecord) funcEnv._record;

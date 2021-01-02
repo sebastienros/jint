@@ -35,17 +35,7 @@ namespace Jint.Native.Function
             : base(engine, function, scope, thisMode)
         {
             _prototype = proto ?? _engine.Function.PrototypeObject;
-
             _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
-
-            if (proto is null)
-            {
-                proto = new ObjectInstanceWithConstructor(engine, this)
-                {
-                    _prototype = _engine.Object.PrototypeObject
-                };
-            }
-            _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
 
             if (!function.Strict && !engine._isStrict && function.Function is not ArrowFunctionExpression)
             {
@@ -162,11 +152,10 @@ namespace Jint.Native.Function
             _constructorKind = ConstructorKind.Base;
             if (prototype is null)
             {
-                prototype = new ObjectInstance(_engine)
+                prototype = new ObjectInstanceWithConstructor(_engine, this)
                 {
                     _prototype = _engine.Object.PrototypeObject
                 };
-                prototype.DefinePropertyOrThrow(CommonProperties.Constructor, new PropertyDescriptor(this, writableProperty, enumerable: false, configurable: false));
             }
 
             _prototypeDescriptor = new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false);

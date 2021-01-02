@@ -12,7 +12,7 @@ namespace Jint.Native.Function
 {
     public abstract class FunctionInstance : ObjectInstance, ICallable
     {
-        protected internal PropertyDescriptor _prototypeDescriptor;
+        protected PropertyDescriptor _prototypeDescriptor;
 
         protected internal PropertyDescriptor _length;
         private PropertyDescriptor _nameDescriptor;

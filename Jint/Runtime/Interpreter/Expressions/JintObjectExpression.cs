@@ -175,10 +175,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         _engine,
                         function,
                         _engine.ExecutionContext.LexicalEnvironment,
-                        isStrictModeCode)
-                    {
-                        _prototypeDescriptor = null
-                    };
+                        isStrictModeCode);
                     closure.SetFunctionName(propName, property.Kind == PropertyKind.Get ? "get" : "set");
                     if (property.Method)
                     {

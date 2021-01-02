@@ -22,10 +22,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _function,
                 scope,
                 FunctionThisMode.Lexical,
-                proto: _engine.Function.PrototypeObject)
-            {
-                _prototypeDescriptor = null
-            };
+                proto: _engine.Function.PrototypeObject);
             
             return closure;
         }

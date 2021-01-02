@@ -171,10 +171,7 @@ namespace Jint
                 function,
                 engine.ExecutionContext.LexicalEnvironment,
                 strict: StrictModeScope.IsStrictModeCode || engine._isStrict,
-                prototype)
-            {
-                _prototypeDescriptor = null
-            };
+                prototype);
 
             closure.MakeMethod(obj);
 

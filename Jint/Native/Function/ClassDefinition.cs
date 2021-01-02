@@ -188,10 +188,7 @@ namespace Jint.Native.Function
                     obj.Engine,
                     function,
                     obj.Engine.ExecutionContext.LexicalEnvironment,
-                    true)
-                {
-                    _prototypeDescriptor = null
-                };
+                    true);
                 closure.SetFunctionName(propKey, method.Kind == PropertyKind.Get ? "get" : "set");
                 closure.MakeMethod(obj);
 
