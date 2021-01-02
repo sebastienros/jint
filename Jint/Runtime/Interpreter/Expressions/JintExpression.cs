@@ -6,6 +6,7 @@ using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
+using Jint.Native.Symbol;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -359,8 +360,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (jintExpression is JintSpreadExpression jse)
                 {
                     jse.GetValueAndCheckIterator(out var objectInstance, out var iterator);
-                    // optimize for array
-                    if (objectInstance is ArrayInstance ai)
+                    // optimize for array unless someone has touched the iterator
+                    if (objectInstance is ArrayInstance ai 
+                        && ReferenceEquals(ai.Get(GlobalSymbolRegistry.Iterator), _engine.Array.PrototypeObject._originalIteratorFunction))
                     {
                         var length = ai.GetLength();
                         for (uint j = 0; j < length; ++j)

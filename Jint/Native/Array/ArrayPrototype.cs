@@ -20,6 +20,7 @@ namespace Jint.Native.Array
     public sealed class ArrayPrototype : ArrayInstance
     {
         private ArrayConstructor _arrayConstructor;
+        internal ClrFunctionInstance _originalIteratorFunction;
 
         private ArrayPrototype(Engine engine) : base(engine)
         {
@@ -90,9 +91,10 @@ namespace Jint.Native.Array
             };
             SetProperties(properties);
 
+            _originalIteratorFunction = new ClrFunctionInstance(Engine, "iterator", Values, 1);
             var symbols = new SymbolDictionary(2)
             {
-                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Values, 1), propertyFlags),
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, propertyFlags),
                 [GlobalSymbolRegistry.Unscopables] = new PropertyDescriptor(unscopables, PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
