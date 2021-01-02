@@ -12,20 +12,37 @@ namespace Jint.Native.Function
 {
     internal class ClassDefinition
     {
+        private static readonly MethodDefinition _superConstructor;
+        private static readonly MethodDefinition _emptyConstructor;
+
         internal readonly string? _className;
         private readonly Expression? _superClass;
         private readonly ClassBody _body;
 
+        static ClassDefinition()
+        {
+            // generate missing constructor AST only once
+            static MethodDefinition CreateConstructorMethodDefinition(string source)
+            {
+                var parser = new JavaScriptParser(source);
+                var script = parser.ParseScript();
+                return (MethodDefinition) script.Body[0].ChildNodes[2].ChildNodes[0];
+            }
+
+            _superConstructor = CreateConstructorMethodDefinition("class temp { constructor(...args) { super(...args); } }");
+            _emptyConstructor = CreateConstructorMethodDefinition("class temp { constructor() {} }");
+        }
+
         public ClassDefinition(
             string? className,
-            Expression? superClass, 
+            Expression? superClass,
             ClassBody body)
         {
             _className = className;
             _superClass = superClass;
             _body = body;
         }
-        
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation
         /// </summary>
@@ -82,10 +99,10 @@ namespace Jint.Native.Function
                     constructorParent = (ObjectInstance) superclass;
                 }
             }
-            
+
             var proto = new ObjectInstance(engine)
             {
-                _prototype = protoParent,
+                _prototype = protoParent
             };
 
             MethodDefinition? constructor = null;
@@ -99,22 +116,9 @@ namespace Jint.Native.Function
                 }
             }
 
-            if (constructor is null)
-            {
-                string constructorText;
-                if (_superClass != null)
-                {
-                    constructorText = "class temp { constructor(...args) { super(...args); } }";
-                }
-                else
-                {
-                    constructorText = "class temp { constructor() {} }";
-                }
-
-                var parser = new JavaScriptParser(constructorText, Engine.DefaultParserOptions);
-                var script = parser.ParseScript();
-                constructor = (MethodDefinition) script.Body[0].ChildNodes[2].ChildNodes[0];
-            }
+            constructor ??= _superClass != null
+                ? _superConstructor
+                : _emptyConstructor;
 
             engine.UpdateLexicalEnvironment(classScope);
 
@@ -127,6 +131,7 @@ namespace Jint.Native.Function
                 {
                     F.SetFunctionName(_className);
                 }
+
                 F.MakeConstructor(false, proto);
                 F._constructorKind = _superClass is null ? ConstructorKind.Base : ConstructorKind.Derived;
                 F.MakeClassConstructor();
@@ -155,7 +160,7 @@ namespace Jint.Native.Function
 
             return F;
         }
-        
+
         private static void PropertyDefinitionEvaluation(
             Engine engine,
             ObjectInstance obj,
@@ -170,19 +175,18 @@ namespace Jint.Native.Function
                     obj.Engine,
                     function,
                     obj.Engine.ExecutionContext.LexicalEnvironment,
-                    strict: true
+                    true
                 )
                 {
                     _prototypeDescriptor = null
-
                 };
-                closure.SetFunctionName(propKey, prefix: method.Kind == PropertyKind.Get ? "get" : "set");
+                closure.SetFunctionName(propKey, method.Kind == PropertyKind.Get ? "get" : "set");
                 closure.MakeMethod(obj);
 
                 var propDesc = new GetSetPropertyDescriptor(
-                    get: method.Kind == PropertyKind.Get ? closure : null,
-                    set: method.Kind == PropertyKind.Set ? closure : null,
-                    flags: PropertyFlag.Configurable);
+                    method.Kind == PropertyKind.Get ? closure : null,
+                    method.Kind == PropertyKind.Set ? closure : null,
+                    PropertyFlag.Configurable);
 
                 obj.DefinePropertyOrThrow(propKey, propDesc);
             }
@@ -193,7 +197,6 @@ namespace Jint.Native.Function
                 var desc = new PropertyDescriptor(methodDef.Closure, PropertyFlag.NonEnumerable);
                 obj.DefinePropertyOrThrow(methodDef.Key, desc);
             }
-
         }
 
         private static Record DefineMethod(
@@ -210,11 +213,11 @@ namespace Jint.Native.Function
                 engine,
                 function,
                 engine.ExecutionContext.LexicalEnvironment,
-                strict: true,
-                proto: prototype)
-                {
-                    _prototypeDescriptor = null
-                };
+                true,
+                prototype)
+            {
+                _prototypeDescriptor = null
+            };
 
             closure.MakeMethod(obj);
 
