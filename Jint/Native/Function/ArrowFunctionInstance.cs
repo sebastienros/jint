@@ -32,7 +32,6 @@ namespace Jint.Native.Function
         {
             _function = function;
 
-            PreventExtensions();
             _prototype = Engine.Function.PrototypeObject;
 
             _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
