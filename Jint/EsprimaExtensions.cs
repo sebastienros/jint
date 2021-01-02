@@ -8,15 +8,14 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint
 {
     public static class EsprimaExtensions
     {
-        public static JsValue GetKey(this Property property, Engine engine) => GetKey(property.Key, engine, property.Computed);
-
-        public static JsValue GetKey(this MethodDefinition property, Engine engine) => GetKey(property.Key, engine, property.Computed);
+        public static JsValue GetKey(this ClassProperty property, Engine engine) => GetKey(property.Key, engine, property.Computed);
 
         public static JsValue GetKey(this Expression expression, Engine engine, bool resolveComputed = false)
         {
@@ -159,18 +158,22 @@ namespace Jint
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-definemethod
         /// </summary>
-        internal static Record DefineMethod(this MethodDefinition m, ObjectInstance obj, ObjectInstance? functionPrototype = null)
+        internal static Record DefineMethod(this ClassProperty m, ObjectInstance obj, ObjectInstance? functionPrototype = null)
         {
             var engine = obj.Engine;
             var property = TypeConverter.ToPropertyKey(m.GetKey(engine));
             var prototype = functionPrototype ?? engine.Function.PrototypeObject;
             var function = m.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(engine);
+            var functionDefinition = new JintFunctionDefinition(engine, function);
+            var functionThisMode = functionDefinition.Strict || engine._isStrict
+                ? FunctionThisMode.Strict 
+                : FunctionThisMode.Global;
 
             var closure = new ScriptFunctionInstance(
                 engine,
-                function,
+                functionDefinition,
                 engine.ExecutionContext.LexicalEnvironment,
-                strict: StrictModeScope.IsStrictModeCode || engine._isStrict,
+                functionThisMode,
                 prototype);
 
             closure.MakeMethod(obj);

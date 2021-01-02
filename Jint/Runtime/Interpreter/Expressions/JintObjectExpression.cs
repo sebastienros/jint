@@ -128,6 +128,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             return obj;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object-initializer-runtime-semantics-propertydefinitionevaluation
+        /// </summary>
         private object BuildObjectNormal()
         {
             var obj = _engine.Object.Construct(_properties.Length);
@@ -148,20 +151,29 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 
                 var property = objectProperty._value;
-                var propName = objectProperty.KeyJsString ?? property.GetKey(_engine);
 
-                PropertyDescriptor? propDesc = null;
+                if (property.Method)
+                {
+                    var methodDef = property.DefineMethod(obj);
+                    methodDef.Closure.SetFunctionName(methodDef.Key);
+                    var desc = new PropertyDescriptor(methodDef.Closure, PropertyFlag.ConfigurableEnumerableWritable);
+                    obj.DefinePropertyOrThrow(methodDef.Key, desc);
+                    continue;
+                }
+                
+                var propName = objectProperty.KeyJsString ?? property.GetKey(_engine);
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
                 {
                     var expr = _valueExpressions[i];
-                    var propValue = expr.GetValue().Clone();
+                    JsValue propValue = expr.GetValue().Clone();
                     if (expr._expression.IsFunctionWithName())
                     {
                         var closure = (FunctionInstance) propValue;
                         closure.SetFunctionName(propName);
                     }
 
-                    propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+                    var propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+                    obj.DefinePropertyOrThrow(propName, propDesc);
                 }
                 else if (property.Kind == PropertyKind.Get || property.Kind == PropertyKind.Set)
                 {
@@ -173,19 +185,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                         _engine.ExecutionContext.LexicalEnvironment,
                         isStrictModeCode);
                     closure.SetFunctionName(propName, property.Kind == PropertyKind.Get ? "get" : "set");
-                    closure.MakeMethod(obj);
 
-                    propDesc = new GetSetPropertyDescriptor(
+                    var propDesc = new GetSetPropertyDescriptor(
                         get: property.Kind == PropertyKind.Get ? closure : null,
                         set: property.Kind == PropertyKind.Set ? closure : null,
                         PropertyFlag.Enumerable | PropertyFlag.Configurable);
+                    
+                    obj.DefinePropertyOrThrow(propName, propDesc);
                 }
-                else
-                {
-                    ExceptionHelper.ThrowArgumentOutOfRangeException();
-                }
-
-                obj.DefinePropertyOrThrow(propName, propDesc);
             }
 
             return obj;

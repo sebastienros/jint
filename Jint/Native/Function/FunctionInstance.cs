@@ -68,9 +68,7 @@ namespace Jint.Native.Function
 
         public bool Strict => _thisMode == FunctionThisMode.Strict;
 
-        internal override bool IsConstructor =>
-            this is IConstructor
-            && _functionDefinition?.Function is not ArrowFunctionExpression;
+        internal override bool IsConstructor => this is IConstructor;
 
         public virtual bool HasInstance(JsValue v)
         {

@@ -86,6 +86,10 @@ namespace Jint.Native.Function
             }
         }
 
+        internal override bool IsConstructor =>
+            (_homeObject.IsUndefined() || _isClassConstructor) 
+            && _functionDefinition?.Function is not ArrowFunctionExpression;
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-construct-argumentslist-newtarget
         /// </summary>
