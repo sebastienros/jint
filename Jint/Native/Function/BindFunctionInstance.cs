@@ -38,6 +38,12 @@ namespace Jint.Native.Function
             }
 
             var args = CreateArguments(arguments);
+
+            if (ReferenceEquals(this, newTarget))
+            {
+                newTarget = TargetFunction;
+            }
+            
             var value = target.Construct(args, newTarget);
             _engine._jsValueArrayPool.ReturnArray(args);
 
