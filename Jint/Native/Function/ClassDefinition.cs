@@ -34,11 +34,11 @@ namespace Jint.Native.Function
         }
 
         public ClassDefinition(
-            string? className,
+            Identifier? className,
             Expression? superClass,
             ClassBody body)
         {
-            _className = className;
+            _className = className?.Name;
             _superClass = superClass;
             _body = body;
         }
