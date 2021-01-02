@@ -159,10 +159,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         var closure = (FunctionInstance) propValue;
                         closure.SetFunctionName(propName);
-                        if (property.Method)
-                        {
-                            closure.MakeMethod(obj);
-                        }
                     }
 
                     propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
@@ -177,10 +173,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                         _engine.ExecutionContext.LexicalEnvironment,
                         isStrictModeCode);
                     closure.SetFunctionName(propName, property.Kind == PropertyKind.Get ? "get" : "set");
-                    if (property.Method)
-                    {
-                        closure.MakeMethod(obj);
-                    }
 
                     propDesc = new GetSetPropertyDescriptor(
                         get: property.Kind == PropertyKind.Get ? closure : null,
