@@ -1,3 +1,4 @@
+using System;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -22,6 +23,21 @@ namespace Jint.Tests.Runtime
                     var revocable = Proxy.revocable({}, {});
                     var revoke = revocable.revoke;
                     revoke.call(null);
+                ");
+        }
+
+        [Fact]
+        public void ArrowFunctionShouldBeExtensible()
+        {
+            new Engine()
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .Execute(@"
+                    var a = () => null
+                    Object.defineProperty(a, 'hello', { enumerable: true, get: () => 'world' })
+                    assert(a.hello === 'world')
+
+                    a.foo = 'bar';
+                    assert(a.foo === 'bar');
                 ");
         }
     }
