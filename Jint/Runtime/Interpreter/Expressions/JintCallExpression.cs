@@ -79,12 +79,12 @@ namespace Jint.Runtime.Interpreter.Expressions
             var thisEnvironment = (FunctionEnvironmentRecord) _engine.GetThisEnvironment();
             var newTarget = GetNewTarget(thisEnvironment);
             var func = GetSuperConstructor(thisEnvironment);
-            var argList = ArgumentListEvaluation();
             if (!func.IsConstructor)
             {
                 ExceptionHelper.ThrowTypeError(_engine, "Not a constructor");
             }
 
+            var argList = ArgumentListEvaluation();
             var result = ((IConstructor) func).Construct(argList, newTarget);
             var thisER = (FunctionEnvironmentRecord) _engine.GetThisEnvironment();
             return thisER.BindThisValue(result);
