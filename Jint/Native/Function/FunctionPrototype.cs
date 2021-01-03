@@ -65,19 +65,13 @@ namespace Jint.Native.Function
 
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)
         {
-            if (!(thisObj is ICallable))
+            if (thisObj is not ICallable)
             {
                 ExceptionHelper.ThrowTypeError(Engine, "Bind must be called on a function");
             }
 
             var thisArg = arguments.At(0);
-            var f = new BindFunctionInstance(Engine)
-            {
-                TargetFunction = thisObj,
-                BoundThis = thisObj is ArrowFunctionInstance ? Undefined : thisArg,
-                BoundArgs = arguments.Skip(1),
-                _prototype = Engine.Function.PrototypeObject,
-            };
+            var f = BoundFunctionCreate((ObjectInstance) thisObj, thisArg, arguments.Skip(1));
 
             JsNumber l;
             var targetHasLength = thisObj.HasOwnProperty(CommonProperties.Length);
@@ -112,6 +106,22 @@ namespace Jint.Native.Function
             f.SetFunctionName(targetName, "bound");
 
             return f;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-boundfunctioncreate
+        /// </summary>
+        private FunctionInstance BoundFunctionCreate(ObjectInstance targetFunction, JsValue boundThis, JsValue[] boundArgs)
+        {
+            var proto = targetFunction.GetPrototypeOf();
+            var obj = new BindFunctionInstance(Engine)
+            {
+                _prototype = proto,
+                TargetFunction = targetFunction,
+                BoundThis = boundThis,
+                BoundArgs = boundArgs
+            };
+            return obj;
         }
 
         private JsValue ToString(JsValue thisObj, JsValue[] arguments)

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Jint.Collections;
+using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Pooling;
@@ -20,6 +21,7 @@ namespace Jint.Native.Array
     public sealed class ArrayPrototype : ArrayInstance
     {
         private ArrayConstructor _arrayConstructor;
+        internal ClrFunctionInstance _originalIteratorFunction;
 
         private ArrayPrototype(Engine engine) : base(engine)
         {
@@ -90,9 +92,10 @@ namespace Jint.Native.Array
             };
             SetProperties(properties);
 
+            _originalIteratorFunction = new ClrFunctionInstance(Engine, "iterator", Values, 1);
             var symbols = new SymbolDictionary(2)
             {
-                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Values, 1), propertyFlags),
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, propertyFlags),
                 [GlobalSymbolRegistry.Unscopables] = new PropertyDescriptor(unscopables, PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
@@ -1059,10 +1062,10 @@ namespace Jint.Native.Array
 
             // try to find best capacity
             bool hasObjectSpreadables = false;
-            uint capacity = 0;
+            ulong capacity = 0;
             for (var i = 0; i < items.Count; i++)
             {
-                uint increment;
+                ulong increment;
                 if (!(items[i] is ObjectInstance objectInstance))
                 {
                     increment = 1;
@@ -1071,9 +1074,21 @@ namespace Jint.Native.Array
                 {
                     var isConcatSpreadable = objectInstance.IsConcatSpreadable;
                     hasObjectSpreadables |= isConcatSpreadable;
-                    increment = isConcatSpreadable ? ArrayOperations.For(objectInstance).GetLength() : 1; 
+                    if (isConcatSpreadable)
+                    {
+                        increment = ArrayOperations.For(objectInstance).GetLongLength();
+                    }
+                    else
+                    {
+                        increment = 1;
+                    }
                 }
                 capacity += increment;
+            }
+
+            if (capacity > NumberConstructor.MaxSafeInteger)
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "Invalid array length");
             }
 
             uint n = 0;

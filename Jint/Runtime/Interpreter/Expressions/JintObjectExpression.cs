@@ -1,3 +1,5 @@
+#nullable enable
+
 using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native;
@@ -8,12 +10,12 @@ using Jint.Runtime.Descriptors;
 namespace Jint.Runtime.Interpreter.Expressions
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/#sec-object-initializer
+    /// https://tc39.es/ecma262/#sec-object-initializer
     /// </summary>
     internal sealed class JintObjectExpression : JintExpression
     {
         private JintExpression[] _valueExpressions = System.Array.Empty<JintExpression>();
-        private ObjectProperty[] _properties = System.Array.Empty<ObjectProperty>();
+        private ObjectProperty?[] _properties = System.Array.Empty<ObjectProperty>();
 
         // check if we can do a shortcut when all are object properties
         // and don't require duplicate checking
@@ -21,17 +23,17 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private class ObjectProperty
         {
-            internal readonly string _key;
-            private JsString _keyJsString;
+            internal readonly string? _key;
+            private JsString? _keyJsString;
             internal readonly Property _value;
 
-            public ObjectProperty(string key, Property property)
+            public ObjectProperty(string? key, Property property)
             {
                 _key = key;
                 _value = property;
             }
 
-            public JsString KeyJsString => _keyJsString ??= _key != null ? JsString.Create(_key) : null;
+            public JsString? KeyJsString => _keyJsString ??= _key != null ? JsString.Create(_key) : null;
         }
 
         public JintObjectExpression(Engine engine, ObjectExpression expression) : base(engine, expression)
@@ -54,7 +56,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             for (var i = 0; i < _properties.Length; i++)
             {
-                string propName = null;
+                string? propName = null;
                 var property = expression.Properties[i];
                 if (property is Property p)
                 {
@@ -120,12 +122,15 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var objectProperty = _properties[i];
                 var valueExpression = _valueExpressions[i];
                 var propValue = valueExpression.GetValue().Clone();
-                properties[objectProperty._key] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+                properties[objectProperty!._key] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
             }
             obj.SetProperties(properties);
             return obj;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object-initializer-runtime-semantics-propertydefinitionevaluation
+        /// </summary>
         private object BuildObjectNormal()
         {
             var obj = _engine.Object.Construct(_properties.Length);
@@ -146,45 +151,48 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 
                 var property = objectProperty._value;
+
+                if (property.Method)
+                {
+                    var methodDef = property.DefineMethod(obj);
+                    methodDef.Closure.SetFunctionName(methodDef.Key);
+                    var desc = new PropertyDescriptor(methodDef.Closure, PropertyFlag.ConfigurableEnumerableWritable);
+                    obj.DefinePropertyOrThrow(methodDef.Key, desc);
+                    continue;
+                }
+                
                 var propName = objectProperty.KeyJsString ?? property.GetKey(_engine);
-
-                PropertyDescriptor propDesc;
-
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
                 {
                     var expr = _valueExpressions[i];
-                    var propValue = expr.GetValue().Clone();
+                    JsValue propValue = expr.GetValue().Clone();
                     if (expr._expression.IsFunctionWithName())
                     {
-                        var functionInstance = (FunctionInstance) propValue;
-                        functionInstance.SetFunctionName(propName);
+                        var closure = (FunctionInstance) propValue;
+                        closure.SetFunctionName(propName);
                     }
-                    propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+
+                    var propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+                    obj.DefinePropertyOrThrow(propName, propDesc);
                 }
                 else if (property.Kind == PropertyKind.Get || property.Kind == PropertyKind.Set)
                 {
                     var function = property.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(_engine);
 
-                    var functionInstance = new ScriptFunctionInstance(
+                    var closure = new ScriptFunctionInstance(
                         _engine,
                         function,
                         _engine.ExecutionContext.LexicalEnvironment,
-                        isStrictModeCode
-                    );
-                    functionInstance.SetFunctionName(propName);
-                    functionInstance._prototypeDescriptor = null;
+                        isStrictModeCode);
+                    closure.SetFunctionName(propName, property.Kind == PropertyKind.Get ? "get" : "set");
 
-                    propDesc = new GetSetPropertyDescriptor(
-                        get: property.Kind == PropertyKind.Get ? functionInstance : null,
-                        set: property.Kind == PropertyKind.Set ? functionInstance : null,
+                    var propDesc = new GetSetPropertyDescriptor(
+                        get: property.Kind == PropertyKind.Get ? closure : null,
+                        set: property.Kind == PropertyKind.Set ? closure : null,
                         PropertyFlag.Enumerable | PropertyFlag.Configurable);
+                    
+                    obj.DefinePropertyOrThrow(propName, propDesc);
                 }
-                else
-                {
-                    return ExceptionHelper.ThrowArgumentOutOfRangeException<object>();
-                }
-
-                obj.DefineOwnProperty(propName, propDesc);
             }
 
             return obj;

@@ -96,11 +96,8 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.4.2
+        /// https://tc39.es/ecma262/#sec-object.prototype.tostring
         /// </summary>
-        /// <param name="thisObject"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
         public JsValue ToObjectString(JsValue thisObject, JsValue[] arguments)
         {
             if (thisObject.IsUndefined())

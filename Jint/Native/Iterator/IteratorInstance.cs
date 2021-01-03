@@ -329,15 +329,18 @@ namespace Jint.Native.Iterator
 
             public void Close(CompletionType completion)
             {
-                if (!_target.TryGetValue(CommonProperties.Return, out var func))
+                if (!_target.TryGetValue(CommonProperties.Return, out var func)
+                    || func.IsNullOrUndefined())
                 {
                     return;
                 }
 
+                var callable = func as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(_target.Engine, func + " is not a function");
+
                 var innerResult = Undefined;
                 try
                 {
-                    innerResult = ((ICallable) func).Call(_target, Arguments.Empty);
+                    innerResult = callable.Call(_target, Arguments.Empty);
                 }
                 catch
                 {

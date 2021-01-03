@@ -11,7 +11,7 @@ namespace Jint.Native.Function
 {
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        private readonly JintFunctionDefinition _function;
+        private bool _isClassConstructor;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
@@ -20,8 +20,9 @@ namespace Jint.Native.Function
             Engine engine,
             IFunction functionDeclaration,
             LexicalEnvironment scope,
-            bool strict)
-            : this(engine, new JintFunctionDefinition(engine, functionDeclaration), scope, strict ? FunctionThisMode.Strict : FunctionThisMode.Global)
+            bool strict,
+            ObjectInstance proto = null)
+            : this(engine, new JintFunctionDefinition(engine, functionDeclaration), scope, strict ? FunctionThisMode.Strict : FunctionThisMode.Global, proto)
         {
         }
 
@@ -29,74 +30,34 @@ namespace Jint.Native.Function
             Engine engine,
             JintFunctionDefinition function,
             LexicalEnvironment scope,
-            FunctionThisMode thisMode)
+            FunctionThisMode thisMode,
+            ObjectInstance proto = null)
             : base(engine, function, scope, thisMode)
         {
-            _function = function;
-
-            _prototype = _engine.Function.PrototypeObject;
-
+            _prototype = proto ?? _engine.Function.PrototypeObject;
             _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
 
-            var proto = new ObjectInstanceWithConstructor(engine, this)
-            {
-                _prototype = _engine.Object.PrototypeObject
-            };
-
-            _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.OnlyWritable);
-
-            if (!function.Strict && !engine._isStrict)
+            if (!function.Strict && !engine._isStrict && function.Function is not ArrowFunctionExpression)
             {
                 DefineOwnProperty(CommonProperties.Arguments, engine._callerCalleeArgumentsThrowerConfigurable);
                 DefineOwnProperty(CommonProperties.Caller, new PropertyDescriptor(Undefined, PropertyFlag.Configurable));
             }
         }
 
-        // for example RavenDB wants to inspect this
-        public IFunction FunctionDeclaration => _function.Function;
-
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
         /// </summary>
         public override JsValue Call(JsValue thisArgument, JsValue[] arguments)
         {
-            // ** PrepareForOrdinaryCall **
-            // var callerContext = _engine.ExecutionContext;
-            // Let calleeRealm be F.[[Realm]].
-            // Set the Realm of calleeContext to calleeRealm.
-            // Set the ScriptOrModule of calleeContext to F.[[ScriptOrModule]].
-            var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
-            // If callerContext is not already suspended, suspend callerContext.
-            // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
-            // NOTE: Any exception objects produced after this point are associated with calleeRealm.
-            // Return calleeContext.
-
-            _engine.EnterExecutionContext(localEnv, localEnv);
-
-            // ** OrdinaryCallBindThis **
-            
-            JsValue thisValue;
-            if (_thisMode == FunctionThisMode.Strict)
+            if (_isClassConstructor)
             {
-                thisValue = thisArgument;
-            }
-            else
-            {
-                if (thisArgument.IsNullOrUndefined())
-                {
-                    var globalEnv = _engine.GlobalEnvironment;
-                    var globalEnvRec = (GlobalEnvironmentRecord) globalEnv._record;
-                    thisValue = globalEnvRec.GlobalThisValue;
-                }
-                else
-                {
-                    thisValue = TypeConverter.ToObject(_engine, thisArgument);
-                }
+                ExceptionHelper.ThrowTypeError(_engine, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
             }
 
-            var envRec = (FunctionEnvironmentRecord) localEnv._record;
-            envRec.BindThisValue(thisValue);
-            
+            var calleeContext = PrepareForOrdinaryCall(Undefined);
+
+            OrdinaryCallBindThis(calleeContext, thisArgument);
+
             // actual call
 
             var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
@@ -104,23 +65,16 @@ namespace Jint.Native.Function
             {
                 try
                 {
-                    var argumentsInstance = _engine.FunctionDeclarationInstantiation(
-                        functionInstance: this,
-                        arguments,
-                        localEnv);
-
-                    var result = _function.Execute();
-                    var value = result.GetValueOrDefault().Clone();
-                    argumentsInstance?.FunctionWasCalled();
+                    var result = OrdinaryCallEvaluateBody(arguments, calleeContext);
 
                     if (result.Type == CompletionType.Throw)
                     {
-                        ExceptionHelper.ThrowJavaScriptException(_engine, value, result);
+                        ExceptionHelper.ThrowJavaScriptException(_engine, result.Value, result);
                     }
 
                     if (result.Type == CompletionType.Return)
                     {
-                        return value;
+                        return result.Value;
                     }
                 }
                 finally
@@ -132,22 +86,90 @@ namespace Jint.Native.Function
             }
         }
 
+        internal override bool IsConstructor =>
+            (_homeObject.IsUndefined() || _isClassConstructor) 
+            && _functionDefinition?.Function is not ArrowFunctionExpression;
+
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2.2
+        /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-construct-argumentslist-newtarget
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var thisArgument = OrdinaryCreateFromConstructor(TypeConverter.ToObject(_engine, newTarget), _engine.Object.PrototypeObject);
+            var kind = _constructorKind;
 
-            var result = Call(thisArgument, arguments).TryCast<ObjectInstance>();
-            if (!ReferenceEquals(result, null))
+            var thisArgument = Undefined;
+            
+            if (kind == ConstructorKind.Base)
             {
-                return result;
+                thisArgument = OrdinaryCreateFromConstructor(newTarget, _engine.Object.PrototypeObject, static (engine, _) => new ObjectInstance(engine));
             }
 
-            return thisArgument;
-        }
+            var calleeContext = PrepareForOrdinaryCall(newTarget);
 
+            if (kind == ConstructorKind.Base)
+            {
+                OrdinaryCallBindThis(calleeContext, thisArgument);
+            }
+
+            var constructorEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment._record;
+            
+            var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
+            using (new StrictModeScope(strict, force: true))
+            {
+                try
+                {
+                    var result = OrdinaryCallEvaluateBody(arguments, calleeContext);
+
+                    if (result.Type == CompletionType.Return)
+                    {
+                        if (result.Value is ObjectInstance oi)
+                        {
+                            return oi;
+                        }
+
+                        if (kind == ConstructorKind.Base)
+                        {
+                            return (ObjectInstance) thisArgument!;
+                        }
+
+                        if (!result.Value.IsUndefined())
+                        {
+                            ExceptionHelper.ThrowTypeError(_engine);
+                        }
+                    }
+                    else if (result.Type == CompletionType.Throw)
+                    {
+                        ExceptionHelper.ThrowJavaScriptException(_engine, result.Value, result);
+                    }
+                }
+                finally
+                {
+                    _engine.LeaveExecutionContext();
+                }
+            }
+
+            return (ObjectInstance) constructorEnv.GetThisBinding();
+        }
+        
+        internal void MakeConstructor(bool writableProperty = true, ObjectInstance prototype = null)
+        {
+            _constructorKind = ConstructorKind.Base;
+            if (prototype is null)
+            {
+                prototype = new ObjectInstanceWithConstructor(_engine, this)
+                {
+                    _prototype = _engine.Object.PrototypeObject
+                };
+            }
+
+            _prototypeDescriptor = new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false);
+        }        
+
+        internal void MakeClassConstructor()
+        {
+            _isClassConstructor = true;
+        }
+        
         private class ObjectInstanceWithConstructor : ObjectInstance
         {
             private PropertyDescriptor _constructor;

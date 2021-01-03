@@ -29,7 +29,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? temp
                 : JsValue.Undefined;
 
-            return _engine._referencePool.Rent(identifierEnvironment, _expressionName.StringValue, strict);
+            return _engine._referencePool.Rent(identifierEnvironment, _expressionName.StringValue, strict, thisValue: null);
         }
 
         public override JsValue GetValue()
@@ -51,7 +51,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 out _,
                 out var value)
                 ? value ?? ExceptionHelper.ThrowReferenceError<JsValue>(_engine, _expressionName.Key.Name + " has not been initialized")
-                : _engine.GetValue(_engine._referencePool.Rent(JsValue.Undefined, _expressionName.StringValue, strict), true);
+                : _engine.GetValue(_engine._referencePool.Rent(JsValue.Undefined, _expressionName.StringValue, strict, thisValue: null), true);
         }
     }
 }

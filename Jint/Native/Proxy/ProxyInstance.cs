@@ -46,7 +46,12 @@ namespace Jint.Native.Proxy
                 return result;
             }
 
-            return ((ICallable) _target).Call(thisObject, arguments);
+            if (!(_target is ICallable callable))
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, _target + " is not a function");
+            }
+
+            return callable.Call(thisObject, arguments);
         }
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
@@ -77,7 +82,9 @@ namespace Jint.Native.Proxy
         }
 
         internal override bool IsConstructor => 
-            _handler.TryGetValue(TrapConstruct, out var handlerFunction) && handlerFunction is IConstructor;
+            _handler != null
+            && _handler.TryGetValue(TrapConstruct, out var handlerFunction) 
+            && handlerFunction is IConstructor;
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {
@@ -137,17 +144,7 @@ namespace Jint.Native.Proxy
                 
             }
 
-            if (extensibleTarget && targetNonconfigurableKeys.Count == 0)
-            {
-                return trapResult;
-            }
-            
-            var uncheckedResultKeys = new HashSet<JsValue>();
-            foreach (var jsValue in trapResult)
-            {
-                uncheckedResultKeys.Add(jsValue);
-            }
-
+            var uncheckedResultKeys = new HashSet<JsValue>(trapResult);
             for (var i = 0; i < targetNonconfigurableKeys.Count; i++)
             {
                 var key = targetNonconfigurableKeys[i];
@@ -392,7 +389,7 @@ namespace Jint.Native.Proxy
             }
         }
 
-        protected override ObjectInstance GetPrototypeOf()
+        protected internal override ObjectInstance GetPrototypeOf()
         {
             if (!TryCallHandler(TrapGetProtoTypeOf, new [] { _target }, out var handlerProto ))
             {

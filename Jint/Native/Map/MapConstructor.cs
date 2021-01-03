@@ -62,13 +62,17 @@ namespace Jint.Native.Map
             return Construct(arguments, thisObject);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-map-iterable
+        /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var map = new MapInstance(Engine)
+            if (newTarget.IsUndefined())
             {
-                _prototype = PrototypeObject
-            };
+                ExceptionHelper.ThrowTypeError(_engine);
+            }
 
+            var map = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new MapInstance(engine));
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adder = map.Get("set");

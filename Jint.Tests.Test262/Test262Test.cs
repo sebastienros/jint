@@ -84,8 +84,8 @@ namespace Jint.Tests.Test262
                 .Strict(strict)
             );
 
-            engine.Execute(Sources["sta.js"]);
-            engine.Execute(Sources["assert.js"]);
+            engine.Execute(Sources["sta.js"], CreateParserOptions("sta.js"));
+            engine.Execute(Sources["assert.js"], CreateParserOptions("assert.js"));
             engine.SetValue("print", new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
 
             var o = engine.Object.Construct(Arguments.Empty);
@@ -112,13 +112,13 @@ namespace Jint.Tests.Test262
                 var files = includes.Groups[1].Captures[0].Value.Split(',');
                 foreach (var file in files)
                 {
-                    engine.Execute(Sources[file.Trim()]);
+                    engine.Execute(Sources[file.Trim()], CreateParserOptions(file.Trim()));
                 }
             }
 
             if (code.IndexOf("propertyHelper.js", StringComparison.OrdinalIgnoreCase) != -1)
             {
-                engine.Execute(Sources["propertyHelper.js"]);
+                engine.Execute(Sources["propertyHelper.js"], CreateParserOptions("propertyHelper.js"));
             }
             
             string lastError = null;
@@ -210,10 +210,6 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "tail-calls not implemented";
                                 break;
-                            case "class":
-                                skip = true;
-                                reason = "class keyword not implemented";
-                                break;
                             case "BigInt":
                                 skip = true;
                                 reason = "BigInt not implemented";
@@ -229,6 +225,11 @@ namespace Jint.Tests.Test262
                             case "async-iteration":
                                 skip = true;
                                 reason = "async not implemented";
+                                break;
+                            case "class-fields-private":
+                            case "class-fields-public":
+                                skip = true;
+                                reason = "private/public class fields not implemented in esprima";
                                 break;
                             case "new.target":
                                 skip = true;
@@ -290,6 +291,48 @@ namespace Jint.Tests.Test262
                     reason = "Unicode support and its special cases need more work";
                 }
 
+                if (name.StartsWith("language/statements/class/subclass/builtin-objects/Promise"))
+                {
+                    skip = true;
+                    reason = "Promise not implemented";
+                }
+                
+                if (name.StartsWith("language/statements/class/subclass/builtin-objects/TypedArray"))
+                {
+                    skip = true;
+                    reason = "TypedArray not implemented";
+                }
+                
+                if (name.StartsWith("language/statements/class/subclass/builtin-objects/WeakMap"))
+                {
+                    skip = true;
+                    reason = "WeakMap not implemented";
+                }
+                
+                if (name.StartsWith("language/statements/class/subclass/builtin-objects/WeakSet"))
+                {
+                    skip = true;
+                    reason = "WeakSet not implemented";
+                }
+                
+                if (name.StartsWith("language/statements/class/subclass/builtin-objects/ArrayBuffer/"))
+                {
+                    skip = true;
+                    reason = "ArrayBuffer not implemented";
+                }
+                
+                if (name.StartsWith("language/statements/class/subclass/builtin-objects/DataView"))
+                {
+                    skip = true;
+                    reason = "DataView not implemented";
+                }
+                                
+                if (name.StartsWith("language/statements/class/subclass/builtins.js"))
+                {
+                    skip = true;
+                    reason = "Uint8Array not implemented";
+                }
+                
                 if (name.StartsWith("built-ins/RegExp/CharacterClassEscapes/"))
                 {
                     skip = true;
@@ -322,8 +365,16 @@ namespace Jint.Tests.Test262
 
             return results;
         }
+        
+        private static ParserOptions CreateParserOptions(string fileName) => 
+            new ParserOptions(fileName)
+            {
+                AdaptRegexp = true,
+                Tolerant = true,
+                Loc = true
+            };
     }
-
+    
     public class SourceFile : IXunitSerializable
     {
         public SourceFile()

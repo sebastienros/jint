@@ -32,13 +32,14 @@ using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
+using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
 
 namespace Jint
 {
     public class Engine
     {
-        private static readonly ParserOptions DefaultParserOptions = new("<anonymous>")
+        internal static readonly ParserOptions DefaultParserOptions = new("<anonymous>")
         {
             AdaptRegexp = true,
             Tolerant = true,
@@ -100,7 +101,7 @@ namespace Jint
             { typeof(UInt16), (engine, v) => JsNumber.Create((UInt16)v) },
             { typeof(UInt32), (engine, v) => JsNumber.Create((UInt32)v) },
             { typeof(UInt64), (engine, v) => JsNumber.Create((UInt64)v) },
-            { typeof(System.Text.RegularExpressions.Regex), (engine, v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "", engine) }
+            { typeof(System.Text.RegularExpressions.Regex), (engine, v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "") }
         };
 
         // shared frozen version
@@ -463,7 +464,7 @@ namespace Jint
                 if (baseValue.IsObject())
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
-                    var v = o.Get(property);
+                    var v = o.Get(property, reference.GetThisValue());
                     return v;
                 }
                 else
@@ -680,7 +681,7 @@ namespace Jint
         /// <param name="property">The name of the property to return.</param>
         public JsValue GetValue(JsValue scope, JsValue property)
         {
-            var reference = _referencePool.Rent(scope, property, _isStrict);
+            var reference = _referencePool.Rent(scope, property, _isStrict, thisValue: null);
             var jsValue = GetValue(reference, false);
             _referencePool.Return(reference);
             return jsValue;
@@ -695,20 +696,20 @@ namespace Jint
             return GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
         }
 
-        private Reference GetIdentifierReference(LexicalEnvironment lex, string name, bool strict)
+        private Reference GetIdentifierReference(LexicalEnvironment env, string name, bool strict)
         {
-            if (lex is null)
+            if (env is null)
             {
                 return new Reference(JsValue.Undefined, name, strict);
             }
 
-            var envRec = lex._record;
+            var envRec = env._record;
             if (envRec.HasBinding(name))
             {
                 return new Reference(envRec, name, strict);
             }
 
-            return GetIdentifierReference(lex._outer, name, strict);
+            return GetIdentifierReference(env._outer, name, strict);
         }
 
         /// <summary>
@@ -791,6 +792,12 @@ namespace Jint
                     for (var j = 0; j < boundNames.Count; j++)
                     {
                         var vn = boundNames[j];
+
+                        if (envRec.HasLexicalDeclaration(vn))
+                        {
+                            ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{vn}' has already been declared");
+                        }
+                        
                         if (!declaredFunctionNames.Contains(vn))
                         {
                             var vnDefinable = envRec.CanDeclareGlobalVar(vn);
@@ -836,7 +843,13 @@ namespace Jint
 
             foreach (var f in functionToInitialize)
             {
-                var fn = f.Id.Name;
+                var fn = f.Id!.Name;
+                
+                if (envRec.HasLexicalDeclaration(fn))
+                {
+                    ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{fn}' has already been declared");
+                }
+                
                 var fo = Function.CreateFunctionObject(f, env);
                 envRec.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: false);
             }
@@ -1201,25 +1214,33 @@ namespace Jint
             _executionContexts.ReplaceTopVariableEnvironment(newEnv);
         }
 
-        internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, Location? location)
+        internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, JintExpression expression)
         {
             if (callable is FunctionInstance functionInstance)
             {
-                return Call(functionInstance, thisObject, arguments, location);
+                return Call(functionInstance, thisObject, arguments, expression);
             }
             
             return callable.Call(thisObject, arguments);
+        }
+
+        internal JsValue Construct(IConstructor constructor, JsValue[] arguments, JsValue newTarget, JintExpression expression)
+        {
+            if (constructor is FunctionInstance functionInstance)
+            {
+                return Construct(functionInstance, arguments, newTarget, expression);
+            }
+            
+            return constructor.Construct(arguments, newTarget);
         }
 
         internal JsValue Call(
             FunctionInstance functionInstance,
             JsValue thisObject,
             JsValue[] arguments,
-            Location? location)
+            JintExpression expression)
         {
-            location ??= ((Node) functionInstance._functionDefinition?.Function)?.Location;
-
-            var callStackElement = new CallStackElement(functionInstance, location);
+            var callStackElement = new CallStackElement(functionInstance, expression);
             var recursionDepth = CallStack.Push(callStackElement);
 
             if (recursionDepth > Options.MaxRecursionDepth)
@@ -1235,6 +1256,39 @@ namespace Jint
             }
 
             var result = functionInstance.Call(thisObject, arguments);
+
+            if (_isDebugMode)
+            {
+                DebugHandler.PopDebugCallStack();
+            }
+
+            CallStack.Pop();
+
+            return result;
+        }
+
+        internal JsValue Construct(
+            FunctionInstance functionInstance,
+            JsValue[] arguments,
+            JsValue newTarget,
+            JintExpression expression)
+        {
+            var callStackElement = new CallStackElement(functionInstance, expression);
+            var recursionDepth = CallStack.Push(callStackElement);
+
+            if (recursionDepth > Options.MaxRecursionDepth)
+            {
+                // pop the current element as it was never reached
+                CallStack.Pop();
+                ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
+            }
+
+            if (_isDebugMode)
+            {
+                DebugHandler.AddToDebugCallStack(functionInstance);
+            }
+
+            var result = ((IConstructor) functionInstance).Construct(arguments, newTarget);
 
             if (_isDebugMode)
             {

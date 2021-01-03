@@ -1,5 +1,9 @@
-﻿using Esprima;
+﻿#nullable enable
+
+using Esprima;
+using Esprima.Ast;
 using Jint.Native.Function;
+using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.CallStack
 {
@@ -7,18 +11,34 @@ namespace Jint.Runtime.CallStack
     {
         public CallStackElement(
             FunctionInstance function,
-            Location? location)
+            JintExpression expression)
         {
             Function = function;
-            Location = location;
+            Expression = expression;
         }
 
         public readonly FunctionInstance Function;
-        public readonly Location? Location;
+        public readonly JintExpression? Expression;
+
+        public Location Location =>
+            Expression?._expression.Location ?? ((Node?) Function._functionDefinition?.Function)?.Location ?? default;
+
+        public NodeList<Expression>? Arguments =>
+            Function._functionDefinition?.Function.Params;
 
         public override string ToString()
         {
-            return TypeConverter.ToString(Function?.Get(CommonProperties.Name));
+            var name = TypeConverter.ToString(Function.Get(CommonProperties.Name));
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                if (Expression is not null)
+                {
+                    name = JintExpression.ToString(Expression._expression);
+                }
+            }
+            
+            return name ?? "(anonymous)";
         }
     }
 }

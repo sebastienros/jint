@@ -38,6 +38,12 @@ namespace Jint.Native.Function
             }
 
             var args = CreateArguments(arguments);
+
+            if (ReferenceEquals(this, newTarget))
+            {
+                newTarget = TargetFunction;
+            }
+            
             var value = target.Construct(args, newTarget);
             _engine._jsValueArrayPool.ReturnArray(args);
 
@@ -62,7 +68,7 @@ namespace Jint.Native.Function
             return combined;
         }
 
-        internal override bool IsConstructor => TargetFunction is IConstructor;
+        internal override bool IsConstructor => TargetFunction.IsConstructor;
 
         public override string ToString() => "function () { [native code] }";
     }
